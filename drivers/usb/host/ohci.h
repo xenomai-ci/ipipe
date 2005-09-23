@@ -561,7 +561,7 @@ static inline u32 hc32_to_cpup (const struct ohci_hcd *ohci, const __hc32 *x)
  * some big-endian SOC implementations.  Same thing happens with PSW access.
  */
 
-#ifdef CONFIG_STB03xxx
+#if defined(CONFIG_STB03xxx) || defined(CONFIG_440EP)
 #define OHCI_BE_FRAME_NO_SHIFT	16
 #else
 #define OHCI_BE_FRAME_NO_SHIFT	0
