@@ -37,7 +37,7 @@
 /* LS 32-bits of UART0 physical address location for early serial text debug */
 #if defined(CONFIG_440SP)
 #define UART0_PHYS_IO_BASE	0xf0000200
-#elif defined(CONFIG_440EP)
+#elif defined(CONFIG_440EP) || defined(CONFIG_440GR)
 #define UART0_PHYS_IO_BASE	0xe0000000
 #else
 #define UART0_PHYS_IO_BASE	0x40000200
@@ -56,7 +56,7 @@
 #define	PPC44x_PCICFG_PAGE	0x0000000900000000ULL
 #define	PPC44x_PCIIO_PAGE	PPC44x_PCICFG_PAGE
 #define	PPC44x_PCIMEM_PAGE	0x0000000a00000000ULL
-#elif defined(CONFIG_440EP)
+#elif defined(CONFIG_440EP) || defined(CONFIG_440GR)
 #define PPC44x_IO_PAGE		0x0000000000000000ULL
 #define PPC44x_PCICFG_PAGE	0x0000000000000000ULL
 #define PPC44x_PCIIO_PAGE	PPC44x_PCICFG_PAGE
@@ -82,7 +82,7 @@
 #define PPC44x_PCI2CFG_HI	0x2ec00007UL
 #define PPC44x_PCIMEM_LO	0x80000000UL
 #define PPC44x_PCIMEM_HI	0xdfffffffUL
-#elif defined(CONFIG_440EP)
+#elif defined(CONFIG_440EP) || defined(CONFIG_440GR)
 #define PPC44x_IO_LO		0xef500000UL
 #define PPC44x_IO_HI		0xefffffffUL
 #define PPC44x_PCI0CFG_LO	0xeec00000UL
@@ -166,7 +166,7 @@
 #define DCRN_SDR_UART0		0x0120
 #define DCRN_SDR_UART1		0x0121
 
-#ifdef CONFIG_440EP
+#if defined(CONFIG_440EP) || defined(CONFIG_440GR)
 #define DCRN_SDR_UART2		0x0122
 #define DCRN_SDR_UART3		0x0123
 #define DCRN_SDR_CUST0		0x4000
@@ -189,7 +189,7 @@
 #define DCRNCAP_DMA_SG		1	/* have DMA scatter/gather capability */
 #define DCRN_MAL_BASE		0x180
 
-#ifdef CONFIG_440EP
+#if defined(CONFIG_440EP) || defined(CONFIG_440GR)
 #define DCRN_DMA2P40_BASE	0x300
 #define DCRN_DMA2P41_BASE	0x308
 #define DCRN_DMA2P42_BASE	0x310

@@ -29,7 +29,7 @@ struct ibm44x_clocks {
 	unsigned int ebc;	/* PerClk */
 	unsigned int uart0;
 	unsigned int uart1;
-#ifdef CONFIG_440EP
+#if defined(CONFIG_440EP) || defined(CONFIG_440GR)
 	unsigned int uart2;
 	unsigned int uart3;
 #endif

@@ -34,7 +34,7 @@ void __init ibm440gx_get_clocks(struct ibm44x_clocks* p, unsigned int sys_clk,
 	u32 plld  = CPR_READ(DCRN_CPR_PLLD);
 	u32 uart0 = SDR_READ(DCRN_SDR_UART0);
 	u32 uart1 = SDR_READ(DCRN_SDR_UART1);
-#ifdef CONFIG_440EP
+#if defined(CONFIG_440EP) || defined(CONFIG_440GR)
 	u32 uart2 = SDR_READ(DCRN_SDR_UART2);
 	u32 uart3 = SDR_READ(DCRN_SDR_UART3);
 #endif

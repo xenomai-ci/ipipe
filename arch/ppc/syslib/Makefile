@@ -12,6 +12,7 @@ obj-$(CONFIG_PPC_OCP)		+= ocp.o
 obj-$(CONFIG_IBM_OCP)		+= ibm_ocp.o
 obj-$(CONFIG_44x)		+= ibm44x_common.o
 obj-$(CONFIG_440EP)		+= ibm440gx_common.o
+obj-$(CONFIG_440GR)		+= ibm440gx_common.o
 obj-$(CONFIG_440GP)		+= ibm440gp_common.o
 obj-$(CONFIG_440GX)		+= ibm440gx_common.o
 obj-$(CONFIG_440SP)		+= ibm440gx_common.o ibm440sp_common.o
@@ -74,6 +75,8 @@ obj-$(CONFIG_SANDPOINT)		+= i8259.o pci_auto.o todc_time.o
 obj-$(CONFIG_SBC82xx)		+= todc_time.o
 obj-$(CONFIG_SPRUCE)		+= cpc700_pic.o indirect_pci.o pci_auto.o \
 				   todc_time.o
+obj-$(CONFIG_YELLOWSTONE)	+= indirect_pci.o pci_auto.o
+obj-$(CONFIG_YOSEMITE)		+= indirect_pci.o pci_auto.o
 obj-$(CONFIG_8260)		+= m8260_setup.o pq2_devices.o pq2_sys.o \
 				   ppc_sys.o
 obj-$(CONFIG_PCI_8260)		+= m82xx_pci.o indirect_pci.o pci_auto.o
