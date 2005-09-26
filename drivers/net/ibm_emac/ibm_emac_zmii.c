@@ -38,7 +38,7 @@
 #define ZMII_SSR_FSS(idx)	(0x20000000 >> ((idx) * 4))
 #define ZMII_SSR_SP(idx)	(0x10000000 >> ((idx) * 4))
 
-/* ZMII only supports MII, RMII and SMII
+/* ZMII only supports MII, RMII and SMII 
  * we also support autodetection for backward compatibility
  */
 static inline int zmii_valid_mode(int mode)
@@ -85,14 +85,13 @@ static int __init zmii_init(struct ocp_device *ocpdev, int input, int *mode)
 	ZMII_DBG("%d: init(%d, %d)" NL, ocpdev->def->index, input, *mode);
 
 	if (!dev) {
-		dev = kmalloc(sizeof(struct ibm_ocp_zmii), GFP_KERNEL);
+		dev = kzalloc(sizeof(struct ibm_ocp_zmii), GFP_KERNEL);
 		if (!dev) {
 			printk(KERN_ERR
 			       "zmii%d: couldn't allocate device structure!\n",
 			       ocpdev->def->index);
 			return -ENOMEM;
 		}
-		memset(dev, 0, sizeof(struct ibm_ocp_zmii));
 		dev->mode = PHY_MODE_NA;
 
 		p = (struct zmii_regs *)ioremap(ocpdev->def->paddr,
@@ -106,7 +105,7 @@ static int __init zmii_init(struct ocp_device *ocpdev, int input, int *mode)
 		}
 		dev->base = p;
 		ocp_set_drvdata(ocpdev, dev);
-
+		
 		/* We may need FER value for autodetection later */
 		dev->fer_save = in_be32(&p->fer);
 
@@ -116,8 +115,8 @@ static int __init zmii_init(struct ocp_device *ocpdev, int input, int *mode)
 		p = dev->base;
 
 	if (!zmii_valid_mode(*mode)) {
-		/* Probably an EMAC connected to RGMII,
-		 * but it still may need ZMII for MDIO
+		/* Probably an EMAC connected to RGMII, 
+		 * but it still may need ZMII for MDIO 
 		 */
 		goto out;
 	}
@@ -133,7 +132,7 @@ static int __init zmii_init(struct ocp_device *ocpdev, int input, int *mode)
 
 			ZMII_DBG("%d: autodetecting mode, FER = 0x%08x" NL,
 				 ocpdev->def->index, r);
-
+			
 			if (r & (ZMII_FER_MII(0) | ZMII_FER_MII(1)))
 				dev->mode = PHY_MODE_MII;
 			else if (r & (ZMII_FER_RMII(0) | ZMII_FER_RMII(1)))
@@ -155,7 +154,7 @@ static int __init zmii_init(struct ocp_device *ocpdev, int input, int *mode)
 		}
 	}
 
-	/* Report back correct PHY mode,
+	/* Report back correct PHY mode, 
 	 * it may be used during PHY initialization.
 	 */
 	*mode = dev->mode;

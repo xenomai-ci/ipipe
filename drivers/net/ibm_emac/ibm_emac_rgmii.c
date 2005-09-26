@@ -85,14 +85,13 @@ static int __init rgmii_init(struct ocp_device *ocpdev, int input, int mode)
 	RGMII_DBG("%d: init(%d, %d)" NL, ocpdev->def->index, input, mode);
 
 	if (!dev) {
-		dev = kmalloc(sizeof(struct ibm_ocp_rgmii), GFP_KERNEL);
+		dev = kzalloc(sizeof(struct ibm_ocp_rgmii), GFP_KERNEL);
 		if (!dev) {
 			printk(KERN_ERR
 			       "rgmii%d: couldn't allocate device structure!\n",
 			       ocpdev->def->index);
 			return -ENOMEM;
 		}
-		memset(dev, 0, sizeof(struct ibm_ocp_rgmii));
 
 		p = (struct rgmii_regs *)ioremap(ocpdev->def->paddr,
 						 sizeof(struct rgmii_regs));

@@ -416,14 +416,13 @@ static int __init mal_probe(struct ocp_device *ocpdev)
 		return -ENODEV;
 	}
 
-	mal = kmalloc(sizeof(struct ibm_ocp_mal), GFP_KERNEL);
+	mal = kzalloc(sizeof(struct ibm_ocp_mal), GFP_KERNEL);
 	if (!mal) {
 		printk(KERN_ERR
 		       "mal%d: out of memory allocating MAL structure!\n",
 		       ocpdev->def->index);
 		return -ENOMEM;
 	}
-	memset(mal, 0, sizeof(*mal));
 	mal->dcrbase = maldata->dcr_base;
 	mal->def = ocpdev->def;
 

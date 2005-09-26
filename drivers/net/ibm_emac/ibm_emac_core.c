@@ -50,7 +50,7 @@
 /*
  * Lack of dma_unmap_???? calls is intentional.
  *
- * API-correct usage requires additional support state information to be
+ * API-correct usage requires additional support state information to be 
  * maintained for every RX and TX buffer descriptor (BD). Unfortunately, due to
  * EMAC design (e.g. TX buffer passed from network stack can be split into
  * several BDs, dma_map_single/dma_map_page can be used to map particular BD),
@@ -59,8 +59,8 @@
  * and dma_unmap_???? routines are empty and are likely to stay this way.
  * I decided to omit dma_unmap_??? calls because I don't want to add additional
  * complexity just for the sake of following some abstract API, when it doesn't
- * add any real benefit to the driver. I understand that this decision maybe
- * controversial, but I really tried to make code API-correct and efficient
+ * add any real benefit to the driver. I understand that this decision maybe 
+ * controversial, but I really tried to make code API-correct and efficient 
  * at the same time and didn't come up with code I liked :(.                --ebs
  */
 
@@ -76,7 +76,7 @@ MODULE_LICENSE("GPL");
 /* minimum number of free TX descriptors required to wake up TX process */
 #define EMAC_TX_WAKEUP_THRESH		(NUM_TX_BUFF / 4)
 
-/* If packet size is less than this number, we allocate small skb and copy packet
+/* If packet size is less than this number, we allocate small skb and copy packet 
  * contents into it instead of just sending original big skb up
  */
 #define EMAC_RX_COPY_THRESH		CONFIG_IBM_EMAC_RX_COPY_THRESHOLD
@@ -87,10 +87,11 @@ MODULE_LICENSE("GPL");
  */
 static u32 busy_phy_map;
 
-#if defined(CONFIG_IBM_EMAC_PHY_RX_CLK_FIX) && (defined(CONFIG_405EP) || defined(CONFIG_440EP))
+#if defined(CONFIG_IBM_EMAC_PHY_RX_CLK_FIX) && \
+    (defined(CONFIG_405EP) || defined(CONFIG_440EP) || defined(CONFIG_440GR))
 /* 405EP has "EMAC to PHY Control Register" (CPC0_EPCTL) which can help us
  * with PHY RX clock problem.
- * 440EP has more sane SDR0_MFR register implementation than 440GX, which
+ * 440EP/440GR has more sane SDR0_MFR register implementation than 440GX, which
  * also allows controlling each EMAC clock
  */
 static inline void EMAC_RX_CLK_TX(int idx)
@@ -100,7 +101,7 @@ static inline void EMAC_RX_CLK_TX(int idx)
 
 #if defined(CONFIG_405EP)
 	mtdcr(0xf3, mfdcr(0xf3) | (1 << idx));
-#else /* CONFIG_440EP */
+#else /* CONFIG_440EP || CONFIG_440GR */
 	SDR_WRITE(DCRN_SDR_MFR, SDR_READ(DCRN_SDR_MFR) | (0x08000000 >> idx));
 #endif
 
@@ -127,7 +128,7 @@ static inline void EMAC_RX_CLK_DEFAULT(int idx)
 
 #if defined(CONFIG_IBM_EMAC_PHY_RX_CLK_FIX) && defined(CONFIG_440GX)
 /* We can switch Ethernet clock to the internal source through SDR0_MFR[ECS],
- * unfortunately this is less flexible than 440EP case, because it's a global
+ * unfortunately this is less flexible than 440EP case, because it's a global 
  * setting for all EMACs, therefore we do this clock trick only during probe.
  */
 #define EMAC_CLK_INTERNAL		SDR_WRITE(DCRN_SDR_MFR, \
@@ -139,7 +140,7 @@ static inline void EMAC_RX_CLK_DEFAULT(int idx)
 #define EMAC_CLK_EXTERNAL		((void)0)
 #endif
 
-/* I don't want to litter system log with timeout errors
+/* I don't want to litter system log with timeout errors 
  * when we have brain-damaged PHY.
  */
 static inline void emac_report_timeout_error(struct ocp_enet_private *dev,
@@ -408,7 +409,7 @@ static int emac_configure(struct ocp_enet_private *dev)
 			r |= EMAC_MR1_MF_1000;
 		r |= EMAC_MR1_RFS_16K;
 		gige = 1;
-
+		
 		if (dev->ndev->mtu > ETH_DATA_LEN)
 			r |= EMAC_MR1_JPSM;
 		break;
@@ -428,7 +429,7 @@ static int emac_configure(struct ocp_enet_private *dev)
 		zmii_set_speed(dev->zmii_dev, dev->zmii_input, dev->phy.speed);
 
 #if !defined(CONFIG_40x)
-	/* on 40x erratum forces us to NOT use integrated flow control,
+	/* on 40x erratum forces us to NOT use integrated flow control, 
 	 * let's hope it works on 44x ;)
 	 */
 	if (dev->phy.duplex == DUPLEX_FULL) {
@@ -463,7 +464,7 @@ static int emac_configure(struct ocp_enet_private *dev)
 
 	/* PAUSE frame is sent when RX FIFO reaches its high-water mark,
 	   there should be still enough space in FIFO to allow the our link
-	   partner time to process this frame and also time to send PAUSE
+	   partner time to process this frame and also time to send PAUSE 
 	   frame itself.
 
 	   Here is the worst case scenario for the RX FIFO "headroom"
@@ -474,7 +475,7 @@ static int emac_configure(struct ocp_enet_private *dev)
 	   3) PAUSE frame decode time allowance                   64 bytes
 	   4) One maximum-length frame on RX                    1522 bytes
 	   5) Round-trip propagation delay of the link (100Mb)    15 bytes
-	   ----------
+	   ----------       
 	   3187 bytes
 
 	   I chose to set high-water mark to RX_FIFO_SIZE / 4 (1024 bytes)
@@ -492,11 +493,11 @@ static int emac_configure(struct ocp_enet_private *dev)
 		 EMAC_ISR_RXOE | */ EMAC_ISR_OVR | EMAC_ISR_BP | EMAC_ISR_SE |
 		 EMAC_ISR_ALE | EMAC_ISR_BFCS | EMAC_ISR_PTLE | EMAC_ISR_ORE |
 		 EMAC_ISR_IRE | EMAC_ISR_TE);
-
+		 
 	/* We need to take GPCS PHY out of isolate mode after EMAC reset */
-	if (emac_phy_gpcs(dev->phy.mode))
+	if (emac_phy_gpcs(dev->phy.mode)) 
 		mii_reset_phy(&dev->phy);
-
+		 
 	return 0;
 }
 
@@ -546,7 +547,7 @@ static int __emac_mdio_read(struct ocp_enet_private *dev, u8 id, u8 reg)
 
 	/* Wait for management interface to become idle */
 	n = 10;
-	while (!(in_be32(&p->stacr) & EMAC_STACR_OC)) {
+	while (!emac_phy_done(in_be32(&p->stacr))) {
 		udelay(1);
 		if (!--n)
 			goto to;
@@ -556,11 +557,12 @@ static int __emac_mdio_read(struct ocp_enet_private *dev, u8 id, u8 reg)
 	out_be32(&p->stacr,
 		 EMAC_STACR_BASE(emac_opb_mhz()) | EMAC_STACR_STAC_READ |
 		 (reg & EMAC_STACR_PRA_MASK)
-		 | ((id & EMAC_STACR_PCDA_MASK) << EMAC_STACR_PCDA_SHIFT));
+		 | ((id & EMAC_STACR_PCDA_MASK) << EMAC_STACR_PCDA_SHIFT)
+		 | EMAC_STACR_START);
 
 	/* Wait for read to complete */
 	n = 100;
-	while (!((r = in_be32(&p->stacr)) & EMAC_STACR_OC)) {
+	while (!emac_phy_done(r = in_be32(&p->stacr))) {
 		udelay(1);
 		if (!--n)
 			goto to;
@@ -594,7 +596,7 @@ static void __emac_mdio_write(struct ocp_enet_private *dev, u8 id, u8 reg,
 
 	/* Wait for management interface to be idle */
 	n = 10;
-	while (!(in_be32(&p->stacr) & EMAC_STACR_OC)) {
+	while (!emac_phy_done(in_be32(&p->stacr))) {
 		udelay(1);
 		if (!--n)
 			goto to;
@@ -605,11 +607,11 @@ static void __emac_mdio_write(struct ocp_enet_private *dev, u8 id, u8 reg,
 		 EMAC_STACR_BASE(emac_opb_mhz()) | EMAC_STACR_STAC_WRITE |
 		 (reg & EMAC_STACR_PRA_MASK) |
 		 ((id & EMAC_STACR_PCDA_MASK) << EMAC_STACR_PCDA_SHIFT) |
-		 (val << EMAC_STACR_PHYD_SHIFT));
+		 (val << EMAC_STACR_PHYD_SHIFT) | EMAC_STACR_START);
 
 	/* Wait for write to complete */
 	n = 100;
-	while (!(in_be32(&p->stacr) & EMAC_STACR_OC)) {
+	while (!emac_phy_done(in_be32(&p->stacr))) {
 		udelay(1);
 		if (!--n)
 			goto to;
@@ -654,10 +656,10 @@ static void emac_set_multicast_list(struct net_device *ndev)
 	/* I decided to relax register access rules here to avoid
 	 * full EMAC reset.
 	 *
-	 * There is a real problem with EMAC4 core if we use MWSW_001 bit
+	 * There is a real problem with EMAC4 core if we use MWSW_001 bit 
 	 * in MR1 register and do a full EMAC reset.
-	 * One TX BD status update is delayed and, after EMAC reset, it
-	 * never happens, resulting in TX hung (it'll be recovered by TX
+	 * One TX BD status update is delayed and, after EMAC reset, it 
+	 * never happens, resulting in TX hung (it'll be recovered by TX 
 	 * timeout handler eventually, but this is just gross).
 	 * So we either have to do full TX reset or try to cheat here :)
 	 *
@@ -689,7 +691,7 @@ static int emac_resize_rx_ring(struct ocp_enet_private *dev, int new_mtu)
 		dev->rx_sg_skb = NULL;
 	}
 
-	/* Make a first pass over RX ring and mark BDs ready, dropping
+	/* Make a first pass over RX ring and mark BDs ready, dropping 
 	 * non-processed packets on the way. We need this as a separate pass
 	 * to simplify error recovery in the case of allocation failure later.
 	 */
@@ -765,7 +767,7 @@ static int emac_change_mtu(struct net_device *ndev, int new_mtu)
 		ndev->mtu = new_mtu;
 		dev->rx_skb_size = emac_rx_skb_size(new_mtu);
 		dev->rx_sync_size = emac_rx_sync_size(new_mtu);
-	}
+	}	
 	local_bh_enable();
 
 	return ret;
@@ -814,8 +816,8 @@ static inline int emac_alloc_rx_skb(struct ocp_enet_private *dev, int slot,
 	dev->rx_desc[slot].data_len = 0;
 
 	skb_reserve(skb, EMAC_RX_SKB_HEADROOM + 2);
-	dev->rx_desc[slot].data_ptr =
-	    dma_map_single(dev->ldev, skb->data - 2, dev->rx_sync_size,
+	dev->rx_desc[slot].data_ptr = 
+	    dma_map_single(dev->ldev, skb->data - 2, dev->rx_sync_size, 
 			   DMA_FROM_DEVICE) + 2;
 	barrier();
 	dev->rx_desc[slot].ctrl = MAL_RX_CTRL_EMPTY |
@@ -1170,7 +1172,7 @@ static int emac_start_xmit_sg(struct sk_buff *skb, struct net_device *ndev)
 	return emac_xmit_finish(dev, skb->len);
 
       undo_frame:
-	/* Well, too bad. Our previous estimation was overly optimistic.
+	/* Well, too bad. Our previous estimation was overly optimistic. 
 	 * Undo everything.
 	 */
 	while (slot != dev->tx_slot) {
@@ -1261,8 +1263,8 @@ static inline void emac_recycle_rx_skb(struct ocp_enet_private *dev, int slot,
 	struct sk_buff *skb = dev->rx_skb[slot];
 	DBG2("%d: recycle %d %d" NL, dev->def->index, slot, len);
 
-	if (len)
-		dma_map_single(dev->ldev, skb->data - 2,
+	if (len) 
+		dma_map_single(dev->ldev, skb->data - 2, 
 			       EMAC_DMA_ALIGN(len + 2), DMA_FROM_DEVICE);
 
 	dev->rx_desc[slot].data_len = 0;
@@ -2076,7 +2078,7 @@ static int __init emac_probe(struct ocp_device *ocpdev)
 			 */
 			dev->phy.address = dev->def->index;
 		}
-
+		
 		emac_configure(dev);
 
 		for (i = 0; i < 0x20; phy_map >>= 1, ++i)
@@ -2100,7 +2102,7 @@ static int __init emac_probe(struct ocp_device *ocpdev)
 		/* Init PHY */
 		if (dev->phy.def->ops->init)
 			dev->phy.def->ops->init(&dev->phy);
-
+		
 		/* Disable any PHY features not supported by the platform */
 		dev->phy.def->features &= ~emacdata->phy_feat_exc;
 
