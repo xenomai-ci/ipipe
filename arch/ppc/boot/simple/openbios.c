@@ -15,6 +15,9 @@
 #include <asm/ppcboot.h>
 #include <asm/ibm4xx.h>
 #include <asm/reg.h>
+#ifdef CONFIG_40x
+#include <asm/io.h>
+#endif
 
 #if defined(CONFIG_BUBINGA)
 #define BOARD_INFO_VECTOR       0xFFF80B50 /* openbios 1.19 moved this vector down  - armin */
@@ -28,6 +31,8 @@
  */
 static	ushort	def_enet_addr[] = { 0x0800, 0x3e26, 0x1559 };
 
+extern unsigned long timebase_period_ns;
+
 extern unsigned long decompress_kernel(unsigned long load_addr, int num_words,
 				       unsigned long cksum);
 
@@ -36,7 +41,7 @@ extern unsigned long decompress_kernel(unsigned long load_addr, int num_words,
 bd_t hold_resid_buf __attribute__ ((__section__ (".data.boot")));
 bd_t *hold_residual = &hold_resid_buf;
 
-typedef struct board_info {
+typedef struct openbios_board_info {
         unsigned char    bi_s_version[4];       /* Version of this structure */
         unsigned char    bi_r_version[30];      /* Version of the IBM ROM */
         unsigned int     bi_memsize;            /* DRAM installed, in bytes */
@@ -60,12 +65,10 @@ load_kernel(unsigned long load_addr, int num_words, unsigned long cksum,
 		void *ign1, void *ign2)
 {
 #ifdef CONFIG_40x
-	openbios_bd_t *openbios_bd;
+	openbios_bd_t *openbios_bd = NULL;
 	openbios_bd_t *(*get_board_info)(void) =
 		(openbios_bd_t *(*)(void))(*(unsigned long *)BOARD_INFO_VECTOR);
 #endif
-
-	decompress_kernel(load_addr, num_words, cksum);
 
 #ifdef CONFIG_440GP
 	/* simply copy the MAC addresses */
@@ -114,7 +117,11 @@ load_kernel(unsigned long load_addr, int num_words, unsigned long cksum,
 	        hold_residual->bi_procfreq = 200000000;
 #endif
 	}
+
+	timebase_period_ns = 1000000000 / hold_residual->bi_intfreq;
 #endif /* CONFIG_40x */
+
+	decompress_kernel(load_addr, num_words, cksum);
 
 	return (void *)hold_residual;
 }

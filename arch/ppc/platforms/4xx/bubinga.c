@@ -218,19 +218,9 @@ bios_fixup(struct pci_controller *hose, struct pcil0_regs *pcip)
 void __init
 bubinga_setup_arch(void)
 {
-        struct ocp_def *def;
-        struct ocp_func_emac_data *emacdata;
-
 	ppc4xx_setup_arch();
 
-        /* Set mac_addr for each EMAC */
-        def = ocp_get_one_device(OCP_VENDOR_IBM, OCP_FUNC_EMAC, 0);
-        emacdata = def->additions;
-        memcpy(emacdata->mac_addr, __res.bi_enetaddr, 6);
-
-        def = ocp_get_one_device(OCP_VENDOR_IBM, OCP_FUNC_EMAC, 1);
-        emacdata = def->additions;
-        memcpy(emacdata->mac_addr, __res.bi_enet1addr, 6);
+	ibm_ocp_set_emac(0, 1);
 
         bubinga_early_serial_map();
 
