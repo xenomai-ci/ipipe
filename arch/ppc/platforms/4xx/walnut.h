@@ -20,38 +20,14 @@
 #ifndef __ASM_WALNUT_H__
 #define __ASM_WALNUT_H__
 
-/* We have a 405GP core */
+#include <linux/config.h>
 #include <platforms/4xx/ibm405gp.h>
-
-#ifndef __ASSEMBLY__
-/*
- * Data structure defining board information maintained by the boot
- * ROM on IBM's "Walnut" evaluation board. An effort has been made to
- * keep the field names consistent with the 8xx 'bd_t' board info
- * structures.
- */
-
-typedef struct board_info {
-	unsigned char	 bi_s_version[4];	/* Version of this structure */
-	unsigned char	 bi_r_version[30];	/* Version of the IBM ROM */
-	unsigned int	 bi_memsize;		/* DRAM installed, in bytes */
-	unsigned char	 bi_enetaddr[6];	/* Local Ethernet MAC address */
-	unsigned char	 bi_pci_enetaddr[6];	/* PCI Ethernet MAC address */
-	unsigned int	 bi_intfreq;		/* Processor speed, in Hz */
-	unsigned int	 bi_busfreq;		/* PLB Bus speed, in Hz */
-	unsigned int	 bi_pci_busfreq;	/* PCI Bus speed, in Hz */
-} bd_t;
-
-/* Some 4xx parts use a different timebase frequency from the internal clock.
-*/
-#define bi_tbfreq bi_intfreq
-
+#include <asm/ppcboot.h>
 
 /* Memory map for the IBM "Walnut" 405GP evaluation board.
  * Generic 4xx plus RTC.
  */
 
-extern void *walnut_rtc_base;
 #define WALNUT_RTC_PADDR	((uint)0xf0000000)
 #define WALNUT_RTC_VADDR	WALNUT_RTC_PADDR
 #define WALNUT_RTC_SIZE		((uint)8*1024)
@@ -63,10 +39,17 @@ extern void *walnut_rtc_base;
 #endif
 
 #define WALNUT_PS2_BASE		0xF0100000
-#define WALNUT_FPGA_BASE	0xF0300000
+
+/* Flash */
+#define PPC40x_FPGA_BASE		0xF0300000
+#define PPC40x_FPGA_REG_OFFS		5	/* offset to flash map reg */
+#define PPC40x_FLASH_ONBD_N(x)		(x & 0x02)
+#define PPC40x_FLASH_SRAM_SEL(x)	(x & 0x01)
+#define PPC40x_FLASH_LOW		0xFFF00000
+#define PPC40x_FLASH_HIGH		0xFFF80000
+#define PPC40x_FLASH_SIZE		0x80000
 
 #define PPC4xx_MACHINE_NAME	"IBM Walnut"
 
-#endif /* !__ASSEMBLY__ */
 #endif /* __ASM_WALNUT_H__ */
 #endif /* __KERNEL__ */

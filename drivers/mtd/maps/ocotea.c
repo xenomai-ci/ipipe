@@ -38,6 +38,39 @@ static struct map_info ocotea_large_map = {
 	.buswidth =	1,
 };
 
+#ifdef CONFIG_UBOOT
+static struct mtd_partition ocotea_small_partitions[] = {
+	{
+		.name =   "reserved",
+		.offset = 0,
+		.size =   0xa0000,
+	},
+	{
+		.name =   "env",
+		.offset = 0x20000,
+		.size =   0x20000,
+	},
+	{
+		.name =   "u-boot",
+		.offset = 0x40000,
+		.size =   0x40000,
+		/*.mask_flags = MTD_WRITEABLE, */ /* force read-only */
+	}
+};
+
+static struct mtd_partition ocotea_large_partitions[] = {
+	{
+		.name =   "kernel",
+		.offset = 0,
+		.size =   0x180000,
+	},
+	{
+		.name =   "root",
+		.offset = 0x180000,
+		.size =   0x280000,
+	}
+};
+#else /* CONFIG_UBOOT */
 static struct mtd_partition ocotea_small_partitions[] = {
 	{
 		.name =   "pibs",
@@ -58,6 +91,7 @@ static struct mtd_partition ocotea_large_partitions[] = {
 		.size =   0x100000,
 	}
 };
+#endif /* CONFIG_UBOOT */
 
 #define NB_OF(x)  (sizeof(x)/sizeof(x[0]))
 

@@ -81,12 +81,12 @@ config USB_OHCI_HCD
 
 config USB_OHCI_HCD_PPC_SOC
 	bool "OHCI support for on-chip PPC USB controller"
-	depends on USB_OHCI_HCD && (STB03xxx || PPC_MPC52xx)
+	depends on USB_OHCI_HCD && (STB03xxx || PPC_MPC52xx || 440EP)
 	default y
 	select USB_OHCI_BIG_ENDIAN
 	---help---
-	  Enables support for the USB controller on the MPC52xx or
-	  STB03xxx processor chip.  If unsure, say Y.
+	  Enables support for the USB controller on the MPC52xx,
+	  STB03xxx, or 440EP processor chip.  If unsure, say Y.
 
 config USB_OHCI_HCD_PCI
 	bool "OHCI support for PCI-bus USB controllers"
@@ -105,7 +105,7 @@ config USB_OHCI_BIG_ENDIAN
 config USB_OHCI_LITTLE_ENDIAN
 	bool
 	depends on USB_OHCI_HCD
-	default n if STB03xxx || PPC_MPC52xx
+	default n if STB03xxx || PPC_MPC52xx || 440EP
 	default y
 
 config USB_UHCI_HCD
