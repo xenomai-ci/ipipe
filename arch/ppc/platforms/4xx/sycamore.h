@@ -35,7 +35,15 @@
 #endif
 
 #define SYCAMORE_PS2_BASE	0xF0100000
-#define SYCAMORE_FPGA_BASE	0xF0300000
+
+/* Flash */
+#define PPC40x_FPGA_BASE		0xF0300000
+#define PPC40x_FPGA_REG_OFFS		5	/* offset to flash map reg */
+#define PPC40x_FLASH_ONBD_N(x)		(x & 0x02)
+#define PPC40x_FLASH_SRAM_SEL(x)	(x & 0x01)
+#define PPC40x_FLASH_LOW		0xFFF00000
+#define PPC40x_FLASH_HIGH		0xFFF80000
+#define PPC40x_FLASH_SIZE		0x80000
 
 #define PPC4xx_MACHINE_NAME	"IBM Sycamore"
 
