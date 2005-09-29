@@ -1,7 +1,7 @@
 #
 # Automatically generated make config: don't edit
 # Linux kernel version: 2.6.14-rc2
-# Tue Sep 27 12:50:46 2005
+# Thu Sep 29 17:54:40 2005
 #
 CONFIG_MMU=y
 CONFIG_GENERIC_HARDIRQS=y
@@ -292,6 +292,7 @@ CONFIG_MTD_CFI_UTIL=y
 #
 # CONFIG_MTD_COMPLEX_MAPPINGS is not set
 CONFIG_MTD_WALNUT=y
+CONFIG_MTD_UBOOT_PARTITIONS=y
 # CONFIG_MTD_PLATRAM is not set
 
 #
