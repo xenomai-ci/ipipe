@@ -1,6 +1,6 @@
 /*
  * $Id: ebony.c,v 1.15 2004/12/09 18:39:54 holindho Exp $
- * 
+ *
  * Mapping for Ebony user flash
  *
  * Matt Porter <mporter@kernel.crashing.org>
@@ -40,6 +40,39 @@ static struct map_info ebony_large_map = {
 	.bankwidth =	1,
 };
 
+#ifdef CONFIG_MTD_UBOOT_PARTITIONS
+static struct mtd_partition ebony_small_partitions[] = {
+	{
+		.name =   "reserved",
+		.offset = 0,
+		.size =   0x20000,
+	},
+	{
+		.name =   "env",
+		.offset = 0x20000,
+		.size =   0x20000,
+	},
+	{
+		.name =   "u-boot",
+		.offset = 0x40000,
+		.size =   0x40000,
+		/*.mask_flags = MTD_WRITEABLE, */ /* force read-only */
+	}
+};
+
+static struct mtd_partition ebony_large_partitions[] = {
+	{
+		.name =   "kernel",
+		.offset = 0,
+		.size =   0x180000,
+	},
+	{
+		.name =   "root",
+		.offset = 0x180000,
+		.size =   0x280000,
+	}
+};
+#else /* CONFIG_MTD_UBOOT_PARTITIONS */
 static struct mtd_partition ebony_small_partitions[] = {
 	{
 		.name =   "OpenBIOS",
@@ -60,6 +93,7 @@ static struct mtd_partition ebony_large_partitions[] = {
 		.size =   0x80000,
 	}
 };
+#endif /* CONFIG_MTD_UBOOT_PARTITIONS */
 
 int __init init_ebony(void)
 {
@@ -85,7 +119,7 @@ int __init init_ebony(void)
 		small_flash_base = EBONY_SMALL_FLASH_LOW2;
 	else
 		small_flash_base = EBONY_SMALL_FLASH_LOW1;
-			
+
 	if (EBONY_BOOT_SMALL_FLASH(fpga0_reg) &&
 			!EBONY_ONBRD_FLASH_EN(fpga0_reg))
 		large_flash_base = EBONY_LARGE_FLASH_LOW;
