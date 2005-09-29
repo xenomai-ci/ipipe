@@ -36,8 +36,7 @@ static struct map_info walnut_map = {
 	.bankwidth =	1,
 };
 
-#define CONFIG_UBOOT_PARTITIONS /* test-only */
-#ifdef CONFIG_UBOOT_PARTITIONS
+#ifdef CONFIG_MTD_UBOOT_PARTITIONS
 static struct mtd_partition walnut_partitions[] = {
 	{
 		.name =   "reserved",
@@ -56,7 +55,7 @@ static struct mtd_partition walnut_partitions[] = {
 		/*.mask_flags = MTD_WRITEABLE, */ /* force read-only */
 	}
 };
-#else /* CONFIG_UBOOT_PARTITIONS */
+#else /* CONFIG_MTD_UBOOT_PARTITIONS */
 /* Actually, OpenBIOS is the last 128 KiB of the flash - better
  * partitioning could be made */
 static struct mtd_partition walnut_partitions[] = {
@@ -67,7 +66,7 @@ static struct mtd_partition walnut_partitions[] = {
 		/*.mask_flags = MTD_WRITEABLE, */ /* force read-only */
 	}
 };
-#endif /* CONFIG_UBOOT_PARTITIONS */
+#endif /* CONFIG_MTD_UBOOT_PARTITIONS */
 
 int __init init_walnut(void)
 {
@@ -135,5 +134,5 @@ module_init(init_walnut);
 module_exit(cleanup_walnut);
 
 MODULE_LICENSE("GPL");
-MODULE_AUTHOR("Heikki Lindholm <holindho@infradead.org>");
-MODULE_DESCRIPTION("MTD map and partitions for IBM 405GP Walnut boards");
+MODULE_AUTHOR("Stefan Roese <sr@denx.de>");
+MODULE_DESCRIPTION("MTD map and partitions for IBM 405GP/r/EP boards");

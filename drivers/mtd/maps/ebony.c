@@ -40,7 +40,7 @@ static struct map_info ebony_large_map = {
 	.bankwidth =	1,
 };
 
-#ifdef CONFIG_UBOOT
+#ifdef CONFIG_MTD_UBOOT_PARTITIONS
 static struct mtd_partition ebony_small_partitions[] = {
 	{
 		.name =   "reserved",
@@ -72,7 +72,7 @@ static struct mtd_partition ebony_large_partitions[] = {
 		.size =   0x280000,
 	}
 };
-#else /* CONFIG_UBOOT */
+#else /* CONFIG_MTD_UBOOT_PARTITIONS */
 static struct mtd_partition ebony_small_partitions[] = {
 	{
 		.name =   "OpenBIOS",
@@ -93,7 +93,7 @@ static struct mtd_partition ebony_large_partitions[] = {
 		.size =   0x80000,
 	}
 };
-#endif /* CONFIG_UBOOT */
+#endif /* CONFIG_MTD_UBOOT_PARTITIONS */
 
 int __init init_ebony(void)
 {
