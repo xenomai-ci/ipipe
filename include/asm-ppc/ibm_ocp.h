@@ -116,6 +116,7 @@ void ocp_show_emac_data(struct device *dev)				\
 #define PHY_MODE_RTBI	7
 #define PHY_MODE_SGMII	8
 
+#ifdef CONFIG_40x
 /*
  * Helper function to copy MAC addresses from the bd_t to OCP EMAC
  * additions.
@@ -148,6 +149,7 @@ static inline void ibm_ocp_set_emac(int start, int end)
 #endif
 	}
 }
+#endif
 
 /*
  * MAL additional data and sysfs support
