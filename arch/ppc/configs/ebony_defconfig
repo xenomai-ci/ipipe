@@ -1,7 +1,7 @@
 #
 # Automatically generated make config: don't edit
-# Linux kernel version: 2.6.14-rc2
-# Wed Sep 28 18:19:39 2005
+# Linux kernel version: 2.6.14-rc3
+# Sun Oct  2 12:00:05 2005
 #
 CONFIG_MMU=y
 CONFIG_GENERIC_HARDIRQS=y
