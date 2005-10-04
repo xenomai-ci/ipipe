@@ -29,13 +29,13 @@
 static struct mtd_info *flash;
 
 static struct map_info ebony_small_map = {
-	.name =		"Ebony small flash",
+	.name =		"Small-flash",
 	.size =		EBONY_SMALL_FLASH_SIZE,
 	.bankwidth =	1,
 };
 
 static struct map_info ebony_large_map = {
-	.name =		"Ebony large flash",
+	.name =		"Large-flash",
 	.size =		EBONY_LARGE_FLASH_SIZE,
 	.bankwidth =	1,
 };

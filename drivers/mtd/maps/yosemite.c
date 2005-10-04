@@ -73,7 +73,7 @@ static struct mtd_partition yosemite_flash_partitions[] = {
 };
 
 struct map_info yosemite_flash_map = {
-	.name = "AMCC Yosemite",
+	.name = "AMCC440-flash",
 	.size = WINDOW_SIZE,
 	.bankwidth = 2,
 	.phys = WINDOW_ADDR,

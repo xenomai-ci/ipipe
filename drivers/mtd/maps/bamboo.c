@@ -27,19 +27,19 @@
 static struct mtd_info *small_flash, *large_flash, *sram;
 
 static struct map_info bamboo_small_map = {
-	.name = "Bamboo small flash",
+	.name = "Small-flash",
 	.size = BAMBOO_SMALL_FLASH_SIZE,
 	.bankwidth = 1,
 };
 
 static struct map_info bamboo_large_map = {
-	.name = "Bamboo large flash",
+	.name = "Large-flash",
 	.size = BAMBOO_LARGE_FLASH_SIZE,
 	.bankwidth = 2,
 };
 
 static struct map_info bamboo_sram_map = {
-	.name = "Bamboo SRAM",
+	.name = "SRAM",
 	.size = BAMBOO_SRAM_SIZE,
 	.bankwidth = 2,
 };

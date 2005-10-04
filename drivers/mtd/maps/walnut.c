@@ -31,7 +31,7 @@
 static struct mtd_info *flash;
 
 static struct map_info walnut_map = {
-	.name =		"Walnut flash",
+	.name =		"PPC40x-flash",
 	.size =		PPC40x_FLASH_SIZE,
 	.bankwidth =	1,
 };

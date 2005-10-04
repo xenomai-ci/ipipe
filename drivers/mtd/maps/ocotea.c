@@ -28,13 +28,13 @@
 static struct mtd_info *flash;
 
 static struct map_info ocotea_small_map = {
-	.name =		"Ocotea small flash",
+	.name =		"Small-flash",
 	.size =		OCOTEA_SMALL_FLASH_SIZE,
 	.bankwidth =	1,
 };
 
 static struct map_info ocotea_large_map = {
-	.name =		"Ocotea large flash",
+	.name =		"Large-flash",
 	.size =		OCOTEA_LARGE_FLASH_SIZE,
 	.bankwidth =	1,
 };
