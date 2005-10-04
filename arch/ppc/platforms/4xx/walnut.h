@@ -49,7 +49,7 @@
 #define PPC40x_FLASH_SIZE	0x80000
 #define WALNUT_FPGA_BASE	PPC40x_FPGA_BASE
 
-#define PPC4xx_MACHINE_NAME	"IBM Walnut"
+#define PPC4xx_MACHINE_NAME	"AMCC Walnut"
 
 #endif /* __ASM_WALNUT_H__ */
 #endif /* __KERNEL__ */

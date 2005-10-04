@@ -88,7 +88,7 @@ bamboo_calibrate_decr(void)
 static int
 bamboo_show_cpuinfo(struct seq_file *m)
 {
-	seq_printf(m, "vendor\t\t: IBM\n");
+	seq_printf(m, "vendor\t\t: AMCC\n");
 	seq_printf(m, "machine\t\t: PPC440EP EVB (Bamboo)\n");
 
 	return 0;
