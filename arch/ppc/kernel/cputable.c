@@ -882,6 +882,8 @@ struct cpu_spec	cpu_specs[] = {
 
 #endif /* CONFIG_40x */
 #ifdef CONFIG_44x
+#ifdef CONFIG_440EP
+	/* AMCC 440EP Rev. B has same PVR as 440GR Rev. A */
 	{
 		.pvr_mask		= 0xf0000fff,
 		.pvr_value		= 0x40000850,
@@ -902,6 +904,18 @@ struct cpu_spec	cpu_specs[] = {
 		.icache_bsize		= 32,
 		.dcache_bsize		= 32,
 	},
+#else /* CONFIG_440EP */
+	{
+		.pvr_mask		= 0xf0000fff,
+		.pvr_value		= 0x400008d3,
+		.cpu_name		= "440GR Rev. A",
+		.cpu_features		= CPU_FTR_SPLIT_ID_CACHE |
+			CPU_FTR_USE_TB,
+		.cpu_user_features	= PPC_FEATURE_32 | PPC_FEATURE_HAS_MMU,
+		.icache_bsize		= 32,
+		.dcache_bsize		= 32,
+	},
+#endif /* CONFIG_440EP */
 	{ 	/* 440GP Rev. B */
 		.pvr_mask		= 0xf0000fff,
 		.pvr_value		= 0x40000440,
