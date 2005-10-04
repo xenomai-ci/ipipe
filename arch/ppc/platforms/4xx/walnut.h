@@ -1,19 +1,22 @@
 /*
  * arch/ppc/platforms/4xx/walnut.h
  *
- * Macros, definitions, and data structures specific to the IBM PowerPC
- * 405GP "Walnut" evaluation board.
+ * Walnut board definitions
  *
- * Authors: Grant Erickson <grant@lcse.umn.edu>, Frank Rowand
- * <frank_rowand@mvista.com>, Debbie Chu <debbie_chu@mvista.com> or
- * source@mvista.com
+ * Copyright (c) 2005 DENX Software Engineering
+ * Stefan Roese <sr@denx.de>
  *
- * Copyright (c) 1999 Grant Erickson <grant@lcse.umn.edu>
+ * Based on original work by
+ * 	Copyright (c) 1999 Grant Erickson <grant@lcse.umn.edu>
+ *	Frank Rowand <frank_rowand@mvista.com>
+ *	Debbie Chu <debbie_chu@mvista.com>
+ *	2000 (c) MontaVista, Software, Inc.
  *
- * 2000 (c) MontaVista, Software, Inc.  This file is licensed under
- * the terms of the GNU General Public License version 2.  This program
- * is licensed "as is" without any warranty of any kind, whether express
- * or implied.
+ * This program is free software; you can redistribute  it and/or modify it
+ * under  the terms of  the GNU General  Public License as published by the
+ * Free Software Foundation;  either version 2 of the  License, or (at your
+ * option) any later version.
+ *
  */
 
 #ifdef __KERNEL__
@@ -32,22 +35,19 @@
 #define WALNUT_RTC_VADDR	WALNUT_RTC_PADDR
 #define WALNUT_RTC_SIZE		((uint)8*1024)
 
-#ifdef CONFIG_PPC405GP_INTERNAL_CLOCK
-#define BASE_BAUD		201600
-#else
 #define BASE_BAUD		691200
-#endif
 
 #define WALNUT_PS2_BASE		0xF0100000
 
 /* Flash */
-#define PPC40x_FPGA_BASE		0xF0300000
-#define PPC40x_FPGA_REG_OFFS		5	/* offset to flash map reg */
-#define PPC40x_FLASH_ONBD_N(x)		(x & 0x02)
-#define PPC40x_FLASH_SRAM_SEL(x)	(x & 0x01)
-#define PPC40x_FLASH_LOW		0xFFF00000
-#define PPC40x_FLASH_HIGH		0xFFF80000
-#define PPC40x_FLASH_SIZE		0x80000
+#define PPC40x_FPGA_BASE	0xF0300000
+#define PPC40x_FPGA_REG_OFFS	5	/* offset to flash map reg */
+#define PPC40x_FLASH_ONBD_N(x)	(x & 0x02)
+#define PPC40x_FLASH_SRAM_SEL(x) (x & 0x01)
+#define PPC40x_FLASH_LOW	0xFFF00000
+#define PPC40x_FLASH_HIGH	0xFFF80000
+#define PPC40x_FLASH_SIZE	0x80000
+#define WALNUT_FPGA_BASE	PPC40x_FPGA_BASE
 
 #define PPC4xx_MACHINE_NAME	"IBM Walnut"
 

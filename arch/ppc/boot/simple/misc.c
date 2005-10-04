@@ -172,7 +172,7 @@ decompress_kernel(unsigned long load_addr, int num_words, unsigned long cksum)
 		puts(" "); puthex((unsigned long)(&__ramdisk_end));puts("\n");
 	}
 
-#ifndef CONFIG_40x /* this will overwrite the image located at 0x00400000!!! */
+#ifndef CONFIG_40x /* don't overwrite the 40x image located at 0x00400000! */
 	avail_ram = (char *)0x00400000;
 #endif
 	end_avail = (char *)0x00800000;

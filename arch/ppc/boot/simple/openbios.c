@@ -1,12 +1,16 @@
 /*
  * arch/ppc/boot/simple/openbios.c
  *
- * 2005 (c) SYSGO AG - g.jaeger@sysgo.com
+ * Copyright (c) 2005 DENX Software Engineering
+ * Stefan Roese <sr@denx.de>
+ *
+ * Based on original work by
+ *      2005 (c) SYSGO AG - g.jaeger@sysgo.com
+ *
  * This file is licensed under the terms of the GNU General Public
  * License version 2.  This program is licensed "as is" without
  * any warranty of any kind, whether express or implied.
  *
- * Derived from arch/ppc/boot/simple/pibs.c (from MontaVista)
  */
 
 #include <linux/types.h>
@@ -25,6 +29,7 @@
 #define BOARD_INFO_VECTOR	0xFFFE0B50
 #endif
 
+#ifdef CONFIG_40x
 /* Supply a default Ethernet address for those eval boards that don't
  * ship with one.  This is an address from the MBX board I have, so
  * it is unlikely you will find it on your network.
@@ -32,6 +37,7 @@
 static	ushort	def_enet_addr[] = { 0x0800, 0x3e26, 0x1559 };
 
 extern unsigned long timebase_period_ns;
+#endif /* CONFIG_40x */
 
 extern unsigned long decompress_kernel(unsigned long load_addr, int num_words,
 				       unsigned long cksum);
@@ -47,9 +53,9 @@ typedef struct openbios_board_info {
         unsigned int     bi_memsize;            /* DRAM installed, in bytes */
 #ifdef CONFIG_405EP
         unsigned char    bi_enetaddr[2][6];     /* Local Ethernet MAC address */
-#else
+#else /* CONFIG_405EP */
         unsigned char    bi_enetaddr[6];        /* Local Ethernet MAC address */
-#endif
+#endif /* CONFIG_405EP */
         unsigned char    bi_pci_enetaddr[6];    /* PCI Ethernet MAC address */
         unsigned int     bi_intfreq;            /* Processor speed, in Hz */
         unsigned int     bi_busfreq;            /* PLB Bus speed, in Hz */
@@ -57,7 +63,7 @@ typedef struct openbios_board_info {
 #ifdef CONFIG_405EP
         unsigned int     bi_opb_busfreq;        /* OPB Bus speed, in Hz */
         unsigned int     bi_pllouta_freq;       /* PLL OUTA speed, in Hz */
-#endif
+#endif /* CONFIG_405EP */
 } openbios_bd_t;
 
 void *
@@ -68,15 +74,7 @@ load_kernel(unsigned long load_addr, int num_words, unsigned long cksum,
 	openbios_bd_t *openbios_bd = NULL;
 	openbios_bd_t *(*get_board_info)(void) =
 		(openbios_bd_t *(*)(void))(*(unsigned long *)BOARD_INFO_VECTOR);
-#endif
 
-#ifdef CONFIG_440GP
-	/* simply copy the MAC addresses */
-	memcpy(hold_residual->bi_enetaddr,  (char *)OPENBIOS_MAC_BASE, 6);
-	memcpy(hold_residual->bi_enet1addr, (char *)(OPENBIOS_MAC_BASE+OPENBIOS_MAC_OFFSET), 6);
-#endif /* CONFIG_440GP */
-
-#ifdef CONFIG_40x
 	/*
 	 * On 40x platforms we not only need the MAC-addresses, but also the
 	 * clocks and memsize. Now try to get all values using the OpenBIOS
@@ -97,9 +95,9 @@ load_kernel(unsigned long load_addr, int num_words, unsigned long cksum,
 		memcpy(hold_residual->bi_enet1addr, openbios_bd->bi_enetaddr[1], 6);
 	        hold_residual->bi_opbfreq = openbios_bd->bi_opb_busfreq;
 	        hold_residual->bi_procfreq = openbios_bd->bi_pllouta_freq;
-#else
+#else /* CONFIG_405EP */
 		memcpy(hold_residual->bi_enetaddr, openbios_bd->bi_enetaddr, 6);
-#endif
+#endif /* CONFIG_405EP */
 	} else {
 		/* Hmmm...better try to stuff some defaults.
 		 */
@@ -115,11 +113,17 @@ load_kernel(unsigned long load_addr, int num_words, unsigned long cksum,
 #ifdef CONFIG_405EP
 	        hold_residual->bi_opbfreq = 50000000;
 	        hold_residual->bi_procfreq = 200000000;
-#endif
+#endif /* CONFIG_405EP */
 	}
 
 	timebase_period_ns = 1000000000 / hold_residual->bi_intfreq;
 #endif /* CONFIG_40x */
+
+#ifdef CONFIG_440GP
+	/* simply copy the MAC addresses */
+	memcpy(hold_residual->bi_enetaddr,  (char *)OPENBIOS_MAC_BASE, 6);
+	memcpy(hold_residual->bi_enet1addr, (char *)(OPENBIOS_MAC_BASE+OPENBIOS_MAC_OFFSET), 6);
+#endif /* CONFIG_440GP */
 
 	decompress_kernel(load_addr, num_words, cksum);
 
