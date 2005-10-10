@@ -522,7 +522,7 @@ static void fec_reinit(struct net_device *dev)
 {
 	struct fec_priv *priv = (struct fec_priv *)dev->priv;
 	struct mpc52xx_fec *fec = priv->fec;
-	static void fec_update_stat(struct net_device *);
+	void fec_update_stat(struct net_device *);
 
 	netif_stop_queue(dev);
 	out_be32(&fec->imask, 0x0);

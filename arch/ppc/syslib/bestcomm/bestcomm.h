@@ -116,6 +116,8 @@ struct sdma_tdt {
 
 static inline void sdma_enable_task(int task)
 {
+	u16 reg;
+
 	DPRINTK("***DMA enable task (%d): tdt = %08x\n",task, sdma.tdt);
 	DPRINTK("***tdt->start   = %08x\n",sdma.tdt[task].start);
 	DPRINTK("***tdt->stop    = %08x\n",sdma.tdt[task].stop);
@@ -127,7 +129,7 @@ static inline void sdma_enable_task(int task)
 	DPRINTK("***tdt->litbase = %08x\n",sdma.tdt[task].litbase);
 	DPRINTK("***--------------\n");
 
-	u16 reg = in_be16(&sdma.io->tcr[task]);
+	reg = in_be16(&sdma.io->tcr[task]);
 	DPRINTK("***enable task: &sdma.io->tcr=%08x, reg = %04x\n", &sdma.io->tcr, reg);
 	out_be16(&sdma.io->tcr[task],  reg | TASK_ENABLE);
 }
