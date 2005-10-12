@@ -1,6 +1,7 @@
 /*
  *  drivers/mtd/nand/ppchameleonevb.c
  *
+ *  Copyright (C) 2005 Wolfgang Denk <wd@denx.de>
  *  Copyright (C) 2003 DAVE Srl (info@wawnet.biz)
  *
  *  Derived from drivers/mtd/nand/edb7312.c
@@ -30,7 +31,7 @@
 #include <linux/mtd/nand.h>
 #include <linux/mtd/partitions.h>
 #include <asm/io.h>
-#include <platforms/PPChameleonEVB.h>
+#include <platforms/4xx/ppchameleon.h>
 
 #undef USE_READY_BUSY_PIN
 #define USE_READY_BUSY_PIN
@@ -41,8 +42,9 @@
 /* handy sizes */
 #define SZ_4M                           0x00400000
 #define NAND_SMALL_SIZE                 0x02000000
-#define NAND_MTD_NAME		"ppchameleon-nand"
-#define NAND_EVB_MTD_NAME	"ppchameleonevb-nand"
+
+#define NAND_MTD_NAME			"ppchameleon-nand"
+#define NAND_EVB_MTD_NAME		"ppchameleonevb-nand"
 
 /* GPIO pins used to drive NAND chip mounted on processor module */
 #define NAND_nCE_GPIO_PIN 		(0x80000000 >> 1)
@@ -50,51 +52,46 @@
 #define NAND_ALE_GPIO_PIN 		(0x80000000 >> 3)
 #define NAND_RB_GPIO_PIN 		(0x80000000 >> 4)
 /* GPIO pins used to drive NAND chip mounted on EVB */
-#define NAND_EVB_nCE_GPIO_PIN 	(0x80000000 >> 14)
-#define NAND_EVB_CLE_GPIO_PIN 	(0x80000000 >> 15)
-#define NAND_EVB_ALE_GPIO_PIN 	(0x80000000 >> 16)
-#define NAND_EVB_RB_GPIO_PIN 	(0x80000000 >> 31)
+#define NAND_EVB_nCE_GPIO_PIN 		(0x80000000 >> 14)
+#define NAND_EVB_CLE_GPIO_PIN 		(0x80000000 >> 15)
+#define NAND_EVB_ALE_GPIO_PIN 		(0x80000000 >> 16)
+#define NAND_EVB_RB_GPIO_PIN 		(0x80000000 >> 31)
 
 /*
  * MTD structure for PPChameleonEVB board
  */
-static struct mtd_info *ppchameleon_mtd 	= NULL;
+static struct mtd_info *ppchameleon_mtd    = NULL;
 static struct mtd_info *ppchameleonevb_mtd = NULL;
 
 /*
  * Module stuff
  */
-static unsigned long ppchameleon_fio_pbase 	= CFG_NAND0_PADDR;
+static unsigned long ppchameleon_fio_pbase    = CFG_NAND0_PADDR;
 static unsigned long ppchameleonevb_fio_pbase = CFG_NAND1_PADDR;
-
-#ifdef MODULE
-module_param(ppchameleon_fio_pbase, ulong, 0);
-module_param(ppchameleonevb_fio_pbase, ulong, 0);
-#else
-__setup("ppchameleon_fio_pbase=",ppchameleon_fio_pbase);
-__setup("ppchameleonevb_fio_pbase=",ppchameleonevb_fio_pbase);
-#endif
 
 #ifdef CONFIG_MTD_PARTITIONS
 /*
  * Define static partitions for flash devices
  */
 static struct mtd_partition partition_info_hi[] = {
-	{ name: "PPChameleon HI Nand Flash",
-		  offset: 0,
-		  size: 128*1024*1024 }
+    {	name:	"PPChameleon HI Nand Flash",
+	offset:	0,
+	size:	128*1024*1024
+    },
 };
 
 static struct mtd_partition partition_info_me[] = {
-	{ name: "PPChameleon ME Nand Flash",
-		  offset: 0,
-		  size: 32*1024*1024 }
+    {	name:	"PPChameleon ME Nand Flash",
+	offset:	0,
+	size:	32*1024*1024
+    },
 };
 
 static struct mtd_partition partition_info_evb[] = {
-	{ name: "PPChameleonEVB Nand Flash",
-		  offset: 0,
-		  size: 32*1024*1024 }
+    {	name:	"PPChameleonEVB Nand Flash",
+	offset:	0,
+	size:	32*1024*1024
+    },
 };
 
 #define NUM_PARTITIONS 1
@@ -405,9 +402,9 @@ static void __exit ppchameleonevb_cleanup (void)
 	
 	/* Release iomaps */
 	this = (struct nand_chip *) &ppchameleon_mtd[1];
-	iounmap((void *) this->IO_ADDR_R;
+	iounmap((void *) this->IO_ADDR_R);
 	this = (struct nand_chip *) &ppchameleonevb_mtd[1];
-	iounmap((void *) this->IO_ADDR_R;
+	iounmap((void *) this->IO_ADDR_R);
 
 	/* Free the MTD device structure */
 	kfree (ppchameleon_mtd);
@@ -417,4 +414,4 @@ module_exit(ppchameleonevb_cleanup);
 
 MODULE_LICENSE("GPL");
 MODULE_AUTHOR("DAVE Srl <support-ppchameleon@dave-tech.it>");
-MODULE_DESCRIPTION("MTD map driver for DAVE Srl PPChameleonEVB board");
+MODULE_DESCRIPTION("MTD NAND flash driver for DAVE Srl PPChameleonEVB board");

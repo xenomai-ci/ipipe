@@ -75,10 +75,10 @@ config MTD_NAND_RTC_FROM4
 	  flash interface board (FROM_BOARD4)
 
 config MTD_NAND_PPCHAMELEONEVB
-	tristate "NAND Flash device on PPChameleonEVB board"
-	depends on PPCHAMELEONEVB && MTD_NAND
+	tristate "NAND Flash device on DAVE PPChameleonEVB board"
+	depends on PPChameleonEVB && MTD_NAND
 	help
-	  This enables the NAND flash driver on the PPChameleon EVB Board.
+	  This enables the NAND flash driver on the DAVE PPChameleonEVB Board.
 
 config MTD_NAND_S3C2410
 	tristate "NAND Flash support for S3C2410/S3C2440 SoC"
