@@ -8,6 +8,7 @@ obj-$(CONFIG_EP405)		+= ep405.o
 obj-$(CONFIG_BUBINGA)		+= bubinga.o
 obj-$(CONFIG_LUAN)		+= luan.o
 obj-$(CONFIG_OCOTEA)		+= ocotea.o
+obj-$(CONFIG_PPChameleonEVB)	+= ppchameleon.o
 obj-$(CONFIG_REDWOOD_5)		+= redwood5.o
 obj-$(CONFIG_REDWOOD_6)		+= redwood6.o
 obj-$(CONFIG_SYCAMORE)		+= sycamore.o

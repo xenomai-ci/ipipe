@@ -31,6 +31,10 @@
 #include <platforms/4xx/ep405.h>
 #endif
 
+#if defined(CONFIG_PPChameleonEVB)
+#include <platforms/4xx/ppchameleon.h>
+#endif
+
 #if defined(CONFIG_REDWOOD_5)
 #include <platforms/4xx/redwood5.h>
 #endif

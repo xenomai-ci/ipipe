@@ -32,6 +32,11 @@ config EP405
 	help
 	  This option enables support for the EP405/EP405PC boards.
 
+config PPChameleonEVB
+	bool "PPChameleonEVB"
+	help
+	  This option enables support for the DAVE 405EP evaluation board.
+
 config REDWOOD_5
 	bool "Redwood-5"
 	help
@@ -175,7 +180,7 @@ config BOOKE
 
 config IBM_OCP
 	bool
-	depends on ASH || BAMBOO || BUBINGA || CPCI405 || EBONY || EP405 || LUAN || OCOTEA || REDWOOD_5 || REDWOOD_6 || SYCAMORE || WALNUT || YELLOWSTONE || YOSEMITE
+	depends on ASH || BAMBOO || BUBINGA || CPCI405 || EBONY || EP405 || LUAN || OCOTEA || PPChameleonEVB || REDWOOD_5 || REDWOOD_6 || SYCAMORE || WALNUT || YELLOWSTONE || YOSEMITE
 	default y
 
 config XILINX_OCP
@@ -201,7 +206,7 @@ config 403GCX
 
 config 405EP
 	bool
-	depends on BUBINGA
+	depends on BUBINGA || PPChameleonEVB
 	default y
 
 config 405GP
