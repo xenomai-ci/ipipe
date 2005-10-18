@@ -63,13 +63,10 @@ mpc83xx_find_end_of_memory(void)
 long __init
 mpc83xx_time_init(void)
 {
-#define SPCR_OFFS   0x00000110
-#define SPCR_TBEN   0x00400000
-
 	bd_t *binfo = (bd_t *)__res;
-	u32 *spcr = ioremap(binfo->bi_immr_base + SPCR_OFFS, 4);
+	u32 *spcr = ioremap(binfo->bi_immr_base + MPC83xx_SPCR, 4);
 
-	*spcr |= SPCR_TBEN;
+	*spcr |= MPC83xx_SPCR_TBEN;
 
 	iounmap(spcr);
 
@@ -132,35 +129,23 @@ mpc83xx_early_serial_map(void)
 void
 mpc83xx_restart(char *cmd)
 {
-	volatile unsigned char __iomem *reg;
-	unsigned char tmp;
+	bd_t *binfo = (bd_t *)__res;
 
-	reg = ioremap(BCSR_PHYS_ADDR, BCSR_SIZE);
+	u32 *rcr = ioremap(binfo->bi_immr_base + MPC83xx_RCR, 4);
+	u32 *rpr = ioremap(binfo->bi_immr_base + MPC83xx_RPR, 4);
 
-	local_irq_disable();
+	/* apply reset protect unlock command to
+	 * reset control protection  register */
+	*rpr = MPC83xx_RPR_RSTE;
 
-	/*
-	 * Unlock the BCSR bits so a PRST will update the contents.
-	 * Otherwise the reset asserts but doesn't clear.
-	 */
-	tmp = in_8(reg + BCSR_MISC_REG3_OFF);
-	tmp |= BCSR_MISC_REG3_CNFLOCK; /* low true, high false */
-	out_8(reg + BCSR_MISC_REG3_OFF, tmp);
+	/* apply software hard reset to
+	 * reset control register*/
+	*rcr = MPC83xx_RCR_SWHR;
 
-	/*
-	 * Trigger a reset via a low->high transition of the
-	 * PORESET bit.
-	 */
-	tmp = in_8(reg + BCSR_MISC_REG2_OFF);
-	tmp &= ~BCSR_MISC_REG2_PORESET;
-	out_8(reg + BCSR_MISC_REG2_OFF, tmp);
-
-	udelay(1);
-
-	tmp |= BCSR_MISC_REG2_PORESET;
-	out_8(reg + BCSR_MISC_REG2_OFF, tmp);
-
-	for(;;);
+	/* not reached, but... */
+	iounmap(rcr);
+	iounmap(rpr);
+	for (;;) ;
 }
 
 void
