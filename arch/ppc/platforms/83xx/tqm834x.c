@@ -61,28 +61,33 @@ unsigned char __res[sizeof (bd_t)];
 
 #ifdef CONFIG_PCI
 int
-mpc83xx_map_irq(struct pci_dev *dev, unsigned char idsel, unsigned char pin)
+tqm834x_map_irq(struct pci_dev *dev, unsigned char idsel, unsigned char pin)
 {
+	int irq;
 	static char pci_irq_table[][4] =
 	    /*
 	     *      PCI IDSEL/INTPIN->INTLINE
 	     *       A      B      C      D
 	     */
 	{
-		{PIRQA, PIRQB,  PIRQC,  PIRQD}, /* idsel 0x11 */
-		{PIRQC, PIRQD,  PIRQA,  PIRQB}, /* idsel 0x12 */
-		{PIRQD, PIRQA,  PIRQB,  PIRQC}  /* idsel 0x13 */
+		{PIRQA, PIRQB,  PIRQC,  PIRQD}, /* idsel 0x1c */
+		{PIRQB, PIRQC,  PIRQD,  PIRQA}, /* idsel 0x1d */
+		{PIRQC, PIRQD,  0,  0}  	/* idsel 0x1e */
 	};
 
-	const long min_idsel = 0x11, max_idsel = 0x13, irqs_per_slot = 4;
-	return PCI_IRQ_TABLE_LOOKUP;
+	const long min_idsel = 0x1c, max_idsel = 0x1e, irqs_per_slot = 4;
+	irq = PCI_IRQ_TABLE_LOOKUP;
+	if (!irq)
+		irq = 0;
+	return (irq);
 }
 
 int
-mpc83xx_exclude_device(u_char bus, u_char devfn)
+tqm834x_exclude_device(u_char bus, u_char devfn)
 {
 	return PCIBIOS_SUCCESSFUL;
 }
+
 #endif /* CONFIG_PCI */
 
 /* ************************************************************************
@@ -190,19 +195,20 @@ tqm834x_init_IRQ(void)
 	u8 senses[8] = {
 		0,			/* EXT 0 */
 		0,			/* EXT 1 */
-		0,			/* EXT 2 */
-		0,			/* EXT 3 */
 #ifdef CONFIG_PCI
-		IRQ_SENSE_LEVEL,	/* EXT 4 */
+		IRQ_SENSE_LEVEL,	/* EXT 2 */
+		IRQ_SENSE_LEVEL,	/* EXT 3 */
+		0,			/* EXT 4 */
 		IRQ_SENSE_LEVEL,	/* EXT 5 */
 		IRQ_SENSE_LEVEL,	/* EXT 6 */
-		IRQ_SENSE_LEVEL,	/* EXT 7 */
 #else
+		0,			/* EXT 2 */
+		0,			/* EXT 3 */
 		0,			/* EXT 4 */
 		0,			/* EXT 5 */
 		0,			/* EXT 6 */
-		0,			/* EXT 7 */
 #endif
+		IRQ_SENSE_LEVEL,	/* EXT 7 */
 	};
 
 	ipic_init(binfo->bi_immr_base + 0x00700, 0, MPC83xx_IPIC_IRQ_OFFSET, senses, 8);
@@ -328,6 +334,13 @@ platform_init(unsigned long r3, unsigned long r4, unsigned long r5,
 #if defined(CONFIG_SERIAL_8250) && defined(CONFIG_SERIAL_TEXT_DEBUG)
 	ppc_md.progress = gen550_progress;
 #endif	/* CONFIG_SERIAL_8250 && CONFIG_SERIAL_TEXT_DEBUG */
+
+#ifdef CONFIG_PCI
+	ppc_md.pci_swizzle = common_swizzle;
+	ppc_md.pci_map_irq = tqm834x_map_irq;
+	ppc_md.pci_exclude_device = tqm834x_exclude_device;
+	ppc_md.pcibios_fixup = mpc834x_pcibios_fixup;
+#endif /* CONFIG_PCI */
 
 	if (ppc_md.progress)
 		ppc_md.progress("tqm834x_init(): exit", 0);

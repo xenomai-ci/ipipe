@@ -364,6 +364,13 @@ platform_init(unsigned long r3, unsigned long r4, unsigned long r5,
 	ppc_md.progress = gen550_progress;
 #endif	/* CONFIG_SERIAL_8250 && CONFIG_SERIAL_TEXT_DEBUG */
 
+#ifdef CONFIG_PCI
+	ppc_md.pci_swizzle = common_swizzle;
+	ppc_md.pci_map_irq = mpc83xx_map_irq; 
+	ppc_md.pci_exclude_device = mpc83xx_exclude_device;
+	ppc_md.pcibios_fixup = mpc834x_pcibios_fixup;
+#endif /* CONFIG_PCI */
+
 	if (ppc_md.progress)
 		ppc_md.progress("mpc834x_sys_init(): exit", 0);
 
