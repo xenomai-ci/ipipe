@@ -1179,7 +1179,7 @@ config PCI_DOMAINS
 	default PCI
 
 config MPC83xx_PCI2
-	bool "  Supprt for 2nd PCI host controller"
+	bool "  Support for 2nd PCI host controller"
 	depends on PCI && MPC834x
 	depends on !TQM834x
 	default y if MPC834x_SYS
