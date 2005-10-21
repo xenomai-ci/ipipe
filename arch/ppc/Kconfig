@@ -690,6 +690,12 @@ config EV64360
 	help
 	  Select EV64360 if configuring a Marvell EV64360BP Evaluation
 	  platform.
+
+config TQM834x
+	bool "TQM834x"
+	help
+	  This option enables support for the TQM834x boards from TQ
+	  Components.
 endchoice
 
 config PQ2ADS
@@ -735,11 +741,11 @@ config 8272
 
 config 83xx
 	bool
-	default y if MPC834x_SYS
+	default y if MPC834x_SYS || TQM834x
 
 config MPC834x
 	bool
-	default y if MPC834x_SYS
+	default y if MPC834x_SYS || TQM834x
 
 config CPM2
 	bool
@@ -1175,6 +1181,7 @@ config PCI_DOMAINS
 config MPC83xx_PCI2
 	bool "  Supprt for 2nd PCI host controller"
 	depends on PCI && MPC834x
+	depends on !TQM834x
 	default y if MPC834x_SYS
 
 config PCI_QSPAN
