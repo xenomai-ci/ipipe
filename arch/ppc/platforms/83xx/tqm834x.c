@@ -1,11 +1,10 @@
 /*
- * arch/ppc/platforms/83xx/mpc834x_sys.c
+ * arch/ppc/platforms/83xx/tqm834x.c
  *
- * MPC834x SYS board specific routines
+ * TQ Components TQM834x board routines
  *
- * Maintainer: Kumar Gala <kumar.gala@freescale.com>
- *
- * Copyright 2005 Freescale Semiconductor Inc.
+ * Copyright 2005 DENX Software Engineering
+ * Derived from mpc834x_sys.c
  *
  * This program is free software; you can redistribute  it and/or modify it
  * under  the terms of  the GNU General  Public License as published by the
@@ -62,28 +61,33 @@ unsigned char __res[sizeof (bd_t)];
 
 #ifdef CONFIG_PCI
 int
-mpc83xx_map_irq(struct pci_dev *dev, unsigned char idsel, unsigned char pin)
+tqm834x_map_irq(struct pci_dev *dev, unsigned char idsel, unsigned char pin)
 {
+	int irq;
 	static char pci_irq_table[][4] =
 	    /*
 	     *      PCI IDSEL/INTPIN->INTLINE
 	     *       A      B      C      D
 	     */
 	{
-		{PIRQA, PIRQB,  PIRQC,  PIRQD}, /* idsel 0x11 */
-		{PIRQC, PIRQD,  PIRQA,  PIRQB}, /* idsel 0x12 */
-		{PIRQD, PIRQA,  PIRQB,  PIRQC}  /* idsel 0x13 */
+		{PIRQA, PIRQB,  PIRQC,  PIRQD}, /* idsel 0x1c */
+		{PIRQB, PIRQC,  PIRQD,  PIRQA}, /* idsel 0x1d */
+		{PIRQC, PIRQD,  0,  0}  	/* idsel 0x1e */
 	};
 
-	const long min_idsel = 0x11, max_idsel = 0x13, irqs_per_slot = 4;
-	return PCI_IRQ_TABLE_LOOKUP;
+	const long min_idsel = 0x1c, max_idsel = 0x1e, irqs_per_slot = 4;
+	irq = PCI_IRQ_TABLE_LOOKUP;
+	if (!irq)
+		irq = 0;
+	return (irq);
 }
 
 int
-mpc83xx_exclude_device(u_char bus, u_char devfn)
+tqm834x_exclude_device(u_char bus, u_char devfn)
 {
 	return PCIBIOS_SUCCESSFUL;
 }
+
 #endif /* CONFIG_PCI */
 
 /* ************************************************************************
@@ -92,7 +96,7 @@ mpc83xx_exclude_device(u_char bus, u_char devfn)
  *
  */
 static void __init
-mpc834x_sys_setup_arch(void)
+tqm834x_setup_arch(void)
 {
 	bd_t *binfo = (bd_t *) __res;
 	unsigned int freq;
@@ -114,7 +118,7 @@ mpc834x_sys_setup_arch(void)
 	/* setup the board related information for the enet controllers */
 	pdata = (struct gianfar_platform_data *) ppc_sys_get_pdata(MPC83xx_TSEC1);
 	if (pdata) {
-		pdata->board_flags = FSL_GIANFAR_BRD_HAS_PHY_INTR;
+		pdata->board_flags = FSL_GIANFAR_BRD_IS_REDUCED;
 		pdata->interruptPHY = MPC83xx_IRQ_EXT1;
 		pdata->phyid = 0;
 		/* fixup phy address */
@@ -124,8 +128,8 @@ mpc834x_sys_setup_arch(void)
 
 	pdata = (struct gianfar_platform_data *) ppc_sys_get_pdata(MPC83xx_TSEC2);
 	if (pdata) {
-		pdata->board_flags = FSL_GIANFAR_BRD_HAS_PHY_INTR;
-		pdata->interruptPHY = MPC83xx_IRQ_EXT2;
+		pdata->board_flags = FSL_GIANFAR_BRD_IS_REDUCED;
+		pdata->interruptPHY = MPC83xx_IRQ_EXT1;
 		pdata->phyid = 1;
 		/* fixup phy address */
 		pdata->phy_reg_addr += binfo->bi_immr_base;
@@ -145,14 +149,14 @@ mpc834x_sys_setup_arch(void)
 }
 
 static void __init
-mpc834x_sys_map_io(void)
+tqm834x_map_io(void)
 {
 	/* we steal the lowest ioremap addr for virt space */
 	io_block_mapping(VIRT_IMMRBAR, immrbar, 1024*1024, _PAGE_IO);
 }
 
 int
-mpc834x_sys_show_cpuinfo(struct seq_file *m)
+tqm834x_show_cpuinfo(struct seq_file *m)
 {
 	uint pvid, svid, phid1;
 	bd_t *binfo = (bd_t *) __res;
@@ -165,7 +169,7 @@ mpc834x_sys_show_cpuinfo(struct seq_file *m)
 	svid = mfspr(SPRN_SVR);
 
 	seq_printf(m, "Vendor\t\t: Freescale Inc.\n");
-	seq_printf(m, "Machine\t\t: mpc%s sys\n", cur_ppc_sys_spec->ppc_sys_name);
+	seq_printf(m, "Machine\t\t: TQM%s\n", cur_ppc_sys_spec->ppc_sys_name);
 	seq_printf(m, "core clock\t: %d MHz\n"
 			"bus  clock\t: %d MHz\n",
 			(int)(binfo->bi_intfreq / 1000000),
@@ -183,28 +187,28 @@ mpc834x_sys_show_cpuinfo(struct seq_file *m)
 	return 0;
 }
 
-
 void __init
-mpc834x_sys_init_IRQ(void)
+tqm834x_init_IRQ(void)
 {
 	bd_t *binfo = (bd_t *) __res;
 
 	u8 senses[8] = {
 		0,			/* EXT 0 */
-		IRQ_SENSE_LEVEL,	/* EXT 1 */
-		IRQ_SENSE_LEVEL,	/* EXT 2 */
-		0,			/* EXT 3 */
+		0,			/* EXT 1 */
 #ifdef CONFIG_PCI
-		IRQ_SENSE_LEVEL,	/* EXT 4 */
+		IRQ_SENSE_LEVEL,	/* EXT 2 */
+		IRQ_SENSE_LEVEL,	/* EXT 3 */
+		0,			/* EXT 4 */
 		IRQ_SENSE_LEVEL,	/* EXT 5 */
 		IRQ_SENSE_LEVEL,	/* EXT 6 */
-		IRQ_SENSE_LEVEL,	/* EXT 7 */
 #else
+		0,			/* EXT 2 */
+		0,			/* EXT 3 */
 		0,			/* EXT 4 */
 		0,			/* EXT 5 */
 		0,			/* EXT 6 */
-		0,			/* EXT 7 */
 #endif
+		IRQ_SENSE_LEVEL,	/* EXT 7 */
 	};
 
 	ipic_init(binfo->bi_immr_base + 0x00700, 0, MPC83xx_IPIC_IRQ_OFFSET, senses, 8);
@@ -215,17 +219,17 @@ mpc834x_sys_init_IRQ(void)
 	ipic_set_default_priority();
 }
 
-#if defined(CONFIG_I2C_MPC) && defined(CONFIG_SENSORS_DS1374)
-extern ulong	ds1374_get_rtc_time(void);
-extern int	ds1374_set_rtc_time(ulong);
+#if defined(CONFIG_I2C_MPC) && defined(CONFIG_SENSORS_DS1337)
+extern ulong ds1337_get_rtc_time(void);
+extern int ds1337_set_rtc_time(unsigned long nowtime);
 
 static int __init
-mpc834x_rtc_hookup(void)
+tqm834x_rtc_hookup(void)
 {
 	struct timespec	tv;
 
-	ppc_md.get_rtc_time = ds1374_get_rtc_time;
-	ppc_md.set_rtc_time = ds1374_set_rtc_time;
+        ppc_md.set_rtc_time = ds1337_set_rtc_time;
+        ppc_md.get_rtc_time = ds1337_get_rtc_time;
 
 	tv.tv_nsec = 0;
 	tv.tv_sec = (ppc_md.get_rtc_time)();
@@ -233,50 +237,17 @@ mpc834x_rtc_hookup(void)
 
 	return 0;
 }
-late_initcall(mpc834x_rtc_hookup);
+late_initcall(tqm834x_rtc_hookup);
 #endif
+
 static __inline__ void
-mpc834x_sys_set_bat(void)
+tqm834x_set_bat(void)
 {
 	/* we steal the lowest ioremap addr for virt space */
 	mb();
 	mtspr(SPRN_DBAT1U, VIRT_IMMRBAR | 0x1e);
 	mtspr(SPRN_DBAT1L, immrbar | 0x2a);
 	mb();
-}
-
-void
-mpc83xx_sys_restart(char *cmd)
-{
-	volatile unsigned char __iomem *reg;
-	unsigned char tmp;
-
-	reg = ioremap(BCSR_PHYS_ADDR, BCSR_SIZE);
-
-	local_irq_disable();
-
-	/*
-	 * Unlock the BCSR bits so a PRST will update the contents.
-	 * Otherwise the reset asserts but doesn't clear.
-	 */
-	tmp = in_8(reg + BCSR_MISC_REG3_OFF);
-	tmp |= BCSR_MISC_REG3_CNFLOCK; /* low true, high false */
-	out_8(reg + BCSR_MISC_REG3_OFF, tmp);
-
-	/*
-	 * Trigger a reset via a low->high transition of the
-	 * PORESET bit.
-	 */
-	tmp = in_8(reg + BCSR_MISC_REG2_OFF);
-	tmp &= ~BCSR_MISC_REG2_PORESET;
-	out_8(reg + BCSR_MISC_REG2_OFF, tmp);
-
-	udelay(1);
-
-	tmp |= BCSR_MISC_REG2_PORESET;
-	out_8(reg + BCSR_MISC_REG2_OFF, tmp);
-
-	for(;;);
 }
 
 void __init
@@ -316,7 +287,7 @@ platform_init(unsigned long r3, unsigned long r4, unsigned long r5,
 
 	immrbar = binfo->bi_immr_base;
 
-	mpc834x_sys_set_bat();
+	tqm834x_set_bat();
 
 #if defined(CONFIG_SERIAL_8250) && defined(CONFIG_SERIAL_TEXT_DEBUG)
 	{
@@ -341,18 +312,18 @@ platform_init(unsigned long r3, unsigned long r4, unsigned long r5,
 	identify_ppc_sys_by_id(mfspr(SPRN_SVR));
 
 	/* setup the PowerPC module struct */
-	ppc_md.setup_arch = mpc834x_sys_setup_arch;
-	ppc_md.show_cpuinfo = mpc834x_sys_show_cpuinfo;
+	ppc_md.setup_arch = tqm834x_setup_arch;
+	ppc_md.show_cpuinfo = tqm834x_show_cpuinfo;
 
-	ppc_md.init_IRQ = mpc834x_sys_init_IRQ;
+	ppc_md.init_IRQ = tqm834x_init_IRQ;
 	ppc_md.get_irq = ipic_get_irq;
 
-	ppc_md.restart = mpc83xx_sys_restart;
+	ppc_md.restart = mpc83xx_restart;
 	ppc_md.power_off = mpc83xx_power_off;
 	ppc_md.halt = mpc83xx_halt;
 
 	ppc_md.find_end_of_memory = mpc83xx_find_end_of_memory;
-	ppc_md.setup_io_mappings  = mpc834x_sys_map_io;
+	ppc_md.setup_io_mappings  = tqm834x_map_io;
 
 	ppc_md.time_init = mpc83xx_time_init;
 	ppc_md.set_rtc_time = NULL;
@@ -366,13 +337,13 @@ platform_init(unsigned long r3, unsigned long r4, unsigned long r5,
 
 #ifdef CONFIG_PCI
 	ppc_md.pci_swizzle = common_swizzle;
-	ppc_md.pci_map_irq = mpc83xx_map_irq; 
-	ppc_md.pci_exclude_device = mpc83xx_exclude_device;
+	ppc_md.pci_map_irq = tqm834x_map_irq;
+	ppc_md.pci_exclude_device = tqm834x_exclude_device;
 	ppc_md.pcibios_fixup = mpc834x_pcibios_fixup;
 #endif /* CONFIG_PCI */
 
 	if (ppc_md.progress)
-		ppc_md.progress("mpc834x_sys_init(): exit", 0);
+		ppc_md.progress("tqm834x_init(): exit", 0);
 
 	return;
 }
