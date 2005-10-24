@@ -109,8 +109,6 @@ static struct mtd_partition tqm834x_partitions_bank2[] = {
 
 #endif	/* CONFIG_MTD_PARTITIONS */
 
-#define NB_OF(x)  (sizeof(x)/sizeof(x[0]))
-
 int __init init_tqm834x_mtd(void)
 {
 	int idx = 0, ret = 0;
@@ -191,7 +189,7 @@ int __init init_tqm834x_mtd(void)
 	/*
 	 * Select static partition definitions
 	 */
-	n = NB_OF(tqm834x_partitions_bank1);
+	n = ARRAY_SIZE(tqm834x_partitions_bank1);
 	part_banks[0].mtd_part	= tqm834x_partitions_bank1;
 	part_banks[0].type	= "static image bank1";
 	part_banks[0].nums	= n;
@@ -203,7 +201,7 @@ int __init init_tqm834x_mtd(void)
 	
 	/* check if we have second bank? */
 	if (num_banks == 2) {
-		n = NB_OF(tqm834x_partitions_bank2);
+		n = ARRAY_SIZE(tqm834x_partitions_bank2);
 		part_banks[1].mtd_part	= tqm834x_partitions_bank2;
 		part_banks[1].type	= "static image bank2";
 		part_banks[1].nums	= n;

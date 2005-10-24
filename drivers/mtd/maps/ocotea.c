@@ -94,8 +94,6 @@ static struct mtd_partition ocotea_large_partitions[] = {
 };
 #endif /* CONFIG_MTD_UBOOT_PARTITIONS */
 
-#define NB_OF(x)  (sizeof(x)/sizeof(x[0]))
-
 int __init init_ocotea(void)
 {
 	u8 fpga0_reg;
@@ -137,7 +135,7 @@ int __init init_ocotea(void)
 	if (flash) {
 		flash->owner = THIS_MODULE;
 		add_mtd_partitions(flash, ocotea_small_partitions,
-					NB_OF(ocotea_small_partitions));
+					ARRAY_SIZE(ocotea_small_partitions));
 	} else {
 		printk("map probe failed for flash\n");
 		return -ENXIO;
@@ -158,7 +156,7 @@ int __init init_ocotea(void)
 	if (flash) {
 		flash->owner = THIS_MODULE;
 		add_mtd_partitions(flash, ocotea_large_partitions,
-					NB_OF(ocotea_large_partitions));
+					ARRAY_SIZE(ocotea_large_partitions));
 	} else {
 		printk("map probe failed for flash\n");
 		return -ENXIO;
