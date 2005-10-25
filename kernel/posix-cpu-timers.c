@@ -380,14 +380,9 @@ int posix_cpu_timer_create(struct k_itimer *new_timer)
 int posix_cpu_timer_del(struct k_itimer *timer)
 {
 	struct task_struct *p = timer->it.cpu.task;
+	int ret = 0;
 
-	if (timer->it.cpu.firing)
-		return TIMER_RETRY;
-
-	if (unlikely(p == NULL))
-		return 0;
-
-	if (!list_empty(&timer->it.cpu.entry)) {
+	if (likely(p != NULL)) {
 		read_lock(&tasklist_lock);
 		if (unlikely(p->signal == NULL)) {
 			/*
@@ -396,18 +391,20 @@ int posix_cpu_timer_del(struct k_itimer *timer)
 			 */
 			BUG_ON(!list_empty(&timer->it.cpu.entry));
 		} else {
-			/*
-			 * Take us off the task's timer list.
-			 */
 			spin_lock(&p->sighand->siglock);
-			list_del(&timer->it.cpu.entry);
+			if (timer->it.cpu.firing)
+				ret = TIMER_RETRY;
+			else
+				list_del(&timer->it.cpu.entry);
 			spin_unlock(&p->sighand->siglock);
 		}
 		read_unlock(&tasklist_lock);
-	}
-	put_task_struct(p);
 
-	return 0;
+		if (!ret)
+			put_task_struct(p);
+	}
+
+	return ret;
 }
 
 /*
@@ -424,8 +421,6 @@ static void cleanup_timers(struct list_head *head,
 	cputime_t ptime = cputime_add(utime, stime);
 
 	list_for_each_entry_safe(timer, next, head, entry) {
-		put_task_struct(timer->task);
-		timer->task = NULL;
 		list_del_init(&timer->entry);
 		if (cputime_lt(timer->expires.cpu, ptime)) {
 			timer->expires.cpu = cputime_zero;
@@ -437,8 +432,6 @@ static void cleanup_timers(struct list_head *head,
 
 	++head;
 	list_for_each_entry_safe(timer, next, head, entry) {
-		put_task_struct(timer->task);
-		timer->task = NULL;
 		list_del_init(&timer->entry);
 		if (cputime_lt(timer->expires.cpu, utime)) {
 			timer->expires.cpu = cputime_zero;
@@ -450,8 +443,6 @@ static void cleanup_timers(struct list_head *head,
 
 	++head;
 	list_for_each_entry_safe(timer, next, head, entry) {
-		put_task_struct(timer->task);
-		timer->task = NULL;
 		list_del_init(&timer->entry);
 		if (timer->expires.sched < sched_time) {
 			timer->expires.sched = 0;
@@ -494,6 +485,9 @@ static void process_timer_rebalance(struct task_struct *p,
 	unsigned long long ns, nsleft;
  	struct task_struct *t = p;
 	unsigned int nthreads = atomic_read(&p->signal->live);
+
+	if (!nthreads)
+		return;
 
 	switch (clock_idx) {
 	default:
@@ -736,9 +730,15 @@ int posix_cpu_timer_set(struct k_itimer *timer, int flags,
 	 * Disarm any old timer after extracting its expiry time.
 	 */
 	BUG_ON(!irqs_disabled());
+
+	ret = 0;
 	spin_lock(&p->sighand->siglock);
 	old_expires = timer->it.cpu.expires;
-	list_del_init(&timer->it.cpu.entry);
+	if (unlikely(timer->it.cpu.firing)) {
+		timer->it.cpu.firing = -1;
+		ret = TIMER_RETRY;
+	} else
+		list_del_init(&timer->it.cpu.entry);
 	spin_unlock(&p->sighand->siglock);
 
 	/*
@@ -786,7 +786,7 @@ int posix_cpu_timer_set(struct k_itimer *timer, int flags,
 		}
 	}
 
-	if (unlikely(timer->it.cpu.firing)) {
+	if (unlikely(ret)) {
 		/*
 		 * We are colliding with the timer actually firing.
 		 * Punt after filling in the timer's old value, and
@@ -794,8 +794,6 @@ int posix_cpu_timer_set(struct k_itimer *timer, int flags,
 		 * it as an overrun (thanks to bump_cpu_timer above).
 		 */
 		read_unlock(&tasklist_lock);
-		timer->it.cpu.firing = -1;
-		ret = TIMER_RETRY;
 		goto out;
 	}
 
@@ -961,14 +959,16 @@ void posix_cpu_timer_get(struct k_itimer *timer, struct itimerspec *itp)
 static void check_thread_timers(struct task_struct *tsk,
 				struct list_head *firing)
 {
+	int maxfire;
 	struct list_head *timers = tsk->cpu_timers;
 
+	maxfire = 20;
 	tsk->it_prof_expires = cputime_zero;
 	while (!list_empty(timers)) {
 		struct cpu_timer_list *t = list_entry(timers->next,
 						      struct cpu_timer_list,
 						      entry);
-		if (cputime_lt(prof_ticks(tsk), t->expires.cpu)) {
+		if (!--maxfire || cputime_lt(prof_ticks(tsk), t->expires.cpu)) {
 			tsk->it_prof_expires = t->expires.cpu;
 			break;
 		}
@@ -977,12 +977,13 @@ static void check_thread_timers(struct task_struct *tsk,
 	}
 
 	++timers;
+	maxfire = 20;
 	tsk->it_virt_expires = cputime_zero;
 	while (!list_empty(timers)) {
 		struct cpu_timer_list *t = list_entry(timers->next,
 						      struct cpu_timer_list,
 						      entry);
-		if (cputime_lt(virt_ticks(tsk), t->expires.cpu)) {
+		if (!--maxfire || cputime_lt(virt_ticks(tsk), t->expires.cpu)) {
 			tsk->it_virt_expires = t->expires.cpu;
 			break;
 		}
@@ -991,12 +992,13 @@ static void check_thread_timers(struct task_struct *tsk,
 	}
 
 	++timers;
+	maxfire = 20;
 	tsk->it_sched_expires = 0;
 	while (!list_empty(timers)) {
 		struct cpu_timer_list *t = list_entry(timers->next,
 						      struct cpu_timer_list,
 						      entry);
-		if (tsk->sched_time < t->expires.sched) {
+		if (!--maxfire || tsk->sched_time < t->expires.sched) {
 			tsk->it_sched_expires = t->expires.sched;
 			break;
 		}
@@ -1013,6 +1015,7 @@ static void check_thread_timers(struct task_struct *tsk,
 static void check_process_timers(struct task_struct *tsk,
 				 struct list_head *firing)
 {
+	int maxfire;
 	struct signal_struct *const sig = tsk->signal;
 	cputime_t utime, stime, ptime, virt_expires, prof_expires;
 	unsigned long long sched_time, sched_expires;
@@ -1045,12 +1048,13 @@ static void check_process_timers(struct task_struct *tsk,
 	} while (t != tsk);
 	ptime = cputime_add(utime, stime);
 
+	maxfire = 20;
 	prof_expires = cputime_zero;
 	while (!list_empty(timers)) {
 		struct cpu_timer_list *t = list_entry(timers->next,
 						      struct cpu_timer_list,
 						      entry);
-		if (cputime_lt(ptime, t->expires.cpu)) {
+		if (!--maxfire || cputime_lt(ptime, t->expires.cpu)) {
 			prof_expires = t->expires.cpu;
 			break;
 		}
@@ -1059,12 +1063,13 @@ static void check_process_timers(struct task_struct *tsk,
 	}
 
 	++timers;
+	maxfire = 20;
 	virt_expires = cputime_zero;
 	while (!list_empty(timers)) {
 		struct cpu_timer_list *t = list_entry(timers->next,
 						      struct cpu_timer_list,
 						      entry);
-		if (cputime_lt(utime, t->expires.cpu)) {
+		if (!--maxfire || cputime_lt(utime, t->expires.cpu)) {
 			virt_expires = t->expires.cpu;
 			break;
 		}
@@ -1073,12 +1078,13 @@ static void check_process_timers(struct task_struct *tsk,
 	}
 
 	++timers;
+	maxfire = 20;
 	sched_expires = 0;
 	while (!list_empty(timers)) {
 		struct cpu_timer_list *t = list_entry(timers->next,
 						      struct cpu_timer_list,
 						      entry);
-		if (sched_time < t->expires.sched) {
+		if (!--maxfire || sched_time < t->expires.sched) {
 			sched_expires = t->expires.sched;
 			break;
 		}
@@ -1160,6 +1166,9 @@ static void check_process_timers(struct task_struct *tsk,
 		cputime_t prof_left, virt_left, ticks;
 		unsigned long long sched_left, sched;
 		const unsigned int nthreads = atomic_read(&sig->live);
+
+		if (!nthreads)
+			return;
 
 		prof_left = cputime_sub(prof_expires, utime);
 		prof_left = cputime_sub(prof_left, stime);
@@ -1286,30 +1295,30 @@ void run_posix_cpu_timers(struct task_struct *tsk)
 
 #undef	UNEXPIRED
 
-	BUG_ON(tsk->exit_state);
-
 	/*
 	 * Double-check with locks held.
 	 */
 	read_lock(&tasklist_lock);
-	spin_lock(&tsk->sighand->siglock);
+	if (likely(tsk->signal != NULL)) {
+		spin_lock(&tsk->sighand->siglock);
 
-	/*
-	 * Here we take off tsk->cpu_timers[N] and tsk->signal->cpu_timers[N]
-	 * all the timers that are firing, and put them on the firing list.
-	 */
-	check_thread_timers(tsk, &firing);
-	check_process_timers(tsk, &firing);
+		/*
+		 * Here we take off tsk->cpu_timers[N] and tsk->signal->cpu_timers[N]
+		 * all the timers that are firing, and put them on the firing list.
+		 */
+		check_thread_timers(tsk, &firing);
+		check_process_timers(tsk, &firing);
 
-	/*
-	 * We must release these locks before taking any timer's lock.
-	 * There is a potential race with timer deletion here, as the
-	 * siglock now protects our private firing list.  We have set
-	 * the firing flag in each timer, so that a deletion attempt
-	 * that gets the timer lock before we do will give it up and
-	 * spin until we've taken care of that timer below.
-	 */
-	spin_unlock(&tsk->sighand->siglock);
+		/*
+		 * We must release these locks before taking any timer's lock.
+		 * There is a potential race with timer deletion here, as the
+		 * siglock now protects our private firing list.  We have set
+		 * the firing flag in each timer, so that a deletion attempt
+		 * that gets the timer lock before we do will give it up and
+		 * spin until we've taken care of that timer below.
+		 */
+		spin_unlock(&tsk->sighand->siglock);
+	}
 	read_unlock(&tasklist_lock);
 
 	/*
