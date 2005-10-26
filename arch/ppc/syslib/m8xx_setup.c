@@ -404,6 +404,8 @@ platform_init(unsigned long r3, unsigned long r4, unsigned long r5,
 		strcpy(cmd_line, (char *)(r6+KERNELBASE));
 	}
 
+	identify_ppc_sys_by_name(BOARD_CHIP_NAME);
+
 	ppc_md.setup_arch		= m8xx_setup_arch;
 	ppc_md.show_percpuinfo		= m8xx_show_percpuinfo;
 	ppc_md.irq_canonicalize	= NULL;
