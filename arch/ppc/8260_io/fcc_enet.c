@@ -202,8 +202,18 @@ static int fcc_enet_set_mac_address(struct net_device *dev, void *addr);
 
 #define PC_F1RXCLK	PC_CLK(F1_RXCLK)
 #define PC_F1TXCLK	PC_CLK(F1_TXCLK)
+#if defined(CONFIG_PM82X)
+#ifndef CONFIG_DB_CR826_J30x_ON
+#define CMX1_CLK_ROUTE  ((uint)0x35000000)
+#define CMX1_CLK_MASK   ((uint)0x7f000000)
+#else
+#define CMX1_CLK_ROUTE  ((uint)0x37000000)
+#define CMX1_CLK_MASK   ((uint)0x7f000000)
+#endif
+#else
 #define CMX1_CLK_ROUTE	(CMXFCR_RF1CS(F1_RXCLK) | CMXFCR_TF1CS(F1_TXCLK))
 #define CMX1_CLK_MASK	((uint)0xff000000)
+#endif
 
 #define PC_F2RXCLK	PC_CLK(F2_RXCLK)
 #define PC_F2TXCLK	PC_CLK(F2_TXCLK)
@@ -297,6 +307,14 @@ static int fcc_enet_set_mac_address(struct net_device *dev, void *addr);
 #elif defined(CONFIG_EST8260) || defined(CONFIG_ADS8260) || defined(CONFIG_PQ2FADS)
 #define PC_MDIO		((uint)0x00400000)
 #define PC_MDCK		((uint)0x00200000)
+#elif defined (CONFIG_PM82X)
+#ifndef CONFIG_DB_CR826_J30x_ON
+#define PC_MDIO                ((uint)0x00000080) /* MDIO on PC24 */
+#define PC_MDCK                ((uint)0x00000100) /* MDCK on PC23 */
+#else
+#define PC_MDIO                ((uint)0x00000100) /* MDIO on PA23 */
+#define PC_MDCK                ((uint)0x00000200) /* MDCK on PA22 */
+#endif  /* CONFIG_DB_CR826_J30x_ON */
 #else
 #define PC_MDIO		((uint)0x00000004)
 #define PC_MDCK		((uint)0x00000020)
@@ -875,6 +893,28 @@ static void mii_parse_anar(uint mii_reg, struct net_device *dev)
 	fep->phy_status = s;
 }
 
+#ifdef CONFIG_FCC_AMD79C873
+/* Some boards don't have the MDIRQ line connected (PM82x is such a board) */
+
+static void mii_waitfor_anc(uint mii_reg, struct net_device *dev)
+{
+        struct fcc_enet_private *fep;
+        int regval;
+        int i;
+
+        fep = dev->priv;
+        regval = mk_mii_read(MII_BMSR) | (fep->phy_addr << 23);
+
+        for (i = 0; i < 1000; i++) {
+                if (mii_send_receive(fep->fip, regval) & 0x20)
+                        return;
+                udelay(10000);
+        }
+
+        printk("%s: autonegotiation timeout\n", dev->name);
+}
+#endif
+
 /* ------------------------------------------------------------------------- */
 /* Generic PHY support.  Should work for all PHYs, but does not support link
  * change interrupts.
@@ -1150,6 +1190,72 @@ static phy_info_t phy_info_qs6612 = {
 
 #endif /* CONFIG_FEC_QS6612 */
 
+/* ------------------------------------------------------------------------- */
+/* The AMD Am79C873 PHY is on PM82x                             */
+
+#ifdef CONFIG_FCC_AMD79C873
+
+#define MII_79C873_IER       17  /* Interrupt Enable Register */
+#define MII_79C873_DR        18  /* Diagnostic Register       */
+
+static void mii_parse_79c873_cr(uint mii_reg, struct net_device *dev)
+{
+        volatile struct fcc_enet_private *fep = dev->priv;
+        uint s = fep->phy_status;
+
+        s &= ~(PHY_STAT_SPMASK);
+
+        if (mii_reg & 0x2000) {
+                if (mii_reg & 0x0100)
+                        s |= PHY_STAT_100FDX;
+                else
+                        s |= PHY_STAT_100HDX;
+        } else {
+                if (mii_reg & 0x0100)
+                        s |= PHY_STAT_10FDX;
+                else
+                        s |= PHY_STAT_10HDX;
+        }
+
+        fep->phy_status = s;
+}
+
+static phy_info_t phy_info_79c873 = {
+        0x00181b80,
+        "AMD79C873",
+
+        (const phy_cmd_t []) {  /* config */
+                { mk_mii_read(MII_BMCR), mii_parse_cr },
+                { mk_mii_read(MII_ADVERTISE), mii_parse_anar },
+                { mk_mii_end, }
+        },
+        (const phy_cmd_t []) {  /* startup */
+#if 0
+                { mk_mii_write(MII_79C873_IER, 0xff00), NULL },
+#endif
+                { mk_mii_write(MII_BMCR, 0x1200), NULL }, /* autonegotiate */
+#ifdef  CONFIG_PM82X
+                { mk_mii_read(MII_BMSR), mii_waitfor_anc },
+#endif
+                { mk_mii_end, }
+        },
+        (const phy_cmd_t []) { /* ack_int */
+                /* read SR twice: to acknowledge and to get link status */
+                { mk_mii_read(MII_BMSR), mii_parse_sr },
+                { mk_mii_read(MII_BMSR), mii_parse_sr },
+
+                /* find out the current link parameters */
+
+                { mk_mii_read(MII_BMCR), mii_parse_79c873_cr },
+                { mk_mii_end, }
+        },
+        (const phy_cmd_t []) {  /* shutdown - disable interrupts */
+                { mk_mii_write(MII_79C873_IER, 0x0000), NULL },
+                { mk_mii_end, }
+        },
+};
+
+#endif /* CONFIG_FCC_AMD79C873 */
 
 /* ------------------------------------------------------------------------- */
 /* The Davicom DM9131 is used on the HYMOD board			     */
@@ -1381,6 +1487,10 @@ static phy_info_t *phy_info[] = {
 #ifdef CONFIG_FCC_DM9161
 	&phy_info_dm9161,
 #endif /* CONFIG_FCC_DM9161 */
+
+#ifdef CONFIG_FCC_AMD79C873
+        &phy_info_79c873,
+#endif /* CONFIG_FCC_AMD79C873 */
 
 #ifdef CONFIG_FCC_GENERIC_PHY
 	/* Generic PHY support.  This must be the last PHY in the table.
@@ -1848,8 +1958,10 @@ init_fcc_ioports(fcc_info_t *fip, volatile iop_cpm2_t *io,
 #ifdef	CONFIG_USE_MDIO
 	/* ....and the MII serial clock/data.
 	*/
+#ifndef CONFIG_PM82X
 	io->iop_pdatc |= (fip->fc_mdio | fip->fc_mdck);
 	io->iop_podrc &= ~(fip->fc_mdio | fip->fc_mdck);
+#endif
 	io->iop_pdirc |= (fip->fc_mdio | fip->fc_mdck);
 	io->iop_pparc &= ~(fip->fc_mdio | fip->fc_mdck);
 #endif	/* CONFIG_USE_MDIO */
@@ -2381,6 +2493,11 @@ fcc_enet_open(struct net_device *dev)
 			schedule();
 
 		mii_do_cmd(dev, fep->phy->startup);
+#ifdef  CONFIG_PM82X
+                /* Read the autonegotiation results */
+                mii_do_cmd(dev, fep->phy->ack_int);
+                mii_do_cmd(dev, phy_cmd_relink);
+#endif  /* CONFIG_PM82X */
 		netif_start_queue(dev);
 		return 0;		/* Success */
 	}

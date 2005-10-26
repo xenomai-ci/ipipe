@@ -95,8 +95,13 @@ void smc1_lineif(struct uart_cpm_port *pinfo)
 	io->iop_pdird &= ~0x00800000;
 	io->iop_psord &= ~0x00c00000;
 
+#if defined(CONFIG_PM82X)
+	/* Wire BRG7 to SMC1 */
+	cpm2_immr->im_cpmux.cmx_smr &= 0x1f;
+#else
 	/* Wire BRG1 to SMC1 */
 	cpm2_immr->im_cpmux.cmx_smr &= 0x0f;
+#endif
 	pinfo->brg = 1;
 }
 
@@ -104,14 +109,30 @@ void smc2_lineif(struct uart_cpm_port *pinfo)
 {
 	volatile iop_cpm2_t *io = &cpm2_immr->im_ioport;
 
+#if 0
 	/* SMC2 is only on port A */
 	io->iop_ppara |= 0x00c00000;
 	io->iop_pdira |= 0x00400000;
 	io->iop_pdira &= ~0x00800000;
 	io->iop_psora &= ~0x00c00000;
+#else
+	/* SMC2 is only on port A */
+	io->iop_ppard |= 0x08000000;
+	io->iop_pdird &= ~0x08000000;
+	io->iop_psord |= 0x08000000;
+	io->iop_pparc |= 0x00010000;
+	io->iop_pdirc |= 0x00010000;
+	io->iop_psorc &= ~0x00010000;
 
+#endif
+
+#if defined(CONFIG_PM82X)
+	/* Wire BRG8 to SMC2 */
+	cpm2_immr->im_cpmux.cmx_smr &= 0xf1;
+#else
 	/* Wire BRG2 to SMC2 */
 	cpm2_immr->im_cpmux.cmx_smr &= 0xf0;
+#endif
 	pinfo->brg = 2;
 }
 
@@ -119,12 +140,22 @@ void scc1_lineif(struct uart_cpm_port *pinfo)
 {
 	volatile iop_cpm2_t *io = &cpm2_immr->im_ioport;
 
+#if defined(CONFIG_PM82X)
+	io->iop_ppard |= 0x00000001;	/* Rx */
+	io->iop_pparb |= 0x00000008;	/* Tx */
+
+	io->iop_psord &= ~0x00000001;   /* Rx */
+	io->iop_psorb |= 0x00000008;    /* Tx */
+	io->iop_pdird &= ~0x00000001;   /* Rx */
+	io->iop_pdirb |= 0x00000008;    /* Tx */
+#else
 	/* Use Port D for SCC1 instead of other functions.  */
 	io->iop_ppard |= 0x00000003;
 	io->iop_psord &= ~0x00000001;	/* Rx */
 	io->iop_psord |= 0x00000002;	/* Tx */
 	io->iop_pdird &= ~0x00000001;	/* Rx */
 	io->iop_pdird |= 0x00000002;	/* Tx */
+#endif
 
 	/* Wire BRG1 to SCC1 */
 	cpm2_immr->im_cpmux.cmx_scr &= 0x00ffffff;
@@ -149,6 +180,14 @@ void scc2_lineif(struct uart_cpm_port *pinfo)
 	io->iop_psord &= ~0x00000010;	/* Tx */
 	io->iop_pdird &= ~0x00000008;	/* Rx */
 	io->iop_pdird |= 0x00000010;	/* Tx */
+#elif defined(CONFIG_PM82X)
+	volatile iop_cpm2_t *io = &cpm2_immr->im_ioport;
+	io->iop_pparb |= 0x00010000;	/* Rx */
+	io->iop_pdirb &= ~0x00010000;
+	io->iop_psorb &= ~0x00010000;
+	io->iop_ppard |= 0x00000010;	/* Tx */
+	io->iop_pdird |= 0x00000010;
+	io->iop_psord &= ~0x00000010;
 #else
 	volatile iop_cpm2_t *io = &cpm2_immr->im_ioport;
 	io->iop_pparb |= 0x008b0000;
@@ -165,12 +204,21 @@ void scc2_lineif(struct uart_cpm_port *pinfo)
 
 void scc3_lineif(struct uart_cpm_port *pinfo)
 {
+#if defined(CONFIG_PM82X)
+	volatile iop_cpm2_t *io = &cpm2_immr->im_ioport;
+	io->iop_pparb |= 0x00820000;	/* Rx */
+	io->iop_pdirb &= ~0x00020000;
+	io->iop_psorb &= ~0x00020000;
+	io->iop_pdirb |= 0x00800000;	/* Tx */
+	io->iop_psorb |= 0x00800000;
+#else
 	volatile iop_cpm2_t *io = &cpm2_immr->im_ioport;
 	io->iop_pparb |= 0x008b0000;
 	io->iop_pdirb |= 0x00880000;
 	io->iop_psorb |= 0x00880000;
 	io->iop_pdirb &= ~0x00030000;
 	io->iop_psorb &= ~0x00030000;
+#endif
 	cpm2_immr->im_cpmux.cmx_scr &= 0xffff00ff;
 	cpm2_immr->im_cpmux.cmx_scr |= 0x00001200;
 	pinfo->brg = 3;
@@ -180,10 +228,19 @@ void scc4_lineif(struct uart_cpm_port *pinfo)
 {
 	volatile iop_cpm2_t *io = &cpm2_immr->im_ioport;
 
+#if defined(CONFIG_PM82X)
+	io->iop_ppard |= 0x00000200;	/* Rx */
+	io->iop_pdird &= ~0x00000200;
+	io->iop_psord &= ~0x00000200;
+	io->iop_ppard |= 0x00000400;	/* Tx */
+	io->iop_pdird |= 0x00000400;
+	io->iop_psord &= ~0x00000400;
+#else
 	io->iop_ppard |= 0x00000600;
 	io->iop_psord &= ~0x00000600;	/* Tx/Rx */
 	io->iop_pdird &= ~0x00000200;	/* Rx */
 	io->iop_pdird |= 0x00000400;	/* Tx */
+#endif
 
 	cpm2_immr->im_cpmux.cmx_scr &= 0xffffff00;
 	cpm2_immr->im_cpmux.cmx_scr |= 0x0000001b;

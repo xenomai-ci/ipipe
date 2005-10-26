@@ -657,6 +657,11 @@ config TQM8260
 	  End of Life: not yet :-)
 	  URL: <http://www.denx.de/PDF/TQM82xx_SPEC_Rev005.pdf>
 
+config PM82X
+	bool "PM82X"
+	help
+	  This option enables support for the MicroSys PM82x evaluation boards.
+
 config ADS8272
 	bool "ADS8272"
 
@@ -724,7 +729,7 @@ config PPC_BESTCOMM
 config 8260
 	bool "CPM2 Support" if WILLOW
 	depends on 6xx
-	default y if TQM8260 || RPX8260 || EST8260 || SBS8260 || SBC82xx || PQ2FADS
+	default y if TQM8260 || RPX8260 || EST8260 || SBS8260 || SBC82xx || PQ2FADS || PM82X
 	help
 	  The MPC8260 is a typical embedded CPU made by Motorola.  Selecting
 	  this option means that you wish to build a kernel for a machine with

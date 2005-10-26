@@ -52,6 +52,16 @@ m8260_setup_arch(void)
 
 	/* Reset the Communication Processor Module. */
 	cpm2_reset();
+
+#ifdef  CONFIG_PM82X
+        /* On PM82x BRG1 is not initialized by the firmware (as the console
+         * is on SMC2). We initialize it here to avoid "realtime clock stuck"
+         * messages. Later on, when the RTC driver loads up, it re-installs
+         * its own handlers.
+         */
+        cpm_setbrg(0, 9600);
+#endif  /* CONFIG_PM82X */
+
 #ifdef CONFIG_8260_PCI9
 	/* Initialise IDMA for PCI erratum workaround */
 	idma_pci9_init();
@@ -157,9 +167,9 @@ m8260_show_cpuinfo(struct seq_file *m)
 		   "core clock\t: %u MHz\n"
 		   "CPM  clock\t: %u MHz\n"
 		   "bus  clock\t: %u MHz\n",
-		   CPUINFO_VENDOR, CPUINFO_MACHINE, bp->bi_memsize,
-		   bp->bi_baudrate, bp->bi_intfreq / 1000000,
-		   bp->bi_cpmfreq / 1000000, bp->bi_busfreq / 1000000);
+		   CPUINFO_VENDOR, CPUINFO_MACHINE, (unsigned int) bp->bi_memsize,
+		   (int) bp->bi_baudrate, (unsigned int) bp->bi_intfreq / 1000000,
+		   (unsigned int) bp->bi_cpmfreq / 1000000, (unsigned int) bp->bi_busfreq / 1000000);
 	return 0;
 }
 
@@ -177,7 +187,15 @@ m8260_init_IRQ(void)
 	/* Initialize the default interrupt mapping priorities,
 	 * in case the boot rom changed something on us.
 	 */
+#ifndef CONFIG_PM82X
 	cpm2_immr->im_intctl.ic_siprr = 0x05309770;
+        cpm2_immr->im_intctl.ic_scprrh = 0x05309770;
+        cpm2_immr->im_intctl.ic_scprrl = 0x05309770;
+#else
+        cpm2_immr->im_intctl.ic_siprr = 0x0530b370;
+        cpm2_immr->im_intctl.ic_scprrh = 0x0530b370;
+        cpm2_immr->im_intctl.ic_scprrl = 0x0530b370;
+#endif
 
 #if defined(CONFIG_PCI) && (defined(CONFIG_ADS8272) || defined(CONFIG_PQ2FADS))
  	/* Initialize stuff for the 82xx CPLD IC and install demux  */

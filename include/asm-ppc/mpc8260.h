@@ -36,6 +36,10 @@
 #include <platforms/tqm8260.h>
 #endif
 
+#ifdef CONFIG_PM82X
+#include <platforms/pm82x.h>
+#endif
+
 #if defined(CONFIG_PQ2ADS) || defined (CONFIG_PQ2FADS)
 #include <platforms/pq2ads.h>
 #endif
