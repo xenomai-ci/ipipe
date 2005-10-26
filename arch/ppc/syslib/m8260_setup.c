@@ -28,6 +28,7 @@
 #include <asm/machdep.h>
 #include <asm/bootinfo.h>
 #include <asm/time.h>
+#include <asm/ppc_sys.h>
 
 #include "cpm2_pic.h"
 
@@ -64,7 +65,7 @@ m8260_setup_arch(void)
 #endif
 
 	identify_ppc_sys_by_name_and_id(BOARD_CHIP_NAME, 
-				in_be32(CPM_MAP_ADDR + CPM_IMMR_OFFSET));
+			in_be32((const volatile unsigned __iomem *)(CPM_MAP_ADDR + CPM_IMMR_OFFSET)));
 
 	m82xx_board_setup();
 }
