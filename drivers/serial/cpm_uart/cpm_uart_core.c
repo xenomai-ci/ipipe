@@ -557,6 +557,11 @@ static void cpm_uart_set_termios(struct uart_port *port,
 		 * present.
 		 */
 		prev_mode = smcp->smc_smcmr;
+		/* Wait for all the BDs marked sent */
+		while(!cpm_uart_tx_empty(port)) {
+			set_current_state(TASK_UNINTERRUPTIBLE);
+			schedule_timeout(4);
+		}
 		smcp->smc_smcmr = smcr_mk_clen(bits) | cval | SMCMR_SM_UART;
 		smcp->smc_smcmr |= (prev_mode & (SMCMR_REN | SMCMR_TEN));
 	} else {
