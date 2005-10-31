@@ -445,6 +445,10 @@ static void cpm_uart_shutdown(struct uart_port *port)
 		/* Shut them really down and reinit buffer descriptors */
 		cpm_line_cr_cmd(line, CPM_CR_STOP_TX);
 		cpm_uart_initbd(pinfo);
+		if (IS_SMC(pinfo))
+			cpm_uart_init_smc(pinfo);
+		else
+			cpm_uart_init_scc(pinfo);
 	}
 }
 
