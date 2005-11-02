@@ -212,7 +212,7 @@ void __init ibm44x_platform_init(unsigned long r3, unsigned long r4, unsigned lo
 #endif
 }
 
-/* Called from MachineCheckException */
+/* Called from machine_check_exception */
 void platform_machine_check(struct pt_regs *regs)
 {
     	printk("PLB0: BEAR=0x%08x%08x ACR=  0x%08x BESR= 0x%08x\n",
