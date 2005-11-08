@@ -28,6 +28,7 @@
 #include <asm/cpm2.h>
 
 #include <linux/i2c-algo-8260.h>
+#include <linux/platform_device.h>
 
 #define CPM_MAX_READ	513
 

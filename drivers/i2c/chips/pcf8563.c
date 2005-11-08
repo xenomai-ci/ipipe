@@ -21,6 +21,7 @@
 #include <linux/init.h>
 #include <linux/list.h>
 #include <asm/time.h>
+#include <asm/machdep.h>
 
 #include "rtc8564.h"
 
