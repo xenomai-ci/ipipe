@@ -24,12 +24,6 @@
 #include <linux/mtd/map.h>
 #include <linux/mtd/partitions.h>
 
-#if 0	/* Debugging turned off */
-# define debugk(fmt,args...)	printk(fmt ,##args)
-#else
-# define debugk(fmt,args...)
-#endif
-
 #define FLASH_BANK_MAX	2
 
 extern unsigned char __res[];
@@ -63,32 +57,32 @@ static unsigned long start_scan_addr;
 /* Partition definition for the first flash bank which is always present. */
 static struct mtd_partition tqm834x_partitions_bank1[] = {
 	{
-		name:	"u-boot",		/* u-boot firmware	*/
-		offset:	0x00000000,
-		size:	0x00040000,		/* 256 KiB		*/
+		.name	= "u-boot",		/* u-boot firmware	*/
+		.offset	= 0x00000000,
+		.size	= 0x00040000,		/* 256 KiB		*/
 		/*mask_flags: MTD_WRITEABLE,	 * force read-only	*/
 	},
 	{
-		name:	"env",			/* u-boot environment	*/
-		offset:	0x00040000,
-		size:	0x00020000,		/* 128 KiB		*/
+		.name	= "env",		/* u-boot environment	*/
+		.offset	= 0x00040000,
+		.size	= 0x00020000,		/* 128 KiB		*/
 		/*mask_flags: MTD_WRITEABLE,	 * force read-only	*/
 	},
 	{
-		name:	"kernel",		/* linux kernel image	*/
-		offset:	0x00060000,
-		size:	0x00100000,		/* 1 MiB		*/
+		.name	= "kernel",		/* linux kernel image	*/
+		.offset	= 0x00060000,
+		.size	= 0x00100000,		/* 1 MiB		*/
 		/*mask_flags: MTD_WRITEABLE,	 * force read-only	*/
 	},
 	{
-		name:	"initrd",		/* ramdisk image	*/
-		offset:	0x00160000,
-		size:	0x00200000,		/* 2 MiB		*/
+		.name	= "initrd",		/* ramdisk image	*/
+		.offset	= 0x00160000,
+		.size	= 0x00200000,		/* 2 MiB		*/
 	},
 	{
-		name:	"user",			/* user data		*/
-		offset:	0x00360000,
-		size:	0x000a0000,		/* remaining space	*/
+		.name	= "user",		/* user data		*/
+		.offset	= 0x00360000,
+		.size	= 0x000a0000,		/* remaining space	*/
 		/* NOTE: this parttion size is re-calcated in		*/
 		/* init_tqm834x_mtd() to cover actual remaining space.	*/
 	},
@@ -99,9 +93,9 @@ static struct mtd_partition tqm834x_partitions_bank1[] = {
  */
 static struct mtd_partition tqm834x_partitions_bank2[] = {
 	{
-		name:	"jffs2",		/* jffs2 filesystem	*/
-		offset:	0x00000000,
-		size:	0x00400000,		/* whole device		*/
+		.name	= "jffs2",		/* jffs2 filesystem	*/
+		.offset	= 0x00000000,
+		.size	= 0x00400000,		/* whole device		*/
 		/* NOTE: this parttion size is re-calcated in		*/
 		/* init_tqm834x_mtd() to cover actual device size.	*/
 	},
@@ -109,7 +103,7 @@ static struct mtd_partition tqm834x_partitions_bank2[] = {
 
 #endif	/* CONFIG_MTD_PARTITIONS */
 
-int __init init_tqm834x_mtd(void)
+static int __init init_tqm834x_mtd(void)
 {
 	int idx = 0, ret = 0;
 	unsigned long flash_addr, flash_size, mtd_size = 0;
@@ -129,7 +123,7 @@ int __init init_tqm834x_mtd(void)
 	start_scan_addr = (unsigned long)ioremap(flash_addr, flash_size);
 	if (!start_scan_addr) {
 		printk("%s: Failed to ioremap address: 0x%lx\n",
-			__FUNCTION__, flash_addr);
+		       __FUNCTION__, flash_addr);
 		return -EIO;
 	}
 
@@ -137,10 +131,11 @@ int __init init_tqm834x_mtd(void)
 		if (mtd_size >= flash_size)
 			break;
 
-		debugk ("%s: chip probing count %d\n", __FUNCTION__, idx);
+		pr_debug("%s: chip probing count %d\n", __FUNCTION__, idx);
 
-		map_banks[idx] = (struct map_info *)kmalloc(sizeof(struct map_info),
-							GFP_KERNEL);
+		map_banks[idx] =
+			(struct map_info *)kmalloc(sizeof(struct map_info),
+						   GFP_KERNEL);
 		if (map_banks[idx] == NULL) {
 			ret = -ENOMEM;
 			goto error_mem;
@@ -172,9 +167,9 @@ int __init init_tqm834x_mtd(void)
 			mtd_banks[idx]->owner = THIS_MODULE;
 			mtd_size += mtd_banks[idx]->size;
 			num_banks++;
-			debugk ("%s: bank %ld, name: %s, size: %d bytes \n",
-				__FUNCTION__, num_banks,
-				mtd_banks[idx]->name, mtd_banks[idx]->size);
+			pr_debug("%s: bank %ld, name: %s, size: %d bytes \n",
+				 __FUNCTION__, num_banks,
+				 mtd_banks[idx]->name, mtd_banks[idx]->size);
 		}
 	}
 
@@ -198,7 +193,7 @@ int __init init_tqm834x_mtd(void)
 	tqm834x_partitions_bank1[n - 1].size =
 		mtd_banks[0]->size -
 		tqm834x_partitions_bank1[n - 1].offset;
-	
+
 	/* check if we have second bank? */
 	if (num_banks == 2) {
 		n = ARRAY_SIZE(tqm834x_partitions_bank2);
@@ -216,37 +211,37 @@ int __init init_tqm834x_mtd(void)
 #ifdef CONFIG_MTD_CMDLINE_PARTS
 		sprintf(mtdid, "%d", idx);
 		n = parse_mtd_partitions(mtd_banks[idx],
-				part_probes,
-				&part_banks[idx].mtd_part,
-				0);
-		debugk ("%s: %d command line partitions on bank %s\n",
-				__FUNCTION__, n, mtdid);
+					 part_probes,
+					 &part_banks[idx].mtd_part,
+					 0);
+		pr_debug("%s: %d command line partitions on bank %s\n",
+			 __FUNCTION__, n, mtdid);
 		if (n > 0) {
 			part_banks[idx].type = "command line";
 			part_banks[idx].nums = n;
 		}
 #endif	/* CONFIG_MTD_CMDLINE_PARTS */
 		if (part_banks[idx].nums == 0) {
-			printk (KERN_NOTICE
-				"TQM834x flash bank %d: no partition info "
-				"available, registering whole device\n", idx);
+			printk(KERN_NOTICE
+			       "TQM834x flash bank %d: no partition info "
+			       "available, registering whole device\n", idx);
 			add_mtd_device(mtd_banks[idx]);
 		} else {
-			printk (KERN_NOTICE 
-				"TQM834x flash bank %d: Using %s partition "
-				"definition\n", idx, part_banks[idx].type);
-			add_mtd_partitions (mtd_banks[idx],
-					part_banks[idx].mtd_part, 
-					part_banks[idx].nums);
+			printk(KERN_NOTICE
+			       "TQM834x flash bank %d: Using %s partition "
+			       "definition\n", idx, part_banks[idx].type);
+			add_mtd_partitions(mtd_banks[idx],
+					   part_banks[idx].mtd_part,
+					   part_banks[idx].nums);
 		}
 	}
 #else	/* ! CONFIG_MTD_PARTITIONS */
-	printk (KERN_NOTICE "TQM834x flash: registering %d flash banks "
+	printk(KERN_NOTICE "TQM834x flash: registering %d flash banks "
 			"at once\n", num_banks);
 
-	for(idx = 0 ; idx < num_banks ; idx++) {
+	for(idx = 0 ; idx < num_banks ; idx++)
 		add_mtd_device(mtd_banks[idx]);
-	}
+
 #endif	/* CONFIG_MTD_PARTITIONS */
 
 	return 0;
