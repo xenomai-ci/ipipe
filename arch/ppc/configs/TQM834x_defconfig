@@ -1,7 +1,7 @@
 #
 # Automatically generated make config: don't edit
-# Linux kernel version: 2.6.14-rc4
-# Mon Oct 17 17:22:19 2005
+# Linux kernel version: 2.6.14
+# Tue Nov  8 14:16:02 2005
 #
 CONFIG_MMU=y
 CONFIG_GENERIC_HARDIRQS=y
@@ -102,6 +102,7 @@ CONFIG_PPC_STD_MMU=y
 # CONFIG_SBS8260 is not set
 # CONFIG_RPX8260 is not set
 # CONFIG_TQM8260 is not set
+# CONFIG_PM82X is not set
 # CONFIG_ADS8272 is not set
 # CONFIG_PQ2FADS is not set
 # CONFIG_LITE5200 is not set
@@ -126,6 +127,7 @@ CONFIG_FLATMEM_MANUAL=y
 CONFIG_FLATMEM=y
 CONFIG_FLAT_NODE_MEM_MAP=y
 # CONFIG_SPARSEMEM_STATIC is not set
+CONFIG_SPLIT_PTLOCK_CPUS=4
 CONFIG_BINFMT_ELF=y
 # CONFIG_BINFMT_MISC is not set
 # CONFIG_CMDLINE_BOOL is not set
@@ -138,6 +140,7 @@ CONFIG_ISA_DMA_API=y
 # Bus options
 #
 CONFIG_GENERIC_ISA_DMA=y
+# CONFIG_PPC_I8259 is not set
 # CONFIG_PCI is not set
 # CONFIG_PCI_DOMAINS is not set
 
@@ -217,6 +220,10 @@ CONFIG_TCP_CONG_BIC=y
 # CONFIG_NET_DIVERT is not set
 # CONFIG_ECONET is not set
 # CONFIG_WAN_ROUTER is not set
+
+#
+# QoS and/or fair queueing
+#
 # CONFIG_NET_SCHED is not set
 # CONFIG_NET_CLS_ROUTE is not set
 
@@ -355,6 +362,11 @@ CONFIG_IOSCHED_NOOP=y
 CONFIG_IOSCHED_AS=y
 CONFIG_IOSCHED_DEADLINE=y
 CONFIG_IOSCHED_CFQ=y
+CONFIG_DEFAULT_AS=y
+# CONFIG_DEFAULT_DEADLINE is not set
+# CONFIG_DEFAULT_CFQ is not set
+# CONFIG_DEFAULT_NOOP is not set
+CONFIG_DEFAULT_IOSCHED="anticipatory"
 # CONFIG_ATA_OVER_ETH is not set
 
 #
@@ -402,13 +414,23 @@ CONFIG_NETDEVICES=y
 #
 # PHY device support
 #
-# CONFIG_PHYLIB is not set
+CONFIG_PHYLIB=y
+
+#
+# MII PHY device drivers
+#
+CONFIG_MARVELL_PHY=y
+# CONFIG_DAVICOM_PHY is not set
+# CONFIG_QSEMI_PHY is not set
+# CONFIG_LXT_PHY is not set
+# CONFIG_CICADA_PHY is not set
 
 #
 # Ethernet (10 or 100Mbit)
 #
 CONFIG_NET_ETHERNET=y
 CONFIG_MII=y
+# CONFIG_FEC_8XX is not set
 
 #
 # Ethernet (1000 Mbit)
@@ -526,6 +548,7 @@ CONFIG_GEN_RTC=y
 #
 # TPM devices
 #
+# CONFIG_TELCLOCK is not set
 
 #
 # I2C support
@@ -544,6 +567,7 @@ CONFIG_I2C_CHARDEV=y
 # I2C Hardware Bus support
 #
 CONFIG_I2C_MPC=y
+# CONFIG_I2C_MPC8260 is not set
 # CONFIG_I2C_PARPORT_LIGHT is not set
 # CONFIG_I2C_PCA_ISA is not set
 
@@ -554,11 +578,13 @@ CONFIG_SENSORS_DS1337=y
 # CONFIG_SENSORS_DS1374 is not set
 # CONFIG_SENSORS_EEPROM is not set
 # CONFIG_SENSORS_PCF8574 is not set
+# CONFIG_SENSORS_PCF8563 is not set
 # CONFIG_SENSORS_PCA9539 is not set
 # CONFIG_SENSORS_PCF8591 is not set
 # CONFIG_SENSORS_RTC8564 is not set
 # CONFIG_SENSORS_M41T00 is not set
 # CONFIG_SENSORS_MAX6875 is not set
+# CONFIG_RTC_X1205_I2C is not set
 # CONFIG_I2C_DEBUG_CORE is not set
 # CONFIG_I2C_DEBUG_ALGO is not set
 # CONFIG_I2C_DEBUG_BUS is not set
@@ -641,6 +667,10 @@ CONFIG_SENSORS_LM75=y
 #
 # CONFIG_USB_ARCH_HAS_HCD is not set
 # CONFIG_USB_ARCH_HAS_OHCI is not set
+
+#
+# NOTE: USB_STORAGE enables SCSI, and 'SCSI disk support'
+#
 
 #
 # USB Gadget Support
