@@ -556,14 +556,9 @@ static void cpm_uart_set_termios(struct uart_port *port,
 		 * enables, because we want to put them back if they were
 		 * present.
 		 */
-		prev_mode = smcp->smc_smcmr;
-		/* Wait for all the BDs marked sent */
-		while(!cpm_uart_tx_empty(port)) {
-			set_current_state(TASK_UNINTERRUPTIBLE);
-			schedule_timeout(4);
-		}
-		smcp->smc_smcmr = smcr_mk_clen(bits) | cval | SMCMR_SM_UART;
-		smcp->smc_smcmr |= (prev_mode & (SMCMR_REN | SMCMR_TEN));
+		prev_mode = smcp->smc_smcmr & (SMCMR_REN | SMCMR_TEN);
+		smcp->smc_smcmr = smcr_mk_clen(bits) | cval | SMCMR_SM_UART
+				| prev_mode;
 	} else {
 		sccp->scc_psmr = (sbits << 12) | scval;
 	}
