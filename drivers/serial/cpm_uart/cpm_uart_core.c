@@ -163,7 +163,6 @@ static void cpm_uart_start_tx(struct uart_port *port)
 			smcp->smc_smcmr |= SMCMR_TEN;
 		} else {
 			sccp->scc_sccm |= UART_SCCM_TX;
-			pinfo->sccp->scc_gsmrl |= SCC_GSMRL_ENT;
 		}
 	}
 }
@@ -397,7 +396,7 @@ static int cpm_uart_startup(struct uart_port *port)
 	}
 
 	if (!(pinfo->flags & FLAG_CONSOLE))
-		cpm_line_cr_cmd(line,CPM_CR_INIT_TRX);
+		cpm_line_cr_cmd(line,CPM_CR_RESTART_TX);
 	return 0;
 }
 
@@ -438,17 +437,11 @@ static void cpm_uart_shutdown(struct uart_port *port)
 			smcp->smc_smcm &= ~(SMCM_RX | SMCM_TX);
 		} else {
 			volatile scc_t *sccp = pinfo->sccp;
-			sccp->scc_gsmrl &= ~(SCC_GSMRL_ENR | SCC_GSMRL_ENT);
 			sccp->scc_sccm &= ~(UART_SCCM_TX | UART_SCCM_RX);
 		}
 
-		/* Shut them really down and reinit buffer descriptors */
+		/* Shut them really down */
 		cpm_line_cr_cmd(line, CPM_CR_STOP_TX);
-		cpm_uart_initbd(pinfo);
-		if (IS_SMC(pinfo))
-			cpm_uart_init_smc(pinfo);
-		else
-			cpm_uart_init_scc(pinfo);
 	}
 }
 
