@@ -322,12 +322,12 @@ config MTD_ARCTIC
 	  use the flash chips on it, say 'Y'.
 
 config MTD_WALNUT
-	tristate "Flash device mapped on IBM 405GP/r/EP Walnut/Sycamore/Bubinga"
-	depends on MTD_JEDECPROBE && PPC32 && 40x && (WALNUT || SYCAMORE || BUBINGA)
+	tristate "Flash device mapped on AMCC 405GP/r/EP Walnut/Sycamore/Bubinga"
+	depends on MTD_JEDECPROBE && (WALNUT || SYCAMORE || BUBINGA)
 	help
-	  This enables access routines for the flash chips on the IBM 405GP
-	  Walnut board. If you have one of these boards and would like to
-	  use the flash chips on it, say 'Y'.
+	  This enables access routines for the flash chips on the AMCC 40x eval
+	  boards (Walnut, Sycamore & Bubinga). If you have one of these boards
+	  and would like to use the flash chips on it, say 'Y'.
 
 config MTD_EBONY
 	tristate "Flash devices mapped on IBM 440GP Ebony"
