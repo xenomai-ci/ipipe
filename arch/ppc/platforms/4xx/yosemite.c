@@ -28,6 +28,7 @@
 #include <linux/serial.h>
 #include <linux/serial_core.h>
 
+#include <asm/machdep.h>
 #include <asm/ocp.h>
 #include <asm/bootinfo.h>
 #include <asm/ppcboot.h>
