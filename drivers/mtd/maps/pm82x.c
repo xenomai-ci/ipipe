@@ -84,7 +84,7 @@ static void pm82x_write64 (struct map_info *map, map_word map_d,
 	__u64 d = ((__u64)map_d.x[0] << 32) + map_d.x[1];
 	__u64 * data = &d;
 	ulong flags;
-	ulong msr;
+	volatile ulong msr;
 	ulong saved_msr;
 	volatile long saved_fr[2];
 
