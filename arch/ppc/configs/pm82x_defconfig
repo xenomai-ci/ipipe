@@ -1,7 +1,7 @@
 #
 # Automatically generated make config: don't edit
-# Linux kernel version: 2.6.14-rc3
-# Mon Oct 17 12:21:11 2005
+# Linux kernel version: 2.6.14
+# Mon Nov 21 11:57:37 2005
 #
 CONFIG_MMU=y
 CONFIG_GENERIC_HARDIRQS=y
@@ -64,6 +64,24 @@ CONFIG_OBSOLETE_MODPARM=y
 CONFIG_KMOD=y
 
 #
+# Block layer
+#
+# CONFIG_LBD is not set
+
+#
+# IO Schedulers
+#
+CONFIG_IOSCHED_NOOP=y
+CONFIG_IOSCHED_AS=y
+CONFIG_IOSCHED_DEADLINE=y
+CONFIG_IOSCHED_CFQ=y
+CONFIG_DEFAULT_AS=y
+# CONFIG_DEFAULT_DEADLINE is not set
+# CONFIG_DEFAULT_CFQ is not set
+# CONFIG_DEFAULT_NOOP is not set
+CONFIG_DEFAULT_IOSCHED="anticipatory"
+
+#
 # Processor
 #
 CONFIG_6xx=y
@@ -114,6 +132,7 @@ CONFIG_PM82X=y
 # CONFIG_LITE5200 is not set
 # CONFIG_MPC834x_SYS is not set
 # CONFIG_EV64360 is not set
+# CONFIG_TQM834x is not set
 CONFIG_8260=y
 CONFIG_CPM2=y
 # CONFIG_PC_KEYBOARD is not set
@@ -133,6 +152,7 @@ CONFIG_FLATMEM_MANUAL=y
 CONFIG_FLATMEM=y
 CONFIG_FLAT_NODE_MEM_MAP=y
 # CONFIG_SPARSEMEM_STATIC is not set
+CONFIG_SPLIT_PTLOCK_CPUS=4
 CONFIG_BINFMT_ELF=y
 # CONFIG_BINFMT_MISC is not set
 # CONFIG_CMDLINE_BOOL is not set
@@ -144,6 +164,8 @@ CONFIG_ISA_DMA_API=y
 #
 # Bus options
 #
+# CONFIG_PPC_I8259 is not set
+CONFIG_PPC_INDIRECT_PCI=y
 CONFIG_PCI=y
 CONFIG_PCI_DOMAINS=y
 CONFIG_PCI_8260=y
@@ -226,6 +248,10 @@ CONFIG_TCP_CONG_BIC=y
 # CONFIG_NET_DIVERT is not set
 # CONFIG_ECONET is not set
 # CONFIG_WAN_ROUTER is not set
+
+#
+# QoS and/or fair queueing
+#
 # CONFIG_NET_SCHED is not set
 # CONFIG_NET_CLS_ROUTE is not set
 
@@ -274,6 +300,7 @@ CONFIG_MTD_BLOCK=y
 CONFIG_NFTL=y
 # CONFIG_NFTL_RW is not set
 # CONFIG_INFTL is not set
+# CONFIG_RFD_FTL is not set
 
 #
 # RAM/ROM/Flash chip drivers
@@ -345,6 +372,11 @@ CONFIG_MTD_NAND_DISKONCHIP_PROBE_ADDRESS=0
 # CONFIG_MTD_NAND_NANDSIM is not set
 
 #
+# OneNAND Flash Device Drivers
+#
+# CONFIG_MTD_ONENAND is not set
+
+#
 # Parallel port support
 #
 # CONFIG_PARPORT is not set
@@ -369,16 +401,7 @@ CONFIG_BLK_DEV_RAM=y
 CONFIG_BLK_DEV_RAM_COUNT=16
 CONFIG_BLK_DEV_RAM_SIZE=4096
 CONFIG_BLK_DEV_INITRD=y
-# CONFIG_LBD is not set
 # CONFIG_CDROM_PKTCDVD is not set
-
-#
-# IO Schedulers
-#
-CONFIG_IOSCHED_NOOP=y
-CONFIG_IOSCHED_AS=y
-CONFIG_IOSCHED_DEADLINE=y
-CONFIG_IOSCHED_CFQ=y
 # CONFIG_ATA_OVER_ETH is not set
 
 #
@@ -415,6 +438,7 @@ CONFIG_IOSCHED_CFQ=y
 #
 # Macintosh device drivers
 #
+# CONFIG_WINDFARM is not set
 
 #
 # Network device support
@@ -469,6 +493,8 @@ CONFIG_EEPRO100=y
 # CONFIG_SUNDANCE is not set
 # CONFIG_TLAN is not set
 # CONFIG_VIA_RHINE is not set
+CONFIG_USE_MDIO=y
+# CONFIG_FS_ENET is not set
 
 #
 # Ethernet (1000 Mbit)
@@ -594,6 +620,7 @@ CONFIG_GEN_RTC=y
 # TPM devices
 #
 # CONFIG_TCG_TPM is not set
+# CONFIG_TELCLOCK is not set
 
 #
 # I2C support
@@ -648,6 +675,7 @@ CONFIG_SENSORS_PCF8563=y
 # CONFIG_SENSORS_RTC8564 is not set
 # CONFIG_SENSORS_M41T00 is not set
 # CONFIG_SENSORS_MAX6875 is not set
+# CONFIG_RTC_X1205_I2C is not set
 CONFIG_I2C_DEBUG_CORE=y
 CONFIG_I2C_DEBUG_ALGO=y
 CONFIG_I2C_DEBUG_BUS=y
@@ -698,6 +726,10 @@ CONFIG_I2C_DEBUG_CHIP=y
 CONFIG_USB_ARCH_HAS_HCD=y
 CONFIG_USB_ARCH_HAS_OHCI=y
 # CONFIG_USB is not set
+
+#
+# NOTE: USB_STORAGE enables SCSI, and 'SCSI disk support'
+#
 
 #
 # USB Gadget Support
@@ -830,7 +862,6 @@ CONFIG_PARTITION_ADVANCED=y
 # CONFIG_NLS is not set
 # CONFIG_SCC_ENET is not set
 CONFIG_FEC_ENET=y
-CONFIG_USE_MDIO=y
 
 #
 # CPM2 Options
@@ -856,10 +887,6 @@ CONFIG_FCC_LXT971=y
 # CONFIG_LIBCRC32C is not set
 CONFIG_REED_SOLOMON=y
 CONFIG_REED_SOLOMON_DEC16=y
-
-#
-# Profiling support
-#
 # CONFIG_PROFILING is not set
 
 #
@@ -877,6 +904,8 @@ CONFIG_DETECT_SOFTLOCKUP=y
 # CONFIG_DEBUG_KOBJECT is not set
 CONFIG_DEBUG_INFO=y
 # CONFIG_DEBUG_FS is not set
+# CONFIG_DEBUG_VM is not set
+# CONFIG_RCU_TORTURE_TEST is not set
 # CONFIG_KGDB_CONSOLE is not set
 # CONFIG_XMON is not set
 # CONFIG_BDI_SWITCH is not set
