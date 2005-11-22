@@ -77,4 +77,4 @@ obj-$(CONFIG_MTD_MTX1)		+= mtx-1_flash.o
 obj-$(CONFIG_MTD_PPCHAMELEON)	+= ppchameleon.o
 obj-$(CONFIG_MTD_TQM834x)	+= tqm834x.o
 obj-$(CONFIG_MTD_PM82X)		+= pm82x.o
-obj-$(CONFIG_MTD_TQM834x)	+= tqm834x.o
+obj-$(CONFIG_MTD_P3P440)	+= p3p440.o
