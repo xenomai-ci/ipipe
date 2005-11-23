@@ -222,12 +222,22 @@ static struct i2c_driver m41t00_driver = {
 static int __init
 m41t00_init(void)
 {
-	return i2c_add_driver(&m41t00_driver);
+	int rc;
+
+	rc = i2c_add_driver(&m41t00_driver);
+	ppc_md.set_rtc_time = m41t00_set_rtc_time;
+	ppc_md.get_rtc_time = m41t00_get_rtc_time;
+
+	printk (KERN_INFO "M41T00 RTC I2C client driver\n");
+
+	return rc;
 }
 
 static void __exit
 m41t00_exit(void)
 {
+	ppc_md.set_rtc_time = NULL;
+	ppc_md.get_rtc_time = NULL;
 	i2c_del_driver(&m41t00_driver);
 	return;
 }

@@ -28,7 +28,7 @@
 #include <asm/ocp.h>
 #include <platforms/4xx/ibm405ep.h>
 
-#ifdef CONFIG_PPC_RTC
+#ifdef CONFIG_GEN_RTC
 #include <asm/todc.h>
 #endif
 
@@ -244,12 +244,9 @@ platform_init (unsigned long r3, unsigned long r4, unsigned long r5,
 	ppc_md.setup_arch = board_setup_arch;
 	ppc_md.setup_io_mappings = board_io_mapping;
 
-#ifdef CONFIG_PPC_RTC
-	ppc_md.time_init = todc_time_init;
-	ppc_md.set_rtc_time = todc_set_rtc_time;
-	ppc_md.get_rtc_time = todc_get_rtc_time;
-	ppc_md.nvram_read_val = todc_direct_read_val;
-	ppc_md.nvram_write_val = todc_direct_write_val;
+#ifdef CONFIG_GEN_RTC
+	ppc_md.set_rtc_time = NULL;	/* will be set by driver init code */
+	ppc_md.get_rtc_time = NULL;
 #endif
 #ifdef CONFIG_KGDB
 	ppc_md.early_serial_map = ppchameleon_early_serial_map;
