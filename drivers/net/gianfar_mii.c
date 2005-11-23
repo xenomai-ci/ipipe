@@ -5,7 +5,7 @@
  * Provides Bus interface for MIIM regs
  *
  * Author: Andy Fleming
- * Maintainer: Kumar Gala (kumar.gala@freescale.com)
+ * Maintainer: Kumar Gala
  *
  * Copyright (c) 2002-2004 Freescale Semiconductor, Inc.
  *
@@ -32,7 +32,6 @@
 #include <linux/spinlock.h>
 #include <linux/mm.h>
 #include <linux/module.h>
-#include <linux/version.h>
 #include <linux/platform_device.h>
 #include <asm/ocp.h>
 #include <linux/crc32.h>

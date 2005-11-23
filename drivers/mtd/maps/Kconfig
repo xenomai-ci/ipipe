@@ -94,7 +94,7 @@ config MTD_NETSC520
 
 config MTD_TS5500
 	tristate "JEDEC Flash device mapped on Technologic Systems TS-5500"
-	depends on ELAN
+	depends on X86
 	select MTD_PARTITIONS
 	select MTD_JEDECPROBE
 	select MTD_CFI_AMDSTD
@@ -384,6 +384,14 @@ config MTD_TQM834x
 	  This enables access routines for the flash chips on the
 	  TQ Components TQM834x boards. If you have one of these boards
 	  and would like to use the flash chips on it, say 'Y'.
+
+config MTD_P3P440
+	tristate "Flash devices mapped on Prodrive P3P440"
+	depends on MTD_CFI && P3P440
+	help
+	  This enables access routined for the flash chips on the Prodrive
+	  P3P440 board.  If you have this board and would like to use the
+	  flash chips on it, say 'Y'.
 
 config MTD_UBOOT_PARTITIONS
 	bool "Use U-Boot partition setup"

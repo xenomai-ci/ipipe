@@ -167,6 +167,19 @@ acpi_processor_power_activate(struct acpi_processor *pr,
 	return;
 }
 
+static void acpi_safe_halt(void)
+{
+	int polling = test_thread_flag(TIF_POLLING_NRFLAG);
+	if (polling) {
+		clear_thread_flag(TIF_POLLING_NRFLAG);
+		smp_mb__after_clear_bit();
+	}
+	if (!need_resched())
+		safe_halt();
+	if (polling)
+		set_thread_flag(TIF_POLLING_NRFLAG);
+}
+
 static atomic_t c3_cpu_count;
 
 static void acpi_processor_idle(void)
@@ -177,7 +190,7 @@ static void acpi_processor_idle(void)
 	int sleep_ticks = 0;
 	u32 t1, t2 = 0;
 
-	pr = processors[raw_smp_processor_id()];
+	pr = processors[smp_processor_id()];
 	if (!pr)
 		return;
 
@@ -197,8 +210,13 @@ static void acpi_processor_idle(void)
 	}
 
 	cx = pr->power.state;
-	if (!cx)
-		goto easy_out;
+	if (!cx) {
+		if (pm_idle_save)
+			pm_idle_save();
+		else
+			acpi_safe_halt();
+		return;
+	}
 
 	/*
 	 * Check BM Activity
@@ -278,7 +296,8 @@ static void acpi_processor_idle(void)
 		if (pm_idle_save)
 			pm_idle_save();
 		else
-			safe_halt();
+			acpi_safe_halt();
+
 		/*
 		 * TBD: Can't get time duration while in C1, as resumes
 		 *      go to an ISR rather than here.  Need to instrument
@@ -414,16 +433,6 @@ static void acpi_processor_idle(void)
 	 */
 	if (next_state != pr->power.state)
 		acpi_processor_power_activate(pr, next_state);
-
-	return;
-
-      easy_out:
-	/* do C1 instead of busy loop */
-	if (pm_idle_save)
-		pm_idle_save();
-	else
-		safe_halt();
-	return;
 }
 
 static int acpi_processor_set_power_policy(struct acpi_processor *pr)
@@ -505,8 +514,6 @@ static int acpi_processor_set_power_policy(struct acpi_processor *pr)
 
 static int acpi_processor_get_power_info_fadt(struct acpi_processor *pr)
 {
-	int i;
-
 	ACPI_FUNCTION_TRACE("acpi_processor_get_power_info_fadt");
 
 	if (!pr)
@@ -515,8 +522,7 @@ static int acpi_processor_get_power_info_fadt(struct acpi_processor *pr)
 	if (!pr->pblk)
 		return_VALUE(-ENODEV);
 
-	for (i = 0; i < ACPI_PROCESSOR_MAX_POWER; i++)
-		memset(pr->power.states, 0, sizeof(struct acpi_processor_cx));
+	memset(pr->power.states, 0, sizeof(pr->power.states));
 
 	/* if info is obtained from pblk/fadt, type equals state */
 	pr->power.states[ACPI_STATE_C1].type = ACPI_STATE_C1;
@@ -546,13 +552,9 @@ static int acpi_processor_get_power_info_fadt(struct acpi_processor *pr)
 
 static int acpi_processor_get_power_info_default_c1(struct acpi_processor *pr)
 {
-	int i;
-
 	ACPI_FUNCTION_TRACE("acpi_processor_get_power_info_default_c1");
 
-	for (i = 0; i < ACPI_PROCESSOR_MAX_POWER; i++)
-		memset(&(pr->power.states[i]), 0,
-		       sizeof(struct acpi_processor_cx));
+	memset(pr->power.states, 0, sizeof(pr->power.states));
 
 	/* if info is obtained from pblk/fadt, type equals state */
 	pr->power.states[ACPI_STATE_C1].type = ACPI_STATE_C1;
@@ -864,7 +866,8 @@ static int acpi_processor_get_power_info(struct acpi_processor *pr)
 	for (i = 1; i < ACPI_PROCESSOR_MAX_POWER; i++) {
 		if (pr->power.states[i].valid) {
 			pr->power.count = i;
-			pr->flags.power = 1;
+			if (pr->power.states[i].type >= ACPI_STATE_C2)
+				pr->flags.power = 1;
 		}
 	}
 

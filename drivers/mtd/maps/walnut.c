@@ -26,7 +26,6 @@
 #include <linux/mtd/map.h>
 #include <linux/mtd/partitions.h>
 #include <linux/config.h>
-#include <linux/version.h>
 #include <asm/io.h>
 #include <asm/ibm4xx.h>
 

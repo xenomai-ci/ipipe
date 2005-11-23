@@ -99,6 +99,12 @@ config OCOTEA
 	help
 	  This option enables support for the IBM PPC440GX evaluation board.
 
+config P3P440
+	bool "P3P440"
+	select WANT_EARLY_SERIAL
+	help
+	  This option enables support for the Prodrive P3P440 board.
+
 config YELLOWSTONE
        bool "Yellowstone"
        select WANT_EARLY_SERIAL
@@ -134,7 +140,7 @@ config 440EP
 
 config 440GP
 	bool
-	depends on EBONY
+	depends on EBONY || P3P440
 	default y
 
 config 440GR
@@ -191,7 +197,7 @@ config BOOKE
 
 config IBM_OCP
 	bool
-	depends on ASH || BAMBOO || BUBINGA || CPCI405 || EBONY || EP405 || LUAN || YUCCA || OCOTEA || PPChameleonEVB || REDWOOD_5 || REDWOOD_6 || SYCAMORE || WALNUT || YELLOWSTONE || YOSEMITE
+	depends on ASH || BAMBOO || BUBINGA || CPCI405 || EBONY || EP405 || LUAN || YUCCA || OCOTEA || P3P440 || PPChameleonEVB || REDWOOD_5 || REDWOOD_6 || SYCAMORE || WALNUT || YELLOWSTONE || YOSEMITE
 	default y
 
 config XILINX_OCP

@@ -155,7 +155,7 @@ int ptrace_attach(struct task_struct *task)
 	retval = -EPERM;
 	if (task->pid <= 1)
 		goto bad;
-	if (task == current)
+	if (task->tgid == current->tgid)
 		goto bad;
 	/* the same process cannot be attached many times */
 	if (task->ptrace & PT_PTRACED)
@@ -470,7 +470,7 @@ asmlinkage long sys_ptrace(long request, long pid, long addr, long data)
 
 	if (request == PTRACE_ATTACH) {
 		ret = ptrace_attach(child);
-		goto out;
+		goto out_put_task_struct;
 	}
 
 	ret = ptrace_check_attach(child, request == PTRACE_KILL);
