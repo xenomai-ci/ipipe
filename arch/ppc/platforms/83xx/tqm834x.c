@@ -50,7 +50,7 @@
 
 #include <syslib/ppc83xx_setup.h>
 
-static const char *GFAR_PHY_0 = "phy0:0";
+static const char *GFAR_PHY_0 = "phy0:2";
 static const char *GFAR_PHY_1 = "phy0:1";
 
 #ifndef CONFIG_PCI
