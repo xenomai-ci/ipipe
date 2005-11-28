@@ -418,6 +418,14 @@ bamboo_init(void)
 	this->verify_buf = bamboo_nand1_verify_buf;
 	this->dev_ready  = NULL;
 
+#ifdef CONFIG_NAND1_SUPPORTED
+	/*
+	 * NOTE: Right now, NAND chip #2 won't be detected in our board. This
+	 * problem also occurs in the current U-Boot implementation.
+	 *
+	 * Needs some further investigation! --sr
+	 */
+
 	/* Scan to find existance of the device */
 	if (nand_scan(bamboo_nand1_mtd, 1)) {
 		err = 0;
@@ -426,6 +434,8 @@ bamboo_init(void)
 
 	add_mtd_partitions(bamboo_nand1_mtd, nand1_partition_info,
 			   NAND1_NUM_PARTITIONS);
+#endif
+
 	goto out;
 
 out_ior:
