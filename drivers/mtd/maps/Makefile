@@ -78,3 +78,4 @@ obj-$(CONFIG_MTD_PPCHAMELEON)	+= ppchameleon.o
 obj-$(CONFIG_MTD_TQM834x)	+= tqm834x.o
 obj-$(CONFIG_MTD_PM82X)		+= pm82x.o
 obj-$(CONFIG_MTD_P3P440)	+= p3p440.o
+obj-$(CONFIG_MTD_TQM85xx)	+= tqm85xx.o
