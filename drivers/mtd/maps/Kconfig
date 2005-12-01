@@ -393,6 +393,14 @@ config MTD_P3P440
 	  P3P440 board.  If you have this board and would like to use the
 	  flash chips on it, say 'Y'.
 
+config MTD_TQM85xx
+	tristate "Flash device mapped on TQ Components TQM85xx Boards"
+	depends on MTD_CFI && (TQM8540 || TQM8541 || TQM8555 || TQM8560)
+	help
+	  This enables access routines for the flash chips on the
+	  TQ Components TQM85xx boards. If you have one of these boards
+	  and would like to use the flash chips on it, say 'Y'.
+
 config MTD_UBOOT_PARTITIONS
 	bool "Use U-Boot partition setup"
 	depends on MTD_WALNUT || MTD_EBONY || MTD_OCOTEA || MTD_BAMBOO
