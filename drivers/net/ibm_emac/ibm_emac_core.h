@@ -156,7 +156,7 @@ struct ibm_emac_error_stats {
 struct ocp_enet_private {
 	struct net_device		*ndev;		/* 0 */
 	struct emac_regs		*emacp;
-	
+
 	struct mal_descriptor		*tx_desc;
 	int				tx_cnt;
 	int				tx_slot;
@@ -189,6 +189,8 @@ struct ocp_enet_private {
 	struct timer_list		link_timer;
 	int				reset_failed;
 
+	int                             stop_timeout;   /* in us */
+
 	struct ibm_emac_error_stats	estats;
 	struct net_device_stats		nstats;
 
@@ -196,13 +198,13 @@ struct ocp_enet_private {
 };
 
 /* Ethtool get_regs complex data.
- * We want to get not just EMAC registers, but also MAL, ZMII, RGMII, TAH 
+ * We want to get not just EMAC registers, but also MAL, ZMII, RGMII, TAH
  * when available.
- * 
- * Returned BLOB consists of the ibm_emac_ethtool_regs_hdr, 
+ *
+ * Returned BLOB consists of the ibm_emac_ethtool_regs_hdr,
  * MAL registers, EMAC registers and optional ZMII, RGMII, TAH registers.
  * Each register component is preceded with emac_ethtool_regs_subhdr.
- * Order of the optional headers follows their relative bit posititions 
+ * Order of the optional headers follows their relative bit posititions
  * in emac_ethtool_regs_hdr.components
  */
 #define EMAC_ETHTOOL_REGS_ZMII		0x00000001
