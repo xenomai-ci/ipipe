@@ -50,7 +50,7 @@
 /*
  * Lack of dma_unmap_???? calls is intentional.
  *
- * API-correct usage requires additional support state information to be 
+ * API-correct usage requires additional support state information to be
  * maintained for every RX and TX buffer descriptor (BD). Unfortunately, due to
  * EMAC design (e.g. TX buffer passed from network stack can be split into
  * several BDs, dma_map_single/dma_map_page can be used to map particular BD),
@@ -59,8 +59,8 @@
  * and dma_unmap_???? routines are empty and are likely to stay this way.
  * I decided to omit dma_unmap_??? calls because I don't want to add additional
  * complexity just for the sake of following some abstract API, when it doesn't
- * add any real benefit to the driver. I understand that this decision maybe 
- * controversial, but I really tried to make code API-correct and efficient 
+ * add any real benefit to the driver. I understand that this decision maybe
+ * controversial, but I really tried to make code API-correct and efficient
  * at the same time and didn't come up with code I liked :(.                --ebs
  */
 
@@ -76,7 +76,7 @@ MODULE_LICENSE("GPL");
 /* minimum number of free TX descriptors required to wake up TX process */
 #define EMAC_TX_WAKEUP_THRESH		(NUM_TX_BUFF / 4)
 
-/* If packet size is less than this number, we allocate small skb and copy packet 
+/* If packet size is less than this number, we allocate small skb and copy packet
  * contents into it instead of just sending original big skb up
  */
 #define EMAC_RX_COPY_THRESH		CONFIG_IBM_EMAC_RX_COPY_THRESHOLD
@@ -128,7 +128,7 @@ static inline void EMAC_RX_CLK_DEFAULT(int idx)
 
 #if defined(CONFIG_IBM_EMAC_PHY_RX_CLK_FIX) && defined(CONFIG_440GX)
 /* We can switch Ethernet clock to the internal source through SDR0_MFR[ECS],
- * unfortunately this is less flexible than 440EP case, because it's a global 
+ * unfortunately this is less flexible than 440EP case, because it's a global
  * setting for all EMACs, therefore we do this clock trick only during probe.
  */
 #define EMAC_CLK_INTERNAL		SDR_WRITE(DCRN_SDR_MFR, \
@@ -140,7 +140,7 @@ static inline void EMAC_RX_CLK_DEFAULT(int idx)
 #define EMAC_CLK_EXTERNAL		((void)0)
 #endif
 
-/* I don't want to litter system log with timeout errors 
+/* I don't want to litter system log with timeout errors
  * when we have brain-damaged PHY.
  */
 static inline void emac_report_timeout_error(struct ocp_enet_private *dev,
@@ -158,10 +158,10 @@ static inline void emac_report_timeout_error(struct ocp_enet_private *dev,
 #define PHY_POLL_LINK_ON	HZ
 #define PHY_POLL_LINK_OFF	(HZ / 5)
 
-/* Graceful stop timeouts in us. 
- * We should allow up to 1 frame time (full-duplex, ignoring collisions) 
+/* Graceful stop timeouts in us.
+ * We should allow up to 1 frame time (full-duplex, ignoring collisions)
  */
-#define STOP_TIMEOUT_10		1230	
+#define STOP_TIMEOUT_10		1230
 #define STOP_TIMEOUT_100	124
 #define STOP_TIMEOUT_1000	13
 #define STOP_TIMEOUT_1000_JUMBO	73
@@ -235,7 +235,7 @@ static void emac_tx_disable(struct ocp_enet_private *dev)
 		while (!(in_be32(&p->mr0) & EMAC_MR0_TXI) && n) {
 			udelay(1);
 			--n;
-		}	
+		}
 		if (unlikely(!n))
 			emac_report_timeout_error(dev, "TX disable timeout");
 	}
@@ -262,7 +262,7 @@ static void emac_rx_enable(struct ocp_enet_private *dev)
 			while (!(r = in_be32(&p->mr0) & EMAC_MR0_RXI) && n) {
 				udelay(1);
 				--n;
-			}	
+			}
 			if (unlikely(!n))
 				emac_report_timeout_error(dev,
 							  "RX disable timeout");
@@ -290,7 +290,7 @@ static void emac_rx_disable(struct ocp_enet_private *dev)
 		while (!(in_be32(&p->mr0) & EMAC_MR0_RXI) && n) {
 			udelay(1);
 			--n;
-		}	
+		}
 		if (unlikely(!n))
 			emac_report_timeout_error(dev, "RX disable timeout");
 	}
@@ -448,7 +448,7 @@ static int emac_configure(struct ocp_enet_private *dev)
 		zmii_set_speed(dev->zmii_dev, dev->zmii_input, dev->phy.speed);
 
 #if !defined(CONFIG_40x)
-	/* on 40x erratum forces us to NOT use integrated flow control, 
+	/* on 40x erratum forces us to NOT use integrated flow control,
 	 * let's hope it works on 44x ;)
 	 */
 	if (dev->phy.duplex == DUPLEX_FULL) {
@@ -483,7 +483,7 @@ static int emac_configure(struct ocp_enet_private *dev)
 
 	/* PAUSE frame is sent when RX FIFO reaches its high-water mark,
 	   there should be still enough space in FIFO to allow the our link
-	   partner time to process this frame and also time to send PAUSE 
+	   partner time to process this frame and also time to send PAUSE
 	   frame itself.
 
 	   Here is the worst case scenario for the RX FIFO "headroom"
@@ -494,7 +494,7 @@ static int emac_configure(struct ocp_enet_private *dev)
 	   3) PAUSE frame decode time allowance                   64 bytes
 	   4) One maximum-length frame on RX                    1522 bytes
 	   5) Round-trip propagation delay of the link (100Mb)    15 bytes
-	   ----------       
+	   ----------
 	   3187 bytes
 
 	   I chose to set high-water mark to RX_FIFO_SIZE / 4 (1024 bytes)
@@ -512,11 +512,11 @@ static int emac_configure(struct ocp_enet_private *dev)
 		 EMAC_ISR_RXOE | */ EMAC_ISR_OVR | EMAC_ISR_BP | EMAC_ISR_SE |
 		 EMAC_ISR_ALE | EMAC_ISR_BFCS | EMAC_ISR_PTLE | EMAC_ISR_ORE |
 		 EMAC_ISR_IRE | EMAC_ISR_TE);
-		 
+
 	/* We need to take GPCS PHY out of isolate mode after EMAC reset */
-	if (emac_phy_gpcs(dev->phy.mode)) 
+	if (emac_phy_gpcs(dev->phy.mode))
 		mii_reset_phy(&dev->phy);
-		 
+
 	return 0;
 }
 
@@ -675,10 +675,10 @@ static void emac_set_multicast_list(struct net_device *ndev)
 	/* I decided to relax register access rules here to avoid
 	 * full EMAC reset.
 	 *
-	 * There is a real problem with EMAC4 core if we use MWSW_001 bit 
+	 * There is a real problem with EMAC4 core if we use MWSW_001 bit
 	 * in MR1 register and do a full EMAC reset.
-	 * One TX BD status update is delayed and, after EMAC reset, it 
-	 * never happens, resulting in TX hung (it'll be recovered by TX 
+	 * One TX BD status update is delayed and, after EMAC reset, it
+	 * never happens, resulting in TX hung (it'll be recovered by TX
 	 * timeout handler eventually, but this is just gross).
 	 * So we either have to do full TX reset or try to cheat here :)
 	 *
@@ -710,7 +710,7 @@ static int emac_resize_rx_ring(struct ocp_enet_private *dev, int new_mtu)
 		dev->rx_sg_skb = NULL;
 	}
 
-	/* Make a first pass over RX ring and mark BDs ready, dropping 
+	/* Make a first pass over RX ring and mark BDs ready, dropping
 	 * non-processed packets on the way. We need this as a separate pass
 	 * to simplify error recovery in the case of allocation failure later.
 	 */
@@ -786,7 +786,7 @@ static int emac_change_mtu(struct net_device *ndev, int new_mtu)
 		ndev->mtu = new_mtu;
 		dev->rx_skb_size = emac_rx_skb_size(new_mtu);
 		dev->rx_sync_size = emac_rx_sync_size(new_mtu);
-	}	
+	}
 	local_bh_enable();
 
 	return ret;
@@ -835,8 +835,8 @@ static inline int emac_alloc_rx_skb(struct ocp_enet_private *dev, int slot,
 	dev->rx_desc[slot].data_len = 0;
 
 	skb_reserve(skb, EMAC_RX_SKB_HEADROOM + 2);
-	dev->rx_desc[slot].data_ptr = 
-	    dma_map_single(dev->ldev, skb->data - 2, dev->rx_sync_size, 
+	dev->rx_desc[slot].data_ptr =
+	    dma_map_single(dev->ldev, skb->data - 2, dev->rx_sync_size,
 			   DMA_FROM_DEVICE) + 2;
 	barrier();
 	dev->rx_desc[slot].ctrl = MAL_RX_CTRL_EMPTY |
@@ -1191,7 +1191,7 @@ static int emac_start_xmit_sg(struct sk_buff *skb, struct net_device *ndev)
 	return emac_xmit_finish(dev, skb->len);
 
       undo_frame:
-	/* Well, too bad. Our previous estimation was overly optimistic. 
+	/* Well, too bad. Our previous estimation was overly optimistic.
 	 * Undo everything.
 	 */
 	while (slot != dev->tx_slot) {
@@ -1282,8 +1282,8 @@ static inline void emac_recycle_rx_skb(struct ocp_enet_private *dev, int slot,
 	struct sk_buff *skb = dev->rx_skb[slot];
 	DBG2("%d: recycle %d %d" NL, dev->def->index, slot, len);
 
-	if (len) 
-		dma_map_single(dev->ldev, skb->data - 2, 
+	if (len)
+		dma_map_single(dev->ldev, skb->data - 2,
 			       EMAC_DMA_ALIGN(len + 2), DMA_FROM_DEVICE);
 
 	dev->rx_desc[slot].data_len = 0;
@@ -2098,7 +2098,7 @@ static int __init emac_probe(struct ocp_device *ocpdev)
 			 */
 			dev->phy.address = dev->def->index;
 		}
-		
+
 		emac_configure(dev);
 
 		for (i = 0; i < 0x20; phy_map >>= 1, ++i)
@@ -2122,7 +2122,7 @@ static int __init emac_probe(struct ocp_device *ocpdev)
 		/* Init PHY */
 		if (dev->phy.def->ops->init)
 			dev->phy.def->ops->init(&dev->phy);
-		
+
 		/* Disable any PHY features not supported by the platform */
 		dev->phy.def->features &= ~emacdata->phy_feat_exc;
 

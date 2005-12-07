@@ -172,16 +172,17 @@ init_bamboo(void)
 	 *
 	 * This has been fixed on the Rev 1.
 	 */
-	if (BAMBOO_BOOT_NAND_FLASH(setting_reg) ||
-	    BAMBOO_BOOT_SMALL_FLASH(setting_reg))
-		large_flash_base = BAMBOO_LARGE_FLASH_LOW;
+	if (BAMBOO_BOOT_NAND_FLASH(setting_reg) || BAMBOO_BOOT_SMALL_FLASH(setting_reg))
+		if (BAMBOO_LARGE_FLASH_EN(setting_reg))
+			large_flash_base = BAMBOO_LARGE_FLASH_LOW1;
+		else
+			large_flash_base = BAMBOO_LARGE_FLASH_LOW2;
 	else if (BAMBOO_LARGE_FLASH_EN(setting_reg))
 		large_flash_base = BAMBOO_LARGE_FLASH_HIGH1;
 	else
 		large_flash_base = BAMBOO_LARGE_FLASH_HIGH2;
 	bamboo_large_map.phys = large_flash_base;
-	bamboo_large_map.virt = (ulong *) ioremap64(large_flash_base,
-						    bamboo_large_map.size);
+	bamboo_large_map.virt = (ulong *) ioremap64(large_flash_base, bamboo_large_map.size);
 	if (!bamboo_large_map.virt) {
 		printk("Failed to ioremap flash\n");
 		return -EIO;
@@ -200,17 +201,18 @@ init_bamboo(void)
 		bamboo_large_map.virt = 0;
 	}
 
-	if (BAMBOO_BOOT_NAND_FLASH(setting_reg) ||
-	    BAMBOO_BOOT_SMALL_FLASH(setting_reg))
-		sram_base = BAMBOO_SRAM_LOW;
+	if (BAMBOO_BOOT_NAND_FLASH(setting_reg) || BAMBOO_BOOT_SMALL_FLASH(setting_reg))
+		if (BAMBOO_LARGE_FLASH_EN(setting_reg))
+			sram_base = BAMBOO_SRAM_LOW1;
+		else
+			sram_base = BAMBOO_SRAM_LOW2;
 	else if (BAMBOO_LARGE_FLASH_EN(setting_reg))
 		sram_base = BAMBOO_SRAM_HIGH2;
 	else
 		sram_base = BAMBOO_SRAM_HIGH1;
 
 	bamboo_sram_map.phys = sram_base;
-	bamboo_sram_map.virt = (ulong *) ioremap64(sram_base,
-						   bamboo_sram_map.size);
+	bamboo_sram_map.virt = (ulong *) ioremap64(sram_base, bamboo_sram_map.size);
 	if (!bamboo_sram_map.virt) {
 		printk("Failed to ioremap flash \n");
 		return -EIO;

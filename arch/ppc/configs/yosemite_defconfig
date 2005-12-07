@@ -1,7 +1,7 @@
 #
 # Automatically generated make config: don't edit
-# Linux kernel version: 2.6.14-rc3
-# Sun Oct  2 12:10:11 2005
+# Linux kernel version: 2.6.15-rc2
+# Tue Nov 29 01:39:25 2005
 #
 CONFIG_MMU=y
 CONFIG_GENERIC_HARDIRQS=y
@@ -66,6 +66,24 @@ CONFIG_OBSOLETE_MODPARM=y
 CONFIG_KMOD=y
 
 #
+# Block layer
+#
+# CONFIG_LBD is not set
+
+#
+# IO Schedulers
+#
+CONFIG_IOSCHED_NOOP=y
+CONFIG_IOSCHED_AS=y
+CONFIG_IOSCHED_DEADLINE=y
+CONFIG_IOSCHED_CFQ=y
+CONFIG_DEFAULT_AS=y
+# CONFIG_DEFAULT_DEADLINE is not set
+# CONFIG_DEFAULT_CFQ is not set
+# CONFIG_DEFAULT_NOOP is not set
+CONFIG_DEFAULT_IOSCHED="anticipatory"
+
+#
 # Processor
 #
 # CONFIG_6xx is not set
@@ -92,7 +110,9 @@ CONFIG_WANT_EARLY_SERIAL=y
 # CONFIG_BAMBOO is not set
 # CONFIG_EBONY is not set
 # CONFIG_LUAN is not set
+# CONFIG_YUCCA is not set
 # CONFIG_OCOTEA is not set
+# CONFIG_P3P440 is not set
 # CONFIG_YELLOWSTONE is not set
 CONFIG_YOSEMITE=y
 CONFIG_440EP=y
@@ -122,6 +142,7 @@ CONFIG_FLATMEM_MANUAL=y
 CONFIG_FLATMEM=y
 CONFIG_FLAT_NODE_MEM_MAP=y
 # CONFIG_SPARSEMEM_STATIC is not set
+CONFIG_SPLIT_PTLOCK_CPUS=4
 CONFIG_BINFMT_ELF=y
 # CONFIG_BINFMT_MISC is not set
 CONFIG_CMDLINE_BOOL=y
@@ -132,6 +153,8 @@ CONFIG_ISA_DMA_API=y
 #
 # Bus options
 #
+# CONFIG_PPC_I8259 is not set
+CONFIG_PPC_INDIRECT_PCI=y
 CONFIG_PCI=y
 CONFIG_PCI_DOMAINS=y
 # CONFIG_PCI_LEGACY_PROC is not set
@@ -198,13 +221,17 @@ CONFIG_TCP_CONG_BIC=y
 # CONFIG_IPV6 is not set
 CONFIG_NETFILTER=y
 # CONFIG_NETFILTER_DEBUG is not set
+
+#
+# Core Netfilter Configuration
+#
 # CONFIG_NETFILTER_NETLINK is not set
+# CONFIG_NF_CONNTRACK is not set
 
 #
 # IP: Netfilter Configuration
 #
 # CONFIG_IP_NF_CONNTRACK is not set
-# CONFIG_IP_NF_PPTP is not set
 # CONFIG_IP_NF_QUEUE is not set
 # CONFIG_IP_NF_IPTABLES is not set
 # CONFIG_IP_NF_ARPTABLES is not set
@@ -230,8 +257,11 @@ CONFIG_NETFILTER=y
 # CONFIG_NET_DIVERT is not set
 # CONFIG_ECONET is not set
 # CONFIG_WAN_ROUTER is not set
+
+#
+# QoS and/or fair queueing
+#
 # CONFIG_NET_SCHED is not set
-# CONFIG_NET_CLS_ROUTE is not set
 
 #
 # Network testing
@@ -277,6 +307,7 @@ CONFIG_MTD_BLOCK=y
 # CONFIG_FTL is not set
 # CONFIG_NFTL is not set
 # CONFIG_INFTL is not set
+# CONFIG_RFD_FTL is not set
 
 #
 # RAM/ROM/Flash chip drivers
@@ -335,6 +366,11 @@ CONFIG_MTD_YOSEMITE=y
 # CONFIG_MTD_NAND is not set
 
 #
+# OneNAND Flash Device Drivers
+#
+# CONFIG_MTD_ONENAND is not set
+
+#
 # Parallel port support
 #
 # CONFIG_PARPORT is not set
@@ -360,16 +396,7 @@ CONFIG_BLK_DEV_RAM=y
 CONFIG_BLK_DEV_RAM_COUNT=16
 CONFIG_BLK_DEV_RAM_SIZE=4096
 CONFIG_BLK_DEV_INITRD=y
-# CONFIG_LBD is not set
 # CONFIG_CDROM_PKTCDVD is not set
-
-#
-# IO Schedulers
-#
-CONFIG_IOSCHED_NOOP=y
-CONFIG_IOSCHED_AS=y
-CONFIG_IOSCHED_DEADLINE=y
-CONFIG_IOSCHED_CFQ=y
 # CONFIG_ATA_OVER_ETH is not set
 
 #
@@ -444,7 +471,7 @@ CONFIG_BLK_DEV_SD=y
 # CONFIG_CHR_DEV_ST is not set
 # CONFIG_CHR_DEV_OSST is not set
 # CONFIG_BLK_DEV_SR is not set
-# CONFIG_CHR_DEV_SG is not set
+CONFIG_CHR_DEV_SG=y
 # CONFIG_CHR_DEV_SCH is not set
 
 #
@@ -465,6 +492,7 @@ CONFIG_SCSI_SPI_ATTRS=y
 #
 # SCSI low-level drivers
 #
+# CONFIG_ISCSI_TCP is not set
 # CONFIG_BLK_DEV_3W_XXXX_RAID is not set
 # CONFIG_SCSI_3W_9XXX is not set
 # CONFIG_SCSI_ACARD is not set
@@ -475,6 +503,7 @@ CONFIG_SCSI_SPI_ATTRS=y
 # CONFIG_SCSI_DPT_I2O is not set
 # CONFIG_MEGARAID_NEWGEN is not set
 # CONFIG_MEGARAID_LEGACY is not set
+# CONFIG_MEGARAID_SAS is not set
 # CONFIG_SCSI_SATA is not set
 # CONFIG_SCSI_BUSLOGIC is not set
 # CONFIG_SCSI_DMX3191D is not set
@@ -531,6 +560,7 @@ CONFIG_SCSI_QLA2XXX=y
 #
 # Macintosh device drivers
 #
+# CONFIG_WINDFARM is not set
 
 #
 # Network device support
@@ -660,38 +690,12 @@ CONFIG_8139TOO=y
 #
 # Input device support
 #
-CONFIG_INPUT=y
-
-#
-# Userland interfaces
-#
-CONFIG_INPUT_MOUSEDEV=y
-CONFIG_INPUT_MOUSEDEV_PSAUX=y
-CONFIG_INPUT_MOUSEDEV_SCREEN_X=1024
-CONFIG_INPUT_MOUSEDEV_SCREEN_Y=768
-# CONFIG_INPUT_JOYDEV is not set
-# CONFIG_INPUT_TSDEV is not set
-# CONFIG_INPUT_EVDEV is not set
-# CONFIG_INPUT_EVBUG is not set
-
-#
-# Input Device Drivers
-#
-# CONFIG_INPUT_KEYBOARD is not set
-# CONFIG_INPUT_MOUSE is not set
-# CONFIG_INPUT_JOYSTICK is not set
-# CONFIG_INPUT_TOUCHSCREEN is not set
-# CONFIG_INPUT_MISC is not set
+# CONFIG_INPUT is not set
 
 #
 # Hardware I/O ports
 #
-CONFIG_SERIO=y
-# CONFIG_SERIO_I8042 is not set
-# CONFIG_SERIO_SERPORT is not set
-# CONFIG_SERIO_PCIPS2 is not set
-# CONFIG_SERIO_LIBPS2 is not set
-# CONFIG_SERIO_RAW is not set
+# CONFIG_SERIO is not set
 # CONFIG_GAMEPORT is not set
 
 #
@@ -748,6 +752,7 @@ CONFIG_LEGACY_PTY_COUNT=256
 # TPM devices
 #
 # CONFIG_TCG_TPM is not set
+# CONFIG_TELCLOCK is not set
 
 #
 # I2C support
@@ -800,12 +805,12 @@ CONFIG_HWMON=y
 CONFIG_USB_ARCH_HAS_HCD=y
 CONFIG_USB_ARCH_HAS_OHCI=y
 CONFIG_USB=y
-CONFIG_USB_DEBUG=y
+# CONFIG_USB_DEBUG is not set
 
 #
 # Miscellaneous USB options
 #
-# CONFIG_USB_DEVICEFS is not set
+CONFIG_USB_DEVICEFS=y
 # CONFIG_USB_BANDWIDTH is not set
 # CONFIG_USB_DYNAMIC_MINORS is not set
 # CONFIG_USB_OTG is not set
@@ -825,12 +830,15 @@ CONFIG_USB_OHCI_BIG_ENDIAN=y
 #
 # USB Device Class drivers
 #
-# CONFIG_USB_BLUETOOTH_TTY is not set
 # CONFIG_USB_ACM is not set
 # CONFIG_USB_PRINTER is not set
 
 #
-# NOTE: USB_STORAGE enables SCSI, and 'SCSI disk support' may also be needed; see USB_STORAGE Help for more information
+# NOTE: USB_STORAGE enables SCSI, and 'SCSI disk support'
+#
+
+#
+# may also be needed; see USB_STORAGE Help for more information
 #
 CONFIG_USB_STORAGE=y
 # CONFIG_USB_STORAGE_DEBUG is not set
@@ -916,6 +924,7 @@ CONFIG_USB_MON=y
 # CONFIG_USB_PHIDGETSERVO is not set
 # CONFIG_USB_IDMOUSE is not set
 # CONFIG_USB_LD is not set
+# CONFIG_USB_TEST is not set
 
 #
 # USB DSL modem support
@@ -999,8 +1008,15 @@ CONFIG_RAMFS=y
 # CONFIG_BFS_FS is not set
 # CONFIG_EFS_FS is not set
 # CONFIG_JFFS_FS is not set
-# CONFIG_JFFS2_FS is not set
-# CONFIG_CRAMFS is not set
+CONFIG_JFFS2_FS=y
+CONFIG_JFFS2_FS_DEBUG=0
+CONFIG_JFFS2_FS_WRITEBUFFER=y
+# CONFIG_JFFS2_SUMMARY is not set
+# CONFIG_JFFS2_COMPRESSION_OPTIONS is not set
+CONFIG_JFFS2_ZLIB=y
+CONFIG_JFFS2_RTIME=y
+# CONFIG_JFFS2_RUBIN is not set
+CONFIG_CRAMFS=y
 # CONFIG_VXFS_FS is not set
 # CONFIG_HPFS_FS is not set
 # CONFIG_QNX4FS_FS is not set
@@ -1044,7 +1060,7 @@ CONFIG_NLS_DEFAULT="iso8859-1"
 CONFIG_NLS_CODEPAGE_437=y
 # CONFIG_NLS_CODEPAGE_737 is not set
 # CONFIG_NLS_CODEPAGE_775 is not set
-# CONFIG_NLS_CODEPAGE_850 is not set
+CONFIG_NLS_CODEPAGE_850=y
 # CONFIG_NLS_CODEPAGE_852 is not set
 # CONFIG_NLS_CODEPAGE_855 is not set
 # CONFIG_NLS_CODEPAGE_857 is not set
@@ -1075,10 +1091,10 @@ CONFIG_NLS_ISO8859_1=y
 # CONFIG_NLS_ISO8859_9 is not set
 # CONFIG_NLS_ISO8859_13 is not set
 # CONFIG_NLS_ISO8859_14 is not set
-# CONFIG_NLS_ISO8859_15 is not set
+CONFIG_NLS_ISO8859_15=y
 # CONFIG_NLS_KOI8_R is not set
 # CONFIG_NLS_KOI8_U is not set
-# CONFIG_NLS_UTF8 is not set
+CONFIG_NLS_UTF8=y
 
 #
 # Library routines
@@ -1087,10 +1103,8 @@ CONFIG_NLS_ISO8859_1=y
 # CONFIG_CRC16 is not set
 CONFIG_CRC32=y
 # CONFIG_LIBCRC32C is not set
-
-#
-# Profiling support
-#
+CONFIG_ZLIB_INFLATE=y
+CONFIG_ZLIB_DEFLATE=y
 # CONFIG_PROFILING is not set
 
 #
@@ -1108,6 +1122,8 @@ CONFIG_DETECT_SOFTLOCKUP=y
 # CONFIG_DEBUG_KOBJECT is not set
 CONFIG_DEBUG_INFO=y
 # CONFIG_DEBUG_FS is not set
+# CONFIG_DEBUG_VM is not set
+# CONFIG_RCU_TORTURE_TEST is not set
 # CONFIG_KGDB is not set
 # CONFIG_XMON is not set
 CONFIG_BDI_SWITCH=y

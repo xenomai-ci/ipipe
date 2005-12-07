@@ -143,7 +143,7 @@
 #define PECFG_POM0LAH		0x384
 
 int ppc440spe_init_pcie(void);
-int ppc440spe_init_pcie_rootport(int port);
-void ppc440spe_setup_pcie(struct pci_controller *hose, int port);
+int ppc440spe_init_pcie_rootport(u32 port);
+void ppc440spe_setup_pcie(struct pci_controller *hose, u32 port);
 
 #endif /* __PPC_SYSLIB_PPC440SPE_PCIE_H */
