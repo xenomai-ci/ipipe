@@ -170,6 +170,9 @@ static int fcc_enet_set_mac_address(struct net_device *dev, void *addr);
 #elif defined(CONFIG_ADS8272)
 #define F1_RXCLK	11
 #define F1_TXCLK	10
+#elif defined(CONFIG_TQM8541) || defined(CONFIG_TQM8555) || defined(CONFIG_TQM8560)
+#define F1_RXCLK	11
+#define F1_TXCLK	12
 #else
 #define F1_RXCLK	12
 #define F1_TXCLK	11
@@ -180,6 +183,9 @@ static int fcc_enet_set_mac_address(struct net_device *dev, void *addr);
 #ifdef CONFIG_ADS8272
 #define F2_RXCLK	15
 #define F2_TXCLK	16
+#elif defined(CONFIG_TQM8541) || defined(CONFIG_TQM8555) || defined(CONFIG_TQM8560)
+#define F2_RXCLK	16
+#define F2_TXCLK	13
 #else
 #define F2_RXCLK	13
 #define F2_TXCLK	14
@@ -187,8 +193,13 @@ static int fcc_enet_set_mac_address(struct net_device *dev, void *addr);
 
 /* FCC3 Clock Source Configuration.  There are board specific.
    Can only choose from CLK13-16 */
+#if defined(CONFIG_TQM8560)
+#define F3_RXCLK	15
+#define F3_TXCLK	14
+#else
 #define F3_RXCLK	15
 #define F3_TXCLK	16
+#endif
 
 /* Automatically generates register configurations */
 #define PC_CLK(x)	((uint)(1<<(x-1)))	/* FCC CLK I/O ports */
@@ -1723,7 +1734,7 @@ return;
 	ep = (fcc_enet_t *)dev->base_addr;
 
 	if (dev->flags&IFF_PROMISC) {
-	
+
 		/* Log any net taps. */
 		printk("%s: Promiscuous mode enabled.\n", dev->name);
 		cep->fccp->fcc_fpsmr |= FCC_PSMR_PRO;
@@ -1814,7 +1825,7 @@ static int __init fec_enet_init(void)
 	volatile	cpm2_map_t		*immap;
 	volatile	iop_cpm2_t	*io;
 
-	immap = (cpm2_map_t *)CPM_MAP_ADDR;	/* and to internal registers */
+	immap = (cpm2_map_t *)cpm2_immr;	/* and to internal registers */
 	io = &immap->im_ioport;
 
 	np = sizeof(fcc_ports) / sizeof(fcc_info_t);
@@ -2080,7 +2091,10 @@ init_fcc_param(fcc_info_t *fip, struct net_device *dev,
  * The EP8260 only uses FCC3, so we can safely give it the real
  * MAC address.
  */
-#ifdef CONFIG_SBC82xx
+#if defined(CONFIG_TQM8541) || defined(CONFIG_TQM8555) || defined(CONFIG_TQM8560)
+		/* bd->bi_enet2addr holds the FCCx address */
+		*eap++ = dev->dev_addr[i] = bd->bi_enet2addr[i];
+#elif defined(CONFIG_SBC82xx)
 		if (i == 5) {
 			/* bd->bi_enetaddr holds the SCC0 address; the FCC
 			   devices count up from there */
@@ -2270,7 +2284,8 @@ init_fcc_startup(fcc_info_t *fip, struct net_device *dev)
 	*(volatile uint *)(BCSR_ADDR + 12) |=  BCSR3_FETH2_RST;
 #endif
 
-#if defined(CONFIG_USE_MDIO) || defined(CONFIG_TQM8260)
+#if defined(CONFIG_USE_MDIO) || defined(CONFIG_TQM8260) || \
+    defined(CONFIG_TQM8541) || defined(CONFIG_TQM8555) || defined(CONFIG_TQM8560)
 	/* start in full duplex mode, and negotiate speed
 	 */
 	fcc_restart (dev, 1);
@@ -2503,7 +2518,11 @@ fcc_enet_open(struct net_device *dev)
 	return -ENODEV;		/* No PHY we understand */
 #else
 	fep->link = 1;
+#if defined(CONFIG_TQM8541) || defined(CONFIG_TQM8555) || defined(CONFIG_TQM8560)
+	fcc_restart(dev, 1);	/* start in full-duplex */
+#else
 	fcc_restart(dev, 0);	/* always start in half-duplex */
+#endif
 	netif_start_queue(dev);
 	return 0;					/* Always succeed */
 #endif	/* CONFIG_USE_MDIO */

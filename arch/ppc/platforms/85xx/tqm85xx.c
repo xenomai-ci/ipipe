@@ -3,7 +3,7 @@
  *
  * TQM85xx (40/41/55/60) board specific routines
  *
- * Copyright (c) 2005 DENX Software Engineering
+ * Copyright (c) 2005-2006 DENX Software Engineering
  * Stefan Roese <sr@denx.de>
  *
  * Based on original work by
@@ -110,7 +110,7 @@ tqm85xx_setup_arch(void)
 	struct gianfar_platform_data *pdata;
 	struct gianfar_mdio_data *mdata;
 
-#ifdef CONFIG_MPC8560
+#ifdef CONFIG_CPM2
 	cpm2_reset();
 #endif
 
@@ -187,7 +187,7 @@ tqm85xx_setup_arch(void)
 #endif
 }
 
-#ifdef CONFIG_MPC8560
+#ifdef CONFIG_CPM2
 static irqreturn_t cpm2_cascade(int irq, void *dev_id, struct pt_regs *regs)
 {
 	while ((irq = cpm2_get_irq(regs)) >= 0)
@@ -201,7 +201,7 @@ static struct irqaction cpm2_irqaction = {
 	.mask = CPU_MASK_NONE,
 	.name = "cpm2_cascade",
 };
-#endif /* CONFIG_MPC8560 */
+#endif /* CONFIG_CPM2 */
 
 void __init
 tqm85xx_init_IRQ(void)
@@ -226,12 +226,12 @@ tqm85xx_init_IRQ(void)
 	 */
 	openpic_init(MPC85xx_OPENPIC_IRQ_OFFSET);
 
-#ifdef CONFIG_MPC8560
+#ifdef CONFIG_CPM2
 	/* Setup CPM2 PIC */
         cpm2_init_IRQ();
 
 	setup_irq(MPC85xx_IRQ_CPM, &cpm2_irqaction);
-#endif /* CONFIG_MPC8560 */
+#endif /* CONFIG_CPM2 */
 
 	return;
 }
