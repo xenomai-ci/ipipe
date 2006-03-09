@@ -87,11 +87,7 @@ EXPORT_SYMBOL(cpu_online_map);
 cpumask_t cpu_callin_map;
 cpumask_t cpu_callout_map;
 EXPORT_SYMBOL(cpu_callout_map);
-#ifdef CONFIG_HOTPLUG_CPU
-cpumask_t cpu_possible_map = CPU_MASK_ALL;
-#else
 cpumask_t cpu_possible_map;
-#endif
 EXPORT_SYMBOL(cpu_possible_map);
 static cpumask_t smp_commenced_mask;
 
@@ -875,8 +871,7 @@ static inline struct task_struct * alloc_idle_task(int cpu)
 		/* initialize thread_struct.  we really want to avoid destroy
 		 * idle tread
 		 */
-		idle->thread.esp = (unsigned long)(((struct pt_regs *)
-			(THREAD_SIZE + (unsigned long) idle->thread_info)) - 1);
+		idle->thread.esp = (unsigned long)task_pt_regs(idle);
 		init_idle(idle, cpu);
 		return idle;
 	}
@@ -1090,6 +1085,7 @@ static void smp_tune_scheduling (void)
 			cachesize = 16; /* Pentiums, 2x8kB cache */
 			bandwidth = 100;
 		}
+		max_cache_size = cachesize * 1024;
 	}
 }
 

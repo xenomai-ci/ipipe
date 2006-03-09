@@ -1649,7 +1649,7 @@ static void __init enable_IO_APIC(void)
 	for(apic = 0; apic < nr_ioapics; apic++) {
 		int pin;
 		/* See if any of the pins is in ExtINT mode */
-		for(pin = 0; pin < nr_ioapic_registers[i]; pin++) {
+		for (pin = 0; pin < nr_ioapic_registers[apic]; pin++) {
 			struct IO_APIC_route_entry entry;
 			spin_lock_irqsave(&ioapic_lock, flags);
 			*(((int *)&entry) + 0) = io_apic_read(apic, 0x10 + 2 * pin);
@@ -1722,8 +1722,8 @@ void disable_IO_APIC(void)
 		entry.dest_mode       = 0; /* Physical */
 		entry.delivery_mode   = dest_ExtINT; /* ExtInt */
 		entry.vector          = 0;
-		entry.dest.physical.physical_dest = 0;
-
+		entry.dest.physical.physical_dest =
+					GET_APIC_ID(apic_read(APIC_ID));
 
 		/*
 		 * Add it to the IO-APIC irq-routing table:
@@ -2566,8 +2566,10 @@ int __init io_apic_get_unique_id (int ioapic, int apic_id)
 		spin_unlock_irqrestore(&ioapic_lock, flags);
 
 		/* Sanity check */
-		if (reg_00.bits.ID != apic_id)
-			panic("IOAPIC[%d]: Unable change apic_id!\n", ioapic);
+		if (reg_00.bits.ID != apic_id) {
+			printk("IOAPIC[%d]: Unable to change apic_id!\n", ioapic);
+			return -1;
+		}
 	}
 
 	apic_printk(APIC_VERBOSE, KERN_INFO

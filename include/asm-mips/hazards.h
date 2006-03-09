@@ -100,7 +100,7 @@
 
 __asm__(
 	"	.macro	_ssnop					\n\t"
-	"	sll	$0, $2, 1				\n\t"
+	"	sll	$0, $0, 1				\n\t"
 	"	.endm						\n\t"
 	"							\n\t"
 	"	.macro	_ehb					\n\t"
@@ -233,15 +233,25 @@ __asm__(
 #endif
 
 #ifdef CONFIG_CPU_MIPSR2
+/*
+ * gcc has a tradition of misscompiling the previous construct using the
+ * address of a label as argument to inline assembler.  Gas otoh has the
+ * annoying difference between la and dla which are only usable for 32-bit
+ * rsp. 64-bit code, so can't be used without conditional compilation.
+ * The alterantive is switching the assembler to 64-bit code which happens
+ * to work right even for 32-bit code ...
+ */
 #define instruction_hazard()						\
 do {									\
-__label__ __next;							\
+	unsigned long tmp;						\
+									\
 	__asm__ __volatile__(						\
+	"	.set	mips64r2				\n"	\
+	"	dla	%0, 1f					\n"	\
 	"	jr.hb	%0					\n"	\
-	:								\
-	: "r" (&&__next));						\
-__next:									\
-	;								\
+	"	.set	mips0					\n"	\
+	"1:							\n"	\
+	: "=r" (tmp));							\
 } while (0)
 
 #else

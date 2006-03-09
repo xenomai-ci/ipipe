@@ -34,19 +34,22 @@
 /* How many pages do we try to swap or page in/out together? */
 int page_cluster;
 
+static void put_compound_page(struct page *page)
+{
+	page = (struct page *)page_private(page);
+	if (put_page_testzero(page)) {
+		void (*dtor)(struct page *page);
+
+		dtor = (void (*)(struct page *))page[1].lru.next;
+		(*dtor)(page);
+	}
+}
+
 void put_page(struct page *page)
 {
-	if (unlikely(PageCompound(page))) {
-		page = (struct page *)page_private(page);
-		if (put_page_testzero(page)) {
-			void (*dtor)(struct page *page);
-
-			dtor = (void (*)(struct page *))page[1].mapping;
-			(*dtor)(page);
-		}
-		return;
-	}
-	if (put_page_testzero(page))
+	if (unlikely(PageCompound(page)))
+		put_compound_page(page);
+	else if (put_page_testzero(page))
 		__page_cache_release(page);
 }
 EXPORT_SYMBOL(put_page);
@@ -156,17 +159,49 @@ void fastcall lru_cache_add_active(struct page *page)
 	put_cpu_var(lru_add_active_pvecs);
 }
 
-void lru_add_drain(void)
+static void __lru_add_drain(int cpu)
 {
-	struct pagevec *pvec = &get_cpu_var(lru_add_pvecs);
+	struct pagevec *pvec = &per_cpu(lru_add_pvecs, cpu);
 
+	/* CPU is dead, so no locking needed. */
 	if (pagevec_count(pvec))
 		__pagevec_lru_add(pvec);
-	pvec = &__get_cpu_var(lru_add_active_pvecs);
+	pvec = &per_cpu(lru_add_active_pvecs, cpu);
 	if (pagevec_count(pvec))
 		__pagevec_lru_add_active(pvec);
-	put_cpu_var(lru_add_pvecs);
 }
+
+void lru_add_drain(void)
+{
+	__lru_add_drain(get_cpu());
+	put_cpu();
+}
+
+#ifdef CONFIG_NUMA
+static void lru_add_drain_per_cpu(void *dummy)
+{
+	lru_add_drain();
+}
+
+/*
+ * Returns 0 for success
+ */
+int lru_add_drain_all(void)
+{
+	return schedule_on_each_cpu(lru_add_drain_per_cpu, NULL);
+}
+
+#else
+
+/*
+ * Returns 0 for success
+ */
+int lru_add_drain_all(void)
+{
+	lru_add_drain();
+	return 0;
+}
+#endif
 
 /*
  * This path almost never happens for VM activity - pages are normally
@@ -211,6 +246,15 @@ void release_pages(struct page **pages, int nr, int cold)
 	for (i = 0; i < nr; i++) {
 		struct page *page = pages[i];
 		struct zone *pagezone;
+
+		if (unlikely(PageCompound(page))) {
+			if (zone) {
+				spin_unlock_irq(&zone->lru_lock);
+				zone = NULL;
+			}
+			put_compound_page(page);
+			continue;
+		}
 
 		if (!put_page_testzero(page))
 			continue;
@@ -378,6 +422,8 @@ unsigned pagevec_lookup(struct pagevec *pvec, struct address_space *mapping,
 	return pagevec_count(pvec);
 }
 
+EXPORT_SYMBOL(pagevec_lookup);
+
 unsigned pagevec_lookup_tag(struct pagevec *pvec, struct address_space *mapping,
 		pgoff_t *index, int tag, unsigned nr_pages)
 {
@@ -412,17 +458,6 @@ void vm_acct_memory(long pages)
 }
 
 #ifdef CONFIG_HOTPLUG_CPU
-static void lru_drain_cache(unsigned int cpu)
-{
-	struct pagevec *pvec = &per_cpu(lru_add_pvecs, cpu);
-
-	/* CPU is dead, so no locking needed. */
-	if (pagevec_count(pvec))
-		__pagevec_lru_add(pvec);
-	pvec = &per_cpu(lru_add_active_pvecs, cpu);
-	if (pagevec_count(pvec))
-		__pagevec_lru_add_active(pvec);
-}
 
 /* Drop the CPU's cached committed space back into the central pool. */
 static int cpu_swap_callback(struct notifier_block *nfb,
@@ -435,7 +470,7 @@ static int cpu_swap_callback(struct notifier_block *nfb,
 	if (action == CPU_DEAD) {
 		atomic_add(*committed, &vm_committed_space);
 		*committed = 0;
-		lru_drain_cache((long)hcpu);
+		__lru_add_drain((long)hcpu);
 	}
 	return NOTIFY_OK;
 }

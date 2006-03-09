@@ -1717,11 +1717,9 @@ ioc4_change_speed(struct uart_port *the_port,
 	}
 
 	if (cflag & CRTSCTS) {
-		info->flags |= ASYNC_CTS_FLOW;
 		port->ip_sscr |= IOC4_SSCR_HFC_EN;
 	}
 	else {
-		info->flags &= ~ASYNC_CTS_FLOW;
 		port->ip_sscr &= ~IOC4_SSCR_HFC_EN;
 	}
 	writel(port->ip_sscr, &port->ip_serial_regs->sscr);
@@ -1760,18 +1758,6 @@ static inline int ic4_startup_local(struct uart_port *the_port)
 
 	info = the_port->info;
 
-	if (info->tty) {
-		set_bit(TTY_IO_ERROR, &info->tty->flags);
-		clear_bit(TTY_IO_ERROR, &info->tty->flags);
-		if ((info->flags & ASYNC_SPD_MASK) == ASYNC_SPD_HI)
-			info->tty->alt_speed = 57600;
-		if ((info->flags & ASYNC_SPD_MASK) == ASYNC_SPD_VHI)
-			info->tty->alt_speed = 115200;
-		if ((info->flags & ASYNC_SPD_MASK) == ASYNC_SPD_SHI)
-			info->tty->alt_speed = 230400;
-		if ((info->flags & ASYNC_SPD_MASK) == ASYNC_SPD_WARP)
-			info->tty->alt_speed = 460800;
-	}
 	local_open(port);
 
 	/* set the speed of the serial port */
@@ -2327,19 +2313,13 @@ static void receive_chars(struct uart_port *the_port)
 	spin_lock_irqsave(&the_port->lock, pflags);
 	tty = info->tty;
 
-	if (request_count > TTY_FLIPBUF_SIZE - tty->flip.count)
-		request_count = TTY_FLIPBUF_SIZE - tty->flip.count;
+	request_count = tty_buffer_request_room(tty, IOC4_MAX_CHARS - 2);
 
 	if (request_count > 0) {
 		icount = &the_port->icount;
 		read_count = do_read(the_port, ch, request_count);
 		if (read_count > 0) {
-			flip = 1;
-			memcpy(tty->flip.char_buf_ptr, ch, read_count);
-			memset(tty->flip.flag_buf_ptr, TTY_NORMAL, read_count);
-			tty->flip.char_buf_ptr += read_count;
-			tty->flip.flag_buf_ptr += read_count;
-			tty->flip.count += read_count;
+			tty_insert_flip_string(tty, ch, read_count);
 			icount->rx += read_count;
 		}
 	}
