@@ -38,7 +38,7 @@
 
 struct pcf8563_data {
 	struct i2c_client client;
-	struct list_head list;	
+	struct list_head list;
 	u16 ctrl;
 };
 
@@ -215,12 +215,11 @@ static int pcf8563_attach(struct i2c_adapter *adap, int addr, int kind)
 	}
 	memset(d, 0, sizeof(struct pcf8563_data));
 	INIT_LIST_HEAD(&d->list);
-		
+
 	new_client = &d->client;
 
 	strlcpy(new_client->name, "RTC8563", I2C_NAME_SIZE);
 	i2c_set_clientdata(new_client, d);
-	new_client->flags = I2C_CLIENT_ALLOW_USE | I2C_DF_NOTIFY;
 	new_client->addr = addr;
 	new_client->adapter = adap;
 	new_client->driver = &pcf8563_driver;
@@ -249,7 +248,7 @@ static int pcf8563_attach(struct i2c_adapter *adap, int addr, int kind)
 	     data[0], data[1]);
 
 	ret = i2c_attach_client(new_client);
-		
+
 	/* Add client to local list */
 	list_add(&d->list, &pcf8563_clients);
 
@@ -257,7 +256,7 @@ done:
 	if (ret) {
 		kfree(d);
 	} else {
-		myclient = new_client; 
+		myclient = new_client;
 		pcf8563_set_system_time();
 	}
 	return ret;
@@ -281,10 +280,10 @@ static int pcf8563_probe(struct i2c_adapter *adap)
 static int pcf8563_detach(struct i2c_client *client)
 {
 	struct pcf8563_data *data = i2c_get_clientdata(client);
-		
+
 	i2c_detach_client(client);
 	kfree(i2c_get_clientdata(client));
-	list_del(&data->list);	
+	list_del(&data->list);
 	return 0;
 }
 
@@ -326,7 +325,7 @@ pcf8563_set_datetime(struct i2c_client *client, struct rtc_time *dt, int datetoo
 	int ret, len = 5;
 	unsigned char buf[15];
 	unsigned char val;
-	
+
 	_DBG(1, "client=%p, dt=%p", client, dt);
 
 	if (!dt)
@@ -482,7 +481,7 @@ static unsigned long pcf8563_get_rtc_time(void)
         return (mktime (tm.tm_year,
 			tm.tm_mon,
 			tm.tm_mday,
-			tm.tm_hour, 
+			tm.tm_hour,
 			tm.tm_min,
 			tm.tm_sec
  			) );
@@ -535,10 +534,10 @@ static int pcf8563_set_rtc_time(unsigned long now)
 }
 
 static struct i2c_driver pcf8563_driver = {
-	.owner		= THIS_MODULE,
-	.name		= "PCF8563",
+	.driver = {
+		.name	= "PCF8563",
+	},
 	.id		= I2C_DRIVERID_RTC8564,
-	.flags		= I2C_DF_NOTIFY,
 	.attach_adapter = pcf8563_probe,
 	.detach_client	= pcf8563_detach,
 	.command	= pcf8563_command

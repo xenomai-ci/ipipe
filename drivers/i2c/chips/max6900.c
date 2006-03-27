@@ -3,7 +3,7 @@
  *
  * Driver for Maxim MAX6900 RTC
  *
- * Copyright (c) 2005 DENX Software Engineering
+ * Copyright (c) 2005-2006 DENX Software Engineering
  * Stefan Roese <sr@denx.de>
  *
  * Based on original work by
@@ -130,7 +130,6 @@ static int max6900_attach(struct i2c_adapter *adap, int addr, int kind)
 
 	strlcpy(new_client->name, "MAX6900", I2C_NAME_SIZE);
 	i2c_set_clientdata(new_client, d);
-	new_client->flags = I2C_CLIENT_ALLOW_USE | I2C_DF_NOTIFY;
 	new_client->addr = addr;
 	new_client->adapter = adap;
 	new_client->driver = &max6900_driver;
@@ -417,10 +416,10 @@ int max6900_set_rtc_time(unsigned long now)
 }
 
 static struct i2c_driver max6900_driver = {
-	.owner		= THIS_MODULE,
-	.name		= "MAX6900",
+	.driver = {
+		.name	= "MAX6900",
+	},
 	.id		= I2C_DRIVERID_MAX6900,
-	.flags		= I2C_DF_NOTIFY,
 	.attach_adapter = max6900_probe,
 	.detach_client	= max6900_detach,
 	.command	= max6900_command
