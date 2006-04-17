@@ -1636,7 +1636,9 @@ mii_discover_phy3(uint mii_reg, struct net_device *dev)
 	int	i;
 
 	fep = dev->priv;
+#ifdef MDIO_DEBUG
 	printk("mii_reg: %08x\n", mii_reg);
+#endif
 	fep->phy_id |= (mii_reg & 0xffff);
 
 	for(i = 0; phy_info[i]; i++)
