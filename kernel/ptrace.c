@@ -30,14 +30,13 @@
  */
 void __ptrace_link(task_t *child, task_t *new_parent)
 {
-	if (!list_empty(&child->ptrace_list))
-		BUG();
+	BUG_ON(!list_empty(&child->ptrace_list));
 	if (child->parent == new_parent)
 		return;
 	list_add(&child->ptrace_list, &child->parent->ptrace_children);
-	REMOVE_LINKS(child);
+	remove_parent(child);
 	child->parent = new_parent;
-	SET_LINKS(child);
+	add_parent(child);
 }
  
 /*
@@ -57,10 +56,6 @@ void ptrace_untrace(task_t *child)
 			signal_wake_up(child, 1);
 		}
 	}
-	if (child->signal->flags & SIGNAL_GROUP_EXIT) {
-		sigaddset(&child->pending.signal, SIGKILL);
-		signal_wake_up(child, 1);
-	}
 	spin_unlock(&child->sighand->siglock);
 }
 
@@ -77,12 +72,13 @@ void __ptrace_unlink(task_t *child)
 	child->ptrace = 0;
 	if (!list_empty(&child->ptrace_list)) {
 		list_del_init(&child->ptrace_list);
-		REMOVE_LINKS(child);
+		remove_parent(child);
 		child->parent = child->real_parent;
-		SET_LINKS(child);
+		add_parent(child);
 	}
 
-	ptrace_untrace(child);
+	if (child->state == TASK_TRACED)
+		ptrace_untrace(child);
 }
 
 /*

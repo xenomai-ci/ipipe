@@ -62,6 +62,10 @@ config XILINX_ML300
 	help
 	  This option enables support for the Xilinx ML300 evaluation board.
 
+config XILINX_ML403
+	bool "Xilinx-ML403"
+	help
+	  This option enables support for the Xilinx ML403 evaluation board.
 endchoice
 
 choice
@@ -200,11 +204,6 @@ config IBM_OCP
 	depends on ASH || BAMBOO || BUBINGA || CPCI405 || EBONY || EP405 || LUAN || YUCCA || OCOTEA || P3P440 || PPChameleonEVB || REDWOOD_5 || REDWOOD_6 || SYCAMORE || WALNUT || YELLOWSTONE || YOSEMITE
 	default y
 
-config XILINX_OCP
-	bool
-	depends on XILINX_ML300
-	default y
-
 config IBM_EMAC4
 	bool
 	depends on 440GX || 440SP || 440SPE
@@ -236,9 +235,19 @@ config 405GPR
 	depends on SYCAMORE
 	default y
 
-config VIRTEX_II_PRO
+config XILINX_VIRTEX_II_PRO
 	bool
 	depends on XILINX_ML300
+	default y
+
+config XILINX_VIRTEX_4_FX
+	bool
+	depends on XILINX_ML403
+	default y
+
+config XILINX_VIRTEX
+	bool
+	depends on XILINX_VIRTEX_II_PRO || XILINX_VIRTEX_4_FX
 	default y
 
 config STB03xxx
@@ -248,7 +257,7 @@ config STB03xxx
 
 config EMBEDDEDBOOT
 	bool
-	depends on EP405 || XILINX_ML300
+	depends on EP405 || XILINX_ML300 || XILINX_ML403
 	default y
 
 config IBM_OPENBIOS

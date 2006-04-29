@@ -504,7 +504,7 @@ static int populate_groups(struct config_group *group)
 	int ret = 0;
 	int i;
 
-	if (group && group->default_groups) {
+	if (group->default_groups) {
 		/* FYI, we're faking mkdir here
 		 * I'm not sure we need this semaphore, as we're called
 		 * from our parent's mkdir.  That holds our parent's
@@ -1027,7 +1027,7 @@ static loff_t configfs_dir_lseek(struct file * file, loff_t offset, int origin)
 	return offset;
 }
 
-struct file_operations configfs_dir_operations = {
+const struct file_operations configfs_dir_operations = {
 	.open		= configfs_dir_open,
 	.release	= configfs_dir_close,
 	.llseek		= configfs_dir_lseek,

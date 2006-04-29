@@ -1,6 +1,6 @@
 /*
  * Copyright (c) 2004 Topspin Communications.  All rights reserved.
- * Copyright (c) 2005 Cisco Systems.  All rights reserved.
+ * Copyright (c) 2005, 2006 Cisco Systems.  All rights reserved.
  * Copyright (c) 2005 Mellanox Technologies. All rights reserved.
  *
  * This software is available to you under a choice of one of two
@@ -164,9 +164,11 @@ struct mthca_ah {
  * - wait_event until ref count is zero
  *
  * It is the consumer's responsibilty to make sure that no QP
- * operations (WQE posting or state modification) are pending when the
+ * operations (WQE posting or state modification) are pending when a
  * QP is destroyed.  Also, the consumer must make sure that calls to
- * qp_modify are serialized.
+ * qp_modify are serialized.  Similarly, the consumer is responsible
+ * for ensuring that no CQ resize operations are pending when a CQ
+ * is destroyed.
  *
  * Possible optimizations (wait for profile data to see if/where we
  * have locks bouncing between CPUs):
@@ -176,25 +178,40 @@ struct mthca_ah {
  *   send queue and one for the receive queue)
  */
 
+struct mthca_cq_buf {
+	union mthca_buf		queue;
+	struct mthca_mr		mr;
+	int			is_direct;
+};
+
+struct mthca_cq_resize {
+	struct mthca_cq_buf	buf;
+	int			cqe;
+	enum {
+		CQ_RESIZE_ALLOC,
+		CQ_RESIZE_READY,
+		CQ_RESIZE_SWAPPED
+	}			state;
+};
+
 struct mthca_cq {
-	struct ib_cq           ibcq;
-	spinlock_t             lock;
-	atomic_t               refcount;
-	int                    cqn;
-	u32                    cons_index;
-	int                    is_direct;
-	int                    is_kernel;
+	struct ib_cq		ibcq;
+	spinlock_t		lock;
+	atomic_t		refcount;
+	int			cqn;
+	u32			cons_index;
+	struct mthca_cq_buf	buf;
+	struct mthca_cq_resize *resize_buf;
+	int			is_kernel;
 
 	/* Next fields are Arbel only */
-	int                    set_ci_db_index;
-	__be32                *set_ci_db;
-	int                    arm_db_index;
-	__be32                *arm_db;
-	int                    arm_sn;
+	int			set_ci_db_index;
+	__be32		       *set_ci_db;
+	int			arm_db_index;
+	__be32		       *arm_db;
+	int			arm_sn;
 
-	union mthca_buf        queue;
-	struct mthca_mr        mr;
-	wait_queue_head_t      wait;
+	wait_queue_head_t	wait;
 };
 
 struct mthca_srq {
@@ -240,6 +257,8 @@ struct mthca_qp {
 	atomic_t               refcount;
 	u32                    qpn;
 	int                    is_direct;
+	u8                     port; /* for SQP and memfree use only */
+	u8                     alt_port; /* for memfree use only */
 	u8                     transport;
 	u8                     state;
 	u8                     atomic_rd_en;
@@ -261,7 +280,6 @@ struct mthca_qp {
 
 struct mthca_sqp {
 	struct mthca_qp qp;
-	int             port;
 	int             pkey_index;
 	u32             qkey;
 	u32             send_psn;

@@ -43,9 +43,9 @@ __cacheline_aligned_in_smp DEFINE_SPINLOCK(vfsmount_lock);
 
 static int event;
 
-static struct list_head *mount_hashtable;
+static struct list_head *mount_hashtable __read_mostly;
 static int hash_mask __read_mostly, hash_bits __read_mostly;
-static kmem_cache_t *mnt_cache;
+static kmem_cache_t *mnt_cache __read_mostly;
 static struct rw_semaphore namespace_sem;
 
 /* /sys/fs */
@@ -399,6 +399,44 @@ struct seq_operations mounts_op = {
 	.show	= show_vfsmnt
 };
 
+static int show_vfsstat(struct seq_file *m, void *v)
+{
+	struct vfsmount *mnt = v;
+	int err = 0;
+
+	/* device */
+	if (mnt->mnt_devname) {
+		seq_puts(m, "device ");
+		mangle(m, mnt->mnt_devname);
+	} else
+		seq_puts(m, "no device");
+
+	/* mount point */
+	seq_puts(m, " mounted on ");
+	seq_path(m, mnt, mnt->mnt_root, " \t\n\\");
+	seq_putc(m, ' ');
+
+	/* file system type */
+	seq_puts(m, "with fstype ");
+	mangle(m, mnt->mnt_sb->s_type->name);
+
+	/* optional statistics */
+	if (mnt->mnt_sb->s_op->show_stats) {
+		seq_putc(m, ' ');
+		err = mnt->mnt_sb->s_op->show_stats(m, mnt);
+	}
+
+	seq_putc(m, '\n');
+	return err;
+}
+
+struct seq_operations mountstats_op = {
+	.start	= m_start,
+	.next	= m_next,
+	.stop	= m_stop,
+	.show	= show_vfsstat,
+};
+
 /**
  * may_umount_tree - check if a mount tree is busy
  * @mnt: root of mount tree
@@ -421,9 +459,9 @@ int may_umount_tree(struct vfsmount *mnt)
 	spin_unlock(&vfsmount_lock);
 
 	if (actual_refs > minimum_refs)
-		return -EBUSY;
+		return 0;
 
-	return 0;
+	return 1;
 }
 
 EXPORT_SYMBOL(may_umount_tree);
@@ -443,10 +481,10 @@ EXPORT_SYMBOL(may_umount_tree);
  */
 int may_umount(struct vfsmount *mnt)
 {
-	int ret = 0;
+	int ret = 1;
 	spin_lock(&vfsmount_lock);
 	if (propagate_mount_busy(mnt, 2))
-		ret = -EBUSY;
+		ret = 0;
 	spin_unlock(&vfsmount_lock);
 	return ret;
 }
@@ -861,11 +899,13 @@ static int do_change_type(struct nameidata *nd, int flag)
 /*
  * do loopback mount.
  */
-static int do_loopback(struct nameidata *nd, char *old_name, int recurse)
+static int do_loopback(struct nameidata *nd, char *old_name, unsigned long flags, int mnt_flags)
 {
 	struct nameidata old_nd;
 	struct vfsmount *mnt = NULL;
+	int recurse = flags & MS_REC;
 	int err = mount_is_safe(nd);
+
 	if (err)
 		return err;
 	if (!old_name || !*old_name)
@@ -899,6 +939,7 @@ static int do_loopback(struct nameidata *nd, char *old_name, int recurse)
 		spin_unlock(&vfsmount_lock);
 		release_mounts(&umount_list);
 	}
+	mnt->mnt_flags = mnt_flags;
 
 out:
 	up_write(&namespace_sem);
@@ -1312,7 +1353,7 @@ long do_mount(char *dev_name, char *dir_name, char *type_page,
 		retval = do_remount(&nd, flags & ~MS_REMOUNT, mnt_flags,
 				    data_page);
 	else if (flags & MS_BIND)
-		retval = do_loopback(&nd, dev_name, flags & MS_REC);
+		retval = do_loopback(&nd, dev_name, flags, mnt_flags);
 	else if (flags & (MS_SHARED | MS_PRIVATE | MS_SLAVE | MS_UNBINDABLE))
 		retval = do_change_type(&nd, flags);
 	else if (flags & MS_MOVE)

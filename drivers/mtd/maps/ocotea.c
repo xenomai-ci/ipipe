@@ -1,6 +1,4 @@
 /*
- * $Id: $
- *
  * Mapping for Ocotea user flash
  *
  * Copyright 2002-2004 MontaVista Software Inc.
