@@ -196,7 +196,6 @@ void scc2_lineif(struct uart_cpm_port *pinfo)
 	io->iop_pdirb &= ~0x00030000;
 	io->iop_psorb &= ~0x00030000;
 #endif
-#endif
 	cpm2_immr->im_cpmux.cmx_scr &= 0xff00ffff;
 	cpm2_immr->im_cpmux.cmx_scr |= 0x00090000;
 	pinfo->brg = 2;
@@ -275,8 +274,10 @@ int cpm_uart_allocbuf(struct uart_cpm_port *pinfo, unsigned int is_con)
 
 	memsz = L1_CACHE_ALIGN(pinfo->rx_nrfifos * pinfo->rx_fifosize) +
 	    L1_CACHE_ALIGN(pinfo->tx_nrfifos * pinfo->tx_fifosize);
-	if (is_con)
+	if (is_con) {
 		mem_addr = alloc_bootmem(memsz);
+		dma_addr = mem_addr;
+	}
 	else
 		mem_addr = dma_alloc_coherent(NULL, memsz, &dma_addr,
 					      GFP_KERNEL);
@@ -291,6 +292,7 @@ int cpm_uart_allocbuf(struct uart_cpm_port *pinfo, unsigned int is_con)
 	pinfo->dp_addr = dp_offset;
 	pinfo->mem_addr = mem_addr;
 	pinfo->dma_addr = dma_addr;
+	pinfo->mem_size = memsz;
 
 	pinfo->rx_buf = mem_addr;
 	pinfo->tx_buf = pinfo->rx_buf + L1_CACHE_ALIGN(pinfo->rx_nrfifos
