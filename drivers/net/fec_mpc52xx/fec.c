@@ -19,6 +19,7 @@
 #include <linux/errno.h>
 #include <linux/init.h>
 #include <linux/crc32.h>
+#include <linux/platform_device.h>
 
 #include <linux/netdevice.h>
 #include <linux/etherdevice.h>
@@ -276,13 +277,13 @@ static irqreturn_t fec_rx_interrupt(int irq, void *dev_id, struct pt_regs *regs)
 		rskb = sdma_retrieve_buffer(priv->rx_sdma, &status);
 
 		/* Test for errors in received frame */
-		if (status & 0x370000) { 
+		if (status & 0x370000) {
 			/* Drop packet and reuse the buffer */
 			sdma_submit_buffer(
 				priv->rx_sdma, rskb,
 				(void *)virt_to_phys(rskb->data),
 				FEC_RX_BUFFER_SIZE );
-			
+
 			priv->stats.rx_dropped++;
 
 			continue;
@@ -566,12 +567,12 @@ mpc52xx_fec_probe(struct device *dev)
 	/* Reserve FEC control zone */
 	mem = platform_get_resource(pdev, IORESOURCE_MEM, 0);
 	if ((mem->end - mem->start + 1) != sizeof(struct mpc52xx_fec)) {
-		printk(KERN_ERR DRIVER_NAME 
+		printk(KERN_ERR DRIVER_NAME
 			   " - invalid resource size (%lx != %x), check mpc52xx_devices.c\n",
 									mem->end - mem->start + 1, sizeof(struct mpc52xx_fec));
 		return -EINVAL;
 	}
-	
+
 	if (!request_mem_region(mem->start, sizeof(struct mpc52xx_fec),
 	                        DRIVER_NAME))
 		return -EBUSY;
@@ -582,9 +583,9 @@ mpc52xx_fec_probe(struct device *dev)
 		ret = -ENOMEM;
 		goto probe_error;
 	}
-	
+
 	priv = (struct fec_priv *)ndev->priv;
-	
+
 	/* Init ether ndev with what we have */
 	ndev->open		= fec_open;
 	ndev->stop		= fec_close;
@@ -601,13 +602,13 @@ mpc52xx_fec_probe(struct device *dev)
 	priv->rx_fifo = ndev->base_addr + FIELD_OFFSET(mpc52xx_fec,rfifo_data);
 	priv->tx_fifo = ndev->base_addr + FIELD_OFFSET(mpc52xx_fec,tfifo_data);
 	priv->t_irq = priv->r_irq = ndev->irq = -1; /* IRQ are free for now */
-	
+
 	spin_lock_init(&priv->lock);
 
 	/* ioremap the zones */
 	priv->fec = (struct mpc52xx_fec *)
 		ioremap(mem->start, sizeof(struct mpc52xx_fec));
-	
+
 	if (!priv->fec) {
 		ret = -ENOMEM;
 		goto probe_error;
@@ -616,7 +617,7 @@ mpc52xx_fec_probe(struct device *dev)
 	/* SDMA init */
 	priv->rx_sdma = sdma_alloc(FEC_RX_NUM_BD);
 	priv->tx_sdma = sdma_alloc(FEC_TX_NUM_BD);
-	
+
 	if (!priv->rx_sdma || !priv->tx_sdma) {
 		ret = -ENOMEM;
 		goto probe_error;
@@ -677,7 +678,7 @@ mpc52xx_fec_probe(struct device *dev)
 
 	/* MII init : After register ???? */
 	fec_mii_init(ndev);
-	
+
 	/* We're done ! */
 	dev_set_drvdata(dev, ndev);
 
@@ -690,16 +691,16 @@ probe_error:
 	if (ndev) {
 		if (priv->rx_sdma)	sdma_free(priv->rx_sdma);
 		if (priv->tx_sdma)	sdma_free(priv->tx_sdma);
-		
+
 		if (ndev->irq >= 0)	free_irq(ndev->irq, ndev);
 		if (priv->r_irq >= 0)	free_irq(priv->r_irq, ndev);
 		if (priv->t_irq >= 0)	free_irq(priv->t_irq, ndev);
 
 		if (priv->fec)		iounmap(priv->fec);
-	
+
 		free_netdev(ndev);
 	}
-	
+
 	release_mem_region(mem->start, sizeof(struct mpc52xx_fec));
 
 	return ret;
@@ -710,24 +711,24 @@ mpc52xx_fec_remove(struct device *dev)
 {
 	struct net_device *ndev;
 	struct fec_priv *priv;
-	
+
 	ndev = (struct net_device *) dev_get_drvdata(dev);
 	if (!ndev)
 		return 0;
 	priv = (struct fec_priv *) ndev->priv;
 
 	unregister_netdev(ndev);
-	
+
 	free_irq(ndev->irq, ndev);
 	free_irq(priv->r_irq, ndev);
 	free_irq(priv->t_irq, ndev);
 
 	iounmap(priv->fec);
-	
+
 	release_mem_region(ndev->base_addr, sizeof(struct mpc52xx_fec));
 
 	free_netdev(ndev);
-	
+
 	dev_set_drvdata(dev, NULL);
 	return 0;
 }

@@ -12,7 +12,7 @@
  *
  * HISTORY:
  *
- * 2005-08-14	Converted to platform driver by 
+ * 2005-08-14	Converted to platform driver by
  *		Andrey Volkov <avolkov@varma-el.com>, Varma Electronics Oy
  */
 
@@ -25,6 +25,7 @@
 #include <linux/spinlock.h>
 #include <linux/string.h>
 #include <linux/device.h>
+#include <linux/platform_device.h>
 
 #include <asm/bug.h>
 #include <asm/io.h>
@@ -55,14 +56,14 @@ void sdma_dump(void)
 	printk("**  IntPend = %08x\n", sdma.io->IntPend);
 	printk("**  IntMask = %08x\n", sdma.io->IntMask);
 
-	printk("**  TCR dump:");	
+	printk("**  TCR dump:");
 
 	for (i=0;i<16;i++)  {
 		if(i%8 == 0)
 			printk("\n**   %02X:",i);
 		printk(" %04X",sdma.io->tcr[i]);
 	}
-	printk("\n**  IPR dump:");	
+	printk("\n**  IPR dump:");
 	for (i=0;i<32;i++)  {
 		if(i%16 == 0)
 			printk("\n**   %02X:",i);
@@ -272,7 +273,7 @@ static int __devinit mpc52xx_sdma_probe(struct device *dev)
 	u32 *fdt;
 	struct sdma_tdt *tdt;
 	struct resource *mem_io, *mem_sram;
-	u32 tdt_pa, var_pa, context_pa, fdt_pa; 
+	u32 tdt_pa, var_pa, context_pa, fdt_pa;
 	int ret = -ENODEV;
 
 	mem_io = platform_get_resource(pdev, IORESOURCE_MEM, 0);
@@ -320,7 +321,7 @@ static int __devinit mpc52xx_sdma_probe(struct device *dev)
 
 	context = sdma_sram_alloc(SDMA_CONTEXT_SIZE * SDMA_MAX_TASKS,
 							  SDMA_CONTEXT_ALIGN, &context_pa);
-	sdma.var = sdma_sram_alloc( (SDMA_VAR_SIZE + SDMA_INC_SIZE) * SDMA_MAX_TASKS, 
+	sdma.var = sdma_sram_alloc( (SDMA_VAR_SIZE + SDMA_INC_SIZE) * SDMA_MAX_TASKS,
 								SDMA_VAR_ALIGN, &var_pa);
 	fdt = sdma_sram_alloc(SDMA_FDT_SIZE, SDMA_FDT_ALIGN, &fdt_pa);
 	memcpy(&fdt[48], fdt_ops, sizeof(fdt_ops));
@@ -404,5 +405,3 @@ EXPORT_SYMBOL(sdma_load_task);
 EXPORT_SYMBOL(sdma_set_initiator);
 EXPORT_SYMBOL(sdma_free);
 EXPORT_SYMBOL(sdma);
-
-

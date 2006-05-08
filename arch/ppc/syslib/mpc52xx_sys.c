@@ -13,6 +13,10 @@
 
 #include <asm/ppc_sys.h>
 
+#ifndef	MPC52xx_NUM_DEVICES
+#define MPC52xx_NUM_DEVICES 16
+#endif
+
 struct ppc_sys_spec *cur_ppc_sys_spec;
 struct ppc_sys_spec ppc_sys_specs[] = {
 	{
