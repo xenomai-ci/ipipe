@@ -964,6 +964,16 @@ struct cpu_spec	cpu_specs[] = {
 		.dcache_bsize		= 32,
 		.platform		= "ppc440",
 	},
+	{
+		.pvr_mask               = 0xf0000fff,
+		.pvr_value              = 0x400008d4,
+		.cpu_name               = "440EP Rev. C",
+		.cpu_features           = CPU_FTRS_44X,
+		.cpu_user_features      = COMMON_USER_BOOKE | PPC_FEATURE_HAS_FPU,
+		.icache_bsize           = 32,
+		.dcache_bsize           = 32,
+		.platform               = "ppc440",
+	},
 	{	/* 440GP Rev. B */
 		.pvr_mask		= 0xf0000fff,
 		.pvr_value		= 0x40000440,
