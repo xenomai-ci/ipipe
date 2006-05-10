@@ -13,17 +13,13 @@
 
 #include <asm/ppc_sys.h>
 
-#ifndef	MPC52xx_NUM_DEVICES
-#define MPC52xx_NUM_DEVICES 16
-#endif
-
 struct ppc_sys_spec *cur_ppc_sys_spec;
 struct ppc_sys_spec ppc_sys_specs[] = {
 	{
 		.ppc_sys_name	= "5200",
 		.mask		= 0xffff0000,
 		.value		= 0x80110000,
-		.num_devices	= MPC52xx_NUM_DEVICES,
+		.num_devices	= NUM_PPC_SYS_DEVS,
 		.device_list	= (enum ppc_sys_devices[])
 		{
 			MPC52xx_SDMA, MPC52xx_MSCAN1, MPC52xx_MSCAN2, MPC52xx_SPI,
