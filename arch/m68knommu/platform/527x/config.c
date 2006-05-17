@@ -32,6 +32,9 @@ void coldfire_pit_init(irqreturn_t (*handler)(int, void *, struct pt_regs *));
 unsigned long coldfire_pit_offset(void);
 void coldfire_trap_init(void);
 void coldfire_reset(void);
+#if defined(CONFIG_UBOOT)
+void parse_uboot_commandline(char *commandp, int size);
+#endif
 
 /***************************************************************************/
 
@@ -68,6 +71,8 @@ void config_BSP(char *commandp, int size)
 #ifdef CONFIG_BOOTPARAM
 	strncpy(commandp, CONFIG_BOOTPARAM_STRING, size);
 	commandp[size-1] = 0;
+#elif defined(CONFIG_UBOOT)
+	parse_uboot_commandline(commandp, size);
 #else
 	memset(commandp, 0, size);
 #endif

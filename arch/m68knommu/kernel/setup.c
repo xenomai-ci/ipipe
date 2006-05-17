@@ -33,6 +33,7 @@
 #include <linux/seq_file.h>
 #include <linux/root_dev.h>
 #include <linux/init.h>
+#include <linux/initrd.h>
 
 #include <asm/setup.h>
 #include <asm/irq.h>
@@ -266,6 +267,73 @@ void setup_arch(char **cmdline_p)
 	 */
 	paging_init();
 }
+
+#if defined(CONFIG_UBOOT)
+void parse_uboot_commandline(char *commandp, int size)
+{
+	extern unsigned long _init_sp;
+	unsigned long *sp;
+	unsigned long *uargv, *uenv;
+	int uargc;
+	char *cmdp;
+	int csize, tmpsize, i;
+	unsigned long uinitrd_start, uinitrd_size;
+
+	/*
+	 * U-Boot calling convention:
+	 *	theKernel (linux_argc, linux_argv, linux_env, 0);
+	 */
+
+	sp = (unsigned long *)_init_sp;
+	uargc = (int)*(++sp);
+	uargv = (unsigned long *)*(++sp);
+	uenv = (unsigned long *)*(++sp);
+	uargv++;
+
+	/*
+	 * Collect and concatenate comandline parameters 
+	 * from linux_argv list.
+	 */
+	cmdp = commandp;
+	csize = size;
+	for (i = 1; i < uargc; i++) {
+		tmpsize = strlen((const char *)*uargv);
+		if (tmpsize < (csize - 1)) {
+			strncpy(cmdp, (const char *)*uargv, csize - 1);
+			csize -= (tmpsize + 1);
+			cmdp += tmpsize;
+			*cmdp = ' ';
+			cmdp++;
+			uargv++;
+		} else {
+			break;
+		}
+	}
+	cmdp--;
+	*cmdp = '\0';
+
+	/*
+	 * Parse parameters from linux_env list.
+	 */
+	uinitrd_start = 0;
+	uinitrd_size = 0;
+	while (*uenv) {
+#ifdef CONFIG_BLK_DEV_INITRD
+		if (!strncmp((const char *)*uenv, "initrd_start=", 13))
+			uinitrd_start = simple_strtoul(((const char *)*uenv) + 13, NULL, 16);
+		if (!strncmp((const char *)*uenv, "initrd_size=", 12))
+			uinitrd_size = simple_strtoul(((const char *)*uenv) + 12, NULL, 16);
+#endif
+		uenv++;
+	}
+#ifdef CONFIG_BLK_DEV_INITRD
+	if (uinitrd_start && uinitrd_size) {
+		initrd_start = uinitrd_start;
+		initrd_end = initrd_start + uinitrd_size;
+	}
+#endif
+}
+#endif /* #if defined(CONFIG_UBOOT) */
 
 int get_cpuinfo(char * buffer)
 {
