@@ -175,14 +175,14 @@ void scc2_lineif(struct uart_cpm_port *pinfo)
 	 * be supported in a sane fashion.
 	 */
 #ifndef CONFIG_STX_GP3
-#ifdef CONFIG_MPC8560_ADS
+# ifdef CONFIG_MPC8560_ADS
 	volatile iop_cpm2_t *io = &cpm2_immr->im_ioport;
 	io->iop_ppard |= 0x00000018;
 	io->iop_psord &= ~0x00000008;	/* Rx */
 	io->iop_psord &= ~0x00000010;	/* Tx */
 	io->iop_pdird &= ~0x00000008;	/* Rx */
 	io->iop_pdird |= 0x00000010;	/* Tx */
-#elif defined(CONFIG_PM82X)
+# elif defined(CONFIG_PM82X)
 	volatile iop_cpm2_t *io = &cpm2_immr->im_ioport;
 	io->iop_pparb |= 0x00010000;	/* Rx */
 	io->iop_pdirb &= ~0x00010000;
@@ -190,14 +190,16 @@ void scc2_lineif(struct uart_cpm_port *pinfo)
 	io->iop_ppard |= 0x00000010;	/* Tx */
 	io->iop_pdird |= 0x00000010;
 	io->iop_psord &= ~0x00000010;
-#else
+# else
 	volatile iop_cpm2_t *io = &cpm2_immr->im_ioport;
 	io->iop_pparb |= 0x008b0000;
 	io->iop_pdirb |= 0x00880000;
 	io->iop_psorb |= 0x00880000;
 	io->iop_pdirb &= ~0x00030000;
 	io->iop_psorb &= ~0x00030000;
-#endif
+# endif
+#endif /* CONFIG_STX_GP3 */
+
 	cpm2_immr->im_cpmux.cmx_scr &= 0xff00ffff;
 	cpm2_immr->im_cpmux.cmx_scr |= 0x00090000;
 	pinfo->brg = 2;
@@ -278,7 +280,7 @@ int cpm_uart_allocbuf(struct uart_cpm_port *pinfo, unsigned int is_con)
 	    L1_CACHE_ALIGN(pinfo->tx_nrfifos * pinfo->tx_fifosize);
 	if (is_con) {
 		mem_addr = alloc_bootmem(memsz);
-		dma_addr = mem_addr;
+		dma_addr = (dma_addr_t *)mem_addr;
 	}
 	else
 		mem_addr = dma_alloc_coherent(NULL, memsz, &dma_addr,
