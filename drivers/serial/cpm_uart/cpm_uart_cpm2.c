@@ -175,7 +175,7 @@ void scc2_lineif(struct uart_cpm_port *pinfo)
 	 * be supported in a sane fashion.
 	 */
 #ifndef CONFIG_STX_GP3
-# ifdef CONFIG_MPC8560_ADS
+# if defined(CONFIG_MPC8560_ADS) || defined(CONFIG_TQM8560)
 	volatile iop_cpm2_t *io = &cpm2_immr->im_ioport;
 	io->iop_ppard |= 0x00000018;
 	io->iop_psord &= ~0x00000008;	/* Rx */
