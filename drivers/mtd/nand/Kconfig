@@ -96,7 +96,7 @@ config MTD_NAND_RTC_FROM4
 
 config MTD_NAND_PPCHAMELEONEVB
 	tristate "NAND Flash device on DAVE PPChameleonEVB board"
-	depends on PPCHAMELEONEVB && MTD_NAND && BROKEN
+	depends on PPChameleonEVB && MTD_NAND
 	help
 	  This enables the NAND flash driver on the DAVE PPChameleonEVB Board.
 

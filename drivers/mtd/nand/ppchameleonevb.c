@@ -69,13 +69,8 @@ static struct mtd_info *ppchameleonevb_mtd = NULL;
 static unsigned long ppchameleon_fio_pbase = CFG_NAND0_PADDR;
 static unsigned long ppchameleonevb_fio_pbase = CFG_NAND1_PADDR;
 
-#ifdef MODULE
 module_param(ppchameleon_fio_pbase, ulong, 0);
 module_param(ppchameleonevb_fio_pbase, ulong, 0);
-#else
-__setup("ppchameleon_fio_pbase=", ppchameleon_fio_pbase);
-__setup("ppchameleonevb_fio_pbase=", ppchameleonevb_fio_pbase);
-#endif
 
 #ifdef CONFIG_MTD_PARTITIONS
 /*
@@ -110,13 +105,25 @@ extern int parse_cmdline_partitions(struct mtd_info *master, struct mtd_partitio
 /*
  *	hardware specific access to control-lines
  */
+/* Select the chip by setting nCE to low */
+#define NAND_CTL_SETNCE		1
+/* Deselect the chip by setting nCE to high */
+#define NAND_CTL_CLRNCE		2
+/* Select the command latch by setting CLE to high */
+#define NAND_CTL_SETCLE		3
+/* Deselect the command latch by setting CLE to low */
+#define NAND_CTL_CLRCLE		4
+/* Select the address latch by setting ALE to high */
+#define NAND_CTL_SETALE		5
+/* Deselect the address latch by setting ALE to low */
+#define NAND_CTL_CLRALE		6
+
 static void ppchameleon_hwcontrol(struct mtd_info *mtdinfo, int cmd,
 				  unsigned int ctrl)
 {
-	struct nand_chip *chip = mtd->priv;
+	struct nand_chip *chip = mtdinfo->priv;
 
 	if (ctrl & NAND_CTRL_CHANGE) {
-#error Missing headerfiles. No way to fix this. -tglx
 		switch (cmd) {
 		case NAND_CTL_SETCLE:
 			MACRO_NAND_CTL_SETCLE((unsigned long)CFG_NAND0_PADDR);
@@ -145,10 +152,9 @@ static void ppchameleon_hwcontrol(struct mtd_info *mtdinfo, int cmd,
 static void ppchameleonevb_hwcontrol(struct mtd_info *mtdinfo, int cmd,
 				     unsigned int ctrl)
 {
-	struct nand_chip *chip = mtd->priv;
+	struct nand_chip *chip = mtdinfo->priv;
 
 	if (ctrl & NAND_CTRL_CHANGE) {
-#error Missing headerfiles. No way to fix this. -tglx
 		switch (cmd) {
 		case NAND_CTL_SETCLE:
 			MACRO_NAND_CTL_SETCLE((unsigned long)CFG_NAND1_PADDR);
