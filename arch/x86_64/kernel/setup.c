@@ -5,8 +5,6 @@
  *
  *  Nov 2001 Dave Jones <davej@suse.de>
  *  Forked from i386 setup code.
- *
- *  $Id$
  */
 
 /*
@@ -47,7 +45,6 @@
 #include <linux/dmi.h>
 #include <linux/dma-mapping.h>
 #include <linux/ctype.h>
-#include <linux/suspend.h>
 
 #include <asm/mtrr.h>
 #include <asm/uaccess.h>
@@ -66,9 +63,7 @@
 #include <asm/setup.h>
 #include <asm/mach_apic.h>
 #include <asm/numa.h>
-#include <asm/swiotlb.h>
 #include <asm/sections.h>
-#include <asm/gart-mapping.h>
 #include <asm/dmi.h>
 
 /*
@@ -76,6 +71,7 @@
  */
 
 struct cpuinfo_x86 boot_cpu_data __read_mostly;
+EXPORT_SYMBOL(boot_cpu_data);
 
 unsigned long mmu_cr4_features;
 
@@ -104,12 +100,14 @@ char dmi_alloc_data[DMI_MAX_DATA];
  * Setup options
  */
 struct screen_info screen_info;
+EXPORT_SYMBOL(screen_info);
 struct sys_desc_table_struct {
 	unsigned short length;
 	unsigned char table[0];
 };
 
 struct edid_info edid_info;
+EXPORT_SYMBOL_GPL(edid_info);
 struct e820map e820;
 
 extern int root_mountflags;
@@ -474,80 +472,6 @@ contig_initmem_init(unsigned long start_pfn, unsigned long end_pfn)
 } 
 #endif
 
-/* Use inline assembly to define this because the nops are defined 
-   as inline assembly strings in the include files and we cannot 
-   get them easily into strings. */
-asm("\t.data\nk8nops: " 
-    K8_NOP1 K8_NOP2 K8_NOP3 K8_NOP4 K8_NOP5 K8_NOP6
-    K8_NOP7 K8_NOP8); 
-    
-extern unsigned char k8nops[];
-static unsigned char *k8_nops[ASM_NOP_MAX+1] = { 
-     NULL,
-     k8nops,
-     k8nops + 1,
-     k8nops + 1 + 2,
-     k8nops + 1 + 2 + 3,
-     k8nops + 1 + 2 + 3 + 4,
-     k8nops + 1 + 2 + 3 + 4 + 5,
-     k8nops + 1 + 2 + 3 + 4 + 5 + 6,
-     k8nops + 1 + 2 + 3 + 4 + 5 + 6 + 7,
-}; 
-
-extern char __vsyscall_0;
-
-/* Replace instructions with better alternatives for this CPU type.
-
-   This runs before SMP is initialized to avoid SMP problems with
-   self modifying code. This implies that assymetric systems where
-   APs have less capabilities than the boot processor are not handled. 
-   In this case boot with "noreplacement". */ 
-void apply_alternatives(void *start, void *end) 
-{ 
-	struct alt_instr *a; 
-	int diff, i, k;
-	for (a = start; (void *)a < end; a++) { 
-		u8 *instr;
-
-		if (!boot_cpu_has(a->cpuid))
-			continue;
-
-		BUG_ON(a->replacementlen > a->instrlen); 
-		instr = a->instr;
-		/* vsyscall code is not mapped yet. resolve it manually. */
-		if (instr >= (u8 *)VSYSCALL_START && instr < (u8*)VSYSCALL_END)
-			instr = __va(instr - (u8*)VSYSCALL_START + (u8*)__pa_symbol(&__vsyscall_0));
-		__inline_memcpy(instr, a->replacement, a->replacementlen);
-		diff = a->instrlen - a->replacementlen; 
-
-		/* Pad the rest with nops */
-		for (i = a->replacementlen; diff > 0; diff -= k, i += k) {
-			k = diff;
-			if (k > ASM_NOP_MAX)
-				k = ASM_NOP_MAX;
-			__inline_memcpy(instr + i, k8_nops[k], k);
-		} 
-	}
-} 
-
-static int no_replacement __initdata = 0; 
- 
-void __init alternative_instructions(void)
-{
-	extern struct alt_instr __alt_instructions[], __alt_instructions_end[];
-	if (no_replacement) 
-		return;
-	apply_alternatives(__alt_instructions, __alt_instructions_end);
-}
-
-static int __init noreplacement_setup(char *s)
-{ 
-     no_replacement = 1; 
-     return 1;
-} 
-
-__setup("noreplacement", noreplacement_setup); 
-
 #if defined(CONFIG_EDD) || defined(CONFIG_EDD_MODULE)
 struct edd edd;
 #ifdef CONFIG_EDD_MODULE
@@ -595,100 +519,6 @@ static void discover_ebda(void)
 	if (ebda_size > 64*1024)
 		ebda_size = 64*1024;
 }
-
-#ifdef CONFIG_SOFTWARE_SUSPEND
-static void __init mark_nosave_page_range(unsigned long start, unsigned long end)
-{
-	struct page *page;
-	while (start <= end) {
-		page = pfn_to_page(start);
-		SetPageNosave(page);
-		start++;
-	}
-}
-
-static void __init e820_nosave_reserved_pages(void)
-{
-	int i;
-	unsigned long r_start = 0, r_end = 0;
-
-	/* Assume e820 map is sorted */
-	for (i = 0; i < e820.nr_map; i++) {
-		struct e820entry *ei = &e820.map[i];
-		unsigned long start, end;
-
-		start = round_down(ei->addr, PAGE_SIZE);
-		end = round_up(ei->addr + ei->size, PAGE_SIZE);
-		if (start >= end)
-			continue;
-		if (ei->type == E820_RESERVED)
-			continue;
-		r_end = start>>PAGE_SHIFT;
-		/* swsusp ignores invalid pfn, ignore these pages here */
-		if (r_end > end_pfn)
-			r_end = end_pfn;
-		if (r_end > r_start)
-			mark_nosave_page_range(r_start, r_end-1);
-		if (r_end >= end_pfn)
-			break;
-		r_start = end>>PAGE_SHIFT;
-	}
-}
-
-static void __init e820_save_acpi_pages(void)
-{
-	int i;
-
-	/* Assume e820 map is sorted */
-	for (i = 0; i < e820.nr_map; i++) {
-		struct e820entry *ei = &e820.map[i];
-		unsigned long start, end;
-
-		start = ei->addr, PAGE_SIZE;
-		end = ei->addr + ei->size;
-		if (start >= end)
-			continue;
-		if (ei->type != E820_ACPI && ei->type != E820_NVS)
-			continue;
-		/*
-		 * If the region is below end_pfn, it will be
-		 * saved/restored by swsusp follow 'RAM' type.
-		 */
-		if (start < (end_pfn << PAGE_SHIFT))
-			start = end_pfn << PAGE_SHIFT;
-		if (end > start)
-			swsusp_add_arch_pages(start, end);
-	}
-}
-
-extern char __start_rodata, __end_rodata;
-/*
- * BIOS reserved region/hole - no save/restore
- * ACPI NVS - save/restore
- * ACPI Data - this is a little tricky, the mem could be used by OS after OS
- * reads tables from the region, but anyway save/restore the memory hasn't any
- * side effect and Linux runtime module load/unload might use it.
- * kernel rodata - no save/restore (kernel rodata isn't changed)
- */
-static int __init mark_nosave_pages(void)
-{
-	unsigned long pfn_start, pfn_end;
-
-	/* BIOS reserved regions & holes */
-	e820_nosave_reserved_pages();
-
-	/* kernel rodata */
-	pfn_start = round_up(__pa_symbol(&__start_rodata), PAGE_SIZE) >> PAGE_SHIFT;
-	pfn_end = round_down(__pa_symbol(&__end_rodata), PAGE_SIZE) >> PAGE_SHIFT;
-	mark_nosave_page_range(pfn_start, pfn_end-1);
-
-	/* record ACPI Data/NVS as saveable */
-	e820_save_acpi_pages();
-
-	return 0;
-}
-core_initcall(mark_nosave_pages);
-#endif
 
 void __init setup_arch(char **cmdline_p)
 {
@@ -874,10 +704,6 @@ void __init setup_arch(char **cmdline_p)
 
 	e820_setup_gap();
 
-#ifdef CONFIG_GART_IOMMU
-	iommu_hole_init();
-#endif
-
 #ifdef CONFIG_VT
 #if defined(CONFIG_VGA_CONSOLE)
 	conswitchp = &vga_con;
@@ -962,24 +788,32 @@ static int nearby_node(int apicid)
 static void __init amd_detect_cmp(struct cpuinfo_x86 *c)
 {
 #ifdef CONFIG_SMP
-	int cpu = smp_processor_id();
 	unsigned bits;
 #ifdef CONFIG_NUMA
+	int cpu = smp_processor_id();
 	int node = 0;
 	unsigned apicid = hard_smp_processor_id();
 #endif
+	unsigned ecx = cpuid_ecx(0x80000008);
 
-	bits = 0;
-	while ((1 << bits) < c->x86_max_cores)
-		bits++;
+	c->x86_max_cores = (ecx & 0xff) + 1;
+
+	/* CPU telling us the core id bits shift? */
+	bits = (ecx >> 12) & 0xF;
+
+	/* Otherwise recompute */
+	if (bits == 0) {
+		while ((1 << bits) < c->x86_max_cores)
+			bits++;
+	}
 
 	/* Low order bits define the core id (index of core in socket) */
-	cpu_core_id[cpu] = phys_proc_id[cpu] & ((1 << bits)-1);
+	c->cpu_core_id = c->phys_proc_id & ((1 << bits)-1);
 	/* Convert the APIC ID into the socket ID */
-	phys_proc_id[cpu] = phys_pkg_id(bits);
+	c->phys_proc_id = phys_pkg_id(bits);
 
 #ifdef CONFIG_NUMA
-  	node = phys_proc_id[cpu];
+  	node = c->phys_proc_id;
  	if (apicid_to_node[apicid] != NUMA_NO_NODE)
  		node = apicid_to_node[apicid];
  	if (!node_online(node)) {
@@ -992,7 +826,7 @@ static void __init amd_detect_cmp(struct cpuinfo_x86 *c)
  		   but in the same order as the HT nodeids.
  		   If that doesn't result in a usable node fall back to the
  		   path for the previous case.  */
- 		int ht_nodeid = apicid - (phys_proc_id[0] << bits);
+ 		int ht_nodeid = apicid - (cpu_data[0].phys_proc_id << bits);
  		if (ht_nodeid >= 0 &&
  		    apicid_to_node[ht_nodeid] != NUMA_NO_NODE)
  			node = apicid_to_node[ht_nodeid];
@@ -1002,15 +836,13 @@ static void __init amd_detect_cmp(struct cpuinfo_x86 *c)
  	}
 	numa_set_node(cpu, node);
 
-  	printk(KERN_INFO "CPU %d/%x(%d) -> Node %d -> Core %d\n",
-  			cpu, apicid, c->x86_max_cores, node, cpu_core_id[cpu]);
+	printk(KERN_INFO "CPU %d/%x -> Node %d\n", cpu, apicid, node);
 #endif
 #endif
 }
 
-static int __init init_amd(struct cpuinfo_x86 *c)
+static void __init init_amd(struct cpuinfo_x86 *c)
 {
-	int r;
 	unsigned level;
 
 #ifdef CONFIG_SMP
@@ -1043,8 +875,8 @@ static int __init init_amd(struct cpuinfo_x86 *c)
 	if (c->x86 >= 6)
 		set_bit(X86_FEATURE_FXSAVE_LEAK, &c->x86_capability);
 
-	r = get_model_name(c);
-	if (!r) { 
+	level = get_model_name(c);
+	if (!level) {
 		switch (c->x86) { 
 		case 15:
 			/* Should distinguish Models here, but this is only
@@ -1059,13 +891,12 @@ static int __init init_amd(struct cpuinfo_x86 *c)
 	if (c->x86_power & (1<<8))
 		set_bit(X86_FEATURE_CONSTANT_TSC, &c->x86_capability);
 
-	if (c->extended_cpuid_level >= 0x80000008) {
-		c->x86_max_cores = (cpuid_ecx(0x80000008) & 0xff) + 1;
-
+	/* Multi core CPU? */
+	if (c->extended_cpuid_level >= 0x80000008)
 		amd_detect_cmp(c);
-	}
 
-	return r;
+	/* Fix cpuid4 emulation for more */
+	num_cache_leaves = 3;
 }
 
 static void __cpuinit detect_ht(struct cpuinfo_x86 *c)
@@ -1073,13 +904,14 @@ static void __cpuinit detect_ht(struct cpuinfo_x86 *c)
 #ifdef CONFIG_SMP
 	u32 	eax, ebx, ecx, edx;
 	int 	index_msb, core_bits;
-	int 	cpu = smp_processor_id();
 
 	cpuid(1, &eax, &ebx, &ecx, &edx);
 
 
-	if (!cpu_has(c, X86_FEATURE_HT) || cpu_has(c, X86_FEATURE_CMP_LEGACY))
+	if (!cpu_has(c, X86_FEATURE_HT))
 		return;
+ 	if (cpu_has(c, X86_FEATURE_CMP_LEGACY))
+		goto out;
 
 	smp_num_siblings = (ebx & 0xff0000) >> 16;
 
@@ -1094,10 +926,7 @@ static void __cpuinit detect_ht(struct cpuinfo_x86 *c)
 		}
 
 		index_msb = get_count_order(smp_num_siblings);
-		phys_proc_id[cpu] = phys_pkg_id(index_msb);
-
-		printk(KERN_INFO  "CPU: Physical Processor ID: %d\n",
-		       phys_proc_id[cpu]);
+		c->phys_proc_id = phys_pkg_id(index_msb);
 
 		smp_num_siblings = smp_num_siblings / c->x86_max_cores;
 
@@ -1105,13 +934,15 @@ static void __cpuinit detect_ht(struct cpuinfo_x86 *c)
 
 		core_bits = get_count_order(c->x86_max_cores);
 
-		cpu_core_id[cpu] = phys_pkg_id(index_msb) &
+		c->cpu_core_id = phys_pkg_id(index_msb) &
 					       ((1 << core_bits) - 1);
-
-		if (c->x86_max_cores > 1)
-			printk(KERN_INFO  "CPU: Processor Core ID: %d\n",
-			       cpu_core_id[cpu]);
 	}
+out:
+	if ((c->x86_max_cores * smp_num_siblings) > 1) {
+		printk(KERN_INFO  "CPU: Physical Processor ID: %d\n", c->phys_proc_id);
+		printk(KERN_INFO  "CPU: Processor Core ID: %d\n", c->cpu_core_id);
+	}
+
 #endif
 }
 
@@ -1120,15 +951,12 @@ static void __cpuinit detect_ht(struct cpuinfo_x86 *c)
  */
 static int __cpuinit intel_num_cpu_cores(struct cpuinfo_x86 *c)
 {
-	unsigned int eax;
+	unsigned int eax, t;
 
 	if (c->cpuid_level < 4)
 		return 1;
 
-	__asm__("cpuid"
-		: "=a" (eax)
-		: "0" (4), "c" (0)
-		: "bx", "dx");
+	cpuid_count(4, 0, &eax, &t, &t, &t);
 
 	if (eax & 0x1f)
 		return ((eax >> 26) + 1);
@@ -1141,16 +969,17 @@ static void srat_detect_node(void)
 #ifdef CONFIG_NUMA
 	unsigned node;
 	int cpu = smp_processor_id();
+	int apicid = hard_smp_processor_id();
 
 	/* Don't do the funky fallback heuristics the AMD version employs
 	   for now. */
-	node = apicid_to_node[hard_smp_processor_id()];
+	node = apicid_to_node[apicid];
 	if (node == NUMA_NO_NODE)
 		node = first_node(node_online_map);
 	numa_set_node(cpu, node);
 
 	if (acpi_numa > 0)
-		printk(KERN_INFO "CPU %d -> Node %d\n", cpu, node);
+		printk(KERN_INFO "CPU %d/%x -> Node %d\n", cpu, apicid, node);
 #endif
 }
 
@@ -1160,6 +989,13 @@ static void __cpuinit init_intel(struct cpuinfo_x86 *c)
 	unsigned n;
 
 	init_intel_cacheinfo(c);
+	if (c->cpuid_level > 9 ) {
+		unsigned eax = cpuid_eax(10);
+		/* Check for version and the number of counters */
+		if ((eax & 0xff) && (((eax>>8) & 0xff) > 1))
+			set_bit(X86_FEATURE_ARCH_PERFMON, &c->x86_capability);
+	}
+
 	n = c->extended_cpuid_level;
 	if (n >= 0x80000008) {
 		unsigned eax = cpuid_eax(0x80000008);
@@ -1251,7 +1087,7 @@ void __cpuinit early_identify_cpu(struct cpuinfo_x86 *c)
 	}
 
 #ifdef CONFIG_SMP
-	phys_proc_id[smp_processor_id()] = (cpuid_ebx(1) >> 24) & 0xff;
+	c->phys_proc_id = (cpuid_ebx(1) >> 24) & 0xff;
 #endif
 }
 
@@ -1378,7 +1214,7 @@ static int show_cpuinfo(struct seq_file *m, void *v)
 		NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL,
 		NULL, NULL, NULL, "syscall", NULL, NULL, NULL, NULL,
 		NULL, NULL, NULL, NULL, "nx", NULL, "mmxext", NULL,
-		NULL, "fxsr_opt", "rdtscp", NULL, NULL, "lm", "3dnowext", "3dnow",
+		NULL, "fxsr_opt", NULL, "rdtscp", NULL, "lm", "3dnowext", "3dnow",
 
 		/* Transmeta-defined */
 		"recovery", "longrun", NULL, "lrti", NULL, NULL, NULL, NULL,
@@ -1389,7 +1225,7 @@ static int show_cpuinfo(struct seq_file *m, void *v)
 		/* Other (Linux-defined) */
 		"cxmmx", NULL, "cyrix_arr", "centaur_mcr", NULL,
 		"constant_tsc", NULL, NULL,
-		NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL,
+		"up", NULL, NULL, NULL, NULL, NULL, NULL, NULL,
 		NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL,
 		NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL,
 
@@ -1459,9 +1295,9 @@ static int show_cpuinfo(struct seq_file *m, void *v)
 #ifdef CONFIG_SMP
 	if (smp_num_siblings * c->x86_max_cores > 1) {
 		int cpu = c - cpu_data;
-		seq_printf(m, "physical id\t: %d\n", phys_proc_id[cpu]);
+		seq_printf(m, "physical id\t: %d\n", c->phys_proc_id);
 		seq_printf(m, "siblings\t: %d\n", cpus_weight(cpu_core_map[cpu]));
-		seq_printf(m, "core id\t\t: %d\n", cpu_core_id[cpu]);
+		seq_printf(m, "core id\t\t: %d\n", c->cpu_core_id);
 		seq_printf(m, "cpu cores\t: %d\n", c->booted_cores);
 	}
 #endif	
@@ -1535,7 +1371,7 @@ struct seq_operations cpuinfo_op = {
 	.show =	show_cpuinfo,
 };
 
-#ifdef CONFIG_INPUT_PCSPKR
+#if defined(CONFIG_INPUT_PCSPKR) || defined(CONFIG_INPUT_PCSPKR_MODULE)
 #include <linux/platform_device.h>
 static __init int add_pcspkr(void)
 {

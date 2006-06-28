@@ -149,10 +149,9 @@ int dcache_readdir(struct file * filp, void * dirent, filldir_t filldir)
 			/* fallthrough */
 		default:
 			spin_lock(&dcache_lock);
-			if (filp->f_pos == 2) {
-				list_del(q);
-				list_add(q, &dentry->d_subdirs);
-			}
+			if (filp->f_pos == 2)
+				list_move(q, &dentry->d_subdirs);
+
 			for (p=q->next; p != &dentry->d_subdirs; p=p->next) {
 				struct dentry *next;
 				next = list_entry(p, struct dentry, d_u.d_child);
@@ -164,8 +163,7 @@ int dcache_readdir(struct file * filp, void * dirent, filldir_t filldir)
 					return 0;
 				spin_lock(&dcache_lock);
 				/* next is still alive */
-				list_del(q);
-				list_add(q, p);
+				list_move(q, p);
 				p = q;
 				filp->f_pos++;
 			}
@@ -424,13 +422,13 @@ out:
 
 static DEFINE_SPINLOCK(pin_fs_lock);
 
-int simple_pin_fs(char *name, struct vfsmount **mount, int *count)
+int simple_pin_fs(struct file_system_type *type, struct vfsmount **mount, int *count)
 {
 	struct vfsmount *mnt = NULL;
 	spin_lock(&pin_fs_lock);
 	if (unlikely(!*mount)) {
 		spin_unlock(&pin_fs_lock);
-		mnt = do_kern_mount(name, 0, name, NULL);
+		mnt = vfs_kern_mount(type, 0, type->name, NULL);
 		if (IS_ERR(mnt))
 			return PTR_ERR(mnt);
 		spin_lock(&pin_fs_lock);

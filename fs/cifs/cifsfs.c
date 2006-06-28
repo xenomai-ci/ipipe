@@ -56,8 +56,8 @@ unsigned int experimEnabled = 0;
 unsigned int linuxExtEnabled = 1;
 unsigned int lookupCacheEnabled = 1;
 unsigned int multiuser_mount = 0;
-unsigned int extended_security = 0;
-unsigned int ntlmv2_support = 0;
+unsigned int extended_security = CIFSSEC_DEF;
+/* unsigned int ntlmv2_support = 0; */
 unsigned int sign_CIFS_PDUs = 1;
 extern struct task_struct * oplockThread; /* remove sparse warning */
 struct task_struct * oplockThread = NULL;
@@ -403,12 +403,14 @@ static struct quotactl_ops cifs_quotactl_ops = {
 #endif
 
 #ifdef CONFIG_CIFS_EXPERIMENTAL
-static void cifs_umount_begin(struct super_block * sblock)
+static void cifs_umount_begin(struct vfsmount * vfsmnt, int flags)
 {
 	struct cifs_sb_info *cifs_sb;
 	struct cifsTconInfo * tcon;
 
-	cifs_sb = CIFS_SB(sblock);
+	if (!(flags & MNT_FORCE))
+		return;
+	cifs_sb = CIFS_SB(vfsmnt->mnt_sb);
 	if(cifs_sb == NULL)
 		return;
 
@@ -906,7 +908,7 @@ static int cifs_dnotify_thread(void * dummyarg)
 	struct cifsSesInfo *ses;
 
 	do {
-		if(try_to_freeze())
+		if (try_to_freeze())
 			continue;
 		set_current_state(TASK_INTERRUPTIBLE);
 		schedule_timeout(15*HZ);
