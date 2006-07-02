@@ -17,7 +17,6 @@
  * 10/23/2001	S.Eranian	updated pal_perf_mon_info bug fixes
  * 03/24/2004	Ashok Raj	updated to work with CPU Hotplug
  */
-#include <linux/config.h>
 #include <linux/types.h>
 #include <linux/errno.h>
 #include <linux/init.h>
@@ -998,7 +997,7 @@ palinfo_init(void)
 	}
 
 	/* Register for future delivery via notify registration */
-	register_cpu_notifier(&palinfo_cpu_notifier);
+	register_hotcpu_notifier(&palinfo_cpu_notifier);
 
 	return 0;
 }

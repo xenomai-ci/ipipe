@@ -8,7 +8,6 @@
  * Copyright (c) by Jaroslav Kysela <perex@suse.cz>
  */
 
-#include <linux/config.h>
 #include <linux/module.h>
 #include <linux/kernel.h>
 #include <linux/slab.h>
@@ -2037,10 +2036,10 @@ static int __init cs4231_sbus_attach(struct sbus_dev *sdev)
 	if (err)
 		return err;
 
-	sprintf(card->longname, "%s at 0x%02lx:0x%08lx, irq %d",
+	sprintf(card->longname, "%s at 0x%02lx:0x%016lx, irq %d",
 		card->shortname,
 		rp->flags & 0xffL,
-		rp->start,
+		(unsigned long long)rp->start,
 		sdev->irqs[0]);
 
 	if ((err = snd_cs4231_sbus_create(card, sdev, dev, &cp)) < 0) {

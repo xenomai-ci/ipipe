@@ -22,7 +22,6 @@
  * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307 USA
  */
 
-#include <linux/config.h>
 #include <linux/console.h>
 #include <linux/cpumask.h>
 #include <linux/init.h>
@@ -820,7 +819,6 @@ int __init hvc_init(void)
 		return -ENOMEM;
 
 	drv->owner = THIS_MODULE;
-	drv->devfs_name = "hvc/";
 	drv->driver_name = "hvc";
 	drv->name = "hvc";
 	drv->major = HVC_MAJOR;

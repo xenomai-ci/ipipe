@@ -33,7 +33,6 @@
 
 #undef REALLY_SLOW_IO		/* most systems can safely undef this */
 
-#include <linux/config.h>
 #include <linux/module.h>
 #include <linux/types.h>
 #include <linux/string.h>
@@ -47,7 +46,6 @@
 #include <linux/slab.h>
 #include <linux/delay.h>
 #include <linux/ide.h>
-#include <linux/devfs_fs_kernel.h>
 #include <linux/spinlock.h>
 #include <linux/kmod.h>
 #include <linux/pci.h>
@@ -1279,10 +1277,6 @@ static void drive_release_dev (struct device *dev)
 	ide_drive_t *drive = container_of(dev, ide_drive_t, gendev);
 
 	spin_lock_irq(&ide_lock);
-	if (drive->devfs_name[0] != '\0') {
-		devfs_remove(drive->devfs_name);
-		drive->devfs_name[0] = '\0';
-	}
 	ide_remove_drive_from_hwgroup(drive);
 	kfree(drive->id);
 	drive->id = NULL;
@@ -1316,12 +1310,6 @@ static void init_gendisk (ide_hwif_t *hwif)
 		drive->gendev.bus = &ide_bus_type;
 		drive->gendev.driver_data = drive;
 		drive->gendev.release = drive_release_dev;
-		if (drive->present) {
-			sprintf(drive->devfs_name, "ide/host%d/bus%d/target%d/lun%d",
-				(hwif->channel && hwif->mate) ?
-				hwif->mate->index : hwif->index,
-				hwif->channel, unit, drive->lun);
-		}
 	}
 	blk_register_region(MKDEV(hwif->major, 0), MAX_DRIVES << PARTN_BITS,
 			THIS_MODULE, ata_probe, ata_lock, hwif);
