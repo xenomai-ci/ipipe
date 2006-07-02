@@ -14,7 +14,6 @@
  * warranty of any kind, whether express or implied.
  */
 
-#include <linux/config.h>
 #include <linux/kernel.h>
 #include <linux/init.h>
 #include <linux/spinlock.h>
@@ -143,7 +142,7 @@ static struct physmap_flash_data roadrunner_flash_data = {
 
 static struct resource roadrunner_flash_resource = {
 	.start		= 0x90000000,
-	.end		= 0x94000000,
+	.end		= 0x93ffffff,
 	.flags		= IORESOURCE_MEM,
 };
 

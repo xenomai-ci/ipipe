@@ -6,7 +6,6 @@
 #include <linux/irq.h>
 #include <linux/interrupt.h>
 #include <linux/smp.h>
-#include <linux/config.h>
 #include <linux/kernel.h>
 #include <linux/errno.h>
 #include <linux/init.h>
@@ -369,7 +368,7 @@ init_IRQ(void)
 
 	/* Point all IRQ's to bad handlers. */
 	for (i = FIRST_IRQ, j = 0; j < NR_IRQS; i++, j++) {
-		irq_desc[j].handler = &crisv32_irq_type;
+		irq_desc[j].chip = &crisv32_irq_type;
 		set_exception_vector(i, interrupt[j]);
 	}
 

@@ -44,7 +44,6 @@
  * will be mapped to.
  */
 
-#include <linux/config.h>
 #include <linux/platform_device.h>
 #include <linux/module.h>
 #include <linux/tty.h>
@@ -693,7 +692,6 @@ static struct uart_driver mpc52xx_uart_driver = {
 	.owner		= THIS_MODULE,
 	.driver_name	= "mpc52xx_psc_uart",
 	.dev_name	= "ttyPSC",
-	.devfs_name	= "ttyPSC",
 	.major		= SERIAL_PSC_MAJOR,
 	.minor		= SERIAL_PSC_MINOR,
 	.nr		= MPC52xx_PSC_MAXNUM,

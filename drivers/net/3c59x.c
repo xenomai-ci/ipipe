@@ -236,7 +236,6 @@ static int vortex_debug = VORTEX_DEBUG;
 static int vortex_debug = 1;
 #endif
 
-#include <linux/config.h>
 #include <linux/module.h>
 #include <linux/kernel.h>
 #include <linux/string.h>
@@ -1407,8 +1406,10 @@ static int __devinit vortex_probe1(struct device *gendev,
 		}
 
 		if (print_info) {
-			printk(KERN_INFO "%s: CardBus functions mapped %8.8lx->%p\n",
-				print_name, pci_resource_start(pdev, 2),
+			printk(KERN_INFO "%s: CardBus functions mapped "
+				"%16.16llx->%p\n",
+				print_name,
+				(unsigned long long)pci_resource_start(pdev, 2),
 				vp->cb_fn_base);
 		}
 		EL3WINDOW(2);

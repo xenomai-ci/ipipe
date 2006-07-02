@@ -42,7 +42,6 @@
 #undef DEBUG_HARD
 #undef USE_CTRL_O_SYSRQ
 
-#include <linux/config.h>
 #include <linux/module.h>
 #include <linux/tty.h>
 
@@ -101,7 +100,6 @@ static DEFINE_MUTEX(pmz_irq_mutex);
 static struct uart_driver pmz_uart_reg = {
 	.owner		=	THIS_MODULE,
 	.driver_name	=	"ttyS",
-	.devfs_name	=	"tts/",
 	.dev_name	=	"ttyS",
 	.major		=	TTY_MAJOR,
 };

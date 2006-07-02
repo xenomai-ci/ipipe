@@ -16,7 +16,6 @@
  */
 
 #include <linux/init.h>
-#include <linux/config.h>
 #include "hisax.h"
 #include "hfc_pci.h"
 #include "isdnl1.h"
@@ -1688,7 +1687,7 @@ setup_hfcpci(struct IsdnCard *card)
 				printk(KERN_WARNING "HFC-PCI: No IRQ for PCI card found\n");
 				return (0);
 			}
-			cs->hw.hfcpci.pci_io = (char *) dev_hfcpci->resource[ 1].start;
+			cs->hw.hfcpci.pci_io = (char *)(unsigned long)dev_hfcpci->resource[1].start;
 			printk(KERN_INFO "HiSax: HFC-PCI card manufacturer: %s card name: %s\n", id_list[i].vendor_name, id_list[i].card_name);
 		} else {
 			printk(KERN_WARNING "HFC-PCI: No PCI card found\n");

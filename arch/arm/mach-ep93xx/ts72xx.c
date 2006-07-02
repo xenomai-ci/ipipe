@@ -10,7 +10,6 @@
  * your option) any later version.
  */
 
-#include <linux/config.h>
 #include <linux/kernel.h>
 #include <linux/init.h>
 #include <linux/mm.h>
@@ -118,7 +117,7 @@ static struct physmap_flash_data ts72xx_flash_data = {
 
 static struct resource ts72xx_flash_resource = {
 	.start		= TS72XX_NOR_PHYS_BASE,
-	.end		= TS72XX_NOR_PHYS_BASE + 0x01000000,
+	.end		= TS72XX_NOR_PHYS_BASE + 0x00ffffff,
 	.flags		= IORESOURCE_MEM,
 };
 

@@ -27,7 +27,6 @@
 #undef	DEBUG
 // #define	VERBOSE	DBG_VERBOSE
 
-#include <linux/config.h>
 #include <linux/module.h>
 #include <linux/kernel.h>
 #include <linux/ioport.h>
@@ -60,7 +59,7 @@
 #include <linux/usb_ch9.h>
 #include <linux/usb_gadget.h>
 
-#include <asm/arch/hardware/intel_udc.h>
+#include <asm/arch/udc.h>
 
 
 /*

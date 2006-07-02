@@ -12,7 +12,6 @@
  * Copyright (C) 2002 Stuart Menefy
  */
 
-#include <linux/config.h>
 #include <asm/irq.h>
 #include <asm/page.h>
 #include <asm/io.h>
@@ -187,7 +186,7 @@ void init_cayman_irq(void)
 	}
 
 	for (i=0; i<NR_EXT_IRQS; i++) {
-		irq_desc[START_EXT_IRQS + i].handler = &cayman_irq_type;
+		irq_desc[START_EXT_IRQS + i].chip = &cayman_irq_type;
 	}
 
 	/* Setup the SMSC interrupt */

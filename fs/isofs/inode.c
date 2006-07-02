@@ -11,7 +11,6 @@
  *	2004  Paul Serice - NFS Export Operations
  */
 
-#include <linux/config.h>
 #include <linux/init.h>
 #include <linux/module.h>
 
@@ -1054,7 +1053,7 @@ static sector_t _isofs_bmap(struct address_space *mapping, sector_t block)
 	return generic_block_bmap(mapping,block,isofs_get_block);
 }
 
-static struct address_space_operations isofs_aops = {
+static const struct address_space_operations isofs_aops = {
 	.readpage = isofs_readpage,
 	.sync_page = block_sync_page,
 	.bmap = _isofs_bmap

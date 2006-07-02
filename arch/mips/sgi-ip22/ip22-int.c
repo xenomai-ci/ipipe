@@ -9,7 +9,6 @@
  *                    - Interrupt handling fixes
  * Copyright (C) 2001, 2003 Ladislav Michl (ladis@linux-mips.org)
  */
-#include <linux/config.h>
 #include <linux/types.h>
 #include <linux/init.h>
 #include <linux/kernel_stat.h>
@@ -436,7 +435,7 @@ void __init arch_init_irq(void)
 		irq_desc[i].status	= IRQ_DISABLED;
 		irq_desc[i].action	= 0;
 		irq_desc[i].depth	= 1;
-		irq_desc[i].handler	= handler;
+		irq_desc[i].chip	= handler;
 	}
 
 	/* vector handler. this register the IRQ as non-sharable */

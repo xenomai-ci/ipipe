@@ -22,7 +22,6 @@
  * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
  *
  */
-#include <linux/config.h>
 #include <linux/module.h>
 #include <linux/tty.h>
 #include <linux/ioport.h>
@@ -863,7 +862,6 @@ static struct uart_driver at91_uart = {
 	.owner			= THIS_MODULE,
 	.driver_name		= "at91_serial",
 	.dev_name		= AT91_DEVICENAME,
-	.devfs_name		= AT91_DEVICENAME,
 	.major			= SERIAL_AT91_MAJOR,
 	.minor			= MINOR_START,
 	.nr			= AT91_NR_UART,

@@ -93,7 +93,6 @@
 #define DRV_VERSION	"0.9.27"
 
 
-#include <linux/config.h>
 #include <linux/module.h>
 #include <linux/kernel.h>
 #include <linux/compiler.h>
@@ -1341,9 +1340,9 @@ static int rtl8139_open (struct net_device *dev)
 	netif_start_queue (dev);
 
 	if (netif_msg_ifup(tp))
-		printk(KERN_DEBUG "%s: rtl8139_open() ioaddr %#lx IRQ %d"
-			" GP Pins %2.2x %s-duplex.\n",
-			dev->name, pci_resource_start (tp->pci_dev, 1),
+		printk(KERN_DEBUG "%s: rtl8139_open() ioaddr %#llx IRQ %d"
+			" GP Pins %2.2x %s-duplex.\n", dev->name,
+			(unsigned long long)pci_resource_start (tp->pci_dev, 1),
 			dev->irq, RTL_R8 (MediaStatus),
 			tp->mii.full_duplex ? "full" : "half");
 

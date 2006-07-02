@@ -98,7 +98,9 @@ static u64 ufs_frag_map(struct inode *inode, sector_t frag)
 	u64 temp = 0L;
 
 	UFSD(": frag = %llu  depth = %d\n", (unsigned long long)frag, depth);
-	UFSD(": uspi->s_fpbshift = %d ,uspi->s_apbmask = %x, mask=%llx\n",uspi->s_fpbshift,uspi->s_apbmask,mask);
+	UFSD(": uspi->s_fpbshift = %d ,uspi->s_apbmask = %x, mask=%llx\n",
+		uspi->s_fpbshift, uspi->s_apbmask,
+		(unsigned long long)mask);
 
 	if (depth == 0)
 		return 0;
@@ -429,7 +431,7 @@ int ufs_getfrag_block(struct inode *inode, sector_t fragment, struct buffer_head
 	
 	if (!create) {
 		phys64 = ufs_frag_map(inode, fragment);
-		UFSD("phys64 = %llu \n",phys64);
+		UFSD("phys64 = %llu\n", (unsigned long long)phys64);
 		if (phys64)
 			map_bh(bh_result, sb, phys64);
 		return 0;
@@ -574,7 +576,7 @@ static sector_t ufs_bmap(struct address_space *mapping, sector_t block)
 {
 	return generic_block_bmap(mapping,block,ufs_getfrag_block);
 }
-struct address_space_operations ufs_aops = {
+const struct address_space_operations ufs_aops = {
 	.readpage = ufs_readpage,
 	.writepage = ufs_writepage,
 	.sync_page = block_sync_page,
@@ -841,14 +843,17 @@ int ufs_sync_inode (struct inode *inode)
 
 void ufs_delete_inode (struct inode * inode)
 {
+	loff_t old_i_size;
+
 	truncate_inode_pages(&inode->i_data, 0);
 	/*UFS_I(inode)->i_dtime = CURRENT_TIME;*/
 	lock_kernel();
 	mark_inode_dirty(inode);
 	ufs_update_inode(inode, IS_SYNC(inode));
+	old_i_size = inode->i_size;
 	inode->i_size = 0;
-	if (inode->i_blocks)
-		ufs_truncate (inode);
+	if (inode->i_blocks && ufs_truncate(inode, old_i_size))
+		ufs_warning(inode->i_sb, __FUNCTION__, "ufs_truncate failed\n");
 	ufs_free_inode (inode);
 	unlock_kernel();
 }
