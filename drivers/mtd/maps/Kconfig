@@ -401,6 +401,14 @@ config MTD_TQM85xx
 	  TQ Components TQM85xx boards. If you have one of these boards
 	  and would like to use the flash chips on it, say 'Y'.
 
+config MTD_TAIHU
+	tristate "Flash device mapped on AMCC 405EP Taihu"
+	depends on MTD_CFI && PPC32 && 40x && TAIHU
+	help
+	  This enables access routines for the flash chips on the AMCC 405EP
+	  Taihu board. If you have one of these boards and would like to
+	  use the flash chips on it, say 'Y'.
+
 config MTD_UBOOT_PARTITIONS
 	bool "Use U-Boot partition setup"
 	depends on MTD_WALNUT || MTD_EBONY || MTD_OCOTEA || MTD_BAMBOO

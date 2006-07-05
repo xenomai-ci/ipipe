@@ -46,6 +46,10 @@
 #include <platforms/4xx/sycamore.h>
 #endif
 
+#if defined(CONFIG_TAIHU)
+#include <platforms/4xx/taihu.h>
+#endif
+
 #if defined(CONFIG_WALNUT)
 #include <platforms/4xx/walnut.h>
 #endif
