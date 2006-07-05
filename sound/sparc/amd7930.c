@@ -973,7 +973,7 @@ static int __init snd_amd7930_create(struct snd_card *card,
 	amd7930_idle(amd);
 
 	if (request_irq(irq, snd_amd7930_interrupt,
-			SA_INTERRUPT | SA_SHIRQ, "amd7930", amd)) {
+			IRQF_DISABLED | IRQF_SHARED, "amd7930", amd)) {
 		snd_printk("amd7930-%d: Unable to grab IRQ %d\n",
 			   dev, irq);
 		snd_amd7930_free(amd);
@@ -1033,10 +1033,10 @@ static int __init amd7930_attach_common(struct resource *rp, int irq)
 
 	strcpy(card->driver, "AMD7930");
 	strcpy(card->shortname, "Sun AMD7930");
-	sprintf(card->longname, "%s at 0x%02lx:0x%08lx, irq %d",
+	sprintf(card->longname, "%s at 0x%02lx:0x%08Lx, irq %d",
 		card->shortname,
 		rp->flags & 0xffL,
-		rp->start,
+		(unsigned long long)rp->start,
 		irq);
 
 	if ((err = snd_amd7930_create(card, rp,

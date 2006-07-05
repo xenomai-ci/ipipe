@@ -2569,7 +2569,7 @@ static int __init snd_dbri_create(struct snd_card *card,
 		return -EIO;
 	}
 
-	err = request_irq(dbri->irq, snd_dbri_interrupt, SA_SHIRQ,
+	err = request_irq(dbri->irq, snd_dbri_interrupt, IRQF_SHARED,
 			  "DBRI audio", dbri);
 	if (err) {
 		printk(KERN_ERR "DBRI: Can't get irq %d\n", dbri->irq);
@@ -2645,7 +2645,7 @@ static int __init dbri_attach(int prom_node, struct sbus_dev *sdev)
 	strcpy(card->driver, "DBRI");
 	strcpy(card->shortname, "Sun DBRI");
 	rp = &sdev->resource[0];
-	sprintf(card->longname, "%s at 0x%02lx:0x%016lx, irq %d",
+	sprintf(card->longname, "%s at 0x%02lx:0x%016Lx, irq %d",
 		card->shortname,
 		rp->flags & 0xffL, (unsigned long long)rp->start, irq.pri);
 

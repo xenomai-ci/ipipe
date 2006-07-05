@@ -261,10 +261,13 @@ handle_level_irq(unsigned int irq, struct irq_desc *desc, struct pt_regs *regs)
 	 * keep it masked and get out of here
 	 */
 	action = desc->action;
-	if (unlikely(!action || (desc->status & IRQ_DISABLED)))
+	if (unlikely(!action || (desc->status & IRQ_DISABLED))) {
+		desc->status |= IRQ_PENDING;
 		goto out;
+	}
 
 	desc->status |= IRQ_INPROGRESS;
+	desc->status &= ~IRQ_PENDING;
 	spin_unlock(&desc->lock);
 
 	action_ret = handle_IRQ_event(irq, regs, action);
@@ -462,9 +465,18 @@ __set_irq_handler(unsigned int irq,
 	if (!handle)
 		handle = handle_bad_irq;
 
-	if (is_chained && desc->chip == &no_irq_chip)
-		printk(KERN_WARNING "Trying to install "
-		       "chained interrupt type for IRQ%d\n", irq);
+	if (desc->chip == &no_irq_chip) {
+		printk(KERN_WARNING "Trying to install %sinterrupt handler "
+		       "for IRQ%d\n", is_chained ? "chained " : " ", irq);
+		/*
+		 * Some ARM implementations install a handler for really dumb
+		 * interrupt hardware without setting an irq_chip. This worked
+		 * with the ARM no_irq_chip but the check in setup_irq would
+		 * prevent us to setup the interrupt at all. Switch it to
+		 * dummy_irq_chip for easy transition.
+		 */
+		desc->chip = &dummy_irq_chip;
+	}
 
 	spin_lock_irqsave(&desc->lock, flags);
 

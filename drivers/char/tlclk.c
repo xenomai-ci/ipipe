@@ -208,7 +208,7 @@ static int tlclk_open(struct inode *inode, struct file *filp)
 	/* This device is wired through the FPGA IO space of the ATCA blade
 	 * we can't share this IRQ */
 	result = request_irq(telclk_interrupt, &tlclk_interrupt,
-			     SA_INTERRUPT, "telco_clock", tlclk_interrupt);
+			     IRQF_DISABLED, "telco_clock", tlclk_interrupt);
 	if (result == -EBUSY) {
 		printk(KERN_ERR "tlclk: Interrupt can't be reserved.\n");
 		return -EBUSY;
@@ -247,7 +247,7 @@ static ssize_t tlclk_write(struct file *filp, const char __user *buf, size_t cou
 	return 0;
 }
 
-static struct file_operations tlclk_fops = {
+static const struct file_operations tlclk_fops = {
 	.read = tlclk_read,
 	.write = tlclk_write,
 	.open = tlclk_open,

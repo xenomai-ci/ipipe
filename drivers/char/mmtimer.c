@@ -63,7 +63,7 @@ static int mmtimer_mmap(struct file *file, struct vm_area_struct *vma);
  */
 static unsigned long mmtimer_femtoperiod = 0;
 
-static struct file_operations mmtimer_fops = {
+static const struct file_operations mmtimer_fops = {
 	.owner =	THIS_MODULE,
 	.mmap =		mmtimer_mmap,
 	.ioctl =	mmtimer_ioctl,
@@ -687,7 +687,7 @@ static int __init mmtimer_init(void)
 	mmtimer_femtoperiod = ((unsigned long)1E15 + sn_rtc_cycles_per_second /
 			       2) / sn_rtc_cycles_per_second;
 
-	if (request_irq(SGI_MMTIMER_VECTOR, mmtimer_interrupt, SA_PERCPU_IRQ, MMTIMER_NAME, NULL)) {
+	if (request_irq(SGI_MMTIMER_VECTOR, mmtimer_interrupt, IRQF_PERCPU, MMTIMER_NAME, NULL)) {
 		printk(KERN_WARNING "%s: unable to allocate interrupt.",
 			MMTIMER_NAME);
 		return -1;

@@ -146,13 +146,6 @@ void *acpi_os_allocate(acpi_size size)
 		return kmalloc(size, GFP_KERNEL);
 }
 
-void acpi_os_free(void *ptr)
-{
-	kfree(ptr);
-}
-
-EXPORT_SYMBOL(acpi_os_free);
-
 acpi_status acpi_os_get_root_pointer(u32 flags, struct acpi_pointer *addr)
 {
 	if (efi_enabled) {
@@ -280,7 +273,7 @@ acpi_os_install_interrupt_handler(u32 gsi, acpi_osd_handler handler,
 
 	acpi_irq_handler = handler;
 	acpi_irq_context = context;
-	if (request_irq(irq, acpi_irq, SA_SHIRQ, "acpi", acpi_irq)) {
+	if (request_irq(irq, acpi_irq, IRQF_SHARED, "acpi", acpi_irq)) {
 		printk(KERN_ERR PREFIX "SCI (IRQ%d) allocation failed\n", irq);
 		return AE_NOT_ACQUIRED;
 	}
@@ -742,7 +735,7 @@ acpi_status acpi_os_delete_semaphore(acpi_handle handle)
 
 	ACPI_DEBUG_PRINT((ACPI_DB_MUTEX, "Deleting semaphore[%p].\n", handle));
 
-	acpi_os_free(sem);
+	kfree(sem);
 	sem = NULL;
 
 	return AE_OK;

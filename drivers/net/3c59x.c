@@ -996,7 +996,7 @@ static int vortex_resume(struct pci_dev *pdev)
 		pci_enable_device(pdev);
 		pci_set_master(pdev);
 		if (request_irq(dev->irq, vp->full_bus_master_rx ?
-				&boomerang_interrupt : &vortex_interrupt, SA_SHIRQ, dev->name, dev)) {
+				&boomerang_interrupt : &vortex_interrupt, IRQF_SHARED, dev->name, dev)) {
 			printk(KERN_WARNING "%s: Could not reserve IRQ %d\n", dev->name, dev->irq);
 			pci_disable_device(pdev);
 			return -EBUSY;
@@ -1833,7 +1833,7 @@ vortex_open(struct net_device *dev)
 
 	/* Use the now-standard shared IRQ implementation. */
 	if ((retval = request_irq(dev->irq, vp->full_bus_master_rx ?
-				&boomerang_interrupt : &vortex_interrupt, SA_SHIRQ, dev->name, dev))) {
+				&boomerang_interrupt : &vortex_interrupt, IRQF_SHARED, dev->name, dev))) {
 		printk(KERN_ERR "%s: Could not reserve IRQ %d\n", dev->name, dev->irq);
 		goto out;
 	}
@@ -1897,7 +1897,7 @@ vortex_timer(unsigned long data)
 		printk(KERN_DEBUG "dev->watchdog_timeo=%d\n", dev->watchdog_timeo);
 	}
 
-	disable_irq(dev->irq);
+	disable_irq_lockdep(dev->irq);
 	old_window = ioread16(ioaddr + EL3_CMD) >> 13;
 	EL3WINDOW(4);
 	media_status = ioread16(ioaddr + Wn4_Media);
@@ -1978,7 +1978,7 @@ leave_media_alone:
 			 dev->name, media_tbl[dev->if_port].name);
 
 	EL3WINDOW(old_window);
-	enable_irq(dev->irq);
+	enable_irq_lockdep(dev->irq);
 	mod_timer(&vp->timer, RUN_AT(next_tick));
 	if (vp->deferred)
 		iowrite16(FakeIntr, ioaddr + EL3_CMD);
