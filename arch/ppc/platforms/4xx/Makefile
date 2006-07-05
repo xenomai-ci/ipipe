@@ -14,6 +14,7 @@ obj-$(CONFIG_PPChameleonEVB)	+= ppchameleon.o
 obj-$(CONFIG_REDWOOD_5)		+= redwood5.o
 obj-$(CONFIG_REDWOOD_6)		+= redwood6.o
 obj-$(CONFIG_SYCAMORE)		+= sycamore.o
+obj-$(CONFIG_TAIHU)		+= taihu.o
 obj-$(CONFIG_WALNUT)		+= walnut.o
 obj-$(CONFIG_XILINX_ML300)	+= xilinx_ml300.o
 obj-$(CONFIG_XILINX_ML403)	+= xilinx_ml403.o

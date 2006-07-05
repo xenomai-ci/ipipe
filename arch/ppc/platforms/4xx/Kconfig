@@ -52,6 +52,12 @@ config SYCAMORE
 	help
 	  This option enables support for the IBM PPC405GPr evaluation board.
 
+config TAIHU
+	bool "Taihu"
+	select WANT_EARLY_SERIAL
+	help
+	  This option enables support for the AMCC 405EP evaluation board.
+
 config WALNUT
 	bool "Walnut"
 	help
@@ -201,7 +207,7 @@ config BOOKE
 
 config IBM_OCP
 	bool
-	depends on ASH || BAMBOO || BUBINGA || CPCI405 || EBONY || EP405 || LUAN || YUCCA || OCOTEA || P3P440 || PPChameleonEVB || REDWOOD_5 || REDWOOD_6 || SYCAMORE || WALNUT || YELLOWSTONE || YOSEMITE
+	depends on ASH || BAMBOO || BUBINGA || CPCI405 || EBONY || EP405 || LUAN || YUCCA || OCOTEA || P3P440 || PPChameleonEVB || REDWOOD_5 || REDWOOD_6 || SYCAMORE || TAIHU || WALNUT || YELLOWSTONE || YOSEMITE
 	default y
 
 config IBM_EMAC4
@@ -211,7 +217,7 @@ config IBM_EMAC4
 
 config BIOS_FIXUP
 	bool
-	depends on BUBINGA || EP405 || SYCAMORE || WALNUT || CPCI405
+	depends on BUBINGA || EP405 || SYCAMORE || TAIHU || WALNUT || CPCI405
 	default y
 
 # OAK doesn't exist but wanted to keep this around for any future 403GCX boards
@@ -222,7 +228,7 @@ config 403GCX
 
 config 405EP
 	bool
-	depends on BUBINGA || PPChameleonEVB
+	depends on BUBINGA || PPChameleonEVB || TAIHU
 	default y
 
 config 405GP
