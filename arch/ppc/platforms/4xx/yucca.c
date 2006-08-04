@@ -96,6 +96,15 @@ yucca_show_cpuinfo(struct seq_file *m)
 	return 0;
 }
 
+int
+yucca_revB(void)
+{
+	if (mfspr(SPRN_PVR) == 0x53421891)
+		return 1;
+	else
+		return 0;
+}
+
 static void __init yucca_set_emacdata(void)
 {
 	struct ocp_def *def;
@@ -333,7 +342,6 @@ yucca_setup_hoses(void)
 		}
 
 		hose = pcibios_alloc_controller();
-
 		if (!hose)
 			return;
 
@@ -341,16 +349,24 @@ yucca_setup_hoses(void)
 				is_pcix_hose(hs) ? "X" : "E",
 				is_pcie_hose(hs) ?  pcie_hose_num(hs) : 0
 				);
+
 		pci_init_resource(&hose->io_resource,
 				  YUCCA_PCIX_LOWER_IO,
 				  YUCCA_PCIX_UPPER_IO,
 				  IORESOURCE_IO,
 				  name);
 
-		hose->mem_space.start = YUCCA_PCIX_LOWER_MEM +
-			hs * YUCCA_PCIX_MEM_SIZE;
-		hose->mem_space.end   = hose->mem_space.start +
-			YUCCA_PCIX_MEM_SIZE - 1;
+		if (is_pcix_hose(hs)) {
+			hose->mem_space.start = YUCCA_PCIX_LOWER_MEM;
+			hose->mem_space.end   = hose->mem_space.start +
+				YUCCA_PCIX_MEM_SIZE - 1;
+
+		} else {
+			hose->mem_space.start = YUCCA_PCIE_LOWER_MEM +
+				pcie_hose_num(hs) * YUCCA_PCIE_MEM_SIZE;
+			hose->mem_space.end   = hose->mem_space.start +
+				YUCCA_PCIE_MEM_SIZE - 1;
+		}
 
 		pci_init_resource(&hose->mem_resources[0],
 				  hose->mem_space.start,
@@ -370,7 +386,7 @@ yucca_setup_hoses(void)
 					ioremap64(PCIX0_IO_BASE, PCIX_IO_SIZE);
 			hose->io_base_virt = (void *)isa_io_base;
 
-				ppc440spe_setup_pcix(hose);
+			ppc440spe_setup_pcix(hose);
 
 			setup_indirect_pci(hose, PCIX0_CFGA, PCIX0_CFGD);
 			hose->set_cfg_type = 1;
