@@ -1035,8 +1035,8 @@ struct cpu_spec	cpu_specs[] = {
 		.platform		= "ppc440",
 	},
 	{ /* 440SP Rev. A */
-		.pvr_mask		= 0xff000fff,
-		.pvr_value		= 0x53000891,
+		.pvr_mask		= 0xfff00fff,
+		.pvr_value		= 0x53200891,
 		.cpu_name		= "440SP Rev. A",
 		.cpu_features		= CPU_FTRS_44X,
 		.cpu_user_features	= COMMON_USER_BOOKE,
@@ -1045,9 +1045,20 @@ struct cpu_spec	cpu_specs[] = {
 		.platform		= "ppc440",
 	},
 	{ /* 440SPe Rev. A */
-		.pvr_mask		= 0xff000fff,
-		.pvr_value		= 0x53000890,
+		.pvr_mask		= 0xfff00fff,
+		.pvr_value		= 0x53400890,
 		.cpu_name		= "440SPe Rev. A",
+		.cpu_features		= CPU_FTR_SPLIT_ID_CACHE |
+			CPU_FTR_USE_TB,
+		.cpu_user_features	= COMMON_USER_BOOKE,
+		.icache_bsize		= 32,
+		.dcache_bsize		= 32,
+		.platform		= "ppc440",
+	},
+	{ /* 440SPe Rev. B */
+		.pvr_mask		= 0xfff00fff,
+		.pvr_value		= 0x53400891,
+		.cpu_name		= "440SPe Rev. B",
 		.cpu_features		= CPU_FTR_SPLIT_ID_CACHE |
 			CPU_FTR_USE_TB,
 		.cpu_user_features	= COMMON_USER_BOOKE,
