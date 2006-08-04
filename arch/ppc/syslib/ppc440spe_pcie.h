@@ -142,7 +142,7 @@
 #define PECFG_POM0LAL		0x380
 #define PECFG_POM0LAH		0x384
 
-int ppc440spe_init_pcie(void);
+int yucca_revB(void);
 int ppc440spe_init_pcie_rootport(u32 port);
 void ppc440spe_setup_pcie(struct pci_controller *hose, u32 port);
 
