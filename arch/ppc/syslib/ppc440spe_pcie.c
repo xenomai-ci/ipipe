@@ -166,7 +166,15 @@ static int check_error(void)
 
 	/* SDR0_PEGPLLLCT1 reset */
 	if (!(valPE0 = SDR_READ(PESDR0_PLLLCT1) & 0x01000000)) {
-		printk(KERN_INFO "PCIE: SDR0_PEGPLLLCT1 reset error 0x%8x\n", valPE0);
+		printk(KERN_INFO "PCIE: SDR0_PLLLCT1 already reset.\n");
+
+		/*
+		 * the PCIe core was probably already initialised
+		 * by firmware - let's re-reset RCSSET regs
+		 */
+		SDR_WRITE(PESDR0_RCSSET, 0x01010000);
+		SDR_WRITE(PESDR1_RCSSET, 0x01010000);
+		SDR_WRITE(PESDR2_RCSSET, 0x01010000);
 	}
 
 	valPE0 = SDR_READ(PESDR0_RCSSET);
