@@ -96,15 +96,6 @@ yucca_show_cpuinfo(struct seq_file *m)
 	return 0;
 }
 
-int
-yucca_revB(void)
-{
-	if (mfspr(SPRN_PVR) == 0x53421891)
-		return 1;
-	else
-		return 0;
-}
-
 static void __init yucca_set_emacdata(void)
 {
 	struct ocp_def *def;
@@ -330,8 +321,7 @@ yucca_setup_hoses(void)
 			if (!yucca_pcie_card_present(pcie_hose_num(hs)))
 				continue;
 
-			printk(KERN_INFO "PCIE%d: card present\n",
-					pcie_hose_num(hs));
+			pr_debug("PCIE%d: card present\n", pcie_hose_num(hs));
 
 			yucca_setup_pcie_fpga_rootpoint(pcie_hose_num(hs));
 			if (ppc440spe_init_pcie_rootport(pcie_hose_num(hs))) {
@@ -396,7 +386,7 @@ yucca_setup_hoses(void)
 
 		hose->last_busno = pciauto_bus_scan(hose, hose->first_busno);
 		bus_no = hose->last_busno + 1;
-		printk(KERN_INFO "%s: resources allocated\n", name);
+		pr_debug("%s: resources allocated\n", name);
 	}
 
 	ppc_md.pci_swizzle = common_swizzle;
