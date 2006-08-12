@@ -25,19 +25,13 @@ pcie_read_config(struct pci_bus *bus, unsigned int devfn, int offset,
 {
 	struct pci_controller *hose = bus->sysdata;
 
+	if (!((PCI_SLOT(devfn) == 1) && (PCI_FUNC(devfn) == 0)))
+		return PCIBIOS_DEVICE_NOT_FOUND;
 	/*
-	 * 440SPE implements only one function per port
+	 * 440SPE rev B implements only one function per port
 	 */
-	if (yucca_revB()) {
-		if (!((PCI_SLOT(devfn) == 1) && (PCI_FUNC(devfn) == 0)))
-			return PCIBIOS_DEVICE_NOT_FOUND;
-
+	if (ppc440spe_revB())
 		devfn = 0;
-	} else {
-		/* revA */
-		if (PCI_SLOT(devfn) != 1)
-			return PCIBIOS_DEVICE_NOT_FOUND;
-	}
 
 	offset += devfn << 12;
 
@@ -56,7 +50,6 @@ pcie_read_config(struct pci_bus *bus, unsigned int devfn, int offset,
 		*val = in_le32(hose->cfg_data + offset);
 		break;
 	}
-
 	return PCIBIOS_SUCCESSFUL;
 }
 
@@ -66,16 +59,13 @@ pcie_write_config(struct pci_bus *bus, unsigned int devfn, int offset,
 {
 	struct pci_controller *hose = bus->sysdata;
 
-	if (yucca_revB()) {
-		if (!((PCI_SLOT(devfn) == 1) && (PCI_FUNC(devfn) == 0)))
-			return PCIBIOS_DEVICE_NOT_FOUND;
-
+	if (!((PCI_SLOT(devfn) == 1) && (PCI_FUNC(devfn) == 0)))
+		return PCIBIOS_DEVICE_NOT_FOUND;
+	/*
+	 * 440SPE rev B implements only one function per port
+	 */
+	if (ppc440spe_revB())
 		devfn = 0;
-	} else {
-		/* revA */
-		if (PCI_SLOT(devfn) != 1)
-			return PCIBIOS_DEVICE_NOT_FOUND;
-	}
 
 	offset += devfn << 12;
 
@@ -108,6 +98,15 @@ enum {
 	LNKW_X4			= 0x4,
 	LNKW_X8			= 0x8
 };
+
+int
+ppc440spe_revB(void)
+{
+	if (mfspr(SPRN_PVR) == 0x53421891)
+		return 1;
+	else
+		return 0;
+}
 
 /*
  * Set up UTL registers
@@ -166,12 +165,11 @@ static int check_error(void)
 
 	/* SDR0_PEGPLLLCT1 reset */
 	if (!(valPE0 = SDR_READ(PESDR0_PLLLCT1) & 0x01000000)) {
-		printk(KERN_INFO "PCIE: SDR0_PLLLCT1 already reset.\n");
-
 		/*
 		 * the PCIe core was probably already initialised
 		 * by firmware - let's re-reset RCSSET regs
 		 */
+		pr_debug("PCIE: SDR0_PLLLCT1 already reset.\n");
 		SDR_WRITE(PESDR0_RCSSET, 0x01010000);
 		SDR_WRITE(PESDR1_RCSSET, 0x01010000);
 		SDR_WRITE(PESDR2_RCSSET, 0x01010000);
@@ -268,7 +266,7 @@ ppc440spe_init_pcie(void)
 		return -1;
 	}
 	
-	printk(KERN_INFO "PCIE initialization OK\n");
+	pr_debug("PCIE initialization OK\n");
 
 	return 0;
 }
@@ -304,7 +302,7 @@ int ppc440spe_init_pcie_rootport(u32 port)
 		SDR_WRITE(PESDR0_DLPSET, 1 << 24 | PTYPE_ROOT_PORT << 20 | LNKW_X8 << 12);
 
 		SDR_WRITE(PESDR0_UTLSET1, 0x21222222);
-		if (!yucca_revB())
+		if (!ppc440spe_revB())
 			SDR_WRITE(PESDR0_UTLSET2, 0x11000000);
 		SDR_WRITE(PESDR0_HSSL0SET1, 0x35000000);
 		SDR_WRITE(PESDR0_HSSL1SET1, 0x35000000);
@@ -323,7 +321,7 @@ int ppc440spe_init_pcie_rootport(u32 port)
 		SDR_WRITE(PESDR1_DLPSET, 1 << 24 | PTYPE_ROOT_PORT << 20 | LNKW_X4 << 12);
 
 		SDR_WRITE(PESDR1_UTLSET1, 0x21222222);
-		if (!yucca_revB())
+		if (!ppc440spe_revB())
 			SDR_WRITE(PESDR1_UTLSET2, 0x11000000);
 		SDR_WRITE(PESDR1_HSSL0SET1, 0x35000000);
 		SDR_WRITE(PESDR1_HSSL1SET1, 0x35000000);
@@ -338,7 +336,7 @@ int ppc440spe_init_pcie_rootport(u32 port)
 		SDR_WRITE(PESDR2_DLPSET, 1 << 24 | PTYPE_ROOT_PORT << 20 | LNKW_X4 << 12);
 
 		SDR_WRITE(PESDR2_UTLSET1, 0x21222222);
-		if (!yucca_revB())
+		if (!ppc440spe_revB())
 			SDR_WRITE(PESDR2_UTLSET2, 0x11000000);
 		SDR_WRITE(PESDR2_HSSL0SET1, 0x35000000);
 		SDR_WRITE(PESDR2_HSSL1SET1, 0x35000000);
@@ -395,7 +393,7 @@ int ppc440spe_init_pcie_rootport(u32 port)
 	 * Setup UTL registers - but only on revA!
 	 * We use default settings for revB chip.
 	 */
-	if (!yucca_revB())
+	if (!ppc440spe_revB())
 		ppc440spe_setup_utl(port);
 
 	/*
@@ -418,7 +416,7 @@ int ppc440spe_init_pcie_rootport(u32 port)
 	 */
 	switch (port) {
 	case 0:
-		if (yucca_revB()) {
+		if (ppc440spe_revB()) {
 			mtdcr(DCRN_PEGPL_CFGBAH(PCIE0), 0x0000000d);
 			mtdcr(DCRN_PEGPL_CFGBAL(PCIE0), 0x00000000);
 		} else {
@@ -430,7 +428,7 @@ int ppc440spe_init_pcie_rootport(u32 port)
 		break;
 
 	case 1:
-		if (yucca_revB()) {
+		if (ppc440spe_revB()) {
 			mtdcr(DCRN_PEGPL_CFGBAH(PCIE1), 0x0000000d);
 			mtdcr(DCRN_PEGPL_CFGBAL(PCIE1), 0x20000000);
 		} else {
@@ -442,7 +440,7 @@ int ppc440spe_init_pcie_rootport(u32 port)
 		break;
 
 	case 2:
-		if (yucca_revB()) {
+		if (ppc440spe_revB()) {
 			mtdcr(DCRN_PEGPL_CFGBAH(PCIE2), 0x0000000d);
 			mtdcr(DCRN_PEGPL_CFGBAL(PCIE2), 0x40000000);
 		} else {
@@ -502,7 +500,7 @@ void ppc440spe_setup_pcie(struct pci_controller *hose, u32 port)
 {
 	void __iomem *mbase;
 
-	if (yucca_revB()) {
+	if (ppc440spe_revB()) {
 		/*
 		 * NOTICE: revB is very strict about PLB real addressess and
 		 * sizes to be mapped for config space; it hangs the core upon
@@ -530,7 +528,7 @@ void ppc440spe_setup_pcie(struct pci_controller *hose, u32 port)
 	/*
 	 * Set bus numbers on our root port
 	 */
-	if (yucca_revB()) {
+	if (ppc440spe_revB()) {
 		out_8(mbase + PCI_PRIMARY_BUS, 0);
 		out_8(mbase + PCI_SECONDARY_BUS, 1);
 		out_8(mbase + PCI_SUBORDINATE_BUS, 1);
