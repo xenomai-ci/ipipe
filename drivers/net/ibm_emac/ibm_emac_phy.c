@@ -299,7 +299,51 @@ static struct mii_phy_def cis8201_phy_def = {
 	.ops		= &cis8201_phy_ops
 };
 
+/* Marvell 88E1111 */
+#define	MII_M88E1111_EXT_CTRL	0x14
+
+static int m88e1111_init(struct mii_phy *phy)
+{	
+	int r;
+	/*
+	 * On some boards (e.g. ALPR) the Marvell 88E1111 PHY needs
+	 * the "RGMII transmit timing control" and "RGMII receive
+	 * timing control" bits set, so that Gbit communication works
+	 * without problems.
+	 * Also set the "Transmitter disable" to 1 to enable the
+	 * transmitter.
+	 * After setting these bits a soft-reset must occur for this
+	 * change to become active.
+	*/
+
+	r = phy_read(phy, MII_M88E1111_EXT_CTRL);
+printk("Read  : %x\n", r);
+	r |= (1 << 7) | (1 << 1) | (1 << 0);
+printk("Write : %x\n", r);
+	phy_write(phy, MII_M88E1111_EXT_CTRL, r);
+	/* Do a reset ... */
+
+	return 0;
+}
+
+static struct mii_phy_ops m88e1111_phy_ops = {
+	.init		= m88e1111_init,
+	.setup_aneg	= genmii_setup_aneg,
+	.setup_forced	= genmii_setup_forced,
+	.poll_link	= genmii_poll_link,
+	.read_link	= genmii_read_link
+};
+
+static struct mii_phy_def m88e1111_phy_def = {
+	.phy_id		= 0x01410cc0,
+	.phy_id_mask	= 0x0ffffff0,
+	.name		= "M88E1111 Gigabit Ethernet",
+	.ops		= &m88e1111_phy_ops
+};
+
+
 static struct mii_phy_def *mii_phy_table[] = {
+	&m88e1111_phy_def,
 	&cis8201_phy_def,
 	&genmii_phy_def,
 	NULL

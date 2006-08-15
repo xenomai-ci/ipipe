@@ -124,9 +124,39 @@ static struct phy_driver m88e1101_driver = {
 	.driver 	= { .owner = THIS_MODULE,},
 };
 
+
+static struct phy_driver m88e1111_driver = {
+	.phy_id		= 0x01410cc0,
+	.phy_id_mask	= 0xfffffff0,
+	.name		= "Marvell 88E1111",
+	.features	= PHY_GBIT_FEATURES,
+	.flags		= PHY_HAS_INTERRUPT,
+	.config_aneg	= &marvell_config_aneg,
+	.read_status	= &genphy_read_status,
+	.ack_interrupt	= &marvell_ack_interrupt,
+	.config_intr	= &marvell_config_intr,
+	.driver 	= { .owner = THIS_MODULE,},
+};
+
+
 static int __init marvell_init(void)
 {
-	return phy_driver_register(&m88e1101_driver);
+	int	ret;
+
+	ret = phy_driver_register(&m88e1101_driver);
+return ret;
+	if (ret)
+		goto err1;
+
+	ret = phy_driver_register(&m88e1111_driver);
+	if (ret)
+		goto err2;
+	return 0;
+
+err2:
+	phy_driver_unregister(&m88e1101_driver);
+err1:
+	return ret;	
 }
 
 static void __exit marvell_exit(void)
