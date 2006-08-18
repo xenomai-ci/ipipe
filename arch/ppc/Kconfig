@@ -766,6 +766,11 @@ config EMBEDDEDBOOT
 config PPC_MPC52xx
 	bool
 
+config PPC_BESTCOMM
+	bool
+	depends on PPC_MPC52xx
+	default y
+
 config 8260
 	bool "CPM2 Support" if WILLOW
 	depends on 6xx

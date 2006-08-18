@@ -105,3 +105,4 @@ obj-$(CONFIG_PCI)		+= mpc52xx_pci.o
 endif
 
 obj-$(CONFIG_PPC_I8259)		+= i8259.o
+obj-$(CONFIG_PPC_BESTCOMM)	+= bestcomm/
