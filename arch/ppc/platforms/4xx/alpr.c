@@ -1,7 +1,9 @@
 /*
  * ALPR board specific routines
  *
- * Copyright 2006 Heiko Schocher <hs@denx.de>
+ * Copyright (c) 2006 DENX Software Engineering
+ * Heiko Schocher <hs@denx.de>
+ * Stefan Roese <sr@denx.de>
  *
  * This program is free software; you can redistribute  it and/or modify it
  * under  the terms of  the GNU General  Public License as published by the
@@ -51,19 +53,22 @@ extern bd_t __res;
 
 static struct ibm44x_clocks clocks __initdata;
 
-static void __init
-alpr_calibrate_decr(void)
+static struct pci_dev *dev = NULL;
+static int fpga_map_count = 0;
+
+#define PCI_VENDOR_ID_IBUF_FPGA	0xfffe
+#define PCI_DEVICE_ID_IBUF_FPGA	0xf05f
+
+static void __init alpr_calibrate_decr(void)
 {
 	unsigned int freq;
 
 	freq = clocks.cpu;
 
-printk("%s clock:%d\n", __FUNCTION__, freq);
 	ibm44x_calibrate_decr(freq);
 }
 
-static int
-alpr_show_cpuinfo(struct seq_file *m)
+static int alpr_show_cpuinfo(struct seq_file *m)
 {
 	seq_printf(m, "vendor\t\t: Prodrive\n");
 	seq_printf(m, "machine\t\t: PPC440GX ALPR\n");
@@ -71,22 +76,21 @@ alpr_show_cpuinfo(struct seq_file *m)
 	return 0;
 }
 
-static inline int
-alpr_map_irq(struct pci_dev *dev, unsigned char idsel, unsigned char pin)
+static inline int alpr_map_irq(struct pci_dev *dev, unsigned char idsel,
+			       unsigned char pin)
 {
 	static char pci_irq_table[][4] =
-	/*
-	 *	PCI IDSEL/INTPIN->INTLINE
-	 * 	   A   B   C   D
-	 */
-	{
-		{ 23, 23, 23, 23 },	/* IDSEL 1 - PCI Slot 0 */
-		{ 24, 24, 24, 24 },	/* IDSEL 2 - PCI Slot 1 */
-		{ 25, 25, 25, 25 },	/* IDSEL 3 - PCI Slot 2 */
-		{ 26, 26, 26, 26 },	/* IDSEL 4 - PCI Slot 3 */
-	};
+		/*
+		 *	PCI IDSEL/INTPIN->INTLINE
+		 * 	   A   B   C   D
+		 */
+		{
+			{ 25, 25, 25, 25 },	/* device 2 - J2K DSP	*/
+			{ 24, 24, 24, 24 },	/* device 3 - IBUF FPGA	*/
+			{ 23, 23, 23, 23 },	/* device 4 - USB	*/
+		};
 
-	const long min_idsel = 1, max_idsel = 4, irqs_per_slot = 4;
+	const long min_idsel = 2, max_idsel = 4, irqs_per_slot = 4;
 	return PCI_IRQ_TABLE_LOOKUP;
 }
 
@@ -134,16 +138,16 @@ static void __init alpr_set_emacdata(void)
 	}
 }
 
-#define PCIX_READW(offset) \
+#define PCIX_READW(offset)			\
 	(readw(pcix_reg_base+offset))
 
-#define PCIX_READL(offset) \
+#define PCIX_READL(offset)			\
 	(readl(pcix_reg_base+offset))
 
-#define PCIX_WRITEW(value, offset) \
+#define PCIX_WRITEW(value, offset)		\
 	(writew(value, pcix_reg_base+offset))
 
-#define PCIX_WRITEL(value, offset) \
+#define PCIX_WRITEL(value, offset)		\
 	(writel(value, pcix_reg_base+offset))
 
 /*
@@ -151,8 +155,7 @@ static void __init alpr_set_emacdata(void)
  * to a ibm_pcix.c which will contain a generic IBM PCIX bridge
  * configuration library. -Matt
  */
-static void __init
-alpr_setup_pcix(void)
+static void __init alpr_setup_pcix(void)
 {
 	void *pcix_reg_base;
 
@@ -178,11 +181,13 @@ alpr_setup_pcix(void)
 	PCIX_WRITEL(0x80000000, PCIX0_POM0PCIAL);
 	PCIX_WRITEL(0x80000001, PCIX0_POM0SA);
 
-printk("POM0LAH: %x = %x\n", PCIX0_POM0LAH, PCIX_READL(PCIX0_POM0LAH));
-printk("POM0LAL: %x = %x\n", PCIX0_POM0LAL, PCIX_READL(PCIX0_POM0LAL));
-printk("POM0PCIAH: %x = %x\n", PCIX0_POM0PCIAH, PCIX_READL(PCIX0_POM0PCIAH));
-printk("POM0PCIAL: %x = %x\n", PCIX0_POM0PCIAL, PCIX_READL(PCIX0_POM0PCIAL));
-printk("POM0SA: %x = %x\n", PCIX0_POM0SA, PCIX_READW(PCIX0_POM0SA));
+#if 0 /* test-only */
+	printk("POM0LAH: %x = %x\n", PCIX0_POM0LAH, PCIX_READL(PCIX0_POM0LAH));
+	printk("POM0LAL: %x = %x\n", PCIX0_POM0LAL, PCIX_READL(PCIX0_POM0LAL));
+	printk("POM0PCIAH: %x = %x\n", PCIX0_POM0PCIAH, PCIX_READL(PCIX0_POM0PCIAH));
+	printk("POM0PCIAL: %x = %x\n", PCIX0_POM0PCIAL, PCIX_READL(PCIX0_POM0PCIAL));
+	printk("POM0SA: %x = %x\n", PCIX0_POM0SA, PCIX_READW(PCIX0_POM0SA));
+#endif
 
 	/* Setup 2GB PCI->PLB inbound memory window at 0, enable MSIs */
 	PCIX_WRITEL(0x00000000, PCIX0_PIM0LAH);
@@ -192,15 +197,12 @@ printk("POM0SA: %x = %x\n", PCIX0_POM0SA, PCIX_READW(PCIX0_POM0SA));
 	eieio();
 }
 
-static void __init
-alpr_setup_hose(void)
+static void __init alpr_setup_hose(void)
 {
 	struct pci_controller *hose;
 
-#if 1
 	/* Configure windows on the PCI-X host bridge */
 	alpr_setup_pcix();
-#endif
 
 	hose = pcibios_alloc_controller();
 
@@ -210,30 +212,30 @@ alpr_setup_hose(void)
 	hose->first_busno = 0;
 	hose->last_busno = 0xff;
 
-	hose->pci_mem_offset = OCOTEA_PCI_MEM_OFFSET;
+	hose->pci_mem_offset = ALPR_PCI_MEM_OFFSET;
 
 	pci_init_resource(&hose->io_resource,
-			OCOTEA_PCI_LOWER_IO,
-			OCOTEA_PCI_UPPER_IO,
-			IORESOURCE_IO,
-			"PCI host bridge");
+			  ALPR_PCI_LOWER_IO,
+			  ALPR_PCI_UPPER_IO,
+			  IORESOURCE_IO,
+			  "PCI host bridge");
 
 	pci_init_resource(&hose->mem_resources[0],
-			OCOTEA_PCI_LOWER_MEM,
-			OCOTEA_PCI_UPPER_MEM,
-			IORESOURCE_MEM,
-			"PCI host bridge");
+			  ALPR_PCI_LOWER_MEM,
+			  ALPR_PCI_UPPER_MEM,
+			  IORESOURCE_MEM,
+			  "PCI host bridge");
 
-	hose->io_space.start = OCOTEA_PCI_LOWER_IO;
-	hose->io_space.end = OCOTEA_PCI_UPPER_IO;
-	hose->mem_space.start = OCOTEA_PCI_LOWER_MEM;
-	hose->mem_space.end = OCOTEA_PCI_UPPER_MEM;
-	hose->io_base_virt = ioremap64(OCOTEA_PCI_IO_BASE, OCOTEA_PCI_IO_SIZE);
+	hose->io_space.start = ALPR_PCI_LOWER_IO;
+	hose->io_space.end = ALPR_PCI_UPPER_IO;
+	hose->mem_space.start = ALPR_PCI_LOWER_MEM;
+	hose->mem_space.end = ALPR_PCI_UPPER_MEM;
+	hose->io_base_virt = ioremap64(ALPR_PCI_IO_BASE, ALPR_PCI_IO_SIZE);
 	isa_io_base = (unsigned long) hose->io_base_virt;
 
 	setup_indirect_pci(hose,
-			OCOTEA_PCI_CFGA_PLB32,
-			OCOTEA_PCI_CFGD_PLB32);
+			   ALPR_PCI_CFGA_PLB32,
+			   ALPR_PCI_CFGD_PLB32);
 	hose->set_cfg_type = 1;
 
 	hose->last_busno = pciauto_bus_scan(hose, hose->first_busno);
@@ -242,13 +244,7 @@ alpr_setup_hose(void)
 	ppc_md.pci_map_irq = alpr_map_irq;
 }
 
-
-#if 0
-TODC_ALLOC();
-#endif
-
-static void __init
-alpr_early_serial_map(void)
+static void __init alpr_early_serial_map(void)
 {
 	struct uart_port port;
 
@@ -289,8 +285,7 @@ alpr_early_serial_map(void)
 #endif
 }
 
-static void __init
-alpr_setup_arch(void)
+static void __init alpr_setup_arch(void)
 {
 	alpr_set_emacdata();
 
@@ -298,15 +293,6 @@ alpr_setup_arch(void)
 
 	ibm440gx_get_clocks(&clocks, 33333333, 0);
 	ocp_sys_info.opb_bus_freq = clocks.opb;
-
-#if 0
-	/* Setup TODC access */
-	TODC_INIT(TODC_TYPE_DS1743,
-			0,
-			0,
-			ioremap64(OCOTEA_RTC_ADDR, OCOTEA_RTC_SIZE),
-			8);
-#endif
 
 	/* init to some ~sane value until calibrate_delay() runs */
         loops_per_jiffy = 50000000/HZ;
@@ -322,7 +308,7 @@ alpr_setup_arch(void)
 #ifdef CONFIG_ROOT_NFS
 		ROOT_DEV = Root_NFS;
 #else
-		ROOT_DEV = Root_HDA1;
+	ROOT_DEV = Root_HDA1;
 #endif
 
 	alpr_early_serial_map();
@@ -341,12 +327,13 @@ static void alpr_progress(char *buf, unsigned short val)
 /*	printk("INF %s val: %d\n", buf, val);*/
 }
 
+#if 0 /* test-only */
 void alpr_pcibios_fixup_resources(struct pci_dev *dev)
 {
 	void __iomem *base;
 	u32 control;
 	u64	mem;
-static int i = 3;
+	static int i = 3;
 
 	printk("%s Aufruf device: %x %d\n", __FUNCTION__, dev->device, i);
 	if ((dev->device == 0x1561) && ( i == 3)) {
@@ -356,15 +343,16 @@ static int i = 3;
 		base = ioremap_nocache(pci_resource_start(dev, i), pci_resource_len(dev, i));
 		if (base == NULL) return;
 
-printk("%s base:%p\n", __FUNCTION__, base);
+		printk("%s base:%p\n", __FUNCTION__, base);
 		control = readl(base);
-printk("%s control: %x\n", __FUNCTION__, control);
+		printk("%s control: %x\n", __FUNCTION__, control);
 		iounmap(base);
 	}
 }
+#endif
 
 void __init platform_init(unsigned long r3, unsigned long r4,
-		unsigned long r5, unsigned long r6, unsigned long r7)
+			  unsigned long r5, unsigned long r6, unsigned long r7)
 {
 	ibm440gx_platform_init(r3, r4, r5, r6, r7);
 
@@ -374,17 +362,102 @@ void __init platform_init(unsigned long r3, unsigned long r4,
 	ppc_md.get_irq = NULL;		/* Set in ppc4xx_pic_init() */
 
 	ppc_md.calibrate_decr = alpr_calibrate_decr;
-#if 0
-	ppc_md.time_init = todc_time_init;
-	ppc_md.set_rtc_time = todc_set_rtc_time;
-	ppc_md.get_rtc_time = todc_get_rtc_time;
-
-	ppc_md.nvram_read_val = todc_direct_read_val;
-	ppc_md.nvram_write_val = todc_direct_write_val;
-#endif
 #ifdef CONFIG_KGDB
 	ppc_md.early_serial_map = alpr_early_serial_map;
 #endif
 	ppc_md.init = alpr_init;
-	ppc_md.pcibios_fixup_resources = alpr_pcibios_fixup_resources;
+//test-only	ppc_md.pcibios_fixup_resources = alpr_pcibios_fixup_resources;
 }
+
+int alpr_map_ibuf_fpga(void __iomem **vbar0, void __iomem **vbar1, void __iomem **vbar2,
+		       int *irq)
+{
+	int err;
+
+	/*
+	 * Locate FPGA on pci bus
+	 */
+	dev = pci_get_device(PCI_VENDOR_ID_IBUF_FPGA, PCI_DEVICE_ID_IBUF_FPGA, NULL);
+	if (dev == NULL) {
+		printk(KERN_ERR "ALPR: FPGA not found on PCI bus\n");
+		return -ENODEV;
+	}
+
+	/*
+	 * Enable pci device upon first call
+	 */
+	if (fpga_map_count == 0) {
+		err = pci_enable_device(dev);
+		if (err) {
+			printk(KERN_ERR "ALPR: Cannot enable PCI device\n");
+			return err;
+		}
+	}
+
+	/*
+	 * Map BAR0 & BAR1 spaces and return their virtual addresses
+	 */
+	if (vbar0 != NULL) {
+#if 0 /* test-only */
+		*vbar0 = ioremap_nocache(pci_resource_start(dev, 0), pci_resource_len(dev, 0));
+#else
+		*vbar0 = ioremap_nocache(pci_resource_start(dev, 0), (1 << 20)); /* test-only: map only 1MB */
+#endif
+		if (!*vbar0) {
+			printk(KERN_ERR "ALPR: Cannot map BAR0\n");
+			return -ENODEV;
+		}
+	}
+
+	if (vbar1 != NULL) {
+		*vbar1 = ioremap_nocache(pci_resource_start(dev, 2), pci_resource_len(dev, 2));
+		if (!*vbar1) {
+			printk(KERN_ERR "ALPR: Cannot map BAR2\n");
+			return -ENODEV;
+		}
+	}
+
+	if (vbar2 != NULL) {
+		*vbar2 = ioremap_nocache(pci_resource_start(dev, 3), pci_resource_len(dev, 3));
+		if (!*vbar2) {
+			printk(KERN_ERR "ALPR: Cannot map BAR3\n");
+			return -ENODEV;
+		}
+	}
+
+	/*
+	 * Don't forget the irq
+	 */
+	if (irq)
+		*irq = dev->irq;
+
+	fpga_map_count++;
+
+	return 0;
+}
+
+int alpr_unmap_ibuf_fpga(void __iomem *vbar0, void __iomem *vbar1, void __iomem *vbar2)
+{
+	/*
+	 * Unmap BAR's
+	 */
+	if (vbar0)
+		iounmap(vbar0);
+	if (vbar1)
+		iounmap(vbar1);
+	if (vbar2)
+		iounmap(vbar2);
+
+	/*
+	 * Disable pci device upon last call
+	 */
+	if (fpga_map_count == 1)
+		pci_disable_device(dev);
+
+	fpga_map_count--;
+
+	return 0;
+}
+
+EXPORT_SYMBOL(alpr_map_ibuf_fpga);
+EXPORT_SYMBOL(alpr_unmap_ibuf_fpga);
