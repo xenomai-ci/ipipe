@@ -342,7 +342,7 @@ static void __devinit quirk_usb_disable_ehci(struct pci_dev *pdev)
 
 static void __devinit quirk_usb_early_handoff(struct pci_dev *pdev)
 {
-#ifdef CONFIG_ALPR /* test-only: USB PCI device hangs board upon bootup right now!!! */
+#ifndef CONFIG_ALPR /* test-only: USB PCI device hangs board upon bootup right now!!! */
 	if (pdev->class == PCI_CLASS_SERIAL_USB_UHCI)
 		quirk_usb_handoff_uhci(pdev);
 	else if (pdev->class == PCI_CLASS_SERIAL_USB_OHCI)
