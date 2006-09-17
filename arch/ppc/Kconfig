@@ -1270,6 +1270,18 @@ source "drivers/pci/Kconfig"
 
 source "drivers/pcmcia/Kconfig"
 
+menu "PCI Express support"
+
+config PCIE_ENDPOINT
+	bool "PCI Express endpoint support"
+	depends on 440SPE
+	default n
+	help
+	  Say Y here if you want PCI Express configured as an endpoint. Else
+	  PCI Express will be configured as a rootpoint.
+
+endmenu
+
 config RAPIDIO
 	bool "RapidIO support" if MPC8540 || MPC8560
 	help

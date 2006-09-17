@@ -249,7 +249,7 @@ static int __init yucca_pcie_card_present(int port)
  * turn on the green LED and turn off the yellow LED, enable the clock
  * and turn off reset.
  */
-static void __init yucca_setup_pcie_fpga_rootpoint(int port)
+static void __init yucca_setup_pcie_fpga_root_or_endpoint(int port)
 {
 	void __iomem *pcie_reg_fpga_base;
 	u16 power, clock, green_led, yellow_led, reset_off, rootpoint, endpoint;
@@ -292,6 +292,12 @@ static void __init yucca_setup_pcie_fpga_rootpoint(int port)
 	out_be16(pcie_reg_fpga_base + FPGA_REG1A,
 		 ~(power | clock | green_led) &
 		 (yellow_led | in_be16(pcie_reg_fpga_base + FPGA_REG1A)));
+#ifdef CONFIG_PCIE_ENDPOINT
+	/* reset or unreset can only be done from root */
+	out_be16(pcie_reg_fpga_base + FPGA_REG1C,
+		 ~(rootpoint | reset_off) &
+		 (endpoint | in_be16(pcie_reg_fpga_base + FPGA_REG1C)));
+#else
 	out_be16(pcie_reg_fpga_base + FPGA_REG1C,
 		 ~(endpoint | reset_off) &
 		 (rootpoint | in_be16(pcie_reg_fpga_base + FPGA_REG1C)));
@@ -304,7 +310,7 @@ static void __init yucca_setup_pcie_fpga_rootpoint(int port)
 
 	out_be16(pcie_reg_fpga_base + FPGA_REG1C,
 		 reset_off | in_be16(pcie_reg_fpga_base + FPGA_REG1C));
-
+#endif
 	iounmap(pcie_reg_fpga_base);
 }
 
@@ -323,8 +329,8 @@ yucca_setup_hoses(void)
 
 			pr_debug("PCIE%d: card present\n", pcie_hose_num(hs));
 
-			yucca_setup_pcie_fpga_rootpoint(pcie_hose_num(hs));
-			if (ppc440spe_init_pcie_rootport(pcie_hose_num(hs))) {
+			yucca_setup_pcie_fpga_root_or_endpoint(pcie_hose_num(hs));
+			if (ppc440spe_init_pcie_root_or_endport(pcie_hose_num(hs))) {
 				printk(KERN_ERR "PCIE%d: initialization "
 						"failed\n", pcie_hose_num(hs));
 				continue;
@@ -381,7 +387,12 @@ yucca_setup_hoses(void)
 			setup_indirect_pci(hose, PCIX0_CFGA, PCIX0_CFGD);
 			hose->set_cfg_type = 1;
 		} else {
-			ppc440spe_setup_pcie(hose, pcie_hose_num(hs));
+			if(ppc440spe_setup_pcie(hose, pcie_hose_num(hs)) != 0)
+			{
+				printk(KERN_WARNING"PCIE setup failed for hose no %d\n",
+						pcie_hose_num(hs));
+				continue;
+			}
 		}
 
 		hose->last_busno = pciauto_bus_scan(hose, hose->first_busno);
