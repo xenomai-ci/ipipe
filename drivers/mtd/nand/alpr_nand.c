@@ -337,7 +337,7 @@ alpr_init(void)
 	}
 
 	alpr_ndfc = ioremap64(ALPR_NAND_FLASH_REG_ADDR,
-			        0x100);
+			      0x100);
 printk ("%s: alpr_ndfc: phy:%x %p size:%x\n", __FUNCTION__, ALPR_NAND_FLASH_REG_ADDR, alpr_ndfc, sizeof(struct alpr_ndfc_regs));
 	if (!alpr_ndfc) {
 		printk("Ioremap to access NDFC Registers failed \n");
@@ -386,7 +386,7 @@ printk ("%s: alpr_ndfc: phy:%x %p size:%x\n", __FUNCTION__, ALPR_NAND_FLASH_REG_
 		alpr_partition_info = nand0_partition_info;
 	}
 
-	add_mtd_partitions(alpr_nand0_mtd, alpr_partition_info, nr_partitions);	
+	add_mtd_partitions(alpr_nand0_mtd, alpr_partition_info, nr_partitions);
 
 	/* Get pointer to private data */
 	this = (struct nand_chip *) (&alpr_nand1_mtd[1]);
@@ -423,7 +423,7 @@ printk ("%s: alpr_ndfc: phy:%x %p size:%x\n", __FUNCTION__, ALPR_NAND_FLASH_REG_
 		alpr_partition_info = nand1_partition_info;
 	}
 
-	add_mtd_partitions(alpr_nand1_mtd, alpr_partition_info, nr_partitions);	
+	add_mtd_partitions(alpr_nand1_mtd, alpr_partition_info, nr_partitions);
 #endif
 
 	goto out;

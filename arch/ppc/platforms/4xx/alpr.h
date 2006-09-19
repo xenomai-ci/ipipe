@@ -18,6 +18,20 @@
 
 #include <platforms/4xx/ibm440gx.h>
 
+#ifndef __ASSEMBLY__
+enum ppc_sys_devices {
+        FPGA_UART0,
+        FPGA_UART1,
+        FPGA_UART2,
+        NUM_PPC_SYS_DEVS,
+}; // test-only
+
+int alpr_map_ibuf_fpga(void __iomem **vbar0, void __iomem **vbar1, void __iomem **vbar2,
+		       phys_addr_t *pbar0, phys_addr_t *pbar1, phys_addr_t *pbar2,
+		       int *irq);
+int alpr_unmap_ibuf_fpga(void __iomem *vbar0, void __iomem *vbar1, void __iomem *vbar2);
+#endif
+
 /* F/W TLB mapping used in bootloader glue to reset EMAC */
 #define PPC44x_EMAC0_MR0	0xe0000800
 
@@ -28,7 +42,7 @@
 #define OCOTEA_FPGA_REG_3	0x0000000148300003ULL
 
 /* NAND */
-#define	ALPR_NAND_FLASH_REG_ADDR 0x0000000150000000ULL
+#define	ALPR_NAND_FLASH_REG_ADDR 0x00000001f0000000ULL
 
 /*
  * Serial port defines
@@ -68,17 +82,17 @@
 #define ALPR_PCI_MEM_OFFSET	0x00000000
 
 /* Offsets in IBUF FPGA BAR2 */
-#define IBUF_UART2_CTRL		0x0200
-#define IBUF_UART2_DATA		0x0400
-#define IBUF_UART2_EOI		0x07f8
+#define IBUF_UART0_CTRL		0x0200
+#define IBUF_UART0_DATA		0x0400
+#define IBUF_UART0_EOI		0x07f8
 
-#define IBUF_UART3_CTRL		0x0a00
-#define IBUF_UART3_DATA		0x0c00
-#define IBUF_UART3_EOI		0x0ff8
+#define IBUF_UART1_CTRL		0x0a00
+#define IBUF_UART1_DATA		0x0c00
+#define IBUF_UART1_EOI		0x0ff8
 
-#define IBUF_UART4_CTRL		0x1200
-#define IBUF_UART4_DATA		0x1400
-#define IBUF_UART4_EOI		0x17f8
+#define IBUF_UART2_CTRL		0x1200
+#define IBUF_UART2_DATA		0x1400
+#define IBUF_UART2_EOI		0x17f8
 
 #define IBUF_INT_FLAG		0x2000
 #define IBUF_INT_ENABLE		0x2008
@@ -124,15 +138,15 @@
 #define MISC_IBUF_EN		0x00000100
 
 /* Interrupt definitions */
-#define INT_UART2_TX		0x00000001
-#define INT_UART2_RX		0x00000002
-#define INT_UART2_MASK		0x00000003
-#define INT_UART3_TX		0x00000004
-#define INT_UART3_RX		0x00000008
-#define INT_UART3_MASK		0x0000000c
-#define INT_UART4_TX		0x00000010
-#define INT_UART4_RX		0x00000020
-#define INT_UART4_MASK		0x00000030
+#define INT_UART0_TX		0x00000001
+#define INT_UART0_RX		0x00000002
+#define INT_UART0_MASK		0x00000003
+#define INT_UART1_TX		0x00000004
+#define INT_UART1_RX		0x00000008
+#define INT_UART1_MASK		0x0000000c
+#define INT_UART2_TX		0x00000010
+#define INT_UART2_RX		0x00000020
+#define INT_UART2_MASK		0x00000030
 #define INT_TS			0x00000040
 #define INT_TS_OVERRUN		0x00000080
 #define INT_TS_MASK		0x000000c0

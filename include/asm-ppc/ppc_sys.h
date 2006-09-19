@@ -35,11 +35,13 @@
 #include <asm/mpc10x.h>
 #elif defined(CONFIG_XILINX_VIRTEX)
 #include <platforms/4xx/virtex.h>
+#elif defined(CONFIG_ALPR)
+#include <platforms/4xx/alpr.h>
 #else
 #error "need definition of ppc_sys_devices"
 #endif
 
-#define PPC_SYS_IORESOURCE_FIXUPPED	0x00000001	
+#define PPC_SYS_IORESOURCE_FIXUPPED	0x00000001
 
 struct ppc_sys_spec {
 	/* PPC sys is matched via (ID & mask) == value, id could be

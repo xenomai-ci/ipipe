@@ -48,9 +48,8 @@ ppc4xx_set_src_addr(int dmanr, phys_addr_t src_addr)
 
 #ifdef PPC4xx_DMA_64BIT
 	mtdcr(DCRN_DMASAH0 + dmanr*2, (u32)(src_addr >> 32));
-#else
-	mtdcr(DCRN_DMASA0 + dmanr*2, (u32)src_addr);
 #endif
+	mtdcr(DCRN_DMASA0 + dmanr*2, (u32)src_addr);
 }
 
 void
@@ -63,9 +62,8 @@ ppc4xx_set_dst_addr(int dmanr, phys_addr_t dst_addr)
 
 #ifdef PPC4xx_DMA_64BIT
 	mtdcr(DCRN_DMADAH0 + dmanr*2, (u32)(dst_addr >> 32));
-#else
-	mtdcr(DCRN_DMADA0 + dmanr*2, (u32)dst_addr);
 #endif
+	mtdcr(DCRN_DMADA0 + dmanr*2, (u32)dst_addr);
 }
 
 void
@@ -105,6 +103,9 @@ ppc4xx_enable_dma(unsigned int dmanr)
 	if (p_dma_ch->mode == DMA_MODE_MM) {
 		/* software initiated memory to memory */
 		control |= DMA_ETD_OUTPUT | DMA_TCE_ENABLE;
+#if 1 // test-only
+		control |= DMA_MODE_MM;
+#endif
 	}
 
 	mtdcr(DCRN_DMACR0 + (dmanr * 0x8), control);
@@ -237,7 +238,9 @@ ppc4xx_set_dma_count(unsigned int dmanr, unsigned int count)
 
 	count = count >> p_dma_ch->shift;
 
-	mtdcr(DCRN_DMACT0 + (dmanr * 0x8), count);
+//	mtdcr(DCRN_DMACT0 + (dmanr * 0x8), count); // test-only
+	mtdcr(DCRN_DMACT0 + (dmanr * 0x8), (mfdcr(DCRN_DMACT0 + (dmanr * 0x8)) &
+		0xfff00000) | count);
 }
 
 /*
@@ -389,6 +392,15 @@ ppc4xx_enable_dma_interrupt(unsigned int dmanr)
 	control = mfdcr(DCRN_DMACR0 + (dmanr * 0x8));
 	control |= DMA_CIE_ENABLE;	/* Channel Interrupt Enable */
 	mtdcr(DCRN_DMACR0 + (dmanr * 0x8), control);
+
+#if 1 // test-only
+	if (p_dma_ch->mode == DMA_MODE_MM) {
+		/* software initiated memory to memory */
+		control = mfdcr(DCRN_DMACT0 + (dmanr * 0x8));
+		control |= 0x80000000 >> 2;	/* Terminal count Interrupt Enable */
+		mtdcr(DCRN_DMACT0 + (dmanr * 0x8), control);
+	}
+#endif
 
 	return DMA_STATUS_GOOD;
 }

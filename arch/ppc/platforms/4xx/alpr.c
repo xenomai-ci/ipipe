@@ -30,6 +30,8 @@
 #include <linux/tty.h>
 #include <linux/serial.h>
 #include <linux/serial_core.h>
+#include <linux/resource.h>
+#include <linux/platform_device.h>
 
 #include <asm/system.h>
 #include <asm/pgtable.h>
@@ -45,6 +47,7 @@
 #include <asm/ppc4xx_pic.h>
 #include <asm/ppcboot.h>
 #include <asm/tlbflush.h>
+#include <asm/ppc_sys.h>
 
 #include <syslib/gen550.h>
 #include <syslib/ibm440gx_common.h>
@@ -58,6 +61,83 @@ static int fpga_map_count = 0;
 
 #define PCI_VENDOR_ID_IBUF_FPGA	0xfffe
 #define PCI_DEVICE_ID_IBUF_FPGA	0xf05f
+
+/* ======================================================================== */
+/* PPC Sys devices definition                                               */
+/* ======================================================================== */
+
+struct platform_device ppc_sys_platform_devices[] = {
+	[FPGA_UART0] = {
+		.name		= "fpga-uart",
+		.id		= 0,
+		.num_resources	= 2,
+		.resource	= (struct resource[]) {
+			{
+				.start	= IBUF_UART0_CTRL,
+				.end	= IBUF_UART0_CTRL + 0x5ff,
+				.flags	= IORESOURCE_MEM,
+			},
+			{
+				.start	= 24,
+				.end	= 24,
+				.flags	= IORESOURCE_IRQ,
+			},
+		},
+	},
+	[FPGA_UART1] = {
+		.name		= "fpga-uart",
+		.id		= 1,
+		.num_resources	= 2,
+		.resource	= (struct resource[]) {
+			{
+				.start	= IBUF_UART1_CTRL,
+				.end	= IBUF_UART1_CTRL + 0x5ff,
+				.flags	= IORESOURCE_MEM,
+			},
+			{
+				.start	= 24,
+				.end	= 24,
+				.flags	= IORESOURCE_IRQ,
+			},
+		},
+	},
+	[FPGA_UART2] = {
+		.name		= "fpga-uart",
+		.id		= 2,
+		.num_resources	= 2,
+		.resource	= (struct resource[]) {
+			{
+				.start	= IBUF_UART2_CTRL,
+				.end	= IBUF_UART2_CTRL + 0x5ff,
+				.flags	= IORESOURCE_MEM,
+			},
+			{
+				.start	= 24,
+				.end	= 24,
+				.flags	= IORESOURCE_IRQ,
+			},
+		},
+	},
+};
+
+struct ppc_sys_spec *cur_ppc_sys_spec;
+struct ppc_sys_spec ppc_sys_specs[] = {
+        {
+                .ppc_sys_name   = "ALPR",
+                .mask           = 0xffff0000,
+                .value          = 0x80110000,
+                .num_devices    = NUM_PPC_SYS_DEVS,
+                .device_list    = (enum ppc_sys_devices[])
+                {
+                        FPGA_UART0, FPGA_UART1, FPGA_UART2,
+                },
+        },
+        {       /* default match */
+                .ppc_sys_name   = "",
+                .mask           = 0x00000000,
+                .value          = 0x00000000,
+        },
+};
 
 static void __init alpr_calibrate_decr(void)
 {
@@ -314,7 +394,7 @@ static void __init alpr_setup_arch(void)
 	alpr_early_serial_map();
 
 	/* Identify the system */
-	printk("Prodrive ALPR port (DENX Heiko Schocher <hs@denx.de>)\n");
+	printk("Prodrive ALPR port (DENX Software Engineering <sr@denx.de>)\n");
 }
 
 static void __init alpr_init(void)
@@ -327,34 +407,18 @@ static void alpr_progress(char *buf, unsigned short val)
 /*	printk("INF %s val: %d\n", buf, val);*/
 }
 
-#if 0 /* test-only */
-void alpr_pcibios_fixup_resources(struct pci_dev *dev)
+static void alpr_restart(char *cmd)
 {
-	void __iomem *base;
-	u32 control;
-	u64	mem;
-	static int i = 3;
-
-	printk("%s Aufruf device: %x %d\n", __FUNCTION__, dev->device, i);
-	if ((dev->device == 0x1561) && ( i == 3)) {
-	}
-	if (dev->device == 0xf05f) {
-		printk("%s st:%x len:%x\n", __FUNCTION__, pci_resource_start(dev, i), pci_resource_len(dev, i));
-		base = ioremap_nocache(pci_resource_start(dev, i), pci_resource_len(dev, i));
-		if (base == NULL) return;
-
-		printk("%s base:%p\n", __FUNCTION__, base);
-		control = readl(base);
-		printk("%s control: %x\n", __FUNCTION__, control);
-		iounmap(base);
-	}
+	local_irq_disable();
+	mtspr(SPRN_DBCR0, DBCR0_RST_CHIP);
 }
-#endif
 
 void __init platform_init(unsigned long r3, unsigned long r4,
 			  unsigned long r5, unsigned long r6, unsigned long r7)
 {
 	ibm440gx_platform_init(r3, r4, r5, r6, r7);
+
+	identify_ppc_sys_by_name("ALPR");
 
 	ppc_md.progress = alpr_progress;
 	ppc_md.setup_arch = alpr_setup_arch;
@@ -366,10 +430,11 @@ void __init platform_init(unsigned long r3, unsigned long r4,
 	ppc_md.early_serial_map = alpr_early_serial_map;
 #endif
 	ppc_md.init = alpr_init;
-//test-only	ppc_md.pcibios_fixup_resources = alpr_pcibios_fixup_resources;
+	ppc_md.restart = alpr_restart;
 }
 
 int alpr_map_ibuf_fpga(void __iomem **vbar0, void __iomem **vbar1, void __iomem **vbar2,
+		       phys_addr_t *pbar0, phys_addr_t *pbar1, phys_addr_t *pbar2,
 		       int *irq)
 {
 	int err;
@@ -424,6 +489,9 @@ int alpr_map_ibuf_fpga(void __iomem **vbar0, void __iomem **vbar1, void __iomem 
 			return -ENODEV;
 		}
 	}
+
+	if (pbar2 != NULL)
+		*pbar2 = pci_resource_start(dev, 3);
 
 	/*
 	 * Don't forget the irq

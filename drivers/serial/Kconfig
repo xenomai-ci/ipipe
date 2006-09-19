@@ -556,9 +556,9 @@ config SERIAL_MUX
 	default y
 	---help---
 	  Saying Y here will enable the hardware MUX serial driver for
-	  the Nova and K class systems.  The hardware MUX is not 8250/16550 
-	  compatible therefore the /dev/ttyB0 device is shared between the 
-	  Serial MUX and the PDC software console.  The following steps 
+	  the Nova and K class systems.  The hardware MUX is not 8250/16550
+	  compatible therefore the /dev/ttyB0 device is shared between the
+	  Serial MUX and the PDC software console.  The following steps
 	  need to be completed to use the Serial MUX:
 
 	    1. create the device entry (mknod /dev/ttyB0 c 11 0)
@@ -578,8 +578,8 @@ config PDC_CONSOLE
 	depends on PARISC && !SERIAL_MUX && VT
 	default n
 	help
-	  Saying Y here will enable the software based PDC console to be 
-	  used as the system console.  This is useful for machines in 
+	  Saying Y here will enable the software based PDC console to be
+	  used as the system console.  This is useful for machines in
 	  which the hardware based console has not been written yet.  The
 	  following steps must be competed to use the PDC console:
 
@@ -738,7 +738,7 @@ config SERIAL_CPM
 	depends on CPM2 || 8xx
 	select SERIAL_CORE
 	help
-	  This driver supports the SCC and SMC serial ports on Motorola 
+	  This driver supports the SCC and SMC serial ports on Motorola
 	  embedded PowerPC that contain a CPM1 (8xx) or CPM2 (8xxx)
 
 config SERIAL_CPM_CONSOLE
@@ -829,6 +829,16 @@ config SERIAL_MPC52xx_CONSOLE_BAUD
 	  Select the MPC52xx console baud rate.
 	  This value is only used if the bootloader doesn't pass in the
 	  console baudrate
+
+config SERIAL_PRODRIVE_FPGA
+	tristate "Prodrive FPGA serial support"
+	depends on ALPR
+	select SERIAL_CORE
+	help
+	  This drivers support the Prodrive FPGA serial ports. If you would
+	  like to use them, you must answer Y or M to this option. Not that
+	  for use as console, it must be included in kernel and not as a
+	  module.
 
 config SERIAL_ICOM
 	tristate "IBM Multiport Serial Adapter"
