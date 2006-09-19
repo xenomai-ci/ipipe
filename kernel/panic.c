@@ -18,6 +18,7 @@
 #include <linux/interrupt.h>
 #include <linux/nmi.h>
 #include <linux/kexec.h>
+#include <linux/debug_locks.h>
 
 int panic_on_oops;
 int tainted;
@@ -172,7 +173,7 @@ const char *print_tainted(void)
 
 void add_taint(unsigned flag)
 {
-	debug_locks_off(); /* can't trust the integrity of the kernel anymore */
+	debug_locks = 0; /* can't trust the integrity of the kernel anymore */
 	tainted |= flag;
 }
 EXPORT_SYMBOL(add_taint);
