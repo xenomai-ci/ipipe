@@ -903,6 +903,7 @@ void vc_deallocate(unsigned int currcons)
 	if (vc_cons_allocated(currcons)) {
 		struct vc_data *vc = vc_cons[currcons].d;
 		vc->vc_sw->con_deinit(vc);
+		put_pid(vc->vt_pid);
 		module_put(vc->vc_sw->owner);
 		if (vc->vc_kmalloced)
 			kfree(vc->vc_screenbuf);
@@ -2674,7 +2675,7 @@ static int __init con_init(void)
 }
 console_initcall(con_init);
 
-static struct tty_operations con_ops = {
+static const struct tty_operations con_ops = {
 	.open = con_open,
 	.close = con_close,
 	.write = con_write,

@@ -24,6 +24,8 @@
 #define CLONE_UNTRACED		0x00800000	/* set if the tracing process can't force CLONE_PTRACE on this clone */
 #define CLONE_CHILD_SETTID	0x01000000	/* set the TID in the child */
 #define CLONE_STOPPED		0x02000000	/* Start in stopped state */
+#define CLONE_NEWUTS		0x04000000	/* New utsname group? */
+#define CLONE_NEWIPC		0x08000000	/* New ipcs */
 
 /*
  * Scheduling policies
@@ -118,7 +120,6 @@ extern unsigned long avenrun[];		/* Load averages */
 
 extern unsigned long total_forks;
 extern int nr_threads;
-extern int last_pid;
 DECLARE_PER_CPU(unsigned long, process_counts);
 extern int nr_processes(void);
 extern unsigned long nr_running(void);
@@ -239,7 +240,7 @@ extern signed long schedule_timeout_interruptible(signed long timeout);
 extern signed long schedule_timeout_uninterruptible(signed long timeout);
 asmlinkage void schedule(void);
 
-struct namespace;
+struct nsproxy;
 
 /* Maximum number of active map areas.. This is a random (large) number */
 #define DEFAULT_MAX_MAP_COUNT	65536
@@ -754,6 +755,7 @@ static inline void prefetch_stack(struct task_struct *t) { }
 struct audit_context;		/* See audit.c */
 struct mempolicy;
 struct pipe_inode_info;
+struct uts_namespace;
 
 enum sleep_type {
 	SLEEP_NORMAL,
@@ -897,8 +899,8 @@ struct task_struct {
 	struct fs_struct *fs;
 /* open file information */
 	struct files_struct *files;
-/* namespace */
-	struct namespace *namespace;
+/* namespaces */
+	struct nsproxy *nsproxy;
 /* signal handlers */
 	struct signal_struct *signal;
 	struct sighand_struct *sighand;
@@ -1020,6 +1022,26 @@ static inline pid_t process_group(struct task_struct *tsk)
 	return tsk->signal->pgrp;
 }
 
+static inline struct pid *task_pid(struct task_struct *task)
+{
+	return task->pids[PIDTYPE_PID].pid;
+}
+
+static inline struct pid *task_tgid(struct task_struct *task)
+{
+	return task->group_leader->pids[PIDTYPE_PID].pid;
+}
+
+static inline struct pid *task_pgrp(struct task_struct *task)
+{
+	return task->group_leader->pids[PIDTYPE_PGID].pid;
+}
+
+static inline struct pid *task_session(struct task_struct *task)
+{
+	return task->group_leader->pids[PIDTYPE_SID].pid;
+}
+
 /**
  * pid_alive - check that a task structure is not stale
  * @p: Task structure to be checked.
@@ -1042,6 +1064,8 @@ static inline int is_init(struct task_struct *tsk)
 {
 	return tsk->pid == 1;
 }
+
+extern struct pid *cad_pid;
 
 extern void free_task(struct task_struct *tsk);
 #define get_task_struct(tsk) do { atomic_inc(&(tsk)->usage); } while(0)
@@ -1247,10 +1271,15 @@ extern int send_sig_info(int, struct siginfo *, struct task_struct *);
 extern int send_group_sig_info(int, struct siginfo *, struct task_struct *);
 extern int force_sigsegv(int, struct task_struct *);
 extern int force_sig_info(int, struct siginfo *, struct task_struct *);
+extern int __kill_pgrp_info(int sig, struct siginfo *info, struct pid *pgrp);
+extern int kill_pgrp_info(int sig, struct siginfo *info, struct pid *pgrp);
+extern int kill_pid_info(int sig, struct siginfo *info, struct pid *pid);
+extern int kill_pid_info_as_uid(int, struct siginfo *, struct pid *, uid_t, uid_t, u32);
+extern int kill_pgrp(struct pid *pid, int sig, int priv);
+extern int kill_pid(struct pid *pid, int sig, int priv);
 extern int __kill_pg_info(int sig, struct siginfo *info, pid_t pgrp);
 extern int kill_pg_info(int, struct siginfo *, pid_t);
 extern int kill_proc_info(int, struct siginfo *, pid_t);
-extern int kill_proc_info_as_uid(int, struct siginfo *, pid_t, uid_t, uid_t, u32);
 extern void do_notify_parent(struct task_struct *, int);
 extern void force_sig(int, struct task_struct *);
 extern void force_sig_specific(int, struct task_struct *);
@@ -1264,6 +1293,11 @@ extern int send_sigqueue(int, struct sigqueue *,  struct task_struct *);
 extern int send_group_sigqueue(int, struct sigqueue *,  struct task_struct *);
 extern int do_sigaction(int, struct k_sigaction *, struct k_sigaction *);
 extern int do_sigaltstack(const stack_t __user *, stack_t __user *, unsigned long);
+
+static inline int kill_cad_pid(int sig, int priv)
+{
+	return kill_pid(cad_pid, sig, priv);
+}
 
 /* These can be the second arg to send_sig_info/send_group_sig_info.  */
 #define SEND_SIG_NOINFO ((struct siginfo *) 0)
@@ -1357,6 +1391,17 @@ extern void wait_task_inactive(struct task_struct * p);
 
 /* de_thread depends on thread_group_leader not being a pid based check */
 #define thread_group_leader(p)	(p == p->group_leader)
+
+/* Do to the insanities of de_thread it is possible for a process
+ * to have the pid of the thread group leader without actually being
+ * the thread group leader.  For iteration through the pids in proc
+ * all we care about is that we have a task with the appropriate
+ * pid, we don't actually care if we have the right task.
+ */
+static inline int has_group_leader_pid(struct task_struct *p)
+{
+	return p->pid == p->tgid;
+}
 
 static inline struct task_struct *next_thread(const struct task_struct *p)
 {
