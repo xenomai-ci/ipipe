@@ -3,13 +3,13 @@
 
 #ifndef __ASSEMBLY__
 #include <linux/types.h>
-#include <linux/linkage.h>
 #include <linux/time.h>
 
 /* Avoid too many header ordering problems.  */
 struct siginfo;
 
 #ifdef __KERNEL__
+#include <linux/linkage.h>
 /* Most things should be clean enough to redefine this at will, if care
    is taken to make libc match.  */
 
@@ -22,10 +22,6 @@ typedef unsigned long old_sigset_t;		/* at least 32 bits */
 typedef struct {
 	unsigned long sig[_NSIG_WORDS];
 } sigset_t;
-
-
-struct pt_regs; 
-asmlinkage int do_signal(struct pt_regs *regs, sigset_t *oldset);
 
 
 #else

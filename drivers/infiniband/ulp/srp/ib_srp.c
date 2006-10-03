@@ -96,6 +96,8 @@ static struct ib_client srp_client = {
 	.remove = srp_remove_one
 };
 
+static struct ib_sa_client srp_sa_client;
+
 static inline struct srp_target_port *host_to_target(struct Scsi_Host *host)
 {
 	return (struct srp_target_port *) host->hostdata;
@@ -267,7 +269,8 @@ static int srp_lookup_path(struct srp_target_port *target)
 
 	init_completion(&target->done);
 
-	target->path_query_id = ib_sa_path_rec_get(target->srp_host->dev->dev,
+	target->path_query_id = ib_sa_path_rec_get(&srp_sa_client,
+						   target->srp_host->dev->dev,
 						   target->srp_host->port,
 						   &target->path,
 						   IB_SA_PATH_REC_DGID		|
@@ -330,7 +333,7 @@ static int srp_send_req(struct srp_target_port *target)
 	req->priv.req_buf_fmt 	= cpu_to_be16(SRP_BUF_FORMAT_DIRECT |
 					      SRP_BUF_FORMAT_INDIRECT);
 	/*
-	 * In the published SRP specification (draft rev. 16a), the 
+	 * In the published SRP specification (draft rev. 16a), the
 	 * port identifier format is 8 bytes of ID extension followed
 	 * by 8 bytes of GUID.  Older drafts put the two halves in the
 	 * opposite order, so that the GUID comes first.
@@ -799,13 +802,6 @@ static void srp_process_rsp(struct srp_target_port *target, struct srp_rsp *rsp)
 	spin_unlock_irqrestore(target->scsi_host->host_lock, flags);
 }
 
-static void srp_reconnect_work(void *target_ptr)
-{
-	struct srp_target_port *target = target_ptr;
-
-	srp_reconnect_target(target);
-}
-
 static void srp_handle_recv(struct srp_target_port *target, struct ib_wc *wc)
 {
 	struct srp_iu *iu;
@@ -858,7 +854,6 @@ static void srp_completion(struct ib_cq *cq, void *target_ptr)
 {
 	struct srp_target_port *target = target_ptr;
 	struct ib_wc wc;
-	unsigned long flags;
 
 	ib_req_notify_cq(cq, IB_CQ_NEXT_COMP);
 	while (ib_poll_cq(cq, 1, &wc) > 0) {
@@ -866,10 +861,6 @@ static void srp_completion(struct ib_cq *cq, void *target_ptr)
 			printk(KERN_ERR PFX "failed %s status %d\n",
 			       wc.wr_id & SRP_OP_RECV ? "receive" : "send",
 			       wc.status);
-			spin_lock_irqsave(target->scsi_host->host_lock, flags);
-			if (target->state == SRP_TARGET_LIVE)
-				schedule_work(&target->work);
-			spin_unlock_irqrestore(target->scsi_host->host_lock, flags);
 			break;
 		}
 
@@ -1461,12 +1452,28 @@ static ssize_t show_zero_req_lim(struct class_device *cdev, char *buf)
 	return sprintf(buf, "%d\n", target->zero_req_lim);
 }
 
-static CLASS_DEVICE_ATTR(id_ext,	S_IRUGO, show_id_ext,		NULL);
-static CLASS_DEVICE_ATTR(ioc_guid,	S_IRUGO, show_ioc_guid,		NULL);
-static CLASS_DEVICE_ATTR(service_id,	S_IRUGO, show_service_id,	NULL);
-static CLASS_DEVICE_ATTR(pkey,		S_IRUGO, show_pkey,		NULL);
-static CLASS_DEVICE_ATTR(dgid,		S_IRUGO, show_dgid,		NULL);
-static CLASS_DEVICE_ATTR(zero_req_lim,	S_IRUGO, show_zero_req_lim,	NULL);
+static ssize_t show_local_ib_port(struct class_device *cdev, char *buf)
+{
+	struct srp_target_port *target = host_to_target(class_to_shost(cdev));
+
+	return sprintf(buf, "%d\n", target->srp_host->port);
+}
+
+static ssize_t show_local_ib_device(struct class_device *cdev, char *buf)
+{
+	struct srp_target_port *target = host_to_target(class_to_shost(cdev));
+
+	return sprintf(buf, "%s\n", target->srp_host->dev->dev->name);
+}
+
+static CLASS_DEVICE_ATTR(id_ext,	  S_IRUGO, show_id_ext,		 NULL);
+static CLASS_DEVICE_ATTR(ioc_guid,	  S_IRUGO, show_ioc_guid,	 NULL);
+static CLASS_DEVICE_ATTR(service_id,	  S_IRUGO, show_service_id,	 NULL);
+static CLASS_DEVICE_ATTR(pkey,		  S_IRUGO, show_pkey,		 NULL);
+static CLASS_DEVICE_ATTR(dgid,		  S_IRUGO, show_dgid,		 NULL);
+static CLASS_DEVICE_ATTR(zero_req_lim,	  S_IRUGO, show_zero_req_lim,	 NULL);
+static CLASS_DEVICE_ATTR(local_ib_port,   S_IRUGO, show_local_ib_port,	 NULL);
+static CLASS_DEVICE_ATTR(local_ib_device, S_IRUGO, show_local_ib_device, NULL);
 
 static struct class_device_attribute *srp_host_attrs[] = {
 	&class_device_attr_id_ext,
@@ -1475,6 +1482,8 @@ static struct class_device_attribute *srp_host_attrs[] = {
 	&class_device_attr_pkey,
 	&class_device_attr_dgid,
 	&class_device_attr_zero_req_lim,
+	&class_device_attr_local_ib_port,
+	&class_device_attr_local_ib_device,
 	NULL
 };
 
@@ -1705,8 +1714,6 @@ static ssize_t srp_create_target(struct class_device *class_dev,
 	target->scsi_host  = target_host;
 	target->srp_host   = host;
 
-	INIT_WORK(&target->work, srp_reconnect_work, target);
-
 	INIT_LIST_HEAD(&target->free_reqs);
 	INIT_LIST_HEAD(&target->req_queue);
 	for (i = 0; i < SRP_SQ_SIZE; ++i) {
@@ -1895,7 +1902,7 @@ static void srp_add_one(struct ib_device *device)
 	if (IS_ERR(srp_dev->fmr_pool))
 		srp_dev->fmr_pool = NULL;
 
-	if (device->node_type == IB_NODE_SWITCH) {
+	if (device->node_type == RDMA_NODE_IB_SWITCH) {
 		s = 0;
 		e = 0;
 	} else {
@@ -1994,9 +2001,12 @@ static int __init srp_init_module(void)
 		return ret;
 	}
 
+	ib_sa_register_client(&srp_sa_client);
+
 	ret = ib_register_client(&srp_client);
 	if (ret) {
 		printk(KERN_ERR PFX "couldn't register IB client\n");
+		ib_sa_unregister_client(&srp_sa_client);
 		class_unregister(&srp_class);
 		return ret;
 	}
@@ -2007,6 +2017,7 @@ static int __init srp_init_module(void)
 static void __exit srp_cleanup_module(void)
 {
 	ib_unregister_client(&srp_client);
+	ib_sa_unregister_client(&srp_sa_client);
 	class_unregister(&srp_class);
 }
 

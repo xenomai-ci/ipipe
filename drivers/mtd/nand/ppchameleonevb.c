@@ -284,6 +284,7 @@ static int __init ppchameleonevb_init(void)
 	/* Scan to find existence of the device (it could not be mounted) */
 	if (nand_scan(ppchameleon_mtd, 1)) {
 		iounmap((void *)ppchameleon_fio_base);
+		ppchameleon_fio_base = NULL;
 		kfree(ppchameleon_mtd);
 		goto nand_evb_init;
 	}
@@ -322,6 +323,8 @@ static int __init ppchameleonevb_init(void)
 	ppchameleonevb_mtd = kmalloc(sizeof(struct mtd_info) + sizeof(struct nand_chip), GFP_KERNEL);
 	if (!ppchameleonevb_mtd) {
 		printk("Unable to allocate PPChameleonEVB NAND MTD device structure.\n");
+		if (ppchameleon_fio_base)
+			iounmap(ppchameleon_fio_base);
 		return -ENOMEM;
 	}
 
@@ -330,6 +333,8 @@ static int __init ppchameleonevb_init(void)
 	if (!ppchameleonevb_fio_base) {
 		printk("ioremap PPChameleonEVB NAND flash failed\n");
 		kfree(ppchameleonevb_mtd);
+		if (ppchameleon_fio_base)
+			iounmap(ppchameleon_fio_base);
 		return -EIO;
 	}
 
@@ -386,6 +391,8 @@ static int __init ppchameleonevb_init(void)
 	if (nand_scan(ppchameleonevb_mtd, 1)) {
 		iounmap((void *)ppchameleonevb_fio_base);
 		kfree(ppchameleonevb_mtd);
+		if (ppchameleon_fio_base)
+			iounmap(ppchameleon_fio_base);
 		return -ENXIO;
 	}
 #ifdef CONFIG_MTD_PARTITIONS

@@ -158,7 +158,7 @@ get_pci_irq_from_of(struct pci_controller *hose, int slot, int pin)
 
 	laddr[0] = (hose->first_busno << 16) | (PCI_DEVFN(slot, 0) << 8);
 	laddr[1] = laddr[2] = 0;
-	of_irq_map_raw(hosenode, &pin, laddr, &oirq);
+	of_irq_map_raw(hosenode, &pin, 1, laddr, &oirq);
 	DBG("mpc86xx_hpcn: pci irq addr %x, slot %d, pin %d, irq %d\n",
 			laddr[0], slot, pin, oirq.specifier[0]);
 	return oirq.specifier[0];
@@ -347,9 +347,9 @@ mpc86xx_hpcn_setup_arch(void)
 
 	np = of_find_node_by_type(NULL, "cpu");
 	if (np != 0) {
-		unsigned int *fp;
+		const unsigned int *fp;
 
-		fp = (int *)get_property(np, "clock-frequency", NULL);
+		fp = get_property(np, "clock-frequency", NULL);
 		if (fp != 0)
 			loops_per_jiffy = *fp / HZ;
 		else

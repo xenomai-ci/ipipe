@@ -123,6 +123,9 @@ static struct sk_buff *ipv6_gso_segment(struct sk_buff *skb, int features)
 	struct ipv6hdr *ipv6h;
 	struct inet6_protocol *ops;
 
+	if (!(features & NETIF_F_HW_CSUM))
+		features &= ~NETIF_F_SG;
+
 	if (unlikely(skb_shinfo(skb)->gso_type &
 		     ~(SKB_GSO_UDP |
 		       SKB_GSO_DODGY |
@@ -362,7 +365,7 @@ static int do_ipv6_setsockopt(struct sock *sk, int level, int optname,
 		break;
 
 	case IPV6_TCLASS:
-		if (val < 0 || val > 0xff)
+		if (val < -1 || val > 0xff)
 			goto e_inval;
 		np->tclass = val;
 		retv = 0;
@@ -407,8 +410,16 @@ static int do_ipv6_setsockopt(struct sock *sk, int level, int optname,
 		/* routing header option needs extra check */
 		if (optname == IPV6_RTHDR && opt->srcrt) {
 			struct ipv6_rt_hdr *rthdr = opt->srcrt;
-			if (rthdr->type)
+			switch (rthdr->type) {
+			case IPV6_SRCRT_TYPE_0:
+#ifdef CONFIG_IPV6_MIP6
+			case IPV6_SRCRT_TYPE_2:
+#endif
+				break;
+			default:
 				goto sticky_done;
+			}
+
 			if ((rthdr->hdrlen & 1) ||
 			    (rthdr->hdrlen >> 1) != rthdr->segments_left)
 				goto sticky_done;
@@ -947,6 +958,8 @@ static int do_ipv6_getsockopt(struct sock *sk, int level, int optname,
 
 	case IPV6_TCLASS:
 		val = np->tclass;
+		if (val < 0)
+			val = 0;
 		break;
 
 	case IPV6_RECVTCLASS:

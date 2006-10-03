@@ -40,10 +40,6 @@ int set_irq_chip(unsigned int irq, struct irq_chip *chip)
 	spin_lock_irqsave(&desc->lock, flags);
 	irq_chip_set_defaults(chip);
 	desc->chip = chip;
-	/*
-	 * For compatibility only:
-	 */
-	desc->chip = chip;
 	spin_unlock_irqrestore(&desc->lock, flags);
 
 	return 0;
@@ -146,7 +142,7 @@ static void default_disable(unsigned int irq)
 	struct irq_desc *desc = irq_desc + irq;
 
 	if (!(desc->status & IRQ_DELAYED_DISABLE))
-		irq_desc[irq].chip->mask(irq);
+		desc->chip->mask(irq);
 }
 
 /*
@@ -252,7 +248,7 @@ handle_level_irq(unsigned int irq, struct irq_desc *desc, struct pt_regs *regs)
 	mask_ack_irq(desc, irq);
 
 	if (unlikely(desc->status & IRQ_INPROGRESS))
-		goto out;
+		goto out_unlock;
 	desc->status &= ~(IRQ_REPLAY | IRQ_WAITING);
 	kstat_cpu(cpu).irqs[irq]++;
 
@@ -263,7 +259,7 @@ handle_level_irq(unsigned int irq, struct irq_desc *desc, struct pt_regs *regs)
 	action = desc->action;
 	if (unlikely(!action || (desc->status & IRQ_DISABLED))) {
 		desc->status |= IRQ_PENDING;
-		goto out;
+		goto out_unlock;
 	}
 
 	desc->status |= IRQ_INPROGRESS;
@@ -276,9 +272,9 @@ handle_level_irq(unsigned int irq, struct irq_desc *desc, struct pt_regs *regs)
 
 	spin_lock(&desc->lock);
 	desc->status &= ~IRQ_INPROGRESS;
-out:
 	if (!(desc->status & IRQ_DISABLED) && desc->chip->unmask)
 		desc->chip->unmask(irq);
+out_unlock:
 	spin_unlock(&desc->lock);
 }
 

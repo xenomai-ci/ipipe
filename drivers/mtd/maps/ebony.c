@@ -142,6 +142,7 @@ int __init init_ebony(void)
 					ARRAY_SIZE(ebony_small_partitions));
 	} else {
 		printk("map probe failed for flash\n");
+		iounmap(ebony_small_map.virt);
 		return -ENXIO;
 	}
 
@@ -151,6 +152,7 @@ int __init init_ebony(void)
 
 	if (!ebony_large_map.virt) {
 		printk("Failed to ioremap flash\n");
+		iounmap(ebony_small_map.virt);
 		return -EIO;
 	}
 
@@ -163,6 +165,8 @@ int __init init_ebony(void)
 					ARRAY_SIZE(ebony_large_partitions));
 	} else {
 		printk("map probe failed for flash\n");
+		iounmap(ebony_small_map.virt);
+		iounmap(ebony_large_map.virt);
 		return -ENXIO;
 	}
 

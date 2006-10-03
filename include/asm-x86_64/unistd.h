@@ -600,9 +600,9 @@ __SYSCALL(__NR_fchmodat, sys_fchmodat)
 #define __NR_faccessat		269
 __SYSCALL(__NR_faccessat, sys_faccessat)
 #define __NR_pselect6		270
-__SYSCALL(__NR_pselect6, sys_ni_syscall)	/* for now */
+__SYSCALL(__NR_pselect6, sys_pselect6)
 #define __NR_ppoll		271
-__SYSCALL(__NR_ppoll,	sys_ni_syscall)		/* for now */
+__SYSCALL(__NR_ppoll,	sys_ppoll)
 #define __NR_unshare		272
 __SYSCALL(__NR_unshare,	sys_unshare)
 #define __NR_set_robust_list	273
@@ -620,17 +620,20 @@ __SYSCALL(__NR_vmsplice, sys_vmsplice)
 #define __NR_move_pages		279
 __SYSCALL(__NR_move_pages, sys_move_pages)
 
+#ifdef __KERNEL__
+
 #define __NR_syscall_max __NR_move_pages
+#include <linux/err.h>
 
 #ifndef __NO_STUBS
 
-/* user-visible error numbers are in the range -1 - -4095 */
+/* user-visible error numbers are in the range -1 - -MAX_ERRNO */
 
 #define __syscall_clobber "r11","rcx","memory" 
 
 #define __syscall_return(type, res) \
 do { \
-	if ((unsigned long)(res) >= (unsigned long)(-127)) { \
+	if ((unsigned long)(res) >= (unsigned long)(-MAX_ERRNO)) { \
 		errno = -(res); \
 		res = -1; \
 	} \
@@ -656,6 +659,7 @@ do { \
 #define __ARCH_WANT_SYS_SIGPENDING
 #define __ARCH_WANT_SYS_SIGPROCMASK
 #define __ARCH_WANT_SYS_RT_SIGACTION
+#define __ARCH_WANT_SYS_RT_SIGSUSPEND
 #define __ARCH_WANT_SYS_TIME
 #define __ARCH_WANT_COMPAT_SYS_TIME
 
@@ -744,8 +748,6 @@ __syscall_return(type,__res); \
 
 #else /* __KERNEL_SYSCALLS__ */
 
-#ifdef __KERNEL__
-
 #include <linux/syscalls.h>
 #include <asm/ptrace.h>
 
@@ -821,8 +823,6 @@ asmlinkage long sys_fork(struct pt_regs regs);
 asmlinkage long sys_vfork(struct pt_regs regs);
 asmlinkage long sys_pipe(int *fildes);
 
-#endif /* __KERNEL_SYSCALLS__ */
-
 #ifndef __ASSEMBLY__
 
 #include <linux/linkage.h>
@@ -838,9 +838,9 @@ asmlinkage long sys_rt_sigaction(int sig,
 				struct sigaction __user *oact,
 				size_t sigsetsize);
 
-#endif
+#endif  /* __ASSEMBLY__ */
 
-#endif
+#endif /* __KERNEL_SYSCALLS__ */
 
 /*
  * "Conditional" syscalls
@@ -850,6 +850,8 @@ asmlinkage long sys_rt_sigaction(int sig,
  */
 #define cond_syscall(x) asm(".weak\t" #x "\n\t.set\t" #x ",sys_ni_syscall")
 
-#endif
+#endif /* __NO_STUBS */
 
-#endif
+#endif /* __KERNEL__ */
+
+#endif /* _ASM_X86_64_UNISTD_H_ */

@@ -14,8 +14,6 @@
 
 #include <spaces.h>
 
-#endif
-
 /*
  * PAGE_SHIFT determines the page size
  */
@@ -34,9 +32,9 @@
 #define PAGE_SIZE	(1UL << PAGE_SHIFT)
 #define PAGE_MASK       (~((1 << PAGE_SHIFT) - 1))
 
-
-#ifdef __KERNEL__
 #ifndef __ASSEMBLY__
+
+#include <asm/cpu-features.h>
 
 extern void clear_page(void * page);
 extern void copy_page(void * to, void * from);
@@ -57,7 +55,7 @@ static inline void clear_user_page(void *addr, unsigned long vaddr,
 	extern void (*flush_data_cache_page)(unsigned long addr);
 
 	clear_page(addr);
-	if (pages_do_alias((unsigned long) addr, vaddr))
+	if (pages_do_alias((unsigned long) addr, vaddr & PAGE_MASK))
 		flush_data_cache_page((unsigned long)addr);
 }
 
@@ -67,7 +65,8 @@ static inline void copy_user_page(void *vto, void *vfrom, unsigned long vaddr,
 	extern void (*flush_data_cache_page)(unsigned long addr);
 
 	copy_page(vto, vfrom);
-	if (pages_do_alias((unsigned long)vto, vaddr))
+	if (!cpu_has_ic_fills_f_dc ||
+	    pages_do_alias((unsigned long)vto, vaddr & PAGE_MASK))
 		flush_data_cache_page((unsigned long)vto);
 }
 
@@ -78,15 +77,17 @@ static inline void copy_user_page(void *vto, void *vfrom, unsigned long vaddr,
   #ifdef CONFIG_CPU_MIPS32
     typedef struct { unsigned long pte_low, pte_high; } pte_t;
     #define pte_val(x)    ((x).pte_low | ((unsigned long long)(x).pte_high << 32))
+    #define __pte(x)      ({ pte_t __pte = {(x), ((unsigned long long)(x)) >> 32}; __pte; })
   #else
      typedef struct { unsigned long long pte; } pte_t;
      #define pte_val(x)	((x).pte)
+     #define __pte(x)	((pte_t) { (x) } )
   #endif
 #else
 typedef struct { unsigned long pte; } pte_t;
 #define pte_val(x)	((x).pte)
-#endif
 #define __pte(x)	((pte_t) { (x) } )
+#endif
 
 /*
  * For 3-level pagetables we defines these ourselves, for 2-level the
@@ -168,13 +169,13 @@ typedef struct { unsigned long pgprot; } pgprot_t;
 #define UNCAC_ADDR(addr)	((addr) - PAGE_OFFSET + UNCAC_BASE)
 #define CAC_ADDR(addr)		((addr) - UNCAC_BASE + PAGE_OFFSET)
 
-#endif /* defined (__KERNEL__) */
-
 #ifdef CONFIG_LIMITED_DMA
 #define WANT_PAGE_VIRTUAL
 #endif
 
 #include <asm-generic/memory_model.h>
 #include <asm-generic/page.h>
+
+#endif /* defined (__KERNEL__) */
 
 #endif /* _ASM_PAGE_H */

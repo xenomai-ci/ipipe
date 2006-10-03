@@ -184,8 +184,7 @@ static int init_inodecache(void)
 
 static void destroy_inodecache(void)
 {
-	if (kmem_cache_destroy(ext2_inode_cachep))
-		printk(KERN_INFO "ext2_inode_cache: not all structures were freed\n");
+	kmem_cache_destroy(ext2_inode_cachep);
 }
 
 static void ext2_clear_inode(struct inode *inode)
@@ -251,6 +250,44 @@ static struct super_operations ext2_sops = {
 #endif
 };
 
+static struct dentry *ext2_get_dentry(struct super_block *sb, void *vobjp)
+{
+	__u32 *objp = vobjp;
+	unsigned long ino = objp[0];
+	__u32 generation = objp[1];
+	struct inode *inode;
+	struct dentry *result;
+
+	if (ino < EXT2_FIRST_INO(sb) && ino != EXT2_ROOT_INO)
+		return ERR_PTR(-ESTALE);
+	if (ino > le32_to_cpu(EXT2_SB(sb)->s_es->s_inodes_count))
+		return ERR_PTR(-ESTALE);
+
+	/* iget isn't really right if the inode is currently unallocated!!
+	 * ext2_read_inode currently does appropriate checks, but
+	 * it might be "neater" to call ext2_get_inode first and check
+	 * if the inode is valid.....
+	 */
+	inode = iget(sb, ino);
+	if (inode == NULL)
+		return ERR_PTR(-ENOMEM);
+	if (is_bad_inode(inode) ||
+	    (generation && inode->i_generation != generation)) {
+		/* we didn't find the right inode.. */
+		iput(inode);
+		return ERR_PTR(-ESTALE);
+	}
+	/* now to find a dentry.
+	 * If possible, get a well-connected one
+	 */
+	result = d_alloc_anon(inode);
+	if (!result) {
+		iput(inode);
+		return ERR_PTR(-ENOMEM);
+	}
+	return result;
+}
+
 /* Yes, most of these are left as NULL!!
  * A NULL value implies the default, which works with ext2-like file
  * systems, but can be improved upon.
@@ -258,6 +295,7 @@ static struct super_operations ext2_sops = {
  */
 static struct export_operations ext2_export_ops = {
 	.get_parent = ext2_get_parent,
+	.get_dentry = ext2_get_dentry,
 };
 
 static unsigned long get_sb_block(void **data)
@@ -505,17 +543,24 @@ static int ext2_check_descriptors (struct super_block * sb)
 	int i;
 	int desc_block = 0;
 	struct ext2_sb_info *sbi = EXT2_SB(sb);
-	unsigned long block = le32_to_cpu(sbi->s_es->s_first_data_block);
+	unsigned long first_block = le32_to_cpu(sbi->s_es->s_first_data_block);
+	unsigned long last_block;
 	struct ext2_group_desc * gdp = NULL;
 
 	ext2_debug ("Checking group descriptors");
 
 	for (i = 0; i < sbi->s_groups_count; i++)
 	{
+		if (i == sbi->s_groups_count - 1)
+			last_block = le32_to_cpu(sbi->s_es->s_blocks_count) - 1;
+		else
+			last_block = first_block +
+				(EXT2_BLOCKS_PER_GROUP(sb) - 1);
+
 		if ((i % EXT2_DESC_PER_BLOCK(sb)) == 0)
 			gdp = (struct ext2_group_desc *) sbi->s_group_desc[desc_block++]->b_data;
-		if (le32_to_cpu(gdp->bg_block_bitmap) < block ||
-		    le32_to_cpu(gdp->bg_block_bitmap) >= block + EXT2_BLOCKS_PER_GROUP(sb))
+		if (le32_to_cpu(gdp->bg_block_bitmap) < first_block ||
+		    le32_to_cpu(gdp->bg_block_bitmap) > last_block)
 		{
 			ext2_error (sb, "ext2_check_descriptors",
 				    "Block bitmap for group %d"
@@ -523,8 +568,8 @@ static int ext2_check_descriptors (struct super_block * sb)
 				    i, (unsigned long) le32_to_cpu(gdp->bg_block_bitmap));
 			return 0;
 		}
-		if (le32_to_cpu(gdp->bg_inode_bitmap) < block ||
-		    le32_to_cpu(gdp->bg_inode_bitmap) >= block + EXT2_BLOCKS_PER_GROUP(sb))
+		if (le32_to_cpu(gdp->bg_inode_bitmap) < first_block ||
+		    le32_to_cpu(gdp->bg_inode_bitmap) > last_block)
 		{
 			ext2_error (sb, "ext2_check_descriptors",
 				    "Inode bitmap for group %d"
@@ -532,9 +577,9 @@ static int ext2_check_descriptors (struct super_block * sb)
 				    i, (unsigned long) le32_to_cpu(gdp->bg_inode_bitmap));
 			return 0;
 		}
-		if (le32_to_cpu(gdp->bg_inode_table) < block ||
-		    le32_to_cpu(gdp->bg_inode_table) + sbi->s_itb_per_group >=
-		    block + EXT2_BLOCKS_PER_GROUP(sb))
+		if (le32_to_cpu(gdp->bg_inode_table) < first_block ||
+		    le32_to_cpu(gdp->bg_inode_table) + sbi->s_itb_per_group >
+		    last_block)
 		{
 			ext2_error (sb, "ext2_check_descriptors",
 				    "Inode table for group %d"
@@ -542,7 +587,7 @@ static int ext2_check_descriptors (struct super_block * sb)
 				    i, (unsigned long) le32_to_cpu(gdp->bg_inode_table));
 			return 0;
 		}
-		block += EXT2_BLOCKS_PER_GROUP(sb);
+		first_block += EXT2_BLOCKS_PER_GROUP(sb);
 		gdp++;
 	}
 	return 1;
@@ -609,11 +654,10 @@ static int ext2_fill_super(struct super_block *sb, void *data, int silent)
 	int i, j;
 	__le32 features;
 
-	sbi = kmalloc(sizeof(*sbi), GFP_KERNEL);
+	sbi = kzalloc(sizeof(*sbi), GFP_KERNEL);
 	if (!sbi)
 		return -ENOMEM;
 	sb->s_fs_info = sbi;
-	memset(sbi, 0, sizeof(*sbi));
 
 	/*
 	 * See what the current blocksize for the device is, and
@@ -822,10 +866,9 @@ static int ext2_fill_super(struct super_block *sb, void *data, int silent)
 
 	if (EXT2_BLOCKS_PER_GROUP(sb) == 0)
 		goto cantfind_ext2;
-	sbi->s_groups_count = (le32_to_cpu(es->s_blocks_count) -
-				        le32_to_cpu(es->s_first_data_block) +
-				       EXT2_BLOCKS_PER_GROUP(sb) - 1) /
-				       EXT2_BLOCKS_PER_GROUP(sb);
+ 	sbi->s_groups_count = ((le32_to_cpu(es->s_blocks_count) -
+ 				le32_to_cpu(es->s_first_data_block) - 1)
+ 					/ EXT2_BLOCKS_PER_GROUP(sb)) + 1;
 	db_count = (sbi->s_groups_count + EXT2_DESC_PER_BLOCK(sb) - 1) /
 		   EXT2_DESC_PER_BLOCK(sb);
 	sbi->s_group_desc = kmalloc (db_count * sizeof (struct buffer_head *), GFP_KERNEL);
@@ -1044,7 +1087,6 @@ static int ext2_statfs (struct dentry * dentry, struct kstatfs * buf)
 	unsigned long overhead;
 	int i;
 
-	lock_super(sb);
 	if (test_opt (sb, MINIX_DF))
 		overhead = 0;
 	else {
@@ -1085,7 +1127,6 @@ static int ext2_statfs (struct dentry * dentry, struct kstatfs * buf)
 	buf->f_files = le32_to_cpu(sbi->s_es->s_inodes_count);
 	buf->f_ffree = ext2_count_free_inodes (sb);
 	buf->f_namelen = EXT2_NAME_LEN;
-	unlock_super(sb);
 	return 0;
 }
 

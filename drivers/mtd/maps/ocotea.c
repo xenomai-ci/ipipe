@@ -134,6 +134,7 @@ int __init init_ocotea(void)
 					ARRAY_SIZE(ocotea_small_partitions));
 	} else {
 		printk("map probe failed for flash\n");
+		iounmap(ocotea_small_map.virt);
 		return -ENXIO;
 	}
 
@@ -143,6 +144,7 @@ int __init init_ocotea(void)
 
 	if (!ocotea_large_map.virt) {
 		printk("Failed to ioremap flash\n");
+		iounmap(ocotea_small_map.virt);
 		return -EIO;
 	}
 
@@ -155,6 +157,8 @@ int __init init_ocotea(void)
 					ARRAY_SIZE(ocotea_large_partitions));
 	} else {
 		printk("map probe failed for flash\n");
+		iounmap(ocotea_small_map.virt);
+		iounmap(ocotea_large_map.virt);
 		return -ENXIO;
 	}
 

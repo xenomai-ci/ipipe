@@ -33,6 +33,10 @@
 static void ieee_init(struct ieee80211_device *ieee);
 static void softmac_init(struct ieee80211softmac_device *sm);
 
+static void housekeeping_init(struct zd_mac *mac);
+static void housekeeping_enable(struct zd_mac *mac);
+static void housekeeping_disable(struct zd_mac *mac);
+
 int zd_mac_init(struct zd_mac *mac,
 	        struct net_device *netdev,
 	        struct usb_interface *intf)
@@ -46,6 +50,7 @@ int zd_mac_init(struct zd_mac *mac,
 	ieee_init(ieee);
 	softmac_init(ieee80211_priv(netdev));
 	zd_chip_init(&mac->chip, netdev, intf);
+	housekeeping_init(mac);
 	return 0;
 }
 
@@ -127,11 +132,9 @@ out:
 
 void zd_mac_clear(struct zd_mac *mac)
 {
-	/* Aquire the lock. */
-	spin_lock(&mac->lock);
-	spin_unlock(&mac->lock);
 	zd_chip_clear(&mac->chip);
-	memset(mac, 0, sizeof(*mac));
+	ZD_ASSERT(!spin_is_locked(&mac->lock));
+	ZD_MEMCLEAR(mac, sizeof(struct zd_mac));
 }
 
 static int reset_mode(struct zd_mac *mac)
@@ -180,6 +183,7 @@ int zd_mac_open(struct net_device *netdev)
 	if (r < 0)
 		goto disable_rx;
 
+	housekeeping_enable(mac);
 	ieee80211softmac_start(netdev);
 	return 0;
 disable_rx:
@@ -206,6 +210,7 @@ int zd_mac_stop(struct net_device *netdev)
 	 */
 
 	zd_chip_disable_rx(chip);
+	housekeeping_disable(mac);
 	ieee80211softmac_stop(netdev);
 
 	zd_chip_disable_hwint(chip);
@@ -716,7 +721,7 @@ struct zd_rt_hdr {
 	u8  rt_rate;
 	u16 rt_channel;
 	u16 rt_chbitmask;
-} __attribute__((packed));
+};
 
 static void fill_rt_header(void *buffer, struct zd_mac *mac,
 	                   const struct ieee80211_rx_stats *stats,
@@ -816,13 +821,25 @@ static int filter_rx(struct ieee80211_device *ieee,
 	return -EINVAL;
 }
 
-static void update_qual_rssi(struct zd_mac *mac, u8 qual_percent, u8 rssi)
+static void update_qual_rssi(struct zd_mac *mac,
+			     const u8 *buffer, unsigned int length,
+			     u8 qual_percent, u8 rssi_percent)
 {
 	unsigned long flags;
+	struct ieee80211_hdr_3addr *hdr;
+	int i;
+
+	hdr = (struct ieee80211_hdr_3addr *)buffer;
+	if (length < offsetof(struct ieee80211_hdr_3addr, addr3))
+		return;
+	if (memcmp(hdr->addr2, zd_mac_to_ieee80211(mac)->bssid, ETH_ALEN) != 0)
+		return;
 
 	spin_lock_irqsave(&mac->lock, flags);
-	mac->qual_average = (7 * mac->qual_average + qual_percent) / 8;
-	mac->rssi_average = (7 * mac->rssi_average + rssi) / 8;
+	i = mac->stats_count % ZD_MAC_STATS_BUFFER_SIZE;
+	mac->qual_buffer[i] = qual_percent;
+	mac->rssi_buffer[i] = rssi_percent;
+	mac->stats_count++;
 	spin_unlock_irqrestore(&mac->lock, flags);
 }
 
@@ -853,7 +870,6 @@ static int fill_rx_stats(struct ieee80211_rx_stats *stats,
 	if (stats->rate)
 		stats->mask |= IEEE80211_STATMASK_RATE;
 
-	update_qual_rssi(mac, stats->signal, stats->rssi);
 	return 0;
 }
 
@@ -876,6 +892,8 @@ int zd_mac_rx(struct zd_mac *mac, const u8 *buffer, unsigned int length)
 	length -= ZD_PLCP_HEADER_SIZE+IEEE80211_FCS_LEN+
 		  sizeof(struct rx_status);
 	buffer += ZD_PLCP_HEADER_SIZE;
+
+	update_qual_rssi(mac, buffer, length, stats.signal, stats.rssi);
 
 	r = filter_rx(ieee, buffer, length, &stats);
 	if (r <= 0)
@@ -981,17 +999,31 @@ struct iw_statistics *zd_mac_get_wireless_stats(struct net_device *ndev)
 {
 	struct zd_mac *mac = zd_netdev_mac(ndev);
 	struct iw_statistics *iw_stats = &mac->iw_stats;
+	unsigned int i, count, qual_total, rssi_total;
 
 	memset(iw_stats, 0, sizeof(struct iw_statistics));
 	/* We are not setting the status, because ieee->state is not updated
 	 * at all and this driver doesn't track authentication state.
 	 */
 	spin_lock_irq(&mac->lock);
-	iw_stats->qual.qual = mac->qual_average;
-	iw_stats->qual.level = mac->rssi_average;
-	iw_stats->qual.updated = IW_QUAL_QUAL_UPDATED|IW_QUAL_LEVEL_UPDATED|
-		                 IW_QUAL_NOISE_INVALID;
+	count = mac->stats_count < ZD_MAC_STATS_BUFFER_SIZE ?
+		mac->stats_count : ZD_MAC_STATS_BUFFER_SIZE;
+	qual_total = rssi_total = 0;
+	for (i = 0; i < count; i++) {
+		qual_total += mac->qual_buffer[i];
+		rssi_total += mac->rssi_buffer[i];
+	}
 	spin_unlock_irq(&mac->lock);
+	iw_stats->qual.updated = IW_QUAL_NOISE_INVALID;
+	if (count > 0) {
+		iw_stats->qual.qual = qual_total / count;
+		iw_stats->qual.level = rssi_total / count;
+		iw_stats->qual.updated |=
+			IW_QUAL_QUAL_UPDATED|IW_QUAL_LEVEL_UPDATED;
+	} else {
+		iw_stats->qual.updated |=
+			IW_QUAL_QUAL_INVALID|IW_QUAL_LEVEL_INVALID;
+	}
 	/* TODO: update counter */
 	return iw_stats;
 }
@@ -1055,3 +1087,46 @@ void zd_dump_rx_status(const struct rx_status *status)
 	}
 }
 #endif /* DEBUG */
+
+#define LINK_LED_WORK_DELAY HZ
+
+static void link_led_handler(void *p)
+{
+	struct zd_mac *mac = p;
+	struct zd_chip *chip = &mac->chip;
+	struct ieee80211softmac_device *sm = ieee80211_priv(mac->netdev);
+	int is_associated;
+	int r;
+
+	spin_lock_irq(&mac->lock);
+	is_associated = sm->associated != 0;
+	spin_unlock_irq(&mac->lock);
+
+	r = zd_chip_control_leds(chip,
+		                 is_associated ? LED_ASSOCIATED : LED_SCANNING);
+	if (r)
+		dev_err(zd_mac_dev(mac), "zd_chip_control_leds error %d\n", r);
+
+	queue_delayed_work(zd_workqueue, &mac->housekeeping.link_led_work,
+		           LINK_LED_WORK_DELAY);
+}
+
+static void housekeeping_init(struct zd_mac *mac)
+{
+	INIT_WORK(&mac->housekeeping.link_led_work, link_led_handler, mac);
+}
+
+static void housekeeping_enable(struct zd_mac *mac)
+{
+	dev_dbg_f(zd_mac_dev(mac), "\n");
+	queue_delayed_work(zd_workqueue, &mac->housekeeping.link_led_work,
+			   0);
+}
+
+static void housekeeping_disable(struct zd_mac *mac)
+{
+	dev_dbg_f(zd_mac_dev(mac), "\n");
+	cancel_rearming_delayed_workqueue(zd_workqueue,
+		&mac->housekeeping.link_led_work);
+	zd_chip_control_leds(&mac->chip, LED_OFF);
+}

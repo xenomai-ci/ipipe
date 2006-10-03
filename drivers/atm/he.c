@@ -454,7 +454,7 @@ rate_to_atmf(unsigned rate)		/* cps to atm forum format */
 	return (NONZERO | (exp << 9) | (rate & 0x1ff));
 }
 
-static void __init
+static void __devinit
 he_init_rx_lbfp0(struct he_dev *he_dev)
 {
 	unsigned i, lbm_offset, lbufd_index, lbuf_addr, lbuf_count;
@@ -485,7 +485,7 @@ he_init_rx_lbfp0(struct he_dev *he_dev)
 	he_writel(he_dev, he_dev->r0_numbuffs, RLBF0_C);
 }
 
-static void __init
+static void __devinit
 he_init_rx_lbfp1(struct he_dev *he_dev)
 {
 	unsigned i, lbm_offset, lbufd_index, lbuf_addr, lbuf_count;
@@ -516,7 +516,7 @@ he_init_rx_lbfp1(struct he_dev *he_dev)
 	he_writel(he_dev, he_dev->r1_numbuffs, RLBF1_C);
 }
 
-static void __init
+static void __devinit
 he_init_tx_lbfp(struct he_dev *he_dev)
 {
 	unsigned i, lbm_offset, lbufd_index, lbuf_addr, lbuf_count;
@@ -546,7 +546,7 @@ he_init_tx_lbfp(struct he_dev *he_dev)
 	he_writel(he_dev, lbufd_index - 1, TLBF_T);
 }
 
-static int __init
+static int __devinit
 he_init_tpdrq(struct he_dev *he_dev)
 {
 	he_dev->tpdrq_base = pci_alloc_consistent(he_dev->pci_dev,
@@ -568,7 +568,7 @@ he_init_tpdrq(struct he_dev *he_dev)
 	return 0;
 }
 
-static void __init
+static void __devinit
 he_init_cs_block(struct he_dev *he_dev)
 {
 	unsigned clock, rate, delta;
@@ -664,7 +664,7 @@ he_init_cs_block(struct he_dev *he_dev)
 
 }
 
-static int __init
+static int __devinit
 he_init_cs_block_rcm(struct he_dev *he_dev)
 {
 	unsigned (*rategrid)[16][16];
@@ -785,7 +785,7 @@ he_init_cs_block_rcm(struct he_dev *he_dev)
 	return 0;
 }
 
-static int __init
+static int __devinit
 he_init_group(struct he_dev *he_dev, int group)
 {
 	int i;
@@ -955,7 +955,7 @@ he_init_group(struct he_dev *he_dev, int group)
 	return 0;
 }
 
-static int __init
+static int __devinit
 he_init_irq(struct he_dev *he_dev)
 {
 	int i;
@@ -1912,7 +1912,7 @@ he_service_rbrq(struct he_dev *he_dev, int group)
 				skb->tail = skb->data + skb->len;
 #ifdef USE_CHECKSUM_HW
 				if (vcc->vpi == 0 && vcc->vci >= ATM_NOT_RSV_VCI) {
-					skb->ip_summed = CHECKSUM_HW;
+					skb->ip_summed = CHECKSUM_COMPLETE;
 					skb->csum = TCP_CKSUM(skb->data,
 							he_vcc->pdu_len);
 				}
@@ -1928,7 +1928,9 @@ he_service_rbrq(struct he_dev *he_dev, int group)
 #ifdef notdef
 		ATM_SKB(skb)->vcc = vcc;
 #endif
+		spin_unlock(&he_dev->global_lock);
 		vcc->push(vcc, skb);
+		spin_lock(&he_dev->global_lock);
 
 		atomic_inc(&vcc->stats->rx);
 
@@ -2282,6 +2284,8 @@ __enqueue_tpd(struct he_dev *he_dev, struct he_tpd *tpd, unsigned cid)
 				TPDRQ_MASK(he_readl(he_dev, TPDRQ_B_H)));
 
 		if (new_tail == he_dev->tpdrq_head) {
+			int slot;
+
 			hprintk("tpdrq full (cid 0x%x)\n", cid);
 			/*
 			 * FIXME
@@ -2289,6 +2293,13 @@ __enqueue_tpd(struct he_dev *he_dev, struct he_tpd *tpd, unsigned cid)
 			 * after service_tbrq, service the backlog
 			 * for now, we just drop the pdu
 			 */
+			for (slot = 0; slot < TPD_MAXIOV; ++slot) {
+				if (tpd->iovec[slot].addr)
+					pci_unmap_single(he_dev->pci_dev,
+						tpd->iovec[slot].addr,
+						tpd->iovec[slot].len & TPD_LEN_MASK,
+								PCI_DMA_TODEVICE);
+			}
 			if (tpd->skb) {
 				if (tpd->vcc->pop)
 					tpd->vcc->pop(tpd->vcc, tpd->skb);

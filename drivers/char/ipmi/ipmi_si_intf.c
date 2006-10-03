@@ -402,10 +402,10 @@ static void handle_flags(struct smi_info *smi_info)
 			smi_info->curr_msg->data,
 			smi_info->curr_msg->data_size);
 		smi_info->si_state = SI_GETTING_EVENTS;
-	} else if (smi_info->msg_flags & OEM_DATA_AVAIL) {
-		if (smi_info->oem_data_avail_handler)
-			if (smi_info->oem_data_avail_handler(smi_info))
-				goto retry;
+	} else if (smi_info->msg_flags & OEM_DATA_AVAIL &&
+	           smi_info->oem_data_avail_handler) {
+		if (smi_info->oem_data_avail_handler(smi_info))
+			goto retry;
 	} else {
 		smi_info->si_state = SI_NORMAL;
 	}
@@ -916,7 +916,11 @@ static int smi_start_processing(void       *send_info,
 	new_smi->last_timeout_jiffies = jiffies;
 	mod_timer(&new_smi->si_timer, jiffies + SI_TIMEOUT_JIFFIES);
 
- 	if (new_smi->si_type != SI_BT) {
+	/*
+	 * The BT interface is efficient enough to not need a thread,
+	 * and there is no need for a thread if we have interrupts.
+	 */
+ 	if ((new_smi->si_type != SI_BT) && (!new_smi->irq)) {
 		new_smi->thread = kthread_run(ipmi_thread, new_smi,
 					      "kipmi%d", new_smi->intf_num);
 		if (IS_ERR(new_smi->thread)) {
@@ -2481,6 +2485,7 @@ static __devinit int init_ipmi_si(void)
 #ifdef CONFIG_PCI
 		pci_unregister_driver(&ipmi_pci_driver);
 #endif
+		driver_unregister(&ipmi_driver);
 		printk("ipmi_si: Unable to find any System Interface(s)\n");
 		return -ENODEV;
 	} else {
