@@ -122,15 +122,6 @@ Who:    Arjan van de Ven
 
 ---------------------------
 
-What:	START_ARRAY ioctl for md
-When:	July 2006
-Files:	drivers/md/md.c
-Why:	Not reliable by design - can fail when most needed.
-	Alternatives exist
-Who:	NeilBrown <neilb@suse.de>
-
----------------------------
-
 What:   eepro100 network driver
 When:   January 2007
 Why:    replaced by the e100 driver
@@ -323,5 +314,13 @@ Why:	i2c-isa is a non-sense and doesn't fit in the device driver
 	model. Drivers relying on it are better implemented as platform
 	drivers.
 Who:	Jean Delvare <khali@linux-fr.org>
+
+---------------------------
+
+What:	ftape
+When:	2.6.20
+Why:	Orphaned for ages.  SMP bugs long unfixed.  Few users left
+	in the world.
+Who:	Jeff Garzik <jeff@garzik.org>
 
 ---------------------------
