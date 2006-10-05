@@ -14,7 +14,6 @@
  * or implied.
  */
 
-#include <linux/config.h>
 #include <linux/module.h>
 #include <linux/moduleparam.h>
 #include <linux/types.h>
@@ -184,7 +183,7 @@ static int
 pnx4008_wdt_ioctl(struct inode *inode, struct file *file, unsigned int cmd,
 		  unsigned long arg)
 {
-	int ret = -ENOIOCTLCMD;
+	int ret = -ENOTTY;
 	int time;
 
 	switch (cmd) {

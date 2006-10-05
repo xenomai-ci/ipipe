@@ -2965,6 +2965,63 @@ struct saa7134_board saa7134_boards[] = {
 			.amux = LINE1,
 		},
 	},
+	[SAA7134_BOARD_AVERMEDIA_A16AR] = {
+		/* Petr Baudis <pasky@ucw.cz> */
+		.name           = "AVerMedia TV Hybrid A16AR",
+		.audio_clock    = 0x187de7,
+		.tuner_type     = TUNER_PHILIPS_TDA8290, /* untested */
+		.radio_type     = TUNER_TEA5767, /* untested */
+		.tuner_addr     = ADDR_UNSET,
+		.radio_addr     = ADDR_UNSET,
+		.tda9887_conf   = TDA9887_PRESENT,
+		.mpeg           = SAA7134_MPEG_DVB,
+		.inputs         = {{
+			.name = name_tv,
+			.vmux = 1,
+			.amux = TV,
+			.tv   = 1,
+		},{
+			.name = name_comp1,
+			.vmux = 3,
+			.amux = LINE2,
+		},{
+			.name = name_svideo,
+			.vmux = 8,
+			.amux = LINE1,
+		}},
+		.radio = {
+			.name = name_radio,
+			.amux = LINE1,
+		},
+	},
+	[SAA7134_BOARD_ASUS_EUROPA2_HYBRID] = {
+		.name           = "Asus Europa2 OEM",
+		.audio_clock    = 0x00187de7,
+		.tuner_type     = TUNER_PHILIPS_FMD1216ME_MK3,
+		.radio_type     = UNSET,
+		.tuner_addr	= ADDR_UNSET,
+		.radio_addr	= ADDR_UNSET,
+		.tda9887_conf   = TDA9887_PRESENT| TDA9887_PORT1_ACTIVE | TDA9887_PORT2_ACTIVE,
+		.mpeg           = SAA7134_MPEG_DVB,
+		.inputs = {{
+			.name   = name_tv,
+			.vmux   = 3,
+			.amux   = TV,
+			.tv     = 1,
+		},{
+			.name   = name_comp1,
+			.vmux   = 4,
+			.amux   = LINE2,
+		},{
+			.name   = name_svideo,
+			.vmux   = 8,
+			.amux   = LINE2,
+		}},
+		.radio = {
+			.name   = name_radio,
+			.amux   = LINE1,
+		},
+	},
 };
 
 const unsigned int saa7134_bcount = ARRAY_SIZE(saa7134_boards);
@@ -3562,6 +3619,18 @@ struct pci_device_id saa7134_pci_tbl[] = {
 		.subdevice    = 0x2003,
 		.driver_data  = SAA7134_BOARD_PROTEUS_2309,
 	},{
+		.vendor       = PCI_VENDOR_ID_PHILIPS,
+		.device       = PCI_DEVICE_ID_PHILIPS_SAA7134,
+		.subvendor    = 0x1461,
+		.subdevice    = 0x2c00,
+		.driver_data  = SAA7134_BOARD_AVERMEDIA_A16AR,
+	},{
+		.vendor       = PCI_VENDOR_ID_PHILIPS,
+		.device       = PCI_DEVICE_ID_PHILIPS_SAA7134,
+		.subvendor    = 0x1043,
+		.subdevice    = 0x4860,
+		.driver_data  = SAA7134_BOARD_ASUS_EUROPA2_HYBRID,
+	},{
 		/* --- boards without eeprom + subsystem ID --- */
 		.vendor       = PCI_VENDOR_ID_PHILIPS,
 		.device       = PCI_DEVICE_ID_PHILIPS_SAA7134,
@@ -3703,6 +3772,7 @@ int saa7134_board_init1(struct saa7134_dev *dev)
 		saa_writeb(SAA7134_GPIO_GPMODE3, 0x08);
 		saa_writeb(SAA7134_GPIO_GPSTATUS3, 0x00);
 		break;
+	case SAA7134_BOARD_AVERMEDIA_A16AR:
 	case SAA7134_BOARD_AVERMEDIA_CARDBUS:
 		/* power-up tuner chip */
 		saa_andorl(SAA7134_GPIO_GPMODE0 >> 2,   0xffffffff, 0xffffffff);
@@ -3835,6 +3905,7 @@ int saa7134_board_init2(struct saa7134_dev *dev)
 		break;
 	case SAA7134_BOARD_PHILIPS_EUROPA:
 	case SAA7134_BOARD_VIDEOMATE_DVBT_300:
+	case SAA7134_BOARD_ASUS_EUROPA2_HYBRID:
 		/* The Philips EUROPA based hybrid boards have the tuner connected through
 		 * the channel decoder. We have to make it transparent to find it
 		 */

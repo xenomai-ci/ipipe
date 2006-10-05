@@ -1,4 +1,4 @@
-/* drivers/char/max6902.c
+/* drivers/rtc/rtc-max6902.c
  *
  * Copyright (C) 2006 8D Technologies inc.
  * Copyright (C) 2004 Compulab Ltd.
@@ -19,7 +19,6 @@
  *                - Initial driver creation.
  */
 
-#include <linux/config.h>
 #include <linux/module.h>
 #include <linux/version.h>
 
