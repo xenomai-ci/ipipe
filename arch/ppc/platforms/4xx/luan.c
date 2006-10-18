@@ -183,7 +183,7 @@ luan_setup_pcix(void)
 		PCIX_WRITEL(0x80000000 | i*LUAN_PCIX_MEM_SIZE, PCIX0_POM0PCIAL);
 		PCIX_WRITEL(0xe0000001, PCIX0_POM0SA);
 
-		/* Setup 2GB PCI->PLB inbound memory window at 0, enable MSIs */
+		/* Setup 512MB PCI->PLB inbound memory window at 0, enable MSIs */
 		PCIX_WRITEL(0x00000000, PCIX0_PIM0LAH);
 		PCIX_WRITEL(0x00000000, PCIX0_PIM0LAL);
 		PCIX_WRITEL(0xe0000007, PCIX0_PIM0SA);
