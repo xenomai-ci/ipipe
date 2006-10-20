@@ -1184,8 +1184,8 @@ static int __assign_irq_vector(int irq)
 
 	BUG_ON((unsigned)irq >= NR_IRQ_VECTORS);
 
-	if (IO_APIC_VECTOR(irq) > 0)
-		return IO_APIC_VECTOR(irq);
+	if (irq_vector[irq] > 0)
+		return irq_vector[irq];
 
 	current_vector += 8;
 	if (current_vector == SYSCALL_VECTOR)
@@ -1199,7 +1199,7 @@ static int __assign_irq_vector(int irq)
 	}
 
 	vector = current_vector;
-	IO_APIC_VECTOR(irq) = vector;
+	irq_vector[irq] = vector;
 
 	return vector;
 }
@@ -1225,11 +1225,11 @@ static void ioapic_register_intr(int irq, int vector, unsigned long trigger)
 {
 	if ((trigger == IOAPIC_AUTO && IO_APIC_irq_trigger(irq)) ||
 			trigger == IOAPIC_LEVEL)
-		set_irq_chip_and_handler(irq, &ioapic_chip,
-					 handle_fasteoi_irq);
+		set_irq_chip_and_handler_name(irq, &ioapic_chip,
+					 handle_fasteoi_irq, "fasteoi");
 	else
-		set_irq_chip_and_handler(irq, &ioapic_chip,
-					 handle_edge_irq);
+		set_irq_chip_and_handler_name(irq, &ioapic_chip,
+					 handle_edge_irq, "edge");
 	set_intr_gate(vector, interrupt[irq]);
 }
 
@@ -1967,7 +1967,7 @@ static void ack_ioapic_quirk_irq(unsigned int irq)
  * operation to prevent an edge-triggered interrupt escaping meanwhile.
  * The idea is from Manfred Spraul.  --macro
  */
-	i = IO_APIC_VECTOR(irq);
+	i = irq_vector[irq];
 
 	v = apic_read(APIC_TMR + ((i & ~0x1f) >> 1));
 
@@ -1984,7 +1984,7 @@ static void ack_ioapic_quirk_irq(unsigned int irq)
 
 static int ioapic_retrigger_irq(unsigned int irq)
 {
-	send_IPI_self(IO_APIC_VECTOR(irq));
+	send_IPI_self(irq_vector[irq]);
 
 	return 1;
 }
@@ -2020,7 +2020,7 @@ static inline void init_IO_APIC_traps(void)
 	 */
 	for (irq = 0; irq < NR_IRQS ; irq++) {
 		int tmp = irq;
-		if (IO_APIC_IRQ(tmp) && !IO_APIC_VECTOR(tmp)) {
+		if (IO_APIC_IRQ(tmp) && !irq_vector[tmp]) {
 			/*
 			 * Hmm.. We don't have an entry for this,
 			 * so default to an old-fashioned 8259
@@ -2235,7 +2235,8 @@ static inline void check_timer(void)
 	printk(KERN_INFO "...trying to set up timer as Virtual Wire IRQ...");
 
 	disable_8259A_irq(0);
-	set_irq_chip_and_handler(0, &lapic_chip, handle_fasteoi_irq);
+	set_irq_chip_and_handler_name(0, &lapic_chip, handle_fasteoi_irq,
+				      "fasteio");
 	apic_write_around(APIC_LVT0, APIC_DM_FIXED | vector);	/* Fixed mode */
 	enable_8259A_irq(0);
 
@@ -2541,7 +2542,8 @@ int arch_setup_msi_irq(unsigned int irq, struct pci_dev *dev)
 
 	write_msi_msg(irq, &msg);
 
-	set_irq_chip_and_handler(irq, &msi_chip, handle_edge_irq);
+	set_irq_chip_and_handler_name(irq, &msi_chip, handle_edge_irq,
+				      "edge");
 
 	return 0;
 }
@@ -2594,7 +2596,7 @@ static void set_ht_irq_affinity(unsigned int irq, cpumask_t mask)
 }
 #endif
 
-static struct hw_interrupt_type ht_irq_chip = {
+static struct irq_chip ht_irq_chip = {
 	.name		= "PCI-HT",
 	.mask		= mask_ht_irq,
 	.unmask		= unmask_ht_irq,
@@ -2636,7 +2638,8 @@ int arch_setup_ht_irq(unsigned int irq, struct pci_dev *dev)
 		write_ht_irq_low(irq, low);
 		write_ht_irq_high(irq, high);
 
-		set_irq_chip_and_handler(irq, &ht_irq_chip, handle_edge_irq);
+		set_irq_chip_and_handler_name(irq, &ht_irq_chip,
+					      handle_edge_irq, "edge");
 	}
 	return vector;
 }

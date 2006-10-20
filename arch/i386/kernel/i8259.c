@@ -113,7 +113,8 @@ void make_8259A_irq(unsigned int irq)
 {
 	disable_irq_nosync(irq);
 	io_apic_irqs &= ~(1<<irq);
-	set_irq_chip_and_handler(irq, &i8259A_chip, handle_level_irq);
+	set_irq_chip_and_handler_name(irq, &i8259A_chip, handle_level_irq,
+				      "XT");
 	enable_irq(irq);
 }
 
@@ -335,13 +336,13 @@ void init_8259A(int auto_eoi)
  */
  
 
-static irqreturn_t math_error_irq(int cpl, void *dev_id, struct pt_regs *regs)
+static irqreturn_t math_error_irq(int cpl, void *dev_id)
 {
 	extern void math_error(void __user *);
 	outb(0,0xF0);
 	if (ignore_fpu_irq || !boot_cpu_data.hard_math)
 		return IRQ_NONE;
-	math_error((void __user *)regs->eip);
+	math_error((void __user *)get_irq_regs()->eip);
 	return IRQ_HANDLED;
 }
 
@@ -369,8 +370,8 @@ void __init init_ISA_irqs (void)
 			/*
 			 * 16 old-style INTA-cycle interrupts:
 			 */
-			set_irq_chip_and_handler(i, &i8259A_chip,
-						 handle_level_irq);
+			set_irq_chip_and_handler_name(i, &i8259A_chip,
+						      handle_level_irq, "XT");
 		} else {
 			/*
 			 * 'high' PCI IRQs filled in on demand
