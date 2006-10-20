@@ -138,6 +138,7 @@ void destroy_irq(unsigned int irq)
 void
 ia64_handle_irq (ia64_vector vector, struct pt_regs *regs)
 {
+	struct pt_regs *old_regs = set_irq_regs(regs);
 	unsigned long saved_tpr;
 
 #if IRQ_DEBUG
@@ -179,11 +180,13 @@ ia64_handle_irq (ia64_vector vector, struct pt_regs *regs)
 	saved_tpr = ia64_getreg(_IA64_REG_CR_TPR);
 	ia64_srlz_d();
 	while (vector != IA64_SPURIOUS_INT_VECTOR) {
-		if (!IS_RESCHEDULE(vector)) {
+		if (unlikely(IS_RESCHEDULE(vector)))
+			 kstat_this_cpu.irqs[vector]++;
+		else {
 			ia64_setreg(_IA64_REG_CR_TPR, vector);
 			ia64_srlz_d();
 
-			__do_IRQ(local_vector_to_irq(vector), regs);
+			__do_IRQ(local_vector_to_irq(vector));
 
 			/*
 			 * Disable interrupts and send EOI:
@@ -200,6 +203,7 @@ ia64_handle_irq (ia64_vector vector, struct pt_regs *regs)
 	 * come through until ia64_eoi() has been done.
 	 */
 	irq_exit();
+	set_irq_regs(old_regs);
 }
 
 #ifdef CONFIG_HOTPLUG_CPU
@@ -223,7 +227,11 @@ void ia64_process_pending_intr(void)
 	  * Perform normal interrupt style processing
 	  */
 	while (vector != IA64_SPURIOUS_INT_VECTOR) {
-		if (!IS_RESCHEDULE(vector)) {
+		if (unlikely(IS_RESCHEDULE(vector)))
+			 kstat_this_cpu.irqs[vector]++;
+		else {
+			struct pt_regs *old_regs = set_irq_regs(NULL);
+
 			ia64_setreg(_IA64_REG_CR_TPR, vector);
 			ia64_srlz_d();
 
@@ -234,7 +242,8 @@ void ia64_process_pending_intr(void)
 			 * Probably could shared code.
 			 */
 			vectors_in_migration[local_vector_to_irq(vector)]=0;
-			__do_IRQ(local_vector_to_irq(vector), NULL);
+			__do_IRQ(local_vector_to_irq(vector));
+			set_irq_regs(old_regs);
 
 			/*
 			 * Disable interrupts and send EOI
@@ -251,12 +260,23 @@ void ia64_process_pending_intr(void)
 
 
 #ifdef CONFIG_SMP
-extern irqreturn_t handle_IPI (int irq, void *dev_id, struct pt_regs *regs);
+extern irqreturn_t handle_IPI (int irq, void *dev_id);
+
+static irqreturn_t dummy_handler (int irq, void *dev_id)
+{
+	BUG();
+}
 
 static struct irqaction ipi_irqaction = {
 	.handler =	handle_IPI,
 	.flags =	IRQF_DISABLED,
 	.name =		"IPI"
+};
+
+static struct irqaction resched_irqaction = {
+	.handler =	dummy_handler,
+	.flags =	SA_INTERRUPT,
+	.name =		"resched"
 };
 #endif
 
@@ -282,6 +302,7 @@ init_IRQ (void)
 	register_percpu_irq(IA64_SPURIOUS_INT_VECTOR, NULL);
 #ifdef CONFIG_SMP
 	register_percpu_irq(IA64_IPI_VECTOR, &ipi_irqaction);
+	register_percpu_irq(IA64_IPI_RESCHEDULE, &resched_irqaction);
 #endif
 #ifdef CONFIG_PERFMON
 	pfm_init_percpu();
