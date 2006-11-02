@@ -16,7 +16,6 @@
 #ifndef __MACH_TQM834X_H__
 #define __MACH_TQM834X_H__
 
-#include <linux/config.h>
 #include <linux/init.h>
 #include <linux/seq_file.h>
 #include <syslib/ppc83xx_setup.h>

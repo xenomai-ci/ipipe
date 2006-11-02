@@ -21,7 +21,6 @@
 #ifndef __PD12_UDC_H_
 #define __PD12_UDC_H_
 
-#include <linux/config.h>
 #include <linux/module.h>
 #include <linux/kernel.h>
 #include <linux/ioport.h>

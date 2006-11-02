@@ -22,7 +22,6 @@
  * - Support 64-bit bankwidth => CONFIG_MTD_CFI_B8
  * - Support 4-chip flash interleave => CONFIG_MTD_CFI_I4
 */
-#include <linux/config.h>
 #include <linux/init.h>
 #include <linux/module.h>
 #include <linux/types.h>
