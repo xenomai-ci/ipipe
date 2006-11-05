@@ -129,13 +129,6 @@ config MTD_NAND_S3C2410_HWECC
 	  currently not be able to switch to software, as there is no
 	  implementation for ECC method used by the S3C2410
 
-config MTD_NAND_BAMBOO
-	tristate "NAND flash support on IBM/AMCC 440EP Eval Board (Bamboo)"
-	depends on BAMBOO && MTD_NAND
-	help
-	  This enables the NAND flash driver on the IBM/AMCC 440EP Eval Board
-	  (Bamboo).
-
 config MTD_NAND_NDFC
 	tristate "NDFC NanD Flash Controller"
 	depends on MTD_NAND && 44x
