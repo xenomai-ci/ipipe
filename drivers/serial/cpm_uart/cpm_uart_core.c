@@ -1024,7 +1024,7 @@ int cpm_uart_drv_get_platform_data(struct platform_device *pdev, int is_con)
 	int idx;	/* It is UART_SMCx or UART_SCCx index */
 	struct uart_cpm_port *pinfo;
 	int line;
-	u32 mem, pram;
+	u32 mem, pram, pram_base;
 
         idx = pdata->fs_no = fs_uart_get_id(pdata);
 
@@ -1050,6 +1050,12 @@ int cpm_uart_drv_get_platform_data(struct platform_device *pdev, int is_con)
 	if (!(r = platform_get_resource_byname(pdev, IORESOURCE_MEM, "pram")))
 		return -EINVAL;
 	pram = (u32)ioremap(r->start, r->end - r->start + 1);
+
+	r = platform_get_resource_byname(pdev, IORESOURCE_MEM, "pram_base");
+	if (r) {
+		pram_base = r->start;
+		out_be16((u16 *)pram_base, pram & 0xffff);
+	}
 
 	if(idx > fsid_smc2_uart) {
 		pinfo->sccp = (scc_t *)mem;
