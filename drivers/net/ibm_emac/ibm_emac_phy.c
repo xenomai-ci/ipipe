@@ -4,10 +4,10 @@
  * Driver for PowerPC 4xx on-chip ethernet controller, PHY support.
  * Borrowed from sungem_phy.c, though I only kept the generic MII
  * driver for now.
- * 
+ *
  * This file should be shared with other drivers or eventually
  * merged as the "low level" part of miilib
- * 
+ *
  * (c) 2003, Benjamin Herrenscmidt (benh@kernel.crashing.org)
  * (c) 2004-2005, Eugene Surovegin <ebs@ebshome.net>
  *
@@ -272,9 +272,9 @@ static int cis8201_init(struct mii_phy *phy)
 	}
 
 	phy_write(phy, MII_CIS8201_EPCR, epcr);
-	
+
 	/* MII regs override strap pins */
-	phy_write(phy, MII_CIS8201_ACSR, 
+	phy_write(phy, MII_CIS8201_ACSR,
 		  phy_read(phy, MII_CIS8201_ACSR) | ACSR_PIN_PRIO_SELECT);
 
 	/* Disable TX_EN -> CRS echo mode, otherwise 10/HDX doesn't work */
@@ -303,8 +303,10 @@ static struct mii_phy_def cis8201_phy_def = {
 #define	MII_M88E1111_EXT_CTRL	0x14
 
 static int m88e1111_init(struct mii_phy *phy)
-{	
+{
 	int r;
+
+#ifdef CONFIG_ALPR /* test-only: soft-reset still missing!!! */
 	/*
 	 * On some boards (e.g. ALPR) the Marvell 88E1111 PHY needs
 	 * the "RGMII transmit timing control" and "RGMII receive
@@ -314,14 +316,12 @@ static int m88e1111_init(struct mii_phy *phy)
 	 * transmitter.
 	 * After setting these bits a soft-reset must occur for this
 	 * change to become active.
-	*/
-
+	 */
 	r = phy_read(phy, MII_M88E1111_EXT_CTRL);
-printk("Read  : %x\n", r);
 	r |= (1 << 7) | (1 << 1) | (1 << 0);
-printk("Write : %x\n", r);
 	phy_write(phy, MII_M88E1111_EXT_CTRL, r);
 	/* Do a reset ... */
+#endif
 
 	return 0;
 }

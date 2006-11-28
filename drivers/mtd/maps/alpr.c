@@ -33,28 +33,31 @@
 
 extern bd_t __res;
 
-#define RW_PART0_OF	0
 #define RW_PART0_SZ	0x1a0000
-#define RW_PART1_OF	RW_PART0_OF + RW_PART0_SZ
 #define RW_PART1_SZ	0x10000
-#define RW_PART2_OF	RW_PART1_OF + RW_PART1_SZ
-#define RW_PART2_SZ	0x40000
+#define RW_PART2_SZ	0x10000
+#define RW_PART3_SZ	0x40000
 
 static struct mtd_partition alpr_flash_partitions[] = {
 	{
-		.name = "user",
-		.offset = RW_PART0_OF,
-		.size = RW_PART0_SZ
+		.name   = "fpga",
+		.offset = 0,
+		.size   = RW_PART0_SZ
 	},
 	{
-		.name = "env",
-		.offset = RW_PART1_OF,
-		.size = RW_PART1_SZ,
+		.name   = "env0",
+                .offset = MTDPART_OFS_NXTBLK,
+		.size   = RW_PART1_SZ,
 	},
 	{
-		.name = "u-boot",
-		.offset = RW_PART2_OF,
-		.size = RW_PART2_SZ,
+		.name   = "env1",
+                .offset = MTDPART_OFS_NXTBLK,
+		.size   = RW_PART2_SZ,
+	},
+	{
+		.name   = "u-boot",
+                .offset = MTDPART_OFS_NXTBLK,
+                .size   = MTDPART_SIZ_FULL,
 	}
 };
 

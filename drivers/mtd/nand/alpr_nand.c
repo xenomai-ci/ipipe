@@ -1,467 +1,316 @@
 /*
- *  drivers/mtd/nand/alpr_nand.c
+ *  drivers/mtd/alpr_nand.c
  *
  *  Overview:
- *   This is a device driver for the NAND flash devices found on the
- *   Prodrive ALPR board
+ *   Driver for Prodrive NAND Flash Controller
  *
- *   Heiko Schocher <hs@denx.de>
+ * (C) Copyright 2006
+ * Stefan Roese, DENX Software Engineering, sr@denx.de.
  *
- *  This program is free software; you can redistribute  it and/or modify it
- *  under  the terms of  the GNU General  Public License as published by the
- *  Free Software Foundation;  either version 2 of the  License, or (at your
+ * Based on original work by
+ *	Thomas Gleixner
+ *	Copyright 2006 IBM
+ *
+ *  This program is free software; you can redistribute	 it and/or modify it
+ *  under  the terms of	 the GNU General  Public License as published by the
+ *  Free Software Foundation;  either version 2 of the	License, or (at your
  *  option) any later version.
  *
  */
-
 #include <linux/module.h>
-#include <linux/types.h>
-#include <linux/kernel.h>
-#include <linux/init.h>
-#include <linux/mtd/mtd.h>
 #include <linux/mtd/nand.h>
 #include <linux/mtd/nand_ecc.h>
 #include <linux/mtd/partitions.h>
-#include <linux/config.h>
-#include <linux/delay.h>
-#include <linux/slab.h>
+#include <linux/mtd/mtd.h>
+#include <linux/platform_device.h>
+
 #include <asm/io.h>
 #include <asm/ibm44x.h>
-#include <platforms/4xx/alpr.h>
 
-#if 0
-#define CPLD_REG        u8
-#else
-#define CPLD_REG        u16
-#endif
+/* PD_NDFC Register definitions */
+#define PD_NDFC_CMD0		0x00
+#define PD_NDFC_CMD1		0x01
+#define PD_NDFC_CMD2		0x02
+#define PD_NDFC_CMD3		0x03
+#define PD_NDFC_ADDR_WAIT	0x04
+#define PD_NDFC_TERM		0x05
+#define PD_NDFC_DATA		0x08
 
-struct alpr_ndfc_regs {
-	CPLD_REG cmd[4];
-	CPLD_REG addr_wait;
-	CPLD_REG term;
-	CPLD_REG dummy;
-	u8    dum2[2];
-	CPLD_REG data;
+#define PD_NDFC_MAX_BANKS	4
+
+struct pd_ndfc_nand_mtd {
+	struct mtd_info			mtd;
+	struct nand_chip		chip;
+	struct platform_nand_chip	*pl_chip;
 };
 
-static struct mtd_info *alpr_nand0_mtd;
-static struct mtd_info *alpr_nand1_mtd;
-static u8 hwctl;
-static struct alpr_ndfc_regs *alpr_ndfc;
-static int      alpr_chip = 0;
+static struct pd_ndfc_nand_mtd pd_ndfc_mtd[PD_NDFC_MAX_BANKS];
 
-static void alpr_write_byte(struct mtd_info *mtd, u_char byte);
-
-#define NAND0_NUM_PARTITIONS 4
-static struct mtd_partition nand0_partition_info[] = {
-	{
-	 	.name = "fpga",
-	 	.offset = 0x0,
-	 	.size = 2 << 20,
-	 },
-	{
-	 	.name = "kernel1",
-	 	.offset = MTDPART_OFS_APPEND,
-	 	.size = 2 << 20,
-	 },
-	{
-	 	.name = "kernel2",
-	 	.offset = MTDPART_OFS_APPEND,
-	 	.size = 2 << 20,
-	 },
-	{
-	 	.name = "fs",
-	 	.offset = MTDPART_OFS_APPEND,
-	 	.size = MTDPART_SIZ_FULL,
-	 },
+struct pd_ndfc_controller {
+	void __iomem		*ndfcbase;
+	struct nand_hw_control	pd_ndfc_control;
+	atomic_t		childs_active;
 };
 
-#define NAND1_NUM_PARTITIONS 1
-static struct mtd_partition nand1_partition_info[] = {
-	{
-		.name = "filesystem",
-		.offset = 0x0,
-		.size = 0x1000000,
-	}
-};
-static int nr_partitions;
+static struct pd_ndfc_controller pd_ndfc_ctrl;
+static int selected_chip;
 
-/*
- * The 440EP has a NAND Flash Controller (NDFC) that handles all accesses to
- * the NAND devices.  The NDFC has command, address and data registers that
- * when accessed will set up the NAND flash pins appropriately.  We'll use the
- * hwcontrol function to save the configuration in a global variable.
- * We can then use this information in the read and write functions to
- * determine which NDFC register to access. For the NCE commands, we'll just
- * set or clear the Bank Enable bit in the NDFC Bank Config registers.
- *
- * There are 2 NAND devices on the board, a Samsung K9F1208U0A (64 MB) and a
- * Samsung K9K2G08U0M (256 MB).
- */
-static void
-alpr_hwcontrol(struct mtd_info *mtd, int cmd, unsigned int ctrl)
+static void pd_ndfc_select_chip0(struct mtd_info *mtd, int chip)
 {
-/*printk("%s: cmd:%x ctrl:%x change:%x CLE:%x\n", __FUNCTION__, cmd, ctrl, NAND_CTRL_CHANGE, NAND_CLE);*/
-	if (ctrl & NAND_CTRL_CHANGE)
-	{
-		if (ctrl & NAND_NCE) {
-		/*	alpr_write(0x00, &(alpr_ndfc->term));*/
-		}
+	selected_chip = 0;
+}
 
-		if (ctrl & NAND_CLE)
-			hwctl |= 0x1;
-		else
-			hwctl &= ~0x1;
+static void pd_ndfc_select_chip1(struct mtd_info *mtd, int chip)
+{
+	selected_chip = 1;
+}
 
-		if (ctrl & NAND_ALE)
-			hwctl |= 0x2;
-		else
-			hwctl &= ~0x2;
-	}
-	if (cmd != NAND_CMD_NONE)
-		alpr_write_byte(mtd, cmd);
+static void pd_ndfc_select_chip2(struct mtd_info *mtd, int chip)
+{
+	selected_chip = 2;
+}
+
+static void pd_ndfc_select_chip3(struct mtd_info *mtd, int chip)
+{
+	selected_chip = 3;
+}
+
+static void pd_ndfc_hwcontrol(struct mtd_info *mtd, int cmd, unsigned int ctrl)
+{
+	struct pd_ndfc_controller *pd_ndfc = &pd_ndfc_ctrl;
+	u32 cmd_offs[4] = {PD_NDFC_CMD0, PD_NDFC_CMD1, PD_NDFC_CMD2, PD_NDFC_CMD3};
+
+	if (cmd == NAND_CMD_NONE)
+		return;
+
+	if (ctrl & NAND_CLE)
+		out_8(pd_ndfc->ndfcbase + cmd_offs[selected_chip], cmd & 0xff);
 	else
-		hwctl = 0;
+		out_8(pd_ndfc->ndfcbase + PD_NDFC_ADDR_WAIT, cmd & 0xff);
 }
 
-static void
-alpr_nand0_enable(void)
+static int pd_ndfc_ready(struct mtd_info *mtd)
 {
-	alpr_chip = 0;
+	struct pd_ndfc_controller *pd_ndfc = &pd_ndfc_ctrl;
+
+	/*
+	 * blocking read until ready
+	 */
+	in_8(pd_ndfc->ndfcbase + PD_NDFC_ADDR_WAIT);
+
+	return 1;
 }
 
-static void
-alpr_nand1_enable(void)
+static void pd_ndfc_write_byte(struct mtd_info *mtd, u_char byte)
 {
-	alpr_chip = 1;
+	struct pd_ndfc_controller *pd_ndfc = &pd_ndfc_ctrl;
+
+	out_8(pd_ndfc->ndfcbase + PD_NDFC_DATA, byte);
 }
 
-static void alpr_write (u8 val, volatile void __iomem *addr)
+static u_char pd_ndfc_read_byte(struct mtd_info *mtd)
 {
-/*printk("%s addr:%p val: %x\n", __FUNCTION__, addr, val);*/
-	__raw_writew (val, addr);
-}
-
-static u16 alpr_read (volatile void __iomem *addr)
-{
-	u16 val;
-	val = __raw_readw (addr);
-/*printk("%s addr:%p val: %x\n", __FUNCTION__, addr, val);*/
-	return val;
-}
-
-static void
-alpr_write_byte(struct mtd_info *mtd, u_char byte)
-{
-/*printk("%s: chip:%d byte:%x\n", __FUNCTION__, alpr_chip, byte);*/
-	if (hwctl & 0x1)
-		alpr_write(byte, &(alpr_ndfc->cmd[alpr_chip]));
-	else if (hwctl & 0x2)
-		alpr_write(byte, &(alpr_ndfc->addr_wait));
-	else
-		alpr_write(byte, &(alpr_ndfc->data));
-}
-
-static void
-alpr_nand0_write_byte(struct mtd_info *mtd, u_char byte)
-{
-	alpr_nand0_enable();
-	alpr_write_byte(mtd, byte);
-}
-
-static void
-alpr_nand1_write_byte(struct mtd_info *mtd, u_char byte)
-{
-	alpr_nand1_enable();
-	alpr_write_byte(mtd,byte);
-}
-
-static u_char
-alpr_read_byte(struct mtd_info *mtd)
-{
+	struct pd_ndfc_controller *pd_ndfc = &pd_ndfc_ctrl;
 	u_char retval;
-	if (hwctl & 0x1)
-		retval = alpr_read(&(alpr_ndfc->cmd[alpr_chip]));
-	else if (hwctl & 0x2)
-		retval = alpr_read(&(alpr_ndfc->addr_wait));
-	else
-		retval = alpr_read(&(alpr_ndfc->data));
+
+	retval = (u_char)in_8(pd_ndfc->ndfcbase + PD_NDFC_DATA);
+
 	return retval;
 }
 
-static u_char
-alpr_nand0_read_byte(struct mtd_info *mtd)
-{
-	alpr_nand0_enable();
-	return alpr_read_byte(mtd);
-}
-
-static u_char
-alpr_nand1_read_byte(struct mtd_info *mtd)
-{
-	alpr_nand1_enable();
-	return alpr_read_byte(mtd);
-}
-
-static void
-alpr_nand_write_buf(struct mtd_info *mtd, const u_char * buf, int len)
-{
-	int i;
-	for (i = 0; i < len; i++) {
-		if (hwctl & 0x1)
-			alpr_write(buf[i], &(alpr_ndfc->cmd[alpr_chip]));
-		else if (hwctl & 0x2)
-			alpr_write(buf[i], &(alpr_ndfc->addr_wait));
-		else
-			alpr_write(buf[i], &(alpr_ndfc->data));
-	}
-}
-
-static void
-alpr_nand0_write_buf(struct mtd_info *mtd, const u_char * buf, int len)
-{
-	alpr_nand0_enable();
-	alpr_nand_write_buf(mtd, buf, len);
-}
-
-static void
-alpr_nand1_write_buf(struct mtd_info *mtd, const u_char * buf, int len)
-{
-	alpr_nand1_enable();
-	alpr_nand_write_buf(mtd, buf, len);
-}
-
-static void
-alpr_nand_read_buf(struct mtd_info *mtd, u_char * buf, int len)
+static void pd_ndfc_write_buf(struct mtd_info *mtd, const u_char *buf, int len)
 {
 	int i;
 
-	for (i = 0; i < len; i++) {
-		if (hwctl & 0x1)
-			buf[i] = alpr_read(&(alpr_ndfc->cmd[alpr_chip]));
-		else if (hwctl & 0x2)
-			buf[i] = alpr_read(&(alpr_ndfc->addr_wait));
-		else
-			buf[i] = alpr_read(&(alpr_ndfc->data));
-	}
+	for (i=0; i<len; i++)
+		pd_ndfc_write_byte(mtd, buf[i]);
 }
 
-static void
-alpr_nand0_read_buf(struct mtd_info *mtd, u_char * buf, int len)
-{
-	alpr_nand0_enable();
-	alpr_nand_read_buf(mtd, buf, len);
-}
-
-static void
-alpr_nand1_read_buf(struct mtd_info *mtd, u_char * buf, int len)
-{
-	alpr_nand1_enable();
-	alpr_nand_read_buf(mtd, buf, len);
-}
-
-static int
-alpr_nand_verify_buf(struct mtd_info *mtd, const u_char * buf, int len)
+static void pd_ndfc_read_buf(struct mtd_info *mtd, u_char *buf, int len)
 {
 	int i;
 
-	for (i = 0; i < len; i++) {
-		if (hwctl & 0x1) {
-			if (buf[i] != alpr_read(&(alpr_ndfc->cmd[alpr_chip])))
-				return i;
-		} else if (hwctl & 0x2) {
-			if (buf[i] != alpr_read(&(alpr_ndfc->addr_wait)))
-				return i;
-		} else {
-			if (buf[i] != alpr_read(&(alpr_ndfc->data)))
-				return i;
-		}
+	for (i=0; i<len; i++)
+		buf[i] = pd_ndfc_read_byte(mtd);
+}
 
-	}
+static int pd_ndfc_verify_buf(struct mtd_info *mtd, const u_char *buf, int len)
+{
+	int i;
+
+	for (i=0; i<len; i++)
+		if (buf[i] != pd_ndfc_read_byte(mtd))
+			return -EFAULT;
 
 	return 0;
 }
 
-static int
-alpr_nand0_verify_buf(struct mtd_info *mtd, const u_char * buf, int len)
+/*
+ * Initialize chip structure
+ */
+//static void pd_ndfc_chip_init(struct pd_ndfc_nand_mtd *mtd)
+static void pd_ndfc_chip_init(struct pd_ndfc_nand_mtd *mtd, int chip_nr)
 {
-	alpr_nand0_enable();
-	return alpr_nand_verify_buf(mtd, buf, len);
+	struct pd_ndfc_controller *pd_ndfc = &pd_ndfc_ctrl;
+	struct nand_chip *chip = &mtd->chip;
+
+	chip->IO_ADDR_R = pd_ndfc->ndfcbase + PD_NDFC_DATA;
+	chip->IO_ADDR_W = pd_ndfc->ndfcbase + PD_NDFC_DATA;
+	chip->cmd_ctrl = pd_ndfc_hwcontrol;
+	chip->dev_ready = pd_ndfc_ready;
+	chip->read_byte = pd_ndfc_read_byte;
+	chip->write_buf = pd_ndfc_write_buf;
+	chip->read_buf = pd_ndfc_read_buf;
+	chip->verify_buf = pd_ndfc_verify_buf;
+	switch (chip_nr) {
+	case 0:
+		chip->select_chip = pd_ndfc_select_chip0;
+		break;
+	case 1:
+		chip->select_chip = pd_ndfc_select_chip1;
+		break;
+	case 2:
+		chip->select_chip = pd_ndfc_select_chip2;
+		break;
+	case 3:
+		chip->select_chip = pd_ndfc_select_chip3;
+		break;
+	}
+	chip->chip_delay = 50;
+	chip->priv = mtd;
+	chip->options = mtd->pl_chip->options;
+	chip->controller = &pd_ndfc->pd_ndfc_control;
+	chip->ecc.mode = NAND_ECC_SOFT;
+	mtd->mtd.priv = chip;
+	mtd->mtd.owner = THIS_MODULE;
 }
 
-static int
-alpr_nand1_verify_buf(struct mtd_info *mtd, const u_char *buf, int len)
+static int pd_ndfc_chip_probe(struct platform_device *pdev)
 {
-	alpr_nand1_enable();
-	return alpr_nand_verify_buf(mtd, buf, len);
-}
+	struct platform_nand_chip *nc = pdev->dev.platform_data;
+	struct pd_ndfc_controller *pd_ndfc = &pd_ndfc_ctrl;
+	struct pd_ndfc_nand_mtd *nandmtd;
 
-static int
-alpr_dev_ready(struct mtd_info *mtd)
-{
-	volatile u_char val;
+	if (nc->chip_offset >= PD_NDFC_MAX_BANKS || nc->nr_chips > PD_NDFC_MAX_BANKS)
+		return -EINVAL;
 
-/*	val = alpr_read (&(alpr_ndfc->addr_wait));*/
-	return 1;
-}
+	nandmtd = &pd_ndfc_mtd[nc->chip_offset];
+#if 0
+	if (nandmtd->pl_chip)
+		return -EBUSY;
+#endif
 
-void alpr_select_chip (struct mtd_info *mtd, int chip)
-{
-	alpr_chip = chip;
-}
+	nandmtd->pl_chip = nc;
+	pd_ndfc_chip_init(nandmtd, nc->chip_offset);
+
+	/* Scan for chips */
+	if (nand_scan(&nandmtd->mtd, nc->chip_offset)) {
+		nandmtd->pl_chip = NULL;
+		return -ENODEV;
+	}
 
 #ifdef CONFIG_MTD_PARTITIONS
-const char *part_probes[] = { "cmdlinepart", NULL };
+	printk("Number of partitions %d\n", nc->nr_partitions);
+	if (nc->nr_partitions) {
+		/* Add the full device, so complete dumps can be made */
+		add_mtd_device(&nandmtd->mtd);
+		add_mtd_partitions(&nandmtd->mtd, nc->partitions,
+				   nc->nr_partitions);
+
+	} else
+#else
+		add_mtd_device(&nandmtd->mtd);
 #endif
 
-int __init
-alpr_init(void)
-{
-	struct mtd_partition* alpr_partition_info;
-	struct nand_chip *this;
-	int err = 0;
+	atomic_inc(&pd_ndfc->childs_active);
 
-	hwctl = 0;
-
-	alpr_nand0_mtd = kmalloc(sizeof(struct mtd_info) +
-				   sizeof(struct nand_chip),
-				   GFP_KERNEL);
-
-	alpr_nand1_mtd = kmalloc(sizeof (struct mtd_info) +
-				   sizeof (struct nand_chip),
-				   GFP_KERNEL);
-	if (!alpr_nand1_mtd) {
-		printk("Unable to allocate NAND 1 MTD device structure.\n");
-		err = -ENOMEM;
-		goto out_mtd0;
-	}
-
-	alpr_ndfc = ioremap64(ALPR_NAND_FLASH_REG_ADDR,
-			      0x100);
-printk ("%s: alpr_ndfc: phy:%x %p size:%x\n", __FUNCTION__, ALPR_NAND_FLASH_REG_ADDR, alpr_ndfc, sizeof(struct alpr_ndfc_regs));
-	if (!alpr_ndfc) {
-		printk("Ioremap to access NDFC Registers failed \n");
-		err = -EIO;
-		goto out_mtd1;
-	}
-
-	/* Initialize structures */
-	memset((char *) alpr_nand0_mtd, 0,
-	       sizeof (struct mtd_info) + sizeof (struct nand_chip));
-
-	memset((char *) alpr_nand1_mtd, 0,
-	       sizeof (struct mtd_info) + sizeof (struct nand_chip));
-
-	/* Get pointer to private data */
-	this = (struct nand_chip *) (&alpr_nand0_mtd[1]);
-	/* Link the private data with the MTD structure */
-	alpr_nand0_mtd->priv = this;
-
-	/* Set address of NAND IO lines (Using Linear Data Access Region) */
-	this->IO_ADDR_R = (void __iomem *) ((ulong) alpr_ndfc + 0x10);
-	this->IO_ADDR_W = (void __iomem *) ((ulong) alpr_ndfc + 0x10);
-	/* Reference hardware control function */
-	this->cmd_ctrl  = alpr_hwcontrol;
-	/* Set command delay time */
-	this->select_chip = alpr_select_chip;
-	this->read_byte  = alpr_nand0_read_byte;
-	this->write_buf  = alpr_nand0_write_buf;
-	this->read_buf   = alpr_nand0_read_buf;
-	this->verify_buf = alpr_nand0_verify_buf;
-	this->dev_ready  = alpr_dev_ready;
-	this->ecc.mode = NAND_ECC_SOFT;
-
-	/* Scan to find existance of the device */
-	if (nand_scan(alpr_nand0_mtd, 1)) {
-		err = -ENXIO;
-		goto out_ior;
-	}
-
-	/* Register the partitions */
-	alpr_nand0_mtd->name = "alpr-nand0";
-	nr_partitions = parse_mtd_partitions(alpr_nand0_mtd, part_probes,
-						&alpr_partition_info, 0);
-	if (nr_partitions <= 0) {
-		nr_partitions = NAND0_NUM_PARTITIONS;
-		alpr_partition_info = nand0_partition_info;
-	}
-
-	add_mtd_partitions(alpr_nand0_mtd, alpr_partition_info, nr_partitions);
-
-	/* Get pointer to private data */
-	this = (struct nand_chip *) (&alpr_nand1_mtd[1]);
-	/* Link the private data with the MTD structure */
-	alpr_nand1_mtd->priv = this;
-
-	/* Set address of NAND IO lines (Using Linear Data Access Region) */
-	this->IO_ADDR_R = (void __iomem *) ((ulong) alpr_ndfc + 0x10);
-	this->IO_ADDR_W = (void __iomem *) ((ulong) alpr_ndfc + 0x10);
-	/* Reference hardware control function */
-	this->cmd_ctrl  = alpr_hwcontrol;
-	/* Set command delay time */
-	this->select_chip = alpr_select_chip;
-	this->read_byte  = alpr_nand1_read_byte;
-	this->write_buf  = alpr_nand1_write_buf;
-	this->read_buf   = alpr_nand1_read_buf;
-	this->verify_buf = alpr_nand1_verify_buf;
-	this->dev_ready  = alpr_dev_ready;
-	this->ecc.mode = NAND_ECC_SOFT;
-
-#if 1
-	/* Scan to find existance of the device */
-	if (nand_scan(alpr_nand1_mtd, 1)) {
-		err = 0;
-		goto out_mtd1;
-	}
-
-	/* Register the partitions */
-	alpr_nand1_mtd->name = "alpr-nand1";
-	nr_partitions = parse_mtd_partitions(alpr_nand1_mtd, part_probes,
-						&alpr_partition_info, 0);
-	if (nr_partitions <= 0) {
-		nr_partitions = NAND1_NUM_PARTITIONS;
-		alpr_partition_info = nand1_partition_info;
-	}
-
-	add_mtd_partitions(alpr_nand1_mtd, alpr_partition_info, nr_partitions);
-#endif
-
-	goto out;
-
-out_ior:
-	iounmap((void *)alpr_ndfc);
-out_mtd0:
-	kfree(alpr_nand0_mtd);
-out_mtd1:
-	kfree(alpr_nand1_mtd);
-out:
-	return err;
+	return 0;
 }
 
-static void __exit
-alpr_cleanup(void)
+static int pd_ndfc_chip_remove(struct platform_device *pdev)
 {
-	/* Unregister partitions */
-	del_mtd_partitions(alpr_nand0_mtd);
-	del_mtd_partitions(alpr_nand1_mtd);
-
-	/* Release resources, unregister device */
-	del_mtd_device(alpr_nand0_mtd);
-	del_mtd_device(alpr_nand1_mtd);
-
-	nand_release(alpr_nand0_mtd);
-	/* unmap physical address */
-	iounmap((void *) alpr_ndfc);
-
-	/* Free the MTD device structure */
-	kfree(alpr_nand0_mtd);
-	kfree(alpr_nand1_mtd);
+	return 0;
 }
 
-module_init(alpr_init);
-module_exit(alpr_cleanup);
+static int pd_ndfc_nand_probe(struct platform_device *pdev)
+{
+	struct resource *res = pdev->resource;
+	struct pd_ndfc_controller *pd_ndfc = &pd_ndfc_ctrl;
+	unsigned long long phys = 0x1f0000000LL; // test-only
+
+	pd_ndfc->ndfcbase = ioremap64(phys, res->end - res->start + 1);
+	if (!pd_ndfc->ndfcbase) {
+		printk(KERN_ERR "PD_NDFC: ioremap failed\n");
+		return -EIO;
+	}
+
+	spin_lock_init(&pd_ndfc->pd_ndfc_control.lock);
+	init_waitqueue_head(&pd_ndfc->pd_ndfc_control.wq);
+
+	platform_set_drvdata(pdev, pd_ndfc);
+
+	printk("PD_NDFC NAND Driver initialized.\n");
+
+	return 0;
+}
+
+static int pd_ndfc_nand_remove(struct platform_device *pdev)
+{
+	struct pd_ndfc_controller *pd_ndfc = platform_get_drvdata(pdev);
+
+	if (atomic_read(&pd_ndfc->childs_active))
+		return -EBUSY;
+
+	if (pd_ndfc) {
+		platform_set_drvdata(pdev, NULL);
+		iounmap(pd_ndfc_ctrl.ndfcbase);
+		pd_ndfc_ctrl.ndfcbase = NULL;
+	}
+	return 0;
+}
+
+/* driver device registration */
+
+static struct platform_driver pd_ndfc_chip_driver = {
+	.probe		= pd_ndfc_chip_probe,
+	.remove		= pd_ndfc_chip_remove,
+	.driver		= {
+		.name	= "pd-ndfc-chip",
+		.owner	= THIS_MODULE,
+	},
+};
+
+static struct platform_driver pd_ndfc_nand_driver = {
+	.probe		= pd_ndfc_nand_probe,
+	.remove		= pd_ndfc_nand_remove,
+	.driver		= {
+		.name	= "pd-ndfc-nand",
+		.owner	= THIS_MODULE,
+	},
+};
+
+static int __init pd_ndfc_nand_init(void)
+{
+	int ret;
+
+	spin_lock_init(&pd_ndfc_ctrl.pd_ndfc_control.lock);
+	init_waitqueue_head(&pd_ndfc_ctrl.pd_ndfc_control.wq);
+
+	ret = platform_driver_register(&pd_ndfc_nand_driver);
+	if (!ret)
+		ret = platform_driver_register(&pd_ndfc_chip_driver);
+	return ret;
+}
+
+static void __exit pd_ndfc_nand_exit(void)
+{
+	platform_driver_unregister(&pd_ndfc_chip_driver);
+	platform_driver_unregister(&pd_ndfc_nand_driver);
+}
+
+module_init(pd_ndfc_nand_init);
+module_exit(pd_ndfc_nand_exit);
 
 MODULE_LICENSE("GPL");
-MODULE_AUTHOR("Heiko Schocher <hs@denx.de>");
-MODULE_DESCRIPTION
-    ("Board-specific glue layer for NAND flash on Prodrive ALPR board");
+MODULE_AUTHOR("Stefan Roese <sr@denx.de>");
+MODULE_DESCRIPTION("Platform driver for Prodrive NAND controller");

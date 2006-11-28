@@ -106,6 +106,12 @@ static irqreturn_t fpga_uart_int(int irq,void *dev_id,struct pt_regs *regs);
 #define UART_CTRL_TX_OVR	0x40000000
 #define UART_CTRL_RX_OVR	0x80000000
 
+#define INT_RX			((INT_UART0_RX) << (port->line << 1))
+#define INT_TX			((INT_UART0_TX) << (port->line << 1))
+#define INT_MASK		((INT_UART0_MASK) << (port->line << 1))
+
+#define FPGA_BAUD_DIVIDER(b)	(((33333000 + ((2*16*b) / 2)) / (2*16*b)) - 1)
+
 struct fpga_uart_data {
 	const char		*name;
 	struct class_device	*class_dev;
@@ -146,10 +152,6 @@ static unsigned int fpga_uart_get_mctrl(struct uart_port *port)
 	return TIOCM_CTS | TIOCM_DSR | TIOCM_CAR;
 }
 
-#define INT_RX		((INT_UART0_RX) << (port->line << 1))
-#define INT_TX		((INT_UART0_TX) << (port->line << 1))
-#define INT_MASK	((INT_UART0_MASK) << (port->line << 1))
-
 static void fpga_uart_stop_tx(struct uart_port *port)
 {
 	unsigned long val;
@@ -170,7 +172,6 @@ static void fpga_uart_start_tx(struct uart_port *port)
 	/*
 	 * Enable TX IRQ's in FPGA
 	 */
-	// test-only: right now only for UART2!!!! & something else could be missing here to start tx engine!!!
 	val = readl(data->vbar2 + IBUF_INT_ENABLE) | (INT_TX);
 	writel(val, data->vbar2 + IBUF_INT_ENABLE);
 	fpga_uart_int_tx_chars(port); // test-only
@@ -184,7 +185,6 @@ static void fpga_uart_stop_rx(struct uart_port *port)
 	/*
 	 * Disable TX IRQ's in FPGA
 	 */
-	// test-only: right now only for UART2!!!!
 	val = readl(data->vbar2 + IBUF_INT_ENABLE) & ~(INT_RX);
 	writel(val, data->vbar2 + IBUF_INT_ENABLE);
 }
@@ -211,9 +211,9 @@ static int fpga_uart_startup(struct uart_port *port)
 	if (ret)
 		return ret;
 
-	/* Setup for 9600 baud, 8 data, 1 stop, no parity */
+	/* Setup for 115200 baud, 8 data, 1 stop, no parity */
 	val = UART_CTRL_PAR_NONE | UART_CTRL_STOP_1 | UART_CTRL_DATA_8;
-	val |= ((33333000 + ((2*16*9600) / 2)) / (2*16*9600)) - 1;
+	val |= FPGA_BAUD_DIVIDER(115200);
 	writel(val, (port)->membase);
 
 	/*
@@ -304,7 +304,7 @@ static void fpga_uart_set_termios(struct uart_port *port, struct termios *new,
 #endif
 
 	/* Setup control register */
-	val |= ((33333000 + ((2*16*baud) / 2)) / (2*16*baud)) - 1;
+	val |= FPGA_BAUD_DIVIDER(baud);
 	debug("%s: val=0x%x\n", __FUNCTION__, val); // test-only
 
 	/* Reset all errors */
@@ -491,42 +491,29 @@ static inline int fpga_uart_int_tx_chars(struct uart_port *port)
 static irqreturn_t fpga_uart_int(int irq, void *dev_id, struct pt_regs *regs)
 {
 	struct uart_port *port = (struct uart_port *) dev_id;
-	unsigned long pass = ISR_PASS_LIMIT;
-	unsigned int keepgoing;
-	unsigned int status;
+	unsigned int int_status;
 
 	debug("ttyFPGA%d:%s\n", port->line, __FUNCTION__); // test-only
 	debug("ttyFPGA%d:%s int_enable=%x int_status=%x\n", port->line, __FUNCTION__, readl(data->vbar2 + IBUF_INT_ENABLE), readl(data->vbar2 + IBUF_INT_STATUS)); // test-only
 	spin_lock(&port->lock);
 
 	/* While we have stuff to do, we continue */
-	do {
-		/* If we don't find anything to do, we stop */
-		keepgoing = 0;
-
-		/* Read status */
-		// test-only: only UART2 for now!!!
-		status = readl(data->vbar2 + IBUF_INT_STATUS) & (INT_MASK);
+	int_status = readl(data->vbar2 + IBUF_INT_STATUS) & INT_MASK;
+	while (int_status) {
 		debug("%s: int_status=%x\n", __FUNCTION__, readl(data->vbar2 + IBUF_INT_STATUS)); // test-only
-// test-only		status &= port->read_status_mask;
-
 		/* Do we need to receive chars ? */
 		/* For this RX interrupts must be on and some chars waiting */
-		if (status & INT_RX)
-			keepgoing |= fpga_uart_int_rx_chars(port, regs);
+		if (int_status & INT_RX)
+			fpga_uart_int_rx_chars(port, regs);
 
 		/* Do we need to send chars ? */
 		/* For this, TX must be ready and TX interrupt enabled */
-		if (status & INT_TX)
-			keepgoing |= fpga_uart_int_tx_chars(port);
+		if (int_status & INT_TX)
+			fpga_uart_int_tx_chars(port);
 
-		/* Limit number of iteration */
-		if ( !(--pass) )
-			keepgoing = 0;
-
-	} while (keepgoing);
-
-	writel(status, data->vbar2 + IBUF_INT_STATUS);
+		writel(int_status, data->vbar2 + IBUF_INT_STATUS);
+		int_status = readl(data->vbar2 + IBUF_INT_STATUS) & INT_MASK;
+	}
 
 	spin_unlock(&port->lock);
 

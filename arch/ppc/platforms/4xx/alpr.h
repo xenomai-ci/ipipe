@@ -23,6 +23,13 @@ enum ppc_sys_devices {
         FPGA_UART0,
         FPGA_UART1,
         FPGA_UART2,
+/*
+        PD_NDFC,
+        PD_NDFC_CHIP0,
+        PD_NDFC_CHIP1,
+        PD_NDFC_CHIP2,
+        PD_NDFC_CHIP3,
+*/
         NUM_PPC_SYS_DEVS,
 }; // test-only
 
@@ -114,6 +121,7 @@ int alpr_unmap_ibuf_fpga(void __iomem *vbar0, void __iomem *vbar1, void __iomem 
 #define IBUF_INTENSITY_SUM_SIZE	0x2608
 
 #define IBUF_IMAGE_LOCATIONS	0x3000
+#define IBUF_PREFIL_LOCATIONS	0x3398
 #define IBUF_IMAGE_COUNT	0x33f8
 
 #define IBUF_ALT_ASMI_ADDR	0x3800

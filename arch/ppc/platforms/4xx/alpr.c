@@ -33,6 +33,9 @@
 #include <linux/resource.h>
 #include <linux/platform_device.h>
 
+#include <linux/mtd/nand.h>
+#include <linux/mtd/partitions.h>
+
 #include <asm/system.h>
 #include <asm/pgtable.h>
 #include <asm/page.h>
@@ -47,12 +50,30 @@
 #include <asm/ppc4xx_pic.h>
 #include <asm/ppcboot.h>
 #include <asm/tlbflush.h>
-#include <asm/ppc_sys.h>
 
 #include <syslib/gen550.h>
 #include <syslib/ibm440gx_common.h>
 
 extern bd_t __res;
+
+/*
+ * External IRQ triggering/polarity settings
+ */
+unsigned char ppc4xx_uic_ext_irq_cfg[] __initdata = {
+	(IRQ_SENSE_LEVEL | IRQ_POLARITY_NEGATIVE),	/* IRQ0: PCI slot 0 */
+	(IRQ_SENSE_LEVEL | IRQ_POLARITY_NEGATIVE),	/* IRQ1: PCI slot 1 */
+	(IRQ_SENSE_LEVEL | IRQ_POLARITY_NEGATIVE),	/* IRQ2: PCI slot 2 */
+	(IRQ_SENSE_LEVEL | IRQ_POLARITY_NEGATIVE),	/* IRQ3: PCI slot 3 */
+	(IRQ_SENSE_LEVEL | IRQ_POLARITY_NEGATIVE),	/* IRQ4: PHY0 */
+	(IRQ_SENSE_LEVEL | IRQ_POLARITY_NEGATIVE),	/* IRQ5: PHY1 */
+	(IRQ_SENSE_EDGE  | IRQ_POLARITY_NEGATIVE),	/* IRQ6: SHUTDOWN */
+	(IRQ_SENSE_LEVEL | IRQ_POLARITY_NEGATIVE),	/* IRQ7: I_MU_TRIG */
+	(IRQ_SENSE_LEVEL | IRQ_POLARITY_NEGATIVE),	/* IRQ8: I_MU_WIN */
+	(IRQ_SENSE_EDGE  | IRQ_POLARITY_NEGATIVE),	/* IRQ9: SSD_EMPTY */
+	(IRQ_SENSE_LEVEL | IRQ_POLARITY_NEGATIVE),	/* IRQ10: PMC_PRESENT */
+	(IRQ_SENSE_LEVEL | IRQ_POLARITY_NEGATIVE),	/* IRQ11: N/A */
+	(IRQ_SENSE_LEVEL | IRQ_POLARITY_NEGATIVE),	/* IRQ12: UART1_RX */
+};
 
 static struct ibm44x_clocks clocks __initdata;
 
@@ -62,12 +83,150 @@ static int fpga_map_count = 0;
 #define PCI_VENDOR_ID_IBUF_FPGA	0xfffe
 #define PCI_DEVICE_ID_IBUF_FPGA	0xf05f
 
-/* ======================================================================== */
-/* PPC Sys devices definition                                               */
-/* ======================================================================== */
+// test-only
+static struct resource alpr_ndfc = {
+        .start = 0xf0000000,
+        .end = 0xf0000fff,
+        .flags = IORESOURCE_MEM,
+};
 
-struct platform_device ppc_sys_platform_devices[] = {
-	[FPGA_UART0] = {
+static struct platform_device alpr_ndfc_device = {
+        .name = "pd-ndfc-nand",
+        .id = 0,
+        .num_resources = 1,
+        .resource = &alpr_ndfc,
+};
+
+static struct mtd_partition nand_parts0[] = {
+        {
+                .name   = "kernel1",
+                .offset = 0,
+                .size   = 2 << 20,
+        },
+        {
+                .name   = "kernel2",
+                .offset = MTDPART_OFS_NXTBLK,
+                .size   = 2 << 20,
+        },
+        {
+                .name   = "res-nand",
+                .offset = MTDPART_OFS_NXTBLK,
+                .size   = 5 << 20,
+        },
+        {
+                .name   = "rootfs",
+                .offset = MTDPART_OFS_NXTBLK,
+                .size   = 128 << 20,
+        },
+        {
+                .name   = "logfs",
+                .offset = MTDPART_OFS_NXTBLK,
+                .size   = 4 << 20,
+        },
+        {
+                .name   = "data0",
+                .offset = MTDPART_OFS_NXTBLK,
+                .size   = MTDPART_SIZ_FULL,
+        }
+};
+
+static struct mtd_partition nand_parts1[] = {
+        {
+                .name   = "data1",
+                .offset = 0,
+                .size   = MTDPART_SIZ_FULL,
+        }
+};
+
+static struct mtd_partition nand_parts2[] = {
+        {
+                .name   = "data2",
+                .offset = 0,
+                .size   = MTDPART_SIZ_FULL,
+        }
+};
+
+static struct mtd_partition nand_parts3[] = {
+        {
+                .name   = "data3",
+                .offset = 0,
+                .size   = MTDPART_SIZ_FULL,
+        }
+};
+
+static struct platform_nand_chip alpr_nand_chip0 = {
+        .nr_chips = 1,
+        .chip_offset = 0,
+        .nr_partitions = ARRAY_SIZE(nand_parts0),
+        .partitions = nand_parts0,
+        .chip_delay = 50,
+};
+
+static struct platform_nand_chip alpr_nand_chip1 = {
+        .nr_chips = 1,
+        .chip_offset = 1,
+        .nr_partitions = ARRAY_SIZE(nand_parts1),
+        .partitions = nand_parts1,
+        .chip_delay = 50,
+};
+
+static struct platform_nand_chip alpr_nand_chip2 = {
+        .nr_chips = 1,
+        .chip_offset = 2,
+        .nr_partitions = ARRAY_SIZE(nand_parts2),
+        .partitions = nand_parts2,
+        .chip_delay = 50,
+};
+
+static struct platform_nand_chip alpr_nand_chip3 = {
+        .nr_chips = 1,
+        .chip_offset = 3,
+        .nr_partitions = ARRAY_SIZE(nand_parts3),
+        .partitions = nand_parts3,
+        .chip_delay = 50,
+};
+
+static struct platform_device alpr_nand_device[] = {
+	{
+		.name = "pd-ndfc-chip",
+		.id = 0,
+		.num_resources = 0,
+		.dev = {
+			.platform_data = &alpr_nand_chip0,
+			.parent = &alpr_ndfc_device.dev,
+		}
+	},
+	{
+		.name = "pd-ndfc-chip",
+		.id = 1,
+		.num_resources = 0,
+		.dev = {
+			.platform_data = &alpr_nand_chip1,
+			.parent = &alpr_ndfc_device.dev,
+		}
+	},
+	{
+		.name = "pd-ndfc-chip",
+		.id = 2,
+		.num_resources = 0,
+		.dev = {
+			.platform_data = &alpr_nand_chip2,
+			.parent = &alpr_ndfc_device.dev,
+		}
+	},
+	{
+		.name = "pd-ndfc-chip",
+		.id = 3,
+		.num_resources = 0,
+		.dev = {
+			.platform_data = &alpr_nand_chip3,
+			.parent = &alpr_ndfc_device.dev,
+		}
+	},
+};
+
+static struct platform_device alpr_fpga_uart_device[] = {
+	{
 		.name		= "fpga-uart",
 		.id		= 0,
 		.num_resources	= 2,
@@ -84,7 +243,7 @@ struct platform_device ppc_sys_platform_devices[] = {
 			},
 		},
 	},
-	[FPGA_UART1] = {
+	{
 		.name		= "fpga-uart",
 		.id		= 1,
 		.num_resources	= 2,
@@ -101,7 +260,7 @@ struct platform_device ppc_sys_platform_devices[] = {
 			},
 		},
 	},
-	[FPGA_UART2] = {
+	{
 		.name		= "fpga-uart",
 		.id		= 2,
 		.num_resources	= 2,
@@ -118,25 +277,6 @@ struct platform_device ppc_sys_platform_devices[] = {
 			},
 		},
 	},
-};
-
-struct ppc_sys_spec *cur_ppc_sys_spec;
-struct ppc_sys_spec ppc_sys_specs[] = {
-        {
-                .ppc_sys_name   = "ALPR",
-                .mask           = 0xffff0000,
-                .value          = 0x80110000,
-                .num_devices    = NUM_PPC_SYS_DEVS,
-                .device_list    = (enum ppc_sys_devices[])
-                {
-                        FPGA_UART0, FPGA_UART1, FPGA_UART2,
-                },
-        },
-        {       /* default match */
-                .ppc_sys_name   = "",
-                .mask           = 0x00000000,
-                .value          = 0x00000000,
-        },
 };
 
 static void __init alpr_calibrate_decr(void)
@@ -198,13 +338,8 @@ static void __init alpr_set_emacdata(void)
 		if (i < 2) {
 			emacdata->phy_map = 0xffffffff;	/* Skip all */
 			emacdata->phy_mode = PHY_MODE_SMII;
-		}
-		else {
-			if (i == 2) {
-				emacdata->phy_map = 0xffffffff;	/* Skip 0x00 */
-			} else {
-				emacdata->phy_map = 0x00000001; /* Skip 0x00-0x0f */
-			}
+		} else {
+			emacdata->phy_map = 0x00000001; /* Skip 0x00 */
 			emacdata->phy_mode = PHY_MODE_RGMII;
 		}
 		if (i == 0)
@@ -418,8 +553,6 @@ void __init platform_init(unsigned long r3, unsigned long r4,
 {
 	ibm440gx_platform_init(r3, r4, r5, r6, r7);
 
-	identify_ppc_sys_by_name("ALPR");
-
 	ppc_md.progress = alpr_progress;
 	ppc_md.setup_arch = alpr_setup_arch;
 	ppc_md.show_cpuinfo = alpr_show_cpuinfo;
@@ -431,6 +564,21 @@ void __init platform_init(unsigned long r3, unsigned long r4,
 #endif
 	ppc_md.init = alpr_init;
 	ppc_md.restart = alpr_restart;
+}
+
+static int __init alpr_system_init(void)
+{
+	platform_device_register(&alpr_fpga_uart_device[0]);
+	platform_device_register(&alpr_fpga_uart_device[1]);
+	platform_device_register(&alpr_fpga_uart_device[2]);
+
+	platform_device_register(&alpr_ndfc_device);
+        platform_device_register(&alpr_nand_device[0]);
+        platform_device_register(&alpr_nand_device[1]);
+        platform_device_register(&alpr_nand_device[2]);
+        platform_device_register(&alpr_nand_device[3]);
+
+        return 0;
 }
 
 int alpr_map_ibuf_fpga(void __iomem **vbar0, void __iomem **vbar1, void __iomem **vbar2,
@@ -490,6 +638,10 @@ int alpr_map_ibuf_fpga(void __iomem **vbar0, void __iomem **vbar1, void __iomem 
 		}
 	}
 
+	if (pbar0 != NULL)
+		*pbar0 = pci_resource_start(dev, 0);
+	if (pbar1 != NULL)
+		*pbar1 = pci_resource_start(dev, 2);
 	if (pbar2 != NULL)
 		*pbar2 = pci_resource_start(dev, 3);
 
@@ -526,6 +678,8 @@ int alpr_unmap_ibuf_fpga(void __iomem *vbar0, void __iomem *vbar1, void __iomem 
 
 	return 0;
 }
+
+arch_initcall(alpr_system_init);
 
 EXPORT_SYMBOL(alpr_map_ibuf_fpga);
 EXPORT_SYMBOL(alpr_unmap_ibuf_fpga);
