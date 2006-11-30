@@ -11,7 +11,7 @@ config FEC_MPC52xx
 	  Fast Ethernet Controller
 
 config USE_MDIO
-	bool "  Use external Ethernet MII PHY"
+	bool "Use external Ethernet MII PHY"
 	select MII
 	depends FEC_MPC52xx
 	---help---

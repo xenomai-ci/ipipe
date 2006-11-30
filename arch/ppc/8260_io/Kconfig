@@ -24,7 +24,7 @@ config FCC1_ENET
 	  Use CPM2 fast Ethernet controller 1 to drive Ethernet (default).
 
 config DB_CR826_J30x_ON	
-	bool "  DB CR826 Legacy Jumper ON"
+	bool "DB CR826 Legacy Jumper ON"
 	depends on PM82X
 
 config FCC2_ENET
