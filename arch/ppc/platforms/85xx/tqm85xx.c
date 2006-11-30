@@ -219,7 +219,7 @@ tqm85xx_init_IRQ(void)
 	 */
 	openpic_init(MPC85xx_OPENPIC_IRQ_OFFSET);
 
-#ifdef CONFIG_CPM2
+#ifdef CONFIG_MPC8560
 	/* Setup CPM2 PIC */
         cpm2_init_IRQ();
 
