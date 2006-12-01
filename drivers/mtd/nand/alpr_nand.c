@@ -212,8 +212,6 @@ static int pd_ndfc_chip_probe(struct platform_device *pdev)
 #ifdef CONFIG_MTD_PARTITIONS
 	printk("Number of partitions %d\n", nc->nr_partitions);
 	if (nc->nr_partitions) {
-		/* Add the full device, so complete dumps can be made */
-		add_mtd_device(&nandmtd->mtd);
 		add_mtd_partitions(&nandmtd->mtd, nc->partitions,
 				   nc->nr_partitions);
 
