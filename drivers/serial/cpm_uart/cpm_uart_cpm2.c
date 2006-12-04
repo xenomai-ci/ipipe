@@ -104,11 +104,12 @@ void smc1_lineif(struct uart_cpm_port *pinfo)
 #if defined(CONFIG_PM82X)
 	/* Wire BRG7 to SMC1 */
 	cpmux->cmx_smr &= 0x1f;
+	pinfo->brg = 7;
 #else
 	/* Wire BRG1 to SMC1 */
 	cpmux->cmx_smr &= 0x0f;
-#endif
 	pinfo->brg = 1;
+#endif
 
 	cpm2_unmap(cpmux);
 	cpm2_unmap(io);
@@ -139,11 +140,12 @@ void smc2_lineif(struct uart_cpm_port *pinfo)
 #if defined(CONFIG_PM82X)
 	/* Wire BRG8 to SMC2 */
 	cpmux->cmx_smr &= 0xf1;
+	pinfo->brg = 8;
 #else
 	/* Wire BRG2 to SMC2 */
 	cpmux->cmx_smr &= 0xf0;
-#endif
 	pinfo->brg = 2;
+#endif
 
 	cpm2_unmap(cpmux);
 	cpm2_unmap(io);
@@ -349,7 +351,7 @@ void cpm_uart_freebuf(struct uart_cpm_port *pinfo)
 int cpm_uart_init_portdesc(void)
 {
 #if defined(CONFIG_SERIAL_CPM_SMC1) || defined(CONFIG_SERIAL_CPM_SMC2)
-	u32 *addr;
+	u16 *addr;
 #endif
 	pr_debug("CPM uart[-]:init portdesc\n");
 
