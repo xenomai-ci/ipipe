@@ -19,6 +19,8 @@
 #ifndef __BESTCOMM_BESTCOMM_H__
 #define __BESTCOMM_BESTCOMM_H__
 
+#include "mpc52xx_pic.h"
+
 /* Buffer Descriptor definitions */
 struct sdma_bd {
 	u32 status;
@@ -70,6 +72,7 @@ struct sdma {
 	u16 num_bd;
 	s16 tasknum;
 	u32 flags;
+	struct device_node *node;
 };
 
 #define SDMA_FLAGS_NONE		0x0000
@@ -116,7 +119,9 @@ struct sdma_tdt {
 
 static inline void sdma_enable_task(int task)
 {
-	DPRINTK("***DMA enable task (%d): tdt = %08x\n",task, sdma.tdt);
+	u16 reg;
+
+	DPRINTK("***DMA enable task (%d): tdt = %p\n",task, sdma.tdt);
 	DPRINTK("***tdt->start   = %08x\n",sdma.tdt[task].start);
 	DPRINTK("***tdt->stop    = %08x\n",sdma.tdt[task].stop);
 	DPRINTK("***tdt->var     = %08x\n",sdma.tdt[task].var);
@@ -127,8 +132,8 @@ static inline void sdma_enable_task(int task)
 	DPRINTK("***tdt->litbase = %08x\n",sdma.tdt[task].litbase);
 	DPRINTK("***--------------\n");
 
-	u16 reg = in_be16(&sdma.io->tcr[task]);
-	DPRINTK("***enable task: &sdma.io->tcr=%08x, reg = %04x\n", &sdma.io->tcr, reg);
+	reg = in_be16(&sdma.io->tcr[task]);
+	DPRINTK("***enable task: &sdma.io->tcr=%p, reg = %04x\n", &sdma.io->tcr, reg);
 	out_be16(&sdma.io->tcr[task],  reg | TASK_ENABLE);
 }
 
@@ -141,7 +146,7 @@ static inline void sdma_disable_task(int task)
 
 static inline int sdma_irq(struct sdma *s)
 {
-	return MPC52xx_SDMA_IRQ_BASE + s->tasknum;
+	return irq_of_parse_and_map(s->node, s->tasknum);
 }
 
 static inline void sdma_enable(struct sdma *s)

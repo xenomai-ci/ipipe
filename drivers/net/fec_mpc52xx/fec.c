@@ -30,17 +30,24 @@
 #include <asm/ppcboot.h>
 #include <asm/mpc52xx.h>
 
+#if defined(CONFIG_PPC_MERGE)
+#include <asm/of_device.h>
+#include <asm/of_platform.h>
+#include <platforms/52xx/bestcomm.h>
+#include <platforms/52xx/fec.h>
+#else
 #include <syslib/bestcomm/bestcomm.h>
 #include <syslib/bestcomm/fec.h>
+#endif
 
 #include "fec_phy.h"
 #include "fec.h"
 
 #define DRIVER_NAME "mpc52xx-fec"
 
-static irqreturn_t fec_interrupt(int, void *, struct pt_regs *);
-static irqreturn_t fec_rx_interrupt(int, void *, struct pt_regs *);
-static irqreturn_t fec_tx_interrupt(int, void *, struct pt_regs *);
+static irqreturn_t fec_interrupt(int, void *);
+static irqreturn_t fec_rx_interrupt(int, void *);
+static irqreturn_t fec_tx_interrupt(int, void *);
 static struct net_device_stats *fec_get_stats(struct net_device *);
 static void fec_set_multicast_list(struct net_device *dev);
 static void fec_reinit(struct net_device *dev);
@@ -233,7 +240,7 @@ static int fec_hard_start_xmit(struct sk_buff *skb, struct net_device *dev)
 
 /* This handles BestComm transmit task interrupts
  */
-static irqreturn_t fec_tx_interrupt(int irq, void *dev_id, struct pt_regs *regs)
+static irqreturn_t fec_tx_interrupt(int irq, void *dev_id)
 {
 	struct net_device *dev = dev_id;
 	struct fec_priv *priv = (struct fec_priv *)dev->priv;
@@ -259,7 +266,7 @@ static irqreturn_t fec_tx_interrupt(int irq, void *dev_id, struct pt_regs *regs)
 	return IRQ_HANDLED;
 }
 
-static irqreturn_t fec_rx_interrupt(int irq, void *dev_id, struct pt_regs *regs)
+static irqreturn_t fec_rx_interrupt(int irq, void *dev_id)
 {
 	struct net_device *dev = dev_id;
 	struct fec_priv *priv = (struct fec_priv *)dev->priv;
@@ -316,7 +323,7 @@ static irqreturn_t fec_rx_interrupt(int irq, void *dev_id, struct pt_regs *regs)
 	return IRQ_HANDLED;
 }
 
-static irqreturn_t fec_interrupt(int irq, void *dev_id, struct pt_regs *regs)
+static irqreturn_t fec_interrupt(int irq, void *dev_id)
 {
 	struct net_device *dev = (struct net_device *)dev_id;
 	struct fec_priv *priv = (struct fec_priv *)dev->priv;
@@ -324,13 +331,18 @@ static irqreturn_t fec_interrupt(int irq, void *dev_id, struct pt_regs *regs)
 	int ievent;
 
 	ievent = in_be32(&fec->ievent);
+	if (!ievent)
+		return IRQ_NONE;
+
 	out_be32(&fec->ievent, ievent);		/* clear pending events */
 
 	if (ievent & (FEC_IEVENT_RFIFO_ERROR | FEC_IEVENT_XFIFO_ERROR)) {
-		if (ievent & FEC_IEVENT_RFIFO_ERROR)
-			printk(KERN_WARNING "FEC_IEVENT_RFIFO_ERROR\n");
-		if (ievent & FEC_IEVENT_XFIFO_ERROR)
-			printk(KERN_WARNING "FEC_IEVENT_XFIFO_ERROR\n");
+		if (net_ratelimit() && (ievent & FEC_IEVENT_RFIFO_ERROR))
+			printk(KERN_WARNING "FEC_IEVENT_RFIFO_ERROR (%.8x)\n",
+			       ievent);
+		if (net_ratelimit() && (ievent & FEC_IEVENT_XFIFO_ERROR))
+			printk(KERN_WARNING "FEC_IEVENT_XFIFO_ERROR (%.8x)\n",
+			       ievent);
 		fec_reinit(dev);
 	}
 	else if (ievent & FEC_IEVENT_MII)
@@ -495,7 +507,9 @@ static void fec_hw_init(struct net_device *dev)
 {
 	struct fec_priv *priv = (struct fec_priv *)dev->priv;
 	struct mpc52xx_fec *fec = priv->fec;
+#if !defined(CONFIG_PPC_MERGE)
 	bd_t *bd = (bd_t *) &__res;
+#endif
 
 	out_be32(&fec->op_pause, 0x00010020);
 	out_be32(&fec->rfifo_cntrl, 0x0f000000);
@@ -507,7 +521,9 @@ static void fec_hw_init(struct net_device *dev)
 	out_be32(&fec->iaddr1, 0x00000000);	/* No individual filter */
 	out_be32(&fec->iaddr2, 0x00000000);	/* No individual filter */
 
+#if !defined(CONFIG_PPC_MERGE)
 	priv->phy_speed = ((bd->bi_ipbfreq >> 20) / 5) << 1;
+#endif
 
 	fec_restart(dev, 0);	/* always use half duplex mode only */
 	/*
@@ -522,7 +538,6 @@ static void fec_reinit(struct net_device *dev)
 {
 	struct fec_priv *priv = (struct fec_priv *)dev->priv;
 	struct mpc52xx_fec *fec = priv->fec;
-	static void fec_update_stat(struct net_device *);
 
 	netif_stop_queue(dev);
 	out_be32(&fec->imask, 0x0);
@@ -551,19 +566,38 @@ static void fec_reinit(struct net_device *dev)
 /* Platform Driver                                                               */
 /* ======================================================================== */
 
+#if defined(CONFIG_PPC_MERGE)
+static int __devinit
+mpc52xx_fec_probe(struct of_device *op, const struct of_device_id *match)
+#else
 static int __devinit
 mpc52xx_fec_probe(struct device *dev)
+#endif
 {
 	int ret;
+#if defined(CONFIG_PPC_MERGE)
+	int rv;
+	struct resource __mem;
+	struct resource *mem = &__mem;
+#else
 	struct platform_device *pdev = to_platform_device(dev);
+	struct resource *mem;
+#endif
 	struct net_device *ndev;
 	struct fec_priv *priv = NULL;
-	struct resource *mem;
 
 	volatile int dbg=0;
 	while(dbg)
 		__asm("nop");
 	/* Reserve FEC control zone */
+#if defined(CONFIG_PPC_MERGE)
+	rv = of_address_to_resource(op->node, 0, mem);
+	if (rv) {
+		printk(KERN_ERR DRIVER_NAME ": "
+			"Error while parsing device node resource\n" );
+		return rv;
+	}
+#else
 	mem = platform_get_resource(pdev, IORESOURCE_MEM, 0);
 	if ((mem->end - mem->start + 1) != sizeof(struct mpc52xx_fec)) {
 		printk(KERN_ERR DRIVER_NAME 
@@ -571,7 +605,8 @@ mpc52xx_fec_probe(struct device *dev)
 									mem->end - mem->start + 1, sizeof(struct mpc52xx_fec));
 		return -EINVAL;
 	}
-	
+#endif
+
 	if (!request_mem_region(mem->start, sizeof(struct mpc52xx_fec),
 	                        DRIVER_NAME))
 		return -EBUSY;
@@ -579,6 +614,8 @@ mpc52xx_fec_probe(struct device *dev)
 	/* Get the ether ndev & it's private zone */
 	ndev = alloc_etherdev(sizeof(struct fec_priv));
 	if (!ndev) {
+		printk(KERN_ERR DRIVER_NAME ": "
+			"Can not allocate the ethernet device\n" );
 		ret = -ENOMEM;
 		goto probe_error;
 	}
@@ -609,6 +646,8 @@ mpc52xx_fec_probe(struct device *dev)
 		ioremap(mem->start, sizeof(struct mpc52xx_fec));
 	
 	if (!priv->fec) {
+		printk(KERN_ERR DRIVER_NAME ": "
+			"Can not remap IO memory at 0x%8.8x\n", mem->start );
 		ret = -ENOMEM;
 		goto probe_error;
 	}
@@ -618,6 +657,8 @@ mpc52xx_fec_probe(struct device *dev)
 	priv->tx_sdma = sdma_alloc(FEC_TX_NUM_BD);
 	
 	if (!priv->rx_sdma || !priv->tx_sdma) {
+		printk(KERN_ERR DRIVER_NAME ": "
+			"Can not init SDMA tasks\n" );
 		ret = -ENOMEM;
 		goto probe_error;
 	}
@@ -631,8 +672,13 @@ mpc52xx_fec_probe(struct device *dev)
 		goto probe_error;
 
 	/* Get the IRQ we need one by one */
-		/* Control */
+	/* Control */
+#if defined(CONFIG_PPC_MERGE)
+	ndev->irq = irq_of_parse_and_map(op->node, 0);
+#else
 	ndev->irq = platform_get_irq(pdev, 0);
+#endif
+
 	if (request_irq(ndev->irq, &fec_interrupt, SA_INTERRUPT,
 	                DRIVER_NAME "_ctrl", ndev)) {
 		printk(KERN_ERR DRIVER_NAME ": ctrl interrupt request failed\n");
@@ -641,25 +687,31 @@ mpc52xx_fec_probe(struct device *dev)
 		goto probe_error;
 	}
 
-		/* RX */
+	/* RX */
 	priv->r_irq = sdma_irq(priv->rx_sdma);
 	if (request_irq(priv->r_irq, &fec_rx_interrupt, SA_INTERRUPT,
 	                DRIVER_NAME "_rx", ndev)) {
-		printk(KERN_ERR DRIVER_NAME ": rx interrupt request failed\n");
+		printk(KERN_ERR DRIVER_NAME ": rx request_irq(0x%x) failed\n",
+		       priv->r_irq);
 		ret = -EBUSY;
 		priv->r_irq = -1;	/* Don't try to free it */
 		goto probe_error;
 	}
 
-		/* TX */
+	/* TX */
 	priv->t_irq = sdma_irq(priv->tx_sdma);
 	if (request_irq(priv->t_irq, &fec_tx_interrupt, SA_INTERRUPT,
 	                DRIVER_NAME "_tx", ndev)) {
-		printk(KERN_ERR DRIVER_NAME ": tx interrupt request failed\n");
+		printk(KERN_ERR DRIVER_NAME ": tx request_irq(0x%x) failed\n",
+		       priv->t_irq);
 		ret = -EBUSY;
 		priv->t_irq = -1;	/* Don't try to free it */
 		goto probe_error;
 	}
+
+#if defined(CONFIG_PPC_MERGE)
+	priv->phy_speed = ((mpc52xx_find_ipb_freq(op->node) >> 20) / 5) << 1;
+#endif
 
 	/* MAC address init */
 	if (memcmp(mpc52xx_fec_mac_addr, null_mac, 6) != 0)
@@ -679,7 +731,11 @@ mpc52xx_fec_probe(struct device *dev)
 	fec_mii_init(ndev);
 	
 	/* We're done ! */
+#if defined(CONFIG_PPC_MERGE)
+	dev_set_drvdata(&op->dev, ndev);
+#else
 	dev_set_drvdata(dev, ndev);
+#endif
 
 	return 0;
 
@@ -705,13 +761,22 @@ probe_error:
 	return ret;
 }
 
+#if defined(CONFIG_PPC_MERGE)
+static int
+mpc52xx_fec_remove(struct of_device *op)
+#else
 static int
 mpc52xx_fec_remove(struct device *dev)
+#endif
 {
 	struct net_device *ndev;
 	struct fec_priv *priv;
 	
+#if defined(CONFIG_PPC_MERGE)
+	ndev = (struct net_device *) dev_get_drvdata(&op->dev);
+#else
 	ndev = (struct net_device *) dev_get_drvdata(dev);
+#endif
 	if (!ndev)
 		return 0;
 	priv = (struct fec_priv *) ndev->priv;
@@ -728,10 +793,37 @@ mpc52xx_fec_remove(struct device *dev)
 
 	free_netdev(ndev);
 	
+#if defined(CONFIG_PPC_MERGE)
+	dev_set_drvdata(&op->dev, NULL);
+#else
 	dev_set_drvdata(dev, NULL);
+#endif
 	return 0;
 }
 
+#if defined(CONFIG_PPC_MERGE)
+static struct of_device_id mpc52xx_fec_of_match[] = {
+	{ .compatible = "mpc5200-ethernet", },
+	{ .compatible = "mpc5200-fec", },
+	{},
+};
+
+static struct of_platform_driver mpc52xx_fec_driver = {
+	.name = DRIVER_NAME,
+	.owner = THIS_MODULE,
+	.match_table = mpc52xx_fec_of_match,
+	.probe = mpc52xx_fec_probe,
+	.remove = mpc52xx_fec_remove,
+#ifdef CONFIG_PM
+/*	.suspend = mpc52xx_fec_suspend, TODO */
+/*	.resume = mpc52xx_fec_resume, TODO */
+#endif
+	.driver = {
+		.name = DRIVER_NAME,
+		.owner = THIS_MODULE,
+	},
+};
+#else
 static struct device_driver mpc52xx_fec_driver = {
 	.name	  = DRIVER_NAME,
 	.bus		= &platform_bus_type,
@@ -742,6 +834,7 @@ static struct device_driver mpc52xx_fec_driver = {
 /*	.resume		= mpc52xx_fec_resume,	TODO */
 #endif
 };
+#endif
 
 /* ======================================================================== */
 /* Module                                                                   */
@@ -750,13 +843,21 @@ static struct device_driver mpc52xx_fec_driver = {
 static int __init
 mpc52xx_fec_init(void)
 {
+#if defined(CONFIG_PPC_MERGE)
+	return of_register_platform_driver(&mpc52xx_fec_driver);
+#else
 	return driver_register(&mpc52xx_fec_driver);
+#endif
 }
 
 static void __exit
 mpc52xx_fec_exit(void)
 {
+#if defined(CONFIG_PPC_MERGE)
+	of_unregister_platform_driver(&mpc52xx_fec_driver);
+#else
 	driver_unregister(&mpc52xx_fec_driver);
+#endif
 }
 
 

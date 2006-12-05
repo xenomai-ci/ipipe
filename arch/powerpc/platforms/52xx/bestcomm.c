@@ -16,7 +16,6 @@
  *		Andrey Volkov <avolkov@varma-el.com>, Varma Electronics Oy
  */
 
-#include <linux/config.h>
 #include <linux/version.h>
 #include <linux/module.h>
 #include <linux/kernel.h>
@@ -24,17 +23,19 @@
 #include <linux/slab.h>
 #include <linux/spinlock.h>
 #include <linux/string.h>
-#include <linux/device.h>
 
 #include <asm/bug.h>
 #include <asm/io.h>
 #include <asm/mpc52xx.h>
+#include <asm/of_platform.h>
 
 #include "bestcomm.h"
 
-#define DRIVER_NAME		"mpc52xx-sdma"
+#define DRIVER_NAME "mpc52xx-bestcomm"
 
 struct sdma_io sdma;
+struct device_node *sdma_node;
+struct device_node *sram_node;
 
 static spinlock_t sdma_lock = SPIN_LOCK_UNLOCKED;
 
@@ -42,7 +43,8 @@ static spinlock_t sdma_lock = SPIN_LOCK_UNLOCKED;
 void sdma_dump(void)
 {
 	int i;
-	printk("** SDMA registers: pa = %08x, va = %08x\n", sdma.base_reg_addr, sdma.io);
+	printk("** SDMA registers: pa = %.8lx, va = %p\n",
+	       sdma.base_reg_addr, sdma.io);
 	printk("**  taskBar = %08x\n", sdma.io->taskBar);
 	printk("**  currentPointer = %08x\n", sdma.io->currentPointer);
 	printk("**  endPointer = %08x\n", sdma.io->endPointer);
@@ -254,6 +256,7 @@ struct sdma *sdma_alloc(int queue_size)
 	}
 
 	s->num_bd = queue_size;
+	s->node = sdma_node;
 	return s;
 }
 
@@ -264,29 +267,49 @@ void sdma_free(struct sdma *s)
 	kfree(s);
 }
 
-static int __devinit mpc52xx_sdma_probe(struct device *dev)
+static int __init mpc52xx_sdma_init(void)
 {
-	struct platform_device *pdev = to_platform_device(dev);
 	int task;
 	u32 *context;
 	u32 *fdt;
 	struct sdma_tdt *tdt;
-	struct resource *mem_io, *mem_sram;
-	u32 tdt_pa, var_pa, context_pa, fdt_pa; 
+	struct resource mem_io, mem_sram;
+	u32 tdt_pa, var_pa, context_pa, fdt_pa;
 	int ret = -ENODEV;
 
-	mem_io = platform_get_resource(pdev, IORESOURCE_MEM, 0);
-	mem_sram = platform_get_resource(pdev, IORESOURCE_MEM, 1);
-	if (!mem_io || !mem_sram)
+	/* Find SDMA registers */
+	sdma_node = of_find_compatible_node(NULL, "dma-controller", "mpc5200-bestcomm");
+	if (!sdma_node) {
+		printk (KERN_ERR DRIVER_NAME ": could not locate DMA controller\n");
 		goto out;
+	}
 
-	if (!request_mem_region(mem_io->start, mem_io->end - mem_io->start + 1, DRIVER_NAME)) {
+	if ((ret = of_address_to_resource(sdma_node, 0, &mem_io)) != 0) {
+		printk(KERN_ERR "Could not get address of SDMA controller\n");
+		goto out;
+	}
+
+	/* Find SRAM location */
+	sram_node = of_find_compatible_node(NULL, "sram", "mpc5200-sram");
+	if (!sram_node) {
+		printk (KERN_ERR DRIVER_NAME ": could not locate SRAM\n");
+		goto out;
+	}
+
+	if ((ret = of_address_to_resource(sram_node, 0, &mem_sram)) != 0) {
+		printk(KERN_ERR "Could not get address of SRAM\n");
+		goto out;
+	}
+
+	/* Map register regions */
+	if (!request_mem_region(mem_io.start, mem_io.end - mem_io.start + 1,
+	                        DRIVER_NAME)) {
 		printk(KERN_ERR DRIVER_NAME " - resource unavailable\n");
 		goto out;
 	}
-	sdma.base_reg_addr = mem_io->start;
+	sdma.base_reg_addr = mem_io.start;
 
-	sdma.io = ioremap_nocache(mem_io->start, sizeof(struct mpc52xx_sdma));
+	sdma.io = ioremap_nocache(mem_io.start, sizeof(struct mpc52xx_sdma));
 
 	if (!sdma.io ) {
 		printk(KERN_ERR DRIVER_NAME " - failed to map sdma regs\n");
@@ -296,14 +319,14 @@ static int __devinit mpc52xx_sdma_probe(struct device *dev)
 
 	SDMA_DUMP_REGS();
 
-	sdma.sram_size = mem_sram->end - mem_sram->start + 1;
-	if (!request_mem_region(mem_sram->start, sdma.sram_size, DRIVER_NAME)) {
+	sdma.sram_size = mem_sram.end - mem_sram.start + 1;
+	if (!request_mem_region(mem_sram.start, sdma.sram_size, DRIVER_NAME)) {
 		printk(KERN_ERR DRIVER_NAME " - resource unavailable\n");
 		goto req_sram_error;
 	}
 
-	sdma.base_sram_addr = mem_sram->start;
-	sdma.sram = ioremap_nocache(mem_sram->start, sdma.sram_size);
+	sdma.base_sram_addr = mem_sram.start;
+	sdma.sram = ioremap_nocache(mem_sram.start, sdma.sram_size);
 	if (!sdma.sram ) {
 		printk(KERN_ERR DRIVER_NAME " - failed to map sdma sram\n");
 		ret = -ENOMEM;
@@ -350,50 +373,17 @@ static int __devinit mpc52xx_sdma_probe(struct device *dev)
 	return 0;
 
 map_sram_error:
-	release_mem_region(mem_sram->start, sdma.sram_size);
+	release_mem_region(mem_sram.start, sdma.sram_size);
 req_sram_error:
 	iounmap(sdma.io);
 map_io_error:
-	release_mem_region(mem_io->start, mem_io->end - mem_io->start + 1);
+	release_mem_region(mem_io.start, mem_io.end - mem_io.start + 1);
 out:
 	printk(KERN_ERR "DMA: MPC52xx BestComm init FAILED !!!\n");
 	return ret;
 }
 
-
-static struct device_driver mpc52xx_sdma_driver = {
-	.owner	  = THIS_MODULE,
-	.name	  = DRIVER_NAME,
-	.bus	  = &platform_bus_type,
-	.probe 	  = mpc52xx_sdma_probe,
-/*	.remove	  = mpc52xx_sdma_remove,	TODO */
-#ifdef CONFIG_PM
-/*	.suspend	= mpc52xx_sdma_suspend,	TODO */
-/*	.resume		= mpc52xx_sdma_resume,	TODO */
-#endif
-};
-
-static int __init
-mpc52xx_sdma_init(void)
-{
-	printk(KERN_INFO "DMA: MPC52xx BestComm driver\n");
-	return driver_register(&mpc52xx_sdma_driver);
-}
-
-#ifdef MODULE
-static void __exit
-mpc52xx_sdma_exit(void)
-{
-	driver_unregister(&mpc52xx_sdma_driver);
-}
-#endif
-
-#ifndef MODULE
- subsys_initcall(mpc52xx_sdma_init);
-#else
- module_init(mpc52xx_sdma_init);
- module_exit(mpc52xx_sdma_exit);
-#endif
+subsys_initcall(mpc52xx_sdma_init);
 
 
 MODULE_DESCRIPTION("Freescale MPC52xx BestComm DMA");

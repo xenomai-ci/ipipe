@@ -20,8 +20,14 @@
 #include <linux/mii.h>
 #include <asm/io.h>
 #include <asm/mpc52xx.h>
+
+#ifdef CONFIG_PPC_MERGE
+#include <platforms/52xx/bestcomm.h>
+#else
 #include <syslib/bestcomm/bestcomm.h>
 #include <syslib/bestcomm/fec.h>
+#endif
+
 #include "fec_phy.h"
 #include "fec.h"
 
