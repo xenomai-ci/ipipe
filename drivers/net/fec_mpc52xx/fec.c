@@ -731,6 +731,8 @@ mpc52xx_fec_probe(struct device *dev)
 	fec_mii_init(ndev);
 	
 	/* We're done ! */
+	printk(KERN_INFO "%s: mpc52xx-fec at %#lx,",
+	       ndev->name, (long)mem->start);
 #if defined(CONFIG_PPC_MERGE)
 	dev_set_drvdata(&op->dev, ndev);
 #else
