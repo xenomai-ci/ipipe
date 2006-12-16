@@ -195,16 +195,14 @@ static int pd_ndfc_chip_probe(struct platform_device *pdev)
 		return -EINVAL;
 
 	nandmtd = &pd_ndfc_mtd[nc->chip_offset];
-#if 0
 	if (nandmtd->pl_chip)
 		return -EBUSY;
-#endif
 
 	nandmtd->pl_chip = nc;
 	pd_ndfc_chip_init(nandmtd, nc->chip_offset);
 
 	/* Scan for chips */
-	if (nand_scan(&nandmtd->mtd, nc->chip_offset)) {
+	if (nand_scan(&nandmtd->mtd, 1)) {
 		nandmtd->pl_chip = NULL;
 		return -ENODEV;
 	}
