@@ -148,7 +148,6 @@ static int pd_ndfc_verify_buf(struct mtd_info *mtd, const u_char *buf, int len)
 /*
  * Initialize chip structure
  */
-//static void pd_ndfc_chip_init(struct pd_ndfc_nand_mtd *mtd)
 static void pd_ndfc_chip_init(struct pd_ndfc_nand_mtd *mtd, int chip_nr)
 {
 	struct pd_ndfc_controller *pd_ndfc = &pd_ndfc_ctrl;
@@ -232,7 +231,7 @@ static int pd_ndfc_nand_probe(struct platform_device *pdev)
 {
 	struct resource *res = pdev->resource;
 	struct pd_ndfc_controller *pd_ndfc = &pd_ndfc_ctrl;
-	unsigned long long phys = 0x1f0000000LL; // test-only
+	unsigned long long phys = 0x100000000LL | res->start;
 
 	pd_ndfc->ndfcbase = ioremap64(phys, res->end - res->start + 1);
 	if (!pd_ndfc->ndfcbase) {

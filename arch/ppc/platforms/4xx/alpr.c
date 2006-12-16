@@ -83,9 +83,8 @@ static int fpga_map_count = 0;
 #define PCI_VENDOR_ID_IBUF_FPGA	0xfffe
 #define PCI_DEVICE_ID_IBUF_FPGA	0xf05f
 
-// test-only
 static struct resource alpr_ndfc = {
-        .start = 0xf0000000,
+        .start = 0xf0000000,		/* the real addr is 0x1f0000000! */
         .end = 0xf0000fff,
         .flags = IORESOURCE_MEM,
 };
