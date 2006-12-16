@@ -17,7 +17,6 @@
 #ifndef __ASM_YOSEMITE_H__
 #define __ASM_YOSEMITE_H__
 
-#include <linux/config.h>
 #include <platforms/4xx/ibm440ep.h>
 
 /* Default clock rate */

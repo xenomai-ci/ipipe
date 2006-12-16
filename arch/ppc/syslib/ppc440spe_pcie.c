@@ -24,7 +24,12 @@ pcie_read_config(struct pci_bus *bus, unsigned int devfn, int offset,
 		     int len, u32 *val)
 {
 	struct pci_controller *hose = bus->sysdata;
-
+#ifdef CONFIG_PCIE_ENDPOINT
+	/*
+	 * Endpoint can not generate upstream(remote) config cycles.
+	 */
+	return PCIBIOS_DEVICE_NOT_FOUND;
+#endif
 	if (!((PCI_SLOT(devfn) == 1) && (PCI_FUNC(devfn) == 0)))
 		return PCIBIOS_DEVICE_NOT_FOUND;
 	/*
@@ -58,6 +63,12 @@ pcie_write_config(struct pci_bus *bus, unsigned int devfn, int offset,
 		      int len, u32 val)
 {
 	struct pci_controller *hose = bus->sysdata;
+#ifdef CONFIG_PCIE_ENDPOINT
+	/*
+	 * Endpoint can not generate upstream(remote) config cycles.
+	 */
+	return PCIBIOS_DEVICE_NOT_FOUND;
+#endif
 
 	if (!((PCI_SLOT(devfn) == 1) && (PCI_FUNC(devfn) == 0)))
 		return PCIBIOS_DEVICE_NOT_FOUND;
@@ -271,7 +282,37 @@ ppc440spe_init_pcie(void)
 	return 0;
 }
 
-int ppc440spe_init_pcie_rootport(u32 port)
+/*
+ *  Yucca board as End point and root point setup
+ *                    and
+ *    testing inbound and out bound windows
+ *
+ *  YUCCA board can be plugged into another yucca board or you can get PCI-E
+ *  cable which can be used to setup loop back from one port to another port.
+ *  Please rememeber that unless there is a endpoint plugged in to root port it
+ *  will not initialize. It is the same in case of endpoint , unless there is
+ *  root port attached it will not initialize.
+ *
+ *  In this release of software all the PCI-E ports are configured as either
+ *  endpoint or rootpoint.In future we will have support for selective ports
+ *  setup as endpoint and root point in single board.
+ *
+ *  Once your board came up as root point , you can verify by reading
+ *  /proc/bus/pci/devices. Where you can see the configuration registers
+ *  of end point device attached to the port.
+ *
+ *  Enpoint cofiguration can be verified by connecting Yucca board to any
+ *  host or another yucca board. Then try to scan the device. In case of
+ *  linux use "lspci" or appripriate os command.
+ *  
+ *  To verify the inbound and outbound windows on yucca to yucca configuration
+ *  windows already configured for memory region 0. On root point side memory
+ *  map the 36 bit address value 0x4 0000 0000(SRAM) then do the read write to
+ *  the memory mapped address. On endpoint board memory map the 0x4 0000 0000
+ *  read the data to verify if writes happened or not.For inbound window 
+ *  verificatio do the reverse way of write and read .
+ */
+int ppc440spe_init_pcie_root_or_endport(u32 port)
 {
 	static int core_init;
 	int attempts;
@@ -297,11 +338,17 @@ int ppc440spe_init_pcie_rootport(u32 port)
 	 * PESDRn_UTLSET2[LKINE] in particular: clearing it leads to PCIE core
 	 * hang.
 	 */
+
+#ifdef CONFIG_PCIE_ENDPOINT
+#define PTYPE_TYPE PTYPE_LEGACY_ENDPOINT
+#else
+#define PTYPE_TYPE PTYPE_ROOT_PORT
+#endif
 	switch (port) {
 	case 0:
-		SDR_WRITE(PESDR0_DLPSET, 1 << 24 | PTYPE_ROOT_PORT << 20 | LNKW_X8 << 12);
+		SDR_WRITE(PESDR0_DLPSET, 1 << 24 | PTYPE_TYPE << 20 | LNKW_X8 << 12); 
 
-		SDR_WRITE(PESDR0_UTLSET1, 0x21222222);
+		SDR_WRITE(PESDR0_UTLSET1, 0x20222222);
 		if (!ppc440spe_revB())
 			SDR_WRITE(PESDR0_UTLSET2, 0x11000000);
 		SDR_WRITE(PESDR0_HSSL0SET1, 0x35000000);
@@ -318,9 +365,9 @@ int ppc440spe_init_pcie_rootport(u32 port)
 		break;
 
 	case 1:
-		SDR_WRITE(PESDR1_DLPSET, 1 << 24 | PTYPE_ROOT_PORT << 20 | LNKW_X4 << 12);
+		SDR_WRITE(PESDR1_DLPSET, 1 << 24 | PTYPE_TYPE << 20 | LNKW_X4 << 12); 
 
-		SDR_WRITE(PESDR1_UTLSET1, 0x21222222);
+		SDR_WRITE(PESDR1_UTLSET1, 0x20222222);
 		if (!ppc440spe_revB())
 			SDR_WRITE(PESDR1_UTLSET2, 0x11000000);
 		SDR_WRITE(PESDR1_HSSL0SET1, 0x35000000);
@@ -333,9 +380,9 @@ int ppc440spe_init_pcie_rootport(u32 port)
 		break;
 
 	case 2:
-		SDR_WRITE(PESDR2_DLPSET, 1 << 24 | PTYPE_ROOT_PORT << 20 | LNKW_X4 << 12);
+		SDR_WRITE(PESDR2_DLPSET, 1 << 24 | PTYPE_TYPE << 20 | LNKW_X4 << 12); 
 
-		SDR_WRITE(PESDR2_UTLSET1, 0x21222222);
+		SDR_WRITE(PESDR2_UTLSET1, 0x20222222);
 		if (!ppc440spe_revB())
 			SDR_WRITE(PESDR2_UTLSET2, 0x11000000);
 		SDR_WRITE(PESDR2_HSSL0SET1, 0x35000000);
@@ -496,9 +543,10 @@ int ppc440spe_init_pcie_rootport(u32 port)
 	return 0;
 }
 
-void ppc440spe_setup_pcie(struct pci_controller *hose, u32 port)
+int ppc440spe_setup_pcie(struct pci_controller *hose, u32 port)
 {
 	void __iomem *mbase;
+	int attempts = 0;
 
 	if (ppc440spe_revB()) {
 		/*
@@ -518,33 +566,36 @@ void ppc440spe_setup_pcie(struct pci_controller *hose, u32 port)
 		/*
 		 * Map 16MB, which is enough for 4 bits of bus #
 		 */
-		hose->cfg_data = ioremap64(0xc40000000ull + port * 0x40000000,
+		hose->cfg_data = ioremap64(0xc40100000ull + port * 0x40000000,
 					0x01000000);
 		mbase = ioremap64(0xc50000000ull + port * 0x40000000, 0x1000);
 	}
 
 	hose->ops = &pcie_pci_ops;
 
+#ifndef CONFIG_PCIE_ENDPOINT
 	/*
 	 * Set bus numbers on our root port
 	 */
-	if (ppc440spe_revB()) {
 		out_8(mbase + PCI_PRIMARY_BUS, 0);
 		out_8(mbase + PCI_SECONDARY_BUS, 1);
 		out_8(mbase + PCI_SUBORDINATE_BUS, 1);
-	} else {
-		out_8(mbase + PCI_PRIMARY_BUS, 0);
-		out_8(mbase + PCI_SECONDARY_BUS, 0);
-	}
-
+#endif
 	/*
 	 * Set up outbound translation to hose->mem_space from PLB
 	 * addresses at an offset of 0xd_0000_0000.  We set the low
 	 * bits of the mask to 11 to turn off splitting into 8
 	 * subregions and to enable the outbound translation.
+	 * POMs are set different for root and endpoints to 
+	 * different window ranges fron inbound and out bound transactions.
 	 */
+#ifdef CONFIG_PCIE_ENDPOINT
+	out_le32(mbase + PECFG_POM0LAH, 0x0000fff8);
+	out_le32(mbase + PECFG_POM0LAL, 0x0001fff8);
+#else
 	out_le32(mbase + PECFG_POM0LAH, 0);
-	out_le32(mbase + PECFG_POM0LAL, hose->mem_space.start);
+	out_le32(mbase + PECFG_POM0LAL, hose->mem_space.start );
+#endif
 
 	switch (port) {
 	case 0:
@@ -571,18 +622,129 @@ void ppc440spe_setup_pcie(struct pci_controller *hose, u32 port)
 	}
 
 	/* Set up 16GB inbound memory window at 0 */
-	out_le32(mbase + PCI_BASE_ADDRESS_0, 0);
-	out_le32(mbase + PCI_BASE_ADDRESS_1, 0);
+#ifndef CONFIG_PCIE_ENDPOINT
 	out_le32(mbase + PECFG_BAR0HMPA, 0x7fffffc);
 	out_le32(mbase + PECFG_BAR0LMPA, 0);
-	out_le32(mbase + PECFG_PIM0LAL, 0);
-	out_le32(mbase + PECFG_PIM0LAH, 0);
+#else
+	out_le32(mbase + PECFG_BAR0HMPA, 0xfffffffc);
+	out_le32(mbase + PECFG_BAR0LMPA, 0xffff0000);
+#endif
+	out_le32(mbase + PCI_BASE_ADDRESS_0, 0);
+	out_le32(mbase + PCI_BASE_ADDRESS_1, 0);
+
+	/*
+	 *  SRAM location 0x4 0000 0000 is target for inbound transefers
+	 */
+	out_le32(mbase + PECFG_PIM0LAL, 0x00000000);
+	out_le32(mbase + PECFG_PIM0LAH, 0x00000004);
+	out_le32(mbase + PECFG_PIM1LAL, 0x00000000);
+	out_le32(mbase + PECFG_PIM1LAH, 0x00000004);
+	out_le32(mbase + PECFG_PIM01SAH, 0xffff0000);
+	out_le32(mbase + PECFG_PIM01SAL, 0x00000000);
 	out_le32(mbase + PECFG_PIMEN, 0x1);
 
 	/* Enable I/O, Mem, and Busmaster cycles */
 	out_le16(mbase + PCI_COMMAND,
 		 in_le16(mbase + PCI_COMMAND) |
 		 PCI_COMMAND_IO | PCI_COMMAND_MEMORY | PCI_COMMAND_MASTER);
+	attempts = 10;
+#ifndef CONFIG_PCIE_ENDPOINT
+	printk(KERN_INFO"PCIE:%d successfully set as rootpoint\n",port);
+	switch(port )
+	{
+		case 0:
+			out_le16(mbase + 0x200,0xaaa0);
+			out_le16(mbase + 0x202,0xbed0);
+			break;
+		case 1:
+			out_le16(mbase + 0x200,0xaaa1);
+			out_le16(mbase + 0x202,0xbed1);
+			break;
+		case 2:
+			out_le16(mbase + 0x200,0xaaa2);
+			out_le16(mbase + 0x202,0xbed2);
+			break;
+		default:
+			out_le16(mbase + 0x200,0xaaa3);
+			out_le16(mbase + 0x202,0xbed3);
+	}
+#else
+	switch (port) {
+	case 0:
+		while(!(SDR_READ(PESDR0_RCSSTS) & (1 << 8))) {
+			if (!(attempts--)) {
+				printk(KERN_INFO "PCIE0: BMEN is not active\n");
+				return -1;
+			}
+			mdelay(1000);
+		}
+		break;
+	case 1:
+		while(!(SDR_READ(PESDR1_RCSSTS) & (1 << 8))) {
+			if (!(attempts--)) {
+				printk(KERN_WARNING "PCIE1: BEMEN not active\n");
+				return -1;
+			}
+			mdelay(1000);
+		}
+		break;
+	case 2:
+		while(!(SDR_READ(PESDR2_RCSSTS) & (1 << 8))) {
+			if (!(attempts--)) {
+				printk(KERN_WARNING "PCIE2: BMEN is not active\n");
+				return -1;
+			}
+			mdelay(1000);
+		}
+		break;
+	}
+	printk(KERN_INFO"PCIE:%d successfully set as endpoint\n",port);
+	switch(port)
+	{
+		case 0:
+			out_le16(mbase + 0x200,0xeee0);
+			out_le16(mbase + 0x202,0xfed0);
+			break;
+		case 1:
+			out_le16(mbase + 0x200,0xeee1);
+			out_le16(mbase + 0x202,0xfed1);
+			break;
+		case 2:
+			out_le16(mbase + 0x200,0xeee2);
+			out_le16(mbase + 0x202,0xfed2);
+			break;
+		default :
+			out_le16(mbase + 0x200,0xeee3);
+			out_le16(mbase + 0x202,0xfed3);
+	}
+#endif
+	printk(KERN_INFO"vendor-id 0x%x\n",in_le16(mbase+0x0));
+	printk(KERN_INFO"device-id 0x%x\n",in_le16(mbase+0x2));
+	/*
+	 * This code works as is with yucca plugged in another yucca board or any endpoint device 
+	 * pugged in yucca board as root point device.
+	 * If you want to change configuration according to your configuration . Here are few gotch's.
+	 * There could be hangs due to different reasons
+	 * 1 -- It could be that endpoint is not initialyzed. So always initialize the endpoint first.
+	 * 2 -- May be your POM and BARs are not set properly
+	 * 3 -- careful with masks which decide window sizes
+	 * Here is the test code which used for testing sram read . This test dumps remote and local sram 
+	 * locations which help in comparing visually.
+	 * u32 *rsram,*lsram;
+	 * int i=0;
+	 * lsram = ioremap64(0x400000000 ,0x200); 
+     * #ifndef CONFIG_PCIE_ENDPOINT
+	 *    rsram = ioremap64(0xd00000000 + hose->mem_space.start,0x200);
+	 *	 if(port == 1)
+	 *		 for(i=0;i<20;i+=4) 
+	 *			 printk(KERN_INFO"endp sram 0x%x root sram 0x%x\n",*(rsram+i),*(lsram+i));
+     *#else
+	 *    rsram = ioremap64(0xd00000000 + hose->mem_space.start,0x200);
+	 *    for(i=0;i<20;i+=4) 
+	 *		 printk(KERN_INFO"rootp sram 0x%x endp sram 0x%x\n",*(rsram+i),*(lsram+i));
+     * #endif
+    */
 
 	iounmap(mbase);
+	return 0;
 }

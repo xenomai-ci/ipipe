@@ -8,17 +8,6 @@
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
  * published by the Free Software Foundation.
- *
- * Modifications:
- *     16-May-2003 BJD  Created initial version
- *     16-Aug-2003 BJD  Fixed header files and copyright, added URL
- *     05-Sep-2003 BJD  Moved to kernel v2.6
- *     18-Jan-2004 BJD  Added serial port configuration
- *     21-Aug-2004 BJD  Added new struct s3c2410_board handler
- *     28-Sep-2004 BJD  Updates for new serial port bits
- *     04-Nov-2004 BJD  Updated UART configuration process
- *     10-Jan-2005 BJD  Removed s3c2410_clock_tick_rate
- *     13-Aug-2005 DA   Removed UART from initial I/O mappings
 */
 
 #include <linux/kernel.h>
@@ -35,11 +24,15 @@
 #include <asm/mach/irq.h>
 
 #include <asm/hardware.h>
+#include <asm/proc-fns.h>
 #include <asm/io.h>
 #include <asm/irq.h>
 
+#include <asm/arch/idle.h>
+
 #include <asm/arch/regs-clock.h>
 #include <asm/arch/regs-serial.h>
+#include <asm/arch/regs-power.h>
 #include <asm/arch/regs-gpio.h>
 #include <asm/arch/regs-gpioj.h>
 #include <asm/arch/regs-dsc.h>
@@ -52,6 +45,13 @@
 
 #ifndef CONFIG_CPU_S3C2412_ONLY
 void __iomem *s3c24xx_va_gpio2 = S3C24XX_VA_GPIO;
+
+static inline void s3c2412_init_gpio2(void)
+{
+	s3c24xx_va_gpio2 = S3C24XX_VA_GPIO + 0x10;
+}
+#else
+#define s3c2412_init_gpio2() do { } while(0)
 #endif
 
 /* Initial IO mappings */
@@ -72,7 +72,29 @@ void __init s3c2412_init_uarts(struct s3c2410_uartcfg *cfg, int no)
 
 	/* rename devices that are s3c2412/s3c2413 specific */
 	s3c_device_sdi.name  = "s3c2412-sdi";
+	s3c_device_lcd.name  = "s3c2412-lcd";
 	s3c_device_nand.name = "s3c2412-nand";
+}
+
+/* s3c2412_idle
+ *
+ * use the standard idle call by ensuring the idle mode
+ * in power config, then issuing the idle co-processor
+ * instruction
+*/
+
+static void s3c2412_idle(void)
+{
+	unsigned long tmp;
+
+	/* ensure our idle mode is to go to idle */
+
+	tmp = __raw_readl(S3C2412_PWRCFG);
+	tmp &= ~S3C2412_PWRCFG_STANDBYWFI_MASK;
+	tmp |= S3C2412_PWRCFG_STANDBYWFI_IDLE;
+	__raw_writel(tmp, S3C2412_PWRCFG);
+
+	cpu_do_idle();
 }
 
 /* s3c2412_map_io
@@ -85,7 +107,11 @@ void __init s3c2412_map_io(struct map_desc *mach_desc, int mach_size)
 {
 	/* move base of IO */
 
-	s3c24xx_va_gpio2 = S3C24XX_VA_GPIO + 0x10;
+	s3c2412_init_gpio2();
+
+	/* set our idle function */
+
+	s3c24xx_idle = s3c2412_idle;
 
 	/* register our io-tables */
 
@@ -132,48 +158,8 @@ void __init s3c2412_init_clocks(int xtal)
  * as a driver which may support both 2410 and 2440 may try and use it.
 */
 
-#ifdef CONFIG_PM
-static struct sleep_save s3c2412_sleep[] = {
-	SAVE_ITEM(S3C2412_DSC0),
-	SAVE_ITEM(S3C2412_DSC1),
-	SAVE_ITEM(S3C2413_GPJDAT),
-	SAVE_ITEM(S3C2413_GPJCON),
-	SAVE_ITEM(S3C2413_GPJUP),
-
-	/* save the sleep configuration anyway, just in case these
-	 * get damaged during wakeup */
-
-	SAVE_ITEM(S3C2412_GPBSLPCON),
-	SAVE_ITEM(S3C2412_GPCSLPCON),
-	SAVE_ITEM(S3C2412_GPDSLPCON),
-	SAVE_ITEM(S3C2412_GPESLPCON),
-	SAVE_ITEM(S3C2412_GPFSLPCON),
-	SAVE_ITEM(S3C2412_GPGSLPCON),
-	SAVE_ITEM(S3C2412_GPHSLPCON),
-	SAVE_ITEM(S3C2413_GPJSLPCON),
-};
-
-static int s3c2412_suspend(struct sys_device *dev, pm_message_t state)
-{
-	s3c2410_pm_do_save(s3c2412_sleep, ARRAY_SIZE(s3c2412_sleep));
-	return 0;
-}
-
-static int s3c2412_resume(struct sys_device *dev)
-{
-	s3c2410_pm_do_restore(s3c2412_sleep, ARRAY_SIZE(s3c2412_sleep));
-	return 0;
-}
-
-#else
-#define s3c2412_suspend NULL
-#define s3c2412_resume  NULL
-#endif
-
 struct sysdev_class s3c2412_sysclass = {
 	set_kset_name("s3c2412-core"),
-	.suspend	= s3c2412_suspend,
-	.resume		= s3c2412_resume
 };
 
 static int __init s3c2412_core_init(void)

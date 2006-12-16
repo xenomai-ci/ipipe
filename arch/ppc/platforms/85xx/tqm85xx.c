@@ -180,11 +180,11 @@ tqm85xx_setup_arch(void)
 #endif
 }
 
-#ifdef CONFIG_CPM2
-static irqreturn_t cpm2_cascade(int irq, void *dev_id, struct pt_regs *regs)
+#ifdef CONFIG_MPC8560
+static irqreturn_t cpm2_cascade(int irq, void *dev_id)
 {
-	while ((irq = cpm2_get_irq(regs)) >= 0)
-		__do_IRQ(irq, regs);
+	while ((irq = cpm2_get_irq()) >= 0)
+		__do_IRQ(irq);
 	return IRQ_HANDLED;
 }
 
@@ -219,7 +219,7 @@ tqm85xx_init_IRQ(void)
 	 */
 	openpic_init(MPC85xx_OPENPIC_IRQ_OFFSET);
 
-#ifdef CONFIG_CPM2
+#ifdef CONFIG_MPC8560
 	/* Setup CPM2 PIC */
         cpm2_init_IRQ();
 

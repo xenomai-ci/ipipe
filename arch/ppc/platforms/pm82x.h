@@ -7,8 +7,6 @@
 #ifndef __MACH_PM82X_H
 #define __MACH_PM82X_H
 
-#include <linux/config.h>
- 
 #include <asm/ppcboot.h>
 
 #if defined(CONFIG_PCI)

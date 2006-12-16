@@ -145,8 +145,9 @@ static int opromgetprop(void __user *argp, struct device_node *dp, struct openpr
 	void *pval;
 	int len;
 
-	pval = of_get_property(dp, op->oprom_array, &len);
-	if (!pval || len <= 0 || len > bufsize)
+	if (!dp ||
+	    !(pval = of_get_property(dp, op->oprom_array, &len)) ||
+	    len <= 0 || len > bufsize)
 		return copyout(argp, op, sizeof(int));
 
 	memcpy(op->oprom_array, pval, len);
@@ -161,6 +162,8 @@ static int opromnxtprop(void __user *argp, struct device_node *dp, struct openpr
 	struct property *prop;
 	int len;
 
+	if (!dp)
+		return copyout(argp, op, sizeof(int));
 	if (op->oprom_array[0] == '\0') {
 		prop = dp->properties;
 		if (!prop)
@@ -266,9 +269,13 @@ static int oprompci2node(void __user *argp, struct device_node *dp, struct openp
 
 static int oprompath2node(void __user *argp, struct device_node *dp, struct openpromio *op, int bufsize, DATA *data)
 {
+	phandle ph = 0;
+
 	dp = of_find_node_by_path(op->oprom_array);
+	if (dp)
+		ph = dp->node;
 	data->current_node = dp;
-	*((int *)op->oprom_array) = dp->node;
+	*((int *)op->oprom_array) = ph;
 	op->oprom_size = sizeof(int);
 
 	return copyout(argp, op, bufsize + sizeof(int));
@@ -623,7 +630,7 @@ static int openprom_ioctl(struct inode * inode, struct file * file,
 	case OPROMPATH2NODE:
 		if ((file->f_mode & FMODE_READ) == 0)
 			return -EPERM;
-		return openprom_sunos_ioctl(inode, file, cmd, arg, 0);
+		return openprom_sunos_ioctl(inode, file, cmd, arg, NULL);
 
 	case OPIOCGET:
 	case OPIOCNEXTPROP:

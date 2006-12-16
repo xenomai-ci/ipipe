@@ -466,7 +466,7 @@ static int scsi_send_eh_cmnd(struct scsi_cmnd *scmd, unsigned char *cmnd,
 	struct scsi_device *sdev = scmd->device;
 	struct Scsi_Host *shost = sdev->host;
 	int old_result = scmd->result;
-	DECLARE_COMPLETION(done);
+	DECLARE_COMPLETION_ONSTACK(done);
 	unsigned long timeleft;
 	unsigned long flags;
 	unsigned char old_cmnd[MAX_COMMAND_SIZE];
@@ -495,7 +495,7 @@ static int scsi_send_eh_cmnd(struct scsi_cmnd *scmd, unsigned char *cmnd,
 	memcpy(scmd->cmnd, cmnd, cmnd_size);
 
 	if (copy_sense) {
-		int gfp_mask = GFP_ATOMIC;
+		gfp_t gfp_mask = GFP_ATOMIC;
 
 		if (shost->hostt->unchecked_isa_dma)
 			gfp_mask |= __GFP_DMA;

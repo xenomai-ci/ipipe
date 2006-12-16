@@ -16,7 +16,6 @@
 #ifndef __ASM_P3P440_H__
 #define __ASM_P3P440_H__
 
-#include <linux/config.h>
 #include <platforms/4xx/ibm440gp.h>
 
 /*

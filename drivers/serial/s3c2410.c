@@ -310,7 +310,7 @@ static int s3c24xx_serial_rx_fifocnt(struct s3c24xx_uart_port *ourport,
 #define S3C2410_UERSTAT_PARITY (0x1000)
 
 static irqreturn_t
-s3c24xx_serial_rx_chars(int irq, void *dev_id, struct pt_regs *regs)
+s3c24xx_serial_rx_chars(int irq, void *dev_id)
 {
 	struct s3c24xx_uart_port *ourport = dev_id;
 	struct uart_port *port = &ourport->port;
@@ -379,7 +379,7 @@ s3c24xx_serial_rx_chars(int irq, void *dev_id, struct pt_regs *regs)
 				flag = TTY_FRAME;
 		}
 
-		if (uart_handle_sysrq_char(port, ch, regs))
+		if (uart_handle_sysrq_char(port, ch))
 			goto ignore_char;
 
 		uart_insert_char(port, uerstat, S3C2410_UERSTAT_OVERRUN, ch, flag);
@@ -393,7 +393,7 @@ s3c24xx_serial_rx_chars(int irq, void *dev_id, struct pt_regs *regs)
 	return IRQ_HANDLED;
 }
 
-static irqreturn_t s3c24xx_serial_tx_chars(int irq, void *id, struct pt_regs *regs)
+static irqreturn_t s3c24xx_serial_tx_chars(int irq, void *id)
 {
 	struct s3c24xx_uart_port *ourport = id;
 	struct uart_port *port = &ourport->port;
@@ -1621,7 +1621,7 @@ static struct s3c24xx_uart_info s3c2412_uart_inf = {
 static int s3c2412_serial_probe(struct platform_device *dev)
 {
 	dbg("s3c2440_serial_probe: dev=%p\n", dev);
-	return s3c24xx_serial_probe(dev, &s3c2440_uart_inf);
+	return s3c24xx_serial_probe(dev, &s3c2412_uart_inf);
 }
 
 static struct platform_driver s3c2412_serial_drv = {

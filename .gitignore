@@ -12,11 +12,15 @@
 *.ko
 *.so
 *.mod.c
+*.i
+*.lst
+*.symtypes
 
 #
 # Top-level generic files
 #
 tags
+TAGS
 vmlinux*
 System.map
 Module.symvers

@@ -71,9 +71,6 @@ static DEFINE_PER_CPU(struct tasklet_struct, rcu_tasklet) = {NULL};
 static int blimit = 10;
 static int qhimark = 10000;
 static int qlowmark = 100;
-#ifdef CONFIG_SMP
-static int rsinterval = 1000;
-#endif
 
 static atomic_t rcu_barrier_cpu_count;
 static DEFINE_MUTEX(rcu_barrier_mutex);
@@ -86,8 +83,8 @@ static void force_quiescent_state(struct rcu_data *rdp,
 	int cpu;
 	cpumask_t cpumask;
 	set_need_resched();
-	if (unlikely(rdp->qlen - rdp->last_rs_qlen > rsinterval)) {
-		rdp->last_rs_qlen = rdp->qlen;
+	if (unlikely(!rcp->signaled)) {
+		rcp->signaled = 1;
 		/*
 		 * Don't send IPI to itself. With irqs disabled,
 		 * rdp->cpu is the current cpu.
@@ -241,12 +238,16 @@ static void rcu_do_batch(struct rcu_data *rdp)
 		next = rdp->donelist = list->next;
 		list->func(list);
 		list = next;
-		rdp->qlen--;
 		if (++count >= rdp->blimit)
 			break;
 	}
+
+	local_irq_disable();
+	rdp->qlen -= count;
+	local_irq_enable();
 	if (rdp->blimit == INT_MAX && rdp->qlen <= qlowmark)
 		rdp->blimit = blimit;
+
 	if (!rdp->donelist)
 		rdp->donetail = &rdp->donelist;
 	else
@@ -297,6 +298,7 @@ static void rcu_start_batch(struct rcu_ctrlblk *rcp)
 		smp_mb();
 		cpus_andnot(rcp->cpumask, cpu_online_map, nohz_cpu_mask);
 
+		rcp->signaled = 0;
 	}
 }
 
@@ -624,9 +626,6 @@ void synchronize_rcu(void)
 module_param(blimit, int, 0);
 module_param(qhimark, int, 0);
 module_param(qlowmark, int, 0);
-#ifdef CONFIG_SMP
-module_param(rsinterval, int, 0);
-#endif
 EXPORT_SYMBOL_GPL(rcu_batches_completed);
 EXPORT_SYMBOL_GPL(rcu_batches_completed_bh);
 EXPORT_SYMBOL_GPL(call_rcu);

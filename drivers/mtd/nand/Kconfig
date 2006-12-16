@@ -11,7 +11,7 @@ config MTD_NAND
 	help
 	  This enables support for accessing all type of NAND flash
 	  devices. For further information see
-	  <http://www.linux-mtd.infradead.org/tech/nand.html>.
+	  <http://www.linux-mtd.infradead.org/doc/nand.html>.
 
 config MTD_NAND_VERIFY_WRITE
 	bool "Verify NAND page writes"
@@ -21,7 +21,7 @@ config MTD_NAND_VERIFY_WRITE
 	  NAND flash device internally checks only bits transitioning
 	  from 1 to 0. There is a rare possibility that even though the
 	  device thinks the write was successful, a bit could have been
-	  flipped accidentaly due to device wear or something else.
+	  flipped accidentally due to device wear or something else.
 
 config MTD_NAND_ECC_SMC
 	bool "NAND ECC Smart Media byte order"
@@ -128,13 +128,6 @@ config MTD_NAND_S3C2410_HWECC
 	  If you lay down a device with the hardware ECC, then you will
 	  currently not be able to switch to software, as there is no
 	  implementation for ECC method used by the S3C2410
-
-config MTD_NAND_BAMBOO
-	tristate "NAND flash support on IBM/AMCC 440EP Eval Board (Bamboo)"
-	depends on BAMBOO && MTD_NAND
-	help
-	  This enables the NAND flash driver on the IBM/AMCC 440EP Eval Board
-	  (Bamboo).
 
 config MTD_NAND_NDFC
 	tristate "NDFC NanD Flash Controller"
