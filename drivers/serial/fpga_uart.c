@@ -1,19 +1,8 @@
 /*
  * drivers/serial/fpga_uart.c
  *
- * Driver for the PSC of the Freescale MPC52xx PSCs configured as UARTs.
- *
- * FIXME According to the usermanual the status bits in the status register
- * are only updated when the peripherals access the FIFO and not when the
- * CPU access them. So since we use this bits to know when we stop writing
- * and reading, they may not be updated in-time and a race condition may
- * exists. But I haven't be able to prove this and I don't care. But if
- * any problem arises, it might worth checking. The TX/RX FIFO Stats
- * registers should be used in addition.
- * Update: Actually, they seem updated ... At least the bits we use.
- *
- *
- * Maintainer : Sylvain Munaut <tnt@246tNt.com>
+ * Copyright (c) 2006 DENX Software Engineering
+ * Stefan Roese <sr@denx.de>
  *
  * Some of the code has been inspired/copied from the 2.4 code written
  * by Dale Farnsworth <dfarnsworth@mvista.com>.
@@ -24,24 +13,6 @@
  * This file is licensed under the terms of the GNU General Public License
  * version 2. This program is licensed "as is" without any warranty of any
  * kind, whether express or implied.
- */
-
-/* Platform device Usage :
- *
- * Since PSCs can have multiple function, the correct driver for each one
- * is selected by calling mpc52xx_match_psc_function(...). The function
- * handled by this driver is "uart".
- *
- * The driver init all necessary registers to place the PSC in uart mode without
- * DCD. However, the pin multiplexing aren't changed and should be set either
- * by the bootloader or in the platform init code.
- *
- * The idx field must be equal to the PSC index ( e.g. 0 for PSC1, 1 for PSC2,
- * and so on). So the PSC1 is mapped to /dev/ttyPSC0, PSC2 to /dev/ttyPSC1 and
- * so on. But be warned, it's an ABSOLUTE REQUIREMENT ! This is needed mainly
- * for the console code : without this 1:1 mapping, at early boot time, when we
- * are parsing the kernel args console=ttyPSC?, we wouldn't know which PSC it
- * will be mapped to.
  */
 
 #include <linux/platform_device.h>
@@ -70,12 +41,10 @@
 static struct uart_port fpga_uart_ports[FPGA_PORT_MAXNUM];
 
 /* Forward declaration of the interruption handling routine */
-static irqreturn_t fpga_uart_int(int irq,void *dev_id,struct pt_regs *regs);
-
-// test-only...
+static irqreturn_t fpga_uart_int(int irq, void *dev_id);
 
 /* define for debug output */
-#define DEBUG // test-only
+#undef DEBUG
 #ifdef DEBUG
 #define debug(fmt,args...)	printk(fmt ,##args)
 #else
@@ -123,7 +92,7 @@ struct fpga_uart_data {
 	int			open_count;
 };
 
-struct fpga_uart_data *data; // test-only
+struct fpga_uart_data *data;
 
 #define DRV_NAME		"fpga_uart"
 
@@ -136,7 +105,7 @@ static inline int fpga_uart_int_tx_chars(struct uart_port *port);
 static unsigned int fpga_uart_tx_empty(struct uart_port *port)
 {
 	unsigned int ctrl = readl((port)->membase);
-	debug("ttyFPGA%d:%s\n", port->line, __FUNCTION__); // test-only
+	debug("ttyFPGA%d:%s\n", port->line, __FUNCTION__);
 	return (ctrl & UART_CTRL_TX_EMPTY) ? TIOCSER_TEMT : 0;
 }
 
@@ -147,7 +116,6 @@ static void fpga_uart_set_mctrl(struct uart_port *port, unsigned int mctrl)
 
 static unsigned int fpga_uart_get_mctrl(struct uart_port *port)
 {
-	// test-only
 	/* Not implemented */
 	return TIOCM_CTS | TIOCM_DSR | TIOCM_CAR;
 }
@@ -156,7 +124,7 @@ static void fpga_uart_stop_tx(struct uart_port *port)
 {
 	unsigned long val;
 
-	debug("ttyFPGA%d:%s\n", port->line, __FUNCTION__); // test-only
+	debug("ttyFPGA%d:%s\n", port->line, __FUNCTION__);
 	/*
 	 * Disable TX IRQ's in FPGA
 	 */
@@ -168,20 +136,20 @@ static void fpga_uart_start_tx(struct uart_port *port)
 {
 	unsigned long val;
 
-	debug("ttyFPGA%d:%s\n", port->line, __FUNCTION__); // test-only
+	debug("ttyFPGA%d:%s\n", port->line, __FUNCTION__);
 	/*
 	 * Enable TX IRQ's in FPGA
 	 */
 	val = readl(data->vbar2 + IBUF_INT_ENABLE) | (INT_TX);
 	writel(val, data->vbar2 + IBUF_INT_ENABLE);
-	fpga_uart_int_tx_chars(port); // test-only
+	fpga_uart_int_tx_chars(port);
 }
 
 static void fpga_uart_stop_rx(struct uart_port *port)
 {
 	unsigned long val;
 
-	debug("ttyFPGA%d:%s\n", port->line, __FUNCTION__); // test-only
+	debug("ttyFPGA%d:%s\n", port->line, __FUNCTION__);
 	/*
 	 * Disable TX IRQ's in FPGA
 	 */
@@ -196,7 +164,7 @@ static void fpga_uart_enable_ms(struct uart_port *port)
 
 static void fpga_uart_break_ctl(struct uart_port *port, int ctl)
 {
-	// test-only: remove function???
+	/* Not implemented */
 }
 
 static int fpga_uart_startup(struct uart_port *port)
@@ -204,7 +172,7 @@ static int fpga_uart_startup(struct uart_port *port)
 	int ret;
 	unsigned int val;
 
-	debug("ttyFPGA%d:%s\n", port->line, __FUNCTION__); // test-only
+	debug("ttyFPGA%d:%s\n", port->line, __FUNCTION__);
 	/* Request IRQ */
 	ret = request_irq(port->irq, fpga_uart_int, SA_INTERRUPT|SA_SHIRQ,
 			  "fpga_uart", port);
@@ -219,7 +187,6 @@ static int fpga_uart_startup(struct uart_port *port)
 	/*
 	 * Enable IBUF IRQ's in FPGA
 	 */
-	// test-only: only UART2 supported right now!!!
 	val = readl(data->vbar2 + IBUF_INT_ENABLE) & ~(INT_MASK);
 	val |= INT_GLOBAL | INT_MASK;
 	writel(val, data->vbar2 + IBUF_INT_ENABLE);
@@ -231,7 +198,7 @@ static void fpga_uart_shutdown(struct uart_port *port)
 {
 	unsigned int val;
 
-	debug("ttyFPGA%d:%s\n", port->line, __FUNCTION__); // test-only
+	debug("ttyFPGA%d:%s\n", port->line, __FUNCTION__);
 	/*
 	 * Disable IBUF IRQ's in FPGA
 	 */
@@ -249,7 +216,7 @@ static void fpga_uart_set_termios(struct uart_port *port, struct termios *new,
 	unsigned int baud;
 	unsigned int val = 0;
 
-	debug("ttyFPGA%d:%s\n", port->line, __FUNCTION__); // test-only
+	debug("ttyFPGA%d:%s\n", port->line, __FUNCTION__);
 	switch (new->c_cflag & CSIZE) {
 	case CS5:
 		val |= UART_CTRL_DATA_5;
@@ -277,7 +244,7 @@ static void fpga_uart_set_termios(struct uart_port *port, struct termios *new,
 		val |= UART_CTRL_STOP_1;
 
 	baud = uart_get_baud_rate(port, new, old, 0, port->uartclk);
-	debug("%s: baud=%d\n", __FUNCTION__, baud); // test-only
+	debug("%s: baud=%d\n", __FUNCTION__, baud);
 
 	/* Get the lock */
 	spin_lock_irqsave(&port->lock, flags);
@@ -285,27 +252,9 @@ static void fpga_uart_set_termios(struct uart_port *port, struct termios *new,
 	/* Update the per-port timeout */
 	uart_update_timeout(port, new->c_cflag, baud);
 
-#if 0 // test-only
-	/* Do our best to flush TX & RX, so we don't loose anything */
-	/* But we don't wait indefinitly ! */
-	j = 5000000;	/* Maximum wait */
-	/* FIXME Can't receive chars since set_termios might be called at early
-	 * boot for the console, all stuff is not yet ready to receive at that
-	 * time and that just makes the kernel oops */
-	/* while (j-- && mpc52xx_uart_int_rx_chars(port)); */
-	while (!(in_be16(&psc->mpc52xx_psc_status) & MPC52xx_PSC_SR_TXEMP) &&
-	       --j)
-		udelay(1);
-
-	if (!j)
-		printk(	KERN_ERR "mpc52xx_uart.c: "
-			"Unable to flush RX & TX fifos in-time in set_termios."
-			"Some chars may have been lost.\n" );
-#endif
-
 	/* Setup control register */
 	val |= FPGA_BAUD_DIVIDER(baud);
-	debug("%s: val=0x%x\n", __FUNCTION__, val); // test-only
+	debug("%s: val=0x%x\n", __FUNCTION__, val);
 
 	/* Reset all errors */
 	val |= 0xe0000000;
@@ -322,7 +271,7 @@ static const char *fpga_uart_type(struct uart_port *port)
 
 static void fpga_uart_release_port(struct uart_port *port)
 {
-	debug("ttyFPGA%d:%s\n", port->line, __FUNCTION__); // test-only
+	debug("ttyFPGA%d:%s\n", port->line, __FUNCTION__);
 	if (port->flags & UPF_IOREMAP) { /* remapped by us ? */
 		iounmap(port->membase);
 		port->membase = NULL;
@@ -333,7 +282,7 @@ static void fpga_uart_release_port(struct uart_port *port)
 
 static int fpga_uart_request_port(struct uart_port *port)
 {
-	debug("ttyFPGA%d:%s\n", port->line, __FUNCTION__); // test-only
+	debug("ttyFPGA%d:%s\n", port->line, __FUNCTION__);
 	if (port->flags & UPF_IOREMAP) /* Need to remap ? */
 		port->membase = ioremap(port->mapbase, FPGA_UART_PORT_SIZE);
 
@@ -388,25 +337,26 @@ static struct uart_ops fpga_uart_ops = {
 /* Interrupt handling                                                       */
 /* ======================================================================== */
 
-static inline int fpga_uart_int_rx_chars(struct uart_port *port, struct pt_regs *regs)
+static inline int fpga_uart_int_rx_chars(struct uart_port *port)
 {
 	struct tty_struct *tty = port->info->tty;
 	unsigned char ch, flag;
 	unsigned int status;
-	unsigned int ctrl; // test-only
+	unsigned int ctrl;
 
 	/* While we can read, do so ! */
 	status = readl((port)->membase);
-	debug("ttyFPGA%d:%s: ctrl=%x\n", port->line, __FUNCTION__, status); // test-only
-	debug("ttyFPGA%d:%s: lvl=%x\n", port->line, __FUNCTION__, status & UART_CTRL_RX_LVL); // test-only
+	debug("ttyFPGA%d:%s: ctrl=%x\n", port->line, __FUNCTION__, status);
+	debug("ttyFPGA%d:%s: lvl=%x\n", port->line, __FUNCTION__, status & UART_CTRL_RX_LVL);
 	while ((status & UART_CTRL_RX_LVL) != 0) {
 		/* Get the char */
 		ch = (unsigned char)readl((port)->membase + 0x200);
-		debug("ttyFPGA%d:%s: received char %02x from %p\n", port->line, __FUNCTION__, ch, (port)->membase + 0x200); // test-only
+		debug("ttyFPGA%d:%s: received char %02x from %p\n",
+		      port->line, __FUNCTION__, ch, (port)->membase + 0x200);
 
 		/* Handle sysreq char */
 #ifdef SUPPORT_SYSRQ
-		if (uart_handle_sysrq_char(port, ch, regs)) {
+		if (uart_handle_sysrq_char(port, ch)) {
 			port->sysrq = 0;
 			continue;
 		}
@@ -420,18 +370,20 @@ static inline int fpga_uart_int_rx_chars(struct uart_port *port, struct pt_regs 
 		if (unlikely(status & (UART_CTRL_PAR_ERR | UART_CTRL_RX_OVR))) {
 			    ctrl = readl((port)->membase);
 			    if (status & UART_CTRL_RX_OVR) {
-				    debug("ttyFPGA%d:%s: RX-Overrun ERROR!\n", port->line, __FUNCTION__); // test-only
+				    debug("ttyFPGA%d:%s: RX-Overrun ERROR!\n",
+					  port->line, __FUNCTION__);
 				    flag = TTY_FRAME;
 				    port->icount.overrun++;
 				    writel(UART_CTRL_RX_OVR | ctrl, (port)->membase);
 			    } else if (status & UART_CTRL_PAR_ERR) {
-				    debug("ttyFPGA%d:%s: RX-Parity ERROR!\n", port->line, __FUNCTION__); // test-only
+				    debug("ttyFPGA%d:%s: RX-Parity ERROR!\n",
+					  port->line, __FUNCTION__);
 				    flag = TTY_PARITY;
 				    writel(UART_CTRL_PAR_ERR | ctrl, (port)->membase);
 			    }
 		    }
 
-		    if (uart_handle_sysrq_char(port, ch, regs))
+		    if (uart_handle_sysrq_char(port, ch))
 			    goto ignore_char;
 
 		    uart_insert_char(port, status, UART_CTRL_RX_OVR, ch, flag);
@@ -449,7 +401,7 @@ static inline int fpga_uart_int_tx_chars(struct uart_port *port)
 {
 	struct circ_buf *xmit = &port->info->xmit;
 
-	debug("ttyFPGA%d:%s\n", port->line, __FUNCTION__); // test-only
+	debug("ttyFPGA%d:%s\n", port->line, __FUNCTION__);
 	/* Process out of band chars */
 	if (port->x_char) {
 		writel(port->x_char, (port)->membase + 0x5f8);
@@ -459,7 +411,8 @@ static inline int fpga_uart_int_tx_chars(struct uart_port *port)
 	}
 
 	/* Nothing to do ? */
-	debug("ttyFPGA%d:%s head=%d tail=%d\n", port->line, __FUNCTION__, xmit->head, xmit->tail); // test-only
+	debug("ttyFPGA%d:%s head=%d tail=%d\n",
+	      port->line, __FUNCTION__, xmit->head, xmit->tail);
 	if (uart_circ_empty(xmit) || uart_tx_stopped(port)) {
 		fpga_uart_stop_tx(port);
 		return 0;
@@ -468,7 +421,8 @@ static inline int fpga_uart_int_tx_chars(struct uart_port *port)
 	/* Send chars */
 	while (readl((port)->membase) & UART_CTRL_TX_LVL) {
 		writel(xmit->buf[xmit->tail], (port)->membase + 0x5f8);
-		debug("ttyFPGA%d:%s: sending %02x\n", port->line, __FUNCTION__, xmit->buf[xmit->tail]); // test-only
+		debug("ttyFPGA%d:%s: sending %02x\n",
+		      port->line, __FUNCTION__, xmit->buf[xmit->tail]);
 		xmit->tail = (xmit->tail + 1) & (UART_XMIT_SIZE - 1);
 		port->icount.tx++;
 		if (uart_circ_empty(xmit))
@@ -488,23 +442,25 @@ static inline int fpga_uart_int_tx_chars(struct uart_port *port)
 	return 1;
 }
 
-static irqreturn_t fpga_uart_int(int irq, void *dev_id, struct pt_regs *regs)
+static irqreturn_t fpga_uart_int(int irq, void *dev_id)
 {
 	struct uart_port *port = (struct uart_port *) dev_id;
 	unsigned int int_status;
 
-	debug("ttyFPGA%d:%s\n", port->line, __FUNCTION__); // test-only
-	debug("ttyFPGA%d:%s int_enable=%x int_status=%x\n", port->line, __FUNCTION__, readl(data->vbar2 + IBUF_INT_ENABLE), readl(data->vbar2 + IBUF_INT_STATUS)); // test-only
+	debug("ttyFPGA%d:%s\n", port->line, __FUNCTION__);
+	debug("ttyFPGA%d:%s int_enable=%x int_status=%x\n",
+	      port->line, __FUNCTION__, readl(data->vbar2 + IBUF_INT_ENABLE), readl(data->vbar2 + IBUF_INT_STATUS));
 	spin_lock(&port->lock);
 
 	/* While we have stuff to do, we continue */
 	int_status = readl(data->vbar2 + IBUF_INT_STATUS) & INT_MASK;
 	while (int_status) {
-		debug("%s: int_status=%x\n", __FUNCTION__, readl(data->vbar2 + IBUF_INT_STATUS)); // test-only
+		debug("%s: int_status=%x\n",
+		      __FUNCTION__, readl(data->vbar2 + IBUF_INT_STATUS));
 		/* Do we need to receive chars ? */
 		/* For this RX interrupts must be on and some chars waiting */
 		if (int_status & INT_RX)
-			fpga_uart_int_rx_chars(port, regs);
+			fpga_uart_int_rx_chars(port);
 
 		/* Do we need to send chars ? */
 		/* For this, TX must be ready and TX interrupt enabled */
@@ -554,10 +510,10 @@ static int __devinit fpga_uart_probe(struct platform_device *dev)
 	memset(port, 0x00, sizeof(struct uart_port));
 
 	spin_lock_init(&port->lock);
-	port->uartclk	= 33000000 / 2; // test-only
+	port->uartclk	= 33000000 / 2;
 	port->fifosize	= 512;
 	port->iotype	= UPIO_MEM;
-	port->flags	= UPF_BOOT_AUTOCONF | UPF_IOREMAP; // test-only
+	port->flags	= UPF_BOOT_AUTOCONF | UPF_IOREMAP;
 	port->line	= idx;
 	port->ops	= &fpga_uart_ops;
 
@@ -612,7 +568,7 @@ static int __init fpga_uart_init(void)
 	if (!(data = kzalloc(sizeof(struct fpga_uart_data), GFP_KERNEL))) {
 		ret = -ENOMEM;
 		printk(KERN_ERR DRV_NAME ": Out of memory\n");
-		return ret; // test-only
+		return ret;
 	}
 
 	data->name = "fpga-uart";
@@ -624,7 +580,7 @@ static int __init fpga_uart_init(void)
 	if (ret) {
 		ret = -ENODEV;
 		printk(KERN_ERR DRV_NAME ": Problem accessing FPGA\n");
-		return -1; // test-only
+		return -1;
 	}
 
 	ret = uart_register_driver(&fpga_uart_driver);
