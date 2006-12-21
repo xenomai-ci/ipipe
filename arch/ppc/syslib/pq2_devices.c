@@ -286,16 +286,22 @@ struct platform_device ppc_sys_platform_devices[] = {
 	[MPC82xx_CPM_SMC1] = {
 		.name = "fsl-cpm-smc",
 		.id	= 1,
-		.num_resources	 = 3,
+		.num_resources	 = 4,
 		.resource = (struct resource[]) {
 			{
-				.name	= "smc_mem",
+				.name	= "regs",
 				.start	= 0x11A80,
 				.end	= 0x11A8F,
 				.flags	= IORESOURCE_MEM,
 			},
 			{
-				.name	= "smc_pram",
+				.name	= "pram",
+				.start	= PROFF_SMC1,
+				.end	= PROFF_SMC1 + 63,
+				.flags	= IORESOURCE_MEM,
+			},
+			{
+				.name	= "pram_base",
 				.start	= 0x87fc,
 				.end	= 0x87fd,
 				.flags	= IORESOURCE_MEM,
@@ -310,16 +316,22 @@ struct platform_device ppc_sys_platform_devices[] = {
 	[MPC82xx_CPM_SMC2] = {
 		.name = "fsl-cpm-smc",
 		.id	= 2,
-		.num_resources	 = 3,
+		.num_resources	 = 4,
 		.resource = (struct resource[]) {
 			{
-				.name	= "smc_mem",
+				.name	= "regs",
 				.start	= 0x11A90,
 				.end	= 0x11A9F,
 				.flags	= IORESOURCE_MEM,
 			},
 			{
-				.name	= "smc_pram",
+				.name	= "pram",
+				.start	= PROFF_SMC2,
+				.end	= PROFF_SMC2 + 63,
+				.flags	= IORESOURCE_MEM,
+			},
+			{
+				.name	= "pram_base",
 				.start	= 0x88fc,
 				.end	= 0x88fd,
 				.flags	= IORESOURCE_MEM,
