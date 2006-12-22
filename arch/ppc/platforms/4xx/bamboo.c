@@ -31,6 +31,7 @@
 #include <linux/serial_core.h>
 #include <linux/ethtool.h>
 #include <linux/platform_device.h>
+#include <linux/mtd/partitions.h>
 #include <linux/mtd/nand.h>
 #include <linux/mtd/ndfc.h>
 
@@ -429,10 +430,19 @@ static struct platform_device bamboo_sram_device = {
 	.resource = &bamboo_sram,
 };
 
+#define CS_NAND_0	1	/* use chip select 1 for NAND device 0 */
+
+static struct mtd_partition nand_parts[] = {
+        {
+                .name   = "content",
+                .offset = 0,
+                .size   = MTDPART_SIZ_FULL,
+        }
+};
+
 struct ndfc_controller_settings bamboo_ndfc_settings = {
-	.ccr_settings = (NDFC_CCR_BS(0) |
-			 NDFC_CCR_ARAC2 |
-			 NDFC_CCR_EBCC),
+	.ccr_settings = (NDFC_CCR_BS(CS_NAND_0) |
+			 NDFC_CCR_ARAC1),
 	.ndfc_erpn = 0,
 };
 
@@ -451,14 +461,24 @@ static struct platform_device bamboo_ndfc_device = {
 };
 
 static struct ndfc_chip_settings bamboo_chip0_settings = {
-	.bank_settings = 0x80001111,
+	.bank_settings = 0x80002222,
+};
+
+static struct nand_ecclayout nand_oob_16 = {
+	.eccbytes = 6,
+	.eccpos = {9, 10, 11, 13, 14, 15},
+	.oobfree = {
+		 {.offset = 8,
+		  . length = 8}}
 };
 
 static struct platform_nand_chip bamboo_nand_chip0 = {
 	.nr_chips = 1,
-	.chip_offset = 1,
-	.nr_partitions = 0,
+	.chip_offset = CS_NAND_0,
+	.nr_partitions = ARRAY_SIZE(nand_parts),
+	.partitions = nand_parts,
 	.chip_delay = 50,
+	.ecclayout = &nand_oob_16,
 	.priv = &bamboo_chip0_settings,
 };
 
