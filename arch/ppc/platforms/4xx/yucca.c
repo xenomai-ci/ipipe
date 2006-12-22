@@ -166,7 +166,7 @@ ppc440spe_setup_pcix(struct pci_controller *hose)
 	PCIX_WRITEL(0xc0000007, PCIX0_PIM0SA);
 	PCIX_WRITEL(0xffffffff, PCIX0_PIM0SAH);
 
-		/* Enable PCIX0 I/O, Mem, and Busmaster cycles */
+	/* Enable PCIX0 I/O, Mem, and Busmaster cycles */
 	PCIX_WRITEW(PCIX_READW(PCIX0_COMMAND) | PCI_COMMAND_MEMORY |
 			PCI_COMMAND_MASTER, PCIX0_COMMAND);
 
