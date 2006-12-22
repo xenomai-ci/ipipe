@@ -1082,10 +1082,10 @@ static struct cpu_spec cpu_specs[] = {
 		.dcache_bsize		= 32,
 		.platform		= "ppc440",
 	},
-	{ /* 440SP Rev. A */
+	{ /* 440SP Rev. C */
 		.pvr_mask		= 0xfff00fff,
 		.pvr_value		= 0x53200891,
-		.cpu_name		= "440SP Rev. A",
+		.cpu_name		= "440SP Rev. C",
 		.cpu_features		= CPU_FTRS_44X,
 		.cpu_user_features	= COMMON_USER_BOOKE,
 		.icache_bsize		= 32,
