@@ -43,8 +43,12 @@
 #elif defined(CONFIG_440SPE)
 #define UART0_PHYS_ERPN		4
 #define UART0_PHYS_IO_BASE	0xf0000200
-#elif defined(CONFIG_440EP) || defined(CONFIG_440GR)
-#define UART0_PHYS_IO_BASE	0xe0000000
+#elif defined(CONFIG_440EP) || defined(CONFIG_440GR) || \
+      defined(CONFIG_440EPX) || defined(CONFIG_440GRX)
+#define UART0_PHYS_IO_BASE	0xef600300
+#if defined(CONFIG_440EPX) || defined(CONFIG_440GRX)
+#define UART0_PHYS_ERPN		1
+#endif
 #else
 #define UART0_PHYS_ERPN		1
 #define UART0_PHYS_IO_BASE	0x40000200
