@@ -157,11 +157,9 @@ luan_setup_pcix(void)
 	int i;
 	void *pcix_reg_base;
 
-	for (i=0;i<3;i++) {
-		pcix_reg_base = ioremap64(PCIX0_REG_BASE + i*PCIX_REG_OFFSET, PCIX_REG_SIZE);
-
-		/* Enable PCIX0 I/O, Mem, and Busmaster cycles */
-		PCIX_WRITEW(PCIX_READW(PCIX0_COMMAND) | PCI_COMMAND_IO | PCI_COMMAND_MEMORY | PCI_COMMAND_MASTER, PCIX0_COMMAND);
+	for (i=0; i<3; i++) {
+		pcix_reg_base = ioremap64(PCIX0_REG_BASE + i * PCIX_REG_OFFSET,
+					  PCIX_REG_SIZE);
 
 		/* Disable all windows */
 		PCIX_WRITEL(0, PCIX0_POM0SA);
@@ -188,6 +186,10 @@ luan_setup_pcix(void)
 		PCIX_WRITEL(0x00000000, PCIX0_PIM0LAL);
 		PCIX_WRITEL(0xe0000007, PCIX0_PIM0SA);
 		PCIX_WRITEL(0xffffffff, PCIX0_PIM0SAH);
+
+		/* Enable PCIX0 I/O, Mem, and Busmaster cycles */
+		PCIX_WRITEW(PCIX_READW(PCIX0_COMMAND) | PCI_COMMAND_IO |
+			    PCI_COMMAND_MEMORY | PCI_COMMAND_MASTER, PCIX0_COMMAND);
 
 		iounmap(pcix_reg_base);
 	}

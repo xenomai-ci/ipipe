@@ -1,7 +1,7 @@
 #
 # Automatically generated make config: don't edit
-# Linux kernel version: 2.6.19-rc4
-# Sun Nov  5 07:28:37 2006
+# Linux kernel version: 2.6.19
+# Fri Dec 22 10:00:06 2006
 #
 CONFIG_MMU=y
 CONFIG_GENERIC_HARDIRQS=y
@@ -166,7 +166,6 @@ CONFIG_ISA_DMA_API=y
 CONFIG_PPC_INDIRECT_PCI=y
 CONFIG_PCI=y
 CONFIG_PCI_DOMAINS=y
-# CONFIG_PCI_MULTITHREAD_PROBE is not set
 # CONFIG_PCI_DEBUG is not set
 
 #
@@ -941,6 +940,7 @@ CONFIG_USB_STORAGE=y
 # CONFIG_USB_KAWETH is not set
 CONFIG_USB_PEGASUS=y
 # CONFIG_USB_RTL8150 is not set
+# CONFIG_USB_USBNET_MII is not set
 # CONFIG_USB_USBNET is not set
 CONFIG_USB_MON=y
 
