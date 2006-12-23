@@ -81,4 +81,5 @@
 #define IBM_CPM_CRYP0		0x04000000	/* Security Engine */
 #define IBM_CPM_KASU0		0x02000000	/* Kasumi Engine */
 
+#endif /* __PPC_PLATFORMS_PPC440EPX_H */
 #endif /* __KERNEL__ */
