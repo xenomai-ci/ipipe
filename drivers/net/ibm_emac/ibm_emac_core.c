@@ -87,10 +87,11 @@ MODULE_LICENSE("GPL");
 static u32 busy_phy_map;
 
 #if defined(CONFIG_IBM_EMAC_PHY_RX_CLK_FIX) && \
-    (defined(CONFIG_405EP) || defined(CONFIG_440EP) || defined(CONFIG_440GR))
+    (defined(CONFIG_405EP) || defined(CONFIG_440EP) || defined(CONFIG_440GR) || \
+     defined(CONFIG_440EPX) || defined(CONFIG_440GRX))
 /* 405EP has "EMAC to PHY Control Register" (CPC0_EPCTL) which can help us
  * with PHY RX clock problem.
- * 440EP/440GR has more sane SDR0_MFR register implementation than 440GX, which
+ * 440EP(x)/440GR(x) has more sane SDR0_MFR register implementation than 440GX, which
  * also allows controlling each EMAC clock
  */
 static inline void EMAC_RX_CLK_TX(int idx)
@@ -100,7 +101,7 @@ static inline void EMAC_RX_CLK_TX(int idx)
 
 #if defined(CONFIG_405EP)
 	mtdcr(0xf3, mfdcr(0xf3) | (1 << idx));
-#else /* CONFIG_440EP || CONFIG_440GR */
+#else /* CONFIG_440EP(x) || CONFIG_440GR(x) */
 	SDR_WRITE(DCRN_SDR_MFR, SDR_READ(DCRN_SDR_MFR) | (0x08000000 >> idx));
 #endif
 
@@ -114,7 +115,7 @@ static inline void EMAC_RX_CLK_DEFAULT(int idx)
 
 #if defined(CONFIG_405EP)
 	mtdcr(0xf3, mfdcr(0xf3) & ~(1 << idx));
-#else /* CONFIG_440EP */
+#else /* CONFIG_440EP(x) || CONFIG_440GR(x) */
 	SDR_WRITE(DCRN_SDR_MFR, SDR_READ(DCRN_SDR_MFR) & ~(0x08000000 >> idx));
 #endif
 
@@ -330,10 +331,29 @@ static int emac_reset(struct ocp_enet_private *dev)
 		emac_tx_disable(dev);
 	}
 
+#if defined(CONFIG_440EPX) || defined(CONFIG_440GRX)
+	// test-only: really needed?????????????
+	/*
+	 * this sequence is needed to avoid EMAC soft reset to lock
+	 * when no external clock is available
+	 * provide clocks for EMAC internal loopback
+	 */
+	SDR_WRITE(DCRN_SDR_MFR, SDR_READ(DCRN_SDR_MFR) | (0x08000000 >> dev->def->index));
+	/* set EMAC internal loopback to avoid softreset to lock if no link */
+	out_be32(&p->mr1, in_be32(&p->mr1) | EMAC_MR1_ILE);
+#endif
+
 	out_be32(&p->mr0, EMAC_MR0_SRST);
 	while ((in_be32(&p->mr0) & EMAC_MR0_SRST) && n)
 		--n;
 	local_irq_restore(flags);
+
+#if defined(CONFIG_440EPX) || defined(CONFIG_440GRX)
+	// test-only: really needed?????????????
+	/* Restore Initial Config     */
+	SDR_WRITE(DCRN_SDR_MFR, SDR_READ(DCRN_SDR_MFR) & ~(0x08000000 >> dev->def->index));
+	out_be32(&p->mr1, in_be32(&p->mr1) & ~EMAC_MR1_ILE);
+#endif
 
 	if (n) {
 		dev->reset_failed = 0;

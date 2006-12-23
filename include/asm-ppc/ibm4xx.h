@@ -124,6 +124,10 @@ void ppc4xx_init(unsigned long r3, unsigned long r4, unsigned long r5,
 #include <platforms/4xx/yosemite.h>
 #endif
 
+#if defined(CONFIG_SEQUOIA) || defined(CONFIG_RAINIER)
+#include <platforms/4xx/sequoia.h>
+#endif
+
 #ifndef __ASSEMBLY__
 #ifdef CONFIG_40x
 /*
