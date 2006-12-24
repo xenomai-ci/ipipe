@@ -377,6 +377,14 @@ config MTD_PPCHAMELEON
 	  DAVE PPChamelonEVB board. If you have one of these boards
 	  and would like to use the flash chips on it, say 'Y'.
 
+config MTD_TQM82xx
+	tristate "Flash device mapped on TQ Components TQM827x Boards"
+	depends on MTD_CFI && (TQM8272)
+	help
+	  This enables access routines for the flash chips on the
+	  TQ Components TQM82xx boards. If you have one of these boards
+	  and would like to use the flash chips on it, say 'Y'.
+
 config MTD_TQM834x
 	tristate "Flash device mapped on TQ Components TQM834x Boards"
 	depends on MTD_CFI && PPC32 && 83xx && TQM834x

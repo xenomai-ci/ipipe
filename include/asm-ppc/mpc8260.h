@@ -47,6 +47,11 @@
 #include <syslib/m82xx_pci.h>
 #endif
 
+#ifdef CONFIG_TQM8272
+#include <platforms/tqm8272.h>
+#endif
+
+
 /* Make sure the memory translation stuff is there if PCI not used.
  */
 #ifndef _IO_BASE
@@ -87,6 +92,7 @@ enum ppc_sys_devices {
 	MPC82xx_CPM_USB,
 	MPC82xx_SEC1,
 	MPC82xx_MDIO_BB,
+	MPC82xx_I2C_BB,
 	NUM_PPC_SYS_DEVS,
 };
 

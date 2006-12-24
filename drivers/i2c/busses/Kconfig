@@ -242,6 +242,16 @@ config I2C_IXP2000
 	  This support is also available as a module. If so, the module
 	  will be called i2c-ixp2000.
 
+config I2C_TQM8272
+	tristate "TQM8272 Bitbanged I2C Interface"
+	depends on I2C && TQM8272
+	select I2C_ALGOBIT
+	help
+	  Say Y here if you have a TQM8272 board.
+
+	  This support is also available as a module. If so, the module
+	  will be called i2c-tqm8272.
+
 config I2C_POWERMAC
 	tristate "Powermac I2C interface"
 	depends on I2C && PPC_PMAC

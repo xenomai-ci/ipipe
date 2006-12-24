@@ -311,6 +311,10 @@ static int fcc_enet_set_mac_address(struct net_device *dev, void *addr);
 /* TQM8260 has MDIO and MDCK on PC30 and PC31 respectively */
 #define PC_MDIO		((uint)0x00000002)
 #define PC_MDCK		((uint)0x00000001)
+#elif defined(CONFIG_TQM8272)
+/* TQM8272 has MDIO and MDCK on PC16 and PC17 respectively */
+#define PC_MDIO		((uint)0x00008000)
+#define PC_MDCK		((uint)0x00004000)
 #elif defined(CONFIG_ADS8272)
 #define PC_MDIO		((uint)0x00002000)
 #define PC_MDCK		((uint)0x00001000)
@@ -337,7 +341,7 @@ static int fcc_enet_set_mac_address(struct net_device *dev, void *addr);
 /* PHY addresses */
 /* default to dynamic config of phy addresses */
 #define FCC1_PHY_ADDR 0
-#ifdef CONFIG_PQ2FADS
+#if defined(CONFIG_PQ2FADS) || defined(CONFIG_TQM8272)
 #define FCC2_PHY_ADDR 0
 #else
 #define FCC2_PHY_ADDR 2
@@ -2285,7 +2289,7 @@ init_fcc_startup(fcc_info_t *fip, struct net_device *dev)
 	*(volatile uint *)(BCSR_ADDR + 12) |=  BCSR3_FETH2_RST;
 #endif
 
-#if defined(CONFIG_USE_MDIO) || defined(CONFIG_TQM8260) || \
+#if defined(CONFIG_USE_MDIO) || defined(CONFIG_TQM8260) || defined(CONFIG_TQM8272) || \
     defined(CONFIG_TQM8541) || defined(CONFIG_TQM8555) || defined(CONFIG_TQM8560)
 	/* start in full duplex mode, and negotiate speed
 	 */
@@ -2519,7 +2523,8 @@ fcc_enet_open(struct net_device *dev)
 	return -ENODEV;		/* No PHY we understand */
 #else
 	fep->link = 1;
-#if defined(CONFIG_TQM8541) || defined(CONFIG_TQM8555) || defined(CONFIG_TQM8560)
+#if defined(CONFIG_TQM8541) || defined(CONFIG_TQM8555) || defined(CONFIG_TQM8560) || \
+    defined(CONFIG_TQM8272)
 	fcc_restart(dev, 1);	/* start in full-duplex */
 #else
 	fcc_restart(dev, 0);	/* always start in half-duplex */
