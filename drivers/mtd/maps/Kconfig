@@ -354,12 +354,13 @@ config MTD_BAMBOO
 	  use the flash chips on it, say 'Y'.
 
 config MTD_YOSEMITE
-	tristate "Flash devices mapped on AMCC 440EP/GR Yosemite/Yellowstone"
-	depends on MTD_CFI && PPC32 && 44x && (YOSEMITE || YELLOWSTONE)
+	tristate "Flash devices mapped on AMCC 440EP(x)/GR(x) Yosemite/Yellowstone"
+	depends on MTD_CFI && PPC32 && 44x && (YOSEMITE || YELLOWSTONE || SEQUOIA || RAINIER)
 	help
 	  This enables access routined for the flash chips on the AMCC 440EP
-	  Yosemite or 440GR Yellostone board.  If you have one of these boards
-	  and would like to use the flash chips on it, say 'Y'.
+	  Yosemite, 440GR Yellostone, 440EPx Sequoia and 440GRx Rainier board.
+	  If you have one of these boards and would like to use the flash
+	  chips on it, say 'Y'.
 
 config MTD_REDWOOD
 	tristate "CFI Flash devices mapped on IBM Redwood"
@@ -375,6 +376,14 @@ config MTD_PPCHAMELEON
 	help
 	  This enables access routines for the flash chips on the
 	  DAVE PPChamelonEVB board. If you have one of these boards
+	  and would like to use the flash chips on it, say 'Y'.
+
+config MTD_TQM82xx
+	tristate "Flash device mapped on TQ Components TQM827x Boards"
+	depends on MTD_CFI && (TQM8272)
+	help
+	  This enables access routines for the flash chips on the
+	  TQ Components TQM82xx boards. If you have one of these boards
 	  and would like to use the flash chips on it, say 'Y'.
 
 config MTD_TQM834x

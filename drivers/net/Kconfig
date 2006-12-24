@@ -1251,7 +1251,7 @@ config IBM_EMAC_RX_SKB_HEADROOM
 
 config IBM_EMAC_PHY_RX_CLK_FIX
 	bool "PHY Rx clock workaround"
-	depends on IBM_EMAC && (405EP || 440GX || 440EP || 440GR)
+	depends on IBM_EMAC && (405EP || 440GX || 440EP || 440GR || 440EPX || 440GRX)
 	help
 	  Enable this if EMAC attached to a PHY which doesn't generate
 	  RX clock if there is no link, if this is the case, you will 
@@ -1272,7 +1272,7 @@ config IBM_EMAC_ZMII
 
 config IBM_EMAC_RGMII
 	bool
-	depends on IBM_EMAC && 440GX
+	depends on IBM_EMAC && (440GX || 440EPX || 440GRX)
 	default y
 		
 config IBM_EMAC_TAH

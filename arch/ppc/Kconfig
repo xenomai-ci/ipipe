@@ -766,6 +766,12 @@ config TQM834x
 	help
 	  This option enables support for the TQM834x boards from TQ
 	  Components.
+
+config TQM8272
+	bool "TQM8272"
+	help
+	  This option enables support for the TQM8272 boards from TQ.
+
 endchoice
 
 config PQ2ADS
@@ -803,7 +809,7 @@ config 8260
 config 8272
 	bool
 	depends on 6xx
-	default y if ADS8272
+	default y if ADS8272 || TQM8272
 	select 8260
 	help
 	  The MPC8272 CPM has a different internal dpram setup than other CPM2

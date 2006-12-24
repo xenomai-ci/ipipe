@@ -127,6 +127,18 @@ config YOSEMITE
        help
          This option enables support for the AMCC PPC440EP evaluation board.
 
+config SEQUOIA
+	bool "Sequoia"
+	select WANT_EARLY_SERIAL
+	help
+	  This option enables support for the AMCC PPC440EPx evaluation board.
+
+config RAINIER
+	bool "Rainier"
+	select WANT_EARLY_SERIAL
+	help
+	  This option enables support for the AMCC PPC440GRx evaluation board.
+
 endchoice
 
 config EP405PC
@@ -148,6 +160,12 @@ config 440EP
 	select PPC_FPU
 	default y
 
+config 440EPX
+	bool
+	depends on SEQUOIA
+	select PPC_FPU
+	default y
+
 config 440GP
 	bool
 	depends on EBONY || P3P440
@@ -156,6 +174,11 @@ config 440GP
 config 440GR
 	bool
 	depends on YELLOWSTONE
+	default y
+
+config 440GRX
+	bool
+	depends on RAINIER
 	default y
 
 config 440GX
@@ -180,7 +203,7 @@ config 440
 
 config 440A
 	bool
-	depends on 440GX
+	depends on 440GX || 440EPX || 440GRX
 	default y
 
 config IBM440EP_ERR42
@@ -207,12 +230,17 @@ config BOOKE
 
 config IBM_OCP
 	bool
-	depends on ASH || BAMBOO || BUBINGA || CPCI405 || EBONY || EP405 || LUAN || YUCCA || OCOTEA || P3P440 || PPChameleonEVB || REDWOOD_5 || REDWOOD_6 || SYCAMORE || TAIHU || WALNUT || YELLOWSTONE || YOSEMITE
+	depends on ASH || BAMBOO || BUBINGA || CPCI405 || EBONY || EP405 || LUAN || OCOTEA || P3P440 || PPChameleonEVB || RAINIER || REDWOOD_5 || REDWOOD_6 || SEQUOIA || SYCAMORE || TAIHU || WALNUT || YELLOWSTONE || YOSEMITE || YUCCA
 	default y
 
 config IBM_EMAC4
 	bool
-	depends on 440GX || 440SP || 440SPE
+	depends on 440GX || 440SP || 440SPE || 440EPX || 440GRX
+	default y
+
+config IBM_EMAC4V4
+	bool
+	depends on 440EPX || 440GRX
 	default y
 
 config BIOS_FIXUP

@@ -135,6 +135,12 @@ config MTD_NAND_NDFC
 	help
 	 NDFC Nand Flash Controllers are integrated in EP44x SoCs
 
+config MTD_NAND_TQM8272
+	tristate "NAND Flash support on TQ TQM8272 Board."
+	depends on MTD_NAND && TQM8272
+	help
+	 This enables the NAND flash driver on the TQ TQM8272 Board.
+
 config MTD_NAND_S3C2410_CLKSTOP
 	bool "S3C2410 NAND IDLE clock stop"
 	depends on MTD_NAND_S3C2410

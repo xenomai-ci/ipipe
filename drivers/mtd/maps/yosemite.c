@@ -85,8 +85,13 @@ int __init init_yosemite_flash(void)
 
 	yosemite_flash_map.size = flash_size;
 	yosemite_flash_map.phys = flash_base;
+#if defined(CONFIG_440EPX) || defined(CONFIG_440GRX)
+	yosemite_flash_map.virt =
+		(void __iomem *)ioremap64(flash_base + 0x100000000ull, yosemite_flash_map.size);
+#else
 	yosemite_flash_map.virt =
 		(void __iomem *)ioremap(flash_base, yosemite_flash_map.size);
+#endif
 
 	if (!yosemite_flash_map.virt) {
 		printk("init_yosemite_flash: failed to ioremap\n");
