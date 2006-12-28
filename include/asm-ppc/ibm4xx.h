@@ -96,6 +96,10 @@ void ppc4xx_init(unsigned long r3, unsigned long r4, unsigned long r5,
 
 #elif defined(CONFIG_44x)
 
+#if defined(CONFIG_ALPR)
+#include <platforms/4xx/alpr.h>
+#endif
+
 #if defined(CONFIG_BAMBOO)
 #include <platforms/4xx/bamboo.h>
 #endif

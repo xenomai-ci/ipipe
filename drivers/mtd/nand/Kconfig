@@ -141,6 +141,12 @@ config MTD_NAND_TQM8272
 	help
 	 This enables the NAND flash driver on the TQ TQM8272 Board.
 
+config MTD_NAND_ALPR
+	tristate "NAND flash support on Prodrive ALPR board"
+	depends on ALPR && MTD_NAND
+	help
+	  This enables the NAND flash driver on the ALPR board from Prodrive.
+
 config MTD_NAND_S3C2410_CLKSTOP
 	bool "S3C2410 NAND IDLE clock stop"
 	depends on MTD_NAND_S3C2410

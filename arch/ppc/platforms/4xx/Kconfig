@@ -79,6 +79,12 @@ choice
 	depends on 44x
 	default EBONY
 
+config ALPR
+	bool "ALPR"
+	select WANT_EARLY_SERIAL
+	help
+	  This option enables support for the ALPR board from Prodrive.
+
 config BAMBOO
 	bool "Bamboo"
 	select WANT_EARLY_SERIAL
@@ -183,7 +189,7 @@ config 440GRX
 
 config 440GX
 	bool
-	depends on OCOTEA
+	depends on ALPR || OCOTEA
 	default y
 
 config 440SP
@@ -230,7 +236,7 @@ config BOOKE
 
 config IBM_OCP
 	bool
-	depends on ASH || BAMBOO || BUBINGA || CPCI405 || EBONY || EP405 || LUAN || OCOTEA || P3P440 || PPChameleonEVB || RAINIER || REDWOOD_5 || REDWOOD_6 || SEQUOIA || SYCAMORE || TAIHU || WALNUT || YELLOWSTONE || YOSEMITE || YUCCA
+	depends on ALPR || ASH || BAMBOO || BUBINGA || CPCI405 || EBONY || EP405 || LUAN || OCOTEA || P3P440 || PPChameleonEVB || RAINIER || REDWOOD_5 || REDWOOD_6 || SEQUOIA || SYCAMORE || TAIHU || WALNUT || YELLOWSTONE || YOSEMITE || YUCCA
 	default y
 
 config IBM_EMAC4

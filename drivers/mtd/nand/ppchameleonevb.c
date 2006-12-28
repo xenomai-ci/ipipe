@@ -124,26 +124,20 @@ static void ppchameleon_hwcontrol(struct mtd_info *mtdinfo, int cmd,
 	struct nand_chip *chip = mtdinfo->priv;
 
 	if (ctrl & NAND_CTRL_CHANGE) {
-		switch (cmd) {
-		case NAND_CTL_SETCLE:
+		if (ctrl & NAND_CLE)
 			MACRO_NAND_CTL_SETCLE((unsigned long)CFG_NAND0_PADDR);
-			break;
-		case NAND_CTL_CLRCLE:
+		else
 			MACRO_NAND_CTL_CLRCLE((unsigned long)CFG_NAND0_PADDR);
-			break;
-		case NAND_CTL_SETALE:
+
+		if (ctrl & NAND_ALE)
 			MACRO_NAND_CTL_SETALE((unsigned long)CFG_NAND0_PADDR);
-			break;
-		case NAND_CTL_CLRALE:
+		else
 			MACRO_NAND_CTL_CLRALE((unsigned long)CFG_NAND0_PADDR);
-			break;
-		case NAND_CTL_SETNCE:
+
+		if (ctrl & NAND_NCE)
 			MACRO_NAND_ENABLE_CE((unsigned long)CFG_NAND0_PADDR);
-			break;
-		case NAND_CTL_CLRNCE:
+		else
 			MACRO_NAND_DISABLE_CE((unsigned long)CFG_NAND0_PADDR);
-			break;
-		}
 	}
 	if (cmd != NAND_CMD_NONE)
 		writeb(cmd, chip->IO_ADDR_W);
@@ -155,26 +149,20 @@ static void ppchameleonevb_hwcontrol(struct mtd_info *mtdinfo, int cmd,
 	struct nand_chip *chip = mtdinfo->priv;
 
 	if (ctrl & NAND_CTRL_CHANGE) {
-		switch (cmd) {
-		case NAND_CTL_SETCLE:
+		if (ctrl & NAND_CLE)
 			MACRO_NAND_CTL_SETCLE((unsigned long)CFG_NAND1_PADDR);
-			break;
-		case NAND_CTL_CLRCLE:
+		else
 			MACRO_NAND_CTL_CLRCLE((unsigned long)CFG_NAND1_PADDR);
-			break;
-		case NAND_CTL_SETALE:
+
+		if (ctrl & NAND_ALE)
 			MACRO_NAND_CTL_SETALE((unsigned long)CFG_NAND1_PADDR);
-			break;
-		case NAND_CTL_CLRALE:
+		else
 			MACRO_NAND_CTL_CLRALE((unsigned long)CFG_NAND1_PADDR);
-			break;
-		case NAND_CTL_SETNCE:
+
+		if (ctrl & NAND_NCE)
 			MACRO_NAND_ENABLE_CE((unsigned long)CFG_NAND1_PADDR);
-			break;
-		case NAND_CTL_CLRNCE:
+		else
 			MACRO_NAND_DISABLE_CE((unsigned long)CFG_NAND1_PADDR);
-			break;
-		}
 	}
 	if (cmd != NAND_CMD_NONE)
 		writeb(cmd, chip->IO_ADDR_W);
