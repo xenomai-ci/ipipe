@@ -999,6 +999,9 @@ mpc52xx_uart_of_remove(struct of_device *op)
 	if (port)
 		uart_remove_one_port(&mpc52xx_uart_driver, port);
 
+	if (port->irq != NO_IRQ)
+		irq_dispose_mapping(port->irq);
+
 	return 0;
 }
 
