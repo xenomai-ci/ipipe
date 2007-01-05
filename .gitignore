@@ -15,6 +15,9 @@
 *.i
 *.lst
 *.symtypes
+*~
+*.orig
+*.rej
 
 #
 # Top-level generic files

@@ -384,6 +384,7 @@ void mmput(struct mm_struct *mm)
 	might_sleep();
 
 	if (atomic_dec_and_test(&mm->mm_users)) {
+		ipipe_cleanup_notify(mm);
 		exit_aio(mm);
 		exit_mmap(mm);
 		if (!list_empty(&mm->mmlist)) {
@@ -914,7 +915,7 @@ static inline void copy_flags(unsigned long clone_flags, struct task_struct *p)
 {
 	unsigned long new_flags = p->flags;
 
-	new_flags &= ~(PF_SUPERPRIV | PF_NOFREEZE);
+	new_flags &= ~(PF_SUPERPRIV | PF_NOFREEZE | PF_EVNOTIFY);
 	new_flags |= PF_FORKNOEXEC;
 	if (!(clone_flags & CLONE_PTRACE))
 		p->ptrace = 0;
@@ -1258,6 +1259,14 @@ static struct task_struct *copy_process(unsigned long clone_flags,
 	spin_unlock(&current->sighand->siglock);
 	write_unlock_irq(&tasklist_lock);
 	proc_fork_connector(p);
+#ifdef CONFIG_IPIPE
+	{
+	int k;
+
+	for (k = 0; k < IPIPE_ROOT_NPTDKEYS; k++)
+		p->ptd[k] = NULL;
+	}
+#endif /* CONFIG_IPIPE */
 	return p;
 
 bad_fork_cleanup_namespaces:

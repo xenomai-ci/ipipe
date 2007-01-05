@@ -129,6 +129,8 @@ void _raw_spin_lock(spinlock_t *lock)
 	debug_spin_lock_after(lock);
 }
 
+EXPORT_SYMBOL(_raw_spin_lock);
+
 int _raw_spin_trylock(spinlock_t *lock)
 {
 	int ret = __raw_spin_trylock(&lock->raw_lock);
@@ -144,11 +146,15 @@ int _raw_spin_trylock(spinlock_t *lock)
 	return ret;
 }
 
+EXPORT_SYMBOL(_raw_spin_trylock);
+
 void _raw_spin_unlock(spinlock_t *lock)
 {
 	debug_spin_unlock(lock);
 	__raw_spin_unlock(&lock->raw_lock);
 }
+
+EXPORT_SYMBOL(_raw_spin_unlock);
 
 static void rwlock_bug(rwlock_t *lock, const char *msg)
 {
@@ -195,6 +201,8 @@ void _raw_read_lock(rwlock_t *lock)
 	__raw_read_lock(&lock->raw_lock);
 }
 
+EXPORT_SYMBOL(_raw_read_lock);
+
 int _raw_read_trylock(rwlock_t *lock)
 {
 	int ret = __raw_read_trylock(&lock->raw_lock);
@@ -208,11 +216,15 @@ int _raw_read_trylock(rwlock_t *lock)
 	return ret;
 }
 
+EXPORT_SYMBOL(_raw_read_trylock);
+
 void _raw_read_unlock(rwlock_t *lock)
 {
 	RWLOCK_BUG_ON(lock->magic != RWLOCK_MAGIC, lock, "bad magic");
 	__raw_read_unlock(&lock->raw_lock);
 }
+
+EXPORT_SYMBOL(_raw_read_unlock);
 
 static inline void debug_write_lock_before(rwlock_t *lock)
 {
@@ -271,6 +283,8 @@ void _raw_write_lock(rwlock_t *lock)
 	debug_write_lock_after(lock);
 }
 
+EXPORT_SYMBOL(_raw_write_lock);
+
 int _raw_write_trylock(rwlock_t *lock)
 {
 	int ret = __raw_write_trylock(&lock->raw_lock);
@@ -286,8 +300,12 @@ int _raw_write_trylock(rwlock_t *lock)
 	return ret;
 }
 
+EXPORT_SYMBOL(_raw_write_trylock);
+
 void _raw_write_unlock(rwlock_t *lock)
 {
 	debug_write_unlock(lock);
 	__raw_write_unlock(&lock->raw_lock);
 }
+
+EXPORT_SYMBOL(_raw_write_unlock);

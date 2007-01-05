@@ -308,7 +308,9 @@ handle_level_irq(unsigned int irq, struct irq_desc *desc)
 	irqreturn_t action_ret;
 
 	spin_lock(&desc->lock);
+#ifndef CONFIG_IPIPE
 	mask_ack_irq(desc, irq);
+#endif /* CONFIG_IPIPE */
 
 	if (unlikely(desc->status & IRQ_INPROGRESS))
 		goto out_unlock;
@@ -431,8 +433,10 @@ handle_edge_irq(unsigned int irq, struct irq_desc *desc)
 
 	kstat_cpu(cpu).irqs[irq]++;
 
+#ifndef CONFIG_IPIPE
 	/* Start handling the irq */
 	desc->chip->ack(irq);
+#endif /* CONFIG_IPIPE */
 
 	/* Mark the IRQ currently in progress.*/
 	desc->status |= IRQ_INPROGRESS;
@@ -472,6 +476,64 @@ out_unlock:
 	spin_unlock(&desc->lock);
 }
 
+#ifdef CONFIG_IPIPE
+
+void fastcall __ipipe_ack_simple_irq(unsigned irq, struct irq_desc *desc)
+{
+}
+
+void fastcall __ipipe_end_simple_irq(unsigned irq, struct irq_desc *desc)
+{
+}
+
+void fastcall __ipipe_ack_level_irq(unsigned irq, struct irq_desc *desc)
+{
+	mask_ack_irq(desc, irq);
+}
+
+void fastcall __ipipe_end_level_irq(unsigned irq, struct irq_desc *desc)
+{
+	if (desc->chip->unmask)
+		desc->chip->unmask(irq);
+}
+
+void fastcall __ipipe_ack_fasteoi_irq(unsigned irq, struct irq_desc *desc)
+{
+}
+
+void fastcall __ipipe_end_fasteoi_irq(unsigned irq, struct irq_desc *desc)
+{
+	desc->chip->eoi(irq);
+}
+
+void fastcall __ipipe_ack_edge_irq(unsigned irq, struct irq_desc *desc)
+{
+	desc->chip->ack(irq);
+}
+
+void fastcall __ipipe_end_edge_irq(unsigned irq, struct irq_desc *desc)
+{
+}
+
+void fastcall __ipipe_ack_bad_irq(unsigned irq, struct irq_desc *desc)
+{
+	static int done;
+
+	handle_bad_irq(irq, desc);
+
+	if (!done) {
+		printk(KERN_WARNING "%s: unknown flow handler for IRQ %d\n",
+		       __FUNCTION__, irq);
+		done = 1;
+	}
+}
+
+void fastcall __ipipe_end_bad_irq(unsigned irq, struct irq_desc *desc)
+{
+}
+
+#endif /* CONFIG_IPIPE */
+
 #ifdef CONFIG_SMP
 /**
  *	handle_percpu_IRQ - Per CPU local irq handler
@@ -487,8 +549,10 @@ handle_percpu_irq(unsigned int irq, struct irq_desc *desc)
 
 	kstat_this_cpu.irqs[irq]++;
 
+#ifndef CONFIG_IPIPE
 	if (desc->chip->ack)
 		desc->chip->ack(irq);
+#endif /* CONFIG_IPIPE */
 
 	action_ret = handle_IRQ_event(irq, desc->action);
 	if (!noirqdebug)
@@ -497,6 +561,22 @@ handle_percpu_irq(unsigned int irq, struct irq_desc *desc)
 	if (desc->chip->eoi)
 		desc->chip->eoi(irq);
 }
+
+#ifdef CONFIG_IPIPE
+
+void fastcall __ipipe_ack_percpu_irq(unsigned irq, struct irq_desc *desc)
+{
+	if (desc->chip->ack)
+		desc->chip->ack(irq);
+}
+
+void fastcall __ipipe_end_percpu_irq(unsigned irq, struct irq_desc *desc)
+{
+	if (desc->chip->eoi)
+		desc->chip->eoi(irq);
+}
+
+#endif /* CONFIG_IPIPE */
 
 #endif /* CONFIG_SMP */
 
@@ -517,6 +597,34 @@ __set_irq_handler(unsigned int irq, irq_flow_handler_t handle, int is_chained,
 
 	if (!handle)
 		handle = handle_bad_irq;
+#ifdef CONFIG_IPIPE
+	else if (handle == &handle_simple_irq) {
+		desc->ipipe_ack = &__ipipe_ack_simple_irq;
+		desc->ipipe_end = &__ipipe_end_simple_irq;
+	}
+	else if (handle == &handle_level_irq) {
+		desc->ipipe_ack = &__ipipe_ack_level_irq;
+		desc->ipipe_end = &__ipipe_end_level_irq;
+	}
+	else if (handle == &handle_edge_irq) {
+		desc->ipipe_ack = &__ipipe_ack_edge_irq;
+		desc->ipipe_end = &__ipipe_end_edge_irq;
+	}
+	else if (handle == &handle_fasteoi_irq) {
+		desc->ipipe_ack = &__ipipe_ack_fasteoi_irq;
+		desc->ipipe_end = &__ipipe_end_fasteoi_irq;
+	}
+#ifdef CONFIG_SMP
+	else if (handle == &handle_percpu_irq) {
+		desc->ipipe_ack = &__ipipe_ack_percpu_irq;
+		desc->ipipe_end = &__ipipe_end_percpu_irq;
+	}
+#endif /* CONFIG_SMP */
+	else {
+		desc->ipipe_ack = &__ipipe_ack_bad_irq;
+		desc->ipipe_end = &__ipipe_end_bad_irq;
+	}
+#endif /* CONFIG_IPIPE */
 
 	if (desc->chip == &no_irq_chip) {
 		printk(KERN_WARNING "Trying to install %sinterrupt handler "
@@ -541,6 +649,10 @@ __set_irq_handler(unsigned int irq, irq_flow_handler_t handle, int is_chained,
 		}
 		desc->status |= IRQ_DISABLED;
 		desc->depth = 1;
+#ifdef CONFIG_IPIPE
+		desc->ipipe_ack = &__ipipe_ack_bad_irq;
+		desc->ipipe_end = &__ipipe_end_bad_irq;
+#endif /* CONFIG_IPIPE */
 	}
 	desc->handle_irq = handle;
 	desc->name = name;

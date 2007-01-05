@@ -46,6 +46,8 @@ config UNUSED_SYMBOLS
 	  you really need it, and what the merge plan to the mainline kernel for
 	  your module is.
 
+source "kernel/ipipe/Kconfig.debug"
+
 config DEBUG_KERNEL
 	bool "Kernel debugging"
 	help

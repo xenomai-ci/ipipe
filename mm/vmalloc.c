@@ -19,6 +19,7 @@
 
 #include <asm/uaccess.h>
 #include <asm/tlbflush.h>
+#include <asm/pgalloc.h>
 
 
 DEFINE_RWLOCK(vmlist_lock);
@@ -151,10 +152,14 @@ int map_vm_area(struct vm_struct *area, pgprot_t prot, struct page ***pages)
 	BUG_ON(addr >= end);
 	pgd = pgd_offset_k(addr);
 	do {
+		pgd_t oldpgd;
+		memcpy(&oldpgd,pgd,sizeof(pgd_t));
 		next = pgd_addr_end(addr, end);
 		err = vmap_pud_range(pgd, addr, next, prot, pages);
 		if (err)
 			break;
+		if (pgd_val(oldpgd) != pgd_val(*pgd))
+			set_pgdir(addr, *pgd);
 	} while (pgd++, addr = next, addr != end);
 	flush_cache_vmap((unsigned long) area->addr, end);
 	return err;
