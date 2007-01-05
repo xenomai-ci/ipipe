@@ -72,6 +72,7 @@ static int unknown_nmi_panic_callback(struct pt_regs *regs, int cpu);
 
 extern void show_registers(struct pt_regs *regs);
 extern int unknown_nmi_panic;
+static int default_nmi_watchdog_tick(struct pt_regs * regs, unsigned reason);
 
 /* converts an msr to an appropriate reservation bit */
 static inline unsigned int nmi_perfctr_msr_to_bit(unsigned int msr)
@@ -307,6 +308,7 @@ static int __init setup_nmi_watchdog(char *str)
 
 	if ((nmi >= NMI_INVALID) || (nmi < NMI_NONE))
 		return 0;
+        nmi_watchdog_tick = &default_nmi_watchdog_tick;
 	/*
 	 * If any other x86 CPU has a local APIC, then
 	 * please test the NMI stuff there and send me the
@@ -883,9 +885,7 @@ void touch_nmi_watchdog (void)
 }
 EXPORT_SYMBOL(touch_nmi_watchdog);
 
-extern void die_nmi(struct pt_regs *, const char *msg);
-
-__kprobes int nmi_watchdog_tick(struct pt_regs * regs, unsigned reason)
+static __kprobes int default_nmi_watchdog_tick (struct pt_regs * regs, unsigned reason)
 {
 
 	/*
@@ -895,7 +895,7 @@ __kprobes int nmi_watchdog_tick(struct pt_regs * regs, unsigned reason)
 	 */
 	unsigned int sum;
 	int touched = 0;
-	int cpu = smp_processor_id();
+	int cpu = smp_processor_id_hw();
 	struct nmi_watchdog_ctlblk *wd = &__get_cpu_var(nmi_watchdog_ctlblk);
 	u64 dummy;
 	int rc=0;

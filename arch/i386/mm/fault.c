@@ -333,6 +333,8 @@ fastcall void __kprobes do_page_fault(struct pt_regs *regs,
 	/* get the address */
         address = read_cr2();
 
+	local_irq_enable_hw_cond();
+
 	tsk = current;
 
 	si_code = SEGV_MAPERR;

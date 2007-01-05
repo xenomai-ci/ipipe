@@ -18,7 +18,11 @@ static inline void do_timer_interrupt_hook(void)
 {
 	do_timer(1);
 #ifndef CONFIG_SMP
+#ifdef CONFIG_IPIPE
+	update_process_times(user_mode_vm(__ipipe_tick_regs + smp_processor_id()));
+#else
 	update_process_times(user_mode_vm(get_irq_regs()));
+#endif
 #endif
 /*
  * In the SMP case we use the local APIC timer interrupt to do the
@@ -50,14 +54,15 @@ static inline void do_timer_interrupt_hook(void)
 static inline int do_timer_overflow(int count)
 {
 	int i;
+	unsigned long flags;
 
-	spin_lock(&i8259A_lock);
+	spin_lock_irqsave(&i8259A_lock, flags);
 	/*
 	 * This is tricky when I/O APICs are used;
 	 * see do_timer_interrupt().
 	 */
 	i = inb(0x20);
-	spin_unlock(&i8259A_lock);
+	spin_unlock_irqrestore(&i8259A_lock, flags);
 	
 	/* assumption about timer being IRQ0 */
 	if (i & 0x01) {

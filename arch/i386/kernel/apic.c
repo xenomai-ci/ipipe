@@ -102,7 +102,7 @@ void ack_bad_irq(unsigned int irq)
 	 * But only ack when the APIC is enabled -AK
 	 */
 	if (cpu_has_apic)
-		ack_APIC_irq();
+		__ack_APIC_irq();
 }
 
 void __init apic_intr_init(void)
@@ -615,13 +615,13 @@ void lapic_shutdown(void)
 	if (!cpu_has_apic)
 		return;
 
-	local_irq_save(flags);
+	local_irq_save_hw(flags);
 	clear_local_APIC();
 
 	if (enabled_via_apicbase)
 		disable_local_APIC();
 
-	local_irq_restore(flags);
+	local_irq_restore_hw(flags);
 }
 
 #ifdef CONFIG_PM
@@ -665,9 +665,9 @@ static int lapic_suspend(struct sys_device *dev, pm_message_t state)
 	apic_pm_state.apic_tdcr = apic_read(APIC_TDCR);
 	apic_pm_state.apic_thmr = apic_read(APIC_LVTTHMR);
 	
-	local_irq_save(flags);
+	local_irq_save_hw(flags);
 	disable_local_APIC();
-	local_irq_restore(flags);
+	local_irq_restore_hw(flags);
 	return 0;
 }
 
@@ -679,7 +679,7 @@ static int lapic_resume(struct sys_device *dev)
 	if (!apic_pm_state.active)
 		return 0;
 
-	local_irq_save(flags);
+	local_irq_save_hw(flags);
 
 	/*
 	 * Make sure the APICBASE points to the right address
@@ -710,7 +710,7 @@ static int lapic_resume(struct sys_device *dev)
 	apic_write(APIC_LVTERR, apic_pm_state.apic_lvterr);
 	apic_write(APIC_ESR, 0);
 	apic_read(APIC_ESR);
-	local_irq_restore(flags);
+	local_irq_restore_hw(flags);
 	return 0;
 }
 
@@ -1006,7 +1006,7 @@ static void __devinit setup_APIC_timer(unsigned int clocks)
 {
 	unsigned long flags;
 
-	local_irq_save(flags);
+	local_irq_save_hw(flags);
 
 	/*
 	 * Wait for IRQ0's slice:
@@ -1015,7 +1015,7 @@ static void __devinit setup_APIC_timer(unsigned int clocks)
 
 	__setup_APIC_LVTT(clocks);
 
-	local_irq_restore(flags);
+	local_irq_restore_hw(flags);
 }
 
 /*
@@ -1105,7 +1105,7 @@ void __init setup_boot_APIC_clock(void)
 	apic_printk(APIC_VERBOSE, "Using local APIC timer interrupts.\n");
 	using_apic_timer = 1;
 
-	local_irq_save(flags);
+	local_irq_save_hw(flags);
 
 	calibration_result = calibrate_APIC_clock();
 	/*
@@ -1113,7 +1113,7 @@ void __init setup_boot_APIC_clock(void)
 	 */
 	setup_APIC_timer(calibration_result);
 
-	local_irq_restore(flags);
+	local_irq_restore_hw(flags);
 }
 
 void __devinit setup_secondary_APIC_clock(void)
@@ -1197,7 +1197,11 @@ inline void smp_local_timer_interrupt(void)
 {
 	profile_tick(CPU_PROFILING);
 #ifdef CONFIG_SMP
+#ifdef CONFIG_IPIPE
+	update_process_times(user_mode_vm(__ipipe_tick_regs + smp_processor_id()));
+#else
 	update_process_times(user_mode_vm(get_irq_regs()));
+#endif
 #endif
 
 	/*
@@ -1299,7 +1303,7 @@ fastcall void smp_spurious_interrupt(struct pt_regs *regs)
 	 */
 	v = apic_read(APIC_ISR + ((SPURIOUS_APIC_VECTOR & ~0x1f) >> 1));
 	if (v & (1 << (SPURIOUS_APIC_VECTOR & 0x1f)))
-		ack_APIC_irq();
+		__ack_APIC_irq();
 
 	/* see sw-dev-man vol 3, chapter 7.4.13.5 */
 	printk(KERN_INFO "spurious APIC interrupt on CPU#%d, should never happen.\n",

@@ -71,7 +71,13 @@ int get_physical_broadcast(void);
 # define apic_write_around(x,y) apic_write_atomic((x),(y))
 #endif
 
+#ifdef CONFIG_IPIPE
+#define ack_APIC_irq() do { } while(0)
+static inline void __ack_APIC_irq(void)
+#else /* !CONFIG_IPIPE */
+#define __ack_APIC_irq() ack_APIC_irq()
 static inline void ack_APIC_irq(void)
+#endif /* CONFIG_IPIPE */
 {
 	/*
 	 * ack_APIC_irq() actually gets compiled as a single instruction:
