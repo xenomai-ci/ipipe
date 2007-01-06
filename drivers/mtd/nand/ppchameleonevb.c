@@ -27,6 +27,7 @@
 #include <linux/init.h>
 #include <linux/slab.h>
 #include <linux/module.h>
+#include <linux/delay.h>
 #include <linux/mtd/mtd.h>
 #include <linux/mtd/nand.h>
 #include <linux/mtd/partitions.h>
@@ -181,9 +182,16 @@ static int ppchameleon_device_ready(struct mtd_info *minfo)
 
 static int ppchameleonevb_device_ready(struct mtd_info *minfo)
 {
-	if (in_be32((volatile unsigned *)GPIO0_IR) & NAND_EVB_RB_GPIO_PIN)
-		return 1;
-	return 0;
+	int ret;
+
+	ret = in_be32((volatile unsigned *)GPIO0_IR) & NAND_EVB_RB_GPIO_PIN;
+
+	/*
+	 * Only 2nd chip needs a little more time
+	 */
+	udelay(10);
+
+	return ret;
 }
 #endif
 
