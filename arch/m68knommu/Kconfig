@@ -416,6 +416,12 @@ config MOD5272
 	help
 	  Support for the Netburner MOD-5272 board.
 
+config IDMR
+	bool "iDMR board support"
+	depends on M5271
+	help
+	  Support for the iDMR board.
+
 config ROMFS_FROM_ROM
 	bool "ROMFS image not RAM resident"
 	depends on (NETtel || SNAPGEAR)
@@ -436,7 +442,7 @@ config ARNEWSH
 config FREESCALE
 	bool
 	default y
-	depends on (M5206eC3 || M5208EVB || M5235EVB || M5249C3 || M5271EVB || M5272C3 || M5275EVB || M5282EVB || M5307C3 || M5329EVB || M5407C3)
+	depends on (M5206eC3 || M5208EVB || M5235EVB || M5249C3 || M527x || M5272C3 || M5275EVB || M5282EVB || M5307C3 || M5329EVB || M5407C3)
 
 config HW_FEITH
 	bool
@@ -469,7 +475,6 @@ config UBOOT
 	  If you say Y here kernel will try to collect a command
 	  line parameters from the initial u-boot stack.
 	default n
-	depends on M5271EVB
 
 config LARGE_ALLOCS
 	bool "Allow allocating large blocks (> 1MB) of memory"
