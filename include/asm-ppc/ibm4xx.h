@@ -42,6 +42,10 @@
 #include <platforms/4xx/redwood6.h>
 #endif
 
+#if defined(CONFIG_SC3)
+# include <platforms/4xx/sc3.h>
+#endif
+
 #if defined(CONFIG_SYCAMORE)
 #include <platforms/4xx/sycamore.h>
 #endif
