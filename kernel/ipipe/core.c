@@ -1374,7 +1374,7 @@ void __ipipe_remove_domain_proc(struct ipipe_domain *ipd)
 	remove_proc_entry(ipd->name,ipipe_proc_root);
 }
 
-void ipipe_init_proc(void)
+void __init ipipe_init_proc(void)
 {
 	ipipe_proc_root = create_proc_entry("ipipe",S_IFDIR, 0);
 	create_proc_read_entry("version",0444,ipipe_proc_root,&__ipipe_version_info_proc,NULL);

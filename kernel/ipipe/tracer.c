@@ -128,9 +128,9 @@ static IPIPE_DEFINE_SPINLOCK(global_path_lock);
 static int pre_trace = IPIPE_DEFAULT_PRE_TRACE;
 static int post_trace = IPIPE_DEFAULT_POST_TRACE;
 static int back_trace = IPIPE_DEFAULT_BACK_TRACE;
-static int verbose_trace = 0;
+static int verbose_trace;
 
-static DECLARE_MUTEX(out_mutex);
+static DEFINE_MUTEX(out_mutex);
 static struct ipipe_trace_path *print_path;
 static struct ipipe_trace_path *panic_path;
 static int print_pre_trace;
@@ -869,7 +869,7 @@ static void *__ipipe_max_prtrace_start(struct seq_file *m, loff_t *pos)
 {
 	loff_t n = *pos;
 
-	down(&out_mutex);
+	mutex_lock(&out_mutex);
 
 	if (!n) {
 		struct ipipe_trace_path *path;
@@ -951,7 +951,7 @@ static void __ipipe_prtrace_stop(struct seq_file *m, void *p)
 {
 	if (print_path)
 		print_path->dump_lock = 0;
-	up(&out_mutex);
+	mutex_unlock(&out_mutex);
 }
 
 static int __ipipe_prtrace_show(struct seq_file *m, void *p)
@@ -1012,9 +1012,9 @@ static ssize_t
 __ipipe_max_reset(struct file *file, const char __user *pbuffer,
                   size_t count, loff_t *data)
 {
-	down(&out_mutex);
+	mutex_lock(&out_mutex);
 	ipipe_trace_max_reset();
-	up(&out_mutex);
+	mutex_unlock(&out_mutex);
 
 	return count;
 }
@@ -1031,7 +1031,7 @@ static void *__ipipe_frozen_prtrace_start(struct seq_file *m, loff_t *pos)
 {
 	loff_t n = *pos;
 
-	down(&out_mutex);
+	mutex_lock(&out_mutex);
 
 	if (!n) {
 		struct ipipe_trace_path *path;
@@ -1119,11 +1119,11 @@ __ipipe_frozen_ctrl(struct file *file, const char __user *pbuffer,
 	if (((*end != '\0') && !isspace(*end)) || (val < 0))
 		return -EINVAL;
 
-	down(&out_mutex);
+	mutex_lock(&out_mutex);
 	ipipe_trace_frozen_reset();
 	if (val > 0)
 		ipipe_trace_freeze(-1);
-	up(&out_mutex);
+	mutex_unlock(&out_mutex);
 
 	return count;
 }
@@ -1172,9 +1172,9 @@ static int __ipipe_wr_proc_val(struct file *file, const char __user *buffer,
 	if (((*end != '\0') && !isspace(*end)) || (val < 0))
 		return -EINVAL;
 
-	down(&out_mutex);
+	mutex_lock(&out_mutex);
 	*(int *)data = val;
-	up(&out_mutex);
+	mutex_unlock(&out_mutex);
 
 	return count;
 }
@@ -1203,7 +1203,7 @@ void __init __ipipe_init_tracer(void)
 #ifdef CONFIG_IPIPE_TRACE_VMALLOC
 	int cpu, path;
 
-	for (cpu = 0; cpu < NR_CPUS; cpu++) {
+	foreach_possible_cpu(cpu) {
 		trace_paths[cpu] = vmalloc(
 			sizeof(struct ipipe_trace_path) * IPIPE_TRACE_PATHS);
 		if (!trace_paths) {
