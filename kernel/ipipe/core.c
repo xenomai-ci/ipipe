@@ -47,7 +47,7 @@ struct ipipe_domain ipipe_root =
 DEFINE_PER_CPU(struct ipipe_domain *, ipipe_percpu_domain) =
 	{ &ipipe_root };
 
-ipipe_spinlock_t __ipipe_pipelock = IPIPE_SPIN_LOCK_UNLOCKED;
+static IPIPE_DEFINE_SPINLOCK(__ipipe_pipelock);
 
 LIST_HEAD(__ipipe_pipeline);
 
@@ -1404,12 +1404,7 @@ EXPORT_SYMBOL(__ipipe_restore_root);
 EXPORT_SYMBOL(__ipipe_test_and_stall_root);
 EXPORT_SYMBOL(__ipipe_test_root);
 EXPORT_SYMBOL(__ipipe_dispatch_event);
-EXPORT_SYMBOL(__ipipe_dispatch_wired);
-EXPORT_SYMBOL(__ipipe_sync_stage);
 EXPORT_SYMBOL(__ipipe_pipeline);
-EXPORT_SYMBOL(__ipipe_pipelock);
-EXPORT_SYMBOL(__ipipe_virtual_irq_map);
-
 EXPORT_SYMBOL(ipipe_register_domain);
 EXPORT_SYMBOL(ipipe_unregister_domain);
 EXPORT_SYMBOL(ipipe_free_virq);
