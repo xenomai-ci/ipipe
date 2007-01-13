@@ -286,8 +286,6 @@ extern unsigned long __ipipe_virtual_irq_map;
 
 extern struct list_head __ipipe_pipeline;
 
-extern ipipe_spinlock_t __ipipe_pipelock;
-
 extern int __ipipe_event_monitors[];
 
 /* Private interface */
