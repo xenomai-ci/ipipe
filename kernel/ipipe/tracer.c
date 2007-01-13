@@ -129,6 +129,7 @@ static int pre_trace = IPIPE_DEFAULT_PRE_TRACE;
 static int post_trace = IPIPE_DEFAULT_POST_TRACE;
 static int back_trace = IPIPE_DEFAULT_BACK_TRACE;
 static int verbose_trace;
+static unsigned long trace_overhead;
 
 static DEFINE_MUTEX(out_mutex);
 static struct ipipe_trace_path *print_path;
@@ -824,6 +825,9 @@ static void __ipipe_print_dbgwarning(struct seq_file *m)
 
 static void __ipipe_print_headline(struct seq_file *m)
 {
+	seq_printf(m, "Calibrated minimum trace-point overhead: %lu.%03lu "
+		   "us\n\n", trace_overhead/1000, trace_overhead%1000);
+
 	if (verbose_trace) {
 		const char *name[4] = { [0 ... 3] = "<unused>" };
 		struct list_head *pos;
@@ -917,7 +921,7 @@ static void *__ipipe_max_prtrace_start(struct seq_file *m, loff_t *pos)
 			UTS_RELEASE, IPIPE_ARCH_STRING);
 		__ipipe_print_dbgwarning(m);
 		seq_printf(m, "Begin: %lld cycles, Trace Points: %d (-%d/+%d), "
-			"Length: %lu us\n\n",
+			"Length: %lu us\n",
 			print_path->point[print_path->begin].timestamp,
 			points, print_pre_trace, print_post_trace, length_usecs);
 		__ipipe_print_headline(m);
@@ -1073,7 +1077,7 @@ static void *__ipipe_frozen_prtrace_start(struct seq_file *m, loff_t *pos)
 			"------\n",
 			UTS_RELEASE, IPIPE_ARCH_STRING);
 		__ipipe_print_dbgwarning(m);
-		seq_printf(m, "Freeze: %lld cycles, Trace Points: %d (+%d)\n\n",
+		seq_printf(m, "Freeze: %lld cycles, Trace Points: %d (+%d)\n",
 			print_path->point[print_path->begin].timestamp,
 			print_pre_trace+1, print_post_trace);
 		__ipipe_print_headline(m);
@@ -1200,6 +1204,8 @@ void __init __ipipe_init_tracer(void)
 {
 	struct proc_dir_entry *trace_dir;
 	struct proc_dir_entry *entry;
+	unsigned long long start, end, min = ULLONG_MAX;
+	int i;
 #ifdef CONFIG_IPIPE_TRACE_VMALLOC
 	int cpu, path;
 
@@ -1220,6 +1226,21 @@ void __init __ipipe_init_tracer(void)
 	}
 	ipipe_trace_enable = CONFIG_IPIPE_TRACE_ENABLE_VALUE;
 #endif /* CONFIG_IPIPE_TRACE_VMALLOC */
+
+	/* Calculate minimum overhead of __ipipe_trace() */
+	local_irq_disable_hw();
+	for (i = 0; i < 100; i++) {
+		ipipe_read_tsc(start);
+		__ipipe_trace(IPIPE_TRACE_FUNC, __BUILTIN_RETURN_ADDRESS0,
+			      __BUILTIN_RETURN_ADDRESS1, 0);
+		ipipe_read_tsc(end);
+
+		end -= start;
+		if (end < min)
+			min = end;
+	}
+	local_irq_enable_hw();
+	trace_overhead = ipipe_tsc2ns(min);
 
 	trace_dir = create_proc_entry("trace", S_IFDIR, ipipe_proc_root);
 
