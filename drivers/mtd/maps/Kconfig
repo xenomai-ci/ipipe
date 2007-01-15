@@ -697,5 +697,11 @@ config MTD_PLATRAM
 
 	  This selection automatically selects the map_ram driver.
 
+config MTD_SC3
+	tristate "Flash device mapped on SC3 board."
+	depends on MTD_CFI && (SC3)
+	help
+	  This enables access routines for the flash chips on the SC3 board.
+
 endmenu
 

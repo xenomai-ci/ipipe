@@ -148,6 +148,12 @@ config MTD_NAND_ALPR
 	help
 	  This enables the NAND flash driver on the ALPR board from Prodrive.
 
+config MTD_NAND_SC3
+	tristate "NAND Flash support on SolidCard III."
+	depends on MTD_NAND && SC3
+	help
+	 This enables the NAND flash driver on the SolidCard III Board.
+
 config MTD_NAND_S3C2410_CLKSTOP
 	bool "S3C2410 NAND IDLE clock stop"
 	depends on MTD_NAND_S3C2410

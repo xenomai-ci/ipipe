@@ -47,6 +47,11 @@ config REDWOOD_6
 	help
 	  This option enables support for the IBM STBx25xx evaluation board.
 
+config SC3
+	bool "SolidCard3"
+	help
+	  This option enables support for the EuroDesign SolidCard3 405GPr evaluation board.
+
 config SYCAMORE
 	bool "Sycamore"
 	help
@@ -251,7 +256,7 @@ config IBM_EMAC4V4
 
 config BIOS_FIXUP
 	bool
-	depends on BUBINGA || EP405 || SYCAMORE || TAIHU || WALNUT || CPCI405
+	depends on BUBINGA || EP405 || SYCAMORE || TAIHU || WALNUT || CPCI405 || SC3
 	default y
 
 # OAK doesn't exist but wanted to keep this around for any future 403GCX boards
@@ -272,7 +277,7 @@ config 405GP
 
 config 405GPR
 	bool
-	depends on SYCAMORE
+	depends on SC3 || SYCAMORE
 	default y
 
 config XILINX_VIRTEX_II_PRO
