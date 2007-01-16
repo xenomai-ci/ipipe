@@ -32,6 +32,7 @@
 #include <linux/mtd/partitions.h>
 #include <linux/mtd/nand.h>
 #include <linux/mtd/ndfc.h>
+#include <linux/mtd/physmap.h>
 
 #include <asm/machdep.h>
 #include <asm/ocp.h>
@@ -67,6 +68,161 @@ unsigned char ppc4xx_uic_ext_irq_cfg[] __initdata = {
 	(IRQ_SENSE_LEVEL | IRQ_POLARITY_NEGATIVE), /* Index8 - IRQ2: PCI slots */
 	(IRQ_SENSE_LEVEL | IRQ_POLARITY_NEGATIVE), /* Index9 - IRQ3: STTM alert */
 };
+
+/*
+ * NOR FLASH configuration (using mtd physmap driver)
+ */
+
+/* start will be added dynamically, end is always fixed */
+static struct resource sequoia_nor_resource = {
+		.end   = 0xffffffff,
+		.flags = IORESOURCE_MEM,
+};
+
+#define RW_PART0_OF	0
+#define RW_PART0_SZ	0x180000
+#define RW_PART1_SZ	0x280000
+/* Partition 2 will be autosized dynamically... */
+#define RW_PART3_SZ	0x40000
+#define RW_PART4_SZ	0x80000
+
+static struct mtd_partition sequoia_nor_parts[] = {
+	{
+		.name = "kernel",
+		.offset = 0,
+		.size = RW_PART0_SZ
+	},
+	{
+		.name = "root",
+		.offset = MTDPART_OFS_APPEND,
+		.size = RW_PART1_SZ,
+	},
+	{
+		.name = "user",
+		.offset = MTDPART_OFS_APPEND,
+/*		.size = RW_PART2_SZ */ /* will be adjusted dynamically */
+	},
+	{
+		.name = "env",
+		.offset = MTDPART_OFS_APPEND,
+		.size = RW_PART3_SZ,
+	},
+	{
+		.name = "u-boot",
+		.offset = MTDPART_OFS_APPEND,
+		.size = RW_PART4_SZ,
+	}
+};
+
+static struct physmap_flash_data sequoia_nor_data = {
+	.width		= 2,
+	.parts		= sequoia_nor_parts,
+	.nr_parts	= ARRAY_SIZE(sequoia_nor_parts),
+};
+
+static struct platform_device sequoia_nor_device = {
+	.name		= "physmap-flash",
+	.id		= 0,
+	.dev = {
+			.platform_data = &sequoia_nor_data,
+		},
+	.num_resources	= 1,
+	.resource	= &sequoia_nor_resource,
+};
+
+/*
+ * NAND FLASH configuration (using 440EP(x) NDFC)
+ */
+static struct resource sequoia_ndfc = {
+	.start = (u32)SEQUOIA_NAND_FLASH_REG_ADDR,
+	.end = (u32)SEQUOIA_NAND_FLASH_REG_ADDR + SEQUOIA_NAND_FLASH_REG_SIZE,
+	.flags = IORESOURCE_MEM,
+};
+
+/* todo: add logic to detect booting from NAND (NAND on CS0) */
+#define CS_NAND_0	3	/* use chip select 3 for NAND device 0 */
+
+static struct mtd_partition sequoia_nand_parts[] = {
+        {
+                .name   = "content",
+                .offset = 0,
+                .size   = MTDPART_SIZ_FULL,
+        }
+};
+
+struct ndfc_controller_settings sequoia_ndfc_settings = {
+	.ccr_settings = (NDFC_CCR_BS(CS_NAND_0) |
+			 NDFC_CCR_ARAC1),
+	.ndfc_erpn = (SEQUOIA_NAND_FLASH_REG_ADDR) >> 32,
+};
+
+struct platform_nand_ctrl sequoia_nand_ctrl = {
+	.priv = &sequoia_ndfc_settings,
+};
+
+static struct platform_device sequoia_ndfc_device = {
+	.name = "ndfc-nand",
+	.id = 0,
+	.dev = {
+		.platform_data = &sequoia_nand_ctrl,
+	},
+	.num_resources = 1,
+	.resource = &sequoia_ndfc,
+};
+
+static struct ndfc_chip_settings sequoia_chip0_settings = {
+	.bank_settings = 0x80002222,
+};
+
+static struct nand_ecclayout nand_oob_16 = {
+	.eccbytes = 6,
+	.eccpos = {9, 10, 11, 13, 14, 15},
+	.oobfree = {
+		 {.offset = 8,
+		  . length = 8}}
+};
+
+static struct platform_nand_chip sequoia_nand_chip0 = {
+	.nr_chips = 1,
+	.chip_offset = CS_NAND_0,
+	.nr_partitions = ARRAY_SIZE(sequoia_nand_parts),
+	.partitions = sequoia_nand_parts,
+	.chip_delay = 50,
+	.ecclayout = &nand_oob_16,
+	.priv = &sequoia_chip0_settings,
+};
+
+static struct platform_device sequoia_nand_device = {
+	.name = "ndfc-chip",
+	.id = 0,
+	.num_resources = 1,
+	.resource = &sequoia_ndfc,
+	.dev = {
+		.platform_data = &sequoia_nand_chip0,
+		.parent = &sequoia_ndfc_device.dev,
+	}
+};
+
+static int sequoia_setup_flash(void)
+{
+	sequoia_nor_resource.start = __res.bi_flashstart;
+
+	/*
+	 * Adjust partition 2 to flash size
+	 */
+	sequoia_nor_parts[2].size = __res.bi_flashsize -
+		RW_PART0_SZ - RW_PART1_SZ - RW_PART3_SZ - RW_PART4_SZ;
+
+	platform_device_register(&sequoia_nor_device);
+
+	/* todo: add logic to detect booting from NAND (NAND on CS0) */
+
+	platform_device_register(&sequoia_ndfc_device);
+	platform_device_register(&sequoia_nand_device);
+
+	return 0;
+}
+arch_initcall(sequoia_setup_flash);
 
 /*
  * get size of system memory from Board Info .
@@ -334,90 +490,6 @@ static void __init sequoia_early_serial_map(void)
 	if (early_serial_setup(&port) != 0)
 		printk("Early serial init of port 3 failed\n");
 }
-
-/*
- * NAND FLASH configuration (for 440EP(x) NDFC)
- */
-static struct resource sequoia_ndfc = {
-	.start = (u32)SEQUOIA_NAND_FLASH_REG_ADDR,
-	.end = (u32)SEQUOIA_NAND_FLASH_REG_ADDR + SEQUOIA_NAND_FLASH_REG_SIZE,
-	.flags = IORESOURCE_MEM,
-};
-
-/* todo: add logic to detect booting from NAND (NAND on CS0) */
-#define CS_NAND_0	3	/* use chip select 3 for NAND device 0 */
-
-static struct mtd_partition nand_parts[] = {
-        {
-                .name   = "content",
-                .offset = 0,
-                .size   = MTDPART_SIZ_FULL,
-        }
-};
-
-struct ndfc_controller_settings sequoia_ndfc_settings = {
-	.ccr_settings = (NDFC_CCR_BS(CS_NAND_0) |
-			 NDFC_CCR_ARAC1),
-	.ndfc_erpn = (SEQUOIA_NAND_FLASH_REG_ADDR) >> 32,
-};
-
-struct platform_nand_ctrl sequoia_nand_ctrl = {
-	.priv = &sequoia_ndfc_settings,
-};
-
-static struct platform_device sequoia_ndfc_device = {
-	.name = "ndfc-nand",
-	.id = 0,
-	.dev = {
-		.platform_data = &sequoia_nand_ctrl,
-	},
-	.num_resources = 1,
-	.resource = &sequoia_ndfc,
-};
-
-static struct ndfc_chip_settings sequoia_chip0_settings = {
-	.bank_settings = 0x80002222,
-};
-
-static struct nand_ecclayout nand_oob_16 = {
-	.eccbytes = 6,
-	.eccpos = {9, 10, 11, 13, 14, 15},
-	.oobfree = {
-		 {.offset = 8,
-		  . length = 8}}
-};
-
-static struct platform_nand_chip sequoia_nand_chip0 = {
-	.nr_chips = 1,
-	.chip_offset = CS_NAND_0,
-	.nr_partitions = ARRAY_SIZE(nand_parts),
-	.partitions = nand_parts,
-	.chip_delay = 50,
-	.ecclayout = &nand_oob_16,
-	.priv = &sequoia_chip0_settings,
-};
-
-static struct platform_device sequoia_nand_device = {
-	.name = "ndfc-chip",
-	.id = 0,
-	.num_resources = 1,
-	.resource = &sequoia_ndfc,
-	.dev = {
-		.platform_data = &sequoia_nand_chip0,
-		.parent = &sequoia_ndfc_device.dev,
-	}
-};
-
-static int sequoia_setup_flash(void)
-{
-	/* todo: add logic to detect booting from NAND (NAND on CS0) */
-
-	platform_device_register(&sequoia_ndfc_device);
-	platform_device_register(&sequoia_nand_device);
-
-	return 0;
-}
-arch_initcall(sequoia_setup_flash);
 
 static void __init sequoia_setup_arch(void)
 {

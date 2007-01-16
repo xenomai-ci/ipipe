@@ -111,8 +111,8 @@
 #define PPC44x_PCIMEM_LO	0xa0000000UL
 #define PPC44x_PCIMEM_HI	0xdfffffffUL
 #elif defined(CONFIG_440EPX) || defined(CONFIG_440GRX)
-#define PPC44x_IO_LO		0xef500000UL
-#define PPC44x_IO_HI		0xefffffffUL
+#define PPC44x_IO_LO		0xe8000000UL
+#define PPC44x_IO_HI		0xffffffffUL
 #define PPC44x_PCI0CFG_LO	0xeec00000UL
 #define PPC44x_PCI0CFG_HI	0xeecfffffUL
 #define PPC44x_PCIMEM_LO	0x80000000UL

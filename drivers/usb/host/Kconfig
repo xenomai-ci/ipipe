@@ -67,6 +67,18 @@ config USB_EHCI_TT_NEWSCHED
 
 	  If unsure, say N.
 
+config USB_EHCI_BIG_ENDIAN_MMIO
+	bool
+	depends on USB_EHCI_HCD
+#	default n
+	default y
+
+config USB_EHCI_BIG_ENDIAN_DATA
+	bool
+	depends on USB_EHCI_HCD
+#	default n
+	default y
+
 config USB_ISP116X_HCD
 	tristate "ISP116X HCD support"
 	depends on USB

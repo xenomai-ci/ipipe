@@ -221,7 +221,7 @@ static struct platform_device ohci_usb_device = {
 };
 
 static struct platform_device usb_gadget_device = {
-	.name		= "musbhsfc",
+	.name		= "musbhsfc_udc",
 	.id		= 0,
 	.num_resources	= ARRAY_SIZE(usb_gadget_resources),
 	.resource       = usb_gadget_resources,
