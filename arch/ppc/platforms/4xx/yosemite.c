@@ -3,6 +3,8 @@
  *
  * Yosemite and Yellowstone board specific routines
  *
+ * Copyright 2006 DENX Software Engineering, Stefan Roese <sr@denx.de>
+ *
  * Wade Farnsworth <wfarnsworth@mvista.com>
  * Copyright 2004 MontaVista Software Inc.
  *
@@ -26,6 +28,11 @@
 #include <linux/tty.h>
 #include <linux/serial.h>
 #include <linux/serial_core.h>
+#include <linux/platform_device.h>
+#include <linux/mtd/partitions.h>
+#include <linux/mtd/nand.h>
+#include <linux/mtd/ndfc.h>
+#include <linux/mtd/physmap.h>
 
 #include <asm/machdep.h>
 #include <asm/ocp.h>
@@ -45,11 +52,9 @@
 #define BOARDNAME  "440EP Yosemite"
 #endif
 
-
 extern bd_t __res;
 
 static struct ibm44x_clocks clocks __initdata;
-
 
 /*
  * Yosemite external IRQ triggering/polarity settings
@@ -67,6 +72,82 @@ unsigned char ppc4xx_uic_ext_irq_cfg[] __initdata = {
 	(IRQ_SENSE_LEVEL | IRQ_POLARITY_NEGATIVE), /* IRQ9: GPIO48 */
 };
 
+/*
+ * NOR FLASH configuration (using mtd physmap driver)
+ */
+
+/* start will be added dynamically, end is always fixed */
+static struct resource yosemite_nor_resource = {
+		.end   = 0xffffffff,
+		.flags = IORESOURCE_MEM,
+};
+
+#define RW_PART0_OF	0
+#define RW_PART0_SZ	0x180000
+#define RW_PART1_SZ	0x280000
+/* Partition 2 will be autosized dynamically... */
+#define RW_PART3_SZ	0x40000
+#define RW_PART4_SZ	0x80000
+
+static struct mtd_partition yosemite_nor_parts[] = {
+	{
+		.name = "kernel",
+		.offset = 0,
+		.size = RW_PART0_SZ
+	},
+	{
+		.name = "root",
+		.offset = MTDPART_OFS_APPEND,
+		.size = RW_PART1_SZ,
+	},
+	{
+		.name = "user",
+		.offset = MTDPART_OFS_APPEND,
+/*		.size = RW_PART2_SZ */ /* will be adjusted dynamically */
+	},
+	{
+		.name = "env",
+		.offset = MTDPART_OFS_APPEND,
+		.size = RW_PART3_SZ,
+	},
+	{
+		.name = "u-boot",
+		.offset = MTDPART_OFS_APPEND,
+		.size = RW_PART4_SZ,
+	}
+};
+
+static struct physmap_flash_data yosemite_nor_data = {
+	.width		= 2,
+	.parts		= yosemite_nor_parts,
+	.nr_parts	= ARRAY_SIZE(yosemite_nor_parts),
+};
+
+static struct platform_device yosemite_nor_device = {
+	.name		= "physmap-flash",
+	.id		= 0,
+	.dev = {
+			.platform_data = &yosemite_nor_data,
+		},
+	.num_resources	= 1,
+	.resource	= &yosemite_nor_resource,
+};
+
+static int yosemite_setup_flash(void)
+{
+	yosemite_nor_resource.start = __res.bi_flashstart;
+
+	/*
+	 * Adjust partition 2 to flash size
+	 */
+	yosemite_nor_parts[2].size = __res.bi_flashsize -
+		RW_PART0_SZ - RW_PART1_SZ - RW_PART3_SZ - RW_PART4_SZ;
+
+	platform_device_register(&yosemite_nor_device);
+
+	return 0;
+}
+arch_initcall(yosemite_setup_flash);
 
 static void __init
 yosemite_calibrate_decr(void)
