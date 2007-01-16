@@ -581,7 +581,7 @@ static int read_fifo(struct musbhsfc_ep *ep, struct musbhsfc_request *req)
 		u8 byte = (u8) (usb_readb(ep->fifo) & 0xff);
 
 		if (unlikely(bufferspace == 0)) {
-			 /* this happens when the driver's buffer
+			/* this happens when the driver's buffer
 			 * is smaller than what the host sent.
 			 * discard the extra data.
 			 */
@@ -2169,7 +2169,7 @@ static int musbhsfc_udc_probe(struct platform_device *pdev)
 	int retval;
 	struct resource *res;
 
-	DEBUG("%s: %p\n", __FUNCTION__, _dev);
+	DEBUG("%s: %p\n", __FUNCTION__, pdev);
 
 	device_irq = platform_get_irq_byname(pdev, "usb_device_irq");
 	if (!device_irq) {

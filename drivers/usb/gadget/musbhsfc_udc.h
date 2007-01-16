@@ -172,16 +172,14 @@
 
 #define BULK_FIFO_SIZE	((unsigned)512)
 #ifdef CONFIG_440EP
+#define MAX_FIFO_SIZE	((unsigned)1024)
 #define ISO_FIFO_SIZE	((unsigned)1024)
+#define INT_FIFO_SIZE	((unsigned)64)
 #endif
 #ifdef CONFIG_440EPX
 /* biggest MAX Packet size */
 #define MAX_FIFO_SIZE	((unsigned)3072)
-#endif
-#ifdef CONFIG_440EP
-#define INT_FIFO_SIZE	((unsigned)64)
-#endif
-#ifdef CONFIG_440EPX
+#define ISO_FIFO_SIZE	((unsigned)3072)
 #define INT_FIFO_SIZE	((unsigned)1024)
 #endif
 
