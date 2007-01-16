@@ -111,12 +111,12 @@ config USB_OHCI_HCD
 
 config USB_OHCI_HCD_PPC_SOC
 	bool "OHCI support for on-chip PPC USB controller"
-	depends on USB_OHCI_HCD && (STB03xxx || PPC_MPC52xx || 440EP)
+	depends on USB_OHCI_HCD && (STB03xxx || PPC_MPC52xx || 440EP || 440EPX)
 	default y
 	select USB_OHCI_BIG_ENDIAN
 	---help---
 	  Enables support for the USB controller on the MPC52xx,
-	  STB03xxx, or 440EP processor chip.  If unsure, say Y.
+	  STB03xxx, 440EP or 440EPx processor chip.  If unsure, say Y.
 
 config USB_OHCI_HCD_PCI
 	bool "OHCI support for PCI-bus USB controllers"
@@ -135,7 +135,7 @@ config USB_OHCI_BIG_ENDIAN
 config USB_OHCI_LITTLE_ENDIAN
 	bool
 	depends on USB_OHCI_HCD
-	default n if STB03xxx || PPC_MPC52xx || 440EP
+	default n if STB03xxx || PPC_MPC52xx || 440EP || 440EPX
 	default y
 
 config USB_UHCI_HCD
@@ -165,7 +165,7 @@ config USB_U132_HCD
 	  adapter will *NOT* work with PC cards that do not contain an OHCI
 	  controller.
 
-	  For those PC cards that contain multiple OHCI controllers only ther
+	  For those PC cards that contain multiple OHCI controllers only the
 	  first one is used.
 
 	  The driver consists of two modules, the "ftdi-elan" module is a
