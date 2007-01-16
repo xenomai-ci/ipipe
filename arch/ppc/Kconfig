@@ -761,6 +761,11 @@ config EV64360
 	  Select EV64360 if configuring a Marvell EV64360BP Evaluation
 	  platform.
 
+config P3M750
+	bool "Prodrive P3M750"
+	help
+	  Select P3M750 if configuring a Prodrive P3M750 platform
+
 config TQM834x
 	bool "TQM834x"
 	help
@@ -867,12 +872,12 @@ config GT64260
 
 config MV64360		# Really MV64360 & MV64460
 	bool
-	depends on CHESTNUT || KATANA || RADSTONE_PPC7D || HDPU || EV64360
+	depends on CHESTNUT || KATANA || RADSTONE_PPC7D || HDPU || EV64360 || P3M750
 	default y
 
 config MV64X60
 	bool
-	depends on (GT64260 || MV64360)
+	depends on (GT64260 || MV64360 || P3M750)
 	select PPC_INDIRECT_PCI
 	default y
 

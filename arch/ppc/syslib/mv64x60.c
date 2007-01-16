@@ -878,6 +878,7 @@ mv64x60_get_type(struct mv64x60_handle *bh)
 		break;
 
 	case PCI_DEVICE_ID_MARVELL_MV64460:
+	case PCI_DEVICE_ID_MARVELL_MV64460B:
 		bh->type = MV64x60_TYPE_MV64460;
 		break;
 
