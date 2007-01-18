@@ -170,6 +170,11 @@ int __init zmii_attach(void *emac)
 	struct ocp_func_emac_data *emacdata = dev->def->additions;
 
 	if (emacdata->zmii_idx >= 0) {
+#if defined(CONFIG_IBM_EMAC_NR_START)
+		/* skip some emac's (for example on Taishan) */
+		if (dev->def->index < CONFIG_IBM_EMAC_NR_START)
+			return -ENODEV;
+#endif
 		dev->zmii_input = emacdata->zmii_mux;
 		dev->zmii_dev =
 		    ocp_find_device(OCP_VENDOR_IBM, OCP_FUNC_ZMII,

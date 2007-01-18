@@ -1280,6 +1280,19 @@ config IBM_EMAC_TAH
 	depends on IBM_EMAC && 440GX
 	default y
 
+config IBM_EMAC_NR_START
+	int "Start with EMACx (skip EMAC's in the enumberation)"
+	depends on IBM_EMAC
+	default "0"
+	help
+	  On some platforms, the first EMAC's are not used. This is
+	  often the case on 440GX platform, where EMAC0 & EMAC1 are
+	  not GBit capable. This option allows to skip some of the
+	  first EMAC's in the enumberation, so that for example
+	  "eth0" equals EMAC2 of the PPC.
+
+	  If unsure, set to 0.
+
 config NET_PCI
 	bool "EISA, VLB, PCI and on board controllers"
 	depends on NET_ETHERNET && (ISA || EISA || PCI)
