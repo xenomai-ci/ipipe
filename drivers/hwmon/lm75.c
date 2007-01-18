@@ -128,7 +128,9 @@ static const struct attribute_group lm75_group = {
 /* This function is called by i2c_probe */
 static int lm75_detect(struct i2c_adapter *adapter, int address, int kind)
 {
+#if !defined(CONFIG_SENSORS_FM75)
 	int i;
+#endif
 	struct i2c_client *new_client;
 	struct lm75_data *data;
 	int err = 0;
@@ -183,12 +185,14 @@ static int lm75_detect(struct i2c_adapter *adapter, int address, int kind)
 		if (conf & 0xe0)
 		 	goto exit_free;
 
+#if !defined(CONFIG_SENSORS_FM75)
 		/* Addresses cycling */
 		for (i = 8; i < 0xff; i += 8)
 			if (i2c_smbus_read_byte_data(new_client, i + 1) != conf
 			 || i2c_smbus_read_word_data(new_client, i + 2) != hyst
 			 || i2c_smbus_read_word_data(new_client, i + 3) != os)
 				goto exit_free;
+#endif
 	}
 
 	/* Determine the chip type - only one kind supported! */
@@ -210,7 +214,7 @@ static int lm75_detect(struct i2c_adapter *adapter, int address, int kind)
 
 	/* Initialize the LM75 chip */
 	lm75_init_client(new_client);
-	
+
 	/* Register sysfs hooks */
 	if ((err = sysfs_create_group(&new_client->dev.kobj, &lm75_group)))
 		goto exit_detach;
