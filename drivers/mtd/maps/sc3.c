@@ -32,19 +32,19 @@ static struct mtd_info *flash;
 static struct map_info sc3_map = {
 	.name =		"SC3-flash",
 	.size =		SC3_FLASH_SIZE,
-	.bankwidth =	1,
+	.bankwidth =	2,
 };
 
 static struct mtd_partition sc3_partitions[] = {
 	{
 		.name =   "env",
 		.offset = 0,
-		.size =   0x40000,
+		.size =   0x10000,
 	},
 	{
 		.name =   "data",
-		.offset = 0x40000,
-		.size =   0x180000,
+		.offset = 0x10000,
+		.size =   0x1B0000,
 	},
 	{
 		.name =   "u-boot",
@@ -52,6 +52,34 @@ static struct mtd_partition sc3_partitions[] = {
 		.size =   0x40000,
 	}
 };
+
+static map_word sc3_map_read(struct map_info *map, unsigned long ofs)
+{
+	unsigned long var;
+	map_word r;
+
+	var = __raw_readw(map->virt + ofs);
+	r.x[0] = ((var & 0xff) << 8) + ((var >> 8) & 0xff);
+	return r;
+}
+
+static void sc3_map_write(struct map_info *map, const map_word datum, unsigned long ofs)
+{
+	__raw_writew(((datum.x[0] & 0xff) << 8) + ((datum.x[0] >> 8) & 0xff), map->virt + ofs);
+}
+
+static void sc3_map_copy_from(struct map_info *map, void *to, unsigned long from, ssize_t len)
+{
+	if (map->cached)
+		memcpy(to, (char *)map->cached + from, len);
+	else
+		memcpy_fromio(to, map->virt + from, len);
+}
+
+static void sc3_map_copy_to(struct map_info *map, unsigned long to, const void *from, ssize_t len)
+{
+	memcpy_toio(map->virt + to, from, len);
+}
 
 int __init init_sc3(void)
 {
@@ -66,7 +94,10 @@ int __init init_sc3(void)
 		return -EIO;
 	}
 
-	simple_map_init(&sc3_map);
+	sc3_map.read = sc3_map_read;
+	sc3_map.write = sc3_map_write;
+	sc3_map.copy_from = sc3_map_copy_from;
+	sc3_map.copy_to = sc3_map_copy_to;
 
 	flash = do_map_probe("cfi_probe", &sc3_map);
 	if (flash) {

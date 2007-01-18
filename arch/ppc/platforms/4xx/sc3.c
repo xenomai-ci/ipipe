@@ -57,6 +57,9 @@ extern void early_uart_init(void);  /* from ocp_uart.c */
 
 #endif
 
+extern int ds1337_set_rtc_time(unsigned long nowtime);
+extern ulong ds1337_get_rtc_time(void);
+
 unsigned long isa_memory_access = 0UL;
 unsigned long isa_io_access = 0UL;
 static unsigned long SRAM_access = 0UL;
@@ -195,7 +198,7 @@ void __init sc3_setup_arch(void)
 
 	/* Set mac_addr for each EMAC */
 	def = ocp_get_one_device(OCP_VENDOR_IBM, OCP_FUNC_EMAC, 0);
-	emacdata = def->additions;
+	emacdata = (struct ocp_func_emac_data *)def->additions;
 	emacdata->phy_map = 0x00000001;	/* Skip 0x00 */
 	emacdata->phy_mode = PHY_MODE_RMII;
 	memcpy(emacdata->mac_addr, __res.bi_enetaddr, 6);
@@ -240,6 +243,20 @@ void __init board_init(void)
 #endif
 }
 
+/* -------------- RTC ------------------------ */
+ulong sc3_get_rtc_time(void)
+{
+	static	int	calls = 0;
+	int	result = ds1337_get_rtc_time();
+
+	if (result == -ENODEV) {
+		/* DS1337 not initialized, prevent realtime
+		   Clock is stuck warning */
+		return calls++;
+	}
+	return result;
+}
+
 void __init
 platform_init(unsigned long r3, unsigned long r4, unsigned long r5,
 	      unsigned long r6, unsigned long r7)
@@ -248,4 +265,6 @@ platform_init(unsigned long r3, unsigned long r4, unsigned long r5,
 
 	ppc_md.setup_arch = sc3_setup_arch;
 	ppc_md.setup_io_mappings = sc3_map_io;
+	ppc_md.set_rtc_time	= ds1337_set_rtc_time;
+	ppc_md.get_rtc_time	= sc3_get_rtc_time;
 }
