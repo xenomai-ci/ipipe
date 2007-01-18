@@ -128,6 +128,10 @@ void ppc4xx_init(unsigned long r3, unsigned long r4, unsigned long r5,
 #include <platforms/4xx/p3p440.h>
 #endif
 
+#if defined(CONFIG_TAISHAN)
+#include <platforms/4xx/taishan.h>
+#endif
+
 #if defined(CONFIG_YELLOWSTONE) || defined(CONFIG_YOSEMITE)
 #include <platforms/4xx/yosemite.h>
 #endif

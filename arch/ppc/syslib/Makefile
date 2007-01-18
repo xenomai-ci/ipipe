@@ -81,6 +81,7 @@ obj-$(CONFIG_SEQUOIA)		+= pci_auto.o
 obj-$(CONFIG_SPRUCE)		+= cpc700_pic.o pci_auto.o \
 				   todc_time.o
 obj-$(CONFIG_SYCAMORE)		+= todc_time.o
+obj-$(CONFIG_TAISHAN)		+= pci_auto.o
 obj-$(CONFIG_WALNUT)		+= todc_time.o
 obj-$(CONFIG_YELLOWSTONE)	+= pci_auto.o
 obj-$(CONFIG_YOSEMITE)		+= pci_auto.o

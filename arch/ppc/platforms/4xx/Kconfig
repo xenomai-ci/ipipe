@@ -126,6 +126,12 @@ config P3P440
 	help
 	  This option enables support for the Prodrive P3P440 board.
 
+config TAISHAN
+	bool "Taishan"
+	select WANT_EARLY_SERIAL
+	help
+	  This option enables support for the AMCC PPC440GX evaluation board.
+
 config YELLOWSTONE
        bool "Yellowstone"
        select WANT_EARLY_SERIAL
@@ -194,7 +200,7 @@ config 440GRX
 
 config 440GX
 	bool
-	depends on ALPR || OCOTEA
+	depends on ALPR || OCOTEA || TAISHAN
 	default y
 
 config 440SP
@@ -241,7 +247,7 @@ config BOOKE
 
 config IBM_OCP
 	bool
-	depends on ALPR || ASH || BAMBOO || BUBINGA || CPCI405 || EBONY || EP405 || LUAN || OCOTEA || P3P440 || PPChameleonEVB || RAINIER || REDWOOD_5 || REDWOOD_6 || SEQUOIA || SYCAMORE || TAIHU || WALNUT || YELLOWSTONE || YOSEMITE || YUCCA
+	depends on ALPR || ASH || BAMBOO || BUBINGA || CPCI405 || EBONY || EP405 || LUAN || OCOTEA || P3P440 || PPChameleonEVB || RAINIER || REDWOOD_5 || REDWOOD_6 || SEQUOIA || SYCAMORE || TAIHU || TAISHAN || WALNUT || YELLOWSTONE || YOSEMITE || YUCCA
 	default y
 
 config IBM_EMAC4

@@ -18,6 +18,7 @@ obj-$(CONFIG_SC3)		+= sc3.o
 obj-$(CONFIG_SEQUOIA)		+= sequoia.o
 obj-$(CONFIG_SYCAMORE)		+= sycamore.o
 obj-$(CONFIG_TAIHU)		+= taihu.o
+obj-$(CONFIG_TAISHAN)		+= taishan.o
 obj-$(CONFIG_WALNUT)		+= walnut.o
 obj-$(CONFIG_XILINX_ML300)	+= xilinx_ml300.o
 obj-$(CONFIG_XILINX_ML403)	+= xilinx_ml403.o
