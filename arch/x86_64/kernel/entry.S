@@ -561,8 +561,9 @@ END(stub_rt_sigreturn)
 #ifdef CONFIG_IPIPE
 	/* %rdi=negated irq number */
 ENTRY(__ipipe_root_xirq_trampoline)
-	pushf
-	pushq %cs
+	pushfq
+	mov %cs, %rax
+	pushq %rax
 	pushq $1f
 	INTR_FRAME
 	pushq %rdi
@@ -576,8 +577,9 @@ END(__ipipe_root_xirq_trampoline)
 	
 	/* %rdi=virq number, %rsi=cookie, %rdx=handler */
 ENTRY(__ipipe_root_virq_trampoline)
-	pushf
-	pushq %cs
+	pushfq
+	mov %cs, %rax
+	pushq %rax
 	pushq $1f
 	INTR_FRAME
 	pushq $-1
