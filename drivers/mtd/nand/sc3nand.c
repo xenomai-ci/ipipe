@@ -68,7 +68,7 @@ static const char *part_probes[] = { "cmdlinepart", NULL };
 /*
  * Define partitions for flash device
  */
-#define NUM_PARTITIONS 2
+#define NUM_PARTITIONS 3
 
 const static struct mtd_partition partition_info[NUM_PARTITIONS] =
 {
@@ -79,7 +79,11 @@ const static struct mtd_partition partition_info[NUM_PARTITIONS] =
 	}, {
 		.name	= "SC3 data partition",
 		.offset	= 2*1024*1024,
-		.size	= 14*1024*1024,
+		.size	= 10*1024*1024,
+	}, {
+		.name	= "SC3 jffs2 partition",
+		.offset	= 12*1024*1024,
+		.size	= 4*1024*1024,
 	}
 };
 #endif
@@ -274,7 +278,7 @@ static int __init sc3_nand_init(void)
 	int	rc = -ENOMEM;
 	const char *part_type = 0;
 	int mtd_parts_nb = 0;
-	struct mtd_partition *mtd_parts = 0;
+	struct mtd_partition *mtd_parts = NULL;
 
 /*
  * Where is the flash memory mapped physically?
@@ -387,7 +391,7 @@ static int __init sc3_nand_init(void)
 #endif
 	if (mtd_parts_nb == 0) {
 		if (sc3_mtd->size >= (16 * 0x100000))
-			mtd_parts = partition_info;
+			mtd_parts = (struct mtd_partition *)partition_info;
 		mtd_parts_nb = NUM_PARTITIONS;
 		part_type = "static";
 	}
