@@ -133,16 +133,16 @@ config TAISHAN
 	  This option enables support for the AMCC PPC440GX evaluation board.
 
 config YELLOWSTONE
-       bool "Yellowstone"
-       select WANT_EARLY_SERIAL
-       help
-         This option enables support for the AMCC PPC440GR evaluation board.
+	bool "Yellowstone"
+	select WANT_EARLY_SERIAL
+	help
+	  This option enables support for the AMCC PPC440GR evaluation board.
 
 config YOSEMITE
-       bool "Yosemite"
-       select WANT_EARLY_SERIAL
-       help
-         This option enables support for the AMCC PPC440EP evaluation board.
+	bool "Yosemite"
+	select WANT_EARLY_SERIAL
+	help
+	  This option enables support for the AMCC PPC440EP evaluation board.
 
 config SEQUOIA
 	bool "Sequoia"
@@ -247,7 +247,7 @@ config BOOKE
 
 config IBM_OCP
 	bool
-	depends on ALPR || ASH || BAMBOO || BUBINGA || CPCI405 || EBONY || EP405 || LUAN || OCOTEA || P3P440 || PPChameleonEVB || RAINIER || REDWOOD_5 || REDWOOD_6 || SEQUOIA || SYCAMORE || TAIHU || TAISHAN || WALNUT || YELLOWSTONE || YOSEMITE || YUCCA
+	depends on ALPR || ASH || BAMBOO || BUBINGA || CPCI405 || EBONY || EP405 || LUAN || OCOTEA || P3P440 || PPChameleonEVB || RAINIER || REDWOOD_5 || REDWOOD_6 || SC3 || SEQUOIA || SYCAMORE || TAIHU || TAISHAN || WALNUT || YELLOWSTONE || YOSEMITE || YUCCA
 	default y
 
 config IBM_EMAC4
@@ -262,7 +262,7 @@ config IBM_EMAC4V4
 
 config BIOS_FIXUP
 	bool
-	depends on BUBINGA || EP405 || SYCAMORE || TAIHU || WALNUT || CPCI405 || SC3
+	depends on BUBINGA || CPCI405 || EP405 || SC3 || SYCAMORE || TAIHU || WALNUT
 	default y
 
 # OAK doesn't exist but wanted to keep this around for any future 403GCX boards
