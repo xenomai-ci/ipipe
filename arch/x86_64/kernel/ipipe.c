@@ -776,7 +776,7 @@ int __ipipe_handle_irq(struct pt_regs *regs)
 	ipipe_declare_cpuid;
 	int m_ack;
 
-	if (regs->orig_rax < 0) {
+	if ((long)regs->orig_rax < 0) {
 		irq = ~irq;
 		m_ack = 0;
 	} else
@@ -881,7 +881,7 @@ finalize_nosync:
 	 * preemptible kernels along the way out through
 	 * ret_from_intr.
 	 */
-	if (regs->orig_rax < 0)
+	if ((long)regs->orig_rax < 0)
 		__set_bit(IPIPE_STALL_FLAG, &ipipe_root_domain->cpudata[cpuid].status);
 #endif	/* CONFIG_SMP */
 
