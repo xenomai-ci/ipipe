@@ -563,7 +563,7 @@ END(stub_rt_sigreturn)
 ENTRY(__ipipe_root_xirq_trampoline)
 	movq %rsp, %rax
 	pushq $0
-	pushq $rax
+	pushq %rax
 	pushfq
 	pushq $__KERNEL_CS
 	pushq $1f
@@ -581,7 +581,7 @@ END(__ipipe_root_xirq_trampoline)
 ENTRY(__ipipe_root_virq_trampoline)
 	movq %rsp, %rax
 	pushq $0
-	pushq $rax
+	pushq %rax
 	pushfq
 	pushq $__KERNEL_CS
 	pushq $1f
