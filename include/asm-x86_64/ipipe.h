@@ -31,13 +31,9 @@
 #define IPIPE_MINOR_NUMBER	0
 #define IPIPE_PATCH_NUMBER	0
 
+#define IPIPE_NR_XIRQS	NR_IRQS
+
 #ifdef CONFIG_X86_LOCAL_APIC
-/* We want to cover the whole IRQ space when the APIC is enabled. */
-#ifdef CONFIG_PCI_MSI
-#define IPIPE_NR_XIRQS NR_IRQS
-#else	/* CONFIG_PCI_MSI */
-#define IPIPE_NR_XIRQS   224
-#endif	/* CONFIG_PCI_MSI */
 /* If the APIC is enabled, then we expose four service vectors in the
    APIC space which are freely available to domains. */
 #define IPIPE_SERVICE_VECTOR0	(INVALIDATE_TLB_VECTOR_END + 1)
@@ -48,8 +44,6 @@
 #define IPIPE_SERVICE_IPI2	(IPIPE_SERVICE_VECTOR2 - FIRST_EXTERNAL_VECTOR)
 #define IPIPE_SERVICE_VECTOR3	(INVALIDATE_TLB_VECTOR_END + 4)
 #define IPIPE_SERVICE_IPI3	(IPIPE_SERVICE_VECTOR3 - FIRST_EXTERNAL_VECTOR)
-#else	/* !CONFIG_X86_LOCAL_APIC */
-#define IPIPE_NR_XIRQS		NR_IRQS
 #endif	/* CONFIG_X86_LOCAL_APIC */
 
 #define IPIPE_IRQ_ISHIFT  	5	/* 2^5 for 32bits arch. */
