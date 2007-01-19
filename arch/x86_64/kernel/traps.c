@@ -73,9 +73,6 @@ asmlinkage void spurious_interrupt_bug(void);
 ATOMIC_NOTIFIER_HEAD(die_chain);
 EXPORT_SYMBOL(die_chain);
 
-int (*nmi_watchdog_tick) (struct pt_regs * regs, unsigned reason);
-EXPORT_SYMBOL(nmi_watchdog_tick);
-
 int register_die_notifier(struct notifier_block *nb)
 {
 	vmalloc_sync_all();

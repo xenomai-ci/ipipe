@@ -33,6 +33,9 @@ int nmi_watchdog_enabled;
 int panic_on_unrecovered_nmi;
 static int default_nmi_watchdog_tick(struct pt_regs * regs, unsigned reason);
 
+int (*nmi_watchdog_tick) (struct pt_regs * regs, unsigned reason) = &default_nmi_watchdog_tick;
+EXPORT_SYMBOL(nmi_watchdog_tick);
+
 /* perfctr_nmi_owner tracks the ownership of the perfctr registers:
  * evtsel_nmi_owner tracks the ownership of the event selection
  * - different performance counters/ event selection may be reserved for
@@ -298,8 +301,6 @@ int __init setup_nmi_watchdog(char *str)
 
 	if ((nmi >= NMI_INVALID) || (nmi < NMI_NONE))
 		return 0;
-
-        nmi_watchdog_tick = &default_nmi_watchdog_tick;
 
 	if ((nmi == NMI_LOCAL_APIC) && (nmi_known_cpu() == 0))
 		return 0;  /* no lapic support */
