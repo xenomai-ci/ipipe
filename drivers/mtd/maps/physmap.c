@@ -116,14 +116,7 @@ static int physmap_flash_probe(struct platform_device *dev)
 	info->map.bankwidth = physmap_data->width;
 	info->map.set_vpp = physmap_data->set_vpp;
 
-#ifdef CONFIG_44x
-	if (sizeof(dev->resource->start) == 4)
-		info->map.virt = ioremap(info->map.phys, info->map.size);
-	else
-		info->map.virt = ioremap64(dev->resource->start, info->map.size);
-#else
 	info->map.virt = ioremap(info->map.phys, info->map.size);
-#endif
 	if (info->map.virt == NULL) {
 		dev_err(&dev->dev, "Failed to ioremap flash region\n");
 		err = EIO;
