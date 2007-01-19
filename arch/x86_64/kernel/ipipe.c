@@ -771,16 +771,18 @@ fastcall int __ipipe_divert_exception(struct pt_regs *regs, int vector)
 int __ipipe_handle_irq(struct pt_regs *regs)
 {
 	struct ipipe_domain *this_domain, *next_domain;
-	unsigned irq = regs->orig_rax;
+	unsigned vector = ~regs->orig_rax, irq;
 	struct list_head *head, *pos;
 	ipipe_declare_cpuid;
 	int m_ack;
 
 	if ((long)regs->orig_rax < 0) {
-		irq = ~irq;
+		irq = __get_cpu_var(vector_irq)[vector];
 		m_ack = 0;
-	} else
+	} else { /* This is a self-triggered one. */
+		irq = vector;
 		m_ack = 1;
+	}
 
 	ipipe_load_cpuid();
 
