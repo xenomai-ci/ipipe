@@ -292,6 +292,8 @@ config SCHED_MC
 
 source "kernel/Kconfig.preempt"
 
+source "kernel/ipipe/Kconfig"
+
 config NUMA
        bool "Non Uniform Memory Access (NUMA) Support"
        depends on SMP

@@ -50,8 +50,21 @@
 #include <asm/hw_irq.h>
 #include <asm/page.h>
 #include <asm/irqflags.h>
+#include <asm/ipipe.h>
 
 	.code64
+
+#ifdef CONFIG_IPIPE
+#define DISABLE_INTERRUPTS		call __ipipe_stall_root_thunk	;  sti
+#define ENABLE_INTERRUPTS		call __ipipe_unstall_root_thunk
+#define ENABLE_INTERRUPTS_HW_COND	sti
+#define TEST_PREEMPTIBLE(regs)		call __ipipe_kpreempt_root ; bt $1,%rax
+#else /* !CONFIG_IPIPE */
+#define DISABLE_INTERRUPTS		cli
+#define ENABLE_INTERRUPTS		sti
+#define ENABLE_INTERRUPTS_HW_COND
+#define TEST_PREEMPTIBLE(regs)		bt   $9,EFLAGS-ARGOFFSET(regs)
+#endif /* !CONFIG_IPIPE */
 
 #ifndef CONFIG_PREEMPT
 #define retint_kernel retint_restore_args
@@ -159,6 +172,7 @@ ENTRY(ret_from_fork)
 	CFI_ADJUST_CFA_OFFSET 4
 	popf				# reset kernel eflags
 	CFI_ADJUST_CFA_OFFSET -4
+	ENABLE_INTERRUPTS_HW_COND
 	call schedule_tail
 	GET_THREAD_INFO(%rcx)
 	testl $(_TIF_SYSCALL_TRACE|_TIF_SYSCALL_AUDIT),threadinfo_flags(%rcx)
@@ -247,7 +261,7 @@ ret_from_sys_call:
 	/* edi:	flagmask */
 sysret_check:		
 	GET_THREAD_INFO(%rcx)
-	cli
+	DISABLE_INTERRUPTS
 	TRACE_IRQS_OFF
 	movl threadinfo_flags(%rcx),%edx
 	andl %edi,%edx
@@ -272,7 +286,7 @@ sysret_careful:
 	bt $TIF_NEED_RESCHED,%edx
 	jnc sysret_signal
 	TRACE_IRQS_ON
-	sti
+	ENABLE_INTERRUPTS
 	pushq %rdi
 	CFI_ADJUST_CFA_OFFSET 8
 	call schedule
@@ -283,7 +297,7 @@ sysret_careful:
 	/* Handle a signal */ 
 sysret_signal:
 	TRACE_IRQS_ON
-	sti
+	ENABLE_INTERRUPTS
 	testl $(_TIF_SIGPENDING|_TIF_NOTIFY_RESUME|_TIF_SINGLESTEP),%edx
 	jz    1f
 
@@ -296,7 +310,7 @@ sysret_signal:
 1:	movl $_TIF_NEED_RESCHED,%edi
 	/* Use IRET because user could have changed frame. This
 	   works because ptregscall_common has called FIXUP_TOP_OF_STACK. */
-	cli
+	DISABLE_INTERRUPTS
 	TRACE_IRQS_OFF
 	jmp int_with_check
 	
@@ -348,7 +362,7 @@ ENTRY(int_ret_from_sys_call)
 	CFI_REL_OFFSET	r9,R9-ARGOFFSET
 	CFI_REL_OFFSET	r10,R10-ARGOFFSET
 	CFI_REL_OFFSET	r11,R11-ARGOFFSET
-	cli
+	DISABLE_INTERRUPTS
 	TRACE_IRQS_OFF
 	testl $3,CS-ARGOFFSET(%rsp)
 	je retint_restore_args
@@ -369,20 +383,20 @@ int_careful:
 	bt $TIF_NEED_RESCHED,%edx
 	jnc  int_very_careful
 	TRACE_IRQS_ON
-	sti
+	ENABLE_INTERRUPTS
 	pushq %rdi
 	CFI_ADJUST_CFA_OFFSET 8
 	call schedule
 	popq %rdi
 	CFI_ADJUST_CFA_OFFSET -8
-	cli
+	DISABLE_INTERRUPTS
 	TRACE_IRQS_OFF
 	jmp int_with_check
 
 	/* handle signals and tracing -- both require a full stack frame */
 int_very_careful:
 	TRACE_IRQS_ON
-	sti
+	ENABLE_INTERRUPTS
 	SAVE_REST
 	/* Check for syscall exit trace */	
 	testl $(_TIF_SYSCALL_TRACE|_TIF_SYSCALL_AUDIT|_TIF_SINGLESTEP),%edx
@@ -394,7 +408,7 @@ int_very_careful:
 	popq %rdi
 	CFI_ADJUST_CFA_OFFSET -8
 	andl $~(_TIF_SYSCALL_TRACE|_TIF_SYSCALL_AUDIT|_TIF_SINGLESTEP),%edi
-	cli
+	DISABLE_INTERRUPTS
 	TRACE_IRQS_OFF
 	jmp int_restore_rest
 	
@@ -407,7 +421,7 @@ int_signal:
 1:	movl $_TIF_NEED_RESCHED,%edi	
 int_restore_rest:
 	RESTORE_REST
-	cli
+	DISABLE_INTERRUPTS
 	TRACE_IRQS_OFF
 	jmp int_with_check
 	CFI_ENDPROC
@@ -544,12 +558,67 @@ END(stub_rt_sigreturn)
 	call \func
 	.endm
 
+#ifdef CONFIG_IPIPE
+	/* %rdi=negated irq number */
+ENTRY(__ipipe_root_xirq_trampoline)
+	pushf
+	pushq %cs
+	pushq $1f
+	INTR_FRAME
+	pushq %rdi
+	CFI_ADJUST_CFA_OFFSET 8
+	interrupt do_IRQ
+	jmp ret_from_intr
+1:	
+	ret
+	CFI_ENDPROC
+END(__ipipe_root_xirq_trampoline)
+	
+	/* %rdi=virq number, %rsi=cookie, %rdx=handler */
+ENTRY(__ipipe_root_virq_trampoline)
+	pushf
+	pushq %cs
+	pushq $1f
+	INTR_FRAME
+	pushq $-1
+	CFI_ADJUST_CFA_OFFSET 8
+	
+	SAVE_ARGS
+	/* We are running over the phony interrupt frame we have just
+	   built, so we don't have to swapgs here. */
+	pushq %rbp
+	CFI_ADJUST_CFA_OFFSET	8
+	CFI_REL_OFFSET		rbp, 0
+	movq %rsp,%rbp
+	CFI_DEF_CFA_REGISTER	rbp
+	incl	%gs:pda_irqcount
+	cmoveq %gs:pda_irqstackptr,%rsp
+	push   %rbp			# backlink for old unwinder
+	call *%rdx
+	jmp ret_from_intr
+1:	
+	ret
+	CFI_ENDPROC
+END(__ipipe_root_virq_trampoline)
+	
+ENTRY(common_interrupt)
+	XCPT_FRAME
+	interrupt __ipipe_handle_irq
+	testq %rax, %rax
+	jnz ret_from_intr
+	decl %gs:pda_irqcount
+	leaveq
+	CFI_DEF_CFA_REGISTER	rsp
+	CFI_ADJUST_CFA_OFFSET	-8
+	jmp retint_restore_args
+#else /* !CONFIG_IPIPE */
 ENTRY(common_interrupt)
 	XCPT_FRAME
 	interrupt do_IRQ
+#endif /* !CONFIG_IPIPE */	
 	/* 0(%rsp): oldrsp-ARGOFFSET */
 ret_from_intr:
-	cli	
+	DISABLE_INTERRUPTS	
 	TRACE_IRQS_OFF
 	decl %gs:pda_irqcount
 	leaveq
@@ -576,17 +645,23 @@ retint_swapgs:
 	/*
 	 * The iretq could re-enable interrupts:
 	 */
-	cli
+#ifdef CONFIG_IPIPE
+	call __ipipe_unstall_iret_root
+#else /* !CONFIG_IPIPE */
 	TRACE_IRQS_IRETQ
+#endif /* CONFIG_IPIPE */
 	swapgs 
 	jmp restore_args
 
 retint_restore_args:				
-	cli
+#ifdef CONFIG_IPIPE
+	call __ipipe_unstall_iret_root
+#else /* !CONFIG_IPIPE */
+	TRACE_IRQS_IRETQ
+#endif /* CONFIG_IPIPE */
 	/*
 	 * The iretq could re-enable interrupts:
 	 */
-	TRACE_IRQS_IRETQ
 restore_args:
 	RESTORE_ARGS 0,8,0						
 iret_label:	
@@ -601,7 +676,7 @@ iret_label:
 bad_iret:
 	movq $11,%rdi	/* SIGSEGV */
 	TRACE_IRQS_ON
-	sti
+	ENABLE_INTERRUPTS
 	jmp do_exit			
 	.previous	
 	
@@ -611,14 +686,14 @@ retint_careful:
 	bt    $TIF_NEED_RESCHED,%edx
 	jnc   retint_signal
 	TRACE_IRQS_ON
-	sti
+	ENABLE_INTERRUPTS
 	pushq %rdi
 	CFI_ADJUST_CFA_OFFSET	8
 	call  schedule
 	popq %rdi		
 	CFI_ADJUST_CFA_OFFSET	-8
 	GET_THREAD_INFO(%rcx)
-	cli
+	DISABLE_INTERRUPTS
 	TRACE_IRQS_OFF
 	jmp retint_check
 	
@@ -626,14 +701,14 @@ retint_signal:
 	testl $(_TIF_SIGPENDING|_TIF_NOTIFY_RESUME|_TIF_SINGLESTEP),%edx
 	jz    retint_swapgs
 	TRACE_IRQS_ON
-	sti
+	ENABLE_INTERRUPTS
 	SAVE_REST
 	movq $-1,ORIG_RAX(%rsp) 			
 	xorl %esi,%esi		# oldset
 	movq %rsp,%rdi		# &pt_regs
 	call do_notify_resume
 	RESTORE_REST
-	cli
+	DISABLE_INTERRUPTS
 	TRACE_IRQS_OFF
 	movl $_TIF_NEED_RESCHED,%edi
 	GET_THREAD_INFO(%rcx)
@@ -647,7 +722,7 @@ ENTRY(retint_kernel)
 	jnz  retint_restore_args
 	bt  $TIF_NEED_RESCHED,threadinfo_flags(%rcx)
 	jnc  retint_restore_args
-	bt   $9,EFLAGS-ARGOFFSET(%rsp)	/* interrupts off? */
+	TEST_PREEMPTIBLE(%rsp)		/* interrupts off? */
 	jnc  retint_restore_args
 	call preempt_schedule_irq
 	jmp exit_intr
@@ -658,7 +733,19 @@ END(common_interrupt)
 	
 /*
  * APIC interrupts.
- */		
+ */
+#ifdef CONFIG_IPIPE
+	.macro apicinterrupt num,func
+	INTR_FRAME
+	pushq $~(\num)
+	CFI_ADJUST_CFA_OFFSET 8
+	interrupt __ipipe_handle_irq
+	testq %rax, %rax
+	jnz ret_from_intr
+	jmp retint_restore_args
+	CFI_ENDPROC
+	.endm
+#else /* !CONFIG_IPIPE */	
 	.macro apicinterrupt num,func
 	INTR_FRAME
 	pushq $~(\num)
@@ -667,6 +754,7 @@ END(common_interrupt)
 	jmp ret_from_intr
 	CFI_ENDPROC
 	.endm
+#endif /* !CONFIG_IPIPE */	
 
 ENTRY(thermal_interrupt)
 	apicinterrupt THERMAL_APIC_VECTOR,smp_thermal_interrupt
@@ -691,10 +779,12 @@ END(invalidate_interrupt\num)
 	INVALIDATE_ENTRY 1
 	INVALIDATE_ENTRY 2
 	INVALIDATE_ENTRY 3
+#ifndef CONFIG_IPIPE	
 	INVALIDATE_ENTRY 4
 	INVALIDATE_ENTRY 5
 	INVALIDATE_ENTRY 6
 	INVALIDATE_ENTRY 7
+#endif /* !CONFIG_IPIPE */	
 
 ENTRY(call_function_interrupt)
 	apicinterrupt CALL_FUNCTION_VECTOR,smp_call_function_interrupt
@@ -762,7 +852,7 @@ END(spurious_interrupt)
 	.if \ist
 	addq	$EXCEPTION_STKSZ, per_cpu__init_tss + TSS_ist + (\ist - 1) * 8(%rbp)
 	.endif
-	cli
+	DISABLE_INTERRUPTS
 	.if \irqtrace
 	TRACE_IRQS_OFF
 	.endif
@@ -809,11 +899,11 @@ paranoid_userspace\trace:
 	.if \trace
 	TRACE_IRQS_ON
 	.endif
-	sti
+	ENABLE_INTERRUPTS
 	xorl %esi,%esi 			/* arg2: oldset */
 	movq %rsp,%rdi 			/* arg1: &pt_regs */
 	call do_notify_resume
-	cli
+	DISABLE_INTERRUPTS
 	.if \trace
 	TRACE_IRQS_OFF
 	.endif
@@ -822,9 +912,9 @@ paranoid_schedule\trace:
 	.if \trace
 	TRACE_IRQS_ON
 	.endif
-	sti
+	ENABLE_INTERRUPTS
 	call schedule
-	cli
+	DISABLE_INTERRUPTS
 	.if \trace
 	TRACE_IRQS_OFF
 	.endif
@@ -881,12 +971,25 @@ error_sti:
 	movq %rsp,%rdi
 	movq ORIG_RAX(%rsp),%rsi	/* get error code */ 
 	movq $-1,ORIG_RAX(%rsp)
+#ifdef CONFIG_IPIPE_FIXME
+	movq %rax, %rdx /* FIXME: %rax should be the vector, not the handler */
 	call *%rax
+	testq %rax, %rax
+	jz error_exit
+	movl %ebx,%eax
+	RESTORE_REST
+	testl %eax,%eax
+	jne exit_noswap
+	jmp exit_swap
+	/* FIXME, swapgs and fast return */
+#else /* !CONFIG_IPIPE */
+	call *%rax
+#endif /* !CONFIG_IPIPE */
 	/* ebx:	no swapgs flag (1: don't need swapgs, 0: need it) */	 
 error_exit:		
 	movl %ebx,%eax		
 	RESTORE_REST
-	cli
+	DISABLE_INTERRUPTS
 	TRACE_IRQS_OFF
 	GET_THREAD_INFO(%rcx)	
 	testl %eax,%eax
@@ -899,7 +1002,9 @@ error_exit:
 	 * The iret might restore flags:
 	 */
 	TRACE_IRQS_IRETQ
-	swapgs 
+exit_swap:
+	swapgs
+exit_noswap:	
 	RESTORE_ARGS 0,8,0						
 	jmp iret_label
 	CFI_ENDPROC

@@ -51,6 +51,11 @@
 	thunk trace_hardirqs_off_thunk,trace_hardirqs_off
 #endif
 	
+#ifdef CONFIG_IPIPE
+	thunk __ipipe_stall_root_thunk,__ipipe_stall_root
+	thunk __ipipe_unstall_root_thunk,__ipipe_unstall_root
+#endif
+	
 	/* SAVE_ARGS below is used only for the .cfi directives it contains. */
 	CFI_STARTPROC
 	SAVE_ARGS

@@ -27,6 +27,7 @@
 #include <linux/percpu.h>
 #include <linux/mutex.h>
 #include <linux/linkage.h>
+#include <linux/irq.h>
 #include <asm/ipipe.h>
 
 #ifdef CONFIG_IPIPE

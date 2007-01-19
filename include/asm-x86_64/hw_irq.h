@@ -52,10 +52,17 @@
 #define THERMAL_APIC_VECTOR	0xfa
 #define THRESHOLD_APIC_VECTOR   0xf9
 /* f8 free */
+#ifdef CONFIG_IPIPE
 #define INVALIDATE_TLB_VECTOR_END	0xf7
 #define INVALIDATE_TLB_VECTOR_START	0xf0	/* f0-f7 used for TLB flush */
 
 #define NUM_INVALIDATE_TLB_VECTORS	8
+#else /* !CONFIG_IPIPE */
+#define INVALIDATE_TLB_VECTOR_END	0xf3
+#define INVALIDATE_TLB_VECTOR_START	0xf0	/* f0-f3 used for TLB flush */
+/* the rest is used for the I-pipe's service IPIs */
+#define NUM_INVALIDATE_TLB_VECTORS	4
+#endif /* !CONFIG_IPIPE */
 
 /*
  * Local APIC timer IRQ vector is on a different priority level,
@@ -77,7 +84,7 @@
 typedef int vector_irq_t[NR_VECTORS];
 DECLARE_PER_CPU(vector_irq_t, vector_irq);
 extern void __setup_vector_irq(int cpu);
-extern spinlock_t vector_lock;
+extern ipipe_spinlock_t vector_lock;
 
 /*
  * Various low-level irq details needed by irq.c, process.c,

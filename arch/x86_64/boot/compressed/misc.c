@@ -13,6 +13,12 @@
 #include <asm/io.h>
 #include <asm/page.h>
 
+#ifdef CONFIG_IPIPE_TRACE_MCOUNT
+void __attribute__ ((no_instrument_function)) mcount(void)
+{
+}
+#endif
+
 /*
  * gzip declarations
  */
@@ -105,7 +111,7 @@ static long free_mem_end_ptr;
 #define INPLACE_MOVE_ROUTINE  0x1000
 #define LOW_BUFFER_START      0x2000
 #define LOW_BUFFER_MAX       0x90000
-#define HEAP_SIZE             0x3000
+#define HEAP_SIZE            0x4000
 static unsigned int low_buffer_end, low_buffer_size;
 static int high_loaded =0;
 static uch *high_buffer_start /* = (uch *)(((ulg)&end) + HEAP_SIZE)*/;

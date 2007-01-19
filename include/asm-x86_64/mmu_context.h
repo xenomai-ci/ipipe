@@ -30,7 +30,7 @@ static inline void load_cr3(pgd_t *pgd)
 static inline void switch_mm(struct mm_struct *prev, struct mm_struct *next, 
 			     struct task_struct *tsk)
 {
-	unsigned cpu = smp_processor_id();
+	unsigned cpu = smp_processor_id_hw();
 	if (likely(prev != next)) {
 		/* stop flush ipis for the previous mm */
 		cpu_clear(cpu, prev->cpu_vm_mask);
@@ -66,8 +66,12 @@ static inline void switch_mm(struct mm_struct *prev, struct mm_struct *next,
 	asm volatile("movl %0,%%fs"::"r"(0));  \
 } while(0)
 
-#define activate_mm(prev, next) \
-	switch_mm((prev),(next),NULL)
-
+#define activate_mm(prev, next)		   \
+	do {					   \
+		unsigned long flags;		   \
+		local_irq_save_hw_cond(flags);	   \
+		switch_mm((prev),(next),NULL);	   \
+		local_irq_restore_hw_cond(flags);  \
+	} while(0)
 
 #endif

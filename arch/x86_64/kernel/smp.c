@@ -132,6 +132,9 @@ asmlinkage void smp_invalidate_interrupt(struct pt_regs *regs)
 	int cpu;
 	int sender;
 	union smp_flush_state *f;
+	unsigned long flags;
+
+ 	local_irq_save_hw_cond(flags);
 
 	cpu = smp_processor_id();
 	/*
@@ -164,6 +167,7 @@ asmlinkage void smp_invalidate_interrupt(struct pt_regs *regs)
 out:
 	ack_APIC_irq();
 	cpu_clear(cpu, f->flush_cpumask);
+ 	local_irq_restore_hw_cond(flags);
 }
 
 static void flush_tlb_others(cpumask_t cpumask, struct mm_struct *mm,
@@ -214,14 +218,17 @@ void flush_tlb_current_task(void)
 {
 	struct mm_struct *mm = current->mm;
 	cpumask_t cpu_mask;
+	unsigned long flags;
 
 	preempt_disable();
+	local_irq_save_hw_cond(flags);
 	cpu_mask = mm->cpu_vm_mask;
 	cpu_clear(smp_processor_id(), cpu_mask);
 
 	local_flush_tlb();
 	if (!cpus_empty(cpu_mask))
 		flush_tlb_others(cpu_mask, mm, FLUSH_ALL);
+	local_irq_restore_hw_cond(flags);
 	preempt_enable();
 }
 EXPORT_SYMBOL(flush_tlb_current_task);
@@ -250,9 +257,11 @@ EXPORT_SYMBOL(flush_tlb_mm);
 void flush_tlb_page(struct vm_area_struct * vma, unsigned long va)
 {
 	struct mm_struct *mm = vma->vm_mm;
+	unsigned long flags;
 	cpumask_t cpu_mask;
 
 	preempt_disable();
+	local_irq_save_hw_cond(flags);
 	cpu_mask = mm->cpu_vm_mask;
 	cpu_clear(smp_processor_id(), cpu_mask);
 
@@ -262,6 +271,8 @@ void flush_tlb_page(struct vm_area_struct * vma, unsigned long va)
 		 else
 		 	leave_mm(smp_processor_id());
 	}
+
+	local_irq_restore_hw_cond(flags);
 
 	if (!cpus_empty(cpu_mask))
 		flush_tlb_others(cpu_mask, mm, va);
@@ -454,9 +465,9 @@ void smp_stop_cpu(void)
 	 * Remove this CPU:
 	 */
 	cpu_clear(smp_processor_id(), cpu_online_map);
-	local_irq_save(flags);
+	local_irq_save_hw(flags);
 	disable_local_APIC();
-	local_irq_restore(flags);
+	local_irq_restore_hw(flags);
 }
 
 static void smp_really_stop_cpu(void *dummy)

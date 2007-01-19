@@ -349,6 +349,8 @@ asmlinkage void __kprobes do_page_fault(struct pt_regs *regs,
 	/* get the address */
 	__asm__("movq %%cr2,%0":"=r" (address));
 
+	local_irq_enable_hw_cond();
+
 	info.si_code = SEGV_MAPERR;
 
 

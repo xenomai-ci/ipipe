@@ -73,6 +73,9 @@ asmlinkage void spurious_interrupt_bug(void);
 ATOMIC_NOTIFIER_HEAD(die_chain);
 EXPORT_SYMBOL(die_chain);
 
+int (*nmi_watchdog_tick) (struct pt_regs * regs, unsigned reason);
+EXPORT_SYMBOL(nmi_watchdog_tick);
+
 int register_die_notifier(struct notifier_block *nb)
 {
 	vmalloc_sync_all();
@@ -251,7 +254,7 @@ static inline int valid_stack_ptr(struct thread_info *tinfo, void *p)
 void dump_trace(struct task_struct *tsk, struct pt_regs *regs, unsigned long * stack,
 		struct stacktrace_ops *ops, void *data)
 {
-	const unsigned cpu = smp_processor_id();
+	const unsigned cpu = smp_processor_id_hw();
 	unsigned long *irqstack_end = (unsigned long *)cpu_pda(cpu)->irqstackptr;
 	unsigned used = 0;
 	struct thread_info *tinfo;
@@ -426,7 +429,7 @@ _show_stack(struct task_struct *tsk, struct pt_regs *regs, unsigned long *rsp)
 {
 	unsigned long *stack;
 	int i;
-	const int cpu = smp_processor_id();
+	const int cpu = smp_processor_id_hw();
 	unsigned long *irqstack_end = (unsigned long *) (cpu_pda(cpu)->irqstackptr);
 	unsigned long *irqstack = (unsigned long *) (cpu_pda(cpu)->irqstackptr - IRQSTACKSIZE);
 
@@ -480,13 +483,18 @@ void show_registers(struct pt_regs *regs)
 	int i;
 	int in_kernel = !user_mode(regs);
 	unsigned long rsp;
-	const int cpu = smp_processor_id();
+	const int cpu = smp_processor_id_hw();
 	struct task_struct *cur = cpu_pda(cpu)->pcurrent;
 
 		rsp = regs->rsp;
 
 	printk("CPU %d ", cpu);
 	__show_regs(regs);
+#ifdef CONFIG_IPIPE
+	if (ipipe_current_domain != ipipe_root_domain)
+		printk("I-pipe domain %s",ipipe_current_domain->name);
+	else
+#endif /* CONFIG_IPIPE */
 	printk("Process %s (pid: %d, threadinfo %p, task %p)\n",
 		cur->comm, cur->pid, task_thread_info(cur), cur);
 
@@ -555,7 +563,7 @@ static unsigned int die_nest_count;
 
 unsigned __kprobes long oops_begin(void)
 {
-	int cpu = smp_processor_id();
+	int cpu = smp_processor_id_hw();
 	unsigned long flags;
 
 	oops_enter();
@@ -633,7 +641,7 @@ void __kprobes die_nmi(char *str, struct pt_regs *regs, int do_panic)
 	 * We are in trouble anyway, lets at least try
 	 * to get a message out.
 	 */
-	printk(str, smp_processor_id());
+	printk(str, smp_processor_id_hw());
 	show_registers(regs);
 	if (kexec_should_crash(current))
 		crash_kexec(regs);
@@ -644,6 +652,8 @@ void __kprobes die_nmi(char *str, struct pt_regs *regs, int do_panic)
 	local_irq_enable();
 	do_exit(SIGSEGV);
 }
+
+EXPORT_SYMBOL(die_nmi);
 
 static void __kprobes do_trap(int trapnr, int signr, char *str,
 			      struct pt_regs * regs, long error_code,
@@ -833,7 +843,7 @@ asmlinkage __kprobes void default_do_nmi(struct pt_regs *regs)
 	unsigned char reason = 0;
 	int cpu;
 
-	cpu = smp_processor_id();
+	cpu = smp_processor_id_hw();
 
 	/* Only the BSP gets external NMIs from the system.  */
 	if (!cpu)
@@ -1130,6 +1140,9 @@ asmlinkage void __attribute__((weak)) mce_threshold_interrupt(void)
 asmlinkage void math_state_restore(void)
 {
 	struct task_struct *me = current;
+	unsigned long flags;
+ 
+	local_irq_save_hw_cond(flags);
 	clts();			/* Allow maths ops (or we recurse) */
 
 	if (!used_math())
@@ -1137,6 +1150,7 @@ asmlinkage void math_state_restore(void)
 	restore_fpu_checking(&me->thread.i387.fxsave);
 	task_thread_info(me)->status |= TS_USEDFPU;
 	me->fpu_counter++;
+	local_irq_restore_hw_cond(flags);
 }
 
 void __init trap_init(void)
