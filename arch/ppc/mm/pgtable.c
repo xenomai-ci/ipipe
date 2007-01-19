@@ -164,7 +164,7 @@ ioremap(phys_addr_t addr, unsigned long size)
 	 * is specified and use the 64 bit address when the ERPN
 	 * is suppied.
 	 */
-	if ((unsigned long long)addr && 0xffffffff00000000ULL)
+	if ((unsigned long long)addr & 0xffffffff00000000ULL)
 		return ioremap64(addr, size);
 	else
 		return ioremap64(fixup_bigphys_addr(addr, size),
