@@ -2154,3 +2154,8 @@ void __init setup_ioapic_dest(void)
 	}
 }
 #endif
+
+unsigned __ipipe_get_irq_vector(int irq)
+{
+	return irq_vector[irq];
+}

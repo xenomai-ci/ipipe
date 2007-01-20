@@ -193,11 +193,13 @@ extern struct pt_regs __ipipe_tick_regs[];
 
 extern int __ipipe_tick_irq;
 
-asmlinkage void __ipipe_root_xirq_trampoline(unsigned irq);
+unsigned __ipipe_get_irq_vector(int irq);
 
-asmlinkage void __ipipe_root_virq_trampoline(void (*handler)(unsigned irq, void *cookie),
-					     unsigned irq,
-					     void *cookie);
+asmlinkage void __ipipe_root_xirq_thunk(unsigned irq);
+
+asmlinkage void __ipipe_root_virq_thunk(void (*handler)(unsigned irq, void *cookie),
+					unsigned irq,
+					void *cookie);
 
 static inline unsigned long __ipipe_ffnz(unsigned long ul)
 {
@@ -214,10 +216,10 @@ do { \
 	local_irq_enable_nohead(ipd);				 \
 	if (ipd == ipipe_root_domain) {				 \
 		if (likely(!ipipe_virtual_irq_p(irq))) {	 \
-			__ipipe_root_xirq_trampoline(irq);	 \
+			__ipipe_root_xirq_thunk(~__ipipe_get_irq_vector(irq)); \
 		} else {					 \
 			irq_enter();				 \
-			__ipipe_root_virq_trampoline(	\
+			__ipipe_root_virq_thunk(	\
 				(ipd)->irqs[irq].handler, irq, (ipd)->irqs[irq].cookie); \
 			irq_exit();				 \
 		}						\

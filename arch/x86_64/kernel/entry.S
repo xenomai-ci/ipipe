@@ -559,8 +559,9 @@ END(stub_rt_sigreturn)
 	.endm
 
 #ifdef CONFIG_IPIPE
-	/* %rdi=negated irq number */
-ENTRY(__ipipe_root_xirq_trampoline)
+
+	/* %rdi=negated _vector_ number */
+ENTRY(__ipipe_root_xirq_thunk)
 	movq %rsp, %rax
 	pushq $0
 	pushq %rax
@@ -569,16 +570,17 @@ ENTRY(__ipipe_root_xirq_trampoline)
 	pushq $1f
 	INTR_FRAME
 	pushq %rdi
-	CFI_ADJUST_CFA_OFFSET 8
-	interrupt do_IRQ
-	jmp ret_from_intr
-1:	
-	ret
+	SAVE_ARGS
+	leaq -ARGOFFSET(%rsp),%rdi      # arg1 for handler
+	call do_IRQ
+	jmp exit_intr
 	CFI_ENDPROC
-END(__ipipe_root_xirq_trampoline)
+1:
+        ret
+END(__ipipe_root_xirq_thunk)
 	
 	/* %rdi=virq number, %rsi=cookie, %rdx=handler */
-ENTRY(__ipipe_root_virq_trampoline)
+ENTRY(__ipipe_root_virq_thunk)
 	movq %rsp, %rax
 	pushq $0
 	pushq %rax
@@ -587,25 +589,13 @@ ENTRY(__ipipe_root_virq_trampoline)
 	pushq $1f
 	INTR_FRAME
 	pushq $-1
-	CFI_ADJUST_CFA_OFFSET 8
-	
 	SAVE_ARGS
-	/* We are running over the phony interrupt frame we have just
-	   built, so we don't have to swapgs here. */
-	pushq %rbp
-	CFI_ADJUST_CFA_OFFSET	8
-	CFI_REL_OFFSET		rbp, 0
-	movq %rsp,%rbp
-	CFI_DEF_CFA_REGISTER	rbp
-	incl	%gs:pda_irqcount
-	cmoveq %gs:pda_irqstackptr,%rsp
-	push   %rbp			# backlink for old unwinder
 	call *%rdx
-	jmp ret_from_intr
-1:	
-	ret
+	jmp exit_intr
 	CFI_ENDPROC
-END(__ipipe_root_virq_trampoline)
+1:
+        ret
+END(__ipipe_root_virq_thunk)
 	
 ENTRY(common_interrupt)
 	XCPT_FRAME

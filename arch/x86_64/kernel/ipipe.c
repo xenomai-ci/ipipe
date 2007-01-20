@@ -155,6 +155,7 @@ int ipipe_tune_timer (unsigned long ns, int flags)
 	return 0;
 }
 
+asmlinkage unsigned int do_IRQ(struct pt_regs *regs);
 fastcall void smp_apic_timer_interrupt(struct pt_regs *regs);
 fastcall void smp_spurious_interrupt(struct pt_regs *regs);
 fastcall void smp_error_interrupt(struct pt_regs *regs);
@@ -324,7 +325,7 @@ void __init __ipipe_enable_pipeline(void)
 		/* Fails for IPIPE_CRITICAL_IPI but that's ok. */
 		ipipe_virtualize_irq(ipipe_root_domain,
 				     irq,
-				     (ipipe_irq_handler_t)&__ipipe_root_xirq_trampoline,
+				     (ipipe_irq_handler_t)&do_IRQ, /* Via thunk. */
 				     NULL,
 				     &__ipipe_ack_irq,
 				     IPIPE_STDROOT_MASK);
