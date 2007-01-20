@@ -531,7 +531,7 @@ static inline void __fixup_if(struct pt_regs *regs)
     is stalled before the hw interrupts are re-enabled. This routine
     must be called with hw interrupts off. */
 
-asmlinkage int __ipipe_kpreempt_root(struct pt_regs regs)
+asmlinkage int __ipipe_kpreempt_root(void)
 {
 	ipipe_declare_cpuid;
 	unsigned long flags;
@@ -550,7 +550,7 @@ asmlinkage int __ipipe_kpreempt_root(struct pt_regs regs)
 	return 1;		/* Ok, may reschedule now. */
 }
 
-asmlinkage void __ipipe_unstall_iret_root(struct pt_regs regs)
+asmlinkage void __ipipe_unstall_iret_root(struct pt_regs *regs)
 {
 	ipipe_declare_cpuid;
 
@@ -564,11 +564,11 @@ asmlinkage void __ipipe_unstall_iret_root(struct pt_regs regs)
 	   entry. CAUTION: NMIs must *not* return through this
 	   emulation. */
 
-	if (!(regs.eflags & X86_EFLAGS_IF)) {
+	if (!(regs->eflags & X86_EFLAGS_IF)) {
 		if (!__test_and_set_bit(IPIPE_STALL_FLAG,
 					&ipipe_root_domain->cpudata[cpuid].status))
 			trace_hardirqs_off();
-		regs.eflags |= X86_EFLAGS_IF;
+		regs->eflags |= X86_EFLAGS_IF;
 	} else {
 		if (test_bit(IPIPE_STALL_FLAG,
 			     &ipipe_root_domain->cpudata[cpuid].status)) {
@@ -589,12 +589,12 @@ asmlinkage void __ipipe_unstall_iret_root(struct pt_regs regs)
 #endif /* CONFIG_IPIPE_TRACE_IRQSOFF */
 }
 
-asmlinkage int __ipipe_syscall_root(struct pt_regs regs)
+asmlinkage int __ipipe_syscall_root(struct pt_regs *regs)
 {
 	ipipe_declare_cpuid;
 	unsigned long flags;
 
-	__fixup_if(&regs);
+	__fixup_if(regs);
 
 	/* This routine either returns:
 	    0 -- if the syscall is to be passed to Linux;
@@ -603,9 +603,9 @@ asmlinkage int __ipipe_syscall_root(struct pt_regs regs)
 	   <0 -- if the syscall should not be passed to Linux but the
 	   tail work has to be performed (for handling signals etc). */
 
-	if (__ipipe_syscall_watched_p(current, regs.orig_rax) &&
+	if (__ipipe_syscall_watched_p(current, regs->orig_rax) &&
 	    __ipipe_event_monitored_p(IPIPE_EVENT_SYSCALL) &&
-	    __ipipe_dispatch_event(IPIPE_EVENT_SYSCALL,&regs) > 0) {
+	    __ipipe_dispatch_event(IPIPE_EVENT_SYSCALL,regs) > 0) {
 		/* We might enter here over a non-root domain and exit
 		 * over the root one as a result of the syscall
 		 * (i.e. by recycling the register set of the current
@@ -613,7 +613,7 @@ asmlinkage int __ipipe_syscall_root(struct pt_regs regs)
 		 * the interrupt flag upon return too, so that
 		 * __ipipe_unstall_iret_root() resets the correct
 		 * stall bit on exit. */
-		__fixup_if(&regs);
+		__fixup_if(regs);
 
 		if (ipipe_current_domain == ipipe_root_domain && !in_atomic()) {
 			/* Sync pending VIRQs before _TIF_NEED_RESCHED

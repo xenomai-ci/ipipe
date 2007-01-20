@@ -54,6 +54,8 @@
 #ifdef CONFIG_IPIPE
 	thunk __ipipe_stall_root_thunk,__ipipe_stall_root
 	thunk __ipipe_unstall_root_thunk,__ipipe_unstall_root
+	thunk __ipipe_unstall_iret_root_thunk,__ipipe_unstall_iret_root
+	thunk __ipipe_kpreempt_root_thunk,__ipipe_kpreempt_root
 #endif
 	
 	/* SAVE_ARGS below is used only for the .cfi directives it contains. */

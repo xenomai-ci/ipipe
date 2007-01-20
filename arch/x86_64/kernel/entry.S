@@ -58,12 +58,18 @@
 #define DISABLE_INTERRUPTS		call __ipipe_stall_root_thunk	;  sti
 #define ENABLE_INTERRUPTS		call __ipipe_unstall_root_thunk
 #define ENABLE_INTERRUPTS_HW_COND	sti
-#define TEST_PREEMPTIBLE(regs)		call __ipipe_kpreempt_root ; bt $1,%rax
+#define TEST_PREEMPTIBLE(regs)		leaq -ARGOFFSET(%rsp),%rdi; \
+					call __ipipe_kpreempt_root_thunk ; \
+					bt $1,%rax
+#define PREPARE_IRETQ			leaq -ARGOFFSET(%rsp),%rdi; \
+					call __ipipe_unstall_iret_root_thunk
 #else /* !CONFIG_IPIPE */
 #define DISABLE_INTERRUPTS		cli
 #define ENABLE_INTERRUPTS		sti
 #define ENABLE_INTERRUPTS_HW_COND
 #define TEST_PREEMPTIBLE(regs)		bt   $9,EFLAGS-ARGOFFSET(regs)
+#define PREPARE_IRETQ			TRACE_IRQS_IRETQ
+
 #endif /* !CONFIG_IPIPE */
 
 #ifndef CONFIG_PREEMPT
@@ -641,20 +647,12 @@ retint_swapgs:
 	/*
 	 * The iretq could re-enable interrupts:
 	 */
-#ifdef CONFIG_IPIPE
-	call __ipipe_unstall_iret_root
-#else /* !CONFIG_IPIPE */
-	TRACE_IRQS_IRETQ
-#endif /* CONFIG_IPIPE */
+	PREPARE_IRETQ
 	swapgs 
 	jmp restore_args
 
 retint_restore_args:				
-#ifdef CONFIG_IPIPE
-	call __ipipe_unstall_iret_root
-#else /* !CONFIG_IPIPE */
-	TRACE_IRQS_IRETQ
-#endif /* CONFIG_IPIPE */
+	PREPARE_IRETQ
 	/*
 	 * The iretq could re-enable interrupts:
 	 */
