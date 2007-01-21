@@ -50,7 +50,7 @@
 
 struct pt_regs __ipipe_tick_regs[IPIPE_NR_CPUS];
 
-int __ipipe_tick_irq;
+int __ipipe_tick_irq;		/* =0: PIT */
 
 #ifdef CONFIG_SMP
 
@@ -270,14 +270,6 @@ void __init __ipipe_enable_pipeline(void)
 			     NULL,
 			     &__ipipe_ack_apic,
 			     IPIPE_STDROOT_MASK);
-
-	__ipipe_tick_irq =
-	    using_apic_timer ? LOCAL_TIMER_VECTOR - FIRST_EXTERNAL_VECTOR : 0;
-
-#else	/* !CONFIG_X86_LOCAL_APIC */
-
-	__ipipe_tick_irq = 0;
-
 #endif	/* CONFIG_X86_LOCAL_APIC */
 
 #ifdef CONFIG_SMP
@@ -860,6 +852,7 @@ finalize:
 
 	if (irq == __ipipe_tick_irq) {
 		__ipipe_tick_regs[cpuid].eflags = regs->eflags;
+		__ipipe_tick_regs[cpuid].rsp = regs->rsp;
 		__ipipe_tick_regs[cpuid].rip = regs->rip;
 		__ipipe_tick_regs[cpuid].cs = regs->cs;
 	}

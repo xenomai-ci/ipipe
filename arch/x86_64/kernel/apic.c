@@ -772,6 +772,10 @@ void __init setup_boot_APIC_clock (void)
 	printk(KERN_INFO "Using local APIC timer interrupts.\n");
 	using_apic_timer = 1;
 
+#ifdef CONFIG_IPIPE
+	__ipipe_tick_irq = LOCAL_TIMER_VECTOR - FIRST_EXTERNAL_VECTOR;
+#endif
+
 	local_irq_disable_hw();
 
 	calibration_result = calibrate_APIC_clock();
