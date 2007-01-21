@@ -43,6 +43,7 @@
 #ifdef CONFIG_X86_IO_APIC
 #include <asm/io_apic.h>
 #endif	/* CONFIG_X86_IO_APIC */
+#include <asm/smp.h>
 #include <asm/ipi.h>
 #include <asm/mach_apic.h>
 #endif	/* CONFIG_X86_LOCAL_APIC */
