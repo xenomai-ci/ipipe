@@ -31,9 +31,12 @@
 #define IPIPE_MINOR_NUMBER	0
 #define IPIPE_PATCH_NUMBER	0
 
-#define IPIPE_NR_XIRQS	NR_IRQS
+/* Local APIC is always compiled in on x86_64.  Reserve 32 IRQs for
+   APIC interrupts, we don't want them to mess with the normally
+   assigned interrupts. */
+#define IPIPE_NR_XIRQS	        (NR_IRQS + 32)
+#define IPIPE_FIRST_APIC_IRQ   NR_IRQS
 
-#ifdef CONFIG_X86_LOCAL_APIC
 /* If the APIC is enabled, then we expose four service vectors in the
    APIC space which are freely available to domains. */
 #define IPIPE_SERVICE_VECTOR0	(INVALIDATE_TLB_VECTOR_END + 1)
@@ -44,7 +47,6 @@
 #define IPIPE_SERVICE_IPI2	(IPIPE_SERVICE_VECTOR2 - FIRST_EXTERNAL_VECTOR)
 #define IPIPE_SERVICE_VECTOR3	(INVALIDATE_TLB_VECTOR_END + 4)
 #define IPIPE_SERVICE_IPI3	(IPIPE_SERVICE_VECTOR3 - FIRST_EXTERNAL_VECTOR)
-#endif	/* CONFIG_X86_LOCAL_APIC */
 
 #define IPIPE_IRQ_ISHIFT  	5	/* 2^5 for 32bits arch. */
 #define NR_XIRQS		IPIPE_NR_XIRQS
@@ -188,6 +190,8 @@ void __ipipe_enable_pipeline(void);
 int __ipipe_handle_irq(struct pt_regs *regs);
 
 void __ipipe_do_critical_sync(unsigned irq, void *cookie);
+
+void __ipipe_serial_debug(const char *fmt, ...);
 
 extern struct pt_regs __ipipe_tick_regs[];
 

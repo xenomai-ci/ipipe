@@ -772,7 +772,7 @@ int __ipipe_handle_irq(struct pt_regs *regs)
 
 	if ((long)regs->orig_rax < 0) {
 		if (vector >= FIRST_SYSTEM_VECTOR)
-			irq = vector - FIRST_EXTERNAL_VECTOR;
+			irq = IPIPE_FIRST_APIC_IRQ + vector - FIRST_SYSTEM_VECTOR;
 		else
 			irq = __get_cpu_var(vector_irq)[vector];
 		m_ack = 0;
