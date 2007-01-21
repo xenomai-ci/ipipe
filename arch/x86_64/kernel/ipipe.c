@@ -779,7 +779,10 @@ int __ipipe_handle_irq(struct pt_regs *regs)
 	int m_ack;
 
 	if ((long)regs->orig_rax < 0) {
-		irq = __get_cpu_var(vector_irq)[vector];
+		if (vector >= FIRST_SYSTEM_VECTOR)
+			irq = vector - FIRST_EXTERNAL_VECTOR;
+		else
+			irq = __get_cpu_var(vector_irq)[vector];
 		m_ack = 0;
 	} else { /* This is a self-triggered one. */
 		irq = vector;
