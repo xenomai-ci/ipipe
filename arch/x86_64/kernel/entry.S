@@ -566,7 +566,7 @@ END(stub_rt_sigreturn)
 
 #ifdef CONFIG_IPIPE
 
-	/* %rdi=negated _vector_ number */
+	/* %rdi=negated _vector_ number, %rsi=handler */
 ENTRY(__ipipe_root_xirq_thunk)
 	movq %rsp, %rax
 	pushq $0
@@ -578,7 +578,7 @@ ENTRY(__ipipe_root_xirq_thunk)
 	pushq %rdi
 	SAVE_ARGS
 	leaq -ARGOFFSET(%rsp),%rdi      # arg1 for handler
-	call do_IRQ
+	call *%rsi
 	jmp exit_intr
 	CFI_ENDPROC
 1:
@@ -736,6 +736,10 @@ END(common_interrupt)
 	interrupt __ipipe_handle_irq
 	testq %rax, %rax
 	jnz ret_from_intr
+	decl %gs:pda_irqcount
+	leaveq
+	CFI_DEF_CFA_REGISTER	rsp
+	CFI_ADJUST_CFA_OFFSET	-8
 	jmp retint_restore_args
 	CFI_ENDPROC
 	.endm

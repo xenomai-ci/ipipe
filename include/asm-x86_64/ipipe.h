@@ -195,7 +195,8 @@ extern int __ipipe_tick_irq;
 
 unsigned __ipipe_get_irq_vector(int irq);
 
-asmlinkage void __ipipe_root_xirq_thunk(unsigned irq);
+asmlinkage void __ipipe_root_xirq_thunk(unsigned irq,
+					void (*handler)(unsigned irq, void *cookie));
 
 asmlinkage void __ipipe_root_virq_thunk(void (*handler)(unsigned irq, void *cookie),
 					unsigned irq,
@@ -216,7 +217,7 @@ do { \
 	local_irq_enable_nohead(ipd);				 \
 	if (ipd == ipipe_root_domain) {				 \
 		if (likely(!ipipe_virtual_irq_p(irq))) {	 \
-			__ipipe_root_xirq_thunk(~__ipipe_get_irq_vector(irq)); \
+			__ipipe_root_xirq_thunk(~__ipipe_get_irq_vector(irq), (ipd)->irqs[irq].handler); \
 		} else {					 \
 			irq_enter();				 \
 			__ipipe_root_virq_thunk(	\
