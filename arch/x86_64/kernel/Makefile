@@ -17,6 +17,7 @@ obj-$(CONFIG_X86_MCE_AMD)	+= mce_amd.o
 obj-$(CONFIG_MTRR)		+= ../../i386/kernel/cpu/mtrr/
 obj-$(CONFIG_ACPI)		+= acpi/
 obj-$(CONFIG_IPIPE)		+= ipipe.o
+obj-$(CONFIG_IPIPE_TRACE_MCOUNT)	+= mcount.o
 obj-$(CONFIG_X86_MSR)		+= msr.o
 obj-$(CONFIG_MICROCODE)		+= microcode.o
 obj-$(CONFIG_X86_CPUID)		+= cpuid.o
