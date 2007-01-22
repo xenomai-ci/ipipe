@@ -209,8 +209,8 @@ asmlinkage void __ipipe_root_virq_thunk(void (*handler)(unsigned irq, void *cook
 static inline unsigned long __ipipe_ffnz(unsigned long ul)
 {
       __asm__("bsrq %1, %0":"=r"(ul)
-      :	"r"(ul));
-	return ul;
+	      :	"rm"(ul));
+      return ul;
 }
 
 /* When running handlers, enable hw interrupts for all domains but the
