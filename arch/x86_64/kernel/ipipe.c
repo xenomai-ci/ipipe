@@ -35,18 +35,14 @@
 #include <asm/irq.h>
 #include <asm/desc.h>
 #include <asm/io.h>
-#ifdef CONFIG_X86_LOCAL_APIC
 #include <asm/tlbflush.h>
 #include <asm/fixmap.h>
 #include <asm/bitops.h>
 #include <asm/mpspec.h>
-#ifdef CONFIG_X86_IO_APIC
 #include <asm/io_apic.h>
-#endif	/* CONFIG_X86_IO_APIC */
 #include <asm/smp.h>
 #include <asm/ipi.h>
 #include <asm/mach_apic.h>
-#endif	/* CONFIG_X86_LOCAL_APIC */
 
 struct pt_regs __ipipe_tick_regs[IPIPE_NR_CPUS];
 
@@ -178,8 +174,6 @@ void __ipipe_enable_irqdesc(unsigned irq)
 	irq_desc[irq].status &= ~IRQ_DISABLED;
 }
 
-#ifdef CONFIG_X86_LOCAL_APIC
-
 static int __ipipe_noack_apic(unsigned irq)
 {
 	return 1;
@@ -195,16 +189,12 @@ static void __ipipe_null_handler(unsigned irq, void *cookie)
 {
 }
 
-#endif	/* CONFIG_X86_LOCAL_APIC */
-
 /* __ipipe_enable_pipeline() -- We are running on the boot CPU, hw
    interrupts are off, and secondary CPUs are still lost in space. */
 
 void __init __ipipe_enable_pipeline(void)
 {
 	unsigned irq;
-
-#ifdef CONFIG_X86_LOCAL_APIC
 
 	/* Map the APIC system vectors. */
 
@@ -270,7 +260,6 @@ void __init __ipipe_enable_pipeline(void)
 			     NULL,
 			     &__ipipe_ack_apic,
 			     IPIPE_STDROOT_MASK);
-#endif	/* CONFIG_X86_LOCAL_APIC */
 
 #ifdef CONFIG_SMP
 	ipipe_virtualize_irq(ipipe_root_domain,
@@ -323,13 +312,11 @@ void __init __ipipe_enable_pipeline(void)
 				     &__ipipe_ack_irq,
 				     IPIPE_STDROOT_MASK);
 
-#ifdef CONFIG_X86_LOCAL_APIC
 	/* Eventually allow these vectors to be reprogrammed. */
 	ipipe_root_domain->irqs[IPIPE_SERVICE_IPI0].control &= ~IPIPE_SYSTEM_MASK;
 	ipipe_root_domain->irqs[IPIPE_SERVICE_IPI1].control &= ~IPIPE_SYSTEM_MASK;
 	ipipe_root_domain->irqs[IPIPE_SERVICE_IPI2].control &= ~IPIPE_SYSTEM_MASK;
 	ipipe_root_domain->irqs[IPIPE_SERVICE_IPI3].control &= ~IPIPE_SYSTEM_MASK;
-#endif	/* CONFIG_X86_LOCAL_APIC */
 }
 
 #ifdef CONFIG_SMP
