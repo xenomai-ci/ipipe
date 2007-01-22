@@ -132,25 +132,6 @@ static inline void pte_free(struct page *pte)
 
 static inline void set_pgdir(unsigned long address, pgd_t entry)
 {
-#ifdef CONFIG_IPIPE
-	struct task_struct * p;
-	struct page *page;
-	pgd_t *pgd;
-
-	read_lock(&tasklist_lock);
-
-	for_each_process(p) {
-		if(p->mm)
-		    *pgd_offset(p->mm,address) = entry;
-	}
-
-	read_unlock(&tasklist_lock);
-
-	for (page = pgd_list; page; page = (struct page *)page->index) {
-		pgd = (pgd_t *)page_address(page);
-		pgd[address >> PGDIR_SHIFT] = entry;
-	}
-#endif /* CONFIG_IPIPE */
 }
 
 #endif /* _X86_64_PGALLOC_H */
