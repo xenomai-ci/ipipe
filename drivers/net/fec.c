@@ -47,6 +47,7 @@
 #include <asm/uaccess.h>
 #include <asm/io.h>
 #include <asm/pgtable.h>
+#include <asm/cacheflush.h>
 
 #if defined(CONFIG_M523x) || defined(CONFIG_M527x) || \
     defined(CONFIG_M5272) || defined(CONFIG_M528x) || \
@@ -213,6 +214,7 @@ struct fec_enet_private {
 	uint	phy_speed;
 	phy_info_t const	*phy;
 	struct work_struct phy_task;
+	struct net_device *dev;
 
 	uint	sequence_done;
 	uint	mii_phy_task_queued;
@@ -1941,9 +1943,11 @@ static void mii_display_status(struct net_device *dev)
 	printk(".\n");
 }
 
-static void mii_display_config(struct net_device *dev)
+static void mii_display_config(struct work_struct *work)
 {
-	struct fec_enet_private *fep = netdev_priv(dev);
+	struct fec_enet_private *fep =
+		container_of(work, struct fec_enet_private, phy_task);
+	struct net_device *dev = fep->dev;
 	uint status = fep->phy_status;
 
 	/*
@@ -1977,9 +1981,11 @@ static void mii_display_config(struct net_device *dev)
 	fep->sequence_done = 1;
 }
 
-static void mii_relink(struct net_device *dev)
+static void mii_relink(struct work_struct *work)
 {
-	struct fec_enet_private *fep = netdev_priv(dev);
+	struct fec_enet_private *fep =
+		container_of(work, struct fec_enet_private, phy_task);
+	struct net_device *dev = fep->dev;
 	int duplex;
 
 	/*
@@ -2023,7 +2029,8 @@ static void mii_queue_relink(uint mii_reg, struct net_device *dev)
 		return;
 
 	fep->mii_phy_task_queued = 1;
-	INIT_WORK(&fep->phy_task, (void*)mii_relink, dev);
+	fep->dev = dev;
+	INIT_WORK(&fep->phy_task, (void*)mii_relink);
 	schedule_work(&fep->phy_task);
 }
 
@@ -2036,7 +2043,8 @@ static void mii_queue_config(uint mii_reg, struct net_device *dev)
 		return;
 
 	fep->mii_phy_task_queued = 1;
-	INIT_WORK(&fep->phy_task, (void*)mii_display_config, dev);
+	fep->dev = dev;
+	INIT_WORK(&fep->phy_task, (void*)mii_display_config);
 	schedule_work(&fep->phy_task);
 }
 

@@ -425,9 +425,10 @@ irqreturn_t mcfrs_interrupt(int irq, void *dev_id)
  * -------------------------------------------------------------------
  */
 
-static void mcfrs_offintr(void *private)
+static void mcfrs_offintr(struct work_struct *work)
 {
-	struct mcf_serial	*info = (struct mcf_serial *) private;
+	struct mcf_serial	*info =
+		container_of(work, struct mcf_serial, tqueue);
 	struct tty_struct	*tty;
 	
 	tty = info->tty;
@@ -497,9 +498,10 @@ static void mcfrs_timer(void)
  * 	do_serial_hangup() -> tty->hangup() -> mcfrs_hangup()
  * 
  */
-static void do_serial_hangup(void *private)
+static void do_serial_hangup(struct work_struct *work)
 {
-	struct mcf_serial	*info = (struct mcf_serial *) private;
+	struct mcf_serial	*info =
+		container_of(work, struct mcf_serial, tqueue_hangup);
 	struct tty_struct	*tty;
 	
 	tty = info->tty;
@@ -1783,8 +1785,8 @@ mcfrs_init(void)
 		info->event = 0;
 		info->count = 0;
 		info->blocked_open = 0;
-		INIT_WORK(&info->tqueue, mcfrs_offintr, info);
-		INIT_WORK(&info->tqueue_hangup, do_serial_hangup, info);
+		INIT_WORK(&info->tqueue, mcfrs_offintr);
+		INIT_WORK(&info->tqueue_hangup, do_serial_hangup);
 		init_waitqueue_head(&info->open_wait);
 		init_waitqueue_head(&info->close_wait);
 
