@@ -210,7 +210,8 @@ static void dma_chans_rebalance(void)
 	mutex_lock(&dma_list_mutex);
 
 	list_for_each_entry(client, &dma_client_list, global_node) {
-		while (client->chans_desired > client->chan_count) {
+		while (client->chans_desired < 0 ||
+			client->chans_desired > client->chan_count) {
 			chan = dma_client_chan_alloc(client);
 			if (!chan)
 				break;
@@ -219,7 +220,8 @@ static void dma_chans_rebalance(void)
 	                                       chan,
 	                                       DMA_RESOURCE_ADDED);
 		}
-		while (client->chans_desired < client->chan_count) {
+		while (client->chans_desired >= 0 &&
+			client->chans_desired < client->chan_count) {
 			spin_lock_irqsave(&client->lock, flags);
 			chan = list_entry(client->channels.next,
 			                  struct dma_chan,
@@ -294,12 +296,12 @@ void dma_async_client_unregister(struct dma_client *client)
  * @number: count of DMA channels requested
  *
  * Clients call dma_async_client_chan_request() to specify how many
- * DMA channels they need, 0 to free all currently allocated.
+ * DMA channels they need, 0 to free all currently allocated. A request
+ * < 0 indicates the client wants to handle all engines in the system.
  * The resulting allocations/frees are indicated to the client via the
  * event callback.
  */
-void dma_async_client_chan_request(struct dma_client *client,
-			unsigned int number)
+void dma_async_client_chan_request(struct dma_client *client, int number)
 {
 	client->chans_desired = number;
 	dma_chans_rebalance();
@@ -317,6 +319,31 @@ int dma_async_device_register(struct dma_device *device)
 
 	if (!device)
 		return -ENODEV;
+
+	/* validate device routines */
+	BUG_ON(test_bit(DMA_MEMCPY, &device->capabilities) &&
+		!device->device_prep_dma_memcpy);
+	BUG_ON(test_bit(DMA_XOR, &device->capabilities) &&
+		!device->device_prep_dma_xor);
+	BUG_ON(test_bit(DMA_ZERO_SUM, &device->capabilities) &&
+		!device->device_prep_dma_zero_sum);
+	BUG_ON(test_bit(DMA_MEMSET, &device->capabilities) &&
+		!device->device_prep_dma_memset);
+	BUG_ON(test_bit(DMA_ZERO_SUM, &device->capabilities) &&
+		!device->device_prep_dma_interrupt);
+
+	BUG_ON(!device->device_alloc_chan_resources);
+	BUG_ON(!device->device_free_chan_resources);
+	BUG_ON(!device->device_tx_submit);
+	BUG_ON(!device->device_set_dest);
+	BUG_ON(!device->device_set_src);
+	BUG_ON(!device->device_dependency_added);
+	BUG_ON(!device->device_is_tx_complete);
+	BUG_ON(!device->map_page);
+	BUG_ON(!device->map_single);
+	BUG_ON(!device->unmap_page);
+	BUG_ON(!device->unmap_single);
+	BUG_ON(!device->device_issue_pending);
 
 	init_completion(&device->done);
 	kref_init(&device->refcount);
@@ -402,11 +429,8 @@ subsys_initcall(dma_bus_init);
 EXPORT_SYMBOL(dma_async_client_register);
 EXPORT_SYMBOL(dma_async_client_unregister);
 EXPORT_SYMBOL(dma_async_client_chan_request);
-EXPORT_SYMBOL(dma_async_memcpy_buf_to_buf);
-EXPORT_SYMBOL(dma_async_memcpy_buf_to_pg);
-EXPORT_SYMBOL(dma_async_memcpy_pg_to_pg);
-EXPORT_SYMBOL(dma_async_memcpy_complete);
-EXPORT_SYMBOL(dma_async_memcpy_issue_pending);
+EXPORT_SYMBOL(dma_async_is_tx_complete);
+EXPORT_SYMBOL(dma_async_issue_pending);
 EXPORT_SYMBOL(dma_async_device_register);
 EXPORT_SYMBOL(dma_async_device_unregister);
 EXPORT_SYMBOL(dma_chan_cleanup);
