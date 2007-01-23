@@ -2411,32 +2411,75 @@ static void handle_stripe5(struct stripe_head *sh)
 			locked += handle_write_operations5(sh, rcw, 0);
 	}
 
-	/* maybe we need to check and possibly fix the parity for this stripe
-	 * Any reads will already have been scheduled, so we just see if enough data
-	 * is available
+	/* 1/ Maybe we need to check and possibly fix the parity for this stripe.
+	 *    Any reads will already have been scheduled, so we just see if enough data
+	 *    is available.
+	 * 2/ Hold off parity checks while parity dependent operations are in flight
+	 *    (conflicting writes are protected by the 'locked' variable)
 	 */
-	if (syncing && locked == 0 &&
-	    !test_bit(STRIPE_INSYNC, &sh->state)) {
+	if ((syncing && locked == 0 && !test_bit(STRIPE_OP_COMPUTE_BLK, &sh->ops.pending) &&
+		!test_bit(STRIPE_INSYNC, &sh->state)) ||
+	    	test_bit(STRIPE_OP_CHECK, &sh->ops.pending) ||
+	    	test_bit(STRIPE_OP_MOD_REPAIR_PD, &sh->ops.pending)) {
+
 		set_bit(STRIPE_HANDLE, &sh->state);
-		if (failed == 0) {
-			BUG_ON(uptodate != disks);
-			compute_parity5(sh, CHECK_PARITY);
-			uptodate--;
-			if (page_is_zero(sh->dev[sh->pd_idx].page)) {
-				/* parity is correct (on disc, not in buffer any more) */
-				set_bit(STRIPE_INSYNC, &sh->state);
-			} else {
-				conf->mddev->resync_mismatches += STRIPE_SECTORS;
-				if (test_bit(MD_RECOVERY_CHECK, &conf->mddev->recovery))
-					/* don't try to repair!! */
+		/* Take one of the following actions:
+		 * 1/ start a check parity operation if (uptodate == disks)
+		 * 2/ finish a check parity operation and act on the result
+		 * 3/ skip to the writeback section if we previously
+		 *    initiated a recovery operation
+		 */
+		if (failed == 0 && !test_bit(STRIPE_OP_MOD_REPAIR_PD, &sh->ops.pending)) {
+			if (!test_and_set_bit(STRIPE_OP_CHECK, &sh->ops.pending)) {
+				BUG_ON(uptodate != disks);
+				clear_bit(R5_UPTODATE, &sh->dev[sh->pd_idx].flags);
+				sh->ops.count++;
+				uptodate--;
+			} else if (test_and_clear_bit(STRIPE_OP_CHECK, &sh->ops.complete)) {
+				clear_bit(STRIPE_OP_CHECK, &sh->ops.ack);
+				clear_bit(STRIPE_OP_CHECK, &sh->ops.pending);
+
+				if (sh->ops.zero_sum_result == 0)
+					/* parity is correct (on disc, not in buffer any more) */
 					set_bit(STRIPE_INSYNC, &sh->state);
 				else {
-					compute_block(sh, sh->pd_idx);
-					uptodate++;
+					conf->mddev->resync_mismatches += STRIPE_SECTORS;
+					if (test_bit(MD_RECOVERY_CHECK, &conf->mddev->recovery))
+						/* don't try to repair!! */
+						set_bit(STRIPE_INSYNC, &sh->state);
+					else {
+						BUG_ON(test_and_set_bit(
+							STRIPE_OP_COMPUTE_BLK,
+							&sh->ops.pending));
+						set_bit(STRIPE_OP_MOD_REPAIR_PD,
+							&sh->ops.pending);
+						BUG_ON(test_and_set_bit(R5_Wantcompute,
+							&sh->dev[sh->pd_idx].flags));
+						sh->ops.target = sh->pd_idx;
+						sh->ops.count++;
+						uptodate++;
+					}
 				}
 			}
 		}
-		if (!test_bit(STRIPE_INSYNC, &sh->state)) {
+
+		/* check if we can clear a parity disk reconstruct */
+		if (test_bit(STRIPE_OP_COMPUTE_BLK, &sh->ops.complete) &&
+			test_bit(STRIPE_OP_MOD_REPAIR_PD, &sh->ops.pending)) {
+
+			clear_bit(STRIPE_OP_MOD_REPAIR_PD, &sh->ops.pending);
+			clear_bit(STRIPE_OP_COMPUTE_BLK, &sh->ops.complete);
+			clear_bit(STRIPE_OP_COMPUTE_BLK, &sh->ops.ack);
+			clear_bit(STRIPE_OP_COMPUTE_BLK, &sh->ops.pending);
+		}
+
+		/* Wait for check parity and compute block operations to complete
+		 * before write-back
+		 */
+		if (!test_bit(STRIPE_INSYNC, &sh->state) &&
+			!test_bit(STRIPE_OP_CHECK, &sh->ops.pending) &&
+			!test_bit(STRIPE_OP_COMPUTE_BLK, &sh->ops.pending)) {
+
 			/* either failed parity check, or recovery is happening */
 			if (failed==0)
 				failed_num = sh->pd_idx;
