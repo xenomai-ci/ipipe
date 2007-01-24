@@ -46,7 +46,7 @@
 
 struct pt_regs __ipipe_tick_regs[IPIPE_NR_CPUS];
 
-int __ipipe_tick_irq;		/* =0: PIT */
+int __ipipe_tick_irq;		/* =0: 8254 */
 
 #ifdef CONFIG_SMP
 
@@ -172,63 +172,63 @@ void __init __ipipe_enable_pipeline(void)
 	/* Map the APIC system vectors. */
 
 	ipipe_virtualize_irq(ipipe_root_domain,
-			     LOCAL_TIMER_VECTOR - FIRST_EXTERNAL_VECTOR,
+			     ipipe_apic_vector_irq(LOCAL_TIMER_VECTOR),
 			     (ipipe_irq_handler_t)&smp_apic_timer_interrupt,
 			     NULL,
 			     &__ipipe_ack_apic,
 			     IPIPE_STDROOT_MASK);
 
 	ipipe_virtualize_irq(ipipe_root_domain,
-			     SPURIOUS_APIC_VECTOR - FIRST_EXTERNAL_VECTOR,
+			     ipipe_apic_vector_irq(SPURIOUS_APIC_VECTOR),
 			     (ipipe_irq_handler_t)&smp_spurious_interrupt,
 			     NULL,
 			     &__ipipe_noack_apic,
 			     IPIPE_STDROOT_MASK);
 
 	ipipe_virtualize_irq(ipipe_root_domain,
-			     ERROR_APIC_VECTOR - FIRST_EXTERNAL_VECTOR,
+			     ipipe_apic_vector_irq(ERROR_APIC_VECTOR),
 			     (ipipe_irq_handler_t)&smp_error_interrupt,
 			     NULL,
 			     &__ipipe_ack_apic,
 			     IPIPE_STDROOT_MASK);
 
 	ipipe_virtualize_irq(ipipe_root_domain,
-			     IPIPE_SERVICE_VECTOR0 - FIRST_EXTERNAL_VECTOR,
+			     ipipe_apic_vector_irq(IPIPE_SERVICE_VECTOR0),
 			     &__ipipe_null_handler,
 			     NULL,
 			     &__ipipe_ack_apic,
 			     IPIPE_STDROOT_MASK);
 
 	ipipe_virtualize_irq(ipipe_root_domain,
-			     IPIPE_SERVICE_VECTOR1 - FIRST_EXTERNAL_VECTOR,
+			     ipipe_apic_vector_irq(IPIPE_SERVICE_VECTOR1),
 			     &__ipipe_null_handler,
 			     NULL,
 			     &__ipipe_ack_apic,
 			     IPIPE_STDROOT_MASK);
 
 	ipipe_virtualize_irq(ipipe_root_domain,
-			     IPIPE_SERVICE_VECTOR2 - FIRST_EXTERNAL_VECTOR,
+			     ipipe_apic_vector_irq(IPIPE_SERVICE_VECTOR2),
 			     &__ipipe_null_handler,
 			     NULL,
 			     &__ipipe_ack_apic,
 			     IPIPE_STDROOT_MASK);
 
 	ipipe_virtualize_irq(ipipe_root_domain,
-			     IPIPE_SERVICE_VECTOR3 - FIRST_EXTERNAL_VECTOR,
+			     ipipe_apic_vector_irq(IPIPE_SERVICE_VECTOR3),
 			     &__ipipe_null_handler,
 			     NULL,
 			     &__ipipe_ack_apic,
 			     IPIPE_STDROOT_MASK);
 
 	ipipe_virtualize_irq(ipipe_root_domain,
-			     THRESHOLD_APIC_VECTOR - FIRST_EXTERNAL_VECTOR,
+			     ipipe_apic_vector_irq(THRESHOLD_APIC_VECTOR),
 			     (ipipe_irq_handler_t)&mce_threshold_interrupt,
 			     NULL,
 			     &__ipipe_ack_apic,
 			     IPIPE_STDROOT_MASK);
 
 	ipipe_virtualize_irq(ipipe_root_domain,
-			     THERMAL_APIC_VECTOR - FIRST_EXTERNAL_VECTOR,
+			     ipipe_apic_vector_irq(THERMAL_APIC_VECTOR),
 			     (ipipe_irq_handler_t)&smp_thermal_interrupt,
 			     NULL,
 			     &__ipipe_ack_apic,
@@ -236,23 +236,27 @@ void __init __ipipe_enable_pipeline(void)
 
 #ifdef CONFIG_SMP
 	ipipe_virtualize_irq(ipipe_root_domain,
-			     RESCHEDULE_VECTOR - FIRST_EXTERNAL_VECTOR,
+			     ipipe_apic_vector_irq(RESCHEDULE_VECTOR),
 			     (ipipe_irq_handler_t)&smp_reschedule_interrupt,
 			     NULL,
 			     &__ipipe_ack_apic,
 			     IPIPE_STDROOT_MASK);
 
-	for (irq = INVALIDATE_TLB_VECTOR_START - FIRST_EXTERNAL_VECTOR;
-	     irq < NUM_INVALIDATE_TLB_VECTORS; ++irq)
-	    ipipe_virtualize_irq(ipipe_root_domain,
-				 irq,
-				 (ipipe_irq_handler_t)&smp_invalidate_interrupt,
-				 NULL,
-				 &__ipipe_ack_apic,
-				 IPIPE_STDROOT_MASK);
+	{
+		unsigned vector;
+
+		for (vector = INVALIDATE_TLB_VECTOR_START;
+		     vector <= INVALIDATE_TLB_VECTOR_END; ++vector)
+			ipipe_virtualize_irq(ipipe_root_domain,
+					     ipipe_apic_vector_irq(vector),
+					     (ipipe_irq_handler_t)&smp_invalidate_interrupt,
+					     NULL,
+					     &__ipipe_ack_apic,
+					     IPIPE_STDROOT_MASK);
+	}
 
 	ipipe_virtualize_irq(ipipe_root_domain,
-			     CALL_FUNCTION_VECTOR - FIRST_EXTERNAL_VECTOR,
+			     ipipe_apic_vector_irq(CALL_FUNCTION_VECTOR),
 			     (ipipe_irq_handler_t)&smp_call_function_interrupt,
 			     NULL,
 			     &__ipipe_ack_apic,
@@ -334,7 +338,7 @@ int fastcall __ipipe_send_ipi (unsigned ipi, cpumask_t cpumask)
 	cpu_clear(cpuid,cpumask);
 
 	if (!cpus_empty(cpumask))
-		send_IPI_mask(cpumask,ipi + FIRST_EXTERNAL_VECTOR);
+		send_IPI_mask(cpumask,ipipe_apic_irq_vector(ipi));
 
 	if (self)
 		ipipe_trigger_irq(ipi);
@@ -732,7 +736,7 @@ int __ipipe_handle_irq(struct pt_regs *regs)
 
 	if ((long)regs->orig_rax < 0) {
 		if (vector >= FIRST_SYSTEM_VECTOR)
-			irq = IPIPE_FIRST_APIC_IRQ + vector - FIRST_SYSTEM_VECTOR;
+			irq = ipipe_apic_vector_irq(vector);
 		else
 			irq = __get_cpu_var(vector_irq)[vector];
 		m_ack = 0;

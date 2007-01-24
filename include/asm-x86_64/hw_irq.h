@@ -53,15 +53,15 @@
 #define THRESHOLD_APIC_VECTOR   0xf9
 /* f8 free */
 #ifdef CONFIG_IPIPE
-#define INVALIDATE_TLB_VECTOR_END	0xf7
-#define INVALIDATE_TLB_VECTOR_START	0xf0	/* f0-f7 used for TLB flush */
-
-#define NUM_INVALIDATE_TLB_VECTORS	8
-#else /* !CONFIG_IPIPE */
 #define INVALIDATE_TLB_VECTOR_END	0xf3
 #define INVALIDATE_TLB_VECTOR_START	0xf0	/* f0-f3 used for TLB flush */
 /* the rest is used for the I-pipe's service IPIs */
 #define NUM_INVALIDATE_TLB_VECTORS	4
+#else /* !CONFIG_IPIPE */
+#define INVALIDATE_TLB_VECTOR_END	0xf7
+#define INVALIDATE_TLB_VECTOR_START	0xf0	/* f0-f7 used for TLB flush */
+
+#define NUM_INVALIDATE_TLB_VECTORS	8
 #endif /* !CONFIG_IPIPE */
 
 /*

@@ -2158,5 +2158,5 @@ void __init setup_ioapic_dest(void)
 unsigned __ipipe_get_irq_vector(int irq)
 {
 	return irq + FIRST_EXTERNAL_VECTOR >= FIRST_SYSTEM_VECTOR ?
-		irq - IPIPE_FIRST_APIC_IRQ + FIRST_SYSTEM_VECTOR : irq_vector[irq];
+		ipipe_apic_vector_irq(irq) : irq_vector[irq];
 }

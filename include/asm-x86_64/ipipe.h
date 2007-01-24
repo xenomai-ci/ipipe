@@ -205,9 +205,9 @@ unsigned __ipipe_get_irq_vector(int irq);
 asmlinkage void __ipipe_root_xirq_thunk(unsigned irq,
 					void (*handler)(unsigned irq, void *cookie));
 
-asmlinkage void __ipipe_root_virq_thunk(void (*handler)(unsigned irq, void *cookie),
-					unsigned irq,
-					void *cookie);
+asmlinkage void __ipipe_root_virq_thunk(unsigned irq,
+					void *cookie,
+					void (*handler)(unsigned irq, void *cookie));
 
 static inline unsigned long __ipipe_ffnz(unsigned long ul)
 {
@@ -228,7 +228,7 @@ do { \
 		} else {					 \
 			irq_enter();				 \
 			__ipipe_root_virq_thunk(	\
-				(ipd)->irqs[irq].handler, irq, (ipd)->irqs[irq].cookie); \
+				irq, (ipd)->irqs[irq].cookie, (ipd)->irqs[irq].handler); \
 			irq_exit();				 \
 		}						\
 	} else {						\

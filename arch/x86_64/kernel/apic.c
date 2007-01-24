@@ -773,7 +773,7 @@ void __init setup_boot_APIC_clock (void)
 	using_apic_timer = 1;
 
 #ifdef CONFIG_IPIPE
-	__ipipe_tick_irq = IPIPE_FIRST_APIC_IRQ + LOCAL_TIMER_VECTOR - FIRST_SYSTEM_VECTOR;
+	__ipipe_tick_irq = ipipe_apic_vector_irq(LOCAL_TIMER_VECTOR);
 #endif
 
 	local_irq_disable_hw();
