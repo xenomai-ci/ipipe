@@ -151,7 +151,7 @@ struct ipipe_sysinfo {
 	(t) = ((unsigned long)__a) | (((unsigned long)__d)<<32); \
 } while(0)
 
-#define ipipe_cpu_freq() ({ unsigned long long __freq = cpu_has_tsc?(1000LL * cpu_khz):CLOCK_TICK_RATE; __freq; })
+#define ipipe_cpu_freq() ({ unsigned long long __freq = (1000LL * cpu_khz); __freq; })
 
 #define ipipe_tsc2ns(t) \
 ({ \

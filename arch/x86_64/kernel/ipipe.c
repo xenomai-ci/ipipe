@@ -114,11 +114,7 @@ int ipipe_get_sysinfo(struct ipipe_sysinfo *info)
 	info->ncpus = num_online_cpus();
 	info->cpufreq = ipipe_cpu_freq();
 	info->archdep.tmirq = __ipipe_tick_irq;
-#ifdef CONFIG_X86_TSC
 	info->archdep.tmfreq = ipipe_cpu_freq();
-#else	/* !CONFIG_X86_TSC */
-	info->archdep.tmfreq = CLOCK_TICK_RATE;
-#endif	/* CONFIG_X86_TSC */
 
 	return 0;
 }
