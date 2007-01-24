@@ -51,7 +51,7 @@
 #define IPIPE_SERVICE_VECTOR3	(INVALIDATE_TLB_VECTOR_END + 4)
 #define IPIPE_SERVICE_IPI3	ipipe_apic_vector_irq(IPIPE_SERVICE_VECTOR3)
 
-#define IPIPE_IRQ_ISHIFT  	5	/* 2^5 for 32bits arch. */
+#define IPIPE_IRQ_ISHIFT  	6	/* 2^6 for 64bits arch. */
 #define NR_XIRQS		IPIPE_NR_XIRQS
 
 #define ex_do_divide_error		0
