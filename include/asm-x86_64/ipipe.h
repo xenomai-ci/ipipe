@@ -37,16 +37,19 @@
 #define IPIPE_NR_XIRQS	        (NR_IRQS + 32)
 #define IPIPE_FIRST_APIC_IRQ   NR_IRQS
 
+#define ipipe_apic_irq_vector(irq)  ((irq) - IPIPE_FIRST_APIC_IRQ + FIRST_SYSTEM_VECTOR)
+#define ipipe_apic_vector_irq(vec)  ((vec) - FIRST_SYSTEM_VECTOR + IPIPE_FIRST_APIC_IRQ)
+
 /* If the APIC is enabled, then we expose four service vectors in the
    APIC space which are freely available to domains. */
 #define IPIPE_SERVICE_VECTOR0	(INVALIDATE_TLB_VECTOR_END + 1)
-#define IPIPE_SERVICE_IPI0	(IPIPE_SERVICE_VECTOR0 - FIRST_EXTERNAL_VECTOR)
+#define IPIPE_SERVICE_IPI0	ipipe_apic_vector_irq(IPIPE_SERVICE_VECTOR0)
 #define IPIPE_SERVICE_VECTOR1	(INVALIDATE_TLB_VECTOR_END + 2)
-#define IPIPE_SERVICE_IPI1	(IPIPE_SERVICE_VECTOR1 - FIRST_EXTERNAL_VECTOR)
+#define IPIPE_SERVICE_IPI1	ipipe_apic_vector_irq(IPIPE_SERVICE_VECTOR1)
 #define IPIPE_SERVICE_VECTOR2	(INVALIDATE_TLB_VECTOR_END + 3)
-#define IPIPE_SERVICE_IPI2	(IPIPE_SERVICE_VECTOR2 - FIRST_EXTERNAL_VECTOR)
+#define IPIPE_SERVICE_IPI2	ipipe_apic_vector_irq(IPIPE_SERVICE_VECTOR2)
 #define IPIPE_SERVICE_VECTOR3	(INVALIDATE_TLB_VECTOR_END + 4)
-#define IPIPE_SERVICE_IPI3	(IPIPE_SERVICE_VECTOR3 - FIRST_EXTERNAL_VECTOR)
+#define IPIPE_SERVICE_IPI3	ipipe_apic_vector_irq(IPIPE_SERVICE_VECTOR3)
 
 #define IPIPE_IRQ_ISHIFT  	5	/* 2^5 for 32bits arch. */
 #define NR_XIRQS		IPIPE_NR_XIRQS
@@ -85,7 +88,7 @@
 #include <linux/thread_info.h>
 
 #define IPIPE_CRITICAL_VECTOR  0xf8	/* Used by ipipe_critical_enter/exit() */
-#define IPIPE_CRITICAL_IPI     (IPIPE_CRITICAL_VECTOR - FIRST_EXTERNAL_VECTOR)
+#define IPIPE_CRITICAL_IPI     ipipe_apic_vector_irq(IPIPE_CRITICAL_VECTOR)
 
 extern int (*__ipipe_logical_cpuid)(void);
 
