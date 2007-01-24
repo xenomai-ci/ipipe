@@ -119,33 +119,10 @@ int ipipe_get_sysinfo(struct ipipe_sysinfo *info)
 	return 0;
 }
 
-int ipipe_tune_timer (unsigned long ns, int flags)
-
+int ipipe_tune_timer(unsigned long ns, int flags)
 {
-	unsigned hz, latch;
-	unsigned long x;
-
-	if (flags & IPIPE_RESET_TIMER)
-		latch = LATCH;
-	else {
-		hz = 1000000000 / ns;
-
-		if (hz < HZ)
-			return -EINVAL;
-
-		latch = (CLOCK_TICK_RATE + hz/2) / hz;
-	}
-
-	x = ipipe_critical_enter(NULL); /* Sync with all CPUs */
-
-	/* Shamelessly lifted from init_IRQ() in i8259.c */
-	outb_p(0x34,0x43);		/* binary, mode 2, LSB/MSB, ch 0 */
-	outb_p(latch & 0xff,0x40);	/* LSB */
-	outb(latch >> 8,0x40);	/* MSB */
-
-	ipipe_critical_exit(x);
-
-	return 0;
+	printk(KERN_WARNING "I-pipe: %s is deprecated - no action taken\n", __FUNCTION__);
+	return -ENOSYS;
 }
 
 asmlinkage unsigned int do_IRQ(struct pt_regs *regs);
