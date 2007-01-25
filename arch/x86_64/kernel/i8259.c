@@ -239,15 +239,6 @@ static void mask_and_ack_8259A(unsigned int irq)
 	 */
 	if (cached_irq_mask & irqmask)
 		goto spurious_8259A_irq;
-#ifdef CONFIG_IPIPE
-	if (irq == 0) {
-	    /* Fast timer ack -- don't mask (unless supposedly
-	      spurious) */
-	    outb(0x20, 0x20);
-	    spin_unlock_irqrestore(&i8259A_lock, flags);
-	    return;
-	}
-#endif /* CONFIG_IPIPE */
 	cached_irq_mask |= irqmask;
 
 handle_real_irq:
