@@ -1032,7 +1032,7 @@ ENTRY(divide_error)
 	RING0_INT_FRAME
 	pushl $0			# no error code
 	CFI_ADJUST_CFA_OFFSET 4
-	pushl $do_divide_error
+	PUSH_XCODE(do_divide_error)
 	CFI_ADJUST_CFA_OFFSET 4
 	jmp error_code
 	CFI_ENDPROC
