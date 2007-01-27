@@ -56,10 +56,6 @@
 	thunk __ipipe_unstall_root_thunk,__ipipe_unstall_root
 	thunk __ipipe_unstall_iret_root_thunk,__ipipe_unstall_iret_root
 	thunk __ipipe_kpreempt_root_thunk,__ipipe_kpreempt_root
-#ifdef CONFIG_IPIPE_TRACE_IRQSOFF
-	thunk __ipipe_trace_begin_thunk,ipipe_trace_begin
-	thunk __ipipe_trace_end_thunk,ipipe_trace_end
-#endif
 #endif
 	
 	/* SAVE_ARGS below is used only for the .cfi directives it contains. */
