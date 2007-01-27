@@ -63,13 +63,6 @@
 					bt $1,%rax
 #define PREPARE_IRETQ			leaq -ARGOFFSET(%rsp),%rdi; \
 					call __ipipe_unstall_iret_root_thunk
-#ifdef CONFIG_IPIPE_TRACE_IRQSOFF
-#define IPIPE_TRACE_IRQ_ENTER		call __ipipe_trace_begin_thunk /* FIXME: missing arg */
-#define IPIPE_TRACE_IRQ_EXIT		call __ipipe_trace_end_thunk /* FIXME: missing arg */
-#else  /* !CONFIG_IPIPE_TRACE_IRQSOFF */
-#define IPIPE_TRACE_IRQ_ENTER
-#define IPIPE_TRACE_IRQ_EXIT
-#endif /* CONFIG_IPIPE_TRACE_IRQSOFF */
 #else /* !CONFIG_IPIPE */
 #define DISABLE_INTERRUPTS		cli
 #define ENABLE_INTERRUPTS		sti
@@ -588,6 +581,7 @@ ENTRY(__ipipe_root_xirq_thunk)
 	jmp exit_intr
 	CFI_ENDPROC
 1:
+	cli
         ret
 END(__ipipe_root_xirq_thunk)
 	
@@ -606,21 +600,20 @@ ENTRY(__ipipe_root_virq_thunk)
 	jmp exit_intr
 	CFI_ENDPROC
 1:
+	cli
         ret
 END(__ipipe_root_virq_thunk)
 	
 ENTRY(common_interrupt)
 	XCPT_FRAME
-	IPIPE_TRACE_IRQ_ENTER
 	interrupt __ipipe_handle_irq
-	IPIPE_TRACE_IRQ_EXIT
 	testq %rax, %rax
 	jnz ret_from_intr
 	decl %gs:pda_irqcount
 	leaveq
 	CFI_DEF_CFA_REGISTER	rsp
 	CFI_ADJUST_CFA_OFFSET	-8
-	jmp retint_restore_args
+	jmp restore_args
 #else /* !CONFIG_IPIPE */
 ENTRY(common_interrupt)
 	XCPT_FRAME
@@ -741,16 +734,14 @@ END(common_interrupt)
 	INTR_FRAME
 	pushq $~(\num)
 	CFI_ADJUST_CFA_OFFSET 8
-	IPIPE_TRACE_IRQ_ENTER
 	interrupt __ipipe_handle_irq
-	IPIPE_TRACE_IRQ_EXIT
 	testq %rax, %rax
 	jnz ret_from_intr
 	decl %gs:pda_irqcount
 	leaveq
 	CFI_DEF_CFA_REGISTER	rsp
 	CFI_ADJUST_CFA_OFFSET	-8
-	jmp retint_restore_args
+	jmp restore_args
 	CFI_ENDPROC
 	.endm
 #else /* !CONFIG_IPIPE */	

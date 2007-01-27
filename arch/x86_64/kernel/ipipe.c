@@ -98,7 +98,7 @@ int fastcall ipipe_trigger_irq(unsigned irq)
 
 	local_irq_save_hw(flags);
 
-	regs.orig_rax = irq;	/* Won't be acked */
+	regs.orig_rax = irq;	/* Positive value: IRQ won't be acked. */
 	regs.cs = __KERNEL_CS;
 	regs.eflags = flags;
 
@@ -745,6 +745,10 @@ int __ipipe_handle_irq(struct pt_regs *regs)
 		m_ack = 1;
 	}
 
+#ifdef CONFIG_IPIPE_TRACE_IRQSOFF
+	__ipipe_trace_begin(irq);
+#endif /* CONFIG_IPIPE_TRACE_IRQSOFF */
+
 	ipipe_load_cpuid();
 
 	head = __ipipe_pipeline.next;
@@ -834,6 +838,10 @@ finalize:
 	ipipe_load_cpuid();
 
 finalize_nosync:
+
+#ifdef CONFIG_IPIPE_TRACE_IRQSOFF
+	__ipipe_trace_end(irq);
+#endif /* CONFIG_IPIPE_TRACE_IRQSOFF */
 
 	if (per_cpu(ipipe_percpu_domain, cpuid) != ipipe_root_domain ||
 	    test_bit(IPIPE_STALL_FLAG, &ipipe_root_domain->cpudata[cpuid].status))
