@@ -55,20 +55,9 @@
 	.code64
 
 #ifdef CONFIG_IPIPE
-#define DISABLE_INTERRUPTS		call __ipipe_stall_root_thunk	;  sti
-#define ENABLE_INTERRUPTS		call __ipipe_unstall_root_thunk
 #define ENABLE_INTERRUPTS_HW_COND	sti
-#define TEST_PREEMPTIBLE(regs)		leaq -ARGOFFSET(%rsp),%rdi; \
-					call __ipipe_kpreempt_root_thunk ; \
-					bt $1,%rax
-#define PREPARE_IRETQ			leaq -ARGOFFSET(%rsp),%rdi; \
-					call __ipipe_unstall_iret_root_thunk
 #else /* !CONFIG_IPIPE */
-#define DISABLE_INTERRUPTS		cli
-#define ENABLE_INTERRUPTS		sti
 #define ENABLE_INTERRUPTS_HW_COND
-#define TEST_PREEMPTIBLE(regs)		bt   $9,EFLAGS-ARGOFFSET(regs)
-#define PREPARE_IRETQ			TRACE_IRQS_IRETQ
 #endif /* !CONFIG_IPIPE */
 
 #ifndef CONFIG_PREEMPT
@@ -266,7 +255,7 @@ ret_from_sys_call:
 	/* edi:	flagmask */
 sysret_check:		
 	GET_THREAD_INFO(%rcx)
-	DISABLE_INTERRUPTS
+	cli
 	TRACE_IRQS_OFF
 	movl threadinfo_flags(%rcx),%edx
 	andl %edi,%edx
@@ -291,7 +280,7 @@ sysret_careful:
 	bt $TIF_NEED_RESCHED,%edx
 	jnc sysret_signal
 	TRACE_IRQS_ON
-	ENABLE_INTERRUPTS
+	sti
 	pushq %rdi
 	CFI_ADJUST_CFA_OFFSET 8
 	call schedule
@@ -302,7 +291,7 @@ sysret_careful:
 	/* Handle a signal */ 
 sysret_signal:
 	TRACE_IRQS_ON
-	ENABLE_INTERRUPTS
+	sti
 	testl $(_TIF_SIGPENDING|_TIF_NOTIFY_RESUME|_TIF_SINGLESTEP),%edx
 	jz    1f
 
@@ -315,7 +304,7 @@ sysret_signal:
 1:	movl $_TIF_NEED_RESCHED,%edi
 	/* Use IRET because user could have changed frame. This
 	   works because ptregscall_common has called FIXUP_TOP_OF_STACK. */
-	DISABLE_INTERRUPTS
+	cli
 	TRACE_IRQS_OFF
 	jmp int_with_check
 	
@@ -367,7 +356,7 @@ ENTRY(int_ret_from_sys_call)
 	CFI_REL_OFFSET	r9,R9-ARGOFFSET
 	CFI_REL_OFFSET	r10,R10-ARGOFFSET
 	CFI_REL_OFFSET	r11,R11-ARGOFFSET
-	DISABLE_INTERRUPTS
+	cli
 	TRACE_IRQS_OFF
 	testl $3,CS-ARGOFFSET(%rsp)
 	je retint_restore_args
@@ -388,20 +377,20 @@ int_careful:
 	bt $TIF_NEED_RESCHED,%edx
 	jnc  int_very_careful
 	TRACE_IRQS_ON
-	ENABLE_INTERRUPTS
+	sti
 	pushq %rdi
 	CFI_ADJUST_CFA_OFFSET 8
 	call schedule
 	popq %rdi
 	CFI_ADJUST_CFA_OFFSET -8
-	DISABLE_INTERRUPTS
+	cli
 	TRACE_IRQS_OFF
 	jmp int_with_check
 
 	/* handle signals and tracing -- both require a full stack frame */
 int_very_careful:
 	TRACE_IRQS_ON
-	ENABLE_INTERRUPTS
+	sti
 	SAVE_REST
 	/* Check for syscall exit trace */	
 	testl $(_TIF_SYSCALL_TRACE|_TIF_SYSCALL_AUDIT|_TIF_SINGLESTEP),%edx
@@ -413,7 +402,7 @@ int_very_careful:
 	popq %rdi
 	CFI_ADJUST_CFA_OFFSET -8
 	andl $~(_TIF_SYSCALL_TRACE|_TIF_SYSCALL_AUDIT|_TIF_SINGLESTEP),%edi
-	DISABLE_INTERRUPTS
+	cli
 	TRACE_IRQS_OFF
 	jmp int_restore_rest
 	
@@ -426,7 +415,7 @@ int_signal:
 1:	movl $_TIF_NEED_RESCHED,%edi	
 int_restore_rest:
 	RESTORE_REST
-	DISABLE_INTERRUPTS
+	cli
 	TRACE_IRQS_OFF
 	jmp int_with_check
 	CFI_ENDPROC
@@ -621,7 +610,7 @@ ENTRY(common_interrupt)
 #endif /* !CONFIG_IPIPE */	
 	/* 0(%rsp): oldrsp-ARGOFFSET */
 ret_from_intr:
-	DISABLE_INTERRUPTS	
+	cli	
 	TRACE_IRQS_OFF
 	decl %gs:pda_irqcount
 	leaveq
@@ -648,12 +637,12 @@ retint_swapgs:
 	/*
 	 * The iretq could re-enable interrupts:
 	 */
-	PREPARE_IRETQ
+	TRACE_IRQS_IRETQ
 	swapgs 
 	jmp restore_args
 
 retint_restore_args:				
-	PREPARE_IRETQ
+	TRACE_IRQS_IRETQ
 	/*
 	 * The iretq could re-enable interrupts:
 	 */
@@ -671,7 +660,7 @@ iret_label:
 bad_iret:
 	movq $11,%rdi	/* SIGSEGV */
 	TRACE_IRQS_ON
-	ENABLE_INTERRUPTS
+	sti
 	jmp do_exit			
 	.previous	
 	
@@ -681,14 +670,14 @@ retint_careful:
 	bt    $TIF_NEED_RESCHED,%edx
 	jnc   retint_signal
 	TRACE_IRQS_ON
-	ENABLE_INTERRUPTS
+	sti
 	pushq %rdi
 	CFI_ADJUST_CFA_OFFSET	8
 	call  schedule
 	popq %rdi		
 	CFI_ADJUST_CFA_OFFSET	-8
 	GET_THREAD_INFO(%rcx)
-	DISABLE_INTERRUPTS
+	cli
 	TRACE_IRQS_OFF
 	jmp retint_check
 	
@@ -696,14 +685,14 @@ retint_signal:
 	testl $(_TIF_SIGPENDING|_TIF_NOTIFY_RESUME|_TIF_SINGLESTEP),%edx
 	jz    retint_swapgs
 	TRACE_IRQS_ON
-	ENABLE_INTERRUPTS
+	sti
 	SAVE_REST
 	movq $-1,ORIG_RAX(%rsp) 			
 	xorl %esi,%esi		# oldset
 	movq %rsp,%rdi		# &pt_regs
 	call do_notify_resume
 	RESTORE_REST
-	DISABLE_INTERRUPTS
+	cli
 	TRACE_IRQS_OFF
 	movl $_TIF_NEED_RESCHED,%edi
 	GET_THREAD_INFO(%rcx)
@@ -717,7 +706,7 @@ ENTRY(retint_kernel)
 	jnz  retint_restore_args
 	bt  $TIF_NEED_RESCHED,threadinfo_flags(%rcx)
 	jnc  retint_restore_args
-	TEST_PREEMPTIBLE(%rsp)		/* interrupts off? */
+	bt   $9,EFLAGS-ARGOFFSET(regs)	/* interrupts off? */
 	jnc  retint_restore_args
 	call preempt_schedule_irq
 	jmp exit_intr
@@ -859,7 +848,7 @@ END(spurious_interrupt)
 	.if \ist
 	addq	$EXCEPTION_STKSZ, per_cpu__init_tss + TSS_ist + (\ist - 1) * 8(%rbp)
 	.endif
-	DISABLE_INTERRUPTS
+	cli
 	.if \irqtrace
 	TRACE_IRQS_OFF
 	.endif
@@ -906,11 +895,11 @@ paranoid_userspace\trace:
 	.if \trace
 	TRACE_IRQS_ON
 	.endif
-	ENABLE_INTERRUPTS
+	sti
 	xorl %esi,%esi 			/* arg2: oldset */
 	movq %rsp,%rdi 			/* arg1: &pt_regs */
 	call do_notify_resume
-	DISABLE_INTERRUPTS
+	cli
 	.if \trace
 	TRACE_IRQS_OFF
 	.endif
@@ -919,9 +908,9 @@ paranoid_schedule\trace:
 	.if \trace
 	TRACE_IRQS_ON
 	.endif
-	ENABLE_INTERRUPTS
+	sti
 	call schedule
-	DISABLE_INTERRUPTS
+	cli
 	.if \trace
 	TRACE_IRQS_OFF
 	.endif
@@ -995,7 +984,7 @@ error_sti:
 error_exit:		
 	movl %ebx,%eax		
 	RESTORE_REST
-	DISABLE_INTERRUPTS
+	cli
 	TRACE_IRQS_OFF
 	GET_THREAD_INFO(%rcx)	
 	testl %eax,%eax

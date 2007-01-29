@@ -849,16 +849,6 @@ finalize_nosync:
 	    test_bit(IPIPE_STALL_FLAG, &ipipe_root_domain->cpudata[cpuid].status))
 		return 0;
 
-#ifdef CONFIG_SMP
-	/*
-	 * Prevent a spurious rescheduling from being triggered on
-	 * preemptible kernels along the way out through
-	 * ret_from_intr.
-	 */
-	if ((long)regs->orig_rax < 0)
-		__set_bit(IPIPE_STALL_FLAG, &ipipe_root_domain->cpudata[cpuid].status);
-#endif	/* CONFIG_SMP */
-
 	return 1;
 }
 
