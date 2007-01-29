@@ -215,7 +215,7 @@ extern int __ipipe_tick_irq;
                          "movl  %%esp,%%eax\n\t" \
                          "call *%1\n\t" \
 	                 "jmp ret_from_intr\n\t" \
-	                 "1:\n" \
+	                 "1: cli\n" \
 			 : /* no output */ \
 			 : "a" (~irq), "m" ((ipd)->irqs[irq].handler))
 
@@ -242,7 +242,7 @@ extern int __ipipe_tick_irq;
 
 #define __ipipe_finalize_root_virq_handler() \
    __asm__ __volatile__ ("jmp ret_from_intr\n\t" \
-	                 "__virq_end:\n" \
+	                 "__virq_end: cli\n" \
 			 : /* no output */ \
 			 : /* no input */)
 
