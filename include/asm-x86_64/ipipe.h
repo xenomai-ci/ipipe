@@ -54,26 +54,27 @@
 #define IPIPE_IRQ_ISHIFT  	6	/* 2^6 for 64bits arch. */
 #define NR_XIRQS		IPIPE_NR_XIRQS
 
-#define ex_do_divide_error		0
-#define ex_do_debug			1
+#define ex_divide_error			0
+#define ex_debug			1
 /* NMI not pipelined. */
-#define ex_do_int3			3
-#define ex_do_overflow			4
-#define ex_do_bounds			5
-#define ex_do_invalid_op		6
-#define ex_device_not_available		7
+#define ex_int3				3
+#define ex_overflow			4
+#define ex_bounds			5
+#define ex_invalid_op			6
+#define ex_math_state_restore		7
 /* Double fault not pipelined. */
-#define ex_do_coprocessor_segment_overrun 9
-#define ex_do_invalid_TSS		10
-#define ex_do_segment_not_present	11
-#define ex_do_stack_segment		12
-#define ex_do_general_protection	13
-#define ex_do_page_fault		14
-#define ex_do_spurious_interrupt_bug	15
-#define ex_do_coprocessor_error		16
-#define ex_do_alignment_check		17
-#define ex_machine_check_vector		18
-#define ex_do_simd_coprocessor_error	19
+#define ex_coprocessor_segment_overrun 9
+#define ex_invalid_TSS			10
+#define ex_segment_not_present		11
+#define ex_stack_segment		12
+#define ex_general_protection		13
+#define ex_page_fault			14
+#define ex_spurious_interrupt_bug	15
+#define ex_coprocessor_error		16
+#define ex_alignment_check		17
+#define ex_reserved			18
+#define ex_machine_check_vector		ex_reserved
+#define ex_simd_coprocessor_error	19
 
 #ifndef __ASSEMBLY__
 

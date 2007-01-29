@@ -86,7 +86,7 @@ static notrace int __ipipe_hard_cpuid(void)
    just like if it has been actually received from a hw source. Also
    works for virtual interrupts. */
 
-int fastcall ipipe_trigger_irq(unsigned irq)
+int ipipe_trigger_irq(unsigned irq)
 {
 	struct pt_regs regs;
 	unsigned long flags;
@@ -98,7 +98,7 @@ int fastcall ipipe_trigger_irq(unsigned irq)
 
 	local_irq_save_hw(flags);
 
-	regs.orig_rax = irq;	/* Positive value: IRQ won't be acked. */
+	regs.orig_rax = irq;	/* Positive value - IRQ won't be acked */
 	regs.cs = __KERNEL_CS;
 	regs.eflags = flags;
 
@@ -126,14 +126,14 @@ int ipipe_tune_timer(unsigned long ns, int flags)
 }
 
 asmlinkage unsigned int do_IRQ(struct pt_regs *regs);
-fastcall void smp_apic_timer_interrupt(struct pt_regs *regs);
-fastcall void smp_spurious_interrupt(struct pt_regs *regs);
-fastcall void smp_error_interrupt(struct pt_regs *regs);
-fastcall void smp_thermal_interrupt(struct pt_regs *regs);
-fastcall void smp_reschedule_interrupt(struct pt_regs *regs);
-fastcall void smp_invalidate_interrupt(struct pt_regs *regs);
-fastcall void smp_call_function_interrupt(struct pt_regs *regs);
-fastcall void mce_threshold_interrupt(struct pt_regs *regs);
+asmlinkage void smp_apic_timer_interrupt(struct pt_regs *regs);
+asmlinkage void smp_spurious_interrupt(struct pt_regs *regs);
+asmlinkage void smp_error_interrupt(struct pt_regs *regs);
+asmlinkage void smp_thermal_interrupt(struct pt_regs *regs);
+asmlinkage void smp_reschedule_interrupt(struct pt_regs *regs);
+asmlinkage void smp_invalidate_interrupt(struct pt_regs *regs);
+asmlinkage void smp_call_function_interrupt(struct pt_regs *regs);
+asmlinkage void mce_threshold_interrupt(struct pt_regs *regs);
 
 static int __ipipe_ack_irq(unsigned irq)
 {
@@ -319,7 +319,7 @@ cpumask_t __ipipe_set_irq_affinity (unsigned irq, cpumask_t cpumask)
 	return oldmask;
 }
 
-int fastcall __ipipe_send_ipi (unsigned ipi, cpumask_t cpumask)
+int asmlinkage __ipipe_send_ipi (unsigned ipi, cpumask_t cpumask)
 
 {
 	unsigned long flags;
@@ -587,7 +587,7 @@ asmlinkage int __ipipe_syscall_root(struct pt_regs *regs)
     return 0;
 }
 
-static fastcall void do_machine_check_vector(struct pt_regs *regs, long error_code)
+static asmlinkage void do_machine_check_vector(struct pt_regs *regs, long error_code)
 {
 #ifdef CONFIG_X86_MCE
 	void do_machine_check(struct pt_regs * regs, long error_code);
@@ -595,44 +595,46 @@ static fastcall void do_machine_check_vector(struct pt_regs *regs, long error_co
 #endif /* CONFIG_X86_MCE */
 }
 
-fastcall void do_divide_error(struct pt_regs *regs, long error_code);
-fastcall void do_overflow(struct pt_regs *regs, long error_code);
-fastcall void do_bounds(struct pt_regs *regs, long error_code);
-fastcall void do_invalid_op(struct pt_regs *regs, long error_code);
-fastcall void do_coprocessor_segment_overrun(struct pt_regs *regs, long error_code);
-fastcall void do_invalid_TSS(struct pt_regs *regs, long error_code);
-fastcall void do_segment_not_present(struct pt_regs *regs, long error_code);
-fastcall void do_stack_segment(struct pt_regs *regs, long error_code);
-fastcall void do_general_protection(struct pt_regs *regs, long error_code);
-fastcall void do_page_fault(struct pt_regs *regs, long error_code);
-fastcall void do_spurious_interrupt_bug(struct pt_regs *regs, long error_code);
-fastcall void do_coprocessor_error(struct pt_regs *regs, long error_code);
-fastcall void do_alignment_check(struct pt_regs *regs, long error_code);
-fastcall void do_simd_coprocessor_error(struct pt_regs *regs, long error_code);
+asmlinkage void do_divide_error(struct pt_regs *regs, long error_code);
+asmlinkage void do_overflow(struct pt_regs *regs, long error_code);
+asmlinkage void do_bounds(struct pt_regs *regs, long error_code);
+asmlinkage void do_invalid_op(struct pt_regs *regs, long error_code);
+asmlinkage void math_state_restore(struct pt_regs *regs, long error_code);
+asmlinkage void do_coprocessor_segment_overrun(struct pt_regs *regs, long error_code);
+asmlinkage void do_invalid_TSS(struct pt_regs *regs, long error_code);
+asmlinkage void do_segment_not_present(struct pt_regs *regs, long error_code);
+asmlinkage void do_stack_segment(struct pt_regs *regs, long error_code);
+asmlinkage void do_general_protection(struct pt_regs *regs, long error_code);
+asmlinkage void do_page_fault(struct pt_regs *regs, long error_code);
+asmlinkage void do_spurious_interrupt_bug(struct pt_regs *regs, long error_code);
+asmlinkage void do_coprocessor_error(struct pt_regs *regs, long error_code);
+asmlinkage void do_alignment_check(struct pt_regs *regs, long error_code);
+asmlinkage void do_simd_coprocessor_error(struct pt_regs *regs, long error_code);
 
 /* Work around genksyms's issue with over-qualification in decls. */
 
-typedef fastcall void __ipipe_exhandler(struct pt_regs *, long);
+typedef asmlinkage void __ipipe_exhandler(struct pt_regs *, long);
 
 typedef __ipipe_exhandler *__ipipe_exptr;
 
 static __ipipe_exptr __ipipe_std_extable[] = {
 
-	[ex_do_divide_error] = &do_divide_error,
-	[ex_do_overflow] = &do_overflow,
-	[ex_do_bounds] = &do_bounds,
-	[ex_do_invalid_op] = &do_invalid_op,
-	[ex_do_coprocessor_segment_overrun] = &do_coprocessor_segment_overrun,
-	[ex_do_invalid_TSS] = &do_invalid_TSS,
-	[ex_do_segment_not_present] = &do_segment_not_present,
-	[ex_do_stack_segment] = &do_stack_segment,
-	[ex_do_general_protection] = do_general_protection,
-	[ex_do_page_fault] = &do_page_fault,
-	[ex_do_spurious_interrupt_bug] = &do_spurious_interrupt_bug,
-	[ex_do_coprocessor_error] = &do_coprocessor_error,
-	[ex_do_alignment_check] = &do_alignment_check,
+	[ex_divide_error] = &do_divide_error,
+	[ex_overflow] = &do_overflow,
+	[ex_bounds] = &do_bounds,
+	[ex_invalid_op] = &do_invalid_op,
+	[ex_math_state_restore] = &math_state_restore,
+	[ex_coprocessor_segment_overrun] = &do_coprocessor_segment_overrun,
+	[ex_invalid_TSS] = &do_invalid_TSS,
+	[ex_segment_not_present] = &do_segment_not_present,
+	[ex_stack_segment] = &do_stack_segment,
+	[ex_general_protection] = do_general_protection,
+	[ex_page_fault] = &do_page_fault,
+	[ex_spurious_interrupt_bug] = &do_spurious_interrupt_bug,
+	[ex_coprocessor_error] = &do_coprocessor_error,
+	[ex_alignment_check] = &do_alignment_check,
 	[ex_machine_check_vector] = &do_machine_check_vector,
-	[ex_do_simd_coprocessor_error] = &do_simd_coprocessor_error,
+	[ex_simd_coprocessor_error] = &do_simd_coprocessor_error,
 };
 
 #ifdef CONFIG_KGDB
@@ -640,31 +642,31 @@ static __ipipe_exptr __ipipe_std_extable[] = {
 
 static int __ipipe_xlate_signo[] = {
 
-	[ex_do_divide_error] = SIGFPE,
-	[ex_do_debug] = SIGTRAP,
+	[ex_divide_error] = SIGFPE,
+	[ex_debug] = SIGTRAP,
 	[2] = -1,
-	[ex_do_int3] = SIGTRAP,
-	[ex_do_overflow] = SIGSEGV,
-	[ex_do_bounds] = SIGSEGV,
-	[ex_do_invalid_op] = SIGILL,
-	[ex_device_not_available] = -1,
+	[ex_int3] = SIGTRAP,
+	[ex_overflow] = SIGSEGV,
+	[ex_bounds] = SIGSEGV,
+	[ex_invalid_op] = SIGILL,
+	[ex_math_state_restore] = -1,
 	[8] = -1,
-	[ex_do_coprocessor_segment_overrun] = SIGFPE,
-	[ex_do_invalid_TSS] = SIGSEGV,
-	[ex_do_segment_not_present] = SIGBUS,
-	[ex_do_stack_segment] = SIGBUS,
-	[ex_do_general_protection] = SIGSEGV,
-	[ex_do_page_fault] = SIGSEGV,
-	[ex_do_spurious_interrupt_bug] = -1,
-	[ex_do_coprocessor_error] = -1,
-	[ex_do_alignment_check] = SIGBUS,
+	[ex_coprocessor_segment_overrun] = SIGFPE,
+	[ex_invalid_TSS] = SIGSEGV,
+	[ex_segment_not_present] = SIGBUS,
+	[ex_stack_segment] = SIGBUS,
+	[ex_general_protection] = SIGSEGV,
+	[ex_page_fault] = SIGSEGV,
+	[ex_spurious_interrupt_bug] = -1,
+	[ex_coprocessor_error] = -1,
+	[ex_alignment_check] = SIGBUS,
 	[ex_machine_check_vector] = -1,
-	[ex_do_simd_coprocessor_error] = -1,
+	[ex_simd_coprocessor_error] = -1,
 	[20 ... 31] = -1,
 };
 #endif /* CONFIG_KGDB */
 
-fastcall int __ipipe_handle_exception(struct pt_regs *regs, long error_code, int vector)
+asmlinkage int __ipipe_handle_exception(struct pt_regs *regs, long error_code, int vector)
 {
 	unsigned long flags;
 
@@ -699,12 +701,12 @@ fastcall int __ipipe_handle_exception(struct pt_regs *regs, long error_code, int
 	return 1;
 }
 
-fastcall int __ipipe_divert_exception(struct pt_regs *regs, int vector)
+asmlinkage int __ipipe_divert_exception(struct pt_regs *regs, int vector)
 {
 #ifdef CONFIG_KGDB
 	/* catch int1 and int3 over non-root domains */
 	if ((ipipe_current_domain != ipipe_root_domain) &&
-	    (vector != ex_device_not_available)) {
+	    (vector != ex_math_state_restore)) {
 		unsigned int condition = 0;
 
 		if (vector == 1)

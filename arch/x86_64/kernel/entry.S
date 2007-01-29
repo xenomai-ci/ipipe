@@ -573,10 +573,10 @@ ENTRY(__ipipe_root_xirq_thunk)
 	pushfq
 	pushq $__KERNEL_CS
 	pushq $1f
-	INTR_FRAME
 	pushq %rdi
+	XCPT_FRAME
 	SAVE_ARGS
-	leaq -ARGOFFSET(%rsp),%rdi      # arg1 for handler
+	leaq -ARGOFFSET(%rsp),%rdi      # regs for handler
 	call *%rsi
 	jmp exit_intr
 	CFI_ENDPROC
@@ -593,8 +593,8 @@ ENTRY(__ipipe_root_virq_thunk)
 	pushfq
 	pushq $__KERNEL_CS
 	pushq $1f
-	INTR_FRAME
 	pushq $-1
+	XCPT_FRAME
 	SAVE_ARGS
 	call *%rdx
 	jmp exit_intr
@@ -805,22 +805,30 @@ END(spurious_interrupt)
 /*
  * Exception entry points.
  */ 		
-	.macro zeroentry sym
+	.macro zeroentry sym, excode
 	INTR_FRAME
 	pushq $0	/* push error code/oldrax */ 
 	CFI_ADJUST_CFA_OFFSET 8
 	pushq %rax	/* push real oldrax to the rdi slot */ 
 	CFI_ADJUST_CFA_OFFSET 8
+#ifdef CONFIG_IPIPE	
+	movq $\excode,%rax
+#else
 	leaq  \sym(%rip),%rax
+#endif	
 	jmp error_entry
 	CFI_ENDPROC
 	.endm	
 
-	.macro errorentry sym
+	.macro errorentry sym, excode
 	XCPT_FRAME
 	pushq %rax
 	CFI_ADJUST_CFA_OFFSET 8
+#ifdef CONFIG_IPIPE	
+	movq $\excode,%rax
+#else
 	leaq  \sym(%rip),%rax
+#endif	
 	jmp error_entry
 	CFI_ENDPROC
 	.endm
@@ -970,9 +978,9 @@ error_sti:
 	movq %rsp,%rdi
 	movq ORIG_RAX(%rsp),%rsi	/* get error code */ 
 	movq $-1,ORIG_RAX(%rsp)
-#ifdef CONFIG_IPIPE_FIXME
-	movq %rax, %rdx /* FIXME: %rax should be the vector, not the handler */
-	call *%rax
+#ifdef CONFIG_IPIPE
+	movq %rax, %rdx
+	call __ipipe_handle_exception   /* handle(regs, error_code, ex_code) */
 	testq %rax, %rax
 	jz error_exit
 	movl %ebx,%eax
@@ -980,7 +988,6 @@ error_sti:
 	testl %eax,%eax
 	jne exit_noswap
 	jmp exit_swap
-	/* FIXME, swapgs and fast return */
 #else /* !CONFIG_IPIPE */
 	call *%rax
 #endif /* !CONFIG_IPIPE */
@@ -1145,19 +1152,19 @@ ENTRY(kernel_execve)
 ENDPROC(kernel_execve)
 
 KPROBE_ENTRY(page_fault)
-	errorentry do_page_fault
+	errorentry do_page_fault ex_page_fault
 KPROBE_END(page_fault)
 
 ENTRY(coprocessor_error)
-	zeroentry do_coprocessor_error
+	zeroentry do_coprocessor_error ex_coprocessor_error
 END(coprocessor_error)
 
 ENTRY(simd_coprocessor_error)
-	zeroentry do_simd_coprocessor_error	
+	zeroentry do_simd_coprocessor_error ex_simd_coprocessor_error
 END(simd_coprocessor_error)
 
 ENTRY(device_not_available)
-	zeroentry math_state_restore
+	zeroentry math_state_restore ex_math_state_restore
 END(device_not_available)
 
 	/* runs on exception stack */
@@ -1193,23 +1200,23 @@ KPROBE_ENTRY(int3)
 KPROBE_END(int3)
 
 ENTRY(overflow)
-	zeroentry do_overflow
+	zeroentry do_overflow ex_overflow
 END(overflow)
 
 ENTRY(bounds)
-	zeroentry do_bounds
+	zeroentry do_bounds ex_bounds
 END(bounds)
 
 ENTRY(invalid_op)
-	zeroentry do_invalid_op	
+	zeroentry do_invalid_op ex_invalid_op
 END(invalid_op)
 
 ENTRY(coprocessor_segment_overrun)
-	zeroentry do_coprocessor_segment_overrun
+	zeroentry do_coprocessor_segment_overrun ex_coprocessor_segment_overrun
 END(coprocessor_segment_overrun)
 
 ENTRY(reserved)
-	zeroentry do_reserved
+	zeroentry do_reserved ex_reserved
 END(reserved)
 
 	/* runs on exception stack */
@@ -1221,11 +1228,11 @@ ENTRY(double_fault)
 END(double_fault)
 
 ENTRY(invalid_TSS)
-	errorentry do_invalid_TSS
+	errorentry do_invalid_TSS ex_invalid_TSS
 END(invalid_TSS)
 
 ENTRY(segment_not_present)
-	errorentry do_segment_not_present
+	errorentry do_segment_not_present ex_segment_not_present
 END(segment_not_present)
 
 	/* runs on exception stack */
@@ -1237,19 +1244,19 @@ ENTRY(stack_segment)
 END(stack_segment)
 
 KPROBE_ENTRY(general_protection)
-	errorentry do_general_protection
+	errorentry do_general_protection ex_general_protection
 KPROBE_END(general_protection)
 
 ENTRY(alignment_check)
-	errorentry do_alignment_check
+	errorentry do_alignment_check ex_alignment_check
 END(alignment_check)
 
 ENTRY(divide_error)
-	zeroentry do_divide_error
+	zeroentry do_divide_error ex_divide_error
 END(divide_error)
 
 ENTRY(spurious_interrupt_bug)
-	zeroentry do_spurious_interrupt_bug
+	zeroentry do_spurious_interrupt_bug ex_spurious_interrupt_bug
 END(spurious_interrupt_bug)
 
 #ifdef CONFIG_X86_MCE
