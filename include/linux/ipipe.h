@@ -336,6 +336,10 @@ int fastcall __ipipe_dispatch_wired(struct ipipe_domain *head, unsigned irq);
 
 void fastcall __ipipe_sync_stage(unsigned long syncmask);
 
+struct mm_struct;
+
+void __ipipe_unlink_pinned_mm(struct mm_struct *mm);
+
 #ifndef __ipipe_sync_pipeline
 #define __ipipe_sync_pipeline(syncmask) __ipipe_sync_stage(syncmask)
 #endif
@@ -433,12 +437,11 @@ static inline void ipipe_init_notify(struct task_struct *p)
 		__ipipe_dispatch_event(IPIPE_EVENT_INIT,p);
 }
 
-struct mm_struct;
-
 static inline void ipipe_cleanup_notify(struct mm_struct *mm)
 {
 	if (__ipipe_event_monitored_p(IPIPE_EVENT_CLEANUP))
 		__ipipe_dispatch_event(IPIPE_EVENT_CLEANUP,mm);
+	__ipipe_unlink_pinned_mm(mm);
 }
 
 /* Public interface */

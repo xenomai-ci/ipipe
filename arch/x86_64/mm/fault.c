@@ -322,6 +322,25 @@ static int vmalloc_fault(unsigned long address)
 	return 0;
 }
 
+#ifdef CONFIG_IPIPE
+
+int __ipipe_pin_range_mapping(struct mm_struct *mm,
+			      unsigned long start, unsigned long end)
+{
+	unsigned long next, addr = start;
+	int ret;
+
+	do {
+		next = pgd_addr_end(addr, end);
+		ret = vmalloc_fault(addr);
+		addr = next;
+	} while (!ret && addr != end);
+
+	return ret;
+}
+
+#endif /* CONFIG_IPIPE */
+
 int page_fault_trace = 0;
 int exception_trace = 1;
 

@@ -130,8 +130,4 @@ static inline void pte_free(struct page *pte)
 #define __pmd_free_tlb(tlb,x)   tlb_remove_page((tlb),virt_to_page(x))
 #define __pud_free_tlb(tlb,x)   tlb_remove_page((tlb),virt_to_page(x))
 
-static inline void set_pgdir(unsigned long address, pgd_t entry)
-{
-}
-
 #endif /* _X86_64_PGALLOC_H */
