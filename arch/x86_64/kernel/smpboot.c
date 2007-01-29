@@ -803,7 +803,6 @@ static int __cpuinit do_boot_cpu(int cpu, int apicid)
 				cpu, node);
 	}
 
-	ipipe_note_apicid(apicid, cpu);
 	alternatives_smp_switch(1);
 
 	c_idle.idle = get_idle_for_cpu(cpu);
@@ -1102,8 +1101,6 @@ void __init smp_prepare_cpus(unsigned int max_cpus)
 		      GET_APIC_ID(apic_read(APIC_ID)), boot_cpu_id);
 		/* Or can we switch back to PIC here? */
 	}
-
-	ipipe_note_apicid(boot_cpu_id,0);
 
 	/*
 	 * Now start the IO-APICs

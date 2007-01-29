@@ -251,7 +251,7 @@ static inline int valid_stack_ptr(struct thread_info *tinfo, void *p)
 void dump_trace(struct task_struct *tsk, struct pt_regs *regs, unsigned long * stack,
 		struct stacktrace_ops *ops, void *data)
 {
-	const unsigned cpu = smp_processor_id_hw();
+	const unsigned cpu = smp_processor_id();
 	unsigned long *irqstack_end = (unsigned long *)cpu_pda(cpu)->irqstackptr;
 	unsigned used = 0;
 	struct thread_info *tinfo;
@@ -426,7 +426,7 @@ _show_stack(struct task_struct *tsk, struct pt_regs *regs, unsigned long *rsp)
 {
 	unsigned long *stack;
 	int i;
-	const int cpu = smp_processor_id_hw();
+	const int cpu = smp_processor_id();
 	unsigned long *irqstack_end = (unsigned long *) (cpu_pda(cpu)->irqstackptr);
 	unsigned long *irqstack = (unsigned long *) (cpu_pda(cpu)->irqstackptr - IRQSTACKSIZE);
 
@@ -480,7 +480,7 @@ void show_registers(struct pt_regs *regs)
 	int i;
 	int in_kernel = !user_mode(regs);
 	unsigned long rsp;
-	const int cpu = smp_processor_id_hw();
+	const int cpu = smp_processor_id();
 	struct task_struct *cur = cpu_pda(cpu)->pcurrent;
 
 		rsp = regs->rsp;
@@ -560,7 +560,7 @@ static unsigned int die_nest_count;
 
 unsigned __kprobes long oops_begin(void)
 {
-	int cpu = smp_processor_id_hw();
+	int cpu = smp_processor_id();
 	unsigned long flags;
 
 	oops_enter();
@@ -638,7 +638,7 @@ void __kprobes die_nmi(char *str, struct pt_regs *regs, int do_panic)
 	 * We are in trouble anyway, lets at least try
 	 * to get a message out.
 	 */
-	printk(str, smp_processor_id_hw());
+	printk(str, smp_processor_id());
 	show_registers(regs);
 	if (kexec_should_crash(current))
 		crash_kexec(regs);
@@ -840,7 +840,7 @@ asmlinkage __kprobes void default_do_nmi(struct pt_regs *regs)
 	unsigned char reason = 0;
 	int cpu;
 
-	cpu = smp_processor_id_hw();
+	cpu = smp_processor_id();
 
 	/* Only the BSP gets external NMIs from the system.  */
 	if (!cpu)

@@ -60,26 +60,6 @@ static atomic_t __ipipe_critical_count = ATOMIC_INIT(0);
 
 static void (*__ipipe_cpu_sync) (void);
 
-u8 __ipipe_apicid_2_cpu[IPIPE_NR_CPUS];
-
-static notrace int __ipipe_boot_cpuid(void)
-{
-	return 0;
-}
-
-int (*__ipipe_logical_cpuid)(void) = &__ipipe_boot_cpuid;
-
-static notrace int __ipipe_hard_cpuid(void)
-{
-	unsigned long flags;
-	int cpu;
-
-	local_irq_save_hw_notrace(flags);
-	cpu = __ipipe_apicid_2_cpu[GET_APIC_ID(apic_read(APIC_ID))];
-	local_irq_restore_hw_notrace(flags);
-	return cpu;
-}
-
 #endif /* CONFIG_SMP */
 
 /* ipipe_trigger_irq() -- Push the interrupt at front of the pipeline
@@ -261,18 +241,6 @@ void __init __ipipe_enable_pipeline(void)
 			     NULL,
 			     &__ipipe_ack_apic,
 			     IPIPE_STDROOT_MASK);
-
-	/* Some guest O/S may run tasks over non-Linux stacks, so we
-	 * cannot rely on the regular definition of smp_processor_id()
-	 * on x86 to fetch the logical cpu id. We fix this by using
-	 * our own private physical apicid -> logicial cpuid mapping
-	 * as soon as the pipeline is enabled, so that
-	 * ipipe_processor_id() always do the right thing, regardless
-	 * of the current stack setup. Also note that the pipeline is
-	 * enabled after the APIC space has been mapped in
-	 * trap_init(), so it's safe to use it. */
-
-	__ipipe_logical_cpuid = &__ipipe_hard_cpuid;
 #endif	/* CONFIG_SMP */
 
 	/* Finally, virtualize the remaining ISA and IO-APIC
@@ -867,9 +835,6 @@ EXPORT_SYMBOL_GPL(show_stack);
 #if defined(CONFIG_SMP) || defined(CONFIG_DEBUG_SPINLOCK)
 EXPORT_SYMBOL(tasklist_lock);
 #endif /* CONFIG_SMP || CONFIG_DEBUG_SPINLOCK */
-#ifdef CONFIG_SMP
-EXPORT_SYMBOL(__ipipe_logical_cpuid);
-#endif /* CONFIG_SMP */
 
 #ifdef CONFIG_IPIPE_TRACE_MCOUNT
 void notrace mcount(void);

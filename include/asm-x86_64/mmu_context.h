@@ -30,7 +30,7 @@ static inline void load_cr3(pgd_t *pgd)
 static inline void switch_mm(struct mm_struct *prev, struct mm_struct *next, 
 			     struct task_struct *tsk)
 {
-	unsigned cpu = smp_processor_id_hw();
+	unsigned cpu = smp_processor_id();
 	if (likely(prev != next)) {
 		/* stop flush ipis for the previous mm */
 		cpu_clear(cpu, prev->cpu_vm_mask);

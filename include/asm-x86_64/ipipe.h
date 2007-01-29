@@ -91,20 +91,12 @@
 #define IPIPE_CRITICAL_VECTOR  0xf8	/* Used by ipipe_critical_enter/exit() */
 #define IPIPE_CRITICAL_IPI     ipipe_apic_vector_irq(IPIPE_CRITICAL_VECTOR)
 
-extern int (*__ipipe_logical_cpuid)(void);
-
-#define ipipe_processor_id()  __ipipe_logical_cpuid()
-
-extern u8 __ipipe_apicid_2_cpu[];
-
-#define ipipe_note_apicid(apicid,cpu)  \
-do {	\
-	__ipipe_apicid_2_cpu[apicid] = cpu; \
-} while(0)
+/* The logical processor id is read from the PDA, so this is always
+ * safe, regardless of the underlying stack. */
+#define ipipe_processor_id()  smp_processor_id()
 
 #else	/* !CONFIG_SMP */
 
-#define ipipe_note_apicid(apicid,cpu)  do { } while(0)
 #define ipipe_processor_id()    0
 
 #endif	/* !CONFIG_SMP */
