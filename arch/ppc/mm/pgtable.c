@@ -156,19 +156,9 @@ ioremap64(unsigned long long addr, unsigned long size)
 void __iomem *
 ioremap(phys_addr_t addr, unsigned long size)
 {
-	/*
-	 * On systems that supply a real 64bit address
-	 * (with CONFIG_RESOURCES_64BIT enabled), don't use the
-	 * fixup function.
-	 * This allows us to use the fixup function when no ERPN
-	 * is specified and use the 64 bit address when the ERPN
-	 * is suppied.
-	 */
-	if ((unsigned long long)addr & 0xffffffff00000000ULL)
-		return ioremap64(addr, size);
-	else
-		return ioremap64(fixup_bigphys_addr(addr, size),
-				 size);
+	phys_addr_t addr64 = fixup_bigphys_addr(addr, size);
+
+	return ioremap64(addr64, size);
 }
 #endif /* CONFIG_PHYS_64BIT */
 
