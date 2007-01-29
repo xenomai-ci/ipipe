@@ -706,7 +706,7 @@ ENTRY(retint_kernel)
 	jnz  retint_restore_args
 	bt  $TIF_NEED_RESCHED,threadinfo_flags(%rcx)
 	jnc  retint_restore_args
-	bt   $9,EFLAGS-ARGOFFSET(regs)	/* interrupts off? */
+	bt   $9,EFLAGS-ARGOFFSET(%rsp)	/* interrupts off? */
 	jnc  retint_restore_args
 	call preempt_schedule_irq
 	jmp exit_intr
