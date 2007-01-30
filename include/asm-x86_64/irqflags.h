@@ -232,12 +232,19 @@ static inline void local_irq_enable_hw_notrace(void)
 #endif /* CONFIG_IPIPE_TRACE_IRQSOFF */
 
 #else /* __ASSEMBLY__: */
+#ifdef CONFIG_IPIPE_TRACE_IRQSOFF
+#define IPIPE_TRACE_IRQS_ON	call __ipipe_trace_irqs_on_thunk
+#define IPIPE_TRACE_IRQS_OFF	call __ipipe_trace_irqs_off_thunk
+#else /* !CONFIG_IPIPE_TRACE_IRQSOFF */
+#define IPIPE_TRACE_IRQS_ON
+#define IPIPE_TRACE_IRQS_OFF
+#endif /* !CONFIG_IPIPE_TRACE_IRQSOFF */
 # ifdef CONFIG_TRACE_IRQFLAGS
-#  define TRACE_IRQS_ON		call trace_hardirqs_on_thunk
-#  define TRACE_IRQS_OFF	call trace_hardirqs_off_thunk
+#  define TRACE_IRQS_ON	IPIPE_TRACE_IRQS_ON; call trace_hardirqs_on_thunk
+#  define TRACE_IRQS_OFF	IPIPE_TRACE_IRQS_OFF; call trace_hardirqs_off_thunk
 # else
-#  define TRACE_IRQS_ON
-#  define TRACE_IRQS_OFF
+#  define TRACE_IRQS_ON	IPIPE_TRACE_IRQS_ON
+#  define TRACE_IRQS_OFF	IPIPE_TRACE_IRQS_OFF
 # endif
 #endif
 

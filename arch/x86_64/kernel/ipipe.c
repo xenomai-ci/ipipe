@@ -716,7 +716,7 @@ int __ipipe_handle_irq(struct pt_regs *regs)
 	}
 
 #ifdef CONFIG_IPIPE_TRACE_IRQSOFF
-	__ipipe_trace_begin(irq);
+	ipipe_trace_begin(irq);
 #endif /* CONFIG_IPIPE_TRACE_IRQSOFF */
 
 	ipipe_load_cpuid();
@@ -810,7 +810,7 @@ finalize:
 finalize_nosync:
 
 #ifdef CONFIG_IPIPE_TRACE_IRQSOFF
-	__ipipe_trace_end(irq);
+	ipipe_trace_end(irq);
 #endif /* CONFIG_IPIPE_TRACE_IRQSOFF */
 
 	if (per_cpu(ipipe_percpu_domain, cpuid) != ipipe_root_domain ||
@@ -819,6 +819,18 @@ finalize_nosync:
 
 	return 1;
 }
+
+#ifdef CONFIG_IPIPE_TRACE_IRQSOFF
+void notrace __ipipe_trace_irqs_off(void)
+{
+	ipipe_trace_begin(0x80000000);
+}
+
+void notrace __ipipe_trace_irqs_on(void)
+{
+	ipipe_trace_end(0x80000000);
+}
+#endif /* CONFIG_IPIPE_TRACE_IRQSOFF */
 
 EXPORT_SYMBOL(__ipipe_tick_irq);
 EXPORT_SYMBOL(ipipe_critical_enter);
