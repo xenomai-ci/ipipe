@@ -56,8 +56,12 @@
 
 #ifdef CONFIG_IPIPE
 #define ENABLE_INTERRUPTS_HW_COND	sti
+#define STALL_ROOT_STAGE		__ipipe_stall_root_thunk
+#define UNSTALL_ROOT_STAGE		__ipipe_unstall_root_thunk
 #else /* !CONFIG_IPIPE */
 #define ENABLE_INTERRUPTS_HW_COND
+#define STALL_ROOT_STAGE
+#define UNSTALL_ROOT_STAGE
 #endif /* !CONFIG_IPIPE */
 
 #ifndef CONFIG_PREEMPT
@@ -708,7 +712,9 @@ ENTRY(retint_kernel)
 	jnc  retint_restore_args
 	bt   $9,EFLAGS-ARGOFFSET(%rsp)	/* interrupts off? */
 	jnc  retint_restore_args
+	STALL_ROOT_STAGE
 	call preempt_schedule_irq
+	UNSTALL_ROOT_STAGE
 	jmp exit_intr
 #endif	
 
