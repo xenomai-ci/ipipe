@@ -240,6 +240,15 @@ ENTRY(system_call)
 	movq  %rax,ORIG_RAX-ARGOFFSET(%rsp) 
 	movq  %rcx,RIP-ARGOFFSET(%rsp)
 	CFI_REL_OFFSET rip,RIP-ARGOFFSET
+#ifdef CONFIG_IPIPE
+	leaq -ARGOFFSET(%rsp),%rdi	# regs for handler
+	call	__ipipe_syscall_root_thunk
+	testq %rax, %rax
+	js    ret_from_sys_call
+	jnz   sysret_fastexit
+	movq  RDI-ARGOFFSET(%rsp),%rdi
+	movq  ORIG_RAX-ARGOFFSET(%rsp),%rax
+#endif		
 	GET_THREAD_INFO(%rcx)
 	testl $(_TIF_SYSCALL_TRACE|_TIF_SYSCALL_AUDIT|_TIF_SECCOMP),threadinfo_flags(%rcx)
 	CFI_REMEMBER_STATE
@@ -269,6 +278,7 @@ sysret_check:
 	 * sysretq will re-enable interrupts:
 	 */
 	TRACE_IRQS_ON
+sysret_fastexit:	
 	movq RIP-ARGOFFSET(%rsp),%rcx
 	CFI_REGISTER	rip,rcx
 	RESTORE_ARGS 0,-ARG_SKIP,1

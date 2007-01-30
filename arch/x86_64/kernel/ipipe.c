@@ -471,9 +471,7 @@ asmlinkage int __ipipe_syscall_root(struct pt_regs *regs)
 		 * over the root one as a result of the syscall
 		 * (i.e. by recycling the register set of the current
 		 * context across the migration), so we need to fixup
-		 * the interrupt flag upon return too, so that
-		 * __ipipe_unstall_iret_root() resets the correct
-		 * stall bit on exit. */
+		 * the interrupt flag upon return too. */
 		__fixup_if(regs);
 
 		if (ipipe_current_domain == ipipe_root_domain && !in_atomic()) {
