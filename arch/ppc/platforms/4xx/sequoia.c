@@ -3,7 +3,7 @@
  *
  * Sequoia board specific routines
  *
- * Copyright 2006 DENX Software Engineering, Stefan Roese <sr@denx.de>
+ * Copyright 2006-2007 DENX Software Engineering, Stefan Roese <sr@denx.de>
  *
  * Based on bamboo.c from Wade Farnsworth <wfarnsworth@mvista.com>
  *	Copyright 2004 MontaVista Software Inc.
@@ -496,7 +496,7 @@ static void __init sequoia_setup_arch(void)
 	sequoia_set_emacdata();
 
 	/* parm1 = sys clock is OK , parm 2 ser_clock to be checked */
-	ibm440gx_get_clocks(&clocks, 33333333, 6 * 1843200);
+	ibm440gx_get_clocks(&clocks, 33000000, 6 * 1843200);
 	ocp_sys_info.opb_bus_freq = clocks.opb;
 
 	/* init to some ~sane value until calibrate_delay() runs */
