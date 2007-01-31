@@ -56,8 +56,8 @@
 
 #ifdef CONFIG_IPIPE
 #define ENABLE_INTERRUPTS_HW_COND	sti
-#define STALL_ROOT_STAGE		__ipipe_stall_root_thunk
-#define UNSTALL_ROOT_STAGE		__ipipe_unstall_root_thunk
+#define STALL_ROOT_STAGE		call __ipipe_stall_root_thunk
+#define UNSTALL_ROOT_STAGE		call __ipipe_unstall_root_thunk
 #else /* !CONFIG_IPIPE */
 #define ENABLE_INTERRUPTS_HW_COND
 #define STALL_ROOT_STAGE
