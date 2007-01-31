@@ -86,7 +86,7 @@ int ioremap_page_range(unsigned long addr,
 		if (err)
 			break;
 	} while (pgd++, addr = next, addr != end);
-	__ipipe_update_all_pinned_mm(start, end);
+
  	flush_cache_vmap(start, end);
 
 	return err;

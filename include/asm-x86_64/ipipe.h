@@ -163,8 +163,6 @@ struct ipipe_sysinfo {
     (unsigned long)delta; \
 })
 
-int ipipe_disable_ondemand_mappings(struct task_struct *tsk);
-
 /* Private interface -- Internal use only */
 
 #define __ipipe_check_platform() do { } while(0)
@@ -196,13 +194,6 @@ extern struct pt_regs __ipipe_tick_regs[];
 extern int __ipipe_tick_irq;
 
 unsigned __ipipe_get_irq_vector(int irq);
-
-int __ipipe_pin_range_mapping(struct mm_struct *mm,
-			      unsigned long start,
-			      unsigned long end);
-
-int __ipipe_update_all_pinned_mm(unsigned long start,
-				 unsigned long end);
 
 asmlinkage void __ipipe_root_xirq_thunk(unsigned irq,
 					void (*handler)(unsigned irq, void *cookie));
@@ -251,10 +242,6 @@ do { \
 #define task_hijacked(p)	0
 
 #define NR_XIRQS NR_IRQS
-
-#define ipipe_note_apicid(apicid,cpu)  do { } while(0)
-
-#define __ipipe_update_all_pinned_mm(start, end) 0
 
 #endif /* CONFIG_IPIPE */
 
