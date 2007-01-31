@@ -31,6 +31,7 @@
 #include <linux/interrupt.h>
 #ifdef CONFIG_PROC_FS
 #include <linux/proc_fs.h>
+#include <linux/seq_file.h>
 #endif	/* CONFIG_PROC_FS */
 
 MODULE_DESCRIPTION("I-pipe");
@@ -1220,8 +1221,6 @@ void fastcall *ipipe_get_ptd (int key)
 
 #ifdef CONFIG_PROC_FS
 
-#include <linux/proc_fs.h>
-
 struct proc_dir_entry *ipipe_proc_root;
 
 static int __ipipe_version_info_proc(char *page,
@@ -1246,22 +1245,20 @@ static int __ipipe_version_info_proc(char *page,
 	return len;
 }
 
-static int __ipipe_common_info_proc(char *page,
-				    char **start,
-				    off_t off, int count, int *eof, void *data)
+static int __ipipe_common_info_show(struct seq_file *p, void *data)
 {
-	char *p = page, handling, stickiness, lockbit, exclusive, virtuality;
-	struct ipipe_domain *ipd = (struct ipipe_domain *)data;
+	struct ipipe_domain *ipd = (struct ipipe_domain *)p->private;
+	char handling, stickiness, lockbit, exclusive, virtuality;
+
 	unsigned long ctlbits;
 	unsigned irq;
-	int len;
 
-	p += sprintf(p, "       +----- Handling ([A]ccepted, [G]rabbed, [W]ired, [D]iscarded)\n");
-	p += sprintf(p, "       |+---- Sticky\n");
-	p += sprintf(p, "       ||+--- Locked\n");
-	p += sprintf(p, "       |||+-- Exclusive\n");
-	p += sprintf(p, "       ||||+- Virtual\n");
-	p += sprintf(p, "[IRQ]  |||||\n");
+	seq_printf(p, "       +----- Handling ([A]ccepted, [G]rabbed, [W]ired, [D]iscarded)\n");
+	seq_printf(p, "       |+---- Sticky\n");
+	seq_printf(p, "       ||+--- Locked\n");
+	seq_printf(p, "       |||+-- Exclusive\n");
+	seq_printf(p, "       ||||+- Virtual\n");
+	seq_printf(p, "[IRQ]  |||||\n");
 
 	mutex_lock(&ipd->mutex);
 
@@ -1331,42 +1328,44 @@ static int __ipipe_common_info_proc(char *page,
 		else
 			virtuality = '.';
 
-		p += sprintf(p, " %3u:  %c%c%c%c%c\n",
+		seq_printf(p, " %3u:  %c%c%c%c%c\n",
 			     irq, handling, stickiness, lockbit, exclusive, virtuality);
 	}
 
-	p += sprintf(p, "[Domain info]\n");
+	seq_printf(p, "[Domain info]\n");
 
-	p += sprintf(p, "id=0x%.8x\n", ipd->domid);
+	seq_printf(p, "id=0x%.8x\n", ipd->domid);
 
 	if (test_bit(IPIPE_AHEAD_FLAG,&ipd->flags))
-		p += sprintf(p, "priority=topmost\n");
+		seq_printf(p, "priority=topmost\n");
 	else
-		p += sprintf(p, "priority=%d\n", ipd->priority);
+		seq_printf(p, "priority=%d\n", ipd->priority);
 
 	mutex_unlock(&ipd->mutex);
 
-	len = p - page;
-
-	if (len <= off + count)
-		*eof = 1;
-
-	*start = page + off;
-
-	len -= off;
-
-	if (len > count)
-		len = count;
-
-	if (len < 0)
-		len = 0;
-
-	return len;
+	return 0;
 }
+
+static int __ipipe_common_info_open(struct inode *inode, struct file *file)
+{
+	return single_open(file, __ipipe_common_info_show, PROC_I(inode)->pde->data);
+}
+
+static struct file_operations __ipipe_info_proc_ops = {
+	.owner		= THIS_MODULE,
+	.open		= __ipipe_common_info_open,
+	.read		= seq_read,
+	.llseek		= seq_lseek,
+	.release	= single_release,
+};
 
 void __ipipe_add_domain_proc(struct ipipe_domain *ipd)
 {
-	create_proc_read_entry(ipd->name,0444,ipipe_proc_root,&__ipipe_common_info_proc,ipd);
+	struct proc_dir_entry *e = create_proc_entry(ipd->name, 0444, ipipe_proc_root);
+	if (e) {
+		e->proc_fops = &__ipipe_info_proc_ops;
+		e->data = (void*) ipd;
+	}
 }
 
 void __ipipe_remove_domain_proc(struct ipipe_domain *ipd)
