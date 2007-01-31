@@ -363,6 +363,10 @@ struct mm_struct {
 	/* aio bits */
 	rwlock_t		ioctx_list_lock;
 	struct kioctx		*ioctx_list;
+
+#if CONFIG_IPIPE
+	struct list_head pinned;
+#endif /* CONFIG_IPIPE */
 };
 
 struct sighand_struct {

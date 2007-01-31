@@ -335,6 +335,15 @@ int fastcall __ipipe_dispatch_wired(struct ipipe_domain *head, unsigned irq);
 
 void fastcall __ipipe_sync_stage(unsigned long syncmask);
 
+int __ipipe_update_all_pinned_mm(unsigned long start, unsigned long end);
+
+struct mm_struct;
+
+void __ipipe_unlink_pinned_mm(struct mm_struct *mm);
+
+int __ipipe_pin_range_mapping(struct mm_struct *mm,
+			      unsigned long start, unsigned long end);
+
 #ifndef __ipipe_sync_pipeline
 #define __ipipe_sync_pipeline(syncmask) __ipipe_sync_stage(syncmask)
 #endif
@@ -432,12 +441,11 @@ static inline void ipipe_init_notify(struct task_struct *p)
 		__ipipe_dispatch_event(IPIPE_EVENT_INIT,p);
 }
 
-struct mm_struct;
-
 static inline void ipipe_cleanup_notify(struct mm_struct *mm)
 {
 	if (__ipipe_event_monitored_p(IPIPE_EVENT_CLEANUP))
 		__ipipe_dispatch_event(IPIPE_EVENT_CLEANUP,mm);
+	__ipipe_unlink_pinned_mm(mm);
 }
 
 /* Public interface */
@@ -641,6 +649,8 @@ int fastcall ipipe_set_ptd(int key,
 
 void fastcall *ipipe_get_ptd(int key);
 
+int ipipe_disable_ondemand_mappings(struct task_struct *tsk);
+
 #define local_irq_enable_hw_cond()		local_irq_enable_hw()
 #define local_irq_disable_hw_cond()		local_irq_disable_hw()
 #define local_irq_save_hw_cond(flags)	local_irq_save_hw(flags)
@@ -688,6 +698,7 @@ void fastcall *ipipe_get_ptd(int key);
 #define ipipe_cleanup_notify(mm)	do { } while(0)
 #define ipipe_trap_notify(t,r)	0
 #define ipipe_init_proc()		do { } while(0)
+#define __ipipe_update_all_pinned_mm(start, end) 0
 
 #define local_irq_enable_hw_cond()		do { } while(0)
 #define local_irq_disable_hw_cond()		do { } while(0)
