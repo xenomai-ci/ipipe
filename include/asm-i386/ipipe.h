@@ -27,10 +27,10 @@
 #include <linux/threads.h>
 #include <irq_vectors.h>
 
-#define IPIPE_ARCH_STRING	"1.6-06"
+#define IPIPE_ARCH_STRING	"1.7-00"
 #define IPIPE_MAJOR_NUMBER	1
-#define IPIPE_MINOR_NUMBER	6
-#define IPIPE_PATCH_NUMBER	6
+#define IPIPE_MINOR_NUMBER	7
+#define IPIPE_PATCH_NUMBER	0
 
 #ifdef CONFIG_X86_LOCAL_APIC
 /* We want to cover the whole IRQ space when the APIC is enabled. */
