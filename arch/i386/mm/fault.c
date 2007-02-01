@@ -654,3 +654,18 @@ void vmalloc_sync_all(void)
 	}
 }
 #endif
+
+#ifdef CONFIG_IPIPE
+int __ipipe_pin_range_mapping(struct mm_struct *mm,
+			      unsigned long start, unsigned long end)
+{
+	unsigned long next, addr = start;
+
+	do {
+		next = pgd_addr_end(addr, end);
+		vmalloc_sync_one(mm->pgd, addr);
+	} while (addr = next, addr != end);
+
+	return 0;
+}
+#endif /* CONFIG_IPIPE */
