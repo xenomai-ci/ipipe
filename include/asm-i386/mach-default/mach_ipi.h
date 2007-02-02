@@ -19,7 +19,7 @@ static inline void __local_send_IPI_allbutself(int vector)
 	if (no_broadcast || vector == NMI_VECTOR) {
 		cpumask_t mask = cpu_online_map;
 
-		cpu_clear(smp_processor_id(), mask);
+		cpu_clear(smp_processor_id_hw(), mask);
 		send_IPI_mask(mask, vector);
 	} else
 		__send_IPI_shortcut(APIC_DEST_ALLBUT, vector);
