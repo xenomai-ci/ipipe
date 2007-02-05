@@ -1409,7 +1409,7 @@ static int try_to_wake_up(struct task_struct *p, unsigned int state, int sync)
 
 	rq = task_rq_lock(p, &flags);
 	old_state = p->state;
-	if (!(old_state & state))
+	if (!(old_state & state) || (old_state & TASK_NOWAKEUP))
 		goto out;
 
 	if (p->array)
@@ -1830,6 +1830,8 @@ asmlinkage void schedule_tail(struct task_struct *prev)
 #endif
 	if (current->set_child_tid)
 		put_user(current->pid, current->set_child_tid);
+
+	ipipe_init_notify(current);
 }
 
 /*
@@ -3420,12 +3422,17 @@ asmlinkage void __sched schedule(void)
 	long *switch_count;
 	struct rq *rq;
 
+#ifdef CONFIG_IPIPE
+	if (unlikely(!ipipe_root_domain_p))
+		return;
+#endif /* CONFIG_IPIPE */
 	/*
 	 * Test if we are atomic.  Since do_exit() needs to call into
 	 * schedule() atomically, we ignore that path for now.
 	 * Otherwise, whine if we are scheduling when we should not be.
 	 */
-	if (unlikely(in_atomic() && !current->exit_state)) {
+	if (unlikely(!(current->state & TASK_ATOMICSWITCH) && in_atomic() &&
+			!current->exit_state)) {
 		printk(KERN_ERR "BUG: scheduling while atomic: "
 			"%s/0x%08x/%d\n",
 			current->comm, preempt_count(), current->pid);
@@ -3436,8 +3443,13 @@ asmlinkage void __sched schedule(void)
 	}
 	profile_hit(SCHED_PROFILING, __builtin_return_address(0));
 
+	if (unlikely(current->state & TASK_ATOMICSWITCH)) {
+		current->state &= ~TASK_ATOMICSWITCH;
+		goto need_resched_nodisable;
+	}
 need_resched:
 	preempt_disable();
+need_resched_nodisable:
 	prev = current;
 	release_kernel_lock(prev);
 need_resched_nonpreemptible:
@@ -3555,6 +3567,8 @@ switch_tasks:
 		prepare_task_switch(rq, next);
 		prev = context_switch(rq, prev, next);
 		barrier();
+ 		if (task_hijacked(prev))
+ 		    return;
 		/*
 		 * this_rq must be evaluated again because prev may have moved
 		 * CPUs since it called schedule(), thus the 'rq' on its stack
@@ -3568,7 +3582,7 @@ switch_tasks:
 	if (unlikely(reacquire_kernel_lock(prev) < 0))
 		goto need_resched_nonpreemptible;
 	preempt_enable_no_resched();
-	if (unlikely(test_thread_flag(TIF_NEED_RESCHED)))
+	if (unlikely(test_thread_flag(TIF_NEED_RESCHED) && ipipe_root_domain_p))
 		goto need_resched;
 }
 EXPORT_SYMBOL(schedule);
@@ -3586,6 +3600,11 @@ asmlinkage void __sched preempt_schedule(void)
 	struct task_struct *task = current;
 	int saved_lock_depth;
 #endif
+#ifdef CONFIG_IPIPE
+	/* Do not reschedule over non-Linux domains. */
+	if (unlikely(!ipipe_root_domain_p))
+		return;
+#endif /* CONFIG_IPIPE */
 	/*
 	 * If there is a non-zero preempt_count or interrupts are disabled,
 	 * we do not want to preempt the current task.  Just return..
@@ -4284,6 +4303,7 @@ recheck:
 		deactivate_task(p, rq);
 	oldprio = p->prio;
 	__setscheduler(p, policy, param->sched_priority);
+	ipipe_setsched_notify(p);
 	if (array) {
 		__activate_task(p, rq);
 		/*
@@ -7057,3 +7077,50 @@ void set_curr_task(int cpu, struct task_struct *p)
 }
 
 #endif
+
+#ifdef CONFIG_IPIPE
+
+int ipipe_setscheduler_root (struct task_struct *p, int policy, int prio)
+{
+	struct prio_array *array;
+	unsigned long flags;
+	struct rq *rq;
+	int oldprio;
+
+	rq = task_rq_lock(p, &flags);
+	array = p->array;
+	if (array)
+		deactivate_task(p, rq);
+	oldprio = p->prio;
+	__setscheduler(p, policy, prio);
+	if (array) {
+		__activate_task(p, rq);
+		if (task_running(rq, p)) {
+			if (p->prio > oldprio)
+				resched_task(rq->curr);
+		} else if (TASK_PREEMPTS_CURR(p, rq))
+			resched_task(rq->curr);
+	}
+	task_rq_unlock(rq, &flags);
+
+	return 0;
+}
+
+EXPORT_SYMBOL(ipipe_setscheduler_root);
+
+int ipipe_reenter_root (struct task_struct *prev, int policy, int prio)
+{
+	finish_task_switch(this_rq(), prev);
+	if (reacquire_kernel_lock(current) < 0)
+		;
+	preempt_enable_no_resched();
+
+	if (current->policy != policy || current->rt_priority != prio)
+		return ipipe_setscheduler_root(current,policy,prio);
+
+	return 0;
+}
+
+EXPORT_SYMBOL(ipipe_reenter_root);
+
+#endif /* CONFIG_IPIPE */

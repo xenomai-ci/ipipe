@@ -10,6 +10,7 @@
 
 #include <asm/cacheflush.h>
 #include <asm/pgtable.h>
+#include <asm/pgalloc.h>
 
 static int ioremap_pte_range(pmd_t *pmd, unsigned long addr,
 		unsigned long end, unsigned long phys_addr, pgprot_t prot)
@@ -84,8 +85,8 @@ int ioremap_page_range(unsigned long addr,
 		if (err)
 			break;
 	} while (pgd++, addr = next, addr != end);
-
-	flush_cache_vmap(start, end);
+	__ipipe_update_all_pinned_mm(start, end);
+ 	flush_cache_vmap(start, end);
 
 	return err;
 }

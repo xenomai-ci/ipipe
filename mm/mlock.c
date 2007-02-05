@@ -166,7 +166,7 @@ static int do_mlockall(int flags)
 
 	if (flags & MCL_FUTURE)
 		def_flags = VM_LOCKED;
-	current->mm->def_flags = def_flags;
+	current->mm->def_flags |= def_flags;
 	if (flags == MCL_FUTURE)
 		goto out;
 

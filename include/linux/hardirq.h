@@ -128,7 +128,7 @@ static inline void account_system_vtime(struct task_struct *tsk)
  */
 extern void irq_exit(void);
 
-#define nmi_enter()		do { lockdep_off(); irq_enter(); } while (0)
-#define nmi_exit()		do { __irq_exit(); lockdep_on(); } while (0)
+#define nmi_enter()		do { if (ipipe_root_domain_p) { lockdep_off(); irq_enter(); } } while (0)
+#define nmi_exit()		do { if (ipipe_root_domain_p) { __irq_exit(); lockdep_on(); } } while (0)
 
 #endif /* LINUX_HARDIRQ_H */

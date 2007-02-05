@@ -19,6 +19,7 @@
 
 #include <asm/uaccess.h>
 #include <asm/tlbflush.h>
+#include <asm/pgalloc.h>
 
 
 DEFINE_RWLOCK(vmlist_lock);
@@ -156,6 +157,7 @@ int map_vm_area(struct vm_struct *area, pgprot_t prot, struct page ***pages)
 		if (err)
 			break;
 	} while (pgd++, addr = next, addr != end);
+	__ipipe_update_all_pinned_mm((unsigned long) area->addr, end);
 	flush_cache_vmap((unsigned long) area->addr, end);
 	return err;
 }

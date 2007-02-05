@@ -490,6 +490,10 @@ endif
 
 include $(srctree)/arch/$(ARCH)/Makefile
 
+ifdef CONFIG_IPIPE_TRACE_MCOUNT
+CFLAGS          += -pg
+endif
+
 ifdef CONFIG_FRAME_POINTER
 CFLAGS		+= -fno-omit-frame-pointer $(call cc-option,-fno-optimize-sibling-calls,)
 else

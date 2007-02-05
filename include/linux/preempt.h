@@ -26,29 +26,44 @@
 
 asmlinkage void preempt_schedule(void);
 
-#define preempt_disable() \
-do { \
-	inc_preempt_count(); \
-	barrier(); \
+#ifdef CONFIG_IPIPE
+#include <asm/ipipe.h>
+DECLARE_PER_CPU(struct ipipe_domain *, ipipe_percpu_domain);
+extern struct ipipe_domain ipipe_root;
+#define ipipe_preempt_guard() (per_cpu(ipipe_percpu_domain, ipipe_processor_id()) == &ipipe_root)
+#else  /* !CONFIG_IPIPE */
+#define ipipe_preempt_guard()	1
+#endif /* CONFIG_IPIPE */
+
+#define preempt_disable()						\
+do {									\
+	if (ipipe_preempt_guard()) {					\
+		inc_preempt_count();					\
+		barrier();						\
+	}								\
 } while (0)
 
-#define preempt_enable_no_resched() \
-do { \
-	barrier(); \
-	dec_preempt_count(); \
+#define preempt_enable_no_resched()					\
+do {									\
+	if (ipipe_preempt_guard()) {					\
+		barrier();						\
+		dec_preempt_count();					\
+	}								\
 } while (0)
 
-#define preempt_check_resched() \
-do { \
-	if (unlikely(test_thread_flag(TIF_NEED_RESCHED))) \
-		preempt_schedule(); \
+#define preempt_check_resched()						\
+do {									\
+	if (ipipe_preempt_guard()) {					\
+		if (unlikely(test_thread_flag(TIF_NEED_RESCHED)))	\
+			preempt_schedule();				\
+	}								\
 } while (0)
 
-#define preempt_enable() \
-do { \
-	preempt_enable_no_resched(); \
+#define preempt_enable()						\
+do {									\
+	preempt_enable_no_resched();					\
 	barrier(); \
-	preempt_check_resched(); \
+	preempt_check_resched();					\
 } while (0)
 
 #else
