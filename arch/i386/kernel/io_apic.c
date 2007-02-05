@@ -56,8 +56,8 @@ atomic_t irq_mis_count;
 /* Where if anywhere is the i8259 connect in external int mode */
 static struct { int pin, apic; } ioapic_i8259 = { -1, -1 };
 
-static DEFINE_SPINLOCK(ioapic_lock);
-static DEFINE_SPINLOCK(vector_lock);
+static IPIPE_DEFINE_SPINLOCK(ioapic_lock);
+static IPIPE_DEFINE_SPINLOCK(vector_lock);
 
 int timer_over_8254 __initdata = 1;
 
@@ -278,6 +278,7 @@ static void mask_IO_APIC_irq (unsigned int irq)
 	unsigned long flags;
 
 	spin_lock_irqsave(&ioapic_lock, flags);
+	ipipe_irq_lock(irq);
 	__mask_IO_APIC_irq(irq);
 	spin_unlock_irqrestore(&ioapic_lock, flags);
 }
@@ -288,6 +289,7 @@ static void unmask_IO_APIC_irq (unsigned int irq)
 
 	spin_lock_irqsave(&ioapic_lock, flags);
 	__unmask_IO_APIC_irq(irq);
+	ipipe_irq_unlock(irq);
 	spin_unlock_irqrestore(&ioapic_lock, flags);
 }
 
@@ -751,8 +753,10 @@ late_initcall(balanced_irq_init);
 #ifndef CONFIG_SMP
 void fastcall send_IPI_self(int vector)
 {
+	unsigned long flags;
 	unsigned int cfg;
 
+	local_irq_save_hw_cond(flags);
 	/*
 	 * Wait for idle.
 	 */
@@ -762,6 +766,7 @@ void fastcall send_IPI_self(int vector)
 	 * Send the IPI. The write to APIC_ICR fires this off.
 	 */
 	apic_write_around(APIC_ICR, cfg);
+	local_irq_restore_hw_cond(flags);
 }
 #endif /* !CONFIG_SMP */
 
@@ -1999,6 +2004,7 @@ static unsigned int startup_ioapic_irq(unsigned int irq)
 			was_pending = 1;
 	}
 	__unmask_IO_APIC_irq(irq);
+	ipipe_irq_unlock(irq);
 	spin_unlock_irqrestore(&ioapic_lock, flags);
 
 	return was_pending;
@@ -2006,8 +2012,10 @@ static unsigned int startup_ioapic_irq(unsigned int irq)
 
 static void ack_ioapic_irq(unsigned int irq)
 {
+#ifndef CONFIG_IPIPE
 	move_native_irq(irq);
-	ack_APIC_irq();
+#endif /* CONFIG_IPIPE */
+	__ack_APIC_irq();
 }
 
 static void ack_ioapic_quirk_irq(unsigned int irq)
@@ -2015,7 +2023,9 @@ static void ack_ioapic_quirk_irq(unsigned int irq)
 	unsigned long v;
 	int i;
 
+#ifndef CONFIG_IPIPE
 	move_native_irq(irq);
+#endif /* CONFIG_IPIPE */
 /*
  * It appears there is an erratum which affects at least version 0x11
  * of I/O APIC (that's the 82093AA and cores integrated into various
@@ -2039,7 +2049,7 @@ static void ack_ioapic_quirk_irq(unsigned int irq)
 
 	v = apic_read(APIC_TMR + ((i & ~0x1f) >> 1));
 
-	ack_APIC_irq();
+	__ack_APIC_irq();
 
 	if (!(v & (1 << (i & 0x1f)))) {
 		atomic_inc(&irq_mis_count);
@@ -2069,7 +2079,6 @@ static struct irq_chip ioapic_chip __read_mostly = {
 #endif
 	.retrigger	= ioapic_retrigger_irq,
 };
-
 
 static inline void init_IO_APIC_traps(void)
 {
@@ -2109,23 +2118,29 @@ static inline void init_IO_APIC_traps(void)
 
 static void ack_apic(unsigned int irq)
 {
-	ack_APIC_irq();
+	__ack_APIC_irq();
 }
 
 static void mask_lapic_irq (unsigned int irq)
 {
-	unsigned long v;
+	unsigned long v, flags;
 
+	spin_lock_irqsave(&ioapic_lock, flags);
+	ipipe_irq_lock(irq);
 	v = apic_read(APIC_LVT0);
 	apic_write_around(APIC_LVT0, v | APIC_LVT_MASKED);
+	spin_unlock_irqrestore(&ioapic_lock, flags);
 }
 
 static void unmask_lapic_irq (unsigned int irq)
 {
-	unsigned long v;
+	unsigned long v, flags;
 
+	spin_lock_irqsave(&ioapic_lock, flags);
 	v = apic_read(APIC_LVT0);
 	apic_write_around(APIC_LVT0, v & ~APIC_LVT_MASKED);
+	ipipe_irq_unlock(irq);
+	spin_unlock_irqrestore(&ioapic_lock, flags);
 }
 
 static struct irq_chip lapic_chip __read_mostly = {

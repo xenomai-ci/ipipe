@@ -29,7 +29,7 @@
 #include "irq_vectors.h"
 
 
-static DEFINE_SPINLOCK(cobalt_lock);
+static IPIPE_DEFINE_SPINLOCK(cobalt_lock);
 
 /*
  * Set the given Cobalt APIC Redirection Table entry to point
@@ -131,7 +131,6 @@ static struct irq_chip cobalt_irq_type = {
 	.ack =		ack_cobalt_irq,
 	.end =		end_cobalt_irq,
 };
-
 
 /*
  * This is the PIIX4-based 8259 that is wired up indirectly to Cobalt

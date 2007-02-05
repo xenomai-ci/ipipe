@@ -277,6 +277,8 @@ config SCHED_MC
 
 source "kernel/Kconfig.preempt"
 
+source "kernel/ipipe/Kconfig"
+
 config X86_UP_APIC
 	bool "Local APIC support on uniprocessors"
 	depends on !SMP && !(X86_VISWS || X86_VOYAGER || X86_GENERICARCH)

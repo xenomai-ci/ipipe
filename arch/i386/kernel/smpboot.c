@@ -971,6 +971,7 @@ static int __cpuinit do_boot_cpu(int apicid, int cpu)
 	start_eip = setup_trampoline();
 
 	++cpucount;
+	ipipe_note_apicid(apicid, cpu);
 	alternatives_smp_switch(1);
 
 	/* So we see what's up   */
@@ -1170,6 +1171,7 @@ static void __init smp_boot_cpus(unsigned int max_cpus)
 	boot_cpu_physical_apicid = GET_APIC_ID(apic_read(APIC_ID));
 	boot_cpu_logical_apicid = logical_smp_processor_id();
 	x86_cpu_to_apicid[0] = boot_cpu_physical_apicid;
+	ipipe_note_apicid(boot_cpu_physical_apicid,0);
 
 	current_thread_info()->cpu = 0;
 	smp_tune_scheduling();

@@ -23,6 +23,12 @@
  * This means that it is not safe to place pointers in static structures.
  */
 
+#ifdef CONFIG_IPIPE_TRACE_MCOUNT
+void __attribute__ ((no_instrument_function)) mcount(void)
+{
+}
+#endif
+
 /*
  * Getting to provable safe in place decompression is hard.
  * Worst case behaviours need to be analized.
@@ -189,7 +195,7 @@ static void putstr(const char *);
 static unsigned long free_mem_ptr;
 static unsigned long free_mem_end_ptr;
 
-#define HEAP_SIZE             0x3000
+#define HEAP_SIZE             0x4000
 
 static char *vidmem = (char *)0xb8000;
 static int vidport;

@@ -315,6 +315,11 @@ void show_registers(struct pt_regs *regs)
 		regs->esi, regs->edi, regs->ebp, esp);
 	printk(KERN_EMERG "ds: %04x   es: %04x   ss: %04x\n",
 		regs->xds & 0xffff, regs->xes & 0xffff, ss);
+#ifdef CONFIG_IPIPE
+	if (ipipe_current_domain != ipipe_root_domain)
+		printk("I-pipe domain %s",ipipe_current_domain->name);
+	else
+#endif /* CONFIG_IPIPE */
 	printk(KERN_EMERG "Process %.*s (pid: %d, ti=%p task=%p task.ti=%p)",
 		TASK_COMM_LEN, current->comm, current->pid,
 		current_thread_info(), current, current->thread_info);
@@ -713,12 +718,14 @@ void __kprobes die_nmi(struct pt_regs *regs, const char *msg)
 	do_exit(SIGSEGV);
 }
 
+EXPORT_SYMBOL(die_nmi);
+
 static __kprobes void default_do_nmi(struct pt_regs * regs)
 {
 	unsigned char reason = 0;
 
 	/* Only the BSP gets external NMIs from the system.  */
-	if (!smp_processor_id())
+	if (!smp_processor_id_hw())
 		reason = get_nmi_reason();
  
 	if (!(reason & 0xc0)) {
@@ -757,7 +764,11 @@ fastcall __kprobes void do_nmi(struct pt_regs * regs, long error_code)
 
 	nmi_enter();
 
+#ifdef CONFIG_IPIPE
+	cpu = ipipe_processor_id();
+#else /* !CONFIG_IPIPE */
 	cpu = smp_processor_id();
+#endif /* !CONFIG_IPIPE */
 
 	++nmi_count(cpu);
 
@@ -1046,13 +1057,16 @@ asmlinkage void math_state_restore(void)
 {
 	struct thread_info *thread = current_thread_info();
 	struct task_struct *tsk = thread->task;
-
+ 	unsigned long flags;
+  
+ 	local_irq_save_hw_cond(flags);
 	clts();		/* Allow maths ops (or we recurse) */
 	if (!tsk_used_math(tsk))
 		init_fpu(tsk);
 	restore_fpu(tsk);
 	thread->status |= TS_USEDFPU;	/* So we fnsave on switch_to() */
 	tsk->fpu_counter++;
+ 	local_irq_restore_hw_cond(flags);
 }
 
 #ifndef CONFIG_MATH_EMULATION

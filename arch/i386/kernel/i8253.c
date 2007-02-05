@@ -16,7 +16,7 @@
 
 #include "io_ports.h"
 
-DEFINE_SPINLOCK(i8253_lock);
+IPIPE_DEFINE_SPINLOCK(i8253_lock);
 EXPORT_SYMBOL(i8253_lock);
 
 void setup_pit_timer(void)
@@ -44,6 +44,11 @@ static cycle_t pit_read(void)
 	u32 jifs;
 	static int old_count;
 	static u32 old_jifs;
+
+#ifdef CONFIG_IPIPE
+	if (!__ipipe_pipeline_head_p(ipipe_root_domain))
+		return 0;	/* We don't really own the PIT. */
+#endif /* CONFIG_IPIPE */
 
 	spin_lock_irqsave(&i8253_lock, flags);
         /*
