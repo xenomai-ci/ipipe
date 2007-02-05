@@ -382,7 +382,7 @@ struct mm_struct {
 	rwlock_t		ioctx_list_lock;
 	struct kioctx		*ioctx_list;
 
-#if CONFIG_IPIPE
+#ifdef CONFIG_IPIPE
 	struct list_head pinned;
 #endif /* CONFIG_IPIPE */
 };
