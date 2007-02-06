@@ -2718,7 +2718,7 @@ int access_process_vm(struct task_struct *tsk, unsigned long addr, void *buf, in
 
 #ifdef CONFIG_IPIPE
 static LIST_HEAD(pinned_mms);
-static DEFINE_RWLOCK(pinned_mms_lock);
+static DECLARE_RWSEM(pinned_mms_sem);
 
 static inline int ipipe_pin_pte_range(struct mm_struct *mm, pmd_t *pmd,
 				      struct vm_area_struct *vma,
@@ -2790,7 +2790,7 @@ int ipipe_disable_ondemand_mappings(struct task_struct *tsk)
 
 	down_write(&mm->mmap_sem);
 	if (mm->def_flags & VM_PINNED)
-		goto up_mmap_sem_done;
+		goto done_mm;
 
 	for (vma = mm->mmap; vma; vma = vma->vm_next) {
 		if (!is_cow_mapping(vma->vm_flags))
@@ -2804,17 +2804,13 @@ int ipipe_disable_ondemand_mappings(struct task_struct *tsk)
 			next = pgd_addr_end(addr, end);
 			if (ipipe_pin_pud_range(mm, pgd, vma, addr, next)) {
 				result = -ENOMEM;
-			  up_mmap_sem_done:
-				up_write(&mm->mmap_sem);
 				goto done_mm;
 			}
 		} while (pgd++, addr = next, addr != end);
 	}
 	mm->def_flags |= VM_PINNED;
-	up_write(&mm->mmap_sem);
 
 	read_lock(&vmlist_lock);
-	down_write(&mm->mmap_sem);
 	for (area = vmlist; area; area = area->next) {
 		result =  __ipipe_pin_range_mapping(mm,
 						    (unsigned long) area->addr,
@@ -2822,19 +2818,18 @@ int ipipe_disable_ondemand_mappings(struct task_struct *tsk)
 						    + area->size);
 		if (result) {
 			mm->def_flags &= ~VM_PINNED;
-			up_write(&mm->mmap_sem);
-			goto done_vmlist;
+			read_unlock(&vmlist_lock);
+			goto done_mm;
 		}
 	}
-	up_write(&mm->mmap_sem);
 
-	write_lock(&pinned_mms_lock);
+	read_unlock(&vmlist_lock);
+	down_write(&pinned_mms_sem);
 	list_add(&mm->pinned, &pinned_mms);
-	write_unlock(&pinned_mms_lock);
+	up_write(&pinned_mms_sem);
 
-  done_vmlist:
-	read_unlock(&vmlist_lock);	
   done_mm:
+	up_write(&mm->mmap_sem);
 	mmput(mm);
 	return result;
 }
@@ -2846,7 +2841,7 @@ int __ipipe_update_all_pinned_mm(unsigned long start, unsigned long end)
 	struct mm_struct *mm;
 	int result = 0;
 
-	read_lock(&pinned_mms_lock);
+	down_read(&pinned_mms_sem);
 	list_for_each_entry(mm, &pinned_mms, pinned) {
 		down_write(&mm->mmap_sem);
 		result = __ipipe_pin_range_mapping(mm, start, end);
@@ -2855,7 +2850,7 @@ int __ipipe_update_all_pinned_mm(unsigned long start, unsigned long end)
 		if (result)
 			break;
 	}
-	read_unlock(&pinned_mms_lock);
+	up_read(&pinned_mms_sem);
 
 	return result;
 }
@@ -2863,9 +2858,9 @@ int __ipipe_update_all_pinned_mm(unsigned long start, unsigned long end)
 void __ipipe_unlink_pinned_mm(struct mm_struct *mm)
 {
 	if (mm->def_flags & VM_PINNED) {
-		write_lock(&pinned_mms_lock);
+		down_write(&pinned_mms_sem);
 		list_del(&mm->pinned);
-		write_unlock(&pinned_mms_lock);
+		up_write(&pinned_mms_sem);
 	}
 }
 #endif
