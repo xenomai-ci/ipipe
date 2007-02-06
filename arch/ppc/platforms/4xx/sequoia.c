@@ -288,6 +288,13 @@ static void __init sequoia_set_emacdata(void)
 	emacdata = def->additions;
 	memcpy(emacdata->mac_addr, __res.bi_enet1addr, 6);
 	emacdata->phy_mode = PHY_MODE_RGMII;
+
+        /*
+         * Clear PLB4A0_ACR[WRP] (Write Pipeline Control)
+         * This fix will make the MAL burst disabling patch for the Linux
+         * EMAC driver obsolete.
+         */
+	mtdcr(DCRN_PLB4A0_ACR, mfdcr(DCRN_PLB4A0_ACR) & ~(0x80000000 >> 7));
 }
 
 static int sequoia_exclude_device(unsigned char bus, unsigned char devfn)
