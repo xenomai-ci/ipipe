@@ -48,24 +48,26 @@ u32 booke_wdt_period = WDT_PERIOD_DEFAULT;
 #endif
 
 /*
+ * booke_wdt_ping:
+ */
+static __inline__ void booke_wdt_ping(void)
+{
+	mtspr(SPRN_TSR, TSR_ENW|TSR_WIS);
+}
+
+/*
  * booke_wdt_enable:
  */
 static __inline__ void booke_wdt_enable(void)
 {
 	u32 val;
 
+	/* clear status before enabling watchdog */
+	booke_wdt_ping();
 	val = mfspr(SPRN_TCR);
 	val |= (TCR_WIE|TCR_WRC(WRC_CHIP)|WDTP(booke_wdt_period));
 
 	mtspr(SPRN_TCR, val);
-}
-
-/*
- * booke_wdt_ping:
- */
-static __inline__ void booke_wdt_ping(void)
-{
-	mtspr(SPRN_TSR, TSR_ENW|TSR_WIS);
 }
 
 /*
