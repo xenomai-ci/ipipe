@@ -633,12 +633,13 @@ asmlinkage int __ipipe_divert_exception(struct pt_regs *regs, int vector)
 int __ipipe_handle_irq(struct pt_regs *regs)
 {
 	struct ipipe_domain *this_domain, *next_domain;
-	unsigned vector = ~regs->orig_rax, irq;
+	unsigned vector = regs->orig_rax, irq;
 	struct list_head *head, *pos;
 	ipipe_declare_cpuid;
 	int m_ack;
 
 	if ((long)regs->orig_rax < 0) {
+		vector = ~vector;
 		if (vector >= FIRST_SYSTEM_VECTOR)
 			irq = ipipe_apic_vector_irq(vector);
 		else
