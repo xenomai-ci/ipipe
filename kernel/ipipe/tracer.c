@@ -1209,7 +1209,7 @@ void __init __ipipe_init_tracer(void)
 #ifdef CONFIG_IPIPE_TRACE_VMALLOC
 	int cpu, path;
 
-	foreach_possible_cpu(cpu) {
+	for_each_possible_cpu(cpu) {
 		trace_paths[cpu] = vmalloc(
 			sizeof(struct ipipe_trace_path) * IPIPE_TRACE_PATHS);
 		if (!trace_paths) {
