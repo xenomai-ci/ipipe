@@ -149,19 +149,9 @@ struct ipipe_sysinfo {
 
 #define ipipe_cpu_freq() ({ unsigned long long __freq = (1000LL * cpu_khz); __freq; })
 
-#define ipipe_tsc2ns(t) \
-({ \
-	unsigned long long delta = (t)*1000; \
-	do_div(delta, cpu_khz/1000+1); \
-	(unsigned long)delta; \
-})
+#define ipipe_tsc2ns(t)	(((t) * 1000) / (ipipe_cpu_freq() / 1000000))
 
-#define ipipe_tsc2us(t) \
-({ \
-    unsigned long long delta = (t); \
-    do_div(delta, cpu_khz/1000+1); \
-    (unsigned long)delta; \
-})
+#define ipipe_tsc2us(t)	((t) / (ipipe_cpu_freq() / 1000000))
 
 /* Private interface -- Internal use only */
 
