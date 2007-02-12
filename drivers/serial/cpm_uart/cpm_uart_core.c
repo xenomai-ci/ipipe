@@ -481,7 +481,7 @@ static void cpm_uart_shutdown(struct uart_port *port)
 }
 
 static void cpm_uart_set_termios(struct uart_port *port,
-				 struct termios *termios, struct termios *old)
+				 struct ktermios *termios, struct ktermios *old)
 {
 	int baud;
 	unsigned long flags;
@@ -1025,6 +1025,7 @@ int cpm_uart_drv_get_platform_data(struct platform_device *pdev, int is_con)
 	struct uart_cpm_port *pinfo;
 	int line;
 	u32 mem, pram, pram_base;
+	int	base;
 
 	idx = pdata->fs_no = fs_uart_get_id(pdata);
 
@@ -1050,11 +1051,12 @@ int cpm_uart_drv_get_platform_data(struct platform_device *pdev, int is_con)
 	if (!(r = platform_get_resource_byname(pdev, IORESOURCE_MEM, "pram")))
 		return -EINVAL;
 	pram = (u32)ioremap(r->start, r->end - r->start + 1);
-
+	base = r->start;
+	
 	r = platform_get_resource_byname(pdev, IORESOURCE_MEM, "pram_base");
 	if (r) {
 		pram_base = r->start;
-		out_be16((u16 *)pram_base, pram & 0xffff);
+		out_be16((u16 *)pram_base, base & 0xffff);
 	}
 
 	if(idx > fsid_smc2_uart) {
