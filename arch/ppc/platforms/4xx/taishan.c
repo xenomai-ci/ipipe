@@ -3,6 +3,8 @@
  *
  * AMCC Taishan board specific routines
  *
+ * Copyright 2007 DENX Software Engineering, Stefan Roese <sr@denx.de>
+ *
  * This program is free software; you can redistribute  it and/or modify it
  * under  the terms of  the GNU General  Public License as published by the
  * Free Software Foundation;  either version 2 of the  License, or (at your
@@ -52,7 +54,7 @@ static struct ibm44x_clocks clocks __initdata;
 
 /* start will be added dynamically, end is always fixed */
 static struct resource taishan_nor_resource = {
-	.start = 0x1fc000000ULL,
+	.start = TAISHAN_FLASH_ADDR,
 	.end   = 0x1ffffffffULL,
 	.flags = IORESOURCE_MEM,
 };
@@ -110,8 +112,6 @@ static struct platform_device taishan_nor_device = {
 
 static int taishan_setup_flash(void)
 {
-//test-only	taishan_nor_resource.start = __res.bi_flashstart;
-
 	/*
 	 * Adjust partition 2 to flash size
 	 */
@@ -169,17 +169,6 @@ static void __init taishan_set_emacdata(void)
 	struct ocp_func_emac_data *emacdata;
 	int i;
 
-	/*
-	 * Note: Current rev. board only operates in Group 4a
-	 * mode, so we always set EMAC0-1 for SMII and EMAC2-3
-	 * for RGMII (though these could run in RTBI just the same).
-	 *
-	 * The FPGA reg 3 information isn't even suitable for
-	 * determining the phy_mode, so if the board becomes
-	 * usable in !4a, it will be necessary to parse an environment
-	 * variable from the firmware or similar to properly configure
-	 * the phy_map/phy_mode.
-	 */
 	/* Set phy_map, phy_mode, and mac_addr for each EMAC */
 	for (i=2; i<4; i++) {
 		def = ocp_get_one_device(OCP_VENDOR_IBM, OCP_FUNC_EMAC, i);
@@ -318,9 +307,8 @@ taishan_early_serial_map(void)
 	port.flags = UPF_BOOT_AUTOCONF | UPF_SKIP_TEST;
 	port.line = 0;
 
-	if (early_serial_setup(&port) != 0) {
+	if (early_serial_setup(&port) != 0)
 		printk("Early serial init of port 0 failed\n");
-	}
 
 #if defined(CONFIG_SERIAL_TEXT_DEBUG) || defined(CONFIG_KGDB)
 	/* Configure debug serial access */
@@ -335,9 +323,8 @@ taishan_early_serial_map(void)
 	port.uartclk = clocks.uart1;
 	port.line = 1;
 
-	if (early_serial_setup(&port) != 0) {
+	if (early_serial_setup(&port) != 0)
 		printk("Early serial init of port 1 failed\n");
-	}
 
 #if defined(CONFIG_SERIAL_TEXT_DEBUG) || defined(CONFIG_KGDB)
 	/* Configure debug serial access */
