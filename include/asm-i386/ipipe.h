@@ -124,6 +124,14 @@ do {						\
      __clear_bit(IPIPE_SYNC_FLAG,&ipipe_root_domain->cpudata[task_cpu(p)].status); \
      local_irq_enable_hw(); x; })
 
+#define task_switch_fixup(p)				\
+	do {						\
+		finish_task_switch(this_rq(), p);	\
+		if (reacquire_kernel_lock(current) < 0)	\
+			;				\
+		preempt_enable_no_resched();		\
+	} while(0)
+
 /* IDT fault vectors */
 #define IPIPE_NR_FAULTS		33 /* 32 from IDT + iret_error */
 /* Pseudo-vectors used for kernel events */
