@@ -13,6 +13,7 @@ AFLAGS		:= $(subst -m64,-m32,$(AFLAGS))
 # cannot use EXTRA_CFLAGS because base CFLAGS contains -mkernel which conflicts with
 # -m32
 CFLAGS := -m32 -D__KERNEL__ -Iinclude -O2  -fno-strict-aliasing
+CFLAGS := $(subst -pg,,$(CFLAGS))
 LDFLAGS := -m elf_i386
 
 LDFLAGS_vmlinux := -Ttext $(IMAGE_OFFSET) -e startup_32 -m elf_i386
