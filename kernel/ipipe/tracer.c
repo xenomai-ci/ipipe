@@ -101,12 +101,10 @@ enum ipipe_trace_type
 
 
 #ifdef CONFIG_IPIPE_TRACE_VMALLOC
-#define IPIPE_DEFAULT_TRACE_STATE   0
 
 static struct ipipe_trace_path *trace_paths[NR_CPUS];
 
 #else /* !CONFIG_IPIPE_TRACE_VMALLOC */
-#define IPIPE_DEFAULT_TRACE_STATE   CONFIG_IPIPE_TRACE_ENABLE_VALUE
 
 static struct ipipe_trace_path trace_paths[NR_CPUS][IPIPE_TRACE_PATHS] =
 	{ [0 ... NR_CPUS-1] =
@@ -116,7 +114,7 @@ static struct ipipe_trace_path trace_paths[NR_CPUS][IPIPE_TRACE_PATHS] =
 	};
 #endif /* CONFIG_IPIPE_TRACE_VMALLOC */
 
-int ipipe_trace_enable = IPIPE_DEFAULT_TRACE_STATE;
+int ipipe_trace_enable = 0;
 
 static int active_path[NR_CPUS] =
 	{ [0 ... NR_CPUS-1] = IPIPE_DEFAULT_ACTIVE };
@@ -1224,8 +1222,8 @@ void __init __ipipe_init_tracer(void)
 			trace_paths[cpu][path].end   = -1;
 		}
 	}
-	ipipe_trace_enable = CONFIG_IPIPE_TRACE_ENABLE_VALUE;
 #endif /* CONFIG_IPIPE_TRACE_VMALLOC */
+	ipipe_trace_enable = CONFIG_IPIPE_TRACE_ENABLE_VALUE;
 
 	/* Calculate minimum overhead of __ipipe_trace() */
 	local_irq_disable_hw();
