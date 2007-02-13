@@ -107,10 +107,16 @@ do {						\
 	local_irq_disable_hw();			\
 } while(0)
 
+/* This arch works differently than other I-pipe ports: the context
+ * switch code immediately resumes from switch_to on behalf of
+ * the incoming stack, i.e. there is no jump back to the switch
+ * tail, hence no switch fixup is needed. */
+
 #define task_hijacked(p)	\
-  ({ int x = ipipe_current_domain != ipipe_root_domain; \
-     __clear_bit(IPIPE_SYNC_FLAG,&ipipe_root_domain->cpudata[task_cpu(p)].status); \
-     local_irq_enable_hw(); x; })
+  ({ __clear_bit(IPIPE_SYNC_FLAG,&ipipe_root_domain->cpudata[task_cpu(p)].status); \
+     local_irq_enable_hw(); 0; })
+
+#define task_switch_fixup(p)	do { } while(0)
 
 /* IDT fault vectors */
 #define IPIPE_NR_FAULTS		32
