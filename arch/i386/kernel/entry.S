@@ -105,25 +105,14 @@ VM_MASK		= 0x00020000
 				jnz restore_nocheck_notrace
 
 #ifdef CONFIG_IPIPE_TRACE_IRQSOFF
-# ifdef CONFIG_REGPARM
-#  define LOAD_ARG
-#  define REMOVE_ARG
-# else  /* !CONFIG_REGPARM */
-#  define LOAD_ARG      pushl %eax
-#  define REMOVE_ARG    addl $4, %esp
-# endif /* CONFIG_REGPARM */
 # define IPIPE_TRACE_IRQ_ENTER \
 	lea PT_EIP-4(%esp), %ebp; \
 	movl PT_ORIG_EAX(%esp), %eax; \
-	LOAD_ARG; \
 	call ipipe_trace_begin; \
-	REMOVE_ARG
 # define IPIPE_TRACE_IRQ_EXIT \
 	pushl %eax; \
 	movl PT_ORIG_EAX+4(%esp), %eax; \
-	LOAD_ARG; \
 	call ipipe_trace_end; \
-	REMOVE_ARG; \
 	popl %eax
 #else  /* !CONFIG_IPIPE_TRACE_IRQSOFF */
 #define IPIPE_TRACE_IRQ_ENTER
