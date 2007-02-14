@@ -54,6 +54,8 @@
 
 asmlinkage extern void ret_from_fork(void);
 
+asmlinkage extern void thread_return(void);
+
 unsigned long kernel_thread_flags = CLONE_VM | CLONE_UNTRACED;
 
 unsigned long boot_option_idle_override = 0;
@@ -465,6 +467,7 @@ int copy_thread(int nr, unsigned long clone_flags, unsigned long rsp,
 	p->thread.rsp = (unsigned long) childregs;
 	p->thread.rsp0 = (unsigned long) (childregs+1);
 	p->thread.userrsp = me->thread.userrsp; 
+	p->thread.rip = (unsigned long) thread_return;
 
 	set_tsk_thread_flag(p, TIF_FORK);
 
