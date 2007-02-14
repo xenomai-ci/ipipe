@@ -7110,7 +7110,10 @@ EXPORT_SYMBOL(ipipe_setscheduler_root);
 
 int ipipe_reenter_root (struct task_struct *prev, int policy, int prio)
 {
-	task_switch_fixup(prev);
+	finish_task_switch(this_rq(), prev);
+	if (reacquire_kernel_lock(current) < 0)
+		;
+	preempt_enable_no_resched();
 
 	if (current->policy != policy || current->rt_priority != prio)
 		return ipipe_setscheduler_root(current,policy,prio);
