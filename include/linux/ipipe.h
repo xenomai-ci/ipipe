@@ -335,11 +335,9 @@ int fastcall __ipipe_dispatch_wired(struct ipipe_domain *head, unsigned irq);
 
 void fastcall __ipipe_sync_stage(unsigned long syncmask);
 
-int __ipipe_update_all_pinned_mm(unsigned long start, unsigned long end);
+void __ipipe_pin_range_globally(unsigned long start, unsigned long end);
 
 struct mm_struct;
-
-void __ipipe_unlink_pinned_mm(struct mm_struct *mm);
 
 int __ipipe_pin_range_mapping(struct mm_struct *mm,
 			      unsigned long start, unsigned long end);
@@ -445,7 +443,6 @@ static inline void ipipe_cleanup_notify(struct mm_struct *mm)
 {
 	if (__ipipe_event_monitored_p(IPIPE_EVENT_CLEANUP))
 		__ipipe_dispatch_event(IPIPE_EVENT_CLEANUP,mm);
-	__ipipe_unlink_pinned_mm(mm);
 }
 
 /* Public interface */
