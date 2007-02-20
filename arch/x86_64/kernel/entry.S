@@ -614,6 +614,7 @@ ENTRY(common_interrupt)
 	jnz ret_from_intr
 	decl %gs:pda_irqcount
 	leaveq
+	IPIPE_TRACE_IRQS_ON
 	CFI_DEF_CFA_REGISTER	rsp
 	CFI_ADJUST_CFA_OFFSET	-8
 	jmp restore_args
@@ -744,6 +745,7 @@ END(common_interrupt)
 	jnz ret_from_intr
 	decl %gs:pda_irqcount
 	leaveq
+	IPIPE_TRACE_IRQS_ON
 	CFI_DEF_CFA_REGISTER	rsp
 	CFI_ADJUST_CFA_OFFSET	-8
 	jmp restore_args
