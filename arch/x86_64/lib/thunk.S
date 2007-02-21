@@ -58,6 +58,7 @@
 #ifdef CONFIG_IPIPE_TRACE_IRQSOFF
 	thunk __ipipe_trace_irqs_on_thunk,__ipipe_trace_irqs_on
 	thunk __ipipe_trace_irqs_off_thunk,__ipipe_trace_irqs_off
+	thunk ipipe_trace_begin_thunk,ipipe_trace_begin
 #endif	
 #endif
 	

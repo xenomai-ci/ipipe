@@ -650,10 +650,6 @@ int __ipipe_handle_irq(struct pt_regs *regs)
 		m_ack = 1;
 	}
 
-#ifdef CONFIG_IPIPE_TRACE_IRQSOFF
-	ipipe_trace_begin(irq);
-#endif /* CONFIG_IPIPE_TRACE_IRQSOFF */
-
 	ipipe_load_cpuid();
 
 	head = __ipipe_pipeline.next;
