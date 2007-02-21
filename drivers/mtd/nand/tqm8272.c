@@ -41,24 +41,20 @@ static struct mtd_info *tqm8272_mtd = NULL;
 #ifdef CONFIG_MTD_PARTITIONS
 static const char *part_probes[] = { "cmdlinepart", NULL };
 
-#define NUM_PARTITIONS 3
+#define NUM_PARTITIONS 2
 
 /*
  * Define static partitions for flash device
  */
 static struct mtd_partition partition_info128[] = {
 	{
-		.name		= "U-Boot",
+		.name		= "Root-FS",
 		.offset		= 0x00000000,
-		.size		= 0x000040000,
+		.size		= 0x000400000,
 	}, {
-		.name		= "Env",
-		.offset		= 0x000040000,
-		.size		= 0x000040000,
-	}, {
-		.name		= "Linux",
-		.offset		= 0x000080000,
-		.size		= 0x000200000,
+		.name		= "User",
+		.offset		= 0x000400000,
+		.size		= 0x00FC00000,
 	},
 };
 #endif
@@ -68,7 +64,6 @@ static int	cs = 0;
 
 static void tqm8272_select_chip(struct mtd_info *mtd, int chipnr)
 {
-	struct nand_chip *chip = mtd->priv;
 	cs = chipnr;
 }
 
@@ -124,7 +119,6 @@ static int tqm8272_verify_buf(struct mtd_info *mtd, const uint8_t *buf, int len)
 {
 	struct nand_chip *chip = mtd->priv;
 	int	i;
-	unsigned char tmp;
 
 	for (i = 0; i < len; i++) {
 		if (buf[i] != readb((unsigned char *)(chip->IO_ADDR_R + cs * CS_OFF)))
