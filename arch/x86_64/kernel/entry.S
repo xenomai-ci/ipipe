@@ -241,13 +241,15 @@ ENTRY(system_call)
 	movq  %rcx,RIP-ARGOFFSET(%rsp)
 	CFI_REL_OFFSET rip,RIP-ARGOFFSET
 #ifdef CONFIG_IPIPE
-	leaq -ARGOFFSET(%rsp),%rdi	# regs for handler
+	pushq %rdi
+	pushq %rax
+	leaq -(ARGOFFSET-16)(%rsp),%rdi	# regs for handler
 	call	__ipipe_syscall_root_thunk
 	testq %rax, %rax
+	popq %rax
+	popq %rdi
 	js    ret_from_sys_call
 	jnz   sysret_fastexit
-	movq  RDI-ARGOFFSET(%rsp),%rdi
-	movq  ORIG_RAX-ARGOFFSET(%rsp),%rax
 #endif		
 	GET_THREAD_INFO(%rcx)
 	testl $(_TIF_SYSCALL_TRACE|_TIF_SYSCALL_AUDIT|_TIF_SECCOMP),threadinfo_flags(%rcx)
