@@ -625,6 +625,9 @@ ENTRY(common_interrupt)
 	IPIPE_TRACE_IRQS_ON
 	CFI_DEF_CFA_REGISTER	rsp
 	CFI_ADJUST_CFA_OFFSET	-8
+	testl $3,CS-ARGOFFSET(%rsp)
+	jz restore_args
+	swapgs
 	jmp restore_args
 #else /* !CONFIG_IPIPE */
 ENTRY(common_interrupt)
@@ -756,6 +759,9 @@ END(common_interrupt)
 	IPIPE_TRACE_IRQS_ON
 	CFI_DEF_CFA_REGISTER	rsp
 	CFI_ADJUST_CFA_OFFSET	-8
+	testl $3,CS-ARGOFFSET(%rsp)
+	jz restore_args
+	swapgs
 	jmp restore_args
 	CFI_ENDPROC
 	.endm
