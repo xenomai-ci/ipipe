@@ -245,7 +245,7 @@ ENTRY(system_call)
 	pushq %rax
 	leaq -(ARGOFFSET-16)(%rsp),%rdi	# regs for handler
 	call	__ipipe_syscall_root_thunk
-	testq %rax, %rax
+	testl %eax, %eax
 	popq %rax
 	popq %rdi
 	js    ret_from_sys_call
@@ -620,7 +620,7 @@ END(__ipipe_root_virq_thunk)
 ENTRY(common_interrupt)
 	XCPT_FRAME
 	interrupt __ipipe_handle_irq
-	testq %rax, %rax
+	testl %eax, %eax
 	jnz ret_from_intr
 	decl %gs:pda_irqcount
 	leaveq
@@ -754,7 +754,7 @@ END(common_interrupt)
 	pushq $~(\num)
 	CFI_ADJUST_CFA_OFFSET 8
 	interrupt __ipipe_handle_irq
-	testq %rax, %rax
+	testl %eax, %eax
 	jnz ret_from_intr
 	decl %gs:pda_irqcount
 	leaveq
@@ -1004,7 +1004,7 @@ error_sti:
 #ifdef CONFIG_IPIPE
 	movq %rax, %rdx
 	call __ipipe_handle_exception   /* handle(regs, error_code, ex_code) */
-	testq %rax, %rax
+	testl %eax, %eax
 	jz error_exit
 	movl %ebx,%eax
 	RESTORE_REST
