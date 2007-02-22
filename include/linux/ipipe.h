@@ -695,7 +695,7 @@ int ipipe_disable_ondemand_mappings(struct task_struct *tsk);
 #define ipipe_cleanup_notify(mm)	do { } while(0)
 #define ipipe_trap_notify(t,r)	0
 #define ipipe_init_proc()		do { } while(0)
-#define __ipipe_update_all_pinned_mm(start, end) 0
+#define __ipipe_pin_range_globally(start, end) do { } while(0)
 
 #define local_irq_enable_hw_cond()		do { } while(0)
 #define local_irq_disable_hw_cond()		do { } while(0)
