@@ -483,6 +483,10 @@ asmlinkage int __ipipe_syscall_root(struct pt_regs *regs)
 			ipipe_unlock_cpu(flags);
 			return -1;
 		}
+		/* We need to perform the rest of the fast exit path
+		 * with IRQs off, since we are going to switch back to
+		 * the normal stack, so disable them now. */
+		local_irq_disable_hw();
 		return 1;
 	}
 
