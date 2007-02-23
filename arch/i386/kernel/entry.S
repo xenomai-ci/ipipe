@@ -108,7 +108,7 @@ VM_MASK		= 0x00020000
 # define IPIPE_TRACE_IRQ_ENTER \
 	lea PT_EIP-4(%esp), %ebp; \
 	movl PT_ORIG_EAX(%esp), %eax; \
-	call ipipe_trace_begin; \
+	call ipipe_trace_begin
 # define IPIPE_TRACE_IRQ_EXIT \
 	pushl %eax; \
 	movl PT_ORIG_EAX+4(%esp), %eax; \
