@@ -93,7 +93,7 @@
 
 /* The logical processor id is read from the PDA, so this is always
  * safe, regardless of the underlying stack. */
-#define ipipe_processor_id()  smp_processor_id()
+#define ipipe_processor_id()  raw_smp_processor_id()
 
 #else	/* !CONFIG_SMP */
 
