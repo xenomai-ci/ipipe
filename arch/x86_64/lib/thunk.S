@@ -52,8 +52,7 @@
 #endif
 	
 #ifdef CONFIG_IPIPE
-	thunk __ipipe_stall_root_thunk,__ipipe_stall_root
-	thunk __ipipe_unstall_root_thunk,__ipipe_unstall_root
+	thunk_retrax __ipipe_preempt_schedule_irq_thunk,__ipipe_preempt_schedule_irq
 	thunk_retrax __ipipe_syscall_root_thunk,__ipipe_syscall_root
 #ifdef CONFIG_IPIPE_TRACE_IRQSOFF
 	thunk __ipipe_trace_irqs_on_thunk,__ipipe_trace_irqs_on

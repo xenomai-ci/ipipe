@@ -44,6 +44,8 @@
 #include <asm/ipi.h>
 #include <asm/mach_apic.h>
 
+asmlinkage void preempt_schedule_irq(void);
+
 struct pt_regs __ipipe_tick_regs[IPIPE_NR_CPUS];
 
 int __ipipe_tick_irq;		/* =0: 8254 */
@@ -435,9 +437,7 @@ static inline void __fixup_if(struct pt_regs *regs)
 	ipipe_get_cpu(flags);
 
 	if (per_cpu(ipipe_percpu_domain, cpuid) == ipipe_root_domain) {
-		/* Have the saved hw state look like the domain stall bit, so
-		   that __ipipe_unstall_iret_root() restores the proper
-		   pipeline state for the root stage upon exit. */
+		/* Have the saved hw state look like the domain stall bit. */
 
 		if (test_bit
 		    (IPIPE_STALL_FLAG,
@@ -448,6 +448,32 @@ static inline void __fixup_if(struct pt_regs *regs)
 	}
 
 	ipipe_put_cpu(flags);
+}
+
+/*  Check the stall bit of the root domain to make sure the existing
+    preemption opportunity upon in-kernel resumption could be
+    exploited. In case a rescheduling could take place, the root stage
+    is stalled before the hw interrupts are re-enabled. This routine
+    must be called with hw interrupts off. */
+
+asmlinkage int __ipipe_preempt_schedule_irq(void)
+{
+	ipipe_declare_cpuid;
+
+	ipipe_load_cpuid();
+
+	if (test_bit(IPIPE_STALL_FLAG, &ipipe_root_domain->cpudata[cpuid].status))
+		/* Root stage is stalled: rescheduling denied. */
+		return 0;
+
+	__set_bit(IPIPE_STALL_FLAG, &ipipe_root_domain->cpudata[cpuid].status);
+	local_irq_enable_hw_notrace();
+	preempt_schedule_irq(); /* Ok, may reschedule now. */
+	local_irq_disable_hw_notrace();
+	ipipe_load_cpuid();	/* Care for migration. */
+	__clear_bit(IPIPE_STALL_FLAG, &ipipe_root_domain->cpudata[cpuid].status);
+
+	return 1;
 }
 
 asmlinkage int __ipipe_syscall_root(struct pt_regs *regs)
@@ -779,6 +805,8 @@ struct task_struct *__switch_to(struct task_struct *prev_p,
 				struct task_struct *next_p);
 EXPORT_SYMBOL_GPL(__switch_to);
 EXPORT_SYMBOL_GPL(show_stack);
+EXPORT_SYMBOL_GPL(cpu_gdt_descr);
+
 #if defined(CONFIG_SMP) || defined(CONFIG_DEBUG_SPINLOCK)
 EXPORT_SYMBOL(tasklist_lock);
 #endif /* CONFIG_SMP || CONFIG_DEBUG_SPINLOCK */
