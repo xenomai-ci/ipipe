@@ -450,6 +450,8 @@ static inline void __fixup_if(struct pt_regs *regs)
 	ipipe_put_cpu(flags);
 }
 
+#ifdef CONFIG_PREEMPT
+
 /*  Check the stall bit of the root domain to make sure the existing
     preemption opportunity upon in-kernel resumption could be
     exploited. In case a rescheduling could take place, the root stage
@@ -475,6 +477,8 @@ asmlinkage int __ipipe_preempt_schedule_irq(void)
 
 	return 1;
 }
+
+#endif
 
 asmlinkage int __ipipe_syscall_root(struct pt_regs *regs)
 {
