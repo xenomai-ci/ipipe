@@ -467,9 +467,9 @@ asmlinkage int __ipipe_preempt_schedule_irq(void)
 		return 0;
 
 	__set_bit(IPIPE_STALL_FLAG, &ipipe_root_domain->cpudata[cpuid].status);
-	local_irq_enable_hw_notrace();
+	local_irq_enable_hw();
 	preempt_schedule_irq(); /* Ok, may reschedule now. */
-	local_irq_disable_hw_notrace();
+	local_irq_disable_hw();
 	ipipe_load_cpuid();	/* Care for migration. */
 	__clear_bit(IPIPE_STALL_FLAG, &ipipe_root_domain->cpudata[cpuid].status);
 
