@@ -101,6 +101,7 @@
 
 #define YUCCA_PCIE_LOWER_MEM	0x90000000
 #define YUCCA_PCIE_MEM_SIZE	0x10000000
+#define BOARD_PCIE_MEM_SIZE	YUCCA_PCIE_MEM_SIZE	/* used in syslib/ppc440spe_pcie.c */
 #define YUCCA_PCIE_MEM_OFFSET	0x00000000
 
 #endif				/* __ASM_YUCCA_H__ */
