@@ -11,6 +11,8 @@
 	.code64
 
 ENTRY(mcount)
+	cmpl	$0,ipipe_trace_enable
+	jz	out
 	subq	$56,%rsp
 	movq	%rax,(%rsp)
 	movq	%rcx,8(%rsp)
@@ -34,5 +36,6 @@ ENTRY(mcount)
 	movq	8(%rsp),%rcx
 	movq	(%rsp),%rax
 	addq	$56,%rsp
+out:	
 	ret
 END(mcount)
