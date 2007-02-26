@@ -147,11 +147,11 @@ struct ipipe_sysinfo {
 	(t) = ((unsigned long)__a) | (((unsigned long)__d)<<32); \
 } while(0)
 
-#define ipipe_cpu_freq() ({ unsigned long long __freq = (1000LL * cpu_khz); __freq; })
+#define ipipe_cpu_freq() ({ unsigned long __freq = (1000UL * cpu_khz); __freq; })
 
-#define ipipe_tsc2ns(t)	(((t) * 1000) / (ipipe_cpu_freq() / 1000000))
+#define ipipe_tsc2ns(t)	(((t) * 1000UL) / (ipipe_cpu_freq() / 1000000UL))
 
-#define ipipe_tsc2us(t)	((t) / (ipipe_cpu_freq() / 1000000))
+#define ipipe_tsc2us(t)	((t) / (ipipe_cpu_freq() / 1000000UL))
 
 /* Private interface -- Internal use only */
 
