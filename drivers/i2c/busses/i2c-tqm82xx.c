@@ -1,12 +1,12 @@
 /*
- * drivers/i2c/busses/i2c-tqm8272.c
+ * drivers/i2c/busses/i2c-tqm82xx.c
  *
  * Author: Heiko Schocher <hs@denx.de>
  *
  * Copyright (c) 2006 DENX
  *
- * This file is licensed under the terms of the GNU General Public
- * License version 2. This program is licensed "as is" without any
+ * This file is licensed under the terms of the GNU General Public 
+ * License version 2. This program is licensed "as is" without any 
  * warranty of any kind, whether express or implied.
  *
  */
@@ -34,8 +34,9 @@
 
 static	volatile cpm2_map_t* immap;
 
-static void tqm8272_bit_setscl(void *data, int val)
+static void tqm82xx_bit_setscl(void *data, int val)
 {
+
 	if (val)
 		DAT |= SCL;
 	else {
@@ -43,8 +44,9 @@ static void tqm8272_bit_setscl(void *data, int val)
 	}
 }
 
-static void tqm8272_bit_setsda(void *data, int val)
+static void tqm82xx_bit_setsda(void *data, int val)
 {
+
 	if (val)
 		DIR &= ~SDA;
 	else {
@@ -53,58 +55,46 @@ static void tqm8272_bit_setsda(void *data, int val)
 	}
 }
 
-static int tqm8272_bit_getscl(void *data)
+static int tqm82xx_bit_getscl(void *data)
 {
-	return (DAT & SCL) != 0;
-}
 
-static int tqm8272_bit_getsda(void *data)
+	return (DAT & SCL) != 0;
+}	
+
+static int tqm82xx_bit_getsda(void *data)
 {
 	int res;
 
 	res = (DAT & SDA) != 0;
 
 	return res;
-}
+}	
 
-static void tqm8272_i2c_line_init (void)
+static void tqm82xx_i2c_line_init (void)
 {
 	PAR &= ~(SCL | SDA); DIR |= SCL;
 }
 
-struct tqm8272_i2c_data {
+struct tqm82xx_i2c_data {
 	struct i2c_adapter adapter;
 	struct i2c_algo_bit_data algo_data;
 };
 
-static int tqm8272_i2c_remove(struct platform_device *plat_dev)
-{
-	struct tqm8272_i2c_data *drv_data = platform_get_drvdata(plat_dev);
-
-	platform_set_drvdata(plat_dev, NULL);
-
-	i2c_bit_del_bus(&drv_data->adapter);
-
-	kfree(drv_data);
-
-	return 0;
-}
-
-static int tqm8272_i2c_probe(struct platform_device *plat_dev)
+static int tqm82xx_i2c_probe(struct platform_device *plat_dev)
 {
 	int err;
-	struct tqm8272_i2c_data *drv_data =
-		kzalloc(sizeof(struct tqm8272_i2c_data), GFP_KERNEL);
+	struct tqm82xx_i2c_data *drv_data = 
+		kzalloc(sizeof(struct tqm82xx_i2c_data), GFP_KERNEL);
 
 	if(!drv_data)
 		return -ENOMEM;
 
 	immap = ioremap(CPM_MAP_ADDR, sizeof(cpm2_map_t));
-	tqm8272_i2c_line_init ();
-	drv_data->algo_data.setsda = tqm8272_bit_setsda;
-	drv_data->algo_data.setscl = tqm8272_bit_setscl;
-	drv_data->algo_data.getsda = tqm8272_bit_getsda;
-	drv_data->algo_data.getscl = tqm8272_bit_getscl;
+	tqm82xx_i2c_line_init ();
+	drv_data->algo_data.setsda = tqm82xx_bit_setsda;
+	drv_data->algo_data.setscl = tqm82xx_bit_setscl;
+	drv_data->algo_data.getsda = tqm82xx_bit_getsda;
+	drv_data->algo_data.getscl = tqm82xx_bit_getscl;
 	drv_data->algo_data.udelay = 10;
 	drv_data->algo_data.timeout = 100;
 
@@ -118,9 +108,7 @@ static int tqm8272_i2c_probe(struct platform_device *plat_dev)
 
 	drv_data->adapter.algo_data = &drv_data->algo_data;
 
-	if (plat_dev)
-		drv_data->adapter.dev.parent = &plat_dev->dev;
-
+	drv_data->adapter.dev.parent = &platform_bus;
 	if ((err = i2c_bit_add_bus(&drv_data->adapter) != 0)) {
 		if (plat_dev)
 			printk(KERN_ERR "ERROR: Could not install %s\n",
@@ -138,37 +126,23 @@ static int tqm8272_i2c_probe(struct platform_device *plat_dev)
 	return 0;
 }
 
-static int tqm8272_attach_adapter(struct i2c_adapter *adap)
-{
-	return 0;
-}
-
-static int tqm8272_detach_adapter(struct i2c_adapter *adap)
-{
-	return 0;
-}
-
-static int tqm8272_detach_client(struct i2c_client *client)
-{
-	return 0;
-}
-
-static int __init tqm8272_i2c_init(void)
+static int __init tqm82xx_i2c_init(void)
 {
 	int	ret = 0;
 
-	tqm8272_i2c_probe (NULL);
+	tqm82xx_i2c_probe (NULL);
 	return ret;
 }
 
-static void __exit tqm8272_i2c_exit(void)
+static void __exit tqm82xx_i2c_exit(void)
 {
 	iounmap(immap);
 }
 
-module_init(tqm8272_i2c_init);
-module_exit(tqm8272_i2c_exit);
+module_init(tqm82xx_i2c_init);
+module_exit(tqm82xx_i2c_exit);
 
 MODULE_DESCRIPTION("MPC82xx-based I2C adapter");
 MODULE_LICENSE("GPL");
 MODULE_AUTHOR("Heiko Schocher <hs@denx.de>");
+
