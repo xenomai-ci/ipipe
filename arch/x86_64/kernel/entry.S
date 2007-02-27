@@ -828,14 +828,14 @@ END(spurious_interrupt)
 /*
  * Exception entry points.
  */ 		
-	.macro zeroentry sym, excode
+	.macro zeroentry sym, ex_code
 	INTR_FRAME
 	pushq $0	/* push error code/oldrax */ 
 	CFI_ADJUST_CFA_OFFSET 8
 	pushq %rax	/* push real oldrax to the rdi slot */ 
 	CFI_ADJUST_CFA_OFFSET 8
 #ifdef CONFIG_IPIPE	
-	movq $\excode,%rax
+	movq $\ex_code,%rax
 #else
 	leaq  \sym(%rip),%rax
 #endif	
@@ -843,12 +843,12 @@ END(spurious_interrupt)
 	CFI_ENDPROC
 	.endm	
 
-	.macro errorentry sym, excode
+	.macro errorentry sym, ex_code
 	XCPT_FRAME
 	pushq %rax
 	CFI_ADJUST_CFA_OFFSET 8
 #ifdef CONFIG_IPIPE	
-	movq $\excode,%rax
+	movq $\ex_code,%rax
 #else
 	leaq  \sym(%rip),%rax
 #endif	
@@ -858,7 +858,7 @@ END(spurious_interrupt)
 
 	/* error code is on the stack already */
 	/* handle NMI like exceptions that can happen everywhere */
-	.macro paranoidentry sym, ist=0, irqtrace=1
+	.macro paranoidentry sym, ist=0, irqtrace=1, ex_code=0
 	SAVE_ALL
 	cld
 	movl $1,%ebx
@@ -878,6 +878,16 @@ END(spurious_interrupt)
 	.if \ist
 	subq	$EXCEPTION_STKSZ, per_cpu__init_tss + TSS_ist + (\ist - 1) * 8(%rbp)
 	.endif
+#ifdef CONFIG_IPIPE
+	.if \ex_code
+	movq $\ex_code,%rsi
+	call __ipipe_divert_exception   /* handle(regs, ex_code) */
+	testl %eax,%eax
+	jnz 3f
+	movq %rsp,%rdi
+	movq ORIG_RAX(%rsp),%rsi
+	.endif
+#endif
 	call \sym
 	.if \ist
 	addq	$EXCEPTION_STKSZ, per_cpu__init_tss + TSS_ist + (\ist - 1) * 8(%rbp)
@@ -886,6 +896,12 @@ END(spurious_interrupt)
 	.if \irqtrace
 	TRACE_IRQS_OFF
 	.endif
+#ifdef CONFIG_IPIPE	
+	xorl %eax,%eax
+	/* WARNING: paranoidexit will check %eax to decide whether the
+	exception has to be propagated or not. */
+#endif	
+3:	
 	.endm
 
 	/*
@@ -905,6 +921,10 @@ END(spurious_interrupt)
 paranoid_exit\trace:
 	testl %ebx,%ebx				/* swapgs needed? */
 	jnz paranoid_restore\trace
+#ifdef CONFIG_IPIPE
+	testl %eax,%eax
+	jnz paranoid_swapgs\trace
+#endif		
 	testl $3,CS(%rsp)
 	jnz   paranoid_userspace\trace
 paranoid_swapgs\trace:
@@ -1195,7 +1215,7 @@ KPROBE_ENTRY(debug)
  	INTR_FRAME
 	pushq $0
 	CFI_ADJUST_CFA_OFFSET 8		
-	paranoidentry do_debug, DEBUG_STACK
+	paranoidentry do_debug, DEBUG_STACK, 1, ex_debug
 	paranoidexit
 KPROBE_END(debug)
 
@@ -1217,7 +1237,7 @@ KPROBE_ENTRY(int3)
  	INTR_FRAME
  	pushq $0
  	CFI_ADJUST_CFA_OFFSET 8
- 	paranoidentry do_int3, DEBUG_STACK
+ 	paranoidentry do_int3, DEBUG_STACK, 1, ex_int3
  	jmp paranoid_exit1
  	CFI_ENDPROC
 KPROBE_END(int3)

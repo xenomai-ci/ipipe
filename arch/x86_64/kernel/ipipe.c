@@ -641,8 +641,7 @@ asmlinkage int __ipipe_divert_exception(struct pt_regs *regs, int vector)
 {
 #ifdef CONFIG_KGDB
 	/* catch int1 and int3 over non-root domains */
-	if ((ipipe_current_domain != ipipe_root_domain) &&
-	    (vector != ex_math_state_restore)) {
+	if (ipipe_current_domain != ipipe_root_domain) {
 		unsigned int condition = 0;
 
 		if (vector == 1)
