@@ -57,8 +57,8 @@ static unsigned long start_scan_addr;
 #define RW_PART0_SZ	0x40000	/* U-Boot */
 #define RW_PART1_SZ	0x20000	/* Environment */
 #define RW_PART2_SZ	0x20000	/* Environment redundant */
-#define RW_PART3_SZ	0x40000	/* Kernel */
-#define RW_PART4_SZ	0x40000	/* Ramdisk */
+#define RW_PART3_SZ	0x180000	/* Kernel */
+#define RW_PART4_SZ	0x1A0000	/* Ramdisk */
 
 /* Partition definition for the first flash bank which is always present. */
 static struct mtd_partition tqm82xx_partitions_bank1[] = {
