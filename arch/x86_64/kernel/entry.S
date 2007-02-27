@@ -548,14 +548,6 @@ END(stub_rt_sigreturn)
 	pushq %rbp
 	CFI_ADJUST_CFA_OFFSET	8
 	CFI_REL_OFFSET		rbp, 0
-#ifdef CONFIG_IPIPE_TRACE_IRQSOFF
-        leaq RIP-8(%rdi), %rbp
-        pushq %rdi
-        movq ORIG_RAX(%rdi), %rdi
-	notq %rdi
-        call ipipe_trace_begin_thunk
-        popq %rdi
-#endif
 	movq %rsp,%rbp
 	CFI_DEF_CFA_REGISTER	rbp
 	testl $3,CS(%rdi)
@@ -573,6 +565,16 @@ END(stub_rt_sigreturn)
 	 * We entered an interrupt context - irqs are off:
 	 */
 	TRACE_IRQS_OFF
+#ifdef CONFIG_IPIPE_TRACE_IRQSOFF
+        leaq RIP-8(%rdi), %rbp
+        pushq %rdi
+        movq ORIG_RAX(%rdi), %rdi
+	notq %rdi
+        call ipipe_trace_begin_thunk
+        popq %rdi
+	popq %rbp
+	pushq %rbp
+#endif
 	call \func
 	.endm
 
