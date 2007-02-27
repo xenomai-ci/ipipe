@@ -603,21 +603,21 @@ int ppc440spe_setup_pcie(struct pci_controller *hose, u32 port)
 		mtdcr(DCRN_PEGPL_OMR1BAL(PCIE0),  hose->mem_space.start);
 		mtdcr(DCRN_PEGPL_OMR1MSKH(PCIE0), 0x7fffffff);
 		mtdcr(DCRN_PEGPL_OMR1MSKL(PCIE0),
-		      ~(YUCCA_PCIE_MEM_SIZE - 1) | 3);
+		      ~(BOARD_PCIE_MEM_SIZE - 1) | 3);
 		break;
 	case 1:
 		mtdcr(DCRN_PEGPL_OMR1BAH(PCIE1),  0x0000000d);
 		mtdcr(DCRN_PEGPL_OMR1BAL(PCIE1),  hose->mem_space.start);
 		mtdcr(DCRN_PEGPL_OMR1MSKH(PCIE1), 0x7fffffff);
 		mtdcr(DCRN_PEGPL_OMR1MSKL(PCIE1),
-		      ~(YUCCA_PCIE_MEM_SIZE - 1) | 3);
+		      ~(BOARD_PCIE_MEM_SIZE - 1) | 3);
 		break;
 	case 2:
 		mtdcr(DCRN_PEGPL_OMR1BAH(PCIE2),  0x0000000d);
 		mtdcr(DCRN_PEGPL_OMR1BAL(PCIE2),  hose->mem_space.start);
 		mtdcr(DCRN_PEGPL_OMR1MSKH(PCIE2), 0x7fffffff);
 		mtdcr(DCRN_PEGPL_OMR1MSKL(PCIE2),
-		      ~(YUCCA_PCIE_MEM_SIZE - 1) | 3);
+		      ~(BOARD_PCIE_MEM_SIZE - 1) | 3);
 		break;
 	}
 

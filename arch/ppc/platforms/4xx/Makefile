@@ -3,10 +3,11 @@
 
 obj-$(CONFIG_ALPR)		+= alpr.o
 obj-$(CONFIG_BAMBOO)		+= bamboo.o
+obj-$(CONFIG_BUBINGA)		+= bubinga.o
 obj-$(CONFIG_CPCI405)		+= cpci405.o
 obj-$(CONFIG_EBONY)		+= ebony.o
 obj-$(CONFIG_EP405)		+= ep405.o
-obj-$(CONFIG_BUBINGA)		+= bubinga.o
+obj-$(CONFIG_KATMAI)		+= katmai.o
 obj-$(CONFIG_LUAN)		+= luan.o
 obj-$(CONFIG_OCOTEA)		+= ocotea.o
 obj-$(CONFIG_P3P440)		+= p3p440.o

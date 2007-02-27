@@ -102,17 +102,17 @@ config EBONY
 	help
 	  This option enables support for the IBM PPC440GP evaluation board.
 
+config KATMAI
+	bool "Katmai"
+	select WANT_EARLY_SERIAL
+	help
+	  This option enables support for the AMCC PPC440SPe evaluation board.
+
 config LUAN
 	bool "Luan"
 	select WANT_EARLY_SERIAL
 	help
 	  This option enables support for the IBM PPC440SP evaluation board.
-
-config YUCCA
-	bool "Yucca"
-	select WANT_EARLY_SERIAL
-	help
-	  This option enables support for the AMCC PPC440SPe evaluation board.
 
 config OCOTEA
 	bool "Ocotea"
@@ -125,6 +125,18 @@ config P3P440
 	select WANT_EARLY_SERIAL
 	help
 	  This option enables support for the Prodrive P3P440 board.
+
+config RAINIER
+	bool "Rainier"
+	select WANT_EARLY_SERIAL
+	help
+	  This option enables support for the AMCC PPC440GRx evaluation board.
+
+config SEQUOIA
+	bool "Sequoia"
+	select WANT_EARLY_SERIAL
+	help
+	  This option enables support for the AMCC PPC440EPx evaluation board.
 
 config TAISHAN
 	bool "Taishan"
@@ -144,17 +156,11 @@ config YOSEMITE
 	help
 	  This option enables support for the AMCC PPC440EP evaluation board.
 
-config SEQUOIA
-	bool "Sequoia"
+config YUCCA
+	bool "Yucca"
 	select WANT_EARLY_SERIAL
 	help
-	  This option enables support for the AMCC PPC440EPx evaluation board.
-
-config RAINIER
-	bool "Rainier"
-	select WANT_EARLY_SERIAL
-	help
-	  This option enables support for the AMCC PPC440GRx evaluation board.
+	  This option enables support for the AMCC PPC440SPe evaluation board.
 
 endchoice
 
@@ -210,7 +216,7 @@ config 440SP
 
 config 440SPE
 	bool
-	depends on YUCCA
+	depends on YUCCA || KATMAI
 	default y
 
 config 440
@@ -247,7 +253,7 @@ config BOOKE
 
 config IBM_OCP
 	bool
-	depends on ALPR || ASH || BAMBOO || BUBINGA || CPCI405 || EBONY || EP405 || LUAN || OCOTEA || P3P440 || PPChameleonEVB || RAINIER || REDWOOD_5 || REDWOOD_6 || SC3 || SEQUOIA || SYCAMORE || TAIHU || TAISHAN || WALNUT || YELLOWSTONE || YOSEMITE || YUCCA
+	depends on ALPR || ASH || BAMBOO || BUBINGA || CPCI405 || EBONY || EP405 || KATMAI || LUAN || OCOTEA || P3P440 || PPChameleonEVB || RAINIER || REDWOOD_5 || REDWOOD_6 || SC3 || SEQUOIA || SYCAMORE || TAIHU || TAISHAN || WALNUT || YELLOWSTONE || YOSEMITE || YUCCA
 	default y
 
 config IBM_EMAC4

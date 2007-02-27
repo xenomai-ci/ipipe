@@ -112,12 +112,12 @@ void ppc4xx_init(unsigned long r3, unsigned long r4, unsigned long r5,
 #include <platforms/4xx/ebony.h>
 #endif
 
-#if defined(CONFIG_LUAN)
-#include <platforms/4xx/luan.h>
+#if defined(CONFIG_KATMAI)
+#include <platforms/4xx/katmai.h>
 #endif
 
-#if defined(CONFIG_YUCCA)
-#include <platforms/4xx/yucca.h>
+#if defined(CONFIG_LUAN)
+#include <platforms/4xx/luan.h>
 #endif
 
 #if defined(CONFIG_OCOTEA)
@@ -128,6 +128,10 @@ void ppc4xx_init(unsigned long r3, unsigned long r4, unsigned long r5,
 #include <platforms/4xx/p3p440.h>
 #endif
 
+#if defined(CONFIG_SEQUOIA) || defined(CONFIG_RAINIER)
+#include <platforms/4xx/sequoia.h>
+#endif
+
 #if defined(CONFIG_TAISHAN)
 #include <platforms/4xx/taishan.h>
 #endif
@@ -136,8 +140,8 @@ void ppc4xx_init(unsigned long r3, unsigned long r4, unsigned long r5,
 #include <platforms/4xx/yosemite.h>
 #endif
 
-#if defined(CONFIG_SEQUOIA) || defined(CONFIG_RAINIER)
-#include <platforms/4xx/sequoia.h>
+#if defined(CONFIG_YUCCA)
+#include <platforms/4xx/yucca.h>
 #endif
 
 #ifndef __ASSEMBLY__
