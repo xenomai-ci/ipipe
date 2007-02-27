@@ -27,6 +27,7 @@ obj-$(CONFIG_MTD_NAND_TQM8272)		+= tqm8272.o
 obj-$(CONFIG_MTD_NAND_ALPR)		+= alpr_nand.o
 obj-$(CONFIG_MTD_NAND_SC3)		+= sc3nand.o
 obj-$(CONFIG_MTD_NAND_AT91)		+= at91_nand.o
+obj-$(CONFIG_MTD_NAND_BASLER_EXCITE)	+= excite_nandflash.o
 
 nand-objs := nand_base.o nand_bbt.o
 cafe_nand-objs := cafe.o cafe_ecc.o

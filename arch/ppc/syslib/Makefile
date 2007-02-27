@@ -51,7 +51,6 @@ obj-$(CONFIG_EP405)		+= todc_time.o
 obj-$(CONFIG_EV64260)		+= todc_time.o pci_auto.o
 obj-$(CONFIG_EV64360)		+= todc_time.o
 obj-$(CONFIG_CHESTNUT)		+= mv64360_pic.o pci_auto.o
-obj-$(CONFIG_GEMINI)		+= open_pic.o
 obj-$(CONFIG_GT64260)		+= gt64260_pic.o
 obj-$(CONFIG_KATMAI)		+= pci_auto.o
 obj-$(CONFIG_LOPEC)		+= pci_auto.o todc_time.o
