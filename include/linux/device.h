@@ -2,6 +2,7 @@
  * device.h - generic, centralized driver model
  *
  * Copyright (c) 2001-2003 Patrick Mochel <mochel@osdl.org>
+ * Copyright (c) 2004-2007 Greg Kroah-Hartman <gregkh@suse.de>
  *
  * This file is released under the GPLv2
  *
@@ -101,7 +102,7 @@ extern int bus_unregister_notifier(struct bus_type *bus,
 #define BUS_NOTIFY_UNBIND_DRIVER	0x00000004 /* driver about to be
 						      unbound */
 
-/* driverfs interface for exporting bus attributes */
+/* sysfs interface for exporting bus attributes */
 
 struct bus_attribute {
 	struct attribute	attr;
@@ -146,7 +147,7 @@ extern void put_driver(struct device_driver * drv);
 extern struct device_driver *driver_find(const char *name, struct bus_type *bus);
 extern int driver_probe_done(void);
 
-/* driverfs interface for exporting driver attributes */
+/* sysfs interface for exporting driver attributes */
 
 struct driver_attribute {
 	struct attribute	attr;
@@ -293,8 +294,6 @@ extern void class_device_initialize(struct class_device *);
 extern int __must_check class_device_add(struct class_device *);
 extern void class_device_del(struct class_device *);
 
-extern int class_device_rename(struct class_device *, char *);
-
 extern struct class_device * class_device_get(struct class_device *);
 extern void class_device_put(struct class_device *);
 
@@ -354,6 +353,41 @@ extern int __must_check device_create_bin_file(struct device *dev,
 					       struct bin_attribute *attr);
 extern void device_remove_bin_file(struct device *dev,
 				   struct bin_attribute *attr);
+
+/* device resource management */
+typedef void (*dr_release_t)(struct device *dev, void *res);
+typedef int (*dr_match_t)(struct device *dev, void *res, void *match_data);
+
+#ifdef CONFIG_DEBUG_DEVRES
+extern void * __devres_alloc(dr_release_t release, size_t size, gfp_t gfp,
+			     const char *name);
+#define devres_alloc(release, size, gfp) \
+	__devres_alloc(release, size, gfp, #release)
+#else
+extern void * devres_alloc(dr_release_t release, size_t size, gfp_t gfp);
+#endif
+extern void devres_free(void *res);
+extern void devres_add(struct device *dev, void *res);
+extern void * devres_find(struct device *dev, dr_release_t release,
+			  dr_match_t match, void *match_data);
+extern void * devres_get(struct device *dev, void *new_res,
+			 dr_match_t match, void *match_data);
+extern void * devres_remove(struct device *dev, dr_release_t release,
+			    dr_match_t match, void *match_data);
+extern int devres_destroy(struct device *dev, dr_release_t release,
+			  dr_match_t match, void *match_data);
+
+/* devres group */
+extern void * __must_check devres_open_group(struct device *dev, void *id,
+					     gfp_t gfp);
+extern void devres_close_group(struct device *dev, void *id);
+extern void devres_remove_group(struct device *dev, void *id);
+extern int devres_release_group(struct device *dev, void *id);
+
+/* managed kzalloc/kfree for device drivers, no kmalloc, always use kzalloc */
+extern void *devm_kzalloc(struct device *dev, size_t size, gfp_t gfp);
+extern void devm_kfree(struct device *dev, void *p);
+
 struct device {
 	struct klist		klist_children;
 	struct klist_node	knode_parent;		/* node in sibling list */
@@ -396,6 +430,9 @@ struct device {
 					     override */
 	/* arch specific additions */
 	struct dev_archdata	archdata;
+
+	spinlock_t		devres_lock;
+	struct list_head	devres_head;
 
 	/* class_device migration path */
 	struct list_head	node;

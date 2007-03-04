@@ -10,5 +10,5 @@ obj-$(CONFIG_MPC52xx_AIC26)	+= sdma_gen_bd_rx_task.o \
 				   sdma_gen_bd_tx_task.o gen_bd.o
 endif
 
-obj-$(CONFIG_PPC_EFIKA)		+= efika-setup.o efika-pci.o
+obj-$(CONFIG_PPC_EFIKA)		+= efika.o
 obj-$(CONFIG_PPC_LITE5200)	+= lite5200.o

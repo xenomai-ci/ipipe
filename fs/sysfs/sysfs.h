@@ -1,3 +1,14 @@
+struct sysfs_dirent {
+	atomic_t		s_count;
+	struct list_head	s_sibling;
+	struct list_head	s_children;
+	void 			* s_element;
+	int			s_type;
+	umode_t			s_mode;
+	struct dentry		* s_dentry;
+	struct iattr		* s_iattr;
+	atomic_t		s_event;
+};
 
 extern struct vfsmount * sysfs_mount;
 extern struct kmem_cache *sysfs_dir_cachep;
@@ -26,8 +37,8 @@ extern struct super_block * sysfs_sb;
 extern const struct file_operations sysfs_dir_operations;
 extern const struct file_operations sysfs_file_operations;
 extern const struct file_operations bin_fops;
-extern struct inode_operations sysfs_dir_inode_operations;
-extern struct inode_operations sysfs_symlink_inode_operations;
+extern const struct inode_operations sysfs_dir_inode_operations;
+extern const struct inode_operations sysfs_symlink_inode_operations;
 
 struct sysfs_symlink {
 	char * link_name;

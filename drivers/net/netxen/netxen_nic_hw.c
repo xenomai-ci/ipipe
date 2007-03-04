@@ -242,10 +242,11 @@ int netxen_nic_hw_resources(struct netxen_adapter *adapter)
 	adapter->cmd_consumer = (uint32_t *) (((char *)addr) +
 					      sizeof(struct netxen_ring_ctx));
 
-	addr = pci_alloc_consistent(adapter->ahw.pdev,
-				    sizeof(struct cmd_desc_type0) *
-				    adapter->max_tx_desc_count,
-				    (dma_addr_t *) & hw->cmd_desc_phys_addr);
+	addr = netxen_alloc(adapter->ahw.pdev,
+			    sizeof(struct cmd_desc_type0) *
+			    adapter->max_tx_desc_count,
+			    (dma_addr_t *) & hw->cmd_desc_phys_addr,
+			    &adapter->ahw.cmd_desc_pdev);
 	printk("cmd_desc_phys_addr: 0x%llx\n", (u64) hw->cmd_desc_phys_addr);
 
 	if (addr == NULL) {
@@ -420,6 +421,7 @@ static int netxen_get_flash_block(struct netxen_adapter *adapter, int base,
 	for (i = 0; i < size / sizeof(u32); i++) {
 		if (netxen_rom_fast_read(adapter, addr, ptr32) == -1)
 			return -1;
+		*ptr32 = cpu_to_le32(*ptr32);
 		ptr32++;
 		addr += sizeof(u32);
 	}
@@ -428,6 +430,7 @@ static int netxen_get_flash_block(struct netxen_adapter *adapter, int base,
 
 		if (netxen_rom_fast_read(adapter, addr, &local) == -1)
 			return -1;
+		local = cpu_to_le32(local);
 		memcpy(ptr32, &local, (char *)buf + size - (char *)ptr32);
 	}
 
@@ -505,8 +508,8 @@ void netxen_nic_pci_change_crbwindow(struct netxen_adapter *adapter, u32 wndw)
 void netxen_load_firmware(struct netxen_adapter *adapter)
 {
 	int i;
-	long data, size = 0;
-	long flashaddr = NETXEN_FLASH_BASE, memaddr = NETXEN_PHANTOM_MEM_BASE;
+	u32 data, size = 0;
+	u32 flashaddr = NETXEN_FLASH_BASE, memaddr = NETXEN_PHANTOM_MEM_BASE;
 	u64 off;
 	void __iomem *addr;
 
@@ -948,6 +951,7 @@ void netxen_nic_flash_print(struct netxen_adapter *adapter)
 				       netxen_nic_driver_name);
 				return;
 			}
+			*ptr32 = le32_to_cpu(*ptr32);
 			ptr32++;
 			addr += sizeof(u32);
 		}

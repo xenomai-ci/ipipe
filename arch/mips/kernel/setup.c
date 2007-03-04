@@ -452,7 +452,7 @@ static void __init arch_mem_init(char **cmdline_p)
 	print_memory_map();
 
 	strlcpy(command_line, arcs_cmdline, sizeof(command_line));
-	strlcpy(saved_command_line, command_line, COMMAND_LINE_SIZE);
+	strlcpy(boot_command_line, command_line, COMMAND_LINE_SIZE);
 
 	*cmdline_p = command_line;
 
@@ -543,7 +543,7 @@ void __init setup_arch(char **cmdline_p)
 #endif
 }
 
-int __init fpu_disable(char *s)
+static int __init fpu_disable(char *s)
 {
 	int i;
 
@@ -555,7 +555,7 @@ int __init fpu_disable(char *s)
 
 __setup("nofpu", fpu_disable);
 
-int __init dsp_disable(char *s)
+static int __init dsp_disable(char *s)
 {
 	cpu_data[0].ases &= ~MIPS_ASE_DSP;
 

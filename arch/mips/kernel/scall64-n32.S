@@ -217,7 +217,7 @@ EXPORT(sysn32_call_table)
 	PTR	sys32_gettimeofday
 	PTR	compat_sys_getrlimit		/* 6095 */
 	PTR	compat_sys_getrusage
-	PTR	sys32_sysinfo
+	PTR	compat_sys_sysinfo
 	PTR	compat_sys_times
 	PTR	sys32_ptrace
 	PTR	sys_getuid			/* 6100 */
@@ -396,4 +396,4 @@ EXPORT(sysn32_call_table)
 	PTR	compat_sys_get_robust_list
 	PTR	compat_sys_kexec_load
 	PTR	sys_getcpu
-	PTR	sys_epoll_pwait
+	PTR	compat_sys_epoll_pwait

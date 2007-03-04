@@ -13,6 +13,7 @@ config ACPI
 	depends on IA64 || X86
 	depends on PCI
 	depends on PM
+	select PNP
 	default y
 	---help---
 	  Advanced Configuration and Power Interface (ACPI) support for 
@@ -132,15 +133,6 @@ config ACPI_VIDEO
 	  Note that this is an ref. implementation only.  It may or may not work
 	  for your integrated video device.
 
-config ACPI_HOTKEY
-	tristate "Generic Hotkey (EXPERIMENTAL)"
-	depends on EXPERIMENTAL
-	depends on X86
-	default n
-	help
-	  Experimental consolidated hotkey driver.
-	  If you are unsure, say N.
-
 config ACPI_FAN
 	tristate "Fan"
 	default y
@@ -157,6 +149,7 @@ config ACPI_DOCK
 config ACPI_BAY
 	tristate "Removable Drive Bay (EXPERIMENTAL)"
 	depends on EXPERIMENTAL
+	depends on ACPI_DOCK
 	help
 	  This driver adds support for ACPI controlled removable drive
 	  bays such as the IBM ultrabay or the Dell Module Bay.

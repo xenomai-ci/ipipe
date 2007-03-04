@@ -1014,8 +1014,9 @@ static ssize_t cifs_write(struct file *file, const char *write_data,
 	/* since the write may have blocked check these pointers again */
 	if (file->f_path.dentry) {
 		if (file->f_path.dentry->d_inode) {
-			file->f_path.dentry->d_inode->i_ctime =
-			file->f_path.dentry->d_inode->i_mtime = CURRENT_TIME;
+/*BB We could make this contingent on superblock ATIME flag too */
+/*			file->f_path.dentry->d_inode->i_ctime =
+			file->f_path.dentry->d_inode->i_mtime = CURRENT_TIME;*/
 			if (total_written > 0) {
 				if (*poffset > file->f_path.dentry->d_inode->i_size)
 					i_size_write(file->f_path.dentry->d_inode,
@@ -1954,7 +1955,7 @@ static int cifs_readpage(struct file *file, struct page *page)
    refreshing the inode only on increases in the file size 
    but this is tricky to do without racing with writebehind
    page caching in the current Linux kernel design */
-int is_size_safe_to_change(struct cifsInodeInfo *cifsInode)
+int is_size_safe_to_change(struct cifsInodeInfo *cifsInode, __u64 end_of_file)
 {
 	struct cifsFileInfo *open_file = NULL;
 
@@ -1975,6 +1976,9 @@ int is_size_safe_to_change(struct cifsInodeInfo *cifsInode)
 			we can change size safely */
 			return 1;
 		}
+
+		if(i_size_read(&cifsInode->vfs_inode) < end_of_file)
+			return 1;
 
 		return 0;
 	} else

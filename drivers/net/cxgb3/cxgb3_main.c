@@ -74,8 +74,6 @@ enum {
 
 #define EEPROM_MAGIC 0x38E2F10C
 
-#define to_net_dev(class) container_of(class, struct net_device, class_dev)
-
 #define CH_DEVICE(devid, ssid, idx) \
 	{ PCI_VENDOR_ID_CHELSIO, devid, PCI_ANY_ID, ssid, 0, 0, idx }
 
@@ -434,27 +432,27 @@ static int setup_sge_qsets(struct adapter *adap)
 	return 0;
 }
 
-static ssize_t attr_show(struct class_device *cd, char *buf,
-			 ssize_t(*format) (struct adapter *, char *))
+static ssize_t attr_show(struct device *d, struct device_attribute *attr,
+			 char *buf,
+			 ssize_t(*format) (struct net_device *, char *))
 {
 	ssize_t len;
-	struct adapter *adap = to_net_dev(cd)->priv;
 
 	/* Synchronize with ioctls that may shut down the device */
 	rtnl_lock();
-	len = (*format) (adap, buf);
+	len = (*format) (to_net_dev(d), buf);
 	rtnl_unlock();
 	return len;
 }
 
-static ssize_t attr_store(struct class_device *cd, const char *buf, size_t len,
-			  ssize_t(*set) (struct adapter *, unsigned int),
+static ssize_t attr_store(struct device *d, struct device_attribute *attr,
+			  const char *buf, size_t len,
+			  ssize_t(*set) (struct net_device *, unsigned int),
 			  unsigned int min_val, unsigned int max_val)
 {
 	char *endp;
 	ssize_t ret;
 	unsigned int val;
-	struct adapter *adap = to_net_dev(cd)->priv;
 
 	if (!capable(CAP_NET_ADMIN))
 		return -EPERM;
@@ -464,7 +462,7 @@ static ssize_t attr_store(struct class_device *cd, const char *buf, size_t len,
 		return -EINVAL;
 
 	rtnl_lock();
-	ret = (*set) (adap, val);
+	ret = (*set) (to_net_dev(d), val);
 	if (!ret)
 		ret = len;
 	rtnl_unlock();
@@ -472,17 +470,21 @@ static ssize_t attr_store(struct class_device *cd, const char *buf, size_t len,
 }
 
 #define CXGB3_SHOW(name, val_expr) \
-static ssize_t format_##name(struct adapter *adap, char *buf) \
+static ssize_t format_##name(struct net_device *dev, char *buf) \
 { \
+	struct adapter *adap = dev->priv; \
 	return sprintf(buf, "%u\n", val_expr); \
 } \
-static ssize_t show_##name(struct class_device *cd, char *buf) \
+static ssize_t show_##name(struct device *d, struct device_attribute *attr, \
+			   char *buf) \
 { \
-	return attr_show(cd, buf, format_##name); \
+	return attr_show(d, attr, buf, format_##name); \
 }
 
-static ssize_t set_nfilters(struct adapter *adap, unsigned int val)
+static ssize_t set_nfilters(struct net_device *dev, unsigned int val)
 {
+	struct adapter *adap = dev->priv;
+
 	if (adap->flags & FULL_INIT_DONE)
 		return -EBUSY;
 	if (val && adap->params.rev == 0)
@@ -493,14 +495,16 @@ static ssize_t set_nfilters(struct adapter *adap, unsigned int val)
 	return 0;
 }
 
-static ssize_t store_nfilters(struct class_device *cd, const char *buf,
-			      size_t len)
+static ssize_t store_nfilters(struct device *d, struct device_attribute *attr,
+			      const char *buf, size_t len)
 {
-	return attr_store(cd, buf, len, set_nfilters, 0, ~0);
+	return attr_store(d, attr, buf, len, set_nfilters, 0, ~0);
 }
 
-static ssize_t set_nservers(struct adapter *adap, unsigned int val)
+static ssize_t set_nservers(struct net_device *dev, unsigned int val)
 {
+	struct adapter *adap = dev->priv;
+
 	if (adap->flags & FULL_INIT_DONE)
 		return -EBUSY;
 	if (val > t3_mc5_size(&adap->mc5) - adap->params.mc5.nfilters)
@@ -509,38 +513,39 @@ static ssize_t set_nservers(struct adapter *adap, unsigned int val)
 	return 0;
 }
 
-static ssize_t store_nservers(struct class_device *cd, const char *buf,
-			      size_t len)
+static ssize_t store_nservers(struct device *d, struct device_attribute *attr,
+			      const char *buf, size_t len)
 {
-	return attr_store(cd, buf, len, set_nservers, 0, ~0);
+	return attr_store(d, attr, buf, len, set_nservers, 0, ~0);
 }
 
 #define CXGB3_ATTR_R(name, val_expr) \
 CXGB3_SHOW(name, val_expr) \
-static CLASS_DEVICE_ATTR(name, S_IRUGO, show_##name, NULL)
+static DEVICE_ATTR(name, S_IRUGO, show_##name, NULL)
 
 #define CXGB3_ATTR_RW(name, val_expr, store_method) \
 CXGB3_SHOW(name, val_expr) \
-static CLASS_DEVICE_ATTR(name, S_IRUGO | S_IWUSR, show_##name, store_method)
+static DEVICE_ATTR(name, S_IRUGO | S_IWUSR, show_##name, store_method)
 
 CXGB3_ATTR_R(cam_size, t3_mc5_size(&adap->mc5));
 CXGB3_ATTR_RW(nfilters, adap->params.mc5.nfilters, store_nfilters);
 CXGB3_ATTR_RW(nservers, adap->params.mc5.nservers, store_nservers);
 
 static struct attribute *cxgb3_attrs[] = {
-	&class_device_attr_cam_size.attr,
-	&class_device_attr_nfilters.attr,
-	&class_device_attr_nservers.attr,
+	&dev_attr_cam_size.attr,
+	&dev_attr_nfilters.attr,
+	&dev_attr_nservers.attr,
 	NULL
 };
 
 static struct attribute_group cxgb3_attr_group = {.attrs = cxgb3_attrs };
 
-static ssize_t tm_attr_show(struct class_device *cd, char *buf, int sched)
+static ssize_t tm_attr_show(struct device *d, struct device_attribute *attr,
+			    char *buf, int sched)
 {
 	ssize_t len;
 	unsigned int v, addr, bpt, cpt;
-	struct adapter *adap = to_net_dev(cd)->priv;
+	struct adapter *adap = to_net_dev(d)->priv;
 
 	addr = A_TP_TX_MOD_Q1_Q0_RATE_LIMIT - sched / 2;
 	rtnl_lock();
@@ -560,13 +565,13 @@ static ssize_t tm_attr_show(struct class_device *cd, char *buf, int sched)
 	return len;
 }
 
-static ssize_t tm_attr_store(struct class_device *cd, const char *buf,
-			     size_t len, int sched)
+static ssize_t tm_attr_store(struct device *d, struct device_attribute *attr,
+			     const char *buf, size_t len, int sched)
 {
 	char *endp;
 	ssize_t ret;
 	unsigned int val;
-	struct adapter *adap = to_net_dev(cd)->priv;
+	struct adapter *adap = to_net_dev(d)->priv;
 
 	if (!capable(CAP_NET_ADMIN))
 		return -EPERM;
@@ -584,15 +589,17 @@ static ssize_t tm_attr_store(struct class_device *cd, const char *buf,
 }
 
 #define TM_ATTR(name, sched) \
-static ssize_t show_##name(struct class_device *cd, char *buf) \
+static ssize_t show_##name(struct device *d, struct device_attribute *attr, \
+			   char *buf) \
 { \
-	return tm_attr_show(cd, buf, sched); \
+	return tm_attr_show(d, attr, buf, sched); \
 } \
-static ssize_t store_##name(struct class_device *cd, const char *buf, size_t len) \
+static ssize_t store_##name(struct device *d, struct device_attribute *attr, \
+			    const char *buf, size_t len) \
 { \
-	return tm_attr_store(cd, buf, len, sched); \
+	return tm_attr_store(d, attr, buf, len, sched); \
 } \
-static CLASS_DEVICE_ATTR(name, S_IRUGO | S_IWUSR, show_##name, store_##name)
+static DEVICE_ATTR(name, S_IRUGO | S_IWUSR, show_##name, store_##name)
 
 TM_ATTR(sched0, 0);
 TM_ATTR(sched1, 1);
@@ -604,14 +611,14 @@ TM_ATTR(sched6, 6);
 TM_ATTR(sched7, 7);
 
 static struct attribute *offload_attrs[] = {
-	&class_device_attr_sched0.attr,
-	&class_device_attr_sched1.attr,
-	&class_device_attr_sched2.attr,
-	&class_device_attr_sched3.attr,
-	&class_device_attr_sched4.attr,
-	&class_device_attr_sched5.attr,
-	&class_device_attr_sched6.attr,
-	&class_device_attr_sched7.attr,
+	&dev_attr_sched0.attr,
+	&dev_attr_sched1.attr,
+	&dev_attr_sched2.attr,
+	&dev_attr_sched3.attr,
+	&dev_attr_sched4.attr,
+	&dev_attr_sched5.attr,
+	&dev_attr_sched6.attr,
+	&dev_attr_sched7.attr,
 	NULL
 };
 
@@ -753,7 +760,8 @@ static int cxgb_up(struct adapter *adap)
 				      t3_intr_handler(adap,
 						      adap->sge.qs[0].rspq.
 						      polling),
-				      (adap->flags & USING_MSI) ? 0 : SA_SHIRQ,
+				      (adap->flags & USING_MSI) ?
+				       0 : IRQF_SHARED,
 				      adap->name, adap)))
 		goto irq_err;
 
@@ -836,7 +844,7 @@ static int offload_open(struct net_device *dev)
 	init_smt(adapter);
 
 	/* Never mind if the next step fails */
-	sysfs_create_group(&tdev->lldev->class_dev.kobj, &offload_attr_group);
+	sysfs_create_group(&tdev->lldev->dev.kobj, &offload_attr_group);
 
 	/* Call back all registered clients */
 	cxgb3_add_clients(tdev);
@@ -861,7 +869,7 @@ static int offload_close(struct t3cdev *tdev)
 	/* Call back all registered clients */
 	cxgb3_remove_clients(tdev);
 
-	sysfs_remove_group(&tdev->lldev->class_dev.kobj, &offload_attr_group);
+	sysfs_remove_group(&tdev->lldev->dev.kobj, &offload_attr_group);
 
 	tdev->lldev = NULL;
 	cxgb3_set_dummy_ops(tdev);
@@ -1544,32 +1552,6 @@ static int cxgb_extension_ioctl(struct net_device *dev, void __user *useraddr)
 		return -EFAULT;
 
 	switch (cmd) {
-	case CHELSIO_SETREG:{
-		struct ch_reg edata;
-
-		if (!capable(CAP_NET_ADMIN))
-			return -EPERM;
-		if (copy_from_user(&edata, useraddr, sizeof(edata)))
-			return -EFAULT;
-		if ((edata.addr & 3) != 0
-			|| edata.addr >= adapter->mmio_len)
-			return -EINVAL;
-		writel(edata.val, adapter->regs + edata.addr);
-		break;
-	}
-	case CHELSIO_GETREG:{
-		struct ch_reg edata;
-
-		if (copy_from_user(&edata, useraddr, sizeof(edata)))
-			return -EFAULT;
-		if ((edata.addr & 3) != 0
-			|| edata.addr >= adapter->mmio_len)
-			return -EINVAL;
-		edata.val = readl(adapter->regs + edata.addr);
-		if (copy_to_user(useraddr, &edata, sizeof(edata)))
-			return -EFAULT;
-		break;
-	}
 	case CHELSIO_SET_QSET_PARAMS:{
 		int i;
 		struct qset_params *q;
@@ -1833,10 +1815,10 @@ static int cxgb_extension_ioctl(struct net_device *dev, void __user *useraddr)
 			return -EINVAL;
 
 		/*
-			* Version scheme:
-			* bits 0..9: chip version
-			* bits 10..15: chip revision
-			*/
+		 * Version scheme:
+		 * bits 0..9: chip version
+		 * bits 10..15: chip revision
+		 */
 		t.version = 3 | (adapter->params.rev << 10);
 		if (copy_to_user(useraddr, &t, sizeof(t)))
 			return -EFAULT;
@@ -1884,20 +1866,6 @@ static int cxgb_extension_ioctl(struct net_device *dev, void __user *useraddr)
 						t.invert_match,
 						t.trace_rx);
 		break;
-	}
-	case CHELSIO_SET_PKTSCHED:{
-		struct ch_pktsched_params p;
-
-		if (!capable(CAP_NET_ADMIN))
-				return -EPERM;
-		if (!adapter->open_device_map)
-				return -EAGAIN;	/* uP and SGE must be running */
-		if (copy_from_user(&p, useraddr, sizeof(p)))
-				return -EFAULT;
-		send_pktsched_cmd(adapter, p.sched, p.idx, p.min, p.max,
-				  p.binding);
-		break;
-			
 	}
 	default:
 		return -EOPNOTSUPP;
@@ -2420,7 +2388,7 @@ static int __devinit init_one(struct pci_dev *pdev,
 	else if (msi > 0 && pci_enable_msi(pdev) == 0)
 		adapter->flags |= USING_MSI;
 
-	err = sysfs_create_group(&adapter->port[0]->class_dev.kobj,
+	err = sysfs_create_group(&adapter->port[0]->dev.kobj,
 				 &cxgb3_attr_group);
 
 	print_port_info(adapter, ai);
@@ -2452,7 +2420,7 @@ static void __devexit remove_one(struct pci_dev *pdev)
 		struct adapter *adapter = dev->priv;
 
 		t3_sge_stop(adapter);
-		sysfs_remove_group(&adapter->port[0]->class_dev.kobj,
+		sysfs_remove_group(&adapter->port[0]->dev.kobj,
 				   &cxgb3_attr_group);
 
 		for_each_port(adapter, i)

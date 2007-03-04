@@ -22,7 +22,12 @@ config IA64
 
 config 64BIT
 	bool
+	select ATA_NONSTANDARD if ATA
 	default y
+
+config ZONE_DMA
+	def_bool y
+	depends on !IA64_SGI_SN2
 
 config MMU
 	bool

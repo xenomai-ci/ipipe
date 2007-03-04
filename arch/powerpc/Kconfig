@@ -625,6 +625,15 @@ config RTAS_FLASH
 	tristate "Firmware flash interface"
 	depends on PPC64 && RTAS_PROC
 
+config PPC_PMI
+	tristate "Support for PMI"
+	depends PPC_IBM_CELL_BLADE
+	help
+	  PMI (Platform Management Interrupt) is a way to
+	  communicate with the BMC (Baseboard Mangement Controller).
+	  It is used in some IBM Cell blades.
+	default m
+
 config MMIO_NVRAM
 	bool
 	default n
@@ -881,7 +890,7 @@ config ARCH_SPARSEMEM_ENABLE
 
 config ARCH_SPARSEMEM_DEFAULT
 	def_bool y
-	depends on (SMP && PPC_PSERIES) || PPC_CELL
+	depends on (SMP && PPC_PSERIES) || PPC_PS3
 
 config ARCH_POPULATES_NODE_MAP
 	def_bool y
@@ -981,6 +990,10 @@ config ISA
 	  inside your box.  If you have an Apple machine, say N here; if you
 	  have an IBM RS/6000 or pSeries machine or a PReP machine, say Y.  If
 	  you have an embedded board, consult your board documentation.
+
+config ZONE_DMA
+	bool
+	default y
 
 config GENERIC_ISA_DMA
 	bool

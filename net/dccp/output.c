@@ -87,7 +87,7 @@ static int dccp_transmit_skb(struct sock *sk, struct sk_buff *skb)
 			kfree_skb(skb);
 			return -EPROTO;
 		}
-		
+
 
 		/* Build DCCP header and checksum it. */
 		dh = dccp_zeroed_hdr(skb, dccp_header_size);
@@ -269,7 +269,7 @@ void dccp_write_xmit(struct sock *sk, int block)
 					 err);
 		} else {
 			dccp_pr_debug("packet discarded\n");
-			kfree(skb);
+			kfree_skb(skb);
 		}
 	}
 }
@@ -415,7 +415,7 @@ static inline void dccp_connect_init(struct sock *sk)
 
 	sk->sk_err = 0;
 	sock_reset_flag(sk, SOCK_DONE);
-	
+
 	dccp_sync_mss(sk, dst_mtu(dst));
 
 	/*

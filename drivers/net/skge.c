@@ -77,13 +77,13 @@ static const struct pci_device_id skge_id_table[] = {
 	{ PCI_DEVICE(PCI_VENDOR_ID_3COM, PCI_DEVICE_ID_3COM_3C940B) },
 	{ PCI_DEVICE(PCI_VENDOR_ID_SYSKONNECT, PCI_DEVICE_ID_SYSKONNECT_GE) },
 	{ PCI_DEVICE(PCI_VENDOR_ID_SYSKONNECT, PCI_DEVICE_ID_SYSKONNECT_YU) },
-	{ PCI_DEVICE(PCI_VENDOR_ID_DLINK, PCI_DEVICE_ID_DLINK_DGE510T), },
+	{ PCI_DEVICE(PCI_VENDOR_ID_DLINK, PCI_DEVICE_ID_DLINK_DGE510T) },
 	{ PCI_DEVICE(PCI_VENDOR_ID_DLINK, 0x4b01) },	/* DGE-530T */
 	{ PCI_DEVICE(PCI_VENDOR_ID_MARVELL, 0x4320) },
 	{ PCI_DEVICE(PCI_VENDOR_ID_MARVELL, 0x5005) }, /* Belkin */
 	{ PCI_DEVICE(PCI_VENDOR_ID_CNET, PCI_DEVICE_ID_CNET_GIGACARD) },
 	{ PCI_DEVICE(PCI_VENDOR_ID_LINKSYS, PCI_DEVICE_ID_LINKSYS_EG1064) },
-	{ PCI_VENDOR_ID_LINKSYS, 0x1032, PCI_ANY_ID, 0x0015, },
+	{ PCI_VENDOR_ID_LINKSYS, 0x1032, PCI_ANY_ID, 0x0015 },
 	{ 0 }
 };
 MODULE_DEVICE_TABLE(pci, skge_id_table);
@@ -1419,7 +1419,8 @@ static void xm_link_timer(struct work_struct *work)
 	mutex_unlock(&hw->phy_mutex);
 
 nochange:
-	schedule_delayed_work(&skge->link_thread, LINK_HZ);
+	if (netif_running(dev))
+		schedule_delayed_work(&skge->link_thread, LINK_HZ);
 }
 
 static void genesis_mac_init(struct skge_hw *hw, int port)
@@ -2530,7 +2531,7 @@ static int skge_down(struct net_device *dev)
 
 	netif_stop_queue(dev);
 	if (hw->chip_id == CHIP_ID_GENESIS && hw->phy_type == SK_PHY_XMAC)
-		cancel_rearming_delayed_work(&skge->link_thread);
+		cancel_delayed_work(&skge->link_thread);
 
 	skge_write8(skge->hw, SK_REG(skge->port, LNK_LED_REG), LED_OFF);
 	if (hw->chip_id == CHIP_ID_GENESIS)
@@ -2766,6 +2767,17 @@ static int skge_change_mtu(struct net_device *dev, int new_mtu)
 	return err;
 }
 
+static const u8 pause_mc_addr[ETH_ALEN] = { 0x1, 0x80, 0xc2, 0x0, 0x0, 0x1 };
+
+static void genesis_add_filter(u8 filter[8], const u8 *addr)
+{
+	u32 crc, bit;
+
+	crc = ether_crc_le(ETH_ALEN, addr);
+	bit = ~crc & 0x3f;
+	filter[bit/8] |= 1 << (bit%8);
+}
+
 static void genesis_set_multicast(struct net_device *dev)
 {
 	struct skge_port *skge = netdev_priv(dev);
@@ -2787,16 +2799,23 @@ static void genesis_set_multicast(struct net_device *dev)
 		memset(filter, 0xff, sizeof(filter));
 	else {
 		memset(filter, 0, sizeof(filter));
-		for (i = 0; list && i < count; i++, list = list->next) {
-			u32 crc, bit;
-			crc = ether_crc_le(ETH_ALEN, list->dmi_addr);
-			bit = ~crc & 0x3f;
-			filter[bit/8] |= 1 << (bit%8);
-		}
+
+		if (skge->flow_status == FLOW_STAT_REM_SEND
+		    || skge->flow_status == FLOW_STAT_SYMMETRIC)
+			genesis_add_filter(filter, pause_mc_addr);
+
+		for (i = 0; list && i < count; i++, list = list->next)
+			genesis_add_filter(filter, list->dmi_addr);
 	}
 
 	xm_write32(hw, port, XM_MODE, mode);
 	xm_outhash(hw, port, XM_HSM, filter);
+}
+
+static void yukon_add_filter(u8 filter[8], const u8 *addr)
+{
+	 u32 bit = ether_crc(ETH_ALEN, addr) & 0x3f;
+	 filter[bit/8] |= 1 << (bit%8);
 }
 
 static void yukon_set_multicast(struct net_device *dev)
@@ -2805,6 +2824,8 @@ static void yukon_set_multicast(struct net_device *dev)
 	struct skge_hw *hw = skge->hw;
 	int port = skge->port;
 	struct dev_mc_list *list = dev->mc_list;
+	int rx_pause = (skge->flow_status == FLOW_STAT_REM_SEND
+			|| skge->flow_status == FLOW_STAT_SYMMETRIC);
 	u16 reg;
 	u8 filter[8];
 
@@ -2817,16 +2838,17 @@ static void yukon_set_multicast(struct net_device *dev)
 		reg &= ~(GM_RXCR_UCF_ENA | GM_RXCR_MCF_ENA);
 	else if (dev->flags & IFF_ALLMULTI)	/* all multicast */
 		memset(filter, 0xff, sizeof(filter));
-	else if (dev->mc_count == 0)		/* no multicast */
+	else if (dev->mc_count == 0 && !rx_pause)/* no multicast */
 		reg &= ~GM_RXCR_MCF_ENA;
 	else {
 		int i;
 		reg |= GM_RXCR_MCF_ENA;
 
-		for (i = 0; list && i < dev->mc_count; i++, list = list->next) {
-			u32 bit = ether_crc(ETH_ALEN, list->dmi_addr) & 0x3f;
-			filter[bit/8] |= 1 << (bit%8);
-		}
+		if (rx_pause)
+			yukon_add_filter(filter, pause_mc_addr);
+
+		for (i = 0; list && i < dev->mc_count; i++, list = list->next)
+			yukon_add_filter(filter, list->dmi_addr);
 	}
 
 
@@ -3690,6 +3712,8 @@ static void __devexit skge_remove(struct pci_dev *pdev)
 	if (!hw)
 		return;
 
+	flush_scheduled_work();
+
 	if ((dev1 = hw->dev[1]))
 		unregister_netdev(dev1);
 	dev0 = hw->dev[0];
@@ -3703,8 +3727,6 @@ static void __devexit skge_remove(struct pci_dev *pdev)
 
 	skge_write16(hw, B0_LED, LED_STAT_OFF);
 	skge_write8(hw, B0_CTST, CS_RST_SET);
-
-	flush_scheduled_work();
 
 	free_irq(pdev->irq, hw);
 	pci_release_regions(pdev);

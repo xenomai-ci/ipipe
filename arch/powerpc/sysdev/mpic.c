@@ -1370,7 +1370,7 @@ void mpic_request_ipis(void)
 			printk(KERN_ERR "Failed to map IPI %d\n", i);
 			break;
 		}
-		request_irq(vipi, mpic_ipi_action, IRQF_DISABLED,
+		request_irq(vipi, mpic_ipi_action, IRQF_DISABLED|IRQF_PERCPU,
 			    ipi_names[i], mpic);
 	}
 }
@@ -1394,5 +1394,26 @@ void smp_mpic_message_pass(int target, int msg)
 		mpic_send_ipi(msg, 1 << target);
 		break;
 	}
+}
+
+int __init smp_mpic_probe(void)
+{
+	int nr_cpus;
+
+	DBG("smp_mpic_probe()...\n");
+
+	nr_cpus = cpus_weight(cpu_possible_map);
+
+	DBG("nr_cpus: %d\n", nr_cpus);
+
+	if (nr_cpus > 1)
+		mpic_request_ipis();
+
+	return nr_cpus;
+}
+
+void __devinit smp_mpic_setup_cpu(int cpu)
+{
+	mpic_setup_this_cpu();
 }
 #endif /* CONFIG_SMP */

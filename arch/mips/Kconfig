@@ -8,6 +8,10 @@ mainmenu "Linux/MIPS Kernel Configuration"
 
 menu "Machine selection"
 
+config ZONE_DMA
+	bool
+	default y
+
 choice
 	prompt "System type"
 	default SGI_IP22
@@ -129,7 +133,7 @@ config MIPS_MIRAGE
 	select SYS_SUPPORTS_LITTLE_ENDIAN
 
 config BASLER_EXCITE
-	bool "Basler eXcite smart camera support"
+	bool "Basler eXcite smart camera"
 	select DMA_COHERENT
 	select HW_HAS_PCI
 	select IRQ_CPU
@@ -140,9 +144,10 @@ config BASLER_EXCITE
 	select SYS_SUPPORTS_32BIT_KERNEL
 	select SYS_SUPPORTS_64BIT_KERNEL
 	select SYS_SUPPORTS_BIG_ENDIAN
+	select SYS_SUPPORTS_KGDB
 	help
 	  The eXcite is a smart camera platform manufactured by
-	  Basler Vision Technologies AG
+	  Basler Vision Technologies AG.
 
 config BASLER_EXCITE_PROTOTYPE
 	bool "Support for pre-release units"
@@ -206,6 +211,7 @@ config MIPS_EV64120
 	select SYS_SUPPORTS_32BIT_KERNEL
 	select SYS_SUPPORTS_64BIT_KERNEL
 	select SYS_SUPPORTS_BIG_ENDIAN
+	select SYS_SUPPORTS_KGDB
 	help
 	  This is an evaluation board based on the Galileo GT-64120
 	  single-chip system controller that contains a MIPS R5000 compatible
@@ -268,6 +274,7 @@ config MIPS_ATLAS
 	select SYS_SUPPORTS_BIG_ENDIAN
 	select SYS_SUPPORTS_LITTLE_ENDIAN
 	select SYS_SUPPORTS_MULTITHREADING if EXPERIMENTAL
+	select SYS_SUPPORTS_SMARTMIPS
 	select GENERIC_HARDIRQS_NO__DO_IRQ
 	help
 	  This enables support for the MIPS Technologies Atlas evaluation
@@ -299,6 +306,7 @@ config MIPS_MALTA
 	select SYS_SUPPORTS_BIG_ENDIAN
 	select SYS_SUPPORTS_LITTLE_ENDIAN
 	select SYS_SUPPORTS_MULTITHREADING
+	select SYS_SUPPORTS_SMARTMIPS
 	help
 	  This enables support for the MIPS Technologies Malta evaluation
 	  board.
@@ -316,6 +324,7 @@ config MIPS_SEAD
 	select SYS_SUPPORTS_64BIT_KERNEL if EXPERIMENTAL
 	select SYS_SUPPORTS_BIG_ENDIAN
 	select SYS_SUPPORTS_LITTLE_ENDIAN
+	select SYS_SUPPORTS_SMARTMIPS
 	help
 	  This enables support for the MIPS Technologies SEAD evaluation
 	  board.
@@ -370,6 +379,7 @@ config MOMENCO_JAGUAR_ATX
 	select SYS_SUPPORTS_32BIT_KERNEL
 	select SYS_SUPPORTS_64BIT_KERNEL
 	select SYS_SUPPORTS_BIG_ENDIAN
+	select SYS_SUPPORTS_KGDB
 	help
 	  The Jaguar ATX is a MIPS-based Single Board Computer (SBC) made by
 	  Momentum Computer <http://www.momenco.com/>.
@@ -387,6 +397,7 @@ config MOMENCO_OCELOT
 	select SYS_SUPPORTS_32BIT_KERNEL
 	select SYS_SUPPORTS_64BIT_KERNEL
 	select SYS_SUPPORTS_BIG_ENDIAN
+	select SYS_SUPPORTS_KGDB
 	help
 	  The Ocelot is a MIPS-based Single Board Computer (SBC) made by
 	  Momentum Computer <http://www.momenco.com/>.
@@ -476,6 +487,8 @@ config DDB5477
 	select SYS_HAS_CPU_R5432
 	select SYS_SUPPORTS_32BIT_KERNEL
 	select SYS_SUPPORTS_64BIT_KERNEL if EXPERIMENTAL
+	select SYS_SUPPORTS_KGDB
+	select SYS_SUPPORTS_KGDB
 	select SYS_SUPPORTS_LITTLE_ENDIAN
 	help
 	  This enables support for the R5432-based NEC DDB Vrc-5477,
@@ -504,6 +517,7 @@ config PMC_YOSEMITE
 	select SYS_SUPPORTS_64BIT_KERNEL
 	select SYS_SUPPORTS_BIG_ENDIAN
 	select SYS_SUPPORTS_HIGHMEM
+	select SYS_SUPPORTS_KGDB
 	select SYS_SUPPORTS_SMP
 	help
 	  Yosemite is an evaluation board for the RM9000x2 processor
@@ -580,6 +594,7 @@ config SGI_IP27
 	select SYS_HAS_CPU_R10000
 	select SYS_SUPPORTS_64BIT_KERNEL
 	select SYS_SUPPORTS_BIG_ENDIAN
+	select SYS_SUPPORTS_KGDB
 	select SYS_SUPPORTS_NUMA
 	select SYS_SUPPORTS_SMP
 	select GENERIC_HARDIRQS_NO__DO_IRQ
@@ -594,8 +609,6 @@ config SGI_IP32
 	select ARC
 	select ARC32
 	select BOOT_ELF32
-	select OWN_DMA
-	select DMA_IP32
 	select DMA_NONCOHERENT
 	select HW_HAS_PCI
 	select R5000_CPU_SCACHE
@@ -631,6 +644,7 @@ config SIBYTE_SWARM
 	select SYS_HAS_CPU_SB1
 	select SYS_SUPPORTS_BIG_ENDIAN
 	select SYS_SUPPORTS_HIGHMEM
+	select SYS_SUPPORTS_KGDB
 	select SYS_SUPPORTS_LITTLE_ENDIAN
 
 config SIBYTE_SENTOSA
@@ -724,15 +738,16 @@ config SNI_RM
 	select BOOT_ELF32
 	select DMA_NONCOHERENT
 	select GENERIC_ISA_DMA
-	select HAVE_STD_PC_SERIAL_PORT
 	select HW_HAS_EISA
 	select HW_HAS_PCI
+	select IRQ_CPU
 	select I8253
 	select I8259
 	select ISA
 	select SWAP_IO_SPACE if CPU_BIG_ENDIAN
 	select SYS_HAS_CPU_R4X00
 	select SYS_HAS_CPU_R5000
+	select SYS_HAS_CPU_R10000
 	select R5000_CPU_SCACHE
 	select SYS_SUPPORTS_32BIT_KERNEL
 	select SYS_SUPPORTS_64BIT_KERNEL if EXPERIMENTAL
@@ -753,6 +768,7 @@ config TOSHIBA_JMR3927
 	select SWAP_IO_SPACE
 	select SYS_HAS_CPU_TX39XX
 	select SYS_SUPPORTS_32BIT_KERNEL
+	select SYS_SUPPORTS_LITTLE_ENDIAN
 	select SYS_SUPPORTS_BIG_ENDIAN
 	select TOSHIBA_BOARDS
 
@@ -767,7 +783,9 @@ config TOSHIBA_RBTX4927
 	select SYS_HAS_CPU_TX49XX
 	select SYS_SUPPORTS_32BIT_KERNEL
 	select SYS_SUPPORTS_64BIT_KERNEL
+	select SYS_SUPPORTS_LITTLE_ENDIAN
 	select SYS_SUPPORTS_BIG_ENDIAN
+	select SYS_SUPPORTS_KGDB
 	select TOSHIBA_BOARDS
 	select GENERIC_HARDIRQS_NO__DO_IRQ
 	help
@@ -788,6 +806,7 @@ config TOSHIBA_RBTX4938
 	select SYS_SUPPORTS_32BIT_KERNEL
 	select SYS_SUPPORTS_LITTLE_ENDIAN
 	select SYS_SUPPORTS_BIG_ENDIAN
+	select SYS_SUPPORTS_KGDB
 	select TOSHIBA_BOARDS
 	select GENERIC_HARDIRQS_NO__DO_IRQ
 	help
@@ -877,9 +896,6 @@ config DMA_NONCOHERENT
 config DMA_NEED_PCI_MAP_STATE
 	bool
 
-config OWN_DMA
-	bool
-
 config EARLY_PRINTK
 	bool
 
@@ -934,6 +950,9 @@ config CPU_LITTLE_ENDIAN
 
 endchoice
 
+config SYS_SUPPORTS_APM_EMULATION
+	bool
+
 config SYS_SUPPORTS_BIG_ENDIAN
 	bool
 
@@ -954,6 +973,7 @@ config IRQ_MV64340
 
 config DDB5XXX_COMMON
 	bool
+	select SYS_SUPPORTS_KGDB
 
 config MIPS_BOARDS_GEN
 	bool
@@ -1001,6 +1021,8 @@ config SOC_AU1X00
 	bool
 	select SYS_HAS_CPU_MIPS32_R1
 	select SYS_SUPPORTS_32BIT_KERNEL
+	select SYS_SUPPORTS_APM_EMULATION
+	select SYS_SUPPORTS_KGDB
 
 config PNX8550
 	bool
@@ -1013,6 +1035,7 @@ config SOC_PNX8550
 	select SYS_HAS_CPU_MIPS32_R1
 	select SYS_SUPPORTS_32BIT_KERNEL
 	select GENERIC_HARDIRQS_NO__DO_IRQ
+	select SYS_SUPPORTS_KGDB
 
 config SWAP_IO_SPACE
 	bool
@@ -1061,7 +1084,7 @@ config BOOT_ELF32
 
 config MIPS_L1_CACHE_SHIFT
 	int
-	default "4" if MACH_DECSTATION
+	default "4" if MACH_DECSTATION || SNI_RM
 	default "7" if SGI_IP27
 	default "5"
 
@@ -1621,6 +1644,18 @@ config 64BIT_PHYS_ADDR
 config CPU_HAS_LLSC
 	bool
 
+config CPU_HAS_SMARTMIPS
+	depends on SYS_SUPPORTS_SMARTMIPS
+	bool "Support for the SmartMIPS ASE"
+	help
+	  SmartMIPS is a extension of the MIPS32 architecture aimed at
+	  increased security at both hardware and software level for
+	  smartcards.  Enabling this option will allow proper use of the
+	  SmartMIPS instructions by Linux applications.  However a kernel with
+	  this option will not work on a MIPS core without SmartMIPS core.  If
+	  you don't know you probably don't have SmartMIPS and should say N
+	  here.
+
 config CPU_HAS_WB
 	bool
 
@@ -1682,6 +1717,9 @@ config CPU_SUPPORTS_HIGHMEM
 	bool
 
 config SYS_SUPPORTS_HIGHMEM
+	bool
+
+config SYS_SUPPORTS_SMARTMIPS
 	bool
 
 config ARCH_FLATMEM_ENABLE
@@ -2071,35 +2109,11 @@ config BINFMT_ELF32
 	bool
 	default y if MIPS32_O32 || MIPS32_N32
 
-config PM
-	bool "Power Management support (EXPERIMENTAL)"
-	depends on EXPERIMENTAL && SOC_AU1X00
+endmenu
 
-config APM
-        tristate "Advanced Power Management Emulation"
-	depends on PM
-        ---help---
-	  APM is a BIOS specification for saving power using several different
-	  techniques. This is mostly useful for battery powered systems with
-	  APM compliant BIOSes. If you say Y here, the system time will be
-	  reset after a RESUME operation, the /proc/apm device will provide
-	  battery status information, and user-space programs will receive
-	  notification of APM "events" (e.g. battery status change).
+menu "Power management options"
 
-	  In order to use APM, you will need supporting software. For location
-	  and more information, read <file:Documentation/pm.txt> and the
-	  Battery Powered Linux mini-HOWTO, available from
-	  <http://www.tldp.org/docs.html#howto>.
-
-	  This driver does not spin down disk drives (see the hdparm(8)
-	  manpage ("man 8 hdparm") for that), and it doesn't turn off
-	  VESA-compliant "green" monitors.
-
-	  Generally, if you don't have a battery in your machine, there isn't
-	  much point in using this driver and you should say N. If you get
-	  random kernel OOPSes or reboots that don't seem to be related to
-	  anything, try disabling/enabling this option (or disabling/enabling
-	  APM in your BIOS).
+source "kernel/power/Kconfig"
 
 endmenu
 

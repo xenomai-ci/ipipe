@@ -430,10 +430,10 @@ config HPLANCE
 
 config LASI_82596
 	tristate "Lasi ethernet"
-	depends on NET_ETHERNET && PARISC && GSC_LASI
+	depends on NET_ETHERNET && GSC
 	help
-	  Say Y here to support the on-board Intel 82596 ethernet controller
-	  built into Hewlett-Packard PA-RISC machines.
+	  Say Y here to support the builtin Intel 82596 ethernet controller
+	  found in Hewlett-Packard PA-RISC machines with 10Mbit ethernet.
 
 config MIPS_JAZZ_SONIC
 	tristate "MIPS JAZZ onboard SONIC Ethernet support"
@@ -1284,8 +1284,8 @@ config PCNET32
 	  will be called pcnet32.
 
 config PCNET32_NAPI
-	bool "Use RX polling (NAPI) (EXPERIMENTAL)"
-	depends on PCNET32 && EXPERIMENTAL
+	bool "Use RX polling (NAPI)"
+	depends on PCNET32
 	help
 	  NAPI is a new driver API designed to reduce CPU and interrupt load
 	  when the driver is receiving lots of packets from the card. It is
@@ -2126,14 +2126,16 @@ config SKY2
 	  will be called sky2.  This is recommended.
 
 config SK98LIN
-	tristate "Marvell Yukon Chipset / SysKonnect SK-98xx Support"
+	tristate "Marvell Yukon Chipset / SysKonnect SK-98xx Support (DEPRECATED)"
 	depends on PCI
 	---help---
 	  Say Y here if you have a Marvell Yukon or SysKonnect SK-98xx/SK-95xx
 	  compliant Gigabit Ethernet Adapter.
 
-	  This driver supports the original Yukon chipset. A cleaner driver is 
-	  also available (skge) which seems to work better than this one.
+	  This driver supports the original Yukon chipset. This driver is
+	  deprecated and will be removed from the kernel in the near future,
+	  it has been replaced by the skge driver. skge is cleaner and
+	  seems to work better.
 
 	  This driver does not support the newer Yukon2 chipset. A separate
 	  driver, sky2, is provided to support Yukon2-based adapters.
@@ -2244,7 +2246,7 @@ config BNX2
 
 config SPIDER_NET
 	tristate "Spider Gigabit Ethernet driver"
-	depends on PCI && PPC_IBM_CELL_BLADE
+	depends on PCI && (PPC_IBM_CELL_BLADE || PPC_CELLEB)
 	select FW_LOADER
 	help
 	  This driver supports the Gigabit Ethernet chips present on the
@@ -2306,27 +2308,6 @@ config MV643XX_ETH
 	  chipset which is used in the Momenco Ocelot C and Jaguar ATX and
 	  Pegasos II, amongst other PPC and MIPS boards.
 
-config MV643XX_ETH_0
-	bool "MV-643XX Port 0"
-	depends on MV643XX_ETH
-	help
-	  This enables support for Port 0 of the Marvell MV643XX Gigabit
-	  Ethernet.
-
-config MV643XX_ETH_1
-	bool "MV-643XX Port 1"
-	depends on MV643XX_ETH
-	help
-	  This enables support for Port 1 of the Marvell MV643XX Gigabit
-	  Ethernet.
-
-config MV643XX_ETH_2
-	bool "MV-643XX Port 2"
-	depends on MV643XX_ETH
-	help
-	  This enables support for Port 2 of the Marvell MV643XX Gigabit
-	  Ethernet.
-
 config QLA3XXX
 	tristate "QLogic QLA3XXX Network Driver Support"
 	depends on PCI
@@ -2335,6 +2316,17 @@ config QLA3XXX
 
 	  To compile this driver as a module, choose M here: the module
 	  will be called qla3xxx.
+
+config ATL1
+	tristate "Attansic L1 Gigabit Ethernet support (EXPERIMENTAL)"
+	depends on PCI && EXPERIMENTAL
+	select CRC32
+	select MII
+	help
+	  This driver supports the Attansic L1 gigabit ethernet adapter.
+
+	  To compile this driver as a module, choose M here.  The module
+	  will be called atl1.
 
 endmenu
 
@@ -2535,7 +2527,7 @@ config RIONET_RX_SIZE
 
 config FDDI
 	bool "FDDI driver support"
-	depends on (PCI || EISA)
+	depends on (PCI || EISA || TC)
 	help
 	  Fiber Distributed Data Interface is a high speed local area network
 	  design; essentially a replacement for high speed Ethernet. FDDI can
@@ -2545,11 +2537,31 @@ config FDDI
 	  will say N.
 
 config DEFXX
-	tristate "Digital DEFEA and DEFPA adapter support"
-	depends on FDDI && (PCI || EISA)
-	help
-	  This is support for the DIGITAL series of EISA (DEFEA) and PCI
-	  (DEFPA) controllers which can connect you to a local FDDI network.
+	tristate "Digital DEFTA/DEFEA/DEFPA adapter support"
+	depends on FDDI && (PCI || EISA || TC)
+	---help---
+	  This is support for the DIGITAL series of TURBOchannel (DEFTA),
+	  EISA (DEFEA) and PCI (DEFPA) controllers which can connect you
+	  to a local FDDI network.
+
+	  To compile this driver as a module, choose M here: the module
+	  will be called defxx.  If unsure, say N.
+
+config DEFXX_MMIO
+	bool
+	prompt "Use MMIO instead of PIO" if PCI || EISA
+	depends on DEFXX
+	default n if PCI || EISA
+	default y
+	---help---
+	  This instructs the driver to use EISA or PCI memory-mapped I/O
+	  (MMIO) as appropriate instead of programmed I/O ports (PIO).
+	  Enabling this gives an improvement in processing time in parts
+	  of the driver, but it may cause problems with EISA (DEFEA)
+	  adapters.  TURBOchannel does not have the concept of I/O ports,
+	  so MMIO is always used for these (DEFTA) adapters.
+
+	  If unsure, say N.
 
 config SKFP
 	tristate "SysKonnect FDDI PCI support"

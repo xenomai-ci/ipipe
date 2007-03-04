@@ -1026,8 +1026,7 @@ int radeon_screen_blank(struct radeonfb_info *rinfo, int blank, int mode_switch)
 		break;
 	}
 
-	/* let fbcon do a soft blank for us */
-	return (blank == FB_BLANK_NORMAL) ? -EINVAL : 0;
+	return 0;
 }
 
 static int radeonfb_blank (int blank, struct fb_info *info)
@@ -2393,7 +2392,6 @@ static void __devexit radeonfb_pci_unregister (struct pci_dev *pdev)
         if (!rinfo)
                 return;
 
-	radeonfb_bl_exit(rinfo);
 	radeonfb_pm_exit(rinfo);
 
 	if (rinfo->mon1_EDID)
@@ -2419,6 +2417,8 @@ static void __devexit radeonfb_pci_unregister (struct pci_dev *pdev)
 #endif
 
         unregister_framebuffer(info);
+
+        radeonfb_bl_exit(rinfo);
 
         iounmap(rinfo->mmio_base);
         iounmap(rinfo->fb_base);
