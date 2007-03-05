@@ -12,3 +12,4 @@ endif
 
 obj-$(CONFIG_PPC_EFIKA)		+= efika.o
 obj-$(CONFIG_PPC_LITE5200)	+= lite5200.o
+obj-$(CONFIG_PPC_MOTIONPRO)	+= motionpro.o
