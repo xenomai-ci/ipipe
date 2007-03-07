@@ -789,7 +789,6 @@ static void setup_IO_APIC_irq(int apic, int pin, unsigned int irq,
 	struct irq_cfg *cfg = irq_cfg + irq;
 	struct IO_APIC_route_entry entry;
 	cpumask_t mask;
-	unsigned long flags;
 
 	if (!IO_APIC_IRQ(irq))
 		return;
@@ -830,10 +829,6 @@ static void setup_IO_APIC_irq(int apic, int pin, unsigned int irq,
 		disable_8259A_irq(irq);
 
 	ioapic_write_entry(apic, pin, entry);
-
-	spin_lock_irqsave(&ioapic_lock, flags);
-	irq_desc[irq].affinity = TARGET_CPUS;
-	spin_unlock_irqrestore(&ioapic_lock, flags);
 }
 
 static void __init setup_IO_APIC_irqs(void)
