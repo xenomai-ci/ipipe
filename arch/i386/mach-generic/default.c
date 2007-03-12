@@ -13,6 +13,7 @@
 #include <linux/string.h>
 #include <linux/smp.h>
 #include <linux/init.h>
+#include <linux/ipipe.h>
 #include <asm/mach-default/mach_apic.h>
 #include <asm/mach-default/mach_ipi.h>
 #include <asm/mach-default/mach_mpparse.h>

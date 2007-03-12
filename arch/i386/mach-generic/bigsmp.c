@@ -14,6 +14,7 @@
 #include <linux/smp.h>
 #include <linux/init.h>
 #include <linux/dmi.h>
+#include <linux/ipipe.h>
 #include <asm/mach-bigsmp/mach_apic.h>
 #include <asm/mach-bigsmp/mach_apicdef.h>
 #include <asm/mach-bigsmp/mach_ipi.h>
