@@ -487,6 +487,8 @@ config LOCAL_TIMERS
 	  accounting to be spread across the timer interval, preventing a
 	  "thundering herd" at every timer tick.
 
+source "kernel/ipipe/Kconfig"
+
 config PREEMPT
 	bool "Preemptible Kernel (EXPERIMENTAL)"
 	depends on EXPERIMENTAL

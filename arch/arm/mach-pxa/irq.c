@@ -16,6 +16,7 @@
 #include <linux/module.h>
 #include <linux/interrupt.h>
 #include <linux/ptrace.h>
+#include <linux/ipipe.h>
 
 #include <asm/hardware.h>
 #include <asm/irq.h>
@@ -215,6 +216,42 @@ static void pxa_gpio_demux_handler(unsigned int irq, struct irqdesc *desc)
 #endif
 	} while (loop);
 }
+
+#ifdef CONFIG_IPIPE
+void __ipipe_mach_demux_irq(unsigned irq, struct pt_regs *regs)
+{
+	struct irqdesc *desc_unused = irq_desc + irq;
+	unsigned irq_unused = irq;
+	unsigned int i, mask[4];
+	int loop;
+
+	do {
+		loop = 0;
+
+		mask[0] = GEDR0 & ~3;
+		mask[1] = GEDR1;
+		mask[2] = GEDR2;
+#if PXA_LAST_GPIO < 96
+		i = 3;
+#else /* PXA_LAST_GPIO >= 96 */
+		mask[3] = GEDR3;
+		i = 4;
+#endif /* PXA_LAST_GPIO >= 96 */
+		for (; i; i--) {
+			loop |= mask[i - 1];
+			while (mask[i - 1]) {
+				irq = fls(mask[i - 1]) - 1;
+				mask[i - 1] &= ~(1 << irq);
+				irq = IRQ_GPIO((i - 1) * 32 + irq);
+
+				__ipipe_handle_irq(irq, regs);
+			}
+		}
+	} while (loop);
+
+	desc_unused->chip->unmask(irq_unused);
+}
+#endif /* CONFIG_IPIPE */
 
 static void pxa_ack_muxed_gpio(unsigned int irq)
 {

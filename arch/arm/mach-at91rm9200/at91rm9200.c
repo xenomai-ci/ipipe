@@ -51,6 +51,13 @@ static struct map_desc at91rm9200_io_desc[] __initdata = {
 		.length		= SZ_16K,
 		.type		= MT_DEVICE,
 	}, {
+#ifdef CONFIG_IPIPE
+		.virtual	= AT91_VA_BASE_TCB0,
+		.pfn		= __phys_to_pfn(AT91RM9200_BASE_TCB0),
+		.length		= SZ_16K,
+		.type		= MT_DEVICE,
+        }, {
+#endif /* CONFIG_IPIPE */
 		.virtual	= AT91_SRAM_VIRT_BASE,
 		.pfn		= __phys_to_pfn(AT91RM9200_SRAM_BASE),
 		.length		= AT91RM9200_SRAM_SIZE,

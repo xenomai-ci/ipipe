@@ -23,6 +23,10 @@
 
 #include <asm/hardware.h>
 
+#ifndef CONFIG_IPIPE
 #define CLOCK_TICK_RATE		(AT91_SLOW_CLOCK)
+#else /* !CONFIG_IPIPE */
+#define CLOCK_TICK_RATE         (CONFIG_IPIPE_AT91_MCK / 32)
+#endif /* !CONFIG_IPIPE */
 
 #endif

@@ -14,12 +14,30 @@
 #include <linux/irq.h>
 #include <linux/timex.h>
 #include <linux/signal.h>
+#include <linux/module.h>
 
 #include <asm/mach/time.h>
 #include <asm/hardware.h>
 
 #define RTC_DEF_DIVIDER		(32768 - 1)
 #define RTC_DEF_TRIM            0
+
+#ifdef CONFIG_IPIPE
+#ifdef CONFIG_NO_IDLE_HZ
+#error "dynamic tick timer not yet supported with IPIPE"
+#endif /* CONFIG_NO_IDLE_HZ */
+int __ipipe_mach_timerint = IRQ_OST0;
+EXPORT_SYMBOL(__ipipe_mach_timerint);
+
+int __ipipe_mach_timerstolen = 0;
+EXPORT_SYMBOL(__ipipe_mach_timerstolen);
+
+unsigned int __ipipe_mach_ticks_per_jiffy = LATCH;
+EXPORT_SYMBOL(__ipipe_mach_ticks_per_jiffy);
+
+static int sa1100_timer_initialized;
+static unsigned long last_jiffy_time;
+#endif /* CONFIG_IPIPE */
 
 static unsigned long __init sa1100_get_rtc_time(void)
 {
@@ -59,11 +77,18 @@ static unsigned long sa1100_gettimeoffset (void)
 {
 	unsigned long ticks_to_match, elapsed, usec;
 
+#ifdef CONFIG_IPIPE
+	if (!__ipipe_mach_timerstolen) {
+#endif
 	/* Get ticks before next timer match */
 	ticks_to_match = OSMR0 - OSCR;
 
 	/* We need elapsed ticks since last match */
 	elapsed = LATCH - ticks_to_match;
+#ifdef CONFIG_IPIPE
+	} else
+		elapsed = OSCR - last_jiffy_time;
+#endif
 
 	/* Now convert them to usec */
 	usec = (unsigned long)(elapsed * (tick_nsec / 1000))/LATCH;
@@ -98,9 +123,27 @@ sa1100_timer_interrupt(int irq, void *dev_id)
 	 * ensured, hence we can use do_gettimeofday() from interrupt
 	 * handlers.
 	 */
+#ifdef CONFIG_IPIPE
+	/*
+	 * - if Linux is running natively (no ipipe), ack and reprogram the timer
+	 * - if Linux is running under ipipe, but it still has the control over
+	 *   the timer (no Xenomai for example), then reprogram the timer (ipipe
+	 *   has already acked it)
+	 * - if some other domain has taken over the timer, then do nothing
+	 *   (ipipe has acked it, and the other domain has reprogramed it)
+	 */
+	if (__ipipe_mach_timerstolen) {
+		timer_tick();
+		last_jiffy_time += LATCH;
+	} else
+#endif /* CONFIG_IPIPE */
 	do {
 		timer_tick();
+#ifdef CONFIG_IPIPE
+		last_jiffy_time += LATCH;
+#else /* !CONFIG_IPIPE */
 		OSSR = OSSR_M0;  /* Clear match on timer 0 */
+#endif /* !CONFIG_IPIPE */
 		next_match = (OSMR0 += LATCH);
 	} while ((signed long)(next_match - OSCR) <= 0);
 
@@ -132,6 +175,10 @@ static void __init sa1100_timer_init(void)
 	setup_irq(IRQ_OST0, &sa1100_timer_irq);
 	OIER = OIER_E0;		/* enable match on timer 0 to cause interrupts */
 	OSCR = 0;		/* initialize free-running timer */
+
+#ifdef CONFIG_IPIPE
+	sa1100_timer_initialized = 1;
+#endif /* CONFIG_IPIPE */
 }
 
 #ifdef CONFIG_NO_IDLE_HZ
@@ -210,3 +257,72 @@ struct sys_timer sa1100_timer = {
 	.dyn_tick	= &sa1100_dyn_tick,
 #endif
 };
+
+#ifdef CONFIG_IPIPE
+void __ipipe_mach_acktimer(void)
+{
+	OSSR = OSSR_M0;  /* Clear match on timer 0 */
+}
+
+notrace unsigned long long __ipipe_mach_get_tsc(void)
+{
+	if (likely(sa1100_timer_initialized)) {
+		static union {
+#ifdef __BIG_ENDIAN
+			struct {
+				unsigned long high;
+				unsigned long low;
+			};
+#else /* __LITTLE_ENDIAN */
+			struct {
+				unsigned long low;
+				unsigned long high;
+			};
+#endif /* __LITTLE_ENDIAN */
+			unsigned long long full;
+		} tsc[NR_CPUS], *local_tsc;
+		unsigned long stamp, flags;
+		unsigned long long result;
+
+		local_irq_save_hw(flags);
+		local_tsc = &tsc[ipipe_processor_id()];
+		stamp = OSCR;
+		if (unlikely(stamp < local_tsc->low))
+			/* 32 bit counter wrapped, increment high word. */
+			local_tsc->high++;
+		local_tsc->low = stamp;
+		result = local_tsc->full;
+		local_irq_restore_hw(flags);
+
+		return result;
+	}
+	
+        return 0;
+}
+EXPORT_SYMBOL(__ipipe_mach_get_tsc);
+
+/*
+ * Reprogram the timer
+ */
+
+void __ipipe_mach_set_dec(unsigned long delay)
+{
+	unsigned long flags;
+
+	local_irq_save_hw(flags);
+        OSMR0 = delay + OSCR;
+	local_irq_restore_hw(flags);
+}
+EXPORT_SYMBOL(__ipipe_mach_set_dec);
+
+void __ipipe_mach_release_timer(void)
+{
+       __ipipe_mach_set_dec(__ipipe_mach_ticks_per_jiffy);
+}
+EXPORT_SYMBOL(__ipipe_mach_release_timer);
+
+unsigned long __ipipe_mach_get_dec(void)
+{
+	return OSMR0 - OSCR;
+}
+#endif /* CONFIG_IPIPE */

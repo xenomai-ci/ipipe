@@ -39,4 +39,12 @@
  */
 #define	NR_IRQS		(NR_AIC_IRQS + (4 * 32))
 
+#if defined(CONFIG_IPIPE) && !defined(__ASSEMBLY__)
+extern unsigned __ipipe_at91_gpio_banks;
+
+#define __ipipe_mach_irq_mux_p(irq) \
+	((unsigned) (irq - AT91RM9200_ID_PIOA) < __ipipe_at91_gpio_banks)
+
+#endif /* CONFIG_IPIPE && !__ASSEMBLY__ */
+
 #endif

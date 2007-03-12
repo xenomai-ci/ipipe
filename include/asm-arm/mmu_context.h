@@ -93,14 +93,17 @@ switch_mm(struct mm_struct *prev, struct mm_struct *next,
 	  struct task_struct *tsk)
 {
 #ifdef CONFIG_MMU
-	unsigned int cpu = smp_processor_id();
+	unsigned int cpu = smp_processor_id_hw();
 
 	if (prev != next) {
+		unsigned long flags;
+		local_irq_save_hw_cond(flags);
 		cpu_set(cpu, next->cpu_vm_mask);
 		check_context(next);
 		cpu_switch_mm(next->pgd, next);
 		if (cache_is_vivt())
 			cpu_clear(cpu, prev->cpu_vm_mask);
+		local_irq_restore_hw_cond(flags);
 	}
 #endif
 }

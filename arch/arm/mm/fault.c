@@ -223,6 +223,9 @@ do_page_fault(unsigned long addr, unsigned int fsr, struct pt_regs *regs)
 	struct mm_struct *mm;
 	int fault, sig, code;
 
+	if (ipipe_trap_notify(IPIPE_TRAP_ACCESS,regs))
+		return 0;
+
 	tsk = current;
 	mm  = tsk->mm;
 
@@ -327,6 +330,9 @@ do_translation_fault(unsigned long addr, unsigned int fsr,
 	if (addr < TASK_SIZE)
 		return do_page_fault(addr, fsr, regs);
 
+	if (ipipe_trap_notify(IPIPE_TRAP_ACCESS,regs))
+		return 0;
+
 	index = pgd_index(addr);
 
 	/*
@@ -362,6 +368,10 @@ bad_area:
 static int
 do_sect_fault(unsigned long addr, unsigned int fsr, struct pt_regs *regs)
 {
+
+	if (ipipe_trap_notify(IPIPE_TRAP_SECTION,regs))
+		return 0;
+
 	do_bad_area(addr, fsr, regs);
 	return 0;
 }
@@ -372,6 +382,9 @@ do_sect_fault(unsigned long addr, unsigned int fsr, struct pt_regs *regs)
 static int
 do_bad(unsigned long addr, unsigned int fsr, struct pt_regs *regs)
 {
+	if (ipipe_trap_notify(IPIPE_TRAP_DABT,regs))
+		return 0;
+
 	return 1;
 }
 
@@ -447,6 +460,9 @@ do_DataAbort(unsigned long addr, unsigned int fsr, struct pt_regs *regs)
 	if (!inf->fn(addr, fsr, regs))
 		return;
 
+	if (ipipe_trap_notify(IPIPE_TRAP_UNKNOWN,regs))
+		return;
+
 	printk(KERN_ALERT "Unhandled fault: %s (0x%03x) at 0x%08lx\n",
 		inf->name, fsr, addr);
 
@@ -463,3 +479,35 @@ do_PrefetchAbort(unsigned long addr, struct pt_regs *regs)
 	do_translation_fault(addr, 0, regs);
 }
 
+#ifdef CONFIG_IPIPE
+static void vmalloc_sync_one(pgd_t *pgd, unsigned long addr)
+{
+	unsigned int index = pgd_index(addr);
+	pgd_t *pgd_k;
+	pmd_t *pmd, *pmd_k;
+
+	pgd += index;
+	pgd_k = init_mm.pgd + index;
+
+	if (!pgd_present(*pgd))
+		set_pgd(pgd, *pgd_k);
+
+	pmd_k = pmd_offset(pgd_k, addr);
+	pmd   = pmd_offset(pgd, addr);
+
+	copy_pmd(pmd, pmd_k);
+}
+
+int __ipipe_pin_range_mapping(struct mm_struct *mm,
+			      unsigned long start, unsigned long end)
+{
+	unsigned long next, addr = start;
+
+	do {
+		next = pgd_addr_end(addr, end);
+		vmalloc_sync_one(mm->pgd, addr);
+	} while (addr = next, addr != end);
+
+	return 0;
+}
+#endif /* CONFIG_IPIPE */

@@ -33,6 +33,7 @@
 #include <linux/proc_fs.h>
 #include <linux/seq_file.h>
 #endif	/* CONFIG_PROC_FS */
+#include <linux/irq.h>
 
 MODULE_DESCRIPTION("I-pipe");
 MODULE_LICENSE("GPL");

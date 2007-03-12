@@ -4,6 +4,7 @@
  *  Copyright (C) 1996,1997,1998 Russell King.
  *  ARM700 fix by Matthew Godbolt (linux-user@willothewisp.demon.co.uk)
  *  nommu support by Hyok S. Choi (hyok.choi@samsung.com)
+ *  Copyright (C) 2005 Stelian Pop.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -27,13 +28,21 @@
  * Interrupt handling.  Preserves r7, r8, r9
  */
 	.macro	irq_handler
-1:	get_irqnr_and_base r0, r6, r5, lr
+#ifdef CONFIG_IPIPE
+	mov r0, #2
+#endif
+1:	get_irqnr_and_base r1, r6, r5, lr
+	movne   r0, r1
 	movne	r1, sp
 	@
 	@ routine called with r0 = irq number, r1 = struct pt_regs *
 	@
 	adrne	lr, 1b
+#ifdef CONFIG_IPIPE
+	bne	__ipipe_grab_irq
+#else
 	bne	asm_do_IRQ
+#endif
 
 #ifdef CONFIG_SMP
 	/*
@@ -42,18 +51,22 @@
 	 * this macro assumes that irqstat (r6) and base (r5) are
 	 * preserved from get_irqnr_and_base above
 	 */
-	test_for_ipi r0, r6, r5, lr
+	test_for_ipi r1, r6, r5, lr
 	movne	r0, sp
 	adrne	lr, 1b
 	bne	do_IPI
 
 #ifdef CONFIG_LOCAL_TIMERS
-	test_for_ltirq r0, r6, r5, lr
+	test_for_ltirq r1, r6, r5, lr
 	movne	r0, sp
 	adrne	lr, 1b
 	bne	do_local_timer
 #endif
 #endif
+#ifdef CONFIG_IPIPE
+	cmp	r0, #2
+	bleq	__ipipe_check_root_interruptible
+#endif	
 
 	.endm
 
@@ -196,14 +209,25 @@ __irq_svc:
 #endif
 #ifdef CONFIG_PREEMPT
 	get_thread_info tsk
+#ifndef CONFIG_IPIPE
 	ldr	r8, [tsk, #TI_PREEMPT]		@ get preempt count
 	add	r7, r8, #1			@ increment it
 	str	r7, [tsk, #TI_PREEMPT]
 #endif
+#endif
 
 	irq_handler
+#ifdef CONFIG_IPIPE
+	cmp	r0, #0
+	beq	__ipipe_fast_svc_irq_exit
+#endif
+
 #ifdef CONFIG_PREEMPT
 	ldr	r0, [tsk, #TI_FLAGS]		@ get flags
+#ifdef CONFIG_IPIPE
+	ldr	r8, [tsk, #TI_PREEMPT]		@ get preempt count
+	mov     r7, r8
+#endif	
 	tst	r0, #_TIF_NEED_RESCHED
 	blne	svc_preempt
 preempt_return:
@@ -211,6 +235,9 @@ preempt_return:
 	str	r8, [tsk, #TI_PREEMPT]		@ restore preempt count
 	teq	r0, r7
 	strne	r0, [r0, -r0]			@ bug()
+#endif
+#ifdef CONFIG_IPIPE
+__ipipe_fast_svc_irq_exit:
 #endif
 	ldr	r0, [sp, #S_PSR]		@ irqs are already disabled
 	msr	spsr_cxsf, r0
@@ -231,19 +258,33 @@ svc_preempt:
 	ldr	r1, [r6, #8]			@ local_bh_count
 	adds	r0, r0, r1
 	movne	pc, lr
+#ifdef CONFIG_IPIPE
+	bl	__ipipe_fast_stall_root
+	enable_irq
+#endif
 	mov	r7, #0				@ preempt_schedule_irq
 	str	r7, [tsk, #TI_PREEMPT]		@ expects preempt_count == 0
 1:	bl	preempt_schedule_irq		@ irq en/disable is done inside
 	ldr	r0, [tsk, #TI_FLAGS]		@ get new tasks TI_FLAGS
 	tst	r0, #_TIF_NEED_RESCHED
-	beq	preempt_return			@ go again
-	b	1b
+	bne	1b
+#ifdef CONFIG_IPIPE
+	disable_irq
+	bl	__ipipe_fast_unstall_root
+#endif
+	b	preempt_return			@ go again
 #endif
 
 	.align	5
 __und_svc:
 	svc_entry
 
+#ifdef CONFIG_IPIPE
+	mov	r1, sp				@ r0 = trapno, r1 = &regs
+	bl	__ipipe_dispatch_event		@ branch to trap handler
+	cmp	r0, #0
+	bne	1f
+#endif /* CONFIG_IPIPE */
 	@
 	@ call emulation code, which returns using r9 if it has emulated
 	@ the instruction, or the more conventional lr if we are to treat
@@ -410,17 +451,27 @@ __irq_usr:
 #endif
 	get_thread_info tsk
 #ifdef CONFIG_PREEMPT
+#ifndef CONFIG_IPIPE
 	ldr	r8, [tsk, #TI_PREEMPT]		@ get preempt count
 	add	r7, r8, #1			@ increment it
 	str	r7, [tsk, #TI_PREEMPT]
 #endif
+#endif
 
 	irq_handler
+#ifdef CONFIG_IPIPE
+	cmp	r0, #0
+	bne	__ipipe_usr_irq_continue
+	slow_restore_user_regs			@ Fast exit path over non-root domains
+__ipipe_usr_irq_continue:
+#endif
 #ifdef CONFIG_PREEMPT
+#ifndef CONFIG_IPIPE
 	ldr	r0, [tsk, #TI_PREEMPT]
 	str	r8, [tsk, #TI_PREEMPT]
 	teq	r0, r7
 	strne	r0, [r0, -r0]
+#endif
 #endif
 #ifdef CONFIG_TRACE_IRQFLAGS
 	bl	trace_hardirqs_on
@@ -517,8 +568,8 @@ call_fpe:
 	mov	pc, lr				@ CP#8
 	mov	pc, lr				@ CP#9
 #ifdef CONFIG_VFP
-	b	do_vfp				@ CP#10 (VFP)
-	b	do_vfp				@ CP#11 (VFP)
+	b	_do_vfp				@ CP#10 (VFP)
+	b	_do_vfp				@ CP#11 (VFP)
 #else
 	mov	pc, lr				@ CP#10 (VFP)
 	mov	pc, lr				@ CP#11 (VFP)
@@ -529,10 +580,34 @@ call_fpe:
 	mov	pc, lr				@ CP#15 (Control)
 
 do_fpe:
+#ifdef CONFIG_IPIPE
+	mov	r4, r0
+	mov	r0, #5				@ == IPIPE_TRAP_FPU
+	mov	r1, sp				@ r0 = trapno, r1 = &regs
+	bl	__ipipe_dispatch_event		@ branch to trap handler
+	cmp	r0, #0
+	ldrne	pc, [r9]
+	mov	r0, r4
+#endif
 	enable_irq
 	ldr	r4, .LCfp
 	add	r10, r10, #TI_FPSTATE		@ r10 = workspace
 	ldr	pc, [r4]			@ Call FP module USR entry point
+
+#ifdef CONFIG_VFP
+_do_vfp:
+#ifdef CONFIG_IPIPE
+	mov	r4, r0
+	mov	r0, #6				@ == IPIPE_TRAP_VFP
+	mov	r1, sp				@ r0 = trapno, r1 = &regs
+	bl	__ipipe_dispatch_event		@ branch to trap handler
+	cmp	r0, #0
+	ldrne	pc, [r9]
+	mov	r0, r4
+#endif
+	b	do_vfp
+#endif
+
 
 /*
  * The FP module is called with these registers set:
@@ -566,6 +641,13 @@ __pabt_usr:
  * This is the return code to user mode for abort handlers
  */
 ENTRY(ret_from_exception)
+#ifdef CONFIG_IPIPE
+	bl     __ipipe_check_root
+	cmp     r0, #0
+	bne     1f
+	slow_restore_user_regs          @ Fast exit path over non-root domains
+1:
+#endif /* CONFIG_IPIPE */
 	get_thread_info tsk
 	mov	why, #0
 	b	ret_to_user

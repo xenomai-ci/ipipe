@@ -306,6 +306,9 @@ asmlinkage void do_undefinstr(struct pt_regs *regs)
 	}
 	spin_unlock_irq(&undef_lock);
 
+	if (ipipe_trap_notify(IPIPE_TRAP_UNDEFINSTR,regs))
+		return;
+
 #ifdef CONFIG_DEBUG_USER
 	if (user_debug & UDBG_UNDEFINED) {
 		printk(KERN_INFO "%s (%d): undefined instruction: pc=%p\n",
