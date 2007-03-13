@@ -21,6 +21,9 @@
 
 #include <platforms/4xx/ppc440spe.h>
 
+#define KATMAI_FLASH_ADDR		0x00000004ff000000ULL
+#define KATMAI_FLASH_END		0x00000004ffffffffULL
+
 /* F/W TLB mapping used in bootloader glue to reset EMAC */
 #define PPC44x_EMAC0_MR0	0xa0000800
 

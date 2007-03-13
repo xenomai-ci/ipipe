@@ -84,7 +84,7 @@ static struct resource sequoia_nor_resource = {
 #define RW_PART1_SZ	0x280000
 /* Partition 2 will be autosized dynamically... */
 #define RW_PART3_SZ	0x40000
-#define RW_PART4_SZ	0x80000
+#define RW_PART4_SZ	0x60000
 
 static struct mtd_partition sequoia_nor_parts[] = {
 	{
