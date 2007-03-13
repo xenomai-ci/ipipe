@@ -2,7 +2,7 @@
  * drivers/net/ibm_emac/ibm_emac_mal.c
  *
  * Memory Access Layer (MAL) support
- * 
+ *
  * Copyright (c) 2004, 2005 Zultys Technologies.
  * Eugene Surovegin <eugene.surovegin@zultys.com> or <ebs@ebshome.net>
  *
@@ -216,7 +216,7 @@ static inline void mal_schedule_poll(struct ibm_ocp_mal *mal)
 		MAL_DBG2("%d: already in poll" NL, mal->def->index);
 }
 
-static irqreturn_t mal_txeob(int irq, void *dev_instance)
+irqreturn_t mal_txeob(int irq, void *dev_instance)
 {
 	struct ibm_ocp_mal *mal = dev_instance;
 	u32 r = get_mal_dcrn(mal, MAL_TXEOBISR);
@@ -226,7 +226,7 @@ static irqreturn_t mal_txeob(int irq, void *dev_instance)
 	return IRQ_HANDLED;
 }
 
-static irqreturn_t mal_rxeob(int irq, void *dev_instance)
+irqreturn_t mal_rxeob(int irq, void *dev_instance)
 {
 	struct ibm_ocp_mal *mal = dev_instance;
 	u32 r = get_mal_dcrn(mal, MAL_RXEOBISR);
@@ -477,15 +477,19 @@ static int __init mal_probe(struct ocp_device *ocpdev)
 	err = request_irq(maldata->txde_irq, mal_txde, 0, "MAL TX DE", mal);
 	if (err)
 		goto fail3;
-	err = request_irq(maldata->txeob_irq, mal_txeob, 0, "MAL TX EOB", mal);
-	if (err)
-		goto fail4;
 	err = request_irq(maldata->rxde_irq, mal_rxde, 0, "MAL RX DE", mal);
 	if (err)
-		goto fail5;
-	err = request_irq(maldata->rxeob_irq, mal_rxeob, 0, "MAL RX EOB", mal);
-	if (err)
-		goto fail6;
+		goto fail4;
+
+	/* Only enable EOB interrupts when interrupt coalescing is disabled */
+	if (!emac_intr_coalesce(dev->def->index)) {
+		err = request_irq(maldata->txeob_irq, mal_txeob, 0, "MAL TX EOB", mal);
+		if (err)
+			goto fail5;
+		err = request_irq(maldata->rxeob_irq, mal_rxeob, 0, "MAL RX EOB", mal);
+		if (err)
+			goto fail6;
+	}
 
 	/* Enable all MAL SERR interrupt sources */
 	set_mal_dcrn(mal, MAL_IER, MAL_IER_EVENTS);
@@ -500,9 +504,10 @@ static int __init mal_probe(struct ocp_device *ocpdev)
 	return 0;
 
       fail6:
-	free_irq(maldata->rxde_irq, mal);
+	if (!emac_intr_coalesce(dev->def->index))
+		free_irq(maldata->txeob_irq, mal);
       fail5:
-	free_irq(maldata->txeob_irq, mal);
+	free_irq(maldata->rxde_irq, mal);
       fail4:
 	free_irq(maldata->txde_irq, mal);
       fail3:
@@ -521,8 +526,8 @@ static void __exit mal_remove(struct ocp_device *ocpdev)
 
 	MAL_DBG("%d: remove" NL, mal->def->index);
 
-	/* Syncronize with scheduled polling, 
-	   stolen from net/core/dev.c:dev_close() 
+	/* Syncronize with scheduled polling,
+	   stolen from net/core/dev.c:dev_close()
 	 */
 	clear_bit(__LINK_STATE_START, &mal->poll_dev.state);
 	netif_poll_disable(&mal->poll_dev);
@@ -538,9 +543,11 @@ static void __exit mal_remove(struct ocp_device *ocpdev)
 
 	free_irq(maldata->serr_irq, mal);
 	free_irq(maldata->txde_irq, mal);
-	free_irq(maldata->txeob_irq, mal);
 	free_irq(maldata->rxde_irq, mal);
-	free_irq(maldata->rxeob_irq, mal);
+	if (!emac_intr_coalesce(dev->def->index)) {
+		free_irq(maldata->txeob_irq, mal);
+		free_irq(maldata->rxeob_irq, mal);
+	}
 
 	mal_reset(mal);
 

@@ -28,6 +28,7 @@
 struct ocp_sys_info_data {
 	int	opb_bus_freq;	/* OPB Bus Frequency (Hz) */
 	int	ebc_bus_freq;	/* EBC Bus Frequency (Hz) */
+	int	plb_bus_freq;	/* PLB Bus Frequency (Hz) */
 };
 
 extern struct ocp_sys_info_data ocp_sys_info;
@@ -67,6 +68,8 @@ struct ocp_func_emac_data {
 	u8	mac_addr[6];	/* EMAC mac address */
 	u32	phy_map;	/* EMAC phy map */
 	u32	phy_feat_exc;	/* Excluded PHY features */
+	int 	txcoal_irq;	/* Interrupt coalescence TX IRQ  */
+	int 	rxcoal_irq;	/* Interrupt coalescence RX IRQ */
 };
 
 /* Sysfs support */
@@ -84,6 +87,8 @@ OCP_SYSFS_ADDTL(struct ocp_func_emac_data, "%d\n", emac, tah_idx)	\
 OCP_SYSFS_ADDTL(struct ocp_func_emac_data, "%d\n", emac, phy_mode)	\
 OCP_SYSFS_ADDTL(struct ocp_func_emac_data, "0x%08x\n", emac, phy_map)	\
 OCP_SYSFS_ADDTL(struct ocp_func_emac_data, "0x%08x\n", emac, phy_feat_exc)\
+OCP_SYSFS_ADDTL(struct ocp_func_emac_data, "%d\n", emac, txcoal_irq)	\
+OCP_SYSFS_ADDTL(struct ocp_func_emac_data, "%d\n", emac, rxcoal_irq)	\
 									\
 void ocp_show_emac_data(struct device *dev)				\
 {									\
@@ -100,6 +105,8 @@ void ocp_show_emac_data(struct device *dev)				\
 	device_create_file(dev, &dev_attr_emac_phy_mode);		\
 	device_create_file(dev, &dev_attr_emac_phy_map);		\
 	device_create_file(dev, &dev_attr_emac_phy_feat_exc);		\
+	device_create_file(dev, &dev_attr_emac_txcoal_irq);		\
+	device_create_file(dev, &dev_attr_emac_rxcoal_irq);		\
 }
 
 /*

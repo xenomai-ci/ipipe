@@ -85,6 +85,15 @@ MODULE_LICENSE("GPL");
  */
 static u32 busy_phy_map;
 
+#ifdef CONFIG_IBM_EMAC_INTR_COALESCE
+/* add copy of iccrtx and iccrrx registers
+ * to bypass the bug on the 440EPX pass1 where these
+ * registers are write only
+ */
+static u32 iccrtx;
+static u32 iccrrx;
+#endif
+
 #if defined(CONFIG_IBM_EMAC_PHY_RX_CLK_FIX) && \
     (defined(CONFIG_405EP) || defined(CONFIG_440EP) || defined(CONFIG_440GR) || \
      defined(CONFIG_440EPX) || defined(CONFIG_440GRX))
@@ -186,6 +195,59 @@ static const char emac_stats_keys[EMAC_ETHTOOL_STATS_COUNT][ETH_GSTRING_LEN] = {
 
 static irqreturn_t emac_irq(int irq, void *dev_instance);
 static void emac_clean_tx_ring(struct ocp_enet_private *dev);
+
+#ifdef CONFIG_IBM_EMAC_INTR_COALESCE
+static unsigned int emac_ethtool_usecs2ticks(unsigned int usecs);
+static unsigned int emac_ethtool_ticks2usecs(unsigned int ticks);
+
+static inline void set_ic_txfthr(int chan, u32 val, struct ocp_enet_private *dev)
+{
+	val = ((val << 23) >> (11*chan));
+	iccrtx = val | (iccrtx & ~(ICCR_FTHR_MASK >> (11*chan)));
+	SDR_WRITE(DCRN_SDR_ICCRTX, iccrtx);
+}
+
+static inline void set_ic_rxfthr(int chan, u32 val, struct ocp_enet_private *dev)
+{
+	val = ((val << 23) >> (11*chan));
+	iccrrx = val | (iccrrx & ~(ICCR_FTHR_MASK >> (11*chan)));
+	SDR_WRITE(DCRN_SDR_ICCRRX, iccrrx);
+}
+
+static inline void set_ic_txflush(int chan, struct ocp_enet_private *dev)
+{
+	iccrtx = iccrtx | ((1 << 22) >> (11*chan));
+	SDR_WRITE(DCRN_SDR_ICCRTX, iccrtx);
+}
+
+static inline void reset_ic_txflush(int chan, struct ocp_enet_private *dev)
+{
+	iccrtx = iccrtx & ~((1 << 22) >> (11*chan));
+	SDR_WRITE(DCRN_SDR_ICCRTX, iccrtx);
+}
+
+static inline void set_ic_rxflush(int chan, struct ocp_enet_private *dev)
+{
+	iccrrx = iccrrx | ((1 << 22) >> (11*chan));
+	SDR_WRITE(DCRN_SDR_ICCRRX, iccrrx);
+}
+
+static inline void reset_ic_rxflush(int chan, struct ocp_enet_private *dev)
+{
+	iccrrx = iccrrx & ~((1 << 22) >> (11*chan));
+	SDR_WRITE(DCRN_SDR_ICCRRX, iccrrx);
+}
+
+static inline void coal_rx_intr_clear(int chan)
+{
+	SDR_READ(DCRN_SDR_ICSRRX0 + chan);
+}
+
+static inline void coal_tx_intr_clear(int chan)
+{
+	SDR_READ(DCRN_SDR_ICSRTX0 + chan);
+}
+#endif
 
 static inline int emac_phy_supports_gige(int phy_mode)
 {
@@ -881,8 +943,54 @@ static int emac_open(struct net_device *ndev)
 	struct ocp_enet_private *dev = ndev->priv;
 	struct ocp_func_emac_data *emacdata = dev->def->additions;
 	int err, i;
+#ifdef CONFIG_IBM_EMAC_INTR_COALESCE
+	struct coales_param *coal = &dev->coales;
+#endif
 
 	DBG("%d: open" NL, dev->def->index);
+
+#ifdef CONFIG_IBM_EMAC_INTR_COALESCE
+	/*
+	 * Set coalescing default values
+	 *
+	 * The current implementation has the following restrictions:
+	 * - Upon enabling interrupt coalescing, EMAC0 & 1 will run
+	 *   in coalescing mode.
+	 * - Upon enabling interrupt coalescing, rx & tx will run
+	 *   in coalescing mode.
+	 */
+	coal->tx_count = CONFIG_IBM_EMAC_TX_COALESCE_COUNT & MAX_COAL_FRAMES;
+	coal->tx_time = emac_ethtool_usecs2ticks(CONFIG_IBM_EMAC_TX_COALESCE_TIMER);
+	coal->rx_count = CONFIG_IBM_EMAC_RX_COALESCE_COUNT & MAX_COAL_FRAMES;
+	coal->rx_time = emac_ethtool_usecs2ticks(CONFIG_IBM_EMAC_RX_COALESCE_TIMER);
+
+	set_ic_txfthr(dev->def->index, coal->tx_count, dev);
+	SDR_WRITE(DCRN_SDR_ICTRTX0 + dev->def->index, coal->tx_time);
+	set_ic_rxfthr(dev->def->index, coal->rx_count, dev);
+	SDR_WRITE(DCRN_SDR_ICTRRX0 + dev->def->index, coal->rx_time);
+	reset_ic_txflush(dev->def->index, dev);
+	reset_ic_rxflush(dev->def->index, dev);
+	printk(KERN_INFO "%s: interrupt coalescing (RX:count=%d time=%d,"
+	       " TX:count=%d time=%d)\n", ndev->name,
+	       coal->rx_count, emac_ethtool_ticks2usecs(coal->rx_time),
+	       coal->tx_count, emac_ethtool_ticks2usecs(coal->tx_time));
+	DBG("%d: emac_open tx = %x, rx = %x" NL, dev->def->index,
+	    iccrtx, iccrrx);
+
+	err = request_irq(emacdata->txcoal_irq, mal_txeob, 0, "TX COAL", dev->mal);
+	if (err) {
+		printk(KERN_ERR "%s: failed to request TX COAL IRQ %d\n",
+		       ndev->name, emacdata->txcoal_irq);
+		return err;
+	}
+
+	err = request_irq(emacdata->rxcoal_irq, mal_rxeob, 0, "RX COAL", dev->mal);
+	if (err) {
+		printk(KERN_ERR "%s: failed to request RX COAL IRQ %d\n",
+		       ndev->name, emacdata->rxcoal_irq);
+		return err;
+	}
+#endif /* CONFIG_IBM_EMAC_INTR_COALESCE */
 
 	/* Setup error IRQ handler */
 	err = request_irq(dev->def->irq, emac_irq, 0, "EMAC", dev);
@@ -1047,6 +1155,15 @@ static int emac_close(struct net_device *ndev)
 	emac_clean_tx_ring(dev);
 	emac_clean_rx_ring(dev);
 	free_irq(dev->def->irq, dev);
+
+#ifdef CONFIG_IBM_EMAC_INTR_COALESCE
+	if (emac_intr_coalesce(dev->def->index)) {
+		set_ic_txflush(dev->def->index, dev);
+		set_ic_rxflush(dev->def->index, dev);
+		DBG("%d: emac_close tx = %x, rx = %x" NL, dev->def->index,
+		    iccrtx, iccrrx);
+	}
+#endif
 
 	return 0;
 }
@@ -1902,6 +2019,145 @@ static void emac_ethtool_get_drvinfo(struct net_device *ndev,
 	info->regdump_len = emac_ethtool_get_regs_len(ndev);
 }
 
+#ifdef CONFIG_IBM_EMAC_INTR_COALESCE
+/* Convert microseconds to ethernet clock ticks, which changes
+ * depending on what speed the controller is running at */
+static unsigned int emac_ethtool_usecs2ticks(unsigned int usecs)
+{
+  	unsigned long long ticks;
+
+  	ticks = (unsigned long long)usecs * (ocp_sys_info.plb_bus_freq / 1000000);
+	/* Make sure computed ticks is valid from usec */
+	if (ticks > 0xFFFFFFFF)
+		ticks = 0xFFFFFFFF;
+
+	return ((unsigned int)ticks);
+}
+
+/* Convert PLB clock ticks to microseconds */
+static unsigned int emac_ethtool_ticks2usecs(unsigned int ticks)
+{
+  	unsigned int count;
+	u32 plb_mhz;
+
+	plb_mhz = ocp_sys_info.plb_bus_freq / 1000000;
+
+  	count = ticks / plb_mhz;
+
+	return (count);
+}
+
+/* Get the coalescing parameters, and put them in the cvals
+ * structure.  */
+static int emac_ethtool_get_coalesce(struct net_device *ndev,
+				     struct ethtool_coalesce *cvals)
+{
+	struct ocp_enet_private *dev = ndev->priv;
+	struct coales_param *coal = &dev->coales;
+
+	cvals->rx_coalesce_usecs = emac_ethtool_ticks2usecs(coal->rx_time);
+	cvals->rx_max_coalesced_frames = coal->rx_count;
+
+	cvals->tx_coalesce_usecs = emac_ethtool_ticks2usecs(coal->tx_time);
+	cvals->tx_max_coalesced_frames = coal->tx_count;
+
+	cvals->use_adaptive_rx_coalesce = 0;
+	cvals->use_adaptive_tx_coalesce = 0;
+
+	cvals->pkt_rate_low = 0;
+	cvals->rx_coalesce_usecs_low = 0;
+	cvals->rx_max_coalesced_frames_low = 0;
+	cvals->tx_coalesce_usecs_low = 0;
+	cvals->tx_max_coalesced_frames_low = 0;
+
+	/* When the packet rate is below pkt_rate_high but above
+	 * pkt_rate_low (both measured in packets per second) the
+	 * normal {rx,tx}_* coalescing parameters are used.
+	 */
+
+	/* When the packet rate is (measured in packets per second)
+	 * is above pkt_rate_high, the {rx,tx}_*_high parameters are
+	 * used.
+	 */
+	cvals->pkt_rate_high = 0;
+	cvals->rx_coalesce_usecs_high = 0;
+	cvals->rx_max_coalesced_frames_high = 0;
+	cvals->tx_coalesce_usecs_high = 0;
+	cvals->tx_max_coalesced_frames_high = 0;
+
+	/* How often to do adaptive coalescing packet rate sampling,
+	 * measured in seconds.  Must not be zero.
+	 */
+	cvals->rate_sample_interval = 0;
+
+	return 0;
+}
+
+/* Change the coalescing values.
+ * Both cvals->*_usecs and cvals->*_frames have to be > 0
+ * in order for coalescing to be active
+ */
+static int emac_ethtool_set_coalesce(struct net_device *ndev,
+				     struct ethtool_coalesce *cvals)
+{
+	struct ocp_enet_private *dev = ndev->priv;
+	struct coales_param *coal = &dev->coales;
+	unsigned int timer;
+
+  	timer = emac_ethtool_usecs2ticks(cvals->rx_coalesce_usecs);
+	/* Check the bounds of the values */
+	if (timer == MAX_COAL_TIMER) {
+		pr_info("Rx Coalescing is limited to %d microseconds\n",
+			emac_ethtool_ticks2usecs(MAX_COAL_TIMER));
+		return -EINVAL;
+	}
+	coal->rx_time = timer;
+
+	if (cvals->rx_max_coalesced_frames > MAX_COAL_FRAMES) {
+		pr_info("Rx Coalescing is limited to %d frames\n",
+			MAX_COAL_FRAMES);
+		return -EINVAL;
+	}
+	coal->rx_count = cvals->rx_max_coalesced_frames;
+
+	timer = emac_ethtool_usecs2ticks(cvals->tx_coalesce_usecs);
+	/* Check the bounds of the values */
+	if (timer == MAX_COAL_TIMER) {
+		pr_info("Tx Coalescing is limited to %d microseconds\n",
+			emac_ethtool_ticks2usecs(MAX_COAL_TIMER));
+		return -EINVAL;
+	}
+	coal->tx_time = timer;
+
+	if (cvals->tx_max_coalesced_frames > MAX_COAL_FRAMES) {
+		pr_info("Tx Coalescing is limited to %d frames\n",
+			MAX_COAL_FRAMES);
+		return -EINVAL;
+	}
+	coal->tx_count = cvals->tx_max_coalesced_frames;
+
+#ifdef CONFIG_IBM_EMAC_INTR_COALESCE
+	if (emac_intr_coalesce(dev->def->index)) {
+		set_ic_rxfthr(dev->def->index, coal->rx_count, dev);
+		SDR_WRITE(DCRN_SDR_ICTRRX0 + dev->def->index, coal->rx_time);
+		set_ic_txfthr(dev->def->index, coal->tx_count, dev);
+		SDR_WRITE(DCRN_SDR_ICTRTX0 + dev->def->index, coal->tx_time);
+	} else {
+		set_ic_rxflush(dev->def->index, dev);
+		set_ic_rxfthr(dev->def->index, 1, dev);
+		SDR_WRITE(DCRN_SDR_ICTRRX0 + dev->def->index, 0);
+		set_ic_txflush(dev->def->index, dev);
+		set_ic_txfthr(dev->def->index, 1, dev);
+		SDR_WRITE(DCRN_SDR_ICTRTX0 + dev->def->index, 0);
+	}
+#endif
+	DBG("%d: emac_ethtool_scoalesce tx = %x, rx = %x" NL, dev->def->index,
+	    iccrtx, iccrrx);
+
+	return 0;
+}
+#endif /* CONFIG_IBM_EMAC_INTR_COALESCE */
+
 static const struct ethtool_ops emac_ethtool_ops = {
 	.get_settings = emac_ethtool_get_settings,
 	.set_settings = emac_ethtool_set_settings,
@@ -1924,6 +2180,11 @@ static const struct ethtool_ops emac_ethtool_ops = {
 	.get_link = ethtool_op_get_link,
 	.get_tx_csum = ethtool_op_get_tx_csum,
 	.get_sg = ethtool_op_get_sg,
+
+#ifdef CONFIG_IBM_EMAC_INTR_COALESCE
+	.get_coalesce = emac_ethtool_get_coalesce,
+	.set_coalesce = emac_ethtool_set_coalesce,
+#endif
 };
 
 static int emac_ioctl(struct net_device *ndev, struct ifreq *rq, int cmd)
@@ -2269,6 +2530,12 @@ static int __init emac_init(void)
 		return -ENODEV;
 	}
 	EMAC_CLK_EXTERNAL;
+
+#ifdef CONFIG_IBM_EMAC_INTR_COALESCE
+	/* setup default values for interrupt coalescing */
+	iccrtx = DCRN_SDR_ICCRTX_INIT;
+	iccrrx = DCRN_SDR_ICCRRX_INIT;
+#endif
 
 	emac_init_debug();
 	return 0;

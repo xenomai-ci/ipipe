@@ -505,6 +505,7 @@ static void __init sequoia_setup_arch(void)
 	/* parm1 = sys clock is OK , parm 2 ser_clock to be checked */
 	ibm440gx_get_clocks(&clocks, 33000000, 6 * 1843200);
 	ocp_sys_info.opb_bus_freq = clocks.opb;
+	ocp_sys_info.plb_bus_freq = clocks.plb;
 
 	/* init to some ~sane value until calibrate_delay() runs */
         loops_per_jiffy = 50000000/HZ;

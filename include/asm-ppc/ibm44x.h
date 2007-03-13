@@ -740,6 +740,24 @@
 #define IIC_OWN			0x55
 #define IIC_CLOCK		50
 
+/*
+ * EMAC interrupt coalesing (only 440EPX/GRX for now)
+ */
+#if defined(CONFIG_440EPX) || defined(CONFIG_440GRX)
+#define MAX_COAL_FRAMES		0x1FF
+#define MAX_COAL_TIMER		0xFFFFFFFF
+
+#define	DCRN_SDR_ICSRTX0	0x4307
+#define	DCRN_SDR_ICSRRX0	0x4309
+#define DCRN_SDR_ICCRTX		0x430B
+#define DCRN_SDR_ICCRTX_INIT	0x00C01800
+#define	DCRN_SDR_ICCRRX		0x430C
+#define DCRN_SDR_ICCRRX_INIT	0x00C01800
+#define ICCR_FTHR_MASK		0xFF800000
+#define	DCRN_SDR_ICTRTX0	0x430D
+#define	DCRN_SDR_ICTRRX0	0x430F
+#endif
+
 #undef NR_UICS
 #if defined(CONFIG_440GX) || defined(CONFIG_440EPX) || defined(CONFIG_440GRX)
 #define NR_UICS 3

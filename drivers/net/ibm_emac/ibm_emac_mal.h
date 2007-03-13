@@ -2,7 +2,7 @@
  * drivers/net/ibm_emac/ibm_emac_mal.h
  *
  * Memory Access Layer (MAL) support
- * 
+ *
  * Copyright (c) 2004, 2005 Zultys Technologies.
  * Eugene Surovegin <eugene.surovegin@zultys.com> or <ebs@ebshome.net>
  *
@@ -27,8 +27,8 @@
 #include <asm/dcr.h>
 
 /*
- * These MAL "versions" probably aren't the real versions IBM uses for these 
- * MAL cores, I assigned them just to make #ifdefs in this file nicer and 
+ * These MAL "versions" probably aren't the real versions IBM uses for these
+ * MAL cores, I assigned them just to make #ifdefs in this file nicer and
  * reflect the fact that 40x and 44x have slightly different MALs. --ebs
  */
 #if defined(CONFIG_405GP) || defined(CONFIG_405GPR) || defined(CONFIG_405EP) || \
@@ -129,7 +129,7 @@
 #define MAL_RXCTPR(n)		((n) + 0x40)
 #define MAL_RCBS(n)		((n) + 0x60)
 
-/* In reality MAL can handle TX buffers up to 4095 bytes long, 
+/* In reality MAL can handle TX buffers up to 4095 bytes long,
  * but this isn't a good round number :) 		 --ebs
  */
 #define MAL_MAX_TX_SIZE		4080
@@ -241,6 +241,9 @@ void mal_disable_rx_channel(struct ibm_ocp_mal *mal, int channel);
 /* Add/remove EMAC to/from MAL polling list */
 void mal_poll_add(struct ibm_ocp_mal *mal, struct mal_commac *commac);
 void mal_poll_del(struct ibm_ocp_mal *mal, struct mal_commac *commac);
+
+irqreturn_t mal_txeob(int irq, void *dev_instance);
+irqreturn_t mal_rxeob(int irq, void *dev_instance);
 
 /* Ethtool MAL registers */
 struct ibm_mal_regs {

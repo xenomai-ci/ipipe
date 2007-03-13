@@ -39,6 +39,13 @@
 #error Invalid number of buffer descriptors (greater than 256)
 #endif
 
+#ifdef CONFIG_IBM_EMAC_INTR_COALESCE
+/* if defined, enabled on all interfaces */
+#define emac_intr_coalesce(nr)			1
+#else
+#define emac_intr_coalesce(nr)			0
+#endif
+
 // XXX
 #define EMAC_MIN_MTU			46
 #define EMAC_MAX_MTU			9000
@@ -152,10 +159,19 @@ struct ibm_emac_error_stats {
 					  sizeof(struct ibm_emac_error_stats)) \
 					 / sizeof(u64))
 
+struct coales_param
+{
+	/* Configuration parameters for the coalescing function */
+	u32	tx_count;
+	u32	tx_time;
+	u32	rx_count;
+	u32	rx_time;
+};
+
 struct ocp_enet_private {
 	struct net_device		*ndev;		/* 0 */
 	struct emac_regs		__iomem *emacp;
-	
+
 	struct mal_descriptor		*tx_desc;
 	int				tx_cnt;
 	int				tx_slot;
@@ -194,6 +210,8 @@ struct ocp_enet_private {
 	struct net_device_stats		nstats;
 
 	struct device*			ldev;
+
+	struct coales_param		coales;
 };
 
 /* Ethtool get_regs complex data.

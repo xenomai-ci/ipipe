@@ -3,6 +3,8 @@
  *
  * PPC440EPx I/O descriptions
  *
+ * Copyright 2007 DENX Software Engineering, Stefan Roese <sr@denx.de>
+ *
  * Wade Farnsworth <wfarnsworth@mvista.com>
  * Copyright 2004 MontaVista Software Inc.
  * Copyright 2006 AMCC
@@ -32,10 +34,8 @@ static struct ocp_func_emac_data ppc440epx_emac0_def = {
 	.wol_irq        = 61,		/* WOL interrupt number - same as 440EP */
 	.mdio_idx       = -1,           /* No shared MDIO but always via ZMII bridge */
 	.tah_idx	= -1,           /* No TAH */
-#ifdef	CONFIG_INTR_COALESCE
 	.txcoal_irq 	= 70,  		/* Interrupt coalescence TX IRQ */
 	.rxcoal_irq 	= 72,  		/* Interrupt coalescence RX IRQ */
-#endif
 };
 
 static struct ocp_func_emac_data ppc440epx_emac1_def = {
@@ -49,10 +49,8 @@ static struct ocp_func_emac_data ppc440epx_emac1_def = {
 	.wol_irq        = 63,  		/* WOL interrupt number _- same as 440EP */
 	.mdio_idx       = -1,           /* no shared MDIO but always via ZMII bridge */
 	.tah_idx	= -1,           /* No TAH */
-#ifdef	CONFIG_INTR_COALESCE
 	.txcoal_irq 	= 71,  		/* Interrupt coalescence TX IRQ */
 	.rxcoal_irq 	= 73,  		/* Interrupt coalescence RX IRQ */
-#endif
 };
 OCP_SYSFS_EMAC_DATA()
 
@@ -61,9 +59,9 @@ static struct ocp_func_mal_data ppc440epx_mal0_def = {
 	.num_rx_chans   = 2,    	/* Number of RX channels */
 	.txeob_irq	= 10,		/* TX End Of Buffer IRQ  - same as 440EP */
 	.rxeob_irq	= 11,		/* RX End Of Buffer IRQ  - same as 440EP*/
-	.txde_irq	  = 33,		/* TX Descriptor Error IRQ - same as 440EP */
-	.rxde_irq	  = 34,		/* RX Descriptor Error IRQ - same as 440EP*/
-	.serr_irq	  = 32,		/* MAL System Error IRQ  - same as 440EP   */
+	.txde_irq	= 33,		/* TX Descriptor Error IRQ - same as 440EP */
+	.rxde_irq	= 34,		/* RX Descriptor Error IRQ - same as 440EP*/
+	.serr_irq	= 32,		/* MAL System Error IRQ  - same as 440EP   */
 	.dcr_base	= DCRN_MAL_BASE /* MAL0_CFG DCR number */
 };
 OCP_SYSFS_MAL_DATA()

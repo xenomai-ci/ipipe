@@ -1268,6 +1268,33 @@ config IBM_EMAC_NR_START
 
 	  If unsure, set to 0.
 
+config IBM_EMAC_INTR_COALESCE
+	bool "Interrupt coalescing"
+	depends on IBM_EMAC && (440EPX || 440GRX)
+  	default y
+	help
+	  When selected the Ethernet interrupt coalescing is selected.
+
+config IBM_EMAC_TX_COALESCE_COUNT
+	int "TX Coalescence counter (packets)"
+	depends on IBM_EMAC_INTR_COALESCE
+	default "8"
+
+config IBM_EMAC_TX_COALESCE_TIMER
+	int "TX Coalescence timer (usecs)"
+	depends on IBM_EMAC_INTR_COALESCE
+	default "1000"
+
+config IBM_EMAC_RX_COALESCE_COUNT
+	int "RX Coalescence counter (packets)"
+	depends on IBM_EMAC_INTR_COALESCE
+	default "8"
+
+config IBM_EMAC_RX_COALESCE_TIMER
+	int "RX Coalescence timer (usecs)"
+	depends on IBM_EMAC_INTR_COALESCE
+	default "1000"
+
 config NET_PCI
 	bool "EISA, VLB, PCI and on board controllers"
 	depends on NET_ETHERNET && (ISA || EISA || PCI)
