@@ -622,6 +622,18 @@ void ipipe_trace_panic_dump(void)
 		struct ipipe_trace_point *point = &panic_path->point[pos];
 		long time;
 		char buf[16];
+	       int i;
+
+	       printk(" %c", (point->flags & IPIPE_TFLG_HWIRQ_OFF) ?
+			      '|' : ' ');
+
+	       for (i = IPIPE_TFLG_DOMSTATE_BITS; i >= 0; i--)
+		       printk("%c",
+			      (IPIPE_TFLG_CURRENT_DOMAIN(point) == i) ?
+			      (IPIPE_TFLG_DOMAIN_STALLED(point, i) ?
+				       '#' : '+') :
+			       (IPIPE_TFLG_DOMAIN_STALLED(point, i) ?
+				       '*' : ' '));
 
 		if (!point->eip)
 			printk("-<invalid>-\n");
@@ -636,7 +648,7 @@ void ipipe_trace_panic_dump(void)
 
 				case IPIPE_TRACE_PID:
 					__ipipe_get_task_info(task_info,
-					                      point, 1);
+							      point, 1);
 					printk(task_info);
 					break;
 

@@ -2761,7 +2761,6 @@ int ipipe_disable_ondemand_mappings(struct task_struct *tsk)
 {
 	unsigned long addr, next, end;
 	struct vm_area_struct *vma;
-	struct vm_struct *area;
 	struct mm_struct *mm;
 	int result = 0;
 	pgd_t *pgd;
@@ -2791,21 +2790,6 @@ int ipipe_disable_ondemand_mappings(struct task_struct *tsk)
 		} while (pgd++, addr = next, addr != end);
 	}
 	mm->def_flags |= VM_PINNED;
-
-	read_lock(&vmlist_lock);
-	for (area = vmlist; area; area = area->next) {
-		result =  __ipipe_pin_range_mapping(mm,
-						    (unsigned long) area->addr,
-						    (unsigned long) area->addr
-						    + area->size);
-		if (result) {
-			mm->def_flags &= ~VM_PINNED;
-			read_unlock(&vmlist_lock);
-			goto done_mm;
-		}
-	}
-
-	read_unlock(&vmlist_lock);
 
   done_mm:
 	up_write(&mm->mmap_sem);
