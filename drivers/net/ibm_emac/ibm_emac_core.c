@@ -2026,7 +2026,7 @@ static unsigned int emac_ethtool_usecs2ticks(unsigned int usecs)
 {
   	unsigned long long ticks;
 
-  	ticks = (unsigned long long)usecs * (ocp_sys_info.mal_freq / 1000000);
+  	ticks = (unsigned long long)usecs * (ocp_sys_info.plb_bus_freq / 1000000);
 	/* Make sure computed ticks is valid from usec */
 	if (ticks > 0xFFFFFFFF)
 		ticks = 0xFFFFFFFF;
@@ -2040,7 +2040,7 @@ static unsigned int emac_ethtool_ticks2usecs(unsigned int ticks)
   	unsigned int count;
 	u32 plb_mhz;
 
-	plb_mhz = ocp_sys_info.mal_freq / 1000000;
+	plb_mhz = ocp_sys_info.plb_bus_freq / 1000000;
 
   	count = ticks / plb_mhz;
 
