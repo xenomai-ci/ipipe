@@ -2026,7 +2026,7 @@ static unsigned int emac_ethtool_usecs2ticks(unsigned int usecs)
 {
   	unsigned long long ticks;
 
-  	ticks = (unsigned long long)usecs * (ocp_sys_info.plb_bus_freq / 1000000);
+  	ticks = (unsigned long long)usecs * (ocp_sys_info.mal_freq / 1000000);
 	/* Make sure computed ticks is valid from usec */
 	if (ticks > 0xFFFFFFFF)
 		ticks = 0xFFFFFFFF;
@@ -2040,7 +2040,7 @@ static unsigned int emac_ethtool_ticks2usecs(unsigned int ticks)
   	unsigned int count;
 	u32 plb_mhz;
 
-	plb_mhz = ocp_sys_info.plb_bus_freq / 1000000;
+	plb_mhz = ocp_sys_info.mal_freq / 1000000;
 
   	count = ticks / plb_mhz;
 
@@ -2136,7 +2136,6 @@ static int emac_ethtool_set_coalesce(struct net_device *ndev,
 	}
 	coal->tx_count = cvals->tx_max_coalesced_frames;
 
-#ifdef CONFIG_IBM_EMAC_INTR_COALESCE
 	if (emac_intr_coalesce(dev->def->index)) {
 		set_ic_rxfthr(dev->def->index, coal->rx_count, dev);
 		SDR_WRITE(DCRN_SDR_ICTRRX0 + dev->def->index, coal->rx_time);
@@ -2150,7 +2149,6 @@ static int emac_ethtool_set_coalesce(struct net_device *ndev,
 		set_ic_txfthr(dev->def->index, 1, dev);
 		SDR_WRITE(DCRN_SDR_ICTRTX0 + dev->def->index, 0);
 	}
-#endif
 	DBG("%d: emac_ethtool_scoalesce tx = %x, rx = %x" NL, dev->def->index,
 	    iccrtx, iccrrx);
 

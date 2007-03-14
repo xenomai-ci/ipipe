@@ -500,12 +500,18 @@ static void __init sequoia_early_serial_map(void)
 
 static void __init sequoia_setup_arch(void)
 {
+	u32 val;
+	int mal_div[] = {4, 1, 2, 3};
 	sequoia_set_emacdata();
 
 	/* parm1 = sys clock is OK , parm 2 ser_clock to be checked */
 	ibm440gx_get_clocks(&clocks, 33000000, 6 * 1843200);
 	ocp_sys_info.opb_bus_freq = clocks.opb;
 	ocp_sys_info.plb_bus_freq = clocks.plb;
+
+	/* mal frequency is needed for emac interrupt coalescing */
+	val = (CPR_READ(DCRN_CPR_MALD) >> 24) & 0x3;
+	ocp_sys_info.mal_freq = clocks.plb / mal_div[val];
 
 	/* init to some ~sane value until calibrate_delay() runs */
         loops_per_jiffy = 50000000/HZ;

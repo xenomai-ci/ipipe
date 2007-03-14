@@ -29,6 +29,7 @@ struct ocp_sys_info_data {
 	int	opb_bus_freq;	/* OPB Bus Frequency (Hz) */
 	int	ebc_bus_freq;	/* EBC Bus Frequency (Hz) */
 	int	plb_bus_freq;	/* PLB Bus Frequency (Hz) */
+	int	mal_freq;	/* MAL Frequency (Hz) */
 };
 
 extern struct ocp_sys_info_data ocp_sys_info;
