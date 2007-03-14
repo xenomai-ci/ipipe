@@ -789,7 +789,7 @@ _GLOBAL(_outsl_ns)
  * R5    has shift count
  * result in R3/R4
  *
- *  ashrdi3: arithmetic right shift (sign propagation)	
+ *  ashrdi3: arithmetic right shift (sign propagation)
  *  lshrdi3: logical right shift
  *  ashldi3: left shift
  */

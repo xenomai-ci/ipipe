@@ -7,7 +7,7 @@
  * version 2.  This program is licensed "as is" without any warranty of
  * any kind, whether express or implied.
  *
- *  The page definitions used in the asm files ppc_44x.S and misc.S. 
+ *  The page definitions used in the asm files ppc_44x.S and misc.S.
  * PAGE_SIZE = 4K and 64K are only supported on the PPC44x.
  *
  */
@@ -17,8 +17,8 @@
 #include <asm/page.h>
 
 #if (PAGE_SHIFT == 12)
-/* 
- * PAGE_SIZE  4K 
+/*
+ * PAGE_SIZE  4K
  * PAGE_SHIFT 12
  * PTE_SHIFT   9
  * PMD_SHIFT  21

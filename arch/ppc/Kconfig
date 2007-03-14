@@ -1026,7 +1026,7 @@ config PREP_RESIDUAL
 	  Some PReP systems have residual data passed to the kernel by the
 	  firmware.  This allows detection of memory size, devices present and
 	  other useful pieces of information.  Sometimes this information is
-	  not present or incorrect, in which case it could lead to the machine 
+	  not present or incorrect, in which case it could lead to the machine
 	  behaving incorrectly.  If this happens, either disable PREP_RESIDUAL
 	  or pass the 'noresidual' option to the kernel.
 
@@ -1206,7 +1206,7 @@ config PPC_PAGE_SHIFT
 	default "12"
 	range 12 16
 	help
-	  The PAGE_SIZE definition. Increasing the page size may 
+	  The PAGE_SIZE definition. Increasing the page size may
 	  improve the system performance in some dedicated cases.
 
 	  If unsure, set it to 12 (4KB).
