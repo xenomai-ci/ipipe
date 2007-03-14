@@ -22,6 +22,13 @@
 #include <asm/ocp.h>
 #include <asm/ppc4xx_pic.h>
 
+#if defined(CONFIG_AMCC_SPE_ADMA)
+#include <syslib/ppc440spe_pcie.h>
+#include <linux/async_tx.h>
+#include <linux/platform_device.h>
+#include <asm/adma.h>
+#endif
+
 static struct ocp_func_emac_data ppc440spe_emac0_def = {
 	.rgmii_idx	= -1,		/* No RGMII */
 	.rgmii_mux	= -1,		/* No RGMII */
@@ -144,3 +151,205 @@ struct ppc4xx_uic_settings ppc4xx_core_uic_cfg[] __initdata = {
 	  .ext_irq_mask = 0x00000000,
 	},
 };
+
+#if defined(CONFIG_AMCC_SPE_ADMA)
+
+static u64 ppc440spe_adma_dmamask = DMA_32BIT_MASK;
+
+/* DMA and XOR platform devices' resources */
+static struct resource ppc440spe_dma_0_resources[] = {
+	{
+		.flags = IORESOURCE_MEM,
+	},
+	{
+		.start = DMA0_CS_FIFO_NEED_SERVICE,
+		.end = DMA0_CS_FIFO_NEED_SERVICE,
+		.flags = IORESOURCE_IRQ
+	}
+};
+
+static struct resource ppc440spe_dma_1_resources[] = {
+	{
+		.flags = IORESOURCE_MEM,
+	},
+	{
+		.start = DMA1_CS_FIFO_NEED_SERVICE,
+		.end = DMA1_CS_FIFO_NEED_SERVICE,
+		.flags = IORESOURCE_IRQ
+	}
+};
+
+static struct resource ppc440spe_xor_resources[] = {
+	{
+		.flags = IORESOURCE_MEM,
+	},
+	{
+		.start = XOR_INTERRUPT,
+		.end = XOR_INTERRUPT,
+		.flags = IORESOURCE_IRQ
+	}
+};
+
+/* DMA and XOR platform devices' data */
+static struct spe_adma_platform_data ppc440spe_dma_0_data = {
+	.hw_id  = PPC440SPE_DMA0_ID,
+	.capabilities = DMA_CAP_MEMCPY | DMA_CAP_INTERRUPT,
+	.pool_size = PAGE_SIZE,
+};
+
+static struct spe_adma_platform_data ppc440spe_dma_1_data = {
+	.hw_id  = PPC440SPE_DMA1_ID,
+	.capabilities =  DMA_CAP_MEMCPY | DMA_CAP_INTERRUPT,
+	.pool_size = PAGE_SIZE,
+};
+
+static struct spe_adma_platform_data ppc440spe_xor_data = {
+	.hw_id  = PPC440SPE_XOR_ID,
+	.capabilities = DMA_CAP_XOR | DMA_CAP_INTERRUPT,
+	.pool_size = PAGE_SIZE,
+};
+
+/* DMA and XOR platform devices definitions */
+static struct platform_device ppc440spe_dma_0_channel = {
+	.name = "SPE-ADMA",
+	.id = PPC440SPE_DMA0_ID,
+	.num_resources = ARRAY_SIZE(ppc440spe_dma_0_resources),
+	.resource = ppc440spe_dma_0_resources,
+	.dev = {
+		.dma_mask = &ppc440spe_adma_dmamask,
+		.coherent_dma_mask = DMA_64BIT_MASK,
+		.platform_data = (void *) &ppc440spe_dma_0_data,
+	},
+};
+
+static struct platform_device ppc440spe_dma_1_channel = {
+	.name = "SPE-ADMA",
+	.id = PPC440SPE_DMA1_ID,
+	.num_resources = ARRAY_SIZE(ppc440spe_dma_1_resources),
+	.resource = ppc440spe_dma_1_resources,
+	.dev = {
+		.dma_mask = &ppc440spe_adma_dmamask,
+		.coherent_dma_mask = DMA_64BIT_MASK,
+		.platform_data = (void *) &ppc440spe_dma_1_data,
+	},
+};
+
+static struct platform_device ppc440spe_xor_channel = {
+	.name = "SPE-ADMA",
+	.id = PPC440SPE_XOR_ID,
+	.num_resources = ARRAY_SIZE(ppc440spe_xor_resources),
+	.resource = ppc440spe_xor_resources,
+	.dev = {
+		.dma_mask = &ppc440spe_adma_dmamask,
+		.coherent_dma_mask = DMA_64BIT_MASK,
+		.platform_data = (void *) &ppc440spe_xor_data,
+	},
+};
+
+/*
+ *  Init DMA0/1 and XOR engines; allocate memory for DMAx FIFOs; set platform_device
+ * memory resources addresses
+ */
+static void ppc440spe_configure_raid_devices(void)
+{
+	void *fifo_buf;
+	i2o_regs_t *i2o_reg;
+	dma_regs_t *dma_reg0, *dma_reg1;
+	xor_regs_t *xor_reg;
+	u32 mask;
+
+	printk ("%s\n", __FUNCTION__);
+
+	/*
+	 * Map registers
+	 */
+	i2o_reg  = (i2o_regs_t *)ioremap64(I2O_MMAP_BASE, I2O_MMAP_SIZE);
+	dma_reg0 = (dma_regs_t *)ioremap64(DMA0_MMAP_BASE, DMA_MMAP_SIZE);
+	dma_reg1 = (dma_regs_t *)ioremap64(DMA1_MMAP_BASE, DMA_MMAP_SIZE);
+	xor_reg  = (xor_regs_t *)ioremap64(XOR_MMAP_BASE,XOR_MMAP_SIZE);
+
+	/*
+	 * Configure h/w
+	 */
+
+	/* Reset I2O/DMA */
+	mtdcr(DCRN_SDR0_CFGADDR, 0x200);
+	mtdcr(DCRN_SDR0_CFGDATA, 0x10000);
+	mtdcr(DCRN_SDR0_CFGADDR, 0x200);
+	mtdcr(DCRN_SDR0_CFGDATA, 0x0);
+
+	/* Reset XOR */
+	out_be32(&xor_reg->crsr, XOR_CRSR_XASR_BIT);
+	out_be32(&xor_reg->crrr, XOR_CRSR_64BA_BIT);
+
+	/* Setup the base address of mmaped registers */
+	mtdcr(DCRN_I2O0_IBAH, 0x00000004);
+	mtdcr(DCRN_I2O0_IBAL, 0x00100001);
+
+	/*  Provide memory regions for DMA's FIFOs: I2O, DMA0 and DMA1 share
+	 * the base address of FIFO memory space
+	 */
+	fifo_buf = kmalloc((DMA0_FIFO_SIZE + DMA1_FIFO_SIZE)<<1, GFP_KERNEL | __GFP_DMA);
+
+	/* SetUp FIFO memory space base address */
+	out_le32(&i2o_reg->ifbah, 0);
+	out_le32(&i2o_reg->ifbal, ((u32)__pa(fifo_buf)));
+
+	/* zero FIFO size for I2O, DMAs; 0x1000 to enable DMA */
+	out_le32(&i2o_reg->ifsiz, 0);
+	out_le32(&dma_reg0->fsiz, 0x1000 | ((DMA0_FIFO_SIZE>>3) - 1));
+	out_le32(&dma_reg1->fsiz, 0x1000 | ((DMA1_FIFO_SIZE>>3) - 1));
+
+	/* Configure DMA engine */
+	out_le32(&dma_reg0->cfg, 0x0D880000);
+	out_le32(&dma_reg1->cfg, 0x0D880000);
+
+	/* Clear Status */
+	out_le32(&dma_reg0->dsts, ~0);
+	out_le32(&dma_reg1->dsts, ~0);
+
+	/* Unmask 'CS FIFO Attention' interrupts */
+	mask = in_le32(&i2o_reg->iopim) & ~0x48;
+	out_le32(&i2o_reg->iopim, mask);
+
+	/* enable XOR engine interrupt */
+	out_be32(&xor_reg->ier, XOR_IE_CBLCI_BIT | XOR_IE_CBCIE_BIT | 0x34000);
+
+	/*
+	 * Unmap I2O registers
+	 */
+	iounmap(i2o_reg);
+
+	/*
+	 * Set resource addresses
+	 */
+	ppc440spe_dma_0_channel.resource[0].start = (resource_size_t)(dma_reg0);
+	ppc440spe_dma_0_channel.resource[0].end =
+		ppc440spe_dma_0_channel.resource[0].start+DMA_MMAP_SIZE;
+
+	ppc440spe_dma_1_channel.resource[0].start = (resource_size_t)(dma_reg1);
+	ppc440spe_dma_1_channel.resource[0].end =
+		ppc440spe_dma_1_channel.resource[0].start+DMA_MMAP_SIZE;
+
+	ppc440spe_xor_channel.resource[0].start = (resource_size_t)(xor_reg);
+	ppc440spe_xor_channel.resource[0].end =
+		ppc440spe_xor_channel.resource[0].start+XOR_MMAP_SIZE;
+}
+
+static struct platform_device *ppc440spe_devs[] __initdata = {
+	&ppc440spe_dma_0_channel,
+	&ppc440spe_dma_1_channel,
+	&ppc440spe_xor_channel,
+};
+
+static int __init ppc440spe_register_raid_devices(void)
+{
+	ppc440spe_configure_raid_devices();
+	platform_add_devices(ppc440spe_devs, ARRAY_SIZE(ppc440spe_devs));
+
+	return 0;
+}
+
+arch_initcall(ppc440spe_register_raid_devices);
+#endif	/* CONFIG_AMCC_SPE_ADMA */
+
