@@ -1201,6 +1201,16 @@ config SECCOMP
 
 	  If unsure, say Y. Only embedded should say N here.
 
+config PPC_PAGE_SHIFT
+	int "Page size (12=>4KB; 16=>64KB)" if 44x
+	default "12"
+	range 12 16
+	help
+	  The PAGE_SIZE definition. Increasing the page size may 
+	  improve the system performance in some dedicated cases.
+
+	  If unsure, set it to 12 (4KB).
+
 endmenu
 
 config ISA_DMA_API
