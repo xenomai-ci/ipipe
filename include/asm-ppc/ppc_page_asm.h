@@ -29,6 +29,19 @@
 #define PPC44x_PTE_ADD_SH	23 /*32 - PMD_SHIFT + PTE_SHIFT + 3*/
 #define PPC44x_PTE_ADD_M1	20 /*32 - 3 - PTE_SHIFT*/
 #define PPC44x_RPN_M2		19 /*31 - PAGE_SHIFT*/
+#elif (PAGE_SHIFT == 14)
+/*
+ * PAGE_SIZE  16K
+ * PAGE_SHIFT 14
+ * PTE_SHIFT  7
+ * PMD_SHIFT  21
+ */
+#define PPC44x_TLB_SIZE		PPC44x_TLB_16K
+#define PPC44x_PGD_OFF_SH	13 /*(32 - PMD_SHIFT + 2)*/
+#define PPC44x_PGD_OFF_M1	19 /*(PMD_SHIFT - 2)*/
+#define PPC44x_PTE_ADD_SH	21 /*32 - PMD_SHIFT + PTE_SHIFT + 3*/
+#define PPC44x_PTE_ADD_M1	22 /*32 - 3 - PTE_SHIFT*/
+#define PPC44x_RPN_M2		17 /*31 - PAGE_SHIFT*/
 #elif (PAGE_SHIFT == 16)
 /*
  * PAGE_SIZE  64K

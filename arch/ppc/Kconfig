@@ -1202,7 +1202,7 @@ config SECCOMP
 	  If unsure, say Y. Only embedded should say N here.
 
 config PPC_PAGE_SHIFT
-	int "Page size (12=>4KB; 16=>64KB)" if 44x
+	int "Page size (12=>4KB; 14=>16KB; 16=>64KB)" if 44x
 	default "12"
 	range 12 16
 	help
