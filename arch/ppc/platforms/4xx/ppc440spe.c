@@ -22,11 +22,11 @@
 #include <asm/ocp.h>
 #include <asm/ppc4xx_pic.h>
 
-#if defined(CONFIG_AMCC_SPE_ADMA)
+#if defined(CONFIG_AMCC_PPC440SPE_ADMA)
 #include <syslib/ppc440spe_pcie.h>
 #include <linux/async_tx.h>
 #include <linux/platform_device.h>
-#include <asm/adma.h>
+#include <asm/ppc440spe_adma.h>
 #endif
 
 static struct ocp_func_emac_data ppc440spe_emac0_def = {
@@ -152,7 +152,7 @@ struct ppc4xx_uic_settings ppc4xx_core_uic_cfg[] __initdata = {
 	},
 };
 
-#if defined(CONFIG_AMCC_SPE_ADMA)
+#if defined(CONFIG_AMCC_PPC440SPE_ADMA)
 
 static u64 ppc440spe_adma_dmamask = DMA_32BIT_MASK;
 
@@ -211,7 +211,7 @@ static struct spe_adma_platform_data ppc440spe_xor_data = {
 
 /* DMA and XOR platform devices definitions */
 static struct platform_device ppc440spe_dma_0_channel = {
-	.name = "SPE-ADMA",
+	.name = "PPC440SPE-ADMA",
 	.id = PPC440SPE_DMA0_ID,
 	.num_resources = ARRAY_SIZE(ppc440spe_dma_0_resources),
 	.resource = ppc440spe_dma_0_resources,
@@ -223,7 +223,7 @@ static struct platform_device ppc440spe_dma_0_channel = {
 };
 
 static struct platform_device ppc440spe_dma_1_channel = {
-	.name = "SPE-ADMA",
+	.name = "PPC440SPE-ADMA",
 	.id = PPC440SPE_DMA1_ID,
 	.num_resources = ARRAY_SIZE(ppc440spe_dma_1_resources),
 	.resource = ppc440spe_dma_1_resources,
@@ -235,7 +235,7 @@ static struct platform_device ppc440spe_dma_1_channel = {
 };
 
 static struct platform_device ppc440spe_xor_channel = {
-	.name = "SPE-ADMA",
+	.name = "PPC440SPE-ADMA",
 	.id = PPC440SPE_XOR_ID,
 	.num_resources = ARRAY_SIZE(ppc440spe_xor_resources),
 	.resource = ppc440spe_xor_resources,
@@ -257,8 +257,6 @@ static void ppc440spe_configure_raid_devices(void)
 	dma_regs_t *dma_reg0, *dma_reg1;
 	xor_regs_t *xor_reg;
 	u32 mask;
-
-	printk ("%s\n", __FUNCTION__);
 
 	/*
 	 * Map registers
@@ -351,5 +349,4 @@ static int __init ppc440spe_register_raid_devices(void)
 }
 
 arch_initcall(ppc440spe_register_raid_devices);
-#endif	/* CONFIG_AMCC_SPE_ADMA */
-
+#endif	/* CONFIG_AMCC_PPC440SPE_ADMA */

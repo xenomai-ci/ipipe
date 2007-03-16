@@ -36,7 +36,7 @@
 #include <linux/spinlock.h>
 #include <linux/interrupt.h>
 #include <linux/platform_device.h>
-#include <asm/adma.h>
+#include <asm/ppc440spe_adma.h>
 
 #define to_spe_adma_chan(chan) container_of(chan, struct spe_adma_chan, common)
 #define to_spe_adma_device(dev) container_of(dev, struct spe_adma_device, common)
@@ -1044,7 +1044,7 @@ static struct platform_driver spe_adma_driver = {
 	.remove		= spe_adma_remove,
 	.driver		= {
 		.owner	= THIS_MODULE,
-		.name	= "SPE-ADMA",
+		.name	= "PPC440SPE-ADMA",
 	},
 };
 
@@ -1067,5 +1067,5 @@ module_init(spe_adma_init);
 module_exit(spe_adma_exit);
 
 MODULE_AUTHOR("Yuri Tikhonov <yur@emcraft.com>");
-MODULE_DESCRIPTION("SPE ADMA Engine Driver");
+MODULE_DESCRIPTION("PPC440SPE ADMA Engine Driver");
 MODULE_LICENSE("GPL");

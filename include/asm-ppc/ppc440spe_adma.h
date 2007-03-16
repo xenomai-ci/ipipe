@@ -1,7 +1,5 @@
 /*
- * include/asm/ppc440spe_adma.h
- *
- * 2006 (C) DENX Software Engineering.
+ * 2006-2007 (C) DENX Software Engineering.
  *
  * Author: Yuri Tikhonov <yur@emcraft.com>
  *

@@ -49,8 +49,8 @@ config INTEL_IOP_ADMA
         ---help---
           Enable support for the Intel(R) IOP Series RAID engines.
 
-config AMCC_SPE_ADMA
-	tristate "AMCC SPE ADMA support"
+config AMCC_PPC440SPE_ADMA
+	tristate "AMCC 440SPe ADMA support"
 	depends on DMA_ENGINE && 440SPE
 	default y
 	---help---
