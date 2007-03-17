@@ -427,8 +427,7 @@ int usb_gadget_register_driver(struct usb_gadget_driver *driver)
 	if (!driver
 	    || (driver->speed < USB_SPEED_FULL)
 	    || (driver->speed > USB_SPEED_HIGH)
-	    || !driver->bind
-	    || !driver->unbind || !driver->disconnect || !driver->setup)
+	    || !driver->bind || !driver->disconnect || !driver->setup)
 		return -EINVAL;
 	if (!dev)
 		return -ENODEV;
@@ -483,7 +482,8 @@ int usb_gadget_unregister_driver(struct usb_gadget_driver *driver)
 	stop_activity(dev, driver);
 	spin_unlock_irqrestore(&dev->lock, flags);
 
-	driver->unbind(&dev->gadget);
+	if (driver->unbind)
+		driver->unbind(&dev->gadget);
 	device_del(&dev->gadget.dev);
 
 	udc_disable(dev);
@@ -1751,7 +1751,7 @@ static int musbhsfc_handle_get_status(struct musbhsfc_udc *dev,
 	DEBUG_SETUP("GET_STATUS, ep: %d (%x), val = %d\n", ep_num,
 			    __le16_to_cpu(ctrl->wIndex), val);
 
-	val=__le16_to_cpu(val);
+	val = __cpu_to_le16(val);
 
 	/* Clear "out packet ready" */
 	usb_setb(USB_CSR0_SVDOUTPKTRDY, USB_CSR0);
