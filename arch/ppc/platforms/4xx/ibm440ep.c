@@ -188,6 +188,7 @@ static struct resource usb_gadget_resources[] = {
 		.flags	= IORESOURCE_MEM,
 	},
 	[1] = {
+		.name	= "usb_device_irq",
 		.start	= 55,
 		.end	= 55,
 		.flags	= IORESOURCE_IRQ,
