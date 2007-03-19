@@ -18,10 +18,10 @@
 	: "=r" (x) : : "memory", "cc");				\
 	})
 
-#define local_irq_enable_hw()  __asm__("cpsie i	@ __sti" : : : "memory", "cc")
-#define local_irq_disable_hw() __asm__("cpsid i	@ __cli" : : : "memory", "cc")
-#define local_fiq_enable_hw()  __asm__("cpsie f	@ __stf" : : : "memory", "cc")
-#define local_fiq_disable_hw() __asm__("cpsid f	@ __clf" : : : "memory", "cc")
+#define local_irq_enable_hw_notrace()  __asm__("cpsie i	@ __sti" : : : "memory", "cc")
+#define local_irq_disable_hw_notrace() __asm__("cpsid i	@ __cli" : : : "memory", "cc")
+#define local_fiq_enable_hw_notrace()  __asm__("cpsie f	@ __stf" : : : "memory", "cc")
+#define local_fiq_disable_hw_notrace() __asm__("cpsid f	@ __clf" : : : "memory", "cc")
 
 #else
 
