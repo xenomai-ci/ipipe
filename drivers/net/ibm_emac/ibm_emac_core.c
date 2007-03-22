@@ -502,7 +502,7 @@ static int emac_configure(struct ocp_enet_private *dev)
 			out_be32(&p->ipcr, 0xdeadbeef);
 		} else
 			r |= EMAC_MR1_MF_1000;
-		r |= EMAC_MR1_RFS_16K;
+		r |= EMAC_MR1_RFS_GIGE;
 		gige = 1;
 
 		if (dev->ndev->mtu > ETH_DATA_LEN) {
@@ -516,7 +516,7 @@ static int emac_configure(struct ocp_enet_private *dev)
 		dev->stop_timeout = STOP_TIMEOUT_100;
 		/* Fall through */
 	default:
-		r |= EMAC_MR1_RFS_4K;
+		r |= EMAC_MR1_RFS_DEF;
 		gige = 0;
 		break;
 	}
