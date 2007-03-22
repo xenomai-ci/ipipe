@@ -86,8 +86,6 @@ unsigned char ppc4xx_uic_ext_irq_cfg[] __initdata = {
 
 /* start will be added dynamically, end is always fixed */
 static struct resource katmai_nor_resource = {
-	.start = KATMAI_FLASH_ADDR,
-	.end   = KATMAI_FLASH_END,
 	.flags = IORESOURCE_MEM,
 };
 
@@ -144,6 +142,9 @@ static struct platform_device katmai_nor_device = {
 
 static int katmai_setup_flash(void)
 {
+	katmai_nor_resource.start = __res.bi_flashstart;
+	katmai_nor_resource.end = 0xffffffff;
+
 	/*
 	 * Adjust partition 2 to flash size
 	 */
@@ -399,12 +400,17 @@ katmai_setup_hoses(void)
 			setup_indirect_pci(hose, PCIX0_CFGA, PCIX0_CFGD);
 			hose->set_cfg_type = 1;
 		} else {
-			ppc440spe_setup_pcie(hose, pcie_hose_num(hs));
+			if (ppc440spe_setup_pcie(hose, pcie_hose_num(hs)) != 0) {
+				printk(KERN_WARNING
+				       "PCIE setup failed for hose no %d\n",
+				       pcie_hose_num(hs));
+				continue;
+			}
 		}
 
 		hose->last_busno = pciauto_bus_scan(hose, hose->first_busno);
 		bus_no = hose->last_busno + 1;
-		printk(KERN_INFO "%s: resources allocated\n", name);
+		pr_debug("%s: resources allocated\n", name);
 	}
 
 	ppc_md.pci_swizzle = common_swizzle;

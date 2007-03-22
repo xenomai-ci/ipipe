@@ -94,7 +94,7 @@
  */
 #if defined(CONFIG_440SP) || defined(CONFIG_440SPE)
 #define PPC44x_IO_LO		0xf0000000UL
-#define PPC44x_IO_HI		0xf0000fffUL
+#define PPC44x_IO_HI		0xffffffffUL	/* used not only for PCI-IO but for EBC too */
 #define PPC44x_PCI0CFG_LO	0x0ec00000UL
 #define PPC44x_PCI0CFG_HI	0x0ec00007UL
 #define PPC44x_PCI1CFG_LO	0x1ec00000UL
