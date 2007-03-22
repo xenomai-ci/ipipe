@@ -1,6 +1,7 @@
 #
 # Makefile for the PowerPC 4xx linux kernel.
 
+obj-$(CONFIG_ACADIA)		+= acadia.o
 obj-$(CONFIG_ALPR)		+= alpr.o
 obj-$(CONFIG_BAMBOO)		+= bamboo.o
 obj-$(CONFIG_BUBINGA)		+= bubinga.o
@@ -40,6 +41,7 @@ obj-$(CONFIG_440GX)		+= ibm440gx.o
 obj-$(CONFIG_440SP)		+= ibm440sp.o
 obj-$(CONFIG_440SPE)		+= ppc440spe.o
 obj-$(CONFIG_405EP)		+= ibm405ep.o
+obj-$(CONFIG_405EZ)		+= ppc405ez.o
 obj-$(CONFIG_405GPR)		+= ibm405gpr.o
 obj-$(CONFIG_XILINX_VIRTEX)	+= virtex.o
 
