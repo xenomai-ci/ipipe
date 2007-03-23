@@ -191,19 +191,19 @@ static struct resource ppc440spe_xor_resources[] = {
 };
 
 /* DMA and XOR platform devices' data */
-static struct spe_adma_platform_data ppc440spe_dma_0_data = {
+static struct ppc440spe_adma_platform_data ppc440spe_dma_0_data = {
 	.hw_id  = PPC440SPE_DMA0_ID,
 	.capabilities = DMA_CAP_MEMCPY | DMA_CAP_INTERRUPT,
 	.pool_size = PAGE_SIZE,
 };
 
-static struct spe_adma_platform_data ppc440spe_dma_1_data = {
+static struct ppc440spe_adma_platform_data ppc440spe_dma_1_data = {
 	.hw_id  = PPC440SPE_DMA1_ID,
 	.capabilities =  DMA_CAP_MEMCPY | DMA_CAP_INTERRUPT,
 	.pool_size = PAGE_SIZE,
 };
 
-static struct spe_adma_platform_data ppc440spe_xor_data = {
+static struct ppc440spe_adma_platform_data ppc440spe_xor_data = {
 	.hw_id  = PPC440SPE_XOR_ID,
 	.capabilities = DMA_CAP_XOR | DMA_CAP_INTERRUPT,
 	.pool_size = PAGE_SIZE,

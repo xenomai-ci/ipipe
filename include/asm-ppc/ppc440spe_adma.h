@@ -15,7 +15,7 @@
 #include <asm/ppc440spe_dma.h>
 #include <asm/ppc440spe_xor.h>
 
-#define SPE_ADMA_SLOT_SIZE      sizeof(struct spe_adma_desc_slot)
+#define SPE_ADMA_SLOT_SIZE      sizeof(struct ppc440spe_adma_desc_slot)
 #define SPE_ADMA_THRESHOLD      5
 
 #define PPC440SPE_DMA0_ID       0
@@ -31,14 +31,14 @@
 #undef ADMA_LL_DEBUG
 
 /**
- * struct spe_adma_device - internal representation of an ADMA device
+ * struct ppc440spe_adma_device - internal representation of an ADMA device
  * @pdev: Platform device
  * @id: HW ADMA Device selector
  * @dma_desc_pool: base of DMA descriptor region (DMA address)
  * @dma_desc_pool_virt: base of DMA descriptor region (CPU address)
  * @common: embedded struct dma_device
  */
-struct spe_adma_device {
+struct ppc440spe_adma_device {
 	struct platform_device *pdev;
 	void *dma_desc_pool_virt;
 
@@ -48,7 +48,7 @@ struct spe_adma_device {
 };
 
 /**
- * struct spe_adma_device - internal representation of an ADMA device
+ * struct ppc440spe_adma_device - internal representation of an ADMA device
  * @lock: serializes enqueue/dequeue operations to the slot pool
  * @device: parent device
  * @chain: device chain view of the descriptors
@@ -60,14 +60,14 @@ struct spe_adma_device {
  * @completed_cookie: identifier for the most recently completed operation
  * @slots_allocated: records the actual size of the descriptor slot pool
  */
-struct spe_adma_chan {
+struct ppc440spe_adma_chan {
 	spinlock_t lock;
-	struct spe_adma_device *device;
+	struct ppc440spe_adma_device *device;
 	struct timer_list cleanup_watchdog;
 	struct list_head chain;
 	struct dma_chan common;
 	struct list_head all_slots;
-	struct spe_adma_desc_slot *last_used;
+	struct ppc440spe_adma_desc_slot *last_used;
 	int pending;
 	u8 result_accumulator;
 	u8 zero_sum_group;
@@ -75,9 +75,9 @@ struct spe_adma_chan {
 	int slots_allocated;
 };
 
-struct spe_adma_desc_slot {
+struct ppc440spe_adma_desc_slot {
 	dma_addr_t phys;
-	struct spe_adma_desc_slot *group_head, *hw_next;
+	struct ppc440spe_adma_desc_slot *group_head, *hw_next;
 	struct dma_async_tx_descriptor async_tx;
 	struct list_head slot_node;
 	struct list_head chain_node; /* node in channel ops list */
@@ -98,17 +98,17 @@ struct spe_adma_desc_slot {
 	};
 };
 
-struct spe_adma_platform_data {
+struct ppc440spe_adma_platform_data {
 	int hw_id;
 	unsigned long capabilities;
 	size_t pool_size;
 };
 
 static u32 xor_refetch = 0;
-static struct spe_adma_desc_slot *last_sub[2] = { NULL, NULL };
+static struct ppc440spe_adma_desc_slot *last_sub[2] = { NULL, NULL };
 
 #ifdef ADMA_LL_DEBUG
-static void print_dma_desc (struct spe_adma_desc_slot *desc)
+static void print_dma_desc (struct ppc440spe_adma_desc_slot *desc)
 {
 	dma_cdb_t *p = desc->hw_desc;
 
@@ -132,7 +132,7 @@ static void print_dma_desc (struct spe_adma_desc_slot *desc)
 }
 
 
-static void print_xor_desc (struct spe_adma_desc_slot *desc)
+static void print_xor_desc (struct ppc440spe_adma_desc_slot *desc)
 {
 	xor_cb_t *p = desc->hw_desc;
 	int i;
@@ -177,9 +177,9 @@ static void print_xor_chain (xor_cb_t *p)
 	} while (p);
 }
 
-static void print_xor_regs (struct spe_adma_chan *spe_chan)
+static void print_xor_regs (struct ppc440spe_adma_chan *ppc440spe_chan)
 {
-       volatile xor_regs_t *p = (xor_regs_t *)spe_chan->device->pdev->resource[0].start;
+       volatile xor_regs_t *p = (xor_regs_t *)ppc440spe_chan->device->pdev->resource[0].start;
 
 	printk("------ regs -------- \n");
         printk( "\tcbcr=%x; cbbcr=%x; cbsr=%x;\n"
@@ -195,13 +195,13 @@ static void print_xor_regs (struct spe_adma_chan *spe_chan)
 }
 #endif
 
-static inline int spe_chan_interrupt_slot_count (int *slots_per_op, struct spe_adma_chan *chan)
+static inline int ppc440spe_chan_interrupt_slot_count (int *slots_per_op, struct ppc440spe_adma_chan *chan)
 {
 	*slots_per_op = 1;
 	return *slots_per_op;
 }
 
-static inline void spe_desc_init_interrupt (struct spe_adma_desc_slot *desc, struct spe_adma_chan *chan)
+static inline void ppc440spe_desc_init_interrupt (struct ppc440spe_adma_desc_slot *desc, struct ppc440spe_adma_chan *chan)
 {
 	xor_cb_t *p;
 
@@ -219,7 +219,7 @@ static inline void spe_desc_init_interrupt (struct spe_adma_desc_slot *desc, str
 	}
 }
 
-static inline void spe_adma_device_clear_eot_status (struct spe_adma_chan *chan)
+static inline void ppc440spe_adma_device_clear_eot_status (struct ppc440spe_adma_chan *chan)
 {
 	volatile dma_regs_t *dma_reg;
 	volatile xor_regs_t *xor_reg;
@@ -251,12 +251,12 @@ static inline void spe_adma_device_clear_eot_status (struct spe_adma_chan *chan)
 	}
 }
 
-static inline u32 spe_adma_get_max_xor (void)
+static inline u32 ppc440spe_adma_get_max_xor (void)
 {
 	return 16;
 }
 
-static inline u32 spe_chan_get_current_descriptor(struct spe_adma_chan *chan)
+static inline u32 ppc440spe_chan_get_current_descriptor(struct ppc440spe_adma_chan *chan)
 {
 	int id = chan->device->id;
 	volatile dma_regs_t *dma_reg;
@@ -276,7 +276,7 @@ static inline u32 spe_chan_get_current_descriptor(struct spe_adma_chan *chan)
 	return 0;
 }
 
-static inline void spe_desc_init_null_xor(struct spe_adma_desc_slot *desc,
+static inline void ppc440spe_desc_init_null_xor(struct ppc440spe_adma_desc_slot *desc,
                                int src_cnt, int unknown_param)
 {
 	xor_cb_t *hw_desc = desc->hw_desc;
@@ -286,8 +286,8 @@ static inline void spe_desc_init_null_xor(struct spe_adma_desc_slot *desc,
 	hw_desc->cblal = 0;
 }
 
-static inline void spe_chan_set_next_descriptor(struct spe_adma_chan *chan,
-						struct spe_adma_desc_slot *next_desc)
+static inline void ppc440spe_chan_set_next_descriptor(struct ppc440spe_adma_chan *chan,
+						struct ppc440spe_adma_desc_slot *next_desc)
 {
 	int id = chan->device->id;
 	volatile xor_regs_t *xor_reg;
@@ -306,7 +306,7 @@ static inline void spe_chan_set_next_descriptor(struct spe_adma_chan *chan,
 	}
 }
 
-static inline int spe_chan_is_busy(struct spe_adma_chan *chan)
+static inline int ppc440spe_chan_is_busy(struct ppc440spe_adma_chan *chan)
 {
 	int id = chan->device->id, busy;
 	volatile xor_regs_t *xor_reg;
@@ -333,14 +333,14 @@ static inline int spe_chan_is_busy(struct spe_adma_chan *chan)
 	return busy;
 }
 
-static inline int spe_desc_is_aligned(struct spe_adma_desc_slot *desc,
+static inline int ppc440spe_desc_is_aligned(struct ppc440spe_adma_desc_slot *desc,
 					int num_slots)
 {
 	return (desc->idx & (num_slots - 1)) ? 0 : 1;
 }
 
 /* to do: support large (i.e. > hw max) buffer sizes */
-static inline int spe_chan_memcpy_slot_count(size_t len, int *slots_per_op)
+static inline int ppc440spe_chan_memcpy_slot_count(size_t len, int *slots_per_op)
 {
 	*slots_per_op = 1;
 	return 1;
@@ -354,7 +354,7 @@ static inline int ppc440spe_xor_slot_count(size_t len, int src_cnt,
 	return *slots_per_op;
 }
 
-static inline int spe_chan_xor_slot_count(size_t len, int src_cnt,
+static inline int ppc440spe_chan_xor_slot_count(size_t len, int src_cnt,
 						int *slots_per_op)
 {
 	/* Number of slots depends on
@@ -373,8 +373,8 @@ static inline int spe_chan_xor_slot_count(size_t len, int src_cnt,
 	return slot_cnt;
 }
 
-static inline u32 spe_desc_get_dest_addr(struct spe_adma_desc_slot *desc,
-					struct spe_adma_chan *chan)
+static inline u32 ppc440spe_desc_get_dest_addr(struct ppc440spe_adma_desc_slot *desc,
+					struct ppc440spe_adma_chan *chan)
 {
 	dma_cdb_t *dma_hw_desc;
 	xor_cb_t *xor_hw_desc;
@@ -393,8 +393,8 @@ static inline u32 spe_desc_get_dest_addr(struct spe_adma_desc_slot *desc,
 	return 0;
 }
 
-static inline u32 spe_desc_get_byte_count(struct spe_adma_desc_slot *desc,
-					struct spe_adma_chan *chan)
+static inline u32 ppc440spe_desc_get_byte_count(struct ppc440spe_adma_desc_slot *desc,
+					struct ppc440spe_adma_chan *chan)
 {
         dma_cdb_t *dma_hw_desc;
         xor_cb_t *xor_hw_desc;
@@ -413,8 +413,8 @@ static inline u32 spe_desc_get_byte_count(struct spe_adma_desc_slot *desc,
 	return 0;
 }
 
-static inline u32 spe_desc_get_src_addr(struct spe_adma_desc_slot *desc,
-					struct spe_adma_chan *chan,
+static inline u32 ppc440spe_desc_get_src_addr(struct ppc440spe_adma_desc_slot *desc,
+					struct ppc440spe_adma_chan *chan,
 					int src_idx)
 {
         dma_cdb_t *dma_hw_desc;
@@ -434,13 +434,13 @@ static inline u32 spe_desc_get_src_addr(struct spe_adma_desc_slot *desc,
 	return 0;
 }
 
-static inline void spe_xor_desc_set_src_addr(xor_cb_t *hw_desc,
+static inline void ppc440spe_xor_desc_set_src_addr(xor_cb_t *hw_desc,
 					int src_idx, dma_addr_t addr)
 {
 	out_be32(&hw_desc->ops[src_idx], addr);
 }
 
-static inline void spe_desc_init_memcpy(struct spe_adma_desc_slot *desc,
+static inline void ppc440spe_desc_init_memcpy(struct ppc440spe_adma_desc_slot *desc,
 				int int_en)
 {
 	dma_cdb_t *hw_desc = desc->hw_desc;
@@ -456,7 +456,7 @@ static inline void spe_desc_init_memcpy(struct spe_adma_desc_slot *desc,
 	hw_desc->opc = cpu_to_le32(1<<24);
 }
 
-static inline void spe_desc_init_xor(struct spe_adma_desc_slot *desc,
+static inline void ppc440spe_desc_init_xor(struct ppc440spe_adma_desc_slot *desc,
 				int src_cnt,
 				int int_en)
 {
@@ -471,8 +471,8 @@ static inline void spe_desc_init_xor(struct spe_adma_desc_slot *desc,
 		hw_desc->cbc |= XOR_CBCR_CBCE_BIT;
 }
 
-static inline void spe_desc_set_byte_count(struct spe_adma_desc_slot *desc,
-					struct spe_adma_chan *chan,
+static inline void ppc440spe_desc_set_byte_count(struct ppc440spe_adma_desc_slot *desc,
+					struct ppc440spe_adma_chan *chan,
 					u32 byte_count)
 {
 	dma_cdb_t *dma_hw_desc;
@@ -493,8 +493,8 @@ static inline void spe_desc_set_byte_count(struct spe_adma_desc_slot *desc,
 	}
 }
 
-static inline void spe_desc_set_dest_addr(struct spe_adma_desc_slot *desc,
-					struct spe_adma_chan *chan,
+static inline void ppc440spe_desc_set_dest_addr(struct ppc440spe_adma_desc_slot *desc,
+					struct ppc440spe_adma_chan *chan,
 					dma_addr_t addr)
 {
 	dma_cdb_t *dma_hw_descr;
@@ -515,7 +515,7 @@ static inline void spe_desc_set_dest_addr(struct spe_adma_desc_slot *desc,
 	}
 }
 
-static inline void spe_desc_set_memcpy_src_addr(struct spe_adma_desc_slot *desc,
+static inline void ppc440spe_desc_set_memcpy_src_addr(struct ppc440spe_adma_desc_slot *desc,
 					dma_addr_t addr, int slot_cnt,
 					int slots_per_op)
 {
@@ -523,7 +523,7 @@ static inline void spe_desc_set_memcpy_src_addr(struct spe_adma_desc_slot *desc,
 	hw_desc->sg1l = cpu_to_le32(addr);
 }
 
-static inline void spe_desc_set_xor_src_addr(struct spe_adma_desc_slot *desc,
+static inline void ppc440spe_desc_set_xor_src_addr(struct ppc440spe_adma_desc_slot *desc,
 					int src_idx, dma_addr_t addr, int slot_cnt,
 					int slots_per_op)
 {
@@ -537,9 +537,9 @@ static inline void spe_desc_set_xor_src_addr(struct spe_adma_desc_slot *desc,
 	hw_desc->ops[src_idx] = addr;
 }
 
-static inline void spe_desc_set_next_desc(struct spe_adma_desc_slot *prev_desc,
-					struct spe_adma_chan *chan,
-					struct spe_adma_desc_slot *next_desc)
+static inline void ppc440spe_desc_set_next_desc(struct ppc440spe_adma_desc_slot *prev_desc,
+					struct ppc440spe_adma_chan *chan,
+					struct ppc440spe_adma_desc_slot *next_desc)
 {
 	volatile xor_cb_t *xor_hw_desc;
 	volatile xor_regs_t *xor_reg;
@@ -582,8 +582,8 @@ static inline void spe_desc_set_next_desc(struct spe_adma_desc_slot *prev_desc,
 	}
 }
 
-static inline u32 spe_desc_get_next_desc(struct spe_adma_desc_slot *desc,
-					struct spe_adma_chan *chan)
+static inline u32 ppc440spe_desc_get_next_desc(struct ppc440spe_adma_desc_slot *desc,
+					struct ppc440spe_adma_chan *chan)
 {
 	volatile xor_cb_t *xor_hw_desc;
 
@@ -603,11 +603,11 @@ static inline u32 spe_desc_get_next_desc(struct spe_adma_desc_slot *desc,
 	return 0;
 }
 
-static inline void spe_chan_append(struct spe_adma_chan *chan)
+static inline void ppc440spe_chan_append(struct ppc440spe_adma_chan *chan)
 {
         volatile dma_regs_t *dma_reg;
         volatile xor_regs_t *xor_reg;
-	struct spe_adma_desc_slot *iter;
+	struct ppc440spe_adma_desc_slot *iter;
 	int id = chan->device->id;
 	u32 cur_desc;
 	unsigned long flags;
@@ -616,7 +616,7 @@ static inline void spe_chan_append(struct spe_adma_chan *chan)
 		case PPC440SPE_DMA0_ID:
 		case PPC440SPE_DMA1_ID:
 			dma_reg = (dma_regs_t *)chan->device->pdev->resource[0].start;
-			cur_desc = spe_chan_get_current_descriptor(chan);
+			cur_desc = ppc440spe_chan_get_current_descriptor(chan);
 			if (likely(cur_desc)) {
 				/* flush descriptors from queue to fifo */
 				iter = last_sub[chan->device->id];
@@ -663,7 +663,7 @@ static inline void spe_chan_append(struct spe_adma_chan *chan)
 	}
 }
 
-static inline void spe_chan_disable(struct spe_adma_chan *chan)
+static inline void ppc440spe_chan_disable(struct ppc440spe_adma_chan *chan)
 {
 	int id = chan->device->id;
 	volatile xor_regs_t *xor_reg;
@@ -682,7 +682,7 @@ static inline void spe_chan_disable(struct spe_adma_chan *chan)
 	}
 }
 
-static inline void spe_chan_enable(struct spe_adma_chan *chan)
+static inline void ppc440spe_chan_enable(struct ppc440spe_adma_chan *chan)
 {
 	int id = chan->device->id;
 	volatile xor_regs_t *xor_reg;
