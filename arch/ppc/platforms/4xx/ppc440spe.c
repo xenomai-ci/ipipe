@@ -259,59 +259,78 @@ static void ppc440spe_configure_raid_devices(void)
 	u32 mask;
 
 	/*
-	 * Map registers
+	 * Map registers and allocate fifo buffer
 	 */
-	i2o_reg  = (i2o_regs_t *)ioremap64(I2O_MMAP_BASE, I2O_MMAP_SIZE);
-	dma_reg0 = (dma_regs_t *)ioremap64(DMA0_MMAP_BASE, DMA_MMAP_SIZE);
-	dma_reg1 = (dma_regs_t *)ioremap64(DMA1_MMAP_BASE, DMA_MMAP_SIZE);
-	xor_reg  = (xor_regs_t *)ioremap64(XOR_MMAP_BASE,XOR_MMAP_SIZE);
+	if (!(i2o_reg  = ioremap(I2O_MMAP_BASE, I2O_MMAP_SIZE))) {
+		printk(KERN_ERR "I2O registers mapping failed.\n");
+		return;
+	}
+	if (!(dma_reg0 = ioremap(DMA0_MMAP_BASE, DMA_MMAP_SIZE))) {
+		printk(KERN_ERR "DMA0 registers mapping failed.\n");
+		goto err1;
+	}
+	if (!(dma_reg1 = ioremap(DMA1_MMAP_BASE, DMA_MMAP_SIZE))) {
+		printk(KERN_ERR "DMA1 registers mapping failed.\n");
+		goto err2;
+	}
+	if (!(xor_reg  = ioremap(XOR_MMAP_BASE,XOR_MMAP_SIZE))) {
+		printk(KERN_ERR "XOR registers mapping failed.\n");
+		goto err3;
+	}
+
+	/*  Provide memory regions for DMA's FIFOs: I2O, DMA0 and DMA1 share
+	 * the base address of FIFO memory space.
+	 *  Actually we need twice more physical memory than programmed in the
+	 * <fsiz> register (because there are two FIFOs foreach DMA: CP and CS)
+	 */
+	fifo_buf = kmalloc((DMA0_FIFO_SIZE + DMA1_FIFO_SIZE)<<1, GFP_KERNEL);
+	if (!fifo_buf) {
+		printk(KERN_ERR "DMA FIFO buffer allocating failed.\n");
+		goto err4;
+	}
 
 	/*
 	 * Configure h/w
 	 */
-
 	/* Reset I2O/DMA */
-	mtdcr(DCRN_SDR0_CFGADDR, 0x200);
-	mtdcr(DCRN_SDR0_CFGDATA, 0x10000);
-	mtdcr(DCRN_SDR0_CFGADDR, 0x200);
-	mtdcr(DCRN_SDR0_CFGDATA, 0x0);
+	SDR_WRITE(DCRN_SDR_SRST, DCRN_SDR_SRST_I2ODMA);
+	SDR_WRITE(DCRN_SDR_SRST, 0);
 
 	/* Reset XOR */
 	out_be32(&xor_reg->crsr, XOR_CRSR_XASR_BIT);
 	out_be32(&xor_reg->crrr, XOR_CRSR_64BA_BIT);
 
 	/* Setup the base address of mmaped registers */
-	mtdcr(DCRN_I2O0_IBAH, 0x00000004);
-	mtdcr(DCRN_I2O0_IBAL, 0x00100001);
-
-	/*  Provide memory regions for DMA's FIFOs: I2O, DMA0 and DMA1 share
-	 * the base address of FIFO memory space
-	 */
-	fifo_buf = kmalloc((DMA0_FIFO_SIZE + DMA1_FIFO_SIZE)<<1, GFP_KERNEL | __GFP_DMA);
+	mtdcr(DCRN_I2O0_IBAH, (u32)(I2O_MMAP_BASE >> 32));
+	mtdcr(DCRN_I2O0_IBAL, (u32)(I2O_MMAP_BASE) | I2O_REG_ENABLE);
 
 	/* SetUp FIFO memory space base address */
 	out_le32(&i2o_reg->ifbah, 0);
 	out_le32(&i2o_reg->ifbal, ((u32)__pa(fifo_buf)));
 
-	/* zero FIFO size for I2O, DMAs; 0x1000 to enable DMA */
+	/* set zero FIFO size for I2O, so the whole fifo_buf is used by DMAs.
+	 * DMA0_FIFO_SIZE is defined in bytes, <fsiz> - in number of CDB pointers (8byte).
+	 * DMA FIFO Length = CSlength + CPlength, where
+	 *  CSlength = CPlength = (fsiz + 1) * 8.
+	 */
 	out_le32(&i2o_reg->ifsiz, 0);
-	out_le32(&dma_reg0->fsiz, 0x1000 | ((DMA0_FIFO_SIZE>>3) - 1));
-	out_le32(&dma_reg1->fsiz, 0x1000 | ((DMA1_FIFO_SIZE>>3) - 1));
+	out_le32(&dma_reg0->fsiz, DMA_FIFO_ENABLE | ((DMA0_FIFO_SIZE>>3) - 2));
+	out_le32(&dma_reg1->fsiz, DMA_FIFO_ENABLE | ((DMA1_FIFO_SIZE>>3) - 2));
 
 	/* Configure DMA engine */
-	out_le32(&dma_reg0->cfg, 0x0D880000);
-	out_le32(&dma_reg1->cfg, 0x0D880000);
+	out_le32(&dma_reg0->cfg, DMA_CFG_DXEPR_HP | DMA_CFG_DFMPP_HP | DMA_CFG_FALGN);
+	out_le32(&dma_reg1->cfg, DMA_CFG_DXEPR_HP | DMA_CFG_DFMPP_HP | DMA_CFG_FALGN);
 
 	/* Clear Status */
 	out_le32(&dma_reg0->dsts, ~0);
 	out_le32(&dma_reg1->dsts, ~0);
 
 	/* Unmask 'CS FIFO Attention' interrupts */
-	mask = in_le32(&i2o_reg->iopim) & ~0x48;
+	mask = in_le32(&i2o_reg->iopim) & ~(I2O_IOPIM_P0SNE | I2O_IOPIM_P1SNE);
 	out_le32(&i2o_reg->iopim, mask);
 
 	/* enable XOR engine interrupt */
-	out_be32(&xor_reg->ier, XOR_IE_CBLCI_BIT | XOR_IE_CBCIE_BIT | 0x34000);
+	out_be32(&xor_reg->ier, XOR_IE_CBCIE_BIT);
 
 	/*
 	 * Unmap I2O registers
@@ -332,6 +351,17 @@ static void ppc440spe_configure_raid_devices(void)
 	ppc440spe_xor_channel.resource[0].start = (resource_size_t)(xor_reg);
 	ppc440spe_xor_channel.resource[0].end =
 		ppc440spe_xor_channel.resource[0].start+XOR_MMAP_SIZE;
+
+	return;
+err4:
+	iounmap(xor_reg);
+err3:
+	iounmap(dma_reg1);
+err2:
+	iounmap(dma_reg0);
+err1:
+	iounmap(i2o_reg);
+	return;
 }
 
 static struct platform_device *ppc440spe_devs[] __initdata = {
