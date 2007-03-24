@@ -75,7 +75,6 @@ unsigned char ppc4xx_uic_ext_irq_cfg[] __initdata = {
 
 /* start will be added dynamically, end is always fixed */
 static struct resource sequoia_nor_resource = {
-		.end   = 0xffffffff,
 		.flags = IORESOURCE_MEM,
 };
 
@@ -100,7 +99,6 @@ static struct mtd_partition sequoia_nor_parts[] = {
 	{
 		.name = "user",
 		.offset = MTDPART_OFS_APPEND,
-/*		.size = RW_PART2_SZ */ /* will be adjusted dynamically */
 	},
 	{
 		.name = "env",
@@ -206,6 +204,8 @@ static struct platform_device sequoia_nand_device = {
 static int sequoia_setup_flash(void)
 {
 	sequoia_nor_resource.start = __res.bi_flashstart;
+	sequoia_nor_resource.end = __res.bi_flashstart +
+		__res.bi_flashsize - 1;
 
 	/*
 	 * Adjust partition 2 to flash size

@@ -3,6 +3,8 @@
  *
  * Sequoia board definitions
  *
+ * Copyright 2006-2007 DENX Software Engineering, Stefan Roese <sr@denx.de>
+ *
  * Wade Farnsworth <wfarnsworth@mvista.com>
  *
  * Copyright 2004 MontaVista Software Inc.
@@ -22,29 +24,6 @@
 
 /* Default clock rate */
 #define SEQUOIA_TMRCLK     50000000
-#define SEQUOIA_SYSCLK     33333333
-
-/* Board Control and Status Registers */
-#define SEQUOIA_BCSR_BASE_ADDR	0x1c0000000ULL
-
-#ifndef __ASSEMBLY__
-struct sequoia_bcsr {
-	unsigned char board_id;		/* board revision */
-	unsigned char cpld_version;	/* CPLD version */
-	unsigned char user_dip_switch;	/* LEDs and user DIP switch */
-	unsigned char conf_dip_switch;	/* configuration DIP switch */
-	unsigned char tmrclk_control;	/* TMRCLK source and modifier */
-	unsigned char pci_and_status;	/* PCI speed 33/66 */
-	unsigned char reset_ctrl;	/* reset control */
-	unsigned char memory_ctrl;	/* FLASH, EEPROM write protect, STTM addr */
-	unsigned char eth_ctrl;		/* Ethernet PHY resets */
-	unsigned char usb_ctrl;		/* USB control */
-	unsigned char perf_timer0;	/* performance timer */
-	unsigned char perf_timer1;
-	unsigned char perf_timer2;
-	unsigned char perf_timer3;
-};
-#endif /* __ASSEMBLY__ */
 
 #define SEQUOIA_NAND_FLASH_REG_ADDR	0x1D0000000ULL
 #define SEQUOIA_NAND_FLASH_REG_SIZE	0x2000
@@ -90,7 +69,7 @@ struct sequoia_bcsr {
 #define SEQUOIA_PCI_LOWER_IO		0x00000000
 #define SEQUOIA_PCI_UPPER_IO		0x0000ffff
 #define SEQUOIA_PCI_LOWER_MEM		0x80000000
-#define SEQUOIA_PCI_UPPER_MEM		0x8fffffff	/* to be checked with AS & TR should be bfffffff (test-only????????????) */
+#define SEQUOIA_PCI_UPPER_MEM		0x8fffffff	/* to be checked with AS & TR should be bfffffff */
 #define SEQUOIA_PCI_MEM_BASE		0x80000000
 
 #define SEQUOIA_PCIL0_BASE		0x00000001ef400000ULL

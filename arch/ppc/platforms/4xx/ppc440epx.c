@@ -22,7 +22,6 @@
 #include <asm/ocp.h>
 #include <asm/ppc4xx_pic.h>
 
-/* todo: include or remove CONFIG_INTR_COALESCE */
 static struct ocp_func_emac_data ppc440epx_emac0_def = {
 	.rgmii_idx	= 0,            /* RGMII device index */
 	.rgmii_mux	= 0,
