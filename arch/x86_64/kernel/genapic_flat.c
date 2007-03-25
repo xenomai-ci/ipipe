@@ -63,7 +63,7 @@ static void flat_send_IPI_mask(cpumask_t cpumask, int vector)
 	unsigned long cfg;
 	unsigned long flags;
 
-	local_irq_save(flags);
+	local_irq_save_hw(flags);
 
 	/*
 	 * Wait for idle.
@@ -85,7 +85,7 @@ static void flat_send_IPI_mask(cpumask_t cpumask, int vector)
 	 * Send the IPI. The write to APIC_ICR fires this off.
 	 */
 	apic_write(APIC_ICR, cfg);
-	local_irq_restore(flags);
+	local_irq_restore_hw(flags);
 }
 
 static void flat_send_IPI_allbutself(int vector)

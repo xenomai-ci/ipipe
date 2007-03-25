@@ -32,6 +32,10 @@
 int unknown_nmi_panic;
 int nmi_watchdog_enabled;
 int panic_on_unrecovered_nmi;
+static int default_nmi_watchdog_tick(struct pt_regs * regs, unsigned reason);
+
+int (*nmi_watchdog_tick) (struct pt_regs * regs, unsigned reason) = &default_nmi_watchdog_tick;
+EXPORT_SYMBOL(nmi_watchdog_tick);
 
 /* perfctr_nmi_owner tracks the ownership of the perfctr registers:
  * evtsel_nmi_owner tracks the ownership of the event selection
@@ -780,7 +784,7 @@ void touch_nmi_watchdog (void)
  	touch_softlockup_watchdog();
 }
 
-int __kprobes nmi_watchdog_tick(struct pt_regs * regs, unsigned reason)
+static int __kprobes default_nmi_watchdog_tick(struct pt_regs * regs, unsigned reason)
 {
 	int sum;
 	int touched = 0;

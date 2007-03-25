@@ -41,7 +41,7 @@
 #include <asm/desc.h>
 #include <asm/topology.h>
 
-#define __vsyscall(nr) __attribute__ ((unused,__section__(".vsyscall_" #nr)))
+#define __vsyscall(nr) __attribute__ ((unused,__section__(".vsyscall_" #nr))) notrace
 #define __syscall_clobber "r11","rcx","memory"
 
 int __sysctl_vsyscall __section_sysctl_vsyscall = 1;

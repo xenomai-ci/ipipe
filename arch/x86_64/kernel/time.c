@@ -53,7 +53,7 @@ static char *timename = NULL;
 
 DEFINE_SPINLOCK(rtc_lock);
 EXPORT_SYMBOL(rtc_lock);
-DEFINE_SPINLOCK(i8253_lock);
+IPIPE_DEFINE_SPINLOCK(i8253_lock);
 
 int nohpet __initdata = 0;
 static int notsc __initdata = 0;
@@ -421,7 +421,11 @@ void main_timer_handler(void)
 
 	do_timer(lost + 1);
 #ifndef CONFIG_SMP
+#ifdef CONFIG_IPIPE
+	update_process_times(user_mode(__ipipe_tick_regs + smp_processor_id()));
+#else
 	update_process_times(user_mode(get_irq_regs()));
+#endif
 #endif
 
 /*

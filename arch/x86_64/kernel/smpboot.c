@@ -222,7 +222,7 @@ static __cpuinit void sync_master(void *arg)
 
 	go[MASTER] = 0;
 
-	local_irq_save(flags);
+	local_irq_save_hw(flags);
 	{
 		for (i = 0; i < NUM_ROUNDS*NUM_ITERS; ++i) {
 			while (!go[MASTER])
@@ -231,7 +231,7 @@ static __cpuinit void sync_master(void *arg)
 			rdtscll(go[SLAVE]);
 		}
 	}
-	local_irq_restore(flags);
+	local_irq_restore_hw(flags);
 }
 
 /*
@@ -532,7 +532,7 @@ static inline void set_cpu_sibling_map(int cpu)
 /*
  * Setup code on secondary processor (after comming out of the trampoline)
  */
-void __cpuinit start_secondary(void)
+void __cpuinit notrace start_secondary(void)
 {
 	/*
 	 * Dont put anything before smp_callin(), SMP
