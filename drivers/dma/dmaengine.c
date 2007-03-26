@@ -431,11 +431,3 @@ static int __init dma_bus_init(void)
 }
 subsys_initcall(dma_bus_init);
 
-EXPORT_SYMBOL(dma_async_client_register);
-EXPORT_SYMBOL(dma_async_client_unregister);
-EXPORT_SYMBOL(dma_async_client_chan_request);
-EXPORT_SYMBOL(dma_async_is_tx_complete);
-EXPORT_SYMBOL(dma_async_issue_pending);
-EXPORT_SYMBOL(dma_async_device_register);
-EXPORT_SYMBOL(dma_async_device_unregister);
-EXPORT_SYMBOL(dma_chan_cleanup);

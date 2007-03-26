@@ -4,6 +4,10 @@
  * Copyright (c) 2006 DENX Software Engineering
  * Stefan Roese <sr@denx.de>
  *
+ * Modifications:
+ * March 2007, Pieter Voorthuijsen, pv@prodrive.nl
+ * Changed TX interrupt handling and tx routine, added spinlocks
+ *
  * Some of the code has been inspired/copied from the 2.4 code written
  * by Dale Farnsworth <dfarnsworth@mvista.com>.
  *
@@ -104,8 +108,15 @@ static inline int fpga_uart_int_tx_chars(struct uart_port *port);
 
 static unsigned int fpga_uart_tx_empty(struct uart_port *port)
 {
-	unsigned int ctrl = readl((port)->membase);
+	unsigned int ctrl;
+	unsigned long flags;
+
 	debug("ttyFPGA%d:%s\n", port->line, __FUNCTION__);
+
+	spin_lock_irqsave(port->lock, flags);
+	ctrl = readl((port)->membase);
+	spin_unlock_irqrestore(&port->lock, flags);
+
 	return (ctrl & UART_CTRL_TX_EMPTY) ? TIOCSER_TEMT : 0;
 }
 
@@ -122,39 +133,29 @@ static unsigned int fpga_uart_get_mctrl(struct uart_port *port)
 
 static void fpga_uart_stop_tx(struct uart_port *port)
 {
-	unsigned long val;
-
 	debug("ttyFPGA%d:%s\n", port->line, __FUNCTION__);
-	/*
-	 * Disable TX IRQ's in FPGA
-	 */
-	val = readl(data->vbar2 + IBUF_INT_ENABLE) & ~(INT_TX);
-	writel(val, data->vbar2 + IBUF_INT_ENABLE);
 }
 
 static void fpga_uart_start_tx(struct uart_port *port)
 {
-	unsigned long val;
-
 	debug("ttyFPGA%d:%s\n", port->line, __FUNCTION__);
-	/*
-	 * Enable TX IRQ's in FPGA
-	 */
-	val = readl(data->vbar2 + IBUF_INT_ENABLE) | (INT_TX);
-	writel(val, data->vbar2 + IBUF_INT_ENABLE);
 	fpga_uart_int_tx_chars(port);
 }
 
 static void fpga_uart_stop_rx(struct uart_port *port)
 {
 	unsigned long val;
+	unsigned long flags;
 
-	debug("ttyFPGA%d:%s\n", port->line, __FUNCTION__);
 	/*
-	 * Disable TX IRQ's in FPGA
+	 * Disable RX IRQ's in FPGA
 	 */
+	spin_lock_irqsave(&port->lock, flags);
 	val = readl(data->vbar2 + IBUF_INT_ENABLE) & ~(INT_RX);
 	writel(val, data->vbar2 + IBUF_INT_ENABLE);
+	spin_unlock_irqrestore(&port->lock, flags);
+
+	debug("ttyFPGA%d:%s\n", port->line, __FUNCTION__);
 }
 
 static void fpga_uart_enable_ms(struct uart_port *port)
@@ -209,8 +210,8 @@ static void fpga_uart_shutdown(struct uart_port *port)
 	free_irq(port->irq, port);
 }
 
-static void fpga_uart_set_termios(struct uart_port *port, struct termios *new,
-				  struct termios *old)
+static void fpga_uart_set_termios(struct uart_port *port, struct ktermios *new,
+				  struct ktermios *old)
 {
 	unsigned long flags;
 	unsigned int baud;
@@ -346,8 +347,7 @@ static inline int fpga_uart_int_rx_chars(struct uart_port *port)
 
 	/* While we can read, do so ! */
 	status = readl((port)->membase);
-	debug("ttyFPGA%d:%s: ctrl=%x\n", port->line, __FUNCTION__, status);
-	debug("ttyFPGA%d:%s: lvl=%x\n", port->line, __FUNCTION__, status & UART_CTRL_RX_LVL);
+	debug("ttyFPGA%d:%s: ctrl=%x lvl=%x\n", port->line, __FUNCTION__, status, status & UART_CTRL_RX_LVL);
 	while ((status & UART_CTRL_RX_LVL) != 0) {
 		/* Get the char */
 		ch = (unsigned char)readl((port)->membase + 0x200);
@@ -400,44 +400,45 @@ static inline int fpga_uart_int_rx_chars(struct uart_port *port)
 static inline int fpga_uart_int_tx_chars(struct uart_port *port)
 {
 	struct circ_buf *xmit = &port->info->xmit;
+	int count;
 
 	debug("ttyFPGA%d:%s\n", port->line, __FUNCTION__);
-	/* Process out of band chars */
-	if (port->x_char) {
-		writel(port->x_char, (port)->membase + 0x5f8);
-		port->icount.tx++;
-		port->x_char = 0;
-		return 1;
+
+	if ((readl((port)->membase) & UART_CTRL_TX_LVL) == 0x0) {
+	    debug("ttyFPGA%d:%s Hardware FIFO is full...\n", port->line, __FUNCTION__);
+	    return 1;
 	}
 
 	/* Nothing to do ? */
 	debug("ttyFPGA%d:%s head=%d tail=%d\n",
 	      port->line, __FUNCTION__, xmit->head, xmit->tail);
+
+	/* Process out of band chars */
+	if (port->x_char) {
+		writel(port->x_char, (port)->membase + 0x200);
+		port->icount.tx++;
+		port->x_char = 0;
+		return 1;
+	}
+
 	if (uart_circ_empty(xmit) || uart_tx_stopped(port)) {
 		fpga_uart_stop_tx(port);
 		return 0;
 	}
 
 	/* Send chars */
-	while (readl((port)->membase) & UART_CTRL_TX_LVL) {
-		writel(xmit->buf[xmit->tail], (port)->membase + 0x5f8);
-		debug("ttyFPGA%d:%s: sending %02x\n",
-		      port->line, __FUNCTION__, xmit->buf[xmit->tail]);
-		xmit->tail = (xmit->tail + 1) & (UART_XMIT_SIZE - 1);
-		port->icount.tx++;
-		if (uart_circ_empty(xmit))
-			break;
-	}
+	count = port->fifosize >> 1;
+
+	writel(xmit->buf[xmit->tail], (port)->membase + 0x5f8);
+	xmit->tail = (xmit->tail + 1) & (UART_XMIT_SIZE - 1);
+	port->icount.tx++;
+
+	debug("ttyFPGA%d:%s: sending %02x\n",
+	      port->line, __FUNCTION__, xmit->buf[xmit->tail]);
 
 	/* Wake up */
 	if (uart_circ_chars_pending(xmit) < WAKEUP_CHARS)
-		uart_write_wakeup(port);
-
-	/* Maybe we're done after all */
-	if (uart_circ_empty(xmit)) {
-		fpga_uart_stop_tx(port);
-		return 0;
-	}
+	    uart_write_wakeup(port);
 
 	return 1;
 }
@@ -446,10 +447,12 @@ static irqreturn_t fpga_uart_int(int irq, void *dev_id)
 {
 	struct uart_port *port = (struct uart_port *) dev_id;
 	unsigned int int_status;
+	int busy;
 
 	debug("ttyFPGA%d:%s\n", port->line, __FUNCTION__);
 	debug("ttyFPGA%d:%s int_enable=%x int_status=%x\n",
-	      port->line, __FUNCTION__, readl(data->vbar2 + IBUF_INT_ENABLE), readl(data->vbar2 + IBUF_INT_STATUS));
+	      port->line, __FUNCTION__, readl(data->vbar2 + IBUF_INT_ENABLE),
+	      readl(data->vbar2 + IBUF_INT_STATUS));
 	spin_lock(&port->lock);
 
 	/* While we have stuff to do, we continue */
@@ -464,9 +467,11 @@ static irqreturn_t fpga_uart_int(int irq, void *dev_id)
 
 		/* Do we need to send chars ? */
 		/* For this, TX must be ready and TX interrupt enabled */
-		if (int_status & INT_TX)
-			fpga_uart_int_tx_chars(port);
-
+		if (int_status & INT_TX) {
+			do {
+				busy = fpga_uart_int_tx_chars(port);
+			} while(busy);
+		}
 		writel(int_status, data->vbar2 + IBUF_INT_STATUS);
 		int_status = readl(data->vbar2 + IBUF_INT_STATUS) & INT_MASK;
 	}
@@ -510,8 +515,8 @@ static int __devinit fpga_uart_probe(struct platform_device *dev)
 	memset(port, 0x00, sizeof(struct uart_port));
 
 	spin_lock_init(&port->lock);
-	port->uartclk	= 33000000 / 2;
-	port->fifosize	= 512;
+	port->uartclk	= 33333000 / 2;
+	port->fifosize	= 16;
 	port->iotype	= UPIO_MEM;
 	port->flags	= UPF_BOOT_AUTOCONF | UPF_IOREMAP;
 	port->line	= idx;

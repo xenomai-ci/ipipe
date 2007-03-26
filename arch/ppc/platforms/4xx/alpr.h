@@ -16,6 +16,7 @@
 #ifndef __ASM_ALPR_H__
 #define __ASM_ALPR_H__
 
+#include <asm/mmu.h>
 #include <platforms/4xx/ibm440gx.h>
 
 #ifndef __ASSEMBLY__
