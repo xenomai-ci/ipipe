@@ -278,6 +278,7 @@
 		//serial@2600 {		// PSC4
 		//	device_type = "serial";
 		//	compatible = "mpc5200b-psc-uart\0mpc5200-psc-uart";
+		//	port-number = <3>;  // Logical port assignment
 		//	cell-index = <3>;
 		//	reg = <2600 100>;
 		//	interrupts = <2 b 0>;
@@ -288,6 +289,7 @@
 		//serial@2800 {		// PSC5
 		//	device_type = "serial";
 		//	compatible = "mpc5200b-psc-uart\0mpc5200-psc-uart";
+		//	port-number = <4>;  // Logical port assignment
 		//	cell-index = <4>;
 		//	reg = <2800 100>;
 		//	interrupts = <2 c 0>;
