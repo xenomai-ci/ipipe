@@ -151,7 +151,7 @@ static struct mtd_partition sequoia_nand_parts[] = {
 struct ndfc_controller_settings sequoia_ndfc_settings = {
 	.ccr_settings = (NDFC_CCR_BS(CS_NAND_0) |
 			 NDFC_CCR_ARAC1),
-	.ndfc_erpn = (SEQUOIA_NAND_FLASH_REG_ADDR) >> 32,
+	.ndfc_erpn = SEQUOIA_NAND_FLASH_REG_ADDR & 0xf00000000ULL,
 };
 
 struct platform_nand_ctrl sequoia_nand_ctrl = {
