@@ -286,15 +286,15 @@
 		//};
 
 		// PSC5 in uart mode example
-		//serial@2800 {		// PSC5
-		//	device_type = "serial";
-		//	compatible = "mpc5200b-psc-uart\0mpc5200-psc-uart";
-		//	port-number = <4>;  // Logical port assignment
-		//	cell-index = <4>;
-		//	reg = <2800 100>;
-		//	interrupts = <2 c 0>;
-		//	interrupt-parent = <500>;
-		//};
+		serial@2800 {		// PSC5
+			device_type = "serial";
+			compatible = "mpc5200b-psc-uart\0mpc5200-psc-uart";
+			port-number = <4>;  // Logical port assignment
+			cell-index = <4>;
+			reg = <2800 100>;
+			interrupts = <2 c 0>;
+			interrupt-parent = <500>;
+		};
 
 		// PSC6 in spi mode example
 		//spi@2c00 {		// PSC6
