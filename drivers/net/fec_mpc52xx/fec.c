@@ -525,7 +525,7 @@ static void fec_hw_init(struct net_device *dev)
 	priv->phy_speed = ((bd->bi_ipbfreq >> 20) / 5) << 1;
 #endif
 
-	fec_restart(dev, 0);	/* always use half duplex mode only */
+	fec_restart(dev, 1);	/* full duplex mode */
 	/*
 	 * Read MIB counters in order to reset them,
 	 * then zero all the stats fields in memory
