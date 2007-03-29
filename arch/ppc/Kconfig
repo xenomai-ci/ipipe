@@ -1201,15 +1201,24 @@ config SECCOMP
 
 	  If unsure, say Y. Only embedded should say N here.
 
-config PPC_PAGE_SHIFT
-	int "Page size (12=>4KB; 14=>16KB; 16=>64KB)" if 44x
-	default "12"
-	range 12 16
-	help
+choice
+	prompt "Page size"
+	default PPC_PAGE_4K
+	---help---
 	  The PAGE_SIZE definition. Increasing the page size may
 	  improve the system performance in some dedicated cases.
 
-	  If unsure, set it to 12 (4KB).
+	  If unsure, set it to 4 KB.
+
+config PPC_PAGE_4K
+	bool "4 KB"
+
+config PPC_PAGE_16K
+	bool "16 KB" if 44x
+
+config PPC_PAGE_64K
+	bool "64 KB" if 44x
+endchoice
 
 endmenu
 
