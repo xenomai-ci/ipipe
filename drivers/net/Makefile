@@ -26,6 +26,7 @@ ucc_geth_driver-objs := ucc_geth.o ucc_geth_phy.o
 obj-$(CONFIG_PLIP) += plip.o
 
 obj-$(CONFIG_ROADRUNNER) += rrunner.o
+obj-$(CONFIG_FEC_MPC52xx) += fec_mpc52xx/
 
 obj-$(CONFIG_HAPPYMEAL) += sunhme.o
 obj-$(CONFIG_SUNLANCE) += sunlance.o
