@@ -74,7 +74,7 @@ ppc440spe_adma_run_tx_complete_actions(struct ppc440spe_adma_desc_slot *desc,
 
 	if (desc->async_tx.cookie > 0) {
 		cookie = desc->async_tx.cookie;
-		desc->async_tx.cookie = 0; 
+		desc->async_tx.cookie = 0;
 
 		/* call the callback (must not sleep or submit new
 		 * operations to this channel)
@@ -362,12 +362,12 @@ __ppc440spe_adma_alloc_slots(struct ppc440spe_adma_chan *ppc440spe_chan, int num
 					else
 						iter->async_tx.ack = 0;
 
-                                        PRINTK ("ppc440spe adma%d: allocated slot: %d "
-                                                "(desc %p phys: %#x) stride %d"
+					PRINTK ("ppc440spe adma%d: allocated slot: %d "
+						"(desc %p phys: %#x) stride %d"
 						",ack = %d\n",
-                                                ppc440spe_chan->device->id,
-                                                iter->idx, iter->hw_desc, iter->phys,
-                                                slots_per_op, iter->async_tx.ack);
+						ppc440spe_chan->device->id,
+						iter->idx, iter->hw_desc, iter->phys,
+						slots_per_op, iter->async_tx.ack);
 
 					list_add_tail(&iter->chain_node, &chain);
 					last_op_head = iter;
@@ -564,8 +564,8 @@ ppc440spe_adma_prep_dma_memcpy(struct dma_chan *chan, size_t len, int int_en)
 
 	spin_lock_bh(&ppc440spe_chan->lock);
 
-        PRINTK("ppc440spe adma%d: %s len: %u int_en %d\n",
-        ppc440spe_chan->device->id, __FUNCTION__, len, int_en);
+	PRINTK("ppc440spe adma%d: %s len: %u int_en %d\n",
+	ppc440spe_chan->device->id, __FUNCTION__, len, int_en);
 
 	slot_cnt = ppc440spe_chan_memcpy_slot_count(len, &slots_per_op);
 	sw_desc = ppc440spe_adma_alloc_slots(ppc440spe_chan, slot_cnt, slots_per_op);
@@ -576,7 +576,7 @@ ppc440spe_adma_prep_dma_memcpy(struct dma_chan *chan, size_t len, int int_en)
 		sw_desc->unmap_src_cnt = 1;
 		sw_desc->unmap_len = len;
 		sw_desc->async_tx.type = DMA_MEMCPY;
-	} 
+	}
 	spin_unlock_bh(&ppc440spe_chan->lock);
 
 	return sw_desc ? &sw_desc->async_tx : NULL;
@@ -713,9 +713,9 @@ static void ppc440spe_adma_free_chan_resources(struct dma_chan *chan)
  * @cookie: ADMA transaction identifier
  */
 static enum dma_status ppc440spe_adma_is_complete(struct dma_chan *chan,
-                                            dma_cookie_t cookie,
-                                            dma_cookie_t *done,
-                                            dma_cookie_t *used)
+					    dma_cookie_t cookie,
+					    dma_cookie_t *done,
+					    dma_cookie_t *used)
 {
 	struct ppc440spe_adma_chan *ppc440spe_chan = to_ppc440spe_adma_chan(chan);
 	dma_cookie_t last_used;
@@ -770,8 +770,8 @@ static void ppc440spe_adma_issue_pending(struct dma_chan *chan)
 			ppc440spe_chan->pending);
 
 	if (ppc440spe_chan->pending) {
-        	ppc440spe_chan->pending = 0;
-                ppc440spe_chan_append(ppc440spe_chan);
+		ppc440spe_chan->pending = 0;
+		ppc440spe_chan_append(ppc440spe_chan);
 	}
 }
 
