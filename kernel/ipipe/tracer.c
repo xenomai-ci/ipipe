@@ -29,7 +29,8 @@
 #include <linux/ctype.h>
 #include <linux/vmalloc.h>
 #include <linux/utsrelease.h>
-#include <linux/ipipe_trace.h>
+#include <linux/sched.h>
+#include <linux/ipipe.h>
 #include <asm/uaccess.h>
 
 #define IPIPE_TRACE_PATHS           4 /* <!> Do not lower below 3 */
