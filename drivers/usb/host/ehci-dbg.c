@@ -119,16 +119,16 @@ static void __attribute__((__unused__))
 dbg_qtd (const char *label, struct ehci_hcd *ehci, struct ehci_qtd *qtd)
 {
 	ehci_dbg (ehci, "%s td %p n%08x %08x t%08x p0=%08x\n", label, qtd,
-		le32_to_cpup (&qtd->hw_next),
-		le32_to_cpup (&qtd->hw_alt_next),
-		le32_to_cpup (&qtd->hw_token),
-		le32_to_cpup (&qtd->hw_buf [0]));
+		  hc32_to_cpup (ehci, &qtd->hw_next),
+		  hc32_to_cpup (ehci, &qtd->hw_alt_next),
+		  hc32_to_cpup (ehci, &qtd->hw_token),
+		  hc32_to_cpup (ehci, &qtd->hw_buf [0]));
 	if (qtd->hw_buf [1])
 		ehci_dbg (ehci, "  p1=%08x p2=%08x p3=%08x p4=%08x\n",
-			le32_to_cpup (&qtd->hw_buf [1]),
-			le32_to_cpup (&qtd->hw_buf [2]),
-			le32_to_cpup (&qtd->hw_buf [3]),
-			le32_to_cpup (&qtd->hw_buf [4]));
+			  hc32_to_cpup (ehci, &qtd->hw_buf [1]),
+			  hc32_to_cpup (ehci, &qtd->hw_buf [2]),
+			  hc32_to_cpup (ehci, &qtd->hw_buf [3]),
+			  hc32_to_cpup (ehci, &qtd->hw_buf [4]));
 }
 
 static void __attribute__((__unused__))
@@ -144,26 +144,26 @@ static void __attribute__((__unused__))
 dbg_itd (const char *label, struct ehci_hcd *ehci, struct ehci_itd *itd)
 {
 	ehci_dbg (ehci, "%s [%d] itd %p, next %08x, urb %p\n",
-		label, itd->frame, itd, le32_to_cpu(itd->hw_next), itd->urb);
+		label, itd->frame, itd, hc32_to_cpu(ehci, itd->hw_next), itd->urb);
 	ehci_dbg (ehci,
 		"  trans: %08x %08x %08x %08x %08x %08x %08x %08x\n",
-		le32_to_cpu(itd->hw_transaction[0]),
-		le32_to_cpu(itd->hw_transaction[1]),
-		le32_to_cpu(itd->hw_transaction[2]),
-		le32_to_cpu(itd->hw_transaction[3]),
-		le32_to_cpu(itd->hw_transaction[4]),
-		le32_to_cpu(itd->hw_transaction[5]),
-		le32_to_cpu(itd->hw_transaction[6]),
-		le32_to_cpu(itd->hw_transaction[7]));
+		hc32_to_cpu(ehci, itd->hw_transaction[0]),
+		hc32_to_cpu(ehci, itd->hw_transaction[1]),
+		hc32_to_cpu(ehci, itd->hw_transaction[2]),
+		hc32_to_cpu(ehci, itd->hw_transaction[3]),
+		hc32_to_cpu(ehci, itd->hw_transaction[4]),
+		hc32_to_cpu(ehci, itd->hw_transaction[5]),
+		hc32_to_cpu(ehci, itd->hw_transaction[6]),
+		hc32_to_cpu(ehci, itd->hw_transaction[7]));
 	ehci_dbg (ehci,
 		"  buf:   %08x %08x %08x %08x %08x %08x %08x\n",
-		le32_to_cpu(itd->hw_bufp[0]),
-		le32_to_cpu(itd->hw_bufp[1]),
-		le32_to_cpu(itd->hw_bufp[2]),
-		le32_to_cpu(itd->hw_bufp[3]),
-		le32_to_cpu(itd->hw_bufp[4]),
-		le32_to_cpu(itd->hw_bufp[5]),
-		le32_to_cpu(itd->hw_bufp[6]));
+		hc32_to_cpu(ehci, itd->hw_bufp[0]),
+		hc32_to_cpu(ehci, itd->hw_bufp[1]),
+		hc32_to_cpu(ehci, itd->hw_bufp[2]),
+		hc32_to_cpu(ehci, itd->hw_bufp[3]),
+		hc32_to_cpu(ehci, itd->hw_bufp[4]),
+		hc32_to_cpu(ehci, itd->hw_bufp[5]),
+		hc32_to_cpu(ehci, itd->hw_bufp[6]));
 	ehci_dbg (ehci, "  index: %d %d %d %d %d %d %d %d\n",
 		itd->index[0], itd->index[1], itd->index[2],
 		itd->index[3], itd->index[4], itd->index[5],
@@ -174,14 +174,14 @@ static void __attribute__((__unused__))
 dbg_sitd (const char *label, struct ehci_hcd *ehci, struct ehci_sitd *sitd)
 {
 	ehci_dbg (ehci, "%s [%d] sitd %p, next %08x, urb %p\n",
-		label, sitd->frame, sitd, le32_to_cpu(sitd->hw_next), sitd->urb);
+		label, sitd->frame, sitd, hc32_to_cpu(ehci, sitd->hw_next), sitd->urb);
 	ehci_dbg (ehci,
 		"  addr %08x sched %04x result %08x buf %08x %08x\n",
-		le32_to_cpu(sitd->hw_fullspeed_ep),
-		le32_to_cpu(sitd->hw_uframe),
-		le32_to_cpu(sitd->hw_results),
-		le32_to_cpu(sitd->hw_buf [0]),
-		le32_to_cpu(sitd->hw_buf [1]));
+		hc32_to_cpu(ehci, sitd->hw_fullspeed_ep),
+		hc32_to_cpu(ehci, sitd->hw_uframe),
+		hc32_to_cpu(ehci, sitd->hw_results),
+		hc32_to_cpu(ehci, sitd->hw_buf [0]),
+		hc32_to_cpu(ehci, sitd->hw_buf [1]));
 }
 
 static int __attribute__((__unused__))
@@ -332,9 +332,9 @@ static inline void remove_debug_files (struct ehci_hcd *bus) { }
 		default: tmp = '?'; break; \
 		}; tmp; })
 
-static inline char token_mark (__le32 token)
+static inline char token_mark (struct ehci_hcd *ehci, __hc32 token)
 {
-	__u32 v = le32_to_cpu (token);
+	__u32 v = hc32_to_cpu (ehci, token);
 	if (v & QTD_STS_ACTIVE)
 		return '*';
 	if (v & QTD_STS_HALT)
@@ -364,7 +364,7 @@ static void qh_lines (
 	if (qh->hw_qtd_next == EHCI_LIST_END)	/* NEC does this */
 		mark = '@';
 	else
-		mark = token_mark (qh->hw_token);
+		mark = token_mark (ehci, qh->hw_token);
 	if (mark == '/') {	/* qh_alt_next controls qh advance? */
 		if ((qh->hw_alt_next & QTD_MASK) == ehci->async->hw_alt_next)
 			mark = '#';	/* blocked */
@@ -372,29 +372,29 @@ static void qh_lines (
 			mark = '.';	/* use hw_qtd_next */
 		/* else alt_next points to some other qtd */
 	}
-	scratch = le32_to_cpup (&qh->hw_info1);
-	hw_curr = (mark == '*') ? le32_to_cpup (&qh->hw_current) : 0;
+	scratch = hc32_to_cpup (ehci, &qh->hw_info1);
+	hw_curr = (mark == '*') ? hc32_to_cpup (ehci, &qh->hw_current) : 0;
 	temp = scnprintf (next, size,
 			"qh/%p dev%d %cs ep%d %08x %08x (%08x%c %s nak%d)",
 			qh, scratch & 0x007f,
 			speed_char (scratch),
 			(scratch >> 8) & 0x000f,
-			scratch, le32_to_cpup (&qh->hw_info2),
-			le32_to_cpup (&qh->hw_token), mark,
-			(__constant_cpu_to_le32 (QTD_TOGGLE) & qh->hw_token)
+			scratch, hc32_to_cpup (ehci, &qh->hw_info2),
+			hc32_to_cpup (ehci, &qh->hw_token), mark,
+			(cpu_to_hc32 (ehci, QTD_TOGGLE) & qh->hw_token)
 				? "data1" : "data0",
-			(le32_to_cpup (&qh->hw_alt_next) >> 1) & 0x0f);
+			(hc32_to_cpup (ehci, &qh->hw_alt_next) >> 1) & 0x0f);
 	size -= temp;
 	next += temp;
 
 	/* hc may be modifying the list as we read it ... */
 	list_for_each (entry, &qh->qtd_list) {
 		td = list_entry (entry, struct ehci_qtd, qtd_list);
-		scratch = le32_to_cpup (&td->hw_token);
+		scratch = hc32_to_cpup (ehci, &td->hw_token);
 		mark = ' ';
 		if (hw_curr == td->qtd_dma)
 			mark = '*';
-		else if (qh->hw_qtd_next == cpu_to_le32(td->qtd_dma))
+		else if (qh->hw_qtd_next == cpu_to_hc32(ehci, td->qtd_dma))
 			mark = '+';
 		else if (QTD_LENGTH (scratch)) {
 			if (td->hw_alt_next == ehci->async->hw_alt_next)
@@ -490,7 +490,7 @@ show_periodic (struct class_device *class_dev, char *buf)
 	unsigned		temp, size, seen_count;
 	char			*next;
 	unsigned		i;
-	__le32			tag;
+	__hc32			tag;
 
 	if (!(seen = kmalloc (DBG_SCHED_LIMIT * sizeof *seen, GFP_ATOMIC)))
 		return 0;
@@ -521,11 +521,11 @@ show_periodic (struct class_device *class_dev, char *buf)
 		next += temp;
 
 		do {
-			switch (tag) {
+			switch (hc32_to_cpu(ehci, tag)) {
 			case Q_TYPE_QH:
 				temp = scnprintf (next, size, " qh%d-%04x/%p",
 						p.qh->period,
-						le32_to_cpup (&p.qh->hw_info2)
+						hc32_to_cpup (ehci, &p.qh->hw_info2)
 							/* uframe masks */
 							& (QH_CMASK | QH_SMASK),
 						p.qh);
@@ -543,7 +543,7 @@ show_periodic (struct class_device *class_dev, char *buf)
 				}
 				/* show more info the first time around */
 				if (temp == seen_count && p.ptr) {
-					u32	scratch = le32_to_cpup (
+					u32	scratch = hc32_to_cpup (ehci,
 							&p.qh->hw_info1);
 					struct ehci_qtd	*qtd;
 					char		*type = "";
@@ -554,7 +554,7 @@ show_periodic (struct class_device *class_dev, char *buf)
 							&p.qh->qtd_list,
 							qtd_list) {
 						temp++;
-						switch (0x03 & (le32_to_cpu (
+						switch (0x03 & (hc32_to_cpu (ehci,
 							qtd->hw_token) >> 8)) {
 						case 0: type = "out"; continue;
 						case 1: type = "in"; continue;
@@ -597,7 +597,7 @@ show_periodic (struct class_device *class_dev, char *buf)
 				temp = scnprintf (next, size,
 					" sitd%d-%04x/%p",
 					p.sitd->stream->interval,
-					le32_to_cpup (&p.sitd->hw_uframe)
+					hc32_to_cpup (ehci, &p.sitd->hw_uframe)
 						& 0x0000ffff,
 					p.sitd);
 				tag = Q_NEXT_TYPE (p.sitd->hw_next);

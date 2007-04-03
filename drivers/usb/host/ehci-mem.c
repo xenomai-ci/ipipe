@@ -35,7 +35,8 @@
 
 /* Allocate the key transfer structures from the previously allocated pool */
 
-static inline void ehci_qtd_init (struct ehci_qtd *qtd, dma_addr_t dma)
+static inline void ehci_qtd_init (struct ehci_hcd *ehci, struct ehci_qtd *qtd,
+				  dma_addr_t dma)
 {
 	memset (qtd, 0, sizeof *qtd);
 	qtd->qtd_dma = dma;
@@ -52,7 +53,7 @@ static struct ehci_qtd *ehci_qtd_alloc (struct ehci_hcd *ehci, gfp_t flags)
 
 	qtd = dma_pool_alloc (ehci->qtd_pool, flags, &dma);
 	if (qtd != NULL) {
-		ehci_qtd_init (qtd, dma);
+		ehci_qtd_init (ehci, qtd, dma);
 	}
 	return qtd;
 }
