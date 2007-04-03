@@ -6,10 +6,12 @@
  *
  * Author: Dale Farnsworth <dfarnsworth@mvista.com>
  *
- * 2003-2004 (c) MontaVista, Software, Inc.  This file is licensed under
- * the terms of the GNU General Public License version 2.  This program
- * is licensed "as is" without any warranty of any kind, whether express
- * or implied.
+ * Copyright 2007 Wolfgang Denk, DENX Software Engineering, <wd@denx.de>.
+ * 2003-2004 (c) MontaVista, Software, Inc.
+ * 
+ * This file is licensed under the terms of the GNU General Public License
+ * version 2.  This program is licensed "as is" without any warranty of any
+ * kind, whether express or implied.
  */
 
 #include <linux/kernel.h>
@@ -20,8 +22,14 @@
 #include <linux/mii.h>
 #include <asm/io.h>
 #include <asm/mpc52xx.h>
+
+#ifdef CONFIG_PPC_MERGE
+#include <platforms/52xx/bestcomm.h>
+#else
 #include <syslib/bestcomm/bestcomm.h>
 #include <syslib/bestcomm/fec.h>
+#endif
+
 #include "fec_phy.h"
 #include "fec.h"
 
@@ -322,8 +330,66 @@ static phy_info_t phy_info_lxt971 = {
 	},
 };
 
+
+#ifdef CONFIG_FEC_AM79C874
+/*
+ * AMD Am79C874 support. Does not support link change interrupts at this time.
+ */
+
+/* extended register definitions for the AM79C874 */
+#define MII_874_MFR	16	/* Miscellaneous Features Register */
+#define MII_874_ICSR	17	/* Interrupt Control/Status Register */
+#define MII_874_DIAG	18	/* Diagnostic Register */
+#define MII_874_PWR	19	/* Power/Loopback Register */
+#define MII_874_MCR	20	/* Mode Control Register */
+#define MII_874_DIS	23	/* Disconnect Counter */
+#define MII_874_REC	24	/* Receive Error Counter */
+
+static phy_info_t phy_info_am79c874 = {
+	0x00022561,
+	"Am79C874",
+
+	(const phy_cmd_t []) {	/* config */
+		/* advertise all capabilities */
+		{ mk_mii_write(MII_ADVERTISE,
+				(ADVERTISE_10HALF |
+				ADVERTISE_10FULL |
+				ADVERTISE_100HALF |
+				ADVERTISE_100FULL)),
+				mii_parse_anar },
+
+		/* enable auto-negotiation */
+		{ mk_mii_write(MII_BMCR, BMCR_ANENABLE), mii_parse_cr },
+
+		/* Enable advanced low power mode */
+#ifdef CONFIG_FEC_AM79C874_125TRANS
+		/* We're using a 1.25:1 transformer ratio */
+		{ mk_mii_write(MII_874_PWR, 0x60), NULL },
+#else /* !CONFIG_FEC_AM79C874_125TRANS */
+		/* We're using a 1:1 transformer ratio */
+		{ mk_mii_write(MII_874_PWR, 0x20), NULL },
+#endif /* CONFIG_FEC_AM79C874_125TRANS */
+
+		{ mk_mii_end, }
+	},
+	(const phy_cmd_t []) {	/* startup */
+		{ mk_mii_end, }
+	},
+	(const phy_cmd_t []) {	/* ack_int */
+		{ mk_mii_end, }
+	},
+	(const phy_cmd_t []) {	/* shutdown */
+		{ mk_mii_end, }
+	},
+};
+#endif /* CONFIG_FEC_AM79C874 */
+
+
 static phy_info_t *phy_info[] = {
 	&phy_info_lxt971,
+#ifdef CONFIG_FEC_AM79C874
+	&phy_info_am79c874,
+#endif /* CONFIG_FEC_AM79C874 */
 	/* Generic PHY support.  This must be the last PHY in the table.
 	 * It will be used to support any PHY that doesn't match a previous
 	 * entry in the table.
