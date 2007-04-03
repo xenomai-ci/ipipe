@@ -266,7 +266,7 @@ static struct platform_device usb_gadget_device = {
 };
 
 static struct platform_device ehci_usb_device = {
-	.name		= "amcc-ehci",
+	.name		= "ppc-soc-ehci",
 	.id		= 0,
 	.num_resources	= ARRAY_SIZE(ehci_usb_resources),
 	.resource	= ehci_usb_resources,
