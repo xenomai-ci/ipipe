@@ -384,9 +384,9 @@ void mmput(struct mm_struct *mm)
 	might_sleep();
 
 	if (atomic_dec_and_test(&mm->mm_users)) {
-		ipipe_cleanup_notify(mm);
 		exit_aio(mm);
 		exit_mmap(mm);
+		ipipe_cleanup_notify(mm);
 		if (!list_empty(&mm->mmlist)) {
 			spin_lock(&mmlist_lock);
 			list_del(&mm->mmlist);
