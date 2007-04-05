@@ -253,9 +253,9 @@ static struct platform_device ppc440spe_xor_channel = {
 static void ppc440spe_configure_raid_devices(void)
 {
 	void *fifo_buf;
-	i2o_regs_t *i2o_reg;
-	dma_regs_t *dma_reg0, *dma_reg1;
-	xor_regs_t *xor_reg;
+	volatile i2o_regs_t *i2o_reg;
+	volatile dma_regs_t *dma_reg0, *dma_reg1;
+	volatile xor_regs_t *xor_reg;
 	u32 mask;
 
 	/*
@@ -297,8 +297,8 @@ static void ppc440spe_configure_raid_devices(void)
 	SDR_WRITE(DCRN_SDR_SRST, 0);
 
 	/* Reset XOR */
-	out_be32(&xor_reg->crsr, XOR_CRSR_XASR_BIT);
-	out_be32(&xor_reg->crrr, XOR_CRSR_64BA_BIT);
+	xor_reg->crsr = XOR_CRSR_XASR_BIT;
+	xor_reg->crrr = XOR_CRSR_64BA_BIT;
 
 	/* Setup the base address of mmaped registers */
 	mtdcr(DCRN_I2O0_IBAH, (u32)(I2O_MMAP_BASE >> 32));
@@ -329,8 +329,9 @@ static void ppc440spe_configure_raid_devices(void)
 	mask = in_le32(&i2o_reg->iopim) & ~(I2O_IOPIM_P0SNE | I2O_IOPIM_P1SNE);
 	out_le32(&i2o_reg->iopim, mask);
 
-	/* enable XOR engine interrupt */
-	out_be32(&xor_reg->ier, XOR_IE_CBCIE_BIT);
+	/* enable XOR engine interrupts */
+	xor_reg->ier = XOR_IE_CBCIE_BIT | 
+		 XOR_IE_ICBIE_BIT | XOR_IE_ICIE_BIT | XOR_IE_RPTIE_BIT;
 
 	/*
 	 * Unmap I2O registers
