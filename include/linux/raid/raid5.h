@@ -176,7 +176,7 @@ struct stripe_head {
 	struct r5dev {
 		struct bio	req;
 		struct bio_vec	vec;
-		struct page	*page;
+		struct page	*page, *dpage;	/* 'dpage' is used in the full-stripe write ops */
 		struct bio	*toread, *read, *towrite, *written;
 		sector_t	sector;			/* sector of this page */
 		unsigned long	flags;
@@ -220,6 +220,7 @@ struct stripe_head {
 #define	STRIPE_EXPANDING	9
 #define	STRIPE_EXPAND_SOURCE	10
 #define	STRIPE_EXPAND_READY	11
+#define	STRIPE_FULL_WRITE	12
 
 /*
  * Operations flags (in issue order)
