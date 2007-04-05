@@ -350,37 +350,6 @@ ioat_tx_submit(struct dma_async_tx_descriptor *tx)
 	return cookie;
 }
 
-static dma_addr_t ioat_map_page(struct dma_chan *chan, struct page *page,
-					unsigned long offset, size_t size,
-					int direction)
-{
-	struct ioat_dma_chan *ioat_chan = to_ioat_chan(chan);
-	return pci_map_page(ioat_chan->device->pdev, page, offset, size,
-			direction);
-}
-
-static dma_addr_t ioat_map_single(struct dma_chan *chan, void *cpu_addr,
-					size_t size, int direction)
-{
-	struct ioat_dma_chan *ioat_chan = to_ioat_chan(chan);
-	return pci_map_single(ioat_chan->device->pdev, cpu_addr, size,
-			direction);
-}
-
-static void ioat_unmap_page(struct dma_chan *chan, dma_addr_t handle,
-				size_t size, int direction)
-{
-	struct ioat_dma_chan *ioat_chan = to_ioat_chan(chan);
-	pci_unmap_page(ioat_chan->device->pdev, handle, size, direction);
-}
-
-static void ioat_unmap_single(struct dma_chan *chan, dma_addr_t handle,
-				size_t size, int direction)
-{
-	struct ioat_dma_chan *ioat_chan = to_ioat_chan(chan);
-	pci_unmap_single(ioat_chan->device->pdev, handle, size, direction);
-}
-
 /**
  * ioat_dma_memcpy_issue_pending - push potentially unrecognized appended descriptors to hw
  * @chan: DMA channel handle
@@ -492,7 +461,7 @@ static void ioat_dma_dependency_added(struct dma_chan *chan)
 	spin_lock_bh(&ioat_chan->desc_lock);
 	if (ioat_chan->pending == 0) {
 		spin_unlock_bh(&ioat_chan->desc_lock);
-		ioat_dma_memcpy_cleanup(chan);
+		ioat_dma_memcpy_cleanup(ioat_chan);
 	} else
 		spin_unlock_bh(&ioat_chan->desc_lock);
 }
@@ -654,9 +623,9 @@ static int ioat_self_test(struct ioat_device *device)
 
 	tx = ioat_dma_prep_memcpy(dma_chan, IOAT_TEST_SIZE, 0);
 	async_tx_ack(tx);
-	addr = ioat_map_single(dma_chan, src, IOAT_TEST_SIZE, PCI_DMA_TODEVICE);
+	addr = dma_map_single(dma_chan->device->dev, src, IOAT_TEST_SIZE, DMA_TO_DEVICE);
 	ioat_set_src(addr, tx, 0);
-	addr = ioat_map_single(dma_chan, dest, IOAT_TEST_SIZE, PCI_DMA_FROMDEVICE);
+	addr = dma_map_single(dma_chan->device->dev, dest, IOAT_TEST_SIZE, DMA_FROM_DEVICE);
 	ioat_set_dest(addr, tx, 0);
 	cookie = ioat_tx_submit(tx);
 	ioat_dma_memcpy_issue_pending(dma_chan);
@@ -760,13 +729,10 @@ static int __devinit ioat_probe(struct pci_dev *pdev,
 	device->common.device_prep_dma_memcpy = ioat_dma_prep_memcpy;
 	device->common.device_set_src = ioat_set_src;
 	device->common.device_set_dest = ioat_set_dest;
-	device->common.map_page = ioat_map_page;
-	device->common.map_single = ioat_map_single;
-	device->common.unmap_page = ioat_unmap_page;
-	device->common.unmap_single = ioat_unmap_single;
 	device->common.device_is_tx_complete = ioat_dma_is_complete;
 	device->common.device_issue_pending = ioat_dma_memcpy_issue_pending;
 	device->common.device_dependency_added = ioat_dma_dependency_added;
+	device->common.dev = &pdev->dev;
 	printk(KERN_INFO "Intel(R) I/OAT DMA Engine found, %d channels\n",
 		device->common.chancnt);
 

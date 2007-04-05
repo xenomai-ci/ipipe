@@ -8,6 +8,7 @@ menu "Multi-device support (RAID and LVM)"
 
 config MD
 	bool "Multiple devices driver support (RAID and LVM)"
+	select ASYNC_TX_DMA
 	help
 	  Support multiple physical spindles through a single logical device.
 	  Required for RAID and logical volume management.
