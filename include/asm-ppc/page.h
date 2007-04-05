@@ -34,13 +34,7 @@
  */
 #ifdef CONFIG_PTE_64BIT
 typedef unsigned long long pte_basic_t;
-#if (PAGE_SHIFT == 16) && defined(CONFIG_PPC32)
-#define PTE_SHIFT	(PAGE_SHIFT - 11)	/* 32 ptes per table */
-#elif (PAGE_SHIFT == 14) && defined(CONFIG_PPC32)
-#define PTE_SHIFT	(PAGE_SHIFT - 7)	/* 128 ptes per table */
-#else
-#define PTE_SHIFT	(PAGE_SHIFT - 3)	/* 512 ptes per page */
-#endif
+#define PTE_SHIFT	(PAGE_SHIFT - 3)	/* PAGE_SIZE/8 ptes per page */
 #define PTE_FMT		"%16Lx"
 #else
 typedef unsigned long pte_basic_t;

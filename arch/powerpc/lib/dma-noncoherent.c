@@ -318,7 +318,8 @@ static int __init dma_alloc_init(void)
 			ret = -ENOMEM;
 			break;
 		}
-		WARN_ON(!pmd_none(*pmd));
+		if(!pmd_none(*pmd))
+			printk("%s warning: PMD is not empty.\n", __FUNCTION__);
 
 		pte = pte_alloc_kernel(pmd, CONSISTENT_BASE);
 		if (!pte) {
