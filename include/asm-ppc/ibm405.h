@@ -417,6 +417,11 @@
 #define DCRN_UIC0_BASE		0x0C0
 #define UIC0			DCRN_UIC0_BASE
 
+#define DCRN_UIC1_BASE		0x0E0 /* 1588 UIC Snapshot Source */
+#define UIC1			DCRN_UIC1_BASE
+#define UIC0_UIC1NC		0x08000000 /* 1588 SYNC Interrupt */
+#define NR_UICS			2
+
 #define DCRN_SDR_ICINTSTAT	0x4510
 #define ICINSTAT_ICRX		0x80000000
 #define ICINSTAT_ICTX0		0x40000000
