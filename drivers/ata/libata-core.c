@@ -93,8 +93,8 @@ static int ata_probe_timeout = ATA_TMOUT_INTERNAL / HZ;
 module_param(ata_probe_timeout, int, 0444);
 MODULE_PARM_DESC(ata_probe_timeout, "Set ATA probing timeout (seconds)");
 
-int noacpi;
-module_param(noacpi, int, 0444);
+int libata_noacpi = 1;
+module_param_named(noacpi, libata_noacpi, int, 0444);
 MODULE_PARM_DESC(noacpi, "Disables the use of ACPI in suspend/resume when set");
 
 MODULE_AUTHOR("Jeff Garzik");
@@ -826,7 +826,7 @@ static u64 ata_id_n_sectors(const u16 *id)
 /**
  *	ata_id_to_dma_mode	-	Identify DMA mode from id block
  *	@dev: device to identify
- *	@mode: mode to assume if we cannot tell
+ *	@unknown: mode to assume if we cannot tell
  *
  *	Set up the timing values for the device based upon the identify
  *	reported values for the DMA mode. This function is used by drivers
@@ -3359,6 +3359,10 @@ static const struct ata_blacklist_entry ata_device_blacklist [] = {
         { "WDC WD740ADFD-00",   NULL,		ATA_HORKAGE_NONCQ },
 	/* http://thread.gmane.org/gmane.linux.ide/14907 */
 	{ "FUJITSU MHT2060BH",	NULL,		ATA_HORKAGE_NONCQ },
+	/* NCQ is broken */
+	{ "Maxtor 6L250S0",     "BANC1G10",     ATA_HORKAGE_NONCQ },
+	/* NCQ hard hangs device under heavier load, needs hard power cycle */
+	{ "Maxtor 6B250S0",	"BANC1B70",	ATA_HORKAGE_NONCQ },
 
 	/* Devices with NCQ limits */
 

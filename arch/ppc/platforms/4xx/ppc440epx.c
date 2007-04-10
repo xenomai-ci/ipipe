@@ -22,7 +22,6 @@
 #include <asm/ocp.h>
 #include <asm/ppc4xx_pic.h>
 
-/* todo: include or remove CONFIG_INTR_COALESCE */
 static struct ocp_func_emac_data ppc440epx_emac0_def = {
 	.rgmii_idx	= 0,            /* RGMII device index */
 	.rgmii_mux	= 0,
@@ -267,7 +266,7 @@ static struct platform_device usb_gadget_device = {
 };
 
 static struct platform_device ehci_usb_device = {
-	.name		= "amcc-ehci",
+	.name		= "ppc-soc-ehci",
 	.id		= 0,
 	.num_resources	= ARRAY_SIZE(ehci_usb_resources),
 	.resource	= ehci_usb_resources,

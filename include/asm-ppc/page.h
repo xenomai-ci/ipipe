@@ -4,7 +4,13 @@
 #include <asm/asm-compat.h>
 
 /* PAGE_SHIFT determines the page size */
-#define PAGE_SHIFT	CONFIG_PPC_PAGE_SHIFT
+#if defined(CONFIG_PPC_PAGE_4K)
+#define PAGE_SHIFT	12
+#elif defined(CONFIG_PPC_PAGE_16K)
+#define PAGE_SHIFT	14
+#elif defined(CONFIG_PPC_PAGE_64K)
+#define PAGE_SHIFT	16
+#endif
 #define PAGE_SIZE	(ASM_CONST(1) << PAGE_SHIFT)
 
 /*

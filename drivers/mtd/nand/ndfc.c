@@ -228,8 +228,7 @@ static int ndfc_nand_probe(struct platform_device *pdev)
 	struct ndfc_controller_settings *settings = nc->priv;
 	struct resource *res = pdev->resource;
 	struct ndfc_controller *ndfc = &ndfc_ctrl;
-	unsigned long long phys = ((unsigned long long)settings->ndfc_erpn << 32)
-		| res->start;
+	unsigned long long phys = settings->ndfc_erpn | res->start;
 
 	ndfc->ndfcbase = ioremap64(phys, res->end - res->start + 1);
 	if (!ndfc->ndfcbase) {

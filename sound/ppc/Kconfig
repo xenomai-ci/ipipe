@@ -33,3 +33,13 @@ config SND_POWERMAC_AUTO_DRC
 	  option.
 
 endmenu
+
+config SND_MPC52xx_AIC26
+	bool "MPC52xx with AIC26 codec"
+	depends on SND && PPC_52xx
+	select PPC_BESTCOMM
+	select SND_PCM
+	select SPI
+	help
+	  Say Y here to enable support for a TI AIC26 codec attached
+	  to an MPC52xx PSC port in I2S mode.

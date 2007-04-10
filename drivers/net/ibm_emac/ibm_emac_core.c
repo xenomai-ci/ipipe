@@ -1043,6 +1043,10 @@ static int emac_open(struct net_device *ndev)
 	return 0;
       oom:
 	emac_clean_rx_ring(dev);
+#ifdef CONFIG_IBM_EMAC_INTR_COALESCE
+	free_irq(emacdata->txcoal_irq, dev->mal);
+	free_irq(emacdata->rxcoal_irq, dev->mal);
+#endif
 	free_irq(dev->def->irq, dev);
 	return -ENOMEM;
 }
@@ -1160,6 +1164,8 @@ static int emac_close(struct net_device *ndev)
 	if (emac_intr_coalesce(dev->def->index)) {
 		set_ic_txflush(dev->def->index, dev);
 		set_ic_rxflush(dev->def->index, dev);
+		free_irq(emacdata->txcoal_irq, dev->mal);
+		free_irq(emacdata->rxcoal_irq, dev->mal);
 		DBG("%d: emac_close tx = %x, rx = %x" NL, dev->def->index,
 		    iccrtx, iccrrx);
 	}

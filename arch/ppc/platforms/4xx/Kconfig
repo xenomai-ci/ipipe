@@ -193,6 +193,8 @@ config 440EPX
 	bool
 	depends on SEQUOIA
 	select PPC_FPU
+	select USB_EHCI_BIG_ENDIAN_MMIO
+	select USB_EHCI_BIG_ENDIAN_DESC
 	default y
 
 config 440GP

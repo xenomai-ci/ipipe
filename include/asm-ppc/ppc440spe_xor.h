@@ -57,6 +57,9 @@
 /*
  * XORCore Interrupt Enable Register
  */
+#define XOR_IE_ICBIE_BIT	(1<<17)	/* Invalid Command Block Interrupt Enable */
+#define XOR_IE_ICIE_BIT		(1<<16)	/* Invalid Command Interrupt Enable */
+#define XOR_IE_RPTIE_BIT	(1<<14)	/* Read PLB Timeout Error Interrupt Enable */
 #define XOR_IE_CBCIE_BIT	(1<<1)	/* CB complete interrupt enable */
 #define XOR_IE_CBLCI_BIT	(1<<0)	/* CB list complete interrupt enable */
 

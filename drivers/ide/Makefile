@@ -38,7 +38,6 @@ ide-core-$(CONFIG_BLK_DEV_Q40IDE)	+= legacy/q40ide.o
 ide-core-$(CONFIG_BLK_DEV_MPC8xx_IDE)	+= ppc/mpc8xx.o
 ide-core-$(CONFIG_BLK_DEV_IDE_PMAC)	+= ppc/pmac.o
 ide-core-$(CONFIG_BLK_DEV_IDE_SC3)	+= ppc/sc3ide.o
-ide-core-$(CONFIG_BLK_DEV_IDE_CELLEB)	+= ppc/scc_pata.o
 
 # built-in only drivers from h8300/
 ide-core-$(CONFIG_H8300)		+= h8300/ide-h8300.o

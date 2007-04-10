@@ -1,5 +1,5 @@
 /*
- * include/asm/ppc440spe_dma.h
+ * include/asm-ppc/ppc440spe_dma.h
  *
  * 440SPe's DMA engines support header file
  *
@@ -25,6 +25,22 @@
 /* FIFO's params */
 #define DMA0_FIFO_SIZE		0x1000
 #define DMA1_FIFO_SIZE		0x1000
+#define DMA_FIFO_ENABLE		(1<<12)
+
+/* DMA Configuration Register. Data Transfer Engine PLB Priority: */
+#define DMA_CFG_DXEPR_LP	(0<<26)
+#define DMA_CFG_DXEPR_HP	(3<<26)
+#define DMA_CFG_DXEPR_HHP	(2<<26)
+#define DMA_CFG_DXEPR_HHHP	(1<<26)
+
+/* DMA Configuration Register. DMA FIFO Manager PLB Priority: */
+#define DMA_CFG_DFMPP_LP	(0<<23)
+#define DMA_CFG_DFMPP_HP	(3<<23)
+#define DMA_CFG_DFMPP_HHP	(2<<23)
+#define DMA_CFG_DFMPP_HHHP	(1<<23)
+
+/* DMA Configuration Register. Force 64-byte Alignment */
+#define DMA_CFG_FALGN		(1 << 19)
 
 /* DMA Opcodes */
 #define	DMA_NOP_OPC		(u8)(0x00)
@@ -33,6 +49,7 @@
 
 /* I2O Memory Mapped Registers base address */
 #define I2O_MMAP_BASE		0x400100000ULL
+#define I2O_REG_ENABLE		0x1
 #define I2O_MMAP_SIZE		0xF4ULL
 
 /* DMA Memory Mapped Registers base address */
@@ -54,6 +71,9 @@
 /*UIC1:*/
 #define DMAE_INT		(1<<9)
 
+/* I2O IOP Interrupt Mask Register */
+#define I2O_IOPIM_P0SNE		(1<<3)
+#define I2O_IOPIM_P1SNE		(1<<6)
 
 /*
  * DMAx engines Command Descriptor Block Type
@@ -62,12 +82,9 @@ typedef struct dma_cdb {
 	/*
 	 * Basic CDB structure (Table 20-17, p.499, 440spe_um_1_22.pdf) 
 	 */
-	u32	opc;		/* opcode */
-#if 0
 	u8	pad0[2];        /* reserved */
 	u8	attr;		/* attributes */
 	u8	opc;		/* opcode */
-#endif
 	u32	sg1u;		/* upper SG1 address */
 	u32	sg1l;		/* lower SG1 address */
 	u32	cnt;		/* SG count, 3B used */
@@ -91,15 +108,6 @@ typedef struct {
 	/* status bits:  */
 	#define	DMA_CDB_DONE	(1<<0)	/* CDB processing competed */
 	#define DMA_CDB_CANCEL	(1<<1)	/* waiting thread was interrupted */
-#if 0
-	#define DMA_CDB_STALLOC (1<<2)  /* CDB allocated dynamically */
-
-	/*
-	 *  Each CDB must be 16B-alligned, if we use static array we should
-	 * take care of aligment for each array's element.
-	 */
-	u8	pad1[1];
-#endif
 } dma_cdbd_t;
 
 /*
@@ -203,12 +211,6 @@ typedef struct {
 	u8	pad7[0x8];
 	u32	iopt;
 } i2o_regs_t;
-
-/*
- *  Prototypes
- */
-int dma_copy (char *dst,char *src, unsigned int data_sz);
-
 
 #endif /* PPC440SPE_DMA_H */
 

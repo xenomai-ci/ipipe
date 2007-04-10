@@ -94,7 +94,7 @@
  */
 #if defined(CONFIG_440SP) || defined(CONFIG_440SPE)
 #define PPC44x_IO_LO		0xf0000000UL
-#define PPC44x_IO_HI		0xf0000fffUL
+#define PPC44x_IO_HI		0xffffffffUL	/* used not only for PCI-IO but for EBC too */
 #define PPC44x_PCI0CFG_LO	0x0ec00000UL
 #define PPC44x_PCI0CFG_HI	0x0ec00007UL
 #define PPC44x_PCI1CFG_LO	0x1ec00000UL
@@ -166,6 +166,8 @@
 #define DCRN_SDR_PFC1_EPS	0x1c00000
 #define DCRN_SDR_PFC1_EPS_SHIFT	22
 #define DCRN_SDR_PFC1_RMII	0x02000000
+#define DCRN_SDR_SRST		0x0200
+#define DCRN_SDR_SRST_I2ODMA	(0x80000000 >> 15)	/* Reset I2O/DMA */
 #define DCRN_SDR_MFR		0x4300
 #define DCRN_SDR_MFR_TAH0 	0x80000000  	/* TAHOE0 Enable */
 #define DCRN_SDR_MFR_TAH1 	0x40000000  	/* TAHOE1 Enable */
