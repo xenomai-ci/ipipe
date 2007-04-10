@@ -58,11 +58,7 @@
 #define   MAL_CFG_OA		0x00100000
 #define   MAL_CFG_PLBLE		0x00080000
 #define   MAL_CFG_PLBT_MASK	0x00078000
-#if defined(CONFIG_IBM_EMAC3V2) /* test-only: waiting on AMCC */
-#define   MAL_CFG_DEFAULT	(MAL_CFG_PLBP_11 | MAL_CFG_PLBT_MASK)
-#else
 #define   MAL_CFG_DEFAULT	(MAL_CFG_PLBP_10 | MAL_CFG_PLBT_MASK)
-#endif
 #elif MAL_VERSION == 2
 #define   MAL_CFG_RPP_MASK	0x00c00000
 #define   MAL_CFG_RPP_10	0x00800000
