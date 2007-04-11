@@ -19,6 +19,10 @@
 
 #ifdef CONFIG_40x
 
+#if defined(CONFIG_ACADIA)
+#include <platforms/4xx/acadia.h>
+#endif
+
 #if defined(CONFIG_BUBINGA)
 #include <platforms/4xx/bubinga.h>
 #endif

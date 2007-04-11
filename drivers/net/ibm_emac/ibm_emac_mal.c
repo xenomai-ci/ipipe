@@ -223,6 +223,10 @@ irqreturn_t mal_txeob(int irq, void *dev_instance)
 	MAL_DBG2("%d: txeob %08x" NL, mal->def->index, r);
 	mal_schedule_poll(mal);
 	set_mal_dcrn(mal, MAL_TXEOBISR, r);
+#if defined(CONFIG_405EZ)
+	/* 405EZ need special treatment here! */
+	SDR_WRITE(DCRN_SDR_ICINTSTAT, SDR_READ(DCRN_SDR_ICINTSTAT) | ICINSTAT_ICTX);
+#endif
 	return IRQ_HANDLED;
 }
 
@@ -233,6 +237,10 @@ irqreturn_t mal_rxeob(int irq, void *dev_instance)
 	MAL_DBG2("%d: rxeob %08x" NL, mal->def->index, r);
 	mal_schedule_poll(mal);
 	set_mal_dcrn(mal, MAL_RXEOBISR, r);
+#if defined(CONFIG_405EZ)
+	/* 405EZ need special treatment here! */
+	SDR_WRITE(DCRN_SDR_ICINTSTAT, SDR_READ(DCRN_SDR_ICINTSTAT) | ICINSTAT_ICRX);
+#endif
 	return IRQ_HANDLED;
 }
 
@@ -273,6 +281,33 @@ static irqreturn_t mal_rxde(int irq, void *dev_instance)
 
 	return IRQ_HANDLED;
 }
+
+#if defined(CONFIG_405EZ)
+/*
+ * Generic routine to check for serr_int, txde_int and rxde_int
+ * since these are coalesced into 1 interrupt for 405EZ
+ */
+static irqreturn_t mal_int(int irq, void *dev_instance)
+{
+	struct ibm_ocp_mal *mal = dev_instance;
+	u32 esr = get_mal_dcrn(mal, MAL_ESR);
+
+	MAL_DBG("%d: MAL_INT %08x" NL, mal->def->index, esr);
+
+	if (esr & MAL_ESR_EVB) {
+		/* descriptor error */
+		if (esr & MAL_ESR_DE) {
+			if (esr & MAL_ESR_CIDT)
+				return(mal_rxde(irq, dev_instance));
+			else
+				return(mal_txde(irq, dev_instance));
+		} else { /* SERR */
+			return(mal_serr(irq, dev_instance));
+		}
+	}
+	return IRQ_HANDLED;
+}
+#endif
 
 static int mal_poll(struct net_device *ndev, int *budget)
 {
@@ -471,6 +506,18 @@ static int __init mal_probe(struct ocp_device *ocpdev)
 			     sizeof(struct mal_descriptor) *
 			     mal_rx_bd_offset(mal, i));
 
+#if defined(CONFIG_405EZ)
+	/* 405EZ only has one IRQ for all three sources!!! */
+	err = request_irq(maldata->serr_irq, mal_int, SA_SHIRQ, "MAL SERR", mal);
+	if (err)
+		goto fail2;
+	err = request_irq(maldata->txde_irq, mal_int, SA_SHIRQ, "MAL TX DE", mal);
+	if (err)
+		goto fail3;
+	err = request_irq(maldata->rxde_irq, mal_int, SA_SHIRQ, "MAL RX DE", mal);
+	if (err)
+		goto fail4;
+#else
 	err = request_irq(maldata->serr_irq, mal_serr, 0, "MAL SERR", mal);
 	if (err)
 		goto fail2;
@@ -480,6 +527,7 @@ static int __init mal_probe(struct ocp_device *ocpdev)
 	err = request_irq(maldata->rxde_irq, mal_rxde, 0, "MAL RX DE", mal);
 	if (err)
 		goto fail4;
+#endif
 
 	/* Only enable EOB interrupts when interrupt coalescing is disabled */
 	if (!emac_intr_coalesce(dev->def->index)) {

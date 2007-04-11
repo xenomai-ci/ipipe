@@ -24,6 +24,7 @@
 
 /* This is a simple check to prevent use of this driver on non-tested SoCs */
 #if !defined(CONFIG_405GP) && !defined(CONFIG_405GPR) && !defined(CONFIG_405EP) && \
+    !defined(CONFIG_405EZ) && \
     !defined(CONFIG_440GP) && !defined(CONFIG_440GX) && !defined(CONFIG_440SP) && \
     !defined(CONFIG_440EP) && !defined(CONFIG_NP405H) && !defined(CONFIG_440SPE) && \
     !defined(CONFIG_440GR) && !defined(CONFIG_440EPX) && !defined(CONFIG_440GRX)
@@ -100,20 +101,34 @@ struct emac_regs {
 #define EMAC_MR1_MF_IPPA(id)		(((id) & 0x1f) << 6)
 #endif
 
-#define EMAC_TX_FIFO_SIZE		2048
-
-#if !defined(CONFIG_IBM_EMAC4)
+#if defined(CONFIG_IBM_EMAC3V2)
+#define EMAC_MR1_RFS_512		0x00000000
+#define EMAC_MR1_TFS_512		0x00000000
+#define EMAC_MR1_RFS_DEF		EMAC_MR1_RFS_512
+#define EMAC_MR1_RFS_GIGE		EMAC_MR1_RFS_512
+#define EMAC_RX_FIFO_SIZE(gige)		512
+#define EMAC_MR1_TR0_MULT		0x00008000
+#define EMAC_MR1_JPSM			0x00000000
+#define EMAC_MR1_MWSW_001		0x00000000
+#define EMAC_MR1_BASE(opb)		(EMAC_MR1_TFS_512 | EMAC_MR1_TR0_MULT)
+#define EMAC_TX_FIFO_SIZE		512
+#elif !defined(CONFIG_IBM_EMAC4)
 #define EMAC_MR1_RFS_4K			0x00300000
 #define EMAC_MR1_RFS_16K		0x00000000
+#define EMAC_MR1_RFS_DEF		EMAC_MR1_RFS_4K
+#define EMAC_MR1_RFS_GIGE		EMAC_MR1_RFS_16K
 #define EMAC_RX_FIFO_SIZE(gige)		4096
 #define EMAC_MR1_TFS_2K			0x00080000
 #define EMAC_MR1_TR0_MULT		0x00008000
 #define EMAC_MR1_JPSM			0x00000000
 #define EMAC_MR1_MWSW_001		0x00000000
 #define EMAC_MR1_BASE(opb)		(EMAC_MR1_TFS_2K | EMAC_MR1_TR0_MULT)
+#define EMAC_TX_FIFO_SIZE		2048
 #else
 #define EMAC_MR1_RFS_4K			0x00180000
 #define EMAC_MR1_RFS_16K		0x00280000
+#define EMAC_MR1_RFS_DEF		EMAC_MR1_RFS_4K
+#define EMAC_MR1_RFS_GIGE		EMAC_MR1_RFS_16K
 #define EMAC_RX_FIFO_SIZE(gige)		((gige) ? 16384 : 4096)
 #define EMAC_MR1_TFS_2K			0x00020000
 #define EMAC_MR1_TR			0x00008000
@@ -131,12 +146,13 @@ struct emac_regs {
 					 (freq) <= 100 ? EMAC_MR1_OBCI_100 : EMAC_MR1_OBCI_100P)
 #define EMAC_MR1_BASE(opb)		(EMAC_MR1_TFS_2K | EMAC_MR1_TR | \
 					 EMAC_MR1_OBCI(opb))
+#define EMAC_TX_FIFO_SIZE		2048
 #endif
 
 /* EMACx_TMR0 */
 #define EMAC_TMR0_GNP			0x80000000
 #if !defined(CONFIG_IBM_EMAC4)
-#define EMAC_TMR0_DEFAULT		0x00000000	
+#define EMAC_TMR0_DEFAULT		0x00000000
 #else
 #define EMAC_TMR0_TFAE_2_32		0x00000001
 #define EMAC_TMR0_TFAE_4_64		0x00000002
@@ -151,7 +167,7 @@ struct emac_regs {
 
 /* EMACx_TMR1 */
 
-/* IBM manuals are not very clear here. 
+/* IBM manuals are not very clear here.
  * This is my interpretation of how things are. --ebs
  */
 #if defined(CONFIG_40x)
@@ -285,9 +301,9 @@ static inline int emac_phy_done(u32 stacr)
 
 /* EMACx_RWMR */
 #if !defined(CONFIG_IBM_EMAC4)
-#define EMAC_RWMR(l,h)			(((l) << 23) | ( ((h) & 0x1ff) << 7))	
+#define EMAC_RWMR(l,h)			(((l) << 23) | ( ((h) & 0x1ff) << 7))
 #else
-#define EMAC_RWMR(l,h)			(((l) << 22) | ( ((h) & 0x3ff) << 6))	
+#define EMAC_RWMR(l,h)			(((l) << 22) | ( ((h) & 0x3ff) << 6))
 #endif
 
 /* EMAC specific TX descriptor control fields (write access) */
@@ -316,7 +332,7 @@ static inline int emac_phy_done(u32 stacr)
 #else
 #define EMAC_IS_BAD_TX(v)		((v) & (EMAC_TX_ST_LCS | EMAC_TX_ST_ED | \
 					 EMAC_TX_ST_EC | EMAC_TX_ST_LC))
-#endif					 
+#endif
 
 /* EMAC specific RX descriptor status fields (read access) */
 #define EMAC_RX_ST_OE			0x0200

@@ -16,6 +16,12 @@ choice
 	depends on 40x
 	default WALNUT
 
+config ACADIA
+	bool "Acadia"
+	select WANT_EARLY_SERIAL
+	help
+	  This option enables support for the AMCC 405EZ evaluation board.
+
 config BUBINGA
 	bool "Bubinga"
 	select WANT_EARLY_SERIAL
@@ -255,7 +261,7 @@ config BOOKE
 
 config IBM_OCP
 	bool
-	depends on ALPR || ASH || BAMBOO || BUBINGA || CPCI405 || EBONY || EP405 || KATMAI || LUAN || OCOTEA || P3P440 || PPChameleonEVB || RAINIER || REDWOOD_5 || REDWOOD_6 || SC3 || SEQUOIA || SYCAMORE || TAIHU || TAISHAN || WALNUT || YELLOWSTONE || YOSEMITE || YUCCA
+	depends on ACADIA || ALPR || ASH || BAMBOO || BUBINGA || CPCI405 || EBONY || EP405 || KATMAI || LUAN || OCOTEA || P3P440 || PPChameleonEVB || RAINIER || REDWOOD_5 || REDWOOD_6 || SC3 || SEQUOIA || SYCAMORE || TAIHU || TAISHAN || WALNUT || YELLOWSTONE || YOSEMITE || YUCCA
 	default y
 
 config IBM_EMAC4
@@ -268,9 +274,14 @@ config IBM_EMAC4V4
 	depends on 440EPX || 440GRX
 	default y
 
+config IBM_EMAC3V2
+	bool
+	depends on 405EZ
+	default y
+
 config BIOS_FIXUP
 	bool
-	depends on BUBINGA || CPCI405 || EP405 || SC3 || SYCAMORE || TAIHU || WALNUT
+	depends on ACADIA || BUBINGA || CPCI405 || EP405 || SC3 || SYCAMORE || TAIHU || WALNUT
 	default y
 
 # OAK doesn't exist but wanted to keep this around for any future 403GCX boards
@@ -292,6 +303,11 @@ config 405GP
 config 405GPR
 	bool
 	depends on SC3 || SYCAMORE
+	default y
+
+config 405EZ
+	bool
+	depends on ACADIA
 	default y
 
 config XILINX_VIRTEX_II_PRO

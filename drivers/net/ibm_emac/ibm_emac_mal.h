@@ -32,6 +32,7 @@
  * reflect the fact that 40x and 44x have slightly different MALs. --ebs
  */
 #if defined(CONFIG_405GP) || defined(CONFIG_405GPR) || defined(CONFIG_405EP) || \
+    defined(CONFIG_405EZ) || \
     defined(CONFIG_440EP) || defined(CONFIG_440GR) || defined(CONFIG_NP405H)
 #define MAL_VERSION		1
 #elif defined(CONFIG_440GP) || defined(CONFIG_440GX) || defined(CONFIG_440SP) || \
@@ -52,6 +53,7 @@
 #if MAL_VERSION == 1
 #define   MAL_CFG_PLBP_MASK	0x00c00000
 #define   MAL_CFG_PLBP_10	0x00800000
+#define   MAL_CFG_PLBP_11	0x00c00000
 #define   MAL_CFG_GA		0x00200000
 #define   MAL_CFG_OA		0x00100000
 #define   MAL_CFG_PLBLE		0x00080000
