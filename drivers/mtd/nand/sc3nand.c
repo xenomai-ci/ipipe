@@ -68,22 +68,14 @@ static const char *part_probes[] = { "cmdlinepart", NULL };
 /*
  * Define partitions for flash device
  */
-#define NUM_PARTITIONS 3
+#define NUM_PARTITIONS 1
 
 const static struct mtd_partition partition_info[NUM_PARTITIONS] =
 {
 	{
-		.name	= "SC3 boot partition",
+		.name	= "SC3 NAND flash",
 		.offset	= 0,
-		.size	= 2*1024*1024,
-	}, {
-		.name	= "SC3 data partition",
-		.offset	= 2*1024*1024,
-		.size	= 10*1024*1024,
-	}, {
-		.name	= "SC3 jffs2 partition",
-		.offset	= 12*1024*1024,
-		.size	= 4*1024*1024,
+		.size	= MTDPART_SIZ_FULL,
 	}
 };
 #endif
