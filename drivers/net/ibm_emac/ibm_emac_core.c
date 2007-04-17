@@ -221,7 +221,7 @@ static inline void ic_set_rx_frame_thr(int chan, u32 val)
 	SDR_WRITE(DCRN_SDR_ICCRRX, iccrrx);
 }
 
-static inline void ic_set_rx_frame_thr(int chan, u32 val)
+static inline void ic_set_rx_time_thr(int chan, u32 val)
 {
 	SDR_WRITE(DCRN_SDR_ICTRRX0 + chan, val);
 }

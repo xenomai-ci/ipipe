@@ -554,11 +554,12 @@ static int __init mal_probe(struct ocp_device *ocpdev)
 	       mal->def->index, maldata->num_tx_chans, maldata->num_rx_chans);
 	return 0;
 
+#if !defined(CONFIG_IBM_EMAC_INTR_COALESCE) || defined(CONFIG_405EZ)
       fail6:
-	if (!emac_intr_coalesce(dev->def->index))
-		free_irq(maldata->txeob_irq, mal);
+	free_irq(maldata->txeob_irq, mal);
       fail5:
 	free_irq(maldata->rxde_irq, mal);
+#endif
       fail4:
 	free_irq(maldata->txde_irq, mal);
       fail3:
