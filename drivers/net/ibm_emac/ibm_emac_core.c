@@ -85,7 +85,8 @@ MODULE_LICENSE("GPL");
  */
 static u32 busy_phy_map;
 
-#ifdef CONFIG_IBM_EMAC_INTR_COALESCE
+#if (defined(CONFIG_440EPX) || defined(CONFIG_440GRX)) &&	\
+    defined(CONFIG_IBM_EMAC_INTR_COALESCE)
 /* add copy of iccrtx and iccrrx registers
  * to bypass the bug on the 440EPX pass1 where these
  * registers are write only
@@ -200,54 +201,135 @@ static void emac_clean_tx_ring(struct ocp_enet_private *dev);
 static unsigned int emac_ethtool_usecs2ticks(unsigned int usecs);
 static unsigned int emac_ethtool_ticks2usecs(unsigned int ticks);
 
-static inline void set_ic_txfthr(int chan, u32 val, struct ocp_enet_private *dev)
+#if defined(CONFIG_440EPX) || defined(CONFIG_440GRX)
+static inline void ic_set_tx_frame_thr(int chan, u32 val)
 {
 	val = ((val << 23) >> (11*chan));
 	iccrtx = val | (iccrtx & ~(ICCR_FTHR_MASK >> (11*chan)));
 	SDR_WRITE(DCRN_SDR_ICCRTX, iccrtx);
 }
 
-static inline void set_ic_rxfthr(int chan, u32 val, struct ocp_enet_private *dev)
+static inline void ic_set_tx_time_thr(int chan, u32 val)
+{
+	SDR_WRITE(DCRN_SDR_ICTRTX0 + chan, val);
+}
+
+static inline void ic_set_rx_frame_thr(int chan, u32 val)
 {
 	val = ((val << 23) >> (11*chan));
 	iccrrx = val | (iccrrx & ~(ICCR_FTHR_MASK >> (11*chan)));
 	SDR_WRITE(DCRN_SDR_ICCRRX, iccrrx);
 }
 
-static inline void set_ic_txflush(int chan, struct ocp_enet_private *dev)
+static inline void ic_set_rx_frame_thr(int chan, u32 val)
+{
+	SDR_WRITE(DCRN_SDR_ICTRRX0 + chan, val);
+}
+
+static inline void ic_set_txflush(int chan)
 {
 	iccrtx = iccrtx | ((1 << 22) >> (11*chan));
 	SDR_WRITE(DCRN_SDR_ICCRTX, iccrtx);
 }
 
-static inline void reset_ic_txflush(int chan, struct ocp_enet_private *dev)
+static inline void ic_reset_txflush(int chan)
 {
 	iccrtx = iccrtx & ~((1 << 22) >> (11*chan));
 	SDR_WRITE(DCRN_SDR_ICCRTX, iccrtx);
 }
 
-static inline void set_ic_rxflush(int chan, struct ocp_enet_private *dev)
+static inline void ic_set_rxflush(int chan)
 {
 	iccrrx = iccrrx | ((1 << 22) >> (11*chan));
 	SDR_WRITE(DCRN_SDR_ICCRRX, iccrrx);
 }
 
-static inline void reset_ic_rxflush(int chan, struct ocp_enet_private *dev)
+static inline void ic_reset_rxflush(int chan)
 {
 	iccrrx = iccrrx & ~((1 << 22) >> (11*chan));
 	SDR_WRITE(DCRN_SDR_ICCRRX, iccrrx);
 }
 
-static inline void coal_rx_intr_clear(int chan)
+static inline void ic_enable_tx_int(int chan)
 {
-	SDR_READ(DCRN_SDR_ICSRRX0 + chan);
+	/* nothing needed here */
 }
 
-static inline void coal_tx_intr_clear(int chan)
+static inline void ic_enable_rx_int(int chan)
 {
-	SDR_READ(DCRN_SDR_ICSRTX0 + chan);
+	/* nothing needed here */
 }
-#endif
+#endif /* CONFIG_440EPX */
+
+#if defined(CONFIG_405EZ)
+static inline void ic_set_tx_frame_thr(int chan, u32 val)
+{
+	SDR_WRITE(DCRN_SDR_TX0ICCR0 + (0x30 * chan),
+		  (SDR_READ(DCRN_SDR_TX0ICCR0 +  (0x30 * chan)) &
+		   (~TX_ICCR_THR_MASK)) | TX_ICCR_ICFT_ENCODE(val));
+}
+
+static inline void ic_set_tx_time_thr(int chan, u32 val)
+{
+	SDR_WRITE(DCRN_SDR_TX0ICCR0 + (0x30 * chan),
+		  (SDR_READ(DCRN_SDR_TX0ICCR0 + (0x30 * chan)) |
+		   TX_ICCR_COR_EN));
+	SDR_WRITE(DCRN_SDR_TX0ICCR1, val);
+}
+
+static inline void ic_set_rx_frame_thr(int chan, u32 val)
+{
+	SDR_WRITE(DCRN_SDR_RXICCR0,
+		  (SDR_READ(DCRN_SDR_RXICCR0) &
+		   (~RX_ICCR_THR_MASK)) | RX_ICCR_ICFT_ENCODE(val));
+}
+
+static inline void ic_set_rx_time_thr(int chan, u32 val)
+{
+	SDR_WRITE(DCRN_SDR_RXICCR0, SDR_READ(DCRN_SDR_RXICCR0) |
+		  RX_ICCR_COR_EN);
+	SDR_WRITE(DCRN_SDR_RXICCR1, val);
+}
+
+static inline void ic_set_txflush(int chan)
+{
+	SDR_WRITE(DCRN_SDR_TX0ICCR0 + (0x30 * chan),
+		  SDR_READ(DCRN_SDR_TX0ICCR0 + (0x30 * chan)) |
+		  TX_ICCR_FLUSH);
+}
+
+static inline void ic_reset_txflush(int chan)
+{
+	SDR_WRITE(DCRN_SDR_TX0ICCR0 + (0x30 * chan),
+		  SDR_READ(DCRN_SDR_TX0ICCR0  + (0x30 * chan)) &
+		  ~TX_ICCR_FLUSH);
+}
+
+static inline void ic_set_rxflush(int chan)
+{
+	SDR_WRITE(DCRN_SDR_RXICCR0, SDR_READ(DCRN_SDR_RXICCR0) |
+		  RX_ICCR_FLUSH);
+}
+
+static inline void ic_reset_rxflush(int chan)
+{
+	SDR_WRITE(DCRN_SDR_RXICCR0, SDR_READ(DCRN_SDR_RXICCR0) &
+		  ~RX_ICCR_FLUSH);
+}
+
+static inline void ic_enable_tx_int(int chan)
+{
+	SDR_WRITE(DCRN_SDR_TX0ICCR0, SDR_READ(DCRN_SDR_TX0ICCR0) | TX_ICCR_ICEN);
+	SDR_WRITE(DCRN_SDR_ICINT_EN, SDR_READ(DCRN_SDR_ICINT_EN) | ICTX0_EN);
+}
+
+static inline void ic_enable_rx_int(int chan)
+{
+	SDR_WRITE(DCRN_SDR_RXICCR0, SDR_READ(DCRN_SDR_RXICCR0) | RX_ICCR_ICEN);
+	SDR_WRITE(DCRN_SDR_ICINT_EN, SDR_READ(DCRN_SDR_ICINT_EN) | ICRX_EN);
+}
+#endif /* CONFIG_405EZ */
+#endif /* CONFIG_IBM_EMAC_INTR_COALESCE */
 
 static inline int emac_phy_supports_gige(int phy_mode)
 {
@@ -964,19 +1046,21 @@ static int emac_open(struct net_device *ndev)
 	coal->rx_count = CONFIG_IBM_EMAC_RX_COALESCE_COUNT & MAX_COAL_FRAMES;
 	coal->rx_time = emac_ethtool_usecs2ticks(CONFIG_IBM_EMAC_RX_COALESCE_TIMER);
 
-	set_ic_txfthr(dev->def->index, coal->tx_count, dev);
-	SDR_WRITE(DCRN_SDR_ICTRTX0 + dev->def->index, coal->tx_time);
-	set_ic_rxfthr(dev->def->index, coal->rx_count, dev);
-	SDR_WRITE(DCRN_SDR_ICTRRX0 + dev->def->index, coal->rx_time);
-	reset_ic_txflush(dev->def->index, dev);
-	reset_ic_rxflush(dev->def->index, dev);
+	ic_set_tx_frame_thr(dev->def->index, coal->tx_count);
+	ic_set_tx_time_thr(dev->def->index, coal->tx_count);
+	ic_set_rx_frame_thr(dev->def->index, coal->rx_count);
+	ic_set_rx_time_thr(dev->def->index, coal->tx_count);
+	ic_reset_txflush(dev->def->index);
+	ic_reset_rxflush(dev->def->index);
+	ic_enable_tx_int(dev->def->index);
+	ic_enable_rx_int(dev->def->index);
 	printk(KERN_INFO "%s: interrupt coalescing (RX:count=%d time=%d,"
 	       " TX:count=%d time=%d)\n", ndev->name,
 	       coal->rx_count, emac_ethtool_ticks2usecs(coal->rx_time),
 	       coal->tx_count, emac_ethtool_ticks2usecs(coal->tx_time));
-	DBG("%d: emac_open tx = %x, rx = %x" NL, dev->def->index,
-	    iccrtx, iccrrx);
 
+#if defined(CONFIG_440EPX) || defined(CONFIG_440GRX)
+	/* only 440EPx/440GRx have additional coalescing interrupt vectors */
 	err = request_irq(emacdata->txcoal_irq, mal_txeob, 0, "TX COAL", dev->mal);
 	if (err) {
 		printk(KERN_ERR "%s: failed to request TX COAL IRQ %d\n",
@@ -990,6 +1074,7 @@ static int emac_open(struct net_device *ndev)
 		       ndev->name, emacdata->rxcoal_irq);
 		return err;
 	}
+#endif /* CONFIG_440EPX */
 #endif /* CONFIG_IBM_EMAC_INTR_COALESCE */
 
 	/* Setup error IRQ handler */
@@ -1162,12 +1247,10 @@ static int emac_close(struct net_device *ndev)
 
 #ifdef CONFIG_IBM_EMAC_INTR_COALESCE
 	if (emac_intr_coalesce(dev->def->index)) {
-		set_ic_txflush(dev->def->index, dev);
-		set_ic_rxflush(dev->def->index, dev);
+		ic_set_txflush(dev->def->index);
+		ic_set_rxflush(dev->def->index);
 		free_irq(emacdata->txcoal_irq, dev->mal);
 		free_irq(emacdata->rxcoal_irq, dev->mal);
-		DBG("%d: emac_close tx = %x, rx = %x" NL, dev->def->index,
-		    iccrtx, iccrrx);
 	}
 #endif
 
@@ -2143,20 +2226,18 @@ static int emac_ethtool_set_coalesce(struct net_device *ndev,
 	coal->tx_count = cvals->tx_max_coalesced_frames;
 
 	if (emac_intr_coalesce(dev->def->index)) {
-		set_ic_rxfthr(dev->def->index, coal->rx_count, dev);
-		SDR_WRITE(DCRN_SDR_ICTRRX0 + dev->def->index, coal->rx_time);
-		set_ic_txfthr(dev->def->index, coal->tx_count, dev);
-		SDR_WRITE(DCRN_SDR_ICTRTX0 + dev->def->index, coal->tx_time);
+		ic_set_rx_frame_thr(dev->def->index, coal->rx_count);
+		ic_set_rx_time_thr(dev->def->index, coal->rx_time);
+		ic_set_tx_frame_thr(dev->def->index, coal->tx_count);
+		ic_set_tx_time_thr(dev->def->index, coal->tx_time);
 	} else {
-		set_ic_rxflush(dev->def->index, dev);
-		set_ic_rxfthr(dev->def->index, 1, dev);
-		SDR_WRITE(DCRN_SDR_ICTRRX0 + dev->def->index, 0);
-		set_ic_txflush(dev->def->index, dev);
-		set_ic_txfthr(dev->def->index, 1, dev);
-		SDR_WRITE(DCRN_SDR_ICTRTX0 + dev->def->index, 0);
+		ic_set_rxflush(dev->def->index);
+		ic_set_rx_frame_thr(dev->def->index, 1);
+		ic_set_rx_time_thr(dev->def->index, 0);
+		ic_set_txflush(dev->def->index);
+		ic_set_tx_frame_thr(dev->def->index, 1);
+		ic_set_tx_time_thr(dev->def->index, 0);
 	}
-	DBG("%d: emac_ethtool_scoalesce tx = %x, rx = %x" NL, dev->def->index,
-	    iccrtx, iccrrx);
 
 	return 0;
 }
@@ -2535,7 +2616,8 @@ static int __init emac_init(void)
 	}
 	EMAC_CLK_EXTERNAL;
 
-#ifdef CONFIG_IBM_EMAC_INTR_COALESCE
+#if (defined(CONFIG_440EPX) || defined(CONFIG_440GRX)) && \
+    defined(CONFIG_IBM_EMAC_INTR_COALESCE)
 	/* setup default values for interrupt coalescing */
 	iccrtx = DCRN_SDR_ICCRTX_INIT;
 	iccrrx = DCRN_SDR_ICCRRX_INIT;

@@ -529,15 +529,18 @@ static int __init mal_probe(struct ocp_device *ocpdev)
 		goto fail4;
 #endif
 
-	/* Only enable EOB interrupts when interrupt coalescing is disabled */
-	if (!emac_intr_coalesce(dev->def->index)) {
-		err = request_irq(maldata->txeob_irq, mal_txeob, 0, "MAL TX EOB", mal);
-		if (err)
-			goto fail5;
-		err = request_irq(maldata->rxeob_irq, mal_rxeob, 0, "MAL RX EOB", mal);
-		if (err)
-			goto fail6;
-	}
+#if !defined(CONFIG_IBM_EMAC_INTR_COALESCE) || defined(CONFIG_405EZ)
+	/*
+	 * Only enable EOB interrupts when interrupt coalescing is disabled (440EPx)
+	 * or on 405EZ, which always uses this irq vectors
+	 */
+	err = request_irq(maldata->txeob_irq, mal_txeob, 0, "MAL TX EOB", mal);
+	if (err)
+		goto fail5;
+	err = request_irq(maldata->rxeob_irq, mal_rxeob, 0, "MAL RX EOB", mal);
+	if (err)
+		goto fail6;
+#endif
 
 	/* Enable all MAL SERR interrupt sources */
 	set_mal_dcrn(mal, MAL_IER, MAL_IER_EVENTS);

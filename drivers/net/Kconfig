@@ -1270,8 +1270,8 @@ config IBM_EMAC_NR_START
 
 config IBM_EMAC_INTR_COALESCE
 	bool "Interrupt coalescing"
-	depends on IBM_EMAC && (440EPX || 440GRX)
-  	default y
+	depends on IBM_EMAC && (405EZ || 440EPX || 440GRX)
+	default y
 	help
 	  When selected the Ethernet interrupt coalescing is selected.
 

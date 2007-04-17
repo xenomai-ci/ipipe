@@ -438,6 +438,35 @@
 #define SDR_WRITE(offset, data) ({		\
 	mtdcr(DCRN_SDR_CONFIG_ADDR, offset);	\
 	mtdcr(DCRN_SDR_CONFIG_DATA,data);})
+
+/*
+ * EMAC interrupt coalesing
+ */
+#define MAX_COAL_FRAMES		0xFF
+#define MAX_COAL_TIMER		0xFFFFFFFF
+
+#define DCRN_SDR_RXICCR0	0x4400
+#define DCRN_SDR_RXICCR1	0x4410
+#define DCRN_SDR_TX0ICCR0	0x4430
+#define DCRN_SDR_TX0ICCR1	0x4440
+#define	DCRN_SDR_ICINT_EN	0x4500
+
+#define	RX_ICCR_ICEN		0x80000000
+#define	RX_ICCR_FLUSH		0x20000000
+#define	RX_ICCR_COR_EN		0x08000000
+#define	RX_ICCR_THR_MASK	0x01FE0000
+
+#define TX_ICCR_ICEN		0x80000000
+#define TX_ICCR_FLUSH		0x20000000
+#define TX_ICCR_COR_EN		0x08000000
+#define	TX_ICCR_THR_MASK	0x01FE0000
+
+#define RX_ICCR_ICFT_ENCODE(val) (((uint)val<<17) & 0x01FE0000)
+#define TX_ICCR_ICFT_ENCODE(val) (((uint)val<<17) & 0x01FE0000)
+
+#define ICRX_EN			0x80000000
+#define ICTX0_EN		0x40000000
+
 #endif /* CONFIG_405EZ */
 
 #endif				/* __ASM_IBM405_H__ */

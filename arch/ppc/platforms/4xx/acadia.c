@@ -44,6 +44,8 @@
 
 #include <platforms/4xx/ppc405ez.h>
 
+extern bd_t __res;
+
 /*
  * NOR FLASH configuration (using mtd physmap driver)
  */
@@ -156,6 +158,8 @@ void __init acadia_setup_arch(void)
 	ppc4xx_setup_arch();
 
 	ibm_ocp_set_emac(0, 0);
+
+	ocp_sys_info.plb_bus_freq = __res.bi_busfreq;
 
         acadia_early_serial_map();
 
