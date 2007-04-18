@@ -67,8 +67,8 @@ static ppc440spe_desc_t *xor_last_submit = NULL;
 
 /**
  * ppc440spe_desc_init_interrupt - initialize the descriptor for INTERRUPT pseudo operation
- */ 
-static inline void ppc440spe_desc_init_interrupt (ppc440spe_desc_t *desc, 
+ */
+static inline void ppc440spe_desc_init_interrupt (ppc440spe_desc_t *desc,
 								ppc440spe_ch_t *chan)
 {
 	xor_cb_t *p;
@@ -136,7 +136,7 @@ static inline void ppc440spe_desc_init_memcpy(ppc440spe_desc_t *desc, int int_en
 /**
  * ppc440spe_desc_set_src_addr - set source address into the descriptor
  */
-static inline void ppc440spe_desc_set_src_addr( ppc440spe_desc_t *desc, 
+static inline void ppc440spe_desc_set_src_addr( ppc440spe_desc_t *desc,
 					ppc440spe_ch_t *chan, int src_idx, dma_addr_t addr)
 {
 	dma_cdb_t *dma_hw_desc;
@@ -158,7 +158,7 @@ static inline void ppc440spe_desc_set_src_addr( ppc440spe_desc_t *desc,
 /**
  * ppc440spe_desc_set_dest_addr - set destination address into the descriptor
  */
-static inline void ppc440spe_desc_set_dest_addr(ppc440spe_desc_t *desc, 
+static inline void ppc440spe_desc_set_dest_addr(ppc440spe_desc_t *desc,
 							ppc440spe_ch_t *chan, dma_addr_t addr)
 {
 	dma_cdb_t *dma_hw_desc;
@@ -180,7 +180,7 @@ static inline void ppc440spe_desc_set_dest_addr(ppc440spe_desc_t *desc,
 /**
  * ppc440spe_desc_set_byte_count - set number of data bytes involved into the operation
  */
-static inline void ppc440spe_desc_set_byte_count(ppc440spe_desc_t *desc, 
+static inline void ppc440spe_desc_set_byte_count(ppc440spe_desc_t *desc,
 						ppc440spe_ch_t *chan, u32 byte_count)
 {
 	dma_cdb_t *dma_hw_desc;
@@ -202,7 +202,7 @@ static inline void ppc440spe_desc_set_byte_count(ppc440spe_desc_t *desc,
 /**
  * ppc440spe_xor_set_link - set link address in xor CB
  */
-static inline void ppc440spe_xor_set_link (ppc440spe_desc_t *prev_desc, 
+static inline void ppc440spe_xor_set_link (ppc440spe_desc_t *prev_desc,
 							ppc440spe_desc_t *next_desc) {
 	xor_cb_t *xor_hw_desc = prev_desc->hw_desc;
 
@@ -255,7 +255,7 @@ static inline void ppc440spe_desc_set_link(ppc440spe_ch_t *chan,
 /**
  * ppc440spe_desc_get_src_addr - extract the source address from the descriptor
  */
-static inline u32 ppc440spe_desc_get_src_addr(ppc440spe_desc_t *desc, 
+static inline u32 ppc440spe_desc_get_src_addr(ppc440spe_desc_t *desc,
 						ppc440spe_ch_t *chan, int src_idx)
 {
 	dma_cdb_t *dma_hw_desc;
@@ -345,7 +345,7 @@ static inline int ppc440spe_chan_xor_slot_count(size_t len, int src_cnt, int *sl
 	if (likely(len <= PPC440SPE_ADMA_XOR_MAX_BYTE_COUNT))
 		return slot_cnt;
 
-	printk("%s: len %d > max %d !!\n", __FUNCTION__, len, 
+	printk("%s: len %d > max %d !!\n", __FUNCTION__, len,
 		PPC440SPE_ADMA_XOR_MAX_BYTE_COUNT);
 	BUG();
 	return slot_cnt;
@@ -424,7 +424,7 @@ static inline int ppc440spe_chan_is_busy(ppc440spe_ch_t *chan)
 	case PPC440SPE_DMA0_ID:
 	case PPC440SPE_DMA1_ID:
 		dma_reg = (dma_regs_t *)chan->device->pdev->resource[0].start;
-		/*  if command FIFO's head and tail pointers are equal - 
+		/*  if command FIFO's head and tail pointers are equal -
 		 * channel is free
 		 */
 		busy = (dma_reg->cpfhp != dma_reg->cpftp) ? 1 : 0;
@@ -450,7 +450,7 @@ static inline void ppc440spe_chan_set_first_xor_descriptor(ppc440spe_ch_t *chan,
 
 	xor_reg = (xor_regs_t *)chan->device->pdev->resource[0].start;
 
-	if (xor_reg->sr & XOR_SR_XCP_BIT) 
+	if (xor_reg->sr & XOR_SR_XCP_BIT)
 		printk("Warn: XORcore is running when try to set the first CDB!\n");
 
 	xor_last_submit = xor_last_linked = next_desc;
@@ -547,7 +547,7 @@ static inline void ppc440spe_chan_append(ppc440spe_ch_t *chan)
 	}
 
 	/* update watch-dog timer */
-	mod_timer(&chan->cleanup_watchdog, jiffies + 
+	mod_timer(&chan->cleanup_watchdog, jiffies +
 					msecs_to_jiffies(PPC440SPE_ADMA_WATCHDOG_MSEC));
 }
 
@@ -617,7 +617,7 @@ static void ppc440spe_adma_free_slots(ppc440spe_desc_t *slot)
 
 static dma_cookie_t ppc440spe_adma_run_tx_complete_actions(
 		ppc440spe_desc_t *desc,
-		ppc440spe_ch_t *chan, 
+		ppc440spe_ch_t *chan,
 		dma_cookie_t cookie)
 {
 
@@ -725,7 +725,7 @@ static void __ppc440spe_adma_slot_cleanup(ppc440spe_ch_t *chan)
 		if (iter->phys == current_desc) {
 			BUG_ON(seen_current++);
 			if (busy || ppc440spe_desc_get_link(iter, chan)) {
-				ppc440spe_adma_run_tx_complete_actions(iter, 
+				ppc440spe_adma_run_tx_complete_actions(iter,
 					chan, cookie);
 				break;
 			}
@@ -760,7 +760,7 @@ static void __ppc440spe_adma_slot_cleanup(ppc440spe_ch_t *chan)
 				slot_cnt = group_start->slot_cnt;
 				grp_iter = group_start;
 
-				list_for_each_entry_from(grp_iter, 
+				list_for_each_entry_from(grp_iter,
 					&chan->chain, chain_node) {
 					slot_cnt -= slots_per_op;
 					if (slot_cnt == 0)
@@ -973,7 +973,7 @@ static int ppc440spe_adma_alloc_chan_resources(struct dma_chan *chan)
 	}
 
 	if (i && !ppc440spe_chan->last_used) {
-		ppc440spe_chan->last_used = 
+		ppc440spe_chan->last_used =
 			list_entry(ppc440spe_chan->all_slots.next,
 				ppc440spe_desc_t,
 				slot_node);
@@ -1043,8 +1043,8 @@ static dma_cookie_t ppc440spe_adma_tx_submit(struct dma_async_tx_descriptor *tx)
 	ppc440spe_adma_check_threshold(chan);
 	spin_unlock_bh(&chan->lock);
 
-	PRINTK("ppc440spe adma%d: %s cookie: %d slot: %d tx %p\n", 
-		chan->device->id,__FUNCTION__, 
+	PRINTK("ppc440spe adma%d: %s cookie: %d slot: %d tx %p\n",
+		chan->device->id,__FUNCTION__,
 		sw_desc->async_tx.cookie, sw_desc->idx, sw_desc);
 
 	return cookie;
@@ -1057,12 +1057,12 @@ struct dma_async_tx_descriptor *ppc440spe_adma_prep_dma_interrupt(
 	ppc440spe_desc_t *sw_desc, *group_start;
 	int slot_cnt, slots_per_op;
 
-	PRINTK("ppc440spe adma%d: %s\n", ppc440spe_chan->device->id, 
+	PRINTK("ppc440spe adma%d: %s\n", ppc440spe_chan->device->id,
 		__FUNCTION__);
 
 	spin_lock_bh(&ppc440spe_chan->lock);
 	slot_cnt = slots_per_op = 1;
-	sw_desc = ppc440spe_adma_alloc_slots(ppc440spe_chan, slot_cnt, 
+	sw_desc = ppc440spe_adma_alloc_slots(ppc440spe_chan, slot_cnt,
 			slots_per_op);
 	if (sw_desc) {
 		group_start = sw_desc->group_head;
@@ -1121,7 +1121,7 @@ struct dma_async_tx_descriptor *ppc440spe_adma_prep_dma_xor(
 
 	spin_lock_bh(&ppc440spe_chan->lock);
 	slot_cnt = ppc440spe_chan_xor_slot_count(len, src_cnt, &slots_per_op);
-	sw_desc = ppc440spe_adma_alloc_slots(ppc440spe_chan, slot_cnt, 
+	sw_desc = ppc440spe_adma_alloc_slots(ppc440spe_chan, slot_cnt,
 			slots_per_op);
 	if (sw_desc) {
 		group_start = sw_desc->group_head;
@@ -1136,7 +1136,7 @@ struct dma_async_tx_descriptor *ppc440spe_adma_prep_dma_xor(
 	return sw_desc ? &sw_desc->async_tx : NULL;
 }
 
-static void ppc440spe_adma_set_dest(dma_addr_t addr, 
+static void ppc440spe_adma_set_dest(dma_addr_t addr,
 		struct dma_async_tx_descriptor *tx, int index)
 {
 	ppc440spe_desc_t *sw_desc = tx_to_ppc440spe_adma_slot(tx);
@@ -1146,7 +1146,7 @@ static void ppc440spe_adma_set_dest(dma_addr_t addr,
 	ppc440spe_desc_set_dest_addr(sw_desc->group_head, chan,  addr);
 }
 
-static void ppc440spe_adma_set_src(dma_addr_t addr, 
+static void ppc440spe_adma_set_src(dma_addr_t addr,
 		struct dma_async_tx_descriptor *tx,
 		int index)
 {
@@ -1195,7 +1195,7 @@ static void ppc440spe_adma_free_chan_resources(struct dma_chan *chan)
 		in_use_descs++;
 		list_del(&iter->chain_node);
 	}
-	list_for_each_entry_safe_reverse(iter, _iter, 
+	list_for_each_entry_safe_reverse(iter, _iter,
 			&ppc440spe_chan->all_slots, slot_node) {
 		list_del(&iter->slot_node);
 		kfree(iter);
@@ -1203,7 +1203,7 @@ static void ppc440spe_adma_free_chan_resources(struct dma_chan *chan)
 	}
 	ppc440spe_chan->last_used = NULL;
 
-	PRINTK("ppc440spe adma%d %s slots_allocated %d\n", 
+	PRINTK("ppc440spe adma%d %s slots_allocated %d\n",
 		ppc440spe_chan->device->id,
 		__FUNCTION__, ppc440spe_chan->slots_allocated);
 	spin_unlock_bh(&ppc440spe_chan->lock);
@@ -1273,7 +1273,7 @@ static void ppc440spe_adma_issue_pending(struct dma_chan *chan)
 {
 	ppc440spe_ch_t *ppc440spe_chan = to_ppc440spe_adma_chan(chan);
 
-	PRINTK("ppc440spe adma%d: %s %d \n", 
+	PRINTK("ppc440spe adma%d: %s %d \n",
 			ppc440spe_chan->device->id, __FUNCTION__,
 			ppc440spe_chan->pending);
 
@@ -1355,7 +1355,7 @@ static int __devinit ppc440spe_adma_probe(struct platform_device *pdev)
 	}
 
 	PRINTK("%s: allocted descriptor pool virt %p phys %p\n",
-		__FUNCTION__, adev->dma_desc_pool_virt, 
+		__FUNCTION__, adev->dma_desc_pool_virt,
 		(void *) adev->dma_desc_pool);
 
 	adev->id = plat_data->hw_id;

@@ -330,7 +330,7 @@ static void ppc440spe_configure_raid_devices(void)
 	out_le32(&i2o_reg->iopim, mask);
 
 	/* enable XOR engine interrupts */
-	xor_reg->ier = XOR_IE_CBCIE_BIT | 
+	xor_reg->ier = XOR_IE_CBCIE_BIT |
 		 XOR_IE_ICBIE_BIT | XOR_IE_ICIE_BIT | XOR_IE_RPTIE_BIT;
 
 	/*
