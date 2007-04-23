@@ -17,6 +17,9 @@
 
 #include <asm/types.h>
 
+/* Number of operands supported in the h/w */
+#define XOR_MAX_OPS		16
+
 /* XOR Memory Mapped Registers base address */
 #define XOR_MMAP_BASE		0x400200000ULL
 #define XOR_MMAP_SIZE		0x224ULL

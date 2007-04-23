@@ -75,6 +75,15 @@
 #define I2O_IOPIM_P0SNE		(1<<3)
 #define I2O_IOPIM_P1SNE		(1<<6)
 
+/* DMA CDB fields */
+#define DMA_CDB_MASK		(0xF)
+#define DMA_CDB_64B_ADDR	(1<<2)
+#define DMA_CDB_NO_INT		(1<<3)
+
+/* DMA CDB OpCodes */
+#define DMA_CDB_OPC_NO_OP	(0)
+#define DMA_CDB_OPC_MV_SG1_SG2	(1<<0)
+
 /*
  * DMAx engines Command Descriptor Block Type
  */

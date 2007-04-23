@@ -22,6 +22,7 @@
 #define IOP_ADMA_H
 #include <linux/types.h>
 #include <linux/dmaengine.h>
+#include <linux/interrupt.h>
 
 #define IOP_ADMA_SLOT_SIZE 32
 #define IOP_ADMA_THRESHOLD 4
@@ -43,10 +44,11 @@ struct iop_adma_device {
 };
 
 /**
- * struct iop_adma_device - internal representation of an ADMA device
+ * struct iop_adma_chan - internal representation of an ADMA device
  * @pending: allows batching of hardware operations
  * @completed_cookie: identifier for the most recently completed operation
  * @lock: serializes enqueue/dequeue operations to the slot pool
+ * @mmr_base: memory mapped register base
  * @chain: device chain view of the descriptors
  * @device: parent device
  * @common: common dmaengine channel object members
@@ -54,11 +56,13 @@ struct iop_adma_device {
  * @all_slots: complete domain of slots usable by the channel
  * @cleanup_watchdog: workaround missed interrupts on iop3xx
  * @slots_allocated: records the actual size of the descriptor slot pool
+ * @irq_tasklet: bottom half where iop_adma_slot_cleanup runs
  */
 struct iop_adma_chan {
 	int pending;
 	dma_cookie_t completed_cookie;
 	spinlock_t lock;
+	void __iomem *mmr_base;
 	struct list_head chain;
 	struct iop_adma_device *device;
 	struct dma_chan common;
@@ -66,43 +70,44 @@ struct iop_adma_chan {
 	struct list_head all_slots;
 	struct timer_list cleanup_watchdog;
 	int slots_allocated;
+	struct tasklet_struct irq_tasklet;
 };
 
 /**
  * struct iop_adma_desc_slot - IOP-ADMA software descriptor
+ * @slot_node: node on the iop_adma_chan.all_slots list
  * @chain_node: node on the op_adma_chan.chain list
  * @hw_desc: virtual address of the hardware descriptor chain
- * @slot_cnt: total slots used in an operation / operation series
+ * @phys: hardware address of the hardware descriptor chain
+ * @group_head: first operation in a transaction
+ * @slot_cnt: total slots used in an transaction (group of operations)
  * @slots_per_op: number of slots per operation
- * @src_cnt: number of xor sources
  * @idx: pool index
- * @stride: allocation stride for a single descriptor used when freeing
+ * @unmap_src_cnt: number of xor sources
+ * @unmap_len: transaction bytecount
  * @async_tx: support for the async_tx api
+ * @group_list: list of slots that make up a multi-descriptor transaction
+ *	for example transfer lengths larger than the supported hw max
  * @xor_check_result: result of zero sum
  * @crc32_result: result crc calculation
- * @phys: hardware address of the hardware descriptor chain
- * @slot_node: node on the iop_adma_chan.all_slots list
- * @group_list: list of slots that make up a multi-descriptor operation
- *	for example transfer lengths larger than the supported hw max
  */
 struct iop_adma_desc_slot {
+	struct list_head slot_node;
 	struct list_head chain_node;
 	void *hw_desc;
-	u16 slot_cnt;
-	u8 slots_per_op;
-	u16 idx;
-	u16 stride;
-	size_t unmap_len;
-	u8 unmap_src_cnt;
+	dma_addr_t phys;
 	struct iop_adma_desc_slot *group_head;
+	u16 slot_cnt;
+	u16 slots_per_op;
+	u16 idx;
+	u16 unmap_src_cnt;
+	size_t unmap_len;
 	struct dma_async_tx_descriptor async_tx;
+	struct list_head group_list;
 	union {
 		u32 *xor_check_result;
 		u32 *crc32_result;
 	};
-	dma_addr_t phys;
-	struct list_head slot_node;
-	struct list_head group_list;
 };
 
 struct iop_adma_platform_data {

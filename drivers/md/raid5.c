@@ -675,6 +675,52 @@ ops_run_biodrain(struct stripe_head *sh, struct dma_async_tx_descriptor *tx)
 	PRINTK("%s: stripe %llu\n", __FUNCTION__,
 		(unsigned long long)sh->sector);
 
+#ifdef CONFIG_MD_RAID5_SKIP_BIO_COPY
+	/* initially assume that the operation is a full-stripe write*/
+	set_bit(STRIPE_FULL_WRITE, &sh->state);
+	for (i=disks ; i-- ;) {
+		if (unlikely(i == pd_idx))
+			continue;
+		if ((sh->dev[i].flags & R5_OVERWRITE) &&
+			!r5_next_bio(sh->dev[i].towrite, sh->dev[i].sector)) {
+			/* now verify that there is only one bio_vec within the bio
+			 * covers the sh->dev[i]
+			 */
+			struct bio *pbio = sh->dev[i].towrite;
+			struct bio_vec *bvl;
+			int bvec_page = pbio->bi_sector << 9, k;
+			int dev_page = sh->dev[i].sector << 9;
+
+			/* get the bio_vec that covers dev[i].page */
+			bio_for_each_segment(bvl, pbio, k) {
+				if (bvec_page == dev_page &&
+					bio_iovec_idx(pbio,k)->bv_len == STRIPE_SIZE) {
+					/* find vector that fully covers the strip */
+					break;
+				}
+				bvec_page += bio_iovec_idx(pbio,k)->bv_len;
+			}
+
+			if (k != pbio->bi_vcnt + 1) {
+				/* save the direct pointer to buffer */
+				sh->dev[i].dpage = bio_iovec_idx(pbio,k)->bv_page;
+				continue;
+			}
+
+			/* come here in two cases:
+			 * - the dev[i] is not covered fully with the bio
+			 * - there are more than one bios cover the dev[i]
+			 * in both cases use the intermediate copy from bio to dev[i].page
+			 */
+
+			PRINTK("%s: do intermediate copying because of disk %d\n",
+				__FUNCTION__, i);
+			clear_bit(STRIPE_FULL_WRITE, &sh->state);
+			break;
+		}
+	}
+#endif
+
 	for (i=disks ; i-- ;) {
 		struct r5dev *dev = &sh->dev[i];
 		struct bio *chosen;
@@ -700,10 +746,13 @@ ops_run_biodrain(struct stripe_head *sh, struct dma_async_tx_descriptor *tx)
 			wbi = dev->written = chosen;
 			spin_unlock(&sh->lock);
 
-			while (wbi && wbi->bi_sector < dev->sector + STRIPE_SECTORS) {
-				tx = async_copy_data(1, wbi, dev->page,
-					dev->sector, tx);
-				wbi = r5_next_bio(wbi, dev->sector);
+			if (!test_bit(STRIPE_FULL_WRITE, &sh->state)) {
+				/* do intermediate copy */
+				while (wbi && wbi->bi_sector < dev->sector + STRIPE_SECTORS) {
+					tx = async_copy_data(1, wbi, dev->page,
+						dev->sector, tx);
+					wbi = r5_next_bio(wbi, dev->sector);
+				}
 			}
 		}
 	}
@@ -733,8 +782,14 @@ static void ops_complete_write(void *stripe_head_ref)
 
 	for (i=disks ; i-- ;) {
 		struct r5dev *dev = &sh->dev[i];
-		if (dev->written || i == pd_idx)
+		if (dev->written || i == pd_idx) {
+			/*  actually, in case of full-stripe write operation the
+			 * dev->page remains not UPTODATE. We need this flag
+			 * to determine the completeness of disk operations in
+			 * handle_stripe5(), so set it here, but clear then.
+			 */
 			set_bit(R5_UPTODATE, &dev->flags);
+		}
 	}
 
 	BUG_ON(test_and_set_bit(STRIPE_OP_BIODRAIN, &sh->ops.complete));
@@ -768,14 +823,16 @@ ops_run_postxor(struct stripe_head *sh, struct dma_async_tx_descriptor *tx)
 		for (i=disks; i--;) {
 			struct r5dev *dev = &sh->dev[i];
 			if (dev->written)
-				xor_srcs[count++] = dev->page;
+				xor_srcs[count++] = test_bit(STRIPE_FULL_WRITE, &sh->state) ?
+					dev->dpage : dev->page;
 		}
 	} else {
 		xor_dest = sh->dev[pd_idx].page;
 		for (i=disks; i--;) {
 			struct r5dev *dev = &sh->dev[i];
 			if (i!=pd_idx)
-				xor_srcs[count++] = dev->page;
+				xor_srcs[count++] = test_bit(STRIPE_FULL_WRITE, &sh->state) ?
+					dev->dpage : dev->page;
 		}
 	}
 
@@ -1202,7 +1259,7 @@ static void raid5_build_block (struct stripe_head *sh, int i)
 	dev->req.bi_io_vec = &dev->vec;
 	dev->req.bi_vcnt++;
 	dev->req.bi_max_vecs++;
-	dev->vec.bv_page = dev->page;
+	dev->vec.bv_page = test_bit(STRIPE_FULL_WRITE, &sh->state) ? dev->dpage : dev->page;
 	dev->vec.bv_len = STRIPE_SIZE;
 	dev->vec.bv_offset = 0;
 
@@ -2030,6 +2087,12 @@ static void handle_stripe5(struct stripe_head *sh)
 			    spin_lock_irq(&conf->device_lock);
 			    wbi = dev->written;
 			    dev->written = NULL;
+			    if (test_bit(STRIPE_FULL_WRITE, &sh->state)) {
+				    /* with full-stripe write disk-cache actually
+				     * is not UPTODATE
+				     */
+				    clear_bit(R5_UPTODATE, &dev->flags);
+			    }
 			    while (wbi && wbi->bi_sector < dev->sector + STRIPE_SECTORS) {
 				    wbi2 = r5_next_bio(wbi, dev->sector);
 				    if (--wbi->bi_phys_segments == 0) {

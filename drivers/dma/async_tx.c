@@ -29,27 +29,27 @@
 
 #ifdef CONFIG_DMA_ENGINE
 static struct dma_client *async_api_client;
-static struct async_channel_entry async_channel_directory[] = {
+static struct async_channel_entry async_channel_htable[] = {
 	[DMA_MEMCPY] = { .list =
-		LIST_HEAD_INIT(async_channel_directory[DMA_MEMCPY].list), },
+		LIST_HEAD_INIT(async_channel_htable[DMA_MEMCPY].list), },
 	[DMA_XOR] = { .list =
-		LIST_HEAD_INIT(async_channel_directory[DMA_XOR].list), },
+		LIST_HEAD_INIT(async_channel_htable[DMA_XOR].list), },
 	[DMA_PQ_XOR] = { .list =
-		LIST_HEAD_INIT(async_channel_directory[DMA_PQ_XOR].list), },
+		LIST_HEAD_INIT(async_channel_htable[DMA_PQ_XOR].list), },
 	[DMA_DUAL_XOR] = { .list =
-		LIST_HEAD_INIT(async_channel_directory[DMA_DUAL_XOR].list), },
+		LIST_HEAD_INIT(async_channel_htable[DMA_DUAL_XOR].list), },
 	[DMA_PQ_UPDATE] = { .list =
-		LIST_HEAD_INIT(async_channel_directory[DMA_PQ_UPDATE].list), },
+		LIST_HEAD_INIT(async_channel_htable[DMA_PQ_UPDATE].list), },
 	[DMA_ZERO_SUM] = { .list =
-		LIST_HEAD_INIT(async_channel_directory[DMA_ZERO_SUM].list), },
+		LIST_HEAD_INIT(async_channel_htable[DMA_ZERO_SUM].list), },
 	[DMA_PQ_ZERO_SUM] = { .list =
-		LIST_HEAD_INIT(async_channel_directory[DMA_PQ_ZERO_SUM].list), },
+		LIST_HEAD_INIT(async_channel_htable[DMA_PQ_ZERO_SUM].list), },
 	[DMA_MEMSET] = { .list =
-		LIST_HEAD_INIT(async_channel_directory[DMA_MEMSET].list), },
+		LIST_HEAD_INIT(async_channel_htable[DMA_MEMSET].list), },
 	[DMA_MEMCPY_CRC32C] = { .list =
-		LIST_HEAD_INIT(async_channel_directory[DMA_MEMCPY_CRC32C].list), },
+		LIST_HEAD_INIT(async_channel_htable[DMA_MEMCPY_CRC32C].list), },
 	[DMA_INTERRUPT] = { .list =
-		LIST_HEAD_INIT(async_channel_directory[DMA_INTERRUPT].list), },
+		LIST_HEAD_INIT(async_channel_htable[DMA_INTERRUPT].list), },
 };
 
 struct async_channel_entry async_tx_master_list = {
@@ -66,7 +66,7 @@ free_dma_chan_ref(struct rcu_head *rcu)
 	kfree(ref);
 }
 
-static inline void
+static void
 init_dma_chan_ref(struct dma_chan_ref *ref, struct dma_chan *chan)
 {
 	INIT_LIST_HEAD(&ref->async_node);
@@ -113,7 +113,7 @@ dma_channel_add_remove(struct dma_client *client,
 				continue;
 
 			if (ref) {
-				channel_entry = &async_channel_directory[i];
+				channel_entry = &async_channel_htable[i];
 				init_dma_chan_ref(ref, chan);
 				spin_lock_irqsave(&channel_entry->lock, flags);
 				atomic_inc(&channel_entry->version);
@@ -137,7 +137,7 @@ dma_channel_add_remove(struct dma_client *client,
 			if (!test_bit(i, &chan->device->capabilities))
 				continue;
 
-			channel_entry = &async_channel_directory[i];
+			channel_entry = &async_channel_htable[i];
 
 			spin_lock_irqsave(&channel_entry->lock, flags);
 			list_for_each_entry_rcu(ref, &channel_entry->list,
@@ -172,7 +172,7 @@ async_tx_init(void)
 	spin_lock_init(&async_tx_master_list.lock);
 
 	dma_async_for_each_tx_type(i) {
-		channel_entry = &async_channel_directory[i];
+		channel_entry = &async_channel_htable[i];
 		spin_lock_init(&channel_entry->lock);
 		channel_entry->local_iter = alloc_percpu(struct async_iter_percpu);
 		if (!channel_entry->local_iter) {
@@ -204,7 +204,7 @@ err:
 	printk("async_tx: initialization failure\n");
 
 	while (--i >= 0)
-		free_percpu(async_channel_directory[i].local_iter);
+		free_percpu(async_channel_htable[i].local_iter);
 
 	return 1;
 }
@@ -219,7 +219,7 @@ static void __exit async_tx_exit(void)
 		dma_async_client_unregister(async_api_client);
 
 	dma_async_for_each_tx_type(i) {
-		channel_entry = &async_channel_directory[i];
+		channel_entry = &async_channel_htable[i];
 		if (channel_entry->local_iter)
 			free_percpu(channel_entry->local_iter);
 
@@ -259,7 +259,7 @@ async_tx_find_channel(struct dma_async_tx_descriptor *depend_tx,
 	else {
 		int cpu;
 		struct async_channel_entry *channel_entry =
-			&async_channel_directory[tx_type];
+			&async_channel_htable[tx_type];
 		struct async_iter_percpu *local_iter;
 		struct list_head *iter;
 		struct dma_chan *chan;
@@ -316,7 +316,7 @@ static void __exit async_tx_exit(void)
 	do { } while (0);
 }
 
-static inline struct dma_chan *
+static struct dma_chan *
 async_tx_find_channel(struct dma_async_tx_descriptor *depend_tx,
 	enum dma_transaction_type tx_type)
 {
@@ -324,7 +324,7 @@ async_tx_find_channel(struct dma_async_tx_descriptor *depend_tx,
 }
 #endif
 
-static inline void
+static void
 async_tx_submit(struct dma_chan *chan, struct dma_async_tx_descriptor *tx,
 	enum async_tx_flags flags, struct dma_async_tx_descriptor *depend_tx,
 	dma_async_tx_callback callback, void *callback_param)
@@ -370,7 +370,7 @@ async_tx_submit(struct dma_chan *chan, struct dma_async_tx_descriptor *tx,
  * @callback: function to call when the transaction completes
  * @callback_param: parameter to pass to the callback routine
  */
-static inline void
+static void
 sync_epilog(unsigned long flags, struct dma_async_tx_descriptor *depend_tx,
 	dma_async_tx_callback callback, void *callback_param)
 {
@@ -381,7 +381,7 @@ sync_epilog(unsigned long flags, struct dma_async_tx_descriptor *depend_tx,
 		async_tx_ack(depend_tx);
 }
 
-static inline void
+static void
 do_async_xor(struct dma_async_tx_descriptor *tx, struct dma_device *device,
 	struct dma_chan *chan, struct page *dest, struct page **src_list,
 	unsigned int offset, unsigned int src_cnt, size_t len,
@@ -392,19 +392,19 @@ do_async_xor(struct dma_async_tx_descriptor *tx, struct dma_device *device,
 	enum dma_data_direction dir;
 	int i;
 
-	PRINTK("%s: len: %u\n", __FUNCTION__, len);
+	PRINTK("%s: len: %zu\n", __FUNCTION__, len);
 
 	dir = (flags & ASYNC_TX_ASSUME_COHERENT) ?
 		DMA_NONE : DMA_FROM_DEVICE;
 
-	dma_addr = device->map_page(chan, dest, offset, len, dir);
+	dma_addr = dma_map_page(device->dev, dest, offset, len, dir);
      	device->device_set_dest(dma_addr, tx, 0);
 
 	dir = (flags & ASYNC_TX_ASSUME_COHERENT) ?
 		DMA_NONE : DMA_TO_DEVICE;
 
 	for (i = 0; i < src_cnt; i++) {
-		dma_addr = device->map_page(chan, src_list[i],
+		dma_addr = dma_map_page(device->dev, src_list[i],
 			offset, len, dir);
 	     	device->device_set_src(dma_addr, tx, i);
 	}
@@ -413,7 +413,7 @@ do_async_xor(struct dma_async_tx_descriptor *tx, struct dma_device *device,
 		callback_param);
 }
 
-static inline void
+static void
 do_sync_xor(struct page *dest, struct page **src_list, unsigned int offset,
 	unsigned int src_cnt, size_t len, enum async_tx_flags flags,
 	struct dma_async_tx_descriptor *depend_tx,
@@ -422,7 +422,7 @@ do_sync_xor(struct page *dest, struct page **src_list, unsigned int offset,
 	void *_dest;
 	int i;
 
-	PRINTK("%s: len: %u\n", __FUNCTION__, len);
+	PRINTK("%s: len: %zu\n", __FUNCTION__, len);
 
 	/* reuse the 'src_list' array to convert to buffer pointers */
 	for (i = 0; i < src_cnt; i++)
@@ -574,6 +574,7 @@ xor_sync:
 
 	return tx;
 }
+EXPORT_SYMBOL_GPL(async_xor);
 
 static int page_is_zero(struct page *p, size_t len)
 {
@@ -615,13 +616,13 @@ async_xor_zero_sum(struct page *dest, struct page **src_list,
 		dma_addr_t dma_addr;
 		enum dma_data_direction dir;
 
-		PRINTK("%s: (async) len: %u\n", __FUNCTION__, len);
+		PRINTK("%s: (async) len: %zu\n", __FUNCTION__, len);
 
 		dir = (flags & ASYNC_TX_ASSUME_COHERENT) ?
 			DMA_NONE : DMA_TO_DEVICE;
 
 		for (i = 0; i < src_cnt; i++) {
-			dma_addr = device->map_page(chan, src_list[i],
+			dma_addr = dma_map_page(device->dev, src_list[i],
 				offset, len, dir);
 		     	device->device_set_src(dma_addr, tx, i);
 		}
@@ -631,7 +632,7 @@ async_xor_zero_sum(struct page *dest, struct page **src_list,
 	} else {
 		unsigned long xor_flags = flags;
 
-		PRINTK("%s: (sync) len: %u\n", __FUNCTION__, len);
+		PRINTK("%s: (sync) len: %zu\n", __FUNCTION__, len);
 
 		xor_flags |= ASYNC_TX_XOR_DROP_DST;
 		xor_flags &= ~ASYNC_TX_ACK;
@@ -655,6 +656,7 @@ async_xor_zero_sum(struct page *dest, struct page **src_list,
 
 	return tx;
 }
+EXPORT_SYMBOL_GPL(async_xor_zero_sum);
 
 /**
  * async_memcpy - attempt to copy memory with a dma engine.
@@ -685,25 +687,25 @@ async_memcpy(struct page *dest, struct page *src, unsigned int dest_offset,
 		dma_addr_t dma_addr;
 		enum dma_data_direction dir;
 
-		PRINTK("%s: (async) len: %u\n", __FUNCTION__, len);
+		PRINTK("%s: (async) len: %zu\n", __FUNCTION__, len);
 
 		dir = (flags & ASYNC_TX_ASSUME_COHERENT) ?
 			DMA_NONE : DMA_FROM_DEVICE;
 
-		dma_addr = device->map_page(chan, dest, dest_offset, len, dir);
+		dma_addr = dma_map_page(device->dev, dest, dest_offset, len, dir);
 	     	device->device_set_dest(dma_addr, tx, 0);
 
 		dir = (flags & ASYNC_TX_ASSUME_COHERENT) ?
 			DMA_NONE : DMA_TO_DEVICE;
 
-		dma_addr = device->map_page(chan, src, src_offset, len, dir);
+		dma_addr = dma_map_page(device->dev, src, src_offset, len, dir);
 	     	device->device_set_src(dma_addr, tx, 0);
 
 		async_tx_submit(chan, tx, flags, depend_tx, callback,
 			callback_param);
 	} else { /* run the memcpy synchronously */
 		void *dest_buf, *src_buf;
-		PRINTK("%s: (sync) len: %u\n", __FUNCTION__, len);
+		PRINTK("%s: (sync) len: %zu\n", __FUNCTION__, len);
 
 		/* wait for any prerequisite operations */
 		if (depend_tx) {
@@ -739,6 +741,7 @@ async_memcpy(struct page *dest, struct page *src, unsigned int dest_offset,
 
 	return tx;
 }
+EXPORT_SYMBOL_GPL(async_memcpy);
 
 /**
  * async_memset - attempt to fill memory with a dma engine.
@@ -768,18 +771,18 @@ async_memset(struct page *dest, int val, unsigned int offset,
 		dma_addr_t dma_addr;
 		enum dma_data_direction dir;
 
-		PRINTK("%s: (async) len: %u\n", __FUNCTION__, len);
+		PRINTK("%s: (async) len: %zu\n", __FUNCTION__, len);
 		dir = (flags & ASYNC_TX_ASSUME_COHERENT) ?
 			DMA_NONE : DMA_FROM_DEVICE;
 
-		dma_addr = device->map_page(chan, dest, offset, len, dir);
+		dma_addr = dma_map_page(device->dev, dest, offset, len, dir);
 	     	device->device_set_dest(dma_addr, tx, 0);
 
 		async_tx_submit(chan, tx, flags, depend_tx, callback,
 			callback_param);
 	} else { /* run the memset synchronously */
 		void *dest_buf;
-		PRINTK("%s: (sync) len: %u\n", __FUNCTION__, len);
+		PRINTK("%s: (sync) len: %zu\n", __FUNCTION__, len);
 
 		dest_buf = (void *) (((char *) page_address(dest)) + offset);
 
@@ -801,6 +804,7 @@ async_memset(struct page *dest, int val, unsigned int offset,
 
 	return tx;
 }
+EXPORT_SYMBOL_GPL(async_memset);
 
 /**
  * async_interrupt - cause an interrupt to asynchrounously flush pending
@@ -845,6 +849,7 @@ async_interrupt(enum async_tx_flags flags,
 
 	return tx;
 }
+EXPORT_SYMBOL_GPL(async_interrupt);
 
 /**
  * async_interrupt_cond - same as async_interrupt except that this will only be
@@ -890,6 +895,7 @@ async_interrupt_cond(enum dma_transaction_type next_op,
 
 	return tx;
 }
+EXPORT_SYMBOL_GPL(async_interrupt_cond);
 
 module_init(async_tx_init);
 module_exit(async_tx_exit);
@@ -897,14 +903,3 @@ module_exit(async_tx_exit);
 MODULE_AUTHOR("Intel Corporation");
 MODULE_DESCRIPTION("Asynchronous Bulk Memory Transactions API");
 MODULE_LICENSE("GPL");
-
-EXPORT_SYMBOL_GPL(async_interrupt);
-EXPORT_SYMBOL_GPL(async_interrupt_cond);
-EXPORT_SYMBOL_GPL(async_memcpy);
-EXPORT_SYMBOL_GPL(async_memset);
-EXPORT_SYMBOL_GPL(async_xor);
-EXPORT_SYMBOL_GPL(async_xor_zero_sum);
-EXPORT_SYMBOL_GPL(async_tx_issue_pending_all);
-EXPORT_SYMBOL_GPL(async_tx_ack);
-EXPORT_SYMBOL_GPL(dma_wait_for_async_tx);
-EXPORT_SYMBOL_GPL(async_tx_run_dependencies);

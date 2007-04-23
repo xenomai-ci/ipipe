@@ -24,7 +24,6 @@ config NET_DMA
 
 config ASYNC_TX_DMA
 	tristate "Asynchronous Bulk Memory Transfers/Transforms API"
-	default n
 	---help---
 	  This enables the async_tx management layer for dma engines.
 	  Subsystems coded to this API will use offload engines for bulk
