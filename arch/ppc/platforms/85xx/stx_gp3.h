@@ -36,6 +36,11 @@
 #define BCSR_LED3		0x00000002
 #define BCSR_LED4		0x00000001
 
+/* This is used on the GP3 SSA to prevent probing the IDE1
+ * interface that doesn't exist with the onboard IDE controller.
+ */
+#define IDE_ARCH_OBSOLETE_INIT
+
 extern void mpc85xx_setup_hose(void) __init;
 extern void mpc85xx_restart(char *cmd);
 extern void mpc85xx_power_off(void);

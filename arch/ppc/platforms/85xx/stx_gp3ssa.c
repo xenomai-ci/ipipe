@@ -35,6 +35,7 @@
 #include <linux/root_dev.h>
 #include <linux/seq_file.h>
 #include <linux/serial.h>
+#include <linux/ide.h>
 #include <linux/initrd.h>
 #include <linux/module.h>
 #include <linux/fsl_devices.h>
@@ -335,19 +336,43 @@ int mpc85xx_exclude_device(u_char bus, u_char devfn)
 		return PCIBIOS_DEVICE_NOT_FOUND;
 	return PCIBIOS_SUCCESSFUL;
 }
-#endif /* CONFIG_PCI */
 
-#ifdef CONFIG_RAPIDIO
-void
-platform_rio_init(void)
+/* What a hack....  Due to bugs in the IDE code, it was easier to do
+ * this here.  The on-board IDE controller pins for the second channel
+ * are not connected to anything, so the probe just hangs.  The ide1=noprobe
+ * option doesn't work, it's forcibly set based on io port values.
+ * So, we trap it here, check for the ide1 channel, and ensure the
+ * probe isn't done.
+ */
+static  void
+gp3ssa_ide_init_hwif(hw_regs_t *hw, unsigned long io_addr,
+				       unsigned long ctl_addr, int *irq)
 {
-	/*
-	 * The STx firmware configures the RapidIO Local Access Window
-	 * at 0xc0000000 with a size of 512MB.
-	 */
-	mpc85xx_rio_setup(0xc0000000, 0x20000000);
+	struct pci_dev *dev = NULL;
+
+	ide_std_init_ports(hw, io_addr, ctl_addr);
+	hw->io_ports[IDE_IRQ_OFFSET] = 0;
+
+	while ((dev = pci_find_device(PCI_VENDOR_ID_ITE, PCI_DEVICE_ID_ITE_8211, dev)) != NULL) {
+		/* We want to make sure we only capture the controller
+		 * on the board, not one that someone may have plugged
+		 * into a slot with the same chipset.
+		 */
+		if (PCI_SLOT(dev->devfn) == 18) {
+			if (pci_resource_start(dev, 2) == io_addr) {
+				/* This is IDE1.  Setting the data offset
+				 * to zero, will cause the noprobe to be
+				 * set to one.
+				 */
+				hw->io_ports[IDE_DATA_OFFSET] = 0;
+				break;
+			}
+
+		}
+	}
 }
-#endif /* CONFIG_RAPIDIO */
+
+#endif /* CONFIG_PCI */
 
 void __init
 platform_init(unsigned long r3, unsigned long r4, unsigned long r5,
@@ -424,6 +449,10 @@ platform_init(unsigned long r3, unsigned long r4, unsigned long r5,
 	ppc_md.find_end_of_memory = mpc85xx_find_end_of_memory;
 
 	ppc_md.calibrate_decr = mpc85xx_calibrate_decr;
+
+#ifdef CONFIG_PCI
+	ppc_ide_md.ide_init_hwif = gp3ssa_ide_init_hwif;
+#endif
 
 #if defined(CONFIG_SERIAL_8250) && defined(CONFIG_SERIAL_TEXT_DEBUG)
 	ppc_md.progress = gen550_progress;
