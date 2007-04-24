@@ -19,6 +19,7 @@
 
 #include <linux/init.h>
 #include <asm/ppcboot.h>
+#include <syslib/ppc85xx_setup.h>
 
 #define BOARD_CCSRBAR		((uint)0xe0000000)
 #define CCSRBAR_SIZE		((uint)1024*1024)
@@ -43,8 +44,8 @@ extern void mpc85xx_init_IRQ(void) __init;
 extern unsigned long mpc85xx_find_end_of_memory(void) __init;
 extern void mpc85xx_calibrate_decr(void) __init;
 
-#define PCI_CFG_ADDR_OFFSET	(0x8000)
-#define PCI_CFG_DATA_OFFSET	(0x8004)
+#define PCI1_CFG_ADDR_OFFSET	(0x8000)
+#define PCI1_CFG_DATA_OFFSET	(0x8004)
 
 /* PCI interrupt controller */
 #define PIRQA		MPC85xx_IRQ_EXT1
@@ -65,5 +66,22 @@ extern void mpc85xx_calibrate_decr(void) __init;
 #define MPC85XX_PCI1_MEM_OFFSET	0x00000000
 
 #define MPC85XX_PCI1_IO_SIZE	0x01000000
+
+
+/*PCI2 stuff*/
+#define PCI2_CFG_ADDR_OFFSET    (0x9000)
+#define PCI2_CFG_DATA_OFFSET    (0x9004)
+
+#define MPC85XX_PCI2_LOWER_IO        0x00000000
+#define MPC85XX_PCI2_UPPER_IO        0x00ffffff
+
+#define MPC85XX_PCI2_LOWER_MEM       0xa0000000
+#define MPC85XX_PCI2_UPPER_MEM       0xbfffffff
+
+#define MPC85XX_PCI2_IO_BASE         0xe3000000
+#define MPC85XX_PCI2_MEM_OFFSET      0x00000000
+
+#define MPC85XX_PCI2_IO_SIZE         0x01000000
+
 
 #endif /* __MACH_STX_GP3_H */
