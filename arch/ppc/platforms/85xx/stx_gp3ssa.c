@@ -1,14 +1,18 @@
 /*
- * STx GP3 board specific routines
- *
- * Dan Malek <dan@embeddededge.com>
- * Copyright 2004 Embedded Edge, LLC
+ * STx GP3 SSA board specific routines
  *
  * Copied from mpc8560_ads.c
  * Copyright 2002, 2003 Motorola Inc.
  *
+ * Dan Malek <dan@embeddededge.com>
+ * Copyright 2004 Embedded Edge, LLC
+ *
  * Ported to 2.6, Matt Porter <mporter@kernel.crashing.org>
  * Copyright 2004-2005 MontaVista Software, Inc.
+ *
+ * GP3 SSA Updates.  I just didn't want to fill stx_gp3.c with more #ifdefs.
+ * Copyright 2006 Embedded Alley Solutions, Inc.
+ *	Dan Malek <dan@embeddedalley.com>
  *
  * This program is free software; you can redistribute  it and/or modify it
  * under  the terms of  the GNU General  Public License as published by the
@@ -16,6 +20,7 @@
  * option) any later version.
  */
 
+#include <linux/config.h>
 #include <linux/stddef.h>
 #include <linux/kernel.h>
 #include <linux/init.h>
@@ -67,43 +72,54 @@ unsigned long pci_dram_offset = 0;
 #endif
 
 /* PCI interrupt controller */
-#define PIRQA		MPC85xx_IRQ_EXT1
-#define PIRQB		MPC85xx_IRQ_EXT2
-#define PIRQC		MPC85xx_IRQ_EXT3
-#define PIRQD		MPC85xx_IRQ_EXT4
-#define PCI_MIN_IDSEL	16
-#define PCI_MAX_IDSEL	19
-#define PCI_IRQ_SLOT	4
+#define P1IRQA		MPC85xx_IRQ_EXT2
+#define P1IRQB		MPC85xx_IRQ_EXT3
+#define P1IRQC		MPC85xx_IRQ_EXT4
+#define P2IRQA		MPC85xx_IRQ_EXT5
+#define P2IRQB		MPC85xx_IRQ_EXT9
+#define P2IRQC		MPC85xx_IRQ_EXT11
 
 /* Internal interrupts are all Level Sensitive, and Positive Polarity */
-static u8 gp3_openpic_initsenses[] __initdata = {
+static u8 gp3ssa_openpic_initsenses[] __initdata = {
 	MPC85XX_INTERNAL_IRQ_SENSES,
-	0x0,						/* External  0: */
+	(IRQ_SENSE_LEVEL | IRQ_POLARITY_NEGATIVE),	/* Ext 0: TSEC1 PHY */
+	(IRQ_SENSE_LEVEL | IRQ_POLARITY_NEGATIVE),	/* Ext 1: TSEC2 PHY */
 #if defined(CONFIG_PCI)
-	(IRQ_SENSE_LEVEL | IRQ_POLARITY_NEGATIVE),	/* External 1: PCI slot 0 */
-	(IRQ_SENSE_LEVEL | IRQ_POLARITY_NEGATIVE),	/* External 2: PCI slot 1 */
-	(IRQ_SENSE_LEVEL | IRQ_POLARITY_NEGATIVE),	/* External 3: PCI slot 2 */
-	(IRQ_SENSE_LEVEL | IRQ_POLARITY_NEGATIVE),	/* External 4: PCI slot 3 */
+	(IRQ_SENSE_LEVEL | IRQ_POLARITY_NEGATIVE),	/* Ext 2: PCI INTA */
+	(IRQ_SENSE_LEVEL | IRQ_POLARITY_NEGATIVE),	/* Ext 3: PCI INTB */
+	(IRQ_SENSE_LEVEL | IRQ_POLARITY_NEGATIVE),	/* Ext 4: PCI INTC */
 #else
-	0x0,				/* External  1: */
 	0x0,				/* External  2: */
 	0x0,				/* External  3: */
 	0x0,				/* External  4: */
 #endif
+#if defined(CONFIG_PCI) && defined(CONFIG_85xx_PCI2)
+	(IRQ_SENSE_LEVEL | IRQ_POLARITY_NEGATIVE),	/* Ext 5: PCI2 INTA */
+#else
 	0x0,				/* External  5: */
-	0x0,				/* External  6: */
-	0x0,				/* External  7: */
-	0x0,				/* External  8: */
+#endif
+	(IRQ_SENSE_LEVEL | IRQ_POLARITY_NEGATIVE),	/* Ext 6: Localbus A */
+	(IRQ_SENSE_LEVEL | IRQ_POLARITY_NEGATIVE),	/* Ext 7: Localbus B */
+		/* External Interrupt from the CPM expansion connector */
+	(IRQ_SENSE_LEVEL | IRQ_POLARITY_NEGATIVE),	/* Ext 8 */
+#if defined(CONFIG_PCI) && defined(CONFIG_85xx_PCI2)
+	(IRQ_SENSE_LEVEL | IRQ_POLARITY_NEGATIVE),	/* Ext 9: PCI2 INTB */
+#else
 	0x0,				/* External  9: */
-	0x0,				/* External 10: */
+#endif
+	(IRQ_SENSE_LEVEL | IRQ_POLARITY_NEGATIVE),	/* Ext 10: FCC PHY */
+#if defined(CONFIG_PCI) && defined(CONFIG_85xx_PCI2)
+	(IRQ_SENSE_LEVEL | IRQ_POLARITY_NEGATIVE),	/* Ext 11: PCI2 INTC */
+#else
 	0x0,				/* External 11: */
+#endif
 };
 
 /*
  * Setup the architecture
  */
 static void __init
-gp3_setup_arch(void)
+gp3ssa_setup_arch(void)
 {
 	bd_t *binfo = (bd_t *) __res;
 	unsigned int freq;
@@ -118,7 +134,7 @@ gp3_setup_arch(void)
 	freq = binfo->bi_intfreq;
 
 	if (ppc_md.progress)
-		ppc_md.progress("gp3_setup_arch()", 0);
+		ppc_md.progress("gp3ssa_setup_arch()", 0);
 
 	/* Set loops_per_jiffy to a half-way reasonable value,
 	   for use until calibrate_delay gets called. */
@@ -142,8 +158,9 @@ gp3_setup_arch(void)
 	/* setup the board related info for the MDIO bus */
 	mdata = (struct gianfar_mdio_data *) ppc_sys_get_pdata(MPC85xx_MDIO);
 
-	mdata->irq[2] = MPC85xx_IRQ_EXT5;
-	mdata->irq[4] = MPC85xx_IRQ_EXT5;
+	mdata->irq[1] = MPC85xx_IRQ_EXT10;	/* FCC PHY */
+	mdata->irq[2] = MPC85xx_IRQ_EXT0;
+	mdata->irq[4] = MPC85xx_IRQ_EXT1;
 	mdata->irq[31] = -1;
 
 	/* setup the board related information for the enet controllers */
@@ -188,14 +205,14 @@ static irqreturn_t cpm2_cascade(int irq, void *dev_id, struct pt_regs *regs)
 
 static struct irqaction cpm2_irqaction = {
 	.handler	= cpm2_cascade,
-	.flags		= IRQF_DISABLED,
+	.flags		= SA_INTERRUPT,
 	.mask		= CPU_MASK_NONE,
 	.name		= "cpm2_cascade",
 };
 #endif
 
 static void __init
-gp3_init_IRQ(void)
+gp3ssa_init_IRQ(void)
 {
 	bd_t *binfo = (bd_t *) __res;
 
@@ -207,8 +224,8 @@ gp3_init_IRQ(void)
 	phys_addr_t OpenPIC_PAddr =
 	    binfo->bi_immr_base + MPC85xx_OPENPIC_OFFSET;
 	OpenPIC_Addr = ioremap(OpenPIC_PAddr, MPC85xx_OPENPIC_SIZE);
-	OpenPIC_InitSenses = gp3_openpic_initsenses;
-	OpenPIC_NumInitSenses = sizeof (gp3_openpic_initsenses);
+	OpenPIC_InitSenses = gp3ssa_openpic_initsenses;
+	OpenPIC_NumInitSenses = sizeof (gp3ssa_openpic_initsenses);
 
 	/* Skip reserved space and internal sources */
 	openpic_set_sources(0, 32, OpenPIC_Addr + 0x10200);
@@ -233,7 +250,7 @@ gp3_init_IRQ(void)
 }
 
 static int
-gp3_show_cpuinfo(struct seq_file *m)
+gp3ssa_show_cpuinfo(struct seq_file *m)
 {
 	uint pvid, svid, phid1;
 	bd_t *binfo = (bd_t *) __res;
@@ -270,33 +287,52 @@ gp3_show_cpuinfo(struct seq_file *m)
 int mpc85xx_map_irq(struct pci_dev *dev, unsigned char idsel,
 		    unsigned char pin)
 {
-	static char pci_irq_table[][4] =
-	    /*
-	     *      PCI IDSEL/INTPIN->INTLINE
-	     *        A      B      C      D
-	     */
-	{
-		{PIRQA, PIRQB, PIRQC, PIRQD},
-		{PIRQD, PIRQA, PIRQB, PIRQC},
-		{PIRQC, PIRQD, PIRQA, PIRQB},
-		{PIRQB, PIRQC, PIRQD, PIRQA},
-	};
+	struct pci_controller *hose = pci_bus_to_hose(dev->bus->number);
 
-	const long min_idsel = 12, max_idsel = 15, irqs_per_slot = 4;
-	return PCI_IRQ_TABLE_LOOKUP;
+	if (!hose->index) {
+		/* PCI1 interrupts */
+		char pci_irq_table[][3] =
+		    /*
+		     *      PCI IDSEL/INTPIN->INTLINE
+		     *        A      B      C      D
+		     */
+		{
+			{ P1IRQA, P1IRQB, P1IRQC },	/* PCI Slot */
+			{ P1IRQB, P1IRQC, P1IRQA },	/* PMC Connector */
+			{ P1IRQC, P1IRQA, P1IRQB },	/* Mini-PCI (IRQB not used) */
+		};
+
+		const long min_idsel = 11, max_idsel = 13, irqs_per_slot = 3;
+		return PCI_IRQ_TABLE_LOOKUP;
+	}
+	else {
+		/* PCI2 interrupts */
+		char pci_irq_table[][3] =
+		    /*
+		     *      PCI IDSEL/INTPIN->INTLINE
+		     *        A      B      C      D
+		     */
+		{
+			{ P2IRQA, P2IRQB, P2IRQC },	/* Mini-PCI */
+			{ P2IRQB, P2IRQC, P2IRQA },	/* FireWire */
+			{ P2IRQC, P2IRQA, P2IRQB },	/* IDE */
+		};
+
+		const long min_idsel = 16, max_idsel = 18, irqs_per_slot = 3;
+		return PCI_IRQ_TABLE_LOOKUP;
+
+	}
 }
 
 extern int mpc85xx_pci1_last_busno;
 
 int mpc85xx_exclude_device(u_char bus, u_char devfn)
 {
-	if (bus == 0 && PCI_SLOT(devfn) == 0)
+	/* Since there aren't any PCI-other bus bridges, we can exclude
+	 * the host bridge in all cases to get both PCI1 and PCI2.
+	 */
+	if (PCI_SLOT(devfn) == 0)
 		return PCIBIOS_DEVICE_NOT_FOUND;
-#ifdef CONFIG_85xx_PCI2
-	if (mpc85xx_pci1_last_busno)
-		if (bus == (mpc85xx_pci1_last_busno + 1) && PCI_SLOT(devfn) == 0)
-			return PCIBIOS_DEVICE_NOT_FOUND;
-#endif
 	return PCIBIOS_SUCCESSFUL;
 }
 #endif /* CONFIG_PCI */
@@ -375,10 +411,10 @@ platform_init(unsigned long r3, unsigned long r4, unsigned long r5,
 	identify_ppc_sys_by_id(mfspr(SPRN_SVR));
 
 	/* setup the PowerPC module struct */
-	ppc_md.setup_arch = gp3_setup_arch;
-	ppc_md.show_cpuinfo = gp3_show_cpuinfo;
+	ppc_md.setup_arch = gp3ssa_setup_arch;
+	ppc_md.show_cpuinfo = gp3ssa_show_cpuinfo;
 
-	ppc_md.init_IRQ = gp3_init_IRQ;
+	ppc_md.init_IRQ = gp3ssa_init_IRQ;
 	ppc_md.get_irq = openpic_get_irq;
 
 	ppc_md.restart = mpc85xx_restart;

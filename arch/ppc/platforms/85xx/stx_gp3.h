@@ -47,31 +47,24 @@ extern void mpc85xx_calibrate_decr(void) __init;
 #define PCI1_CFG_ADDR_OFFSET	(0x8000)
 #define PCI1_CFG_DATA_OFFSET	(0x8004)
 
-/* PCI interrupt controller */
-#define PIRQA		MPC85xx_IRQ_EXT1
-#define PIRQB		MPC85xx_IRQ_EXT2
-#define PIRQC		MPC85xx_IRQ_EXT3
-#define PIRQD		MPC85xx_IRQ_EXT4
-#define PCI_MIN_IDSEL	16
-#define PCI_MAX_IDSEL	19
-#define PCI_IRQ_SLOT	4
+#define PCI2_CFG_ADDR_OFFSET	(0x9000)
+#define PCI2_CFG_DATA_OFFSET	(0x9004)
 
-#define MPC85XX_PCI1_LOWER_IO	0x00000000
-#define MPC85XX_PCI1_UPPER_IO	0x00ffffff
+/* PCI 1 memory map */
+#define MPC85XX_PCI1_LOWER_IO        0x00000000
+#define MPC85XX_PCI1_UPPER_IO        0x00ffffff
 
-#define MPC85XX_PCI1_LOWER_MEM	0x80000000
-#define MPC85XX_PCI1_UPPER_MEM	0x9fffffff
+#define MPC85XX_PCI1_LOWER_MEM       0x80000000
+#define MPC85XX_PCI1_UPPER_MEM       0x9fffffff
 
-#define MPC85XX_PCI1_IO_BASE	0xe2000000
-#define MPC85XX_PCI1_MEM_OFFSET	0x00000000
+#define MPC85XX_PCI1_IO_BASE         0xe2000000
+#define MPC85XX_PCI1_MEM_OFFSET      0x00000000
 
-#define MPC85XX_PCI1_IO_SIZE	0x01000000
+#define MPC85XX_PCI1_IO_SIZE         0x01000000
 
-
-/*PCI2 stuff*/
-#define PCI2_CFG_ADDR_OFFSET    (0x9000)
-#define PCI2_CFG_DATA_OFFSET    (0x9004)
-
+/* PCI 2 memory map */
+/* Note: the standard PPC fixups will cause IO space to get bumped by
+ * hose->io_base_virt - isa_io_base => MPC85XX_PCI1_IO_SIZE */
 #define MPC85XX_PCI2_LOWER_IO        0x00000000
 #define MPC85XX_PCI2_UPPER_IO        0x00ffffff
 
@@ -82,6 +75,5 @@ extern void mpc85xx_calibrate_decr(void) __init;
 #define MPC85XX_PCI2_MEM_OFFSET      0x00000000
 
 #define MPC85XX_PCI2_IO_SIZE         0x01000000
-
 
 #endif /* __MACH_STX_GP3_H */

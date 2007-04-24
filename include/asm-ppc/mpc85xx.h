@@ -36,7 +36,7 @@
 #ifdef CONFIG_SBC8560
 #include <platforms/85xx/sbc8560.h>
 #endif
-#ifdef CONFIG_STX_GP3
+#if defined(CONFIG_STX_GP3) || defined(CONFIG_STX_GP3SSA)
 #include <platforms/85xx/stx_gp3.h>
 #endif
 #if defined(CONFIG_TQM8540) || defined(CONFIG_TQM8541) || \

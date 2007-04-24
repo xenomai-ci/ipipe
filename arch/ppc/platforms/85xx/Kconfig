@@ -48,6 +48,12 @@ config STX_GP3
 	  This option enables support for the Silicon Turnkey Express GP3
 	  board.
 
+config STX_GP3SSA
+	bool "Silicon Turnkey Express GP3 SSA"
+	help
+	  This option enables support for the Silicon Turnkey
+	  Express GP3 SSA board.
+
 config TQM8540
 	bool "TQ Components TQM8540"
 	help
@@ -72,7 +78,7 @@ endchoice
 
 choice
 	prompt "STx GP3 Processor Option"
-	depends on STX_GP3
+	depends on STX_GP3 || STX_GP3SSA
 	default STX_8560
 
 config STX_8560
@@ -109,8 +115,7 @@ config MPC8560
 
 config 85xx_PCI2
 	bool "Supprt for 2nd PCI host controller"
-	depends on MPC8555_CDS
-	default y
+	default n
 
 config PPC_GEN550
 	bool
