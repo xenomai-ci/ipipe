@@ -116,7 +116,12 @@ static void __init motionpro_setup_arch(void)
 
 #ifdef CONFIG_BLK_DEV_INITRD
 	if (initrd_start)
-		ROOT_DEV = Root_RAM0;
+		/*
+		 * We want the proper initrd behavior, i.e., launching of
+		 * /linuxrc from the initial root file system, and not only
+		 * mounting it as the normal root file system.
+		 */
+		ROOT_DEV = 0x0;
 	else
 #endif
 #ifdef  CONFIG_ROOT_NFS
