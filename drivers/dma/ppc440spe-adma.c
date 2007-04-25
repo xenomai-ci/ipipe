@@ -390,7 +390,7 @@ static inline void ppc440spe_adma_device_clear_eot_status (ppc440spe_ch_t *chan)
                 if (rv & (XOR_IE_ICBIE_BIT|XOR_IE_ICIE_BIT|XOR_IE_RPTIE_BIT)) {
 			printk ("XOR ERR 0x%x status\n", rv);
 			if (rv & XOR_IE_RPTIE_BIT) {
-				/* Read PLB Timeout Error. 
+				/* Read PLB Timeout Error.
 				 * Try to resubmit the CB
 				 */
 				xor_reg->cblalr = xor_reg->ccbalr;
