@@ -296,6 +296,7 @@ static inline int test_and_set_bit(unsigned long nr,
 	}
 
 	smp_mb();
+	return -1;
 }
 
 /*

@@ -459,6 +459,14 @@ config XILINX_SYSACE
 	help
 	  Include support for the Xilinx SystemACE CompactFlash interface
 
+config BLK_DEV_CF_MIPS
+	bool "CF slot of RB532 board"
+	depends on MIKROTIK_RB500
+	default y
+	help
+	  The Routerboard 532 has a CF slot on it. Enable the special block
+	  device driver for it.
+
 endmenu
 
 endif

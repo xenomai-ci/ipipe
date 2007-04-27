@@ -201,6 +201,13 @@ config MACB
 
 source "drivers/net/arm/Kconfig"
 
+config KORINA
+	tristate "Korina Local Ethernet support"
+	depends on NET_ETHERNET && ( IDT_EB434 || MIKROTIK_RB500)
+	help
+	IDT RC32434 has one local ethernet port. Say Y here to enable it.
+	To compile this driver as a module, choose M here.
+
 config MACE
 	tristate "MACE (Power Mac ethernet) support"
 	depends on NET_ETHERNET && PPC_PMAC && PPC32

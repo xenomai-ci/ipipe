@@ -75,6 +75,12 @@ config MTD_NAND_TS7250
 	help
 	  Support for NAND flash on Technologic Systems TS-7250 platform.
 
+config MTD_NAND_RB500
+	tristate "NAND Flash device on RB500 board"
+	depends on MTD_NAND
+	help
+	  Support for NAND flash on RB500 platform.
+
 config MTD_NAND_IDS
 	tristate
 

@@ -368,6 +368,13 @@ serial_out(struct uart_8250_port *up, int offset, int value)
 	default:
 		outb(value, up->port.iobase + offset);
 	}
+
+#if defined(CONFIG_IDT_EB434) || defined(CONFIG_MIKROTIK_RB500)
+	__SLOW_DOWN_IO;
+	__SLOW_DOWN_IO;
+	__SLOW_DOWN_IO;
+	__SLOW_DOWN_IO;
+#endif
 }
 
 static void

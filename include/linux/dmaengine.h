@@ -27,6 +27,7 @@
 #include <linux/completion.h>
 #include <linux/rcupdate.h>
 #include <linux/dma-mapping.h>
+#include <linux/jiffies.h>
 
 /**
  * enum dma_state - resource PNP/power managment state

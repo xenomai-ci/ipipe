@@ -200,7 +200,8 @@
 #define CPU_SB1A		62
 #define CPU_74K			63
 #define CPU_R14000		64
-#define CPU_LAST		64
+#define CPU_RC32300		65
+#define CPU_LAST		65
 
 /*
  * ISA Level encodings
