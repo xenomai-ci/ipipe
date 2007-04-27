@@ -91,8 +91,6 @@ static inline void ppc440spe_desc_init_interrupt (ppc440spe_desc_t *desc,
  */
 static inline void ppc440spe_desc_init_null_xor(ppc440spe_desc_t *desc)
 {
-	xor_cb_t *hw_desc = desc->hw_desc;
-
 	memset (desc->hw_desc, 0, sizeof(xor_cb_t));
 	desc->hw_next = NULL;
 	desc->src_cnt = 0;
@@ -703,8 +701,14 @@ static void __ppc440spe_adma_slot_cleanup(ppc440spe_ch_t *chan)
 	int busy = ppc440spe_chan_is_busy(chan);
 	int seen_current = 0, slot_cnt = 0, slots_per_op = 0;
 
-
 	PRINTK ("ppc440spe adma%d: %s\n", chan->device->id, __FUNCTION__);
+
+	if (!current_desc) {
+		/*  There were no transactions yet, so
+		 * nothing to clean
+		 */
+		return;
+	}
 
 	/* free completed slots from the chain starting with
 	 * the oldest descriptor
