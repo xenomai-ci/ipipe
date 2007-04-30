@@ -30,6 +30,9 @@
  /* Convert a physical IO address to virtual IO address */
 #define AT91_IO_P2V(x)	((x) - AT91_IO_PHYS_BASE + AT91_IO_VIRT_BASE)
 
+#ifdef CONFIG_IPIPE
+#define AT91_VA_BASE_TCB0       AT91_IO_P2V(AT91RM9200_BASE_TCB0)
+#endif /* CONFIG_IPIPE */
 /*
  * Virtual to Physical Address mapping for IO devices.
  */
@@ -39,9 +42,6 @@
 #define AT91_VA_BASE_TWI	AT91_IO_P2V(AT91RM9200_BASE_TWI)
 #define AT91_VA_BASE_MCI	AT91_IO_P2V(AT91RM9200_BASE_MCI)
 #define AT91_VA_BASE_UDP	AT91_IO_P2V(AT91RM9200_BASE_UDP)
-#ifdef CONFIG_IPIPE
-#define AT91_VA_BASE_TCB0       AT91_IO_P2V(AT91RM9200_BASE_TCB0)
-#endif /* CONFIG_IPIPE */
 
  /* Internal SRAM is mapped below the IO devices */
 #define AT91_SRAM_VIRT_BASE	(AT91_IO_VIRT_BASE - AT91RM9200_SRAM_SIZE)

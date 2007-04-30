@@ -7,11 +7,16 @@ comment "Atmel AT91 Processors"
 config ARCH_AT91RM9200
 	bool "AT91RM9200"
 
+comment "AT91SAM9260 and AT91SAM9261 support are only available without Adeos I-pipe"
+	depends on IPIPE
+
+if !IPIPE
 config ARCH_AT91SAM9260
 	bool "AT91SAM9260"
 
 config ARCH_AT91SAM9261
 	bool "AT91SAM9261"
+endif
 
 # ----------------------------------------------------------
 
@@ -82,9 +87,11 @@ config MACH_KAFA
 	help
 	  Select this if you are using Sperry-Sun's KAFA board.
 
+comment "Adeos I-pipe Options"
+
 config IPIPE_AT91_TC
 	depends on IPIPE
-	int "AT91 TC used as time base"
+	int "AT91 TC used as time base by Adeos I-pipe"
 	default 0
 	help
 	When Adeos interrupt pipeline is enabled, TC0 is used by default
@@ -94,7 +101,7 @@ config IPIPE_AT91_TC
 config IPIPE_AT91_MCK
 	depends on IPIPE
 	int "AT91 Master clock Frequency"
-	default 46080000
+	default 46080000 if MACH_CSB637
 	help
 	When Adeos interrupt pipeline is enabled, AT91 timer is based on
 	the AT91 master clock, whose frequency need hence to be known at

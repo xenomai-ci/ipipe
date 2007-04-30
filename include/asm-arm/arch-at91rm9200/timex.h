@@ -20,13 +20,18 @@
 
 #ifndef __ASM_ARCH_TIMEX_H
 #define __ASM_ARCH_TIMEX_H
+#ifndef CONFIG_IPIPE
 
 #include <asm/hardware.h>
 
-#ifndef CONFIG_IPIPE
 #define CLOCK_TICK_RATE		(AT91_SLOW_CLOCK)
-#else /* !CONFIG_IPIPE */
-#define CLOCK_TICK_RATE         (CONFIG_IPIPE_AT91_MCK / 32)
-#endif /* !CONFIG_IPIPE */
 
 #endif
+#ifdef CONFIG_IPIPE
+
+#include <asm/hardware.h>
+
+#define CLOCK_TICK_RATE         (CONFIG_IPIPE_AT91_MCK / 32)
+
+#endif /* !CONFIG_IPIPE */
+#endif /* !__ASM_ARCH_TIMEX_H */
