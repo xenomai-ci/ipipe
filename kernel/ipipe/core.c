@@ -34,9 +34,6 @@
 #include <linux/seq_file.h>
 #endif	/* CONFIG_PROC_FS */
 
-MODULE_DESCRIPTION("I-pipe");
-MODULE_LICENSE("GPL");
-
 static int __ipipe_ptd_key_count;
 
 static unsigned long __ipipe_ptd_key_map;
@@ -1402,7 +1399,6 @@ EXPORT_SYMBOL(__ipipe_stall_root);
 EXPORT_SYMBOL(__ipipe_restore_root);
 EXPORT_SYMBOL(__ipipe_test_and_stall_root);
 EXPORT_SYMBOL(__ipipe_test_root);
-EXPORT_SYMBOL(__ipipe_dispatch_event);
 EXPORT_SYMBOL(__ipipe_pipeline);
 EXPORT_SYMBOL(ipipe_register_domain);
 EXPORT_SYMBOL(ipipe_unregister_domain);
