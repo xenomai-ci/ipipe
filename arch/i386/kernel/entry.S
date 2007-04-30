@@ -680,7 +680,7 @@ common_interrupt:
 #define BUILD_INTERRUPT(name, nr)	\
 ENTRY(name)				\
 	RING0_INT_FRAME;		\
-	pushl $~(nr-FIRST_EXTERNAL_VECTOR); \
+	pushl $~(nr-FIRST_EXTERNAL_VECTOR);\
 	CFI_ADJUST_CFA_OFFSET 4;	\
 	SAVE_ALL;			\
 	IPIPE_TRACE_IRQ_ENTER;	\

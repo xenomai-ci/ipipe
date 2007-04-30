@@ -207,49 +207,49 @@ void __init __ipipe_enable_pipeline(void)
 	/* Map the APIC system vectors. */
 
 	ipipe_virtualize_irq(ipipe_root_domain,
-			     LOCAL_TIMER_VECTOR - FIRST_EXTERNAL_VECTOR,
+			     ipipe_apic_vector_irq(LOCAL_TIMER_VECTOR),
 			     (ipipe_irq_handler_t)&smp_apic_timer_interrupt,
 			     NULL,
 			     &__ipipe_ack_apic,
 			     IPIPE_STDROOT_MASK);
 
 	ipipe_virtualize_irq(ipipe_root_domain,
-			     SPURIOUS_APIC_VECTOR - FIRST_EXTERNAL_VECTOR,
+			     ipipe_apic_vector_irq(SPURIOUS_APIC_VECTOR),
 			     (ipipe_irq_handler_t)&smp_spurious_interrupt,
 			     NULL,
 			     &__ipipe_noack_apic,
 			     IPIPE_STDROOT_MASK);
 
 	ipipe_virtualize_irq(ipipe_root_domain,
-			     ERROR_APIC_VECTOR - FIRST_EXTERNAL_VECTOR,
+			     ipipe_apic_vector_irq(ERROR_APIC_VECTOR),
 			     (ipipe_irq_handler_t)&smp_error_interrupt,
 			     NULL,
 			     &__ipipe_ack_apic,
 			     IPIPE_STDROOT_MASK);
 
 	ipipe_virtualize_irq(ipipe_root_domain,
-			     IPIPE_SERVICE_VECTOR0 - FIRST_EXTERNAL_VECTOR,
+			     ipipe_apic_vector_irq(IPIPE_SERVICE_VECTOR0),
 			     &__ipipe_null_handler,
 			     NULL,
 			     &__ipipe_ack_apic,
 			     IPIPE_STDROOT_MASK);
 
 	ipipe_virtualize_irq(ipipe_root_domain,
-			     IPIPE_SERVICE_VECTOR1 - FIRST_EXTERNAL_VECTOR,
+			     ipipe_apic_vector_irq(IPIPE_SERVICE_VECTOR1),
 			     &__ipipe_null_handler,
 			     NULL,
 			     &__ipipe_ack_apic,
 			     IPIPE_STDROOT_MASK);
 
 	ipipe_virtualize_irq(ipipe_root_domain,
-			     IPIPE_SERVICE_VECTOR2 - FIRST_EXTERNAL_VECTOR,
+			     ipipe_apic_vector_irq(IPIPE_SERVICE_VECTOR2),
 			     &__ipipe_null_handler,
 			     NULL,
 			     &__ipipe_ack_apic,
 			     IPIPE_STDROOT_MASK);
 
 	ipipe_virtualize_irq(ipipe_root_domain,
-			     IPIPE_SERVICE_VECTOR3 - FIRST_EXTERNAL_VECTOR,
+			     ipipe_apic_vector_irq(IPIPE_SERVICE_VECTOR3),
 			     &__ipipe_null_handler,
 			     NULL,
 			     &__ipipe_ack_apic,
@@ -257,7 +257,7 @@ void __init __ipipe_enable_pipeline(void)
 
 #ifdef CONFIG_X86_MCE_P4THERMAL
 	ipipe_virtualize_irq(ipipe_root_domain,
-			     THERMAL_APIC_VECTOR - FIRST_EXTERNAL_VECTOR,
+			     ipipe_apic_vector_irq(THERMAL_APIC_VECTOR),
 			     (ipipe_irq_handler_t)&smp_thermal_interrupt,
 			     NULL,
 			     &__ipipe_ack_apic,
@@ -265,7 +265,7 @@ void __init __ipipe_enable_pipeline(void)
 #endif /* CONFIG_X86_MCE_P4THERMAL */
 
 	__ipipe_tick_irq =
-	    using_apic_timer ? LOCAL_TIMER_VECTOR - FIRST_EXTERNAL_VECTOR : 0;
+		using_apic_timer ? ipipe_apic_vector_irq(LOCAL_TIMER_VECTOR) : 0;
 
 #else	/* !CONFIG_X86_LOCAL_APIC */
 
@@ -275,21 +275,21 @@ void __init __ipipe_enable_pipeline(void)
 
 #ifdef CONFIG_SMP
 	ipipe_virtualize_irq(ipipe_root_domain,
-			     RESCHEDULE_VECTOR - FIRST_EXTERNAL_VECTOR,
+			     ipipe_apic_vector_irq(RESCHEDULE_VECTOR),
 			     (ipipe_irq_handler_t)&smp_reschedule_interrupt,
 			     NULL,
 			     &__ipipe_ack_apic,
 			     IPIPE_STDROOT_MASK);
 
 	ipipe_virtualize_irq(ipipe_root_domain,
-			     INVALIDATE_TLB_VECTOR - FIRST_EXTERNAL_VECTOR,
+			     ipipe_apic_vector_irq(INVALIDATE_TLB_VECTOR),
 			     (ipipe_irq_handler_t)&smp_invalidate_interrupt,
 			     NULL,
 			     &__ipipe_ack_apic,
 			     IPIPE_STDROOT_MASK);
 
 	ipipe_virtualize_irq(ipipe_root_domain,
-			     CALL_FUNCTION_VECTOR - FIRST_EXTERNAL_VECTOR,
+			     ipipe_apic_vector_irq(CALL_FUNCTION_VECTOR),
 			     (ipipe_irq_handler_t)&smp_call_function_interrupt,
 			     NULL,
 			     &__ipipe_ack_apic,
@@ -772,10 +772,17 @@ int __ipipe_handle_irq(struct pt_regs regs)
 	ipipe_declare_cpuid;
 	int m_ack;
 
-	if (regs.orig_eax < 0) {
+	if ((long)regs.orig_eax < 0) {
 		irq = ~irq;
+#ifdef CONFIG_X86_LOCAL_APIC
+		{
+			unsigned vector = irq + FIRST_EXTERNAL_VECTOR;
+			if (vector >= FIRST_SYSTEM_VECTOR)
+				irq = ipipe_apic_vector_irq(vector);
+		}
+#endif
 		m_ack = 0;
-	} else
+	} else /* This is a self-triggered interrupt. */
 		m_ack = 1;
 
 	ipipe_load_cpuid();
@@ -881,7 +888,7 @@ finalize_nosync:
 	 * preemptible kernels along the way out through
 	 * ret_from_intr.
 	 */
-	if (regs.orig_eax < 0)
+	if ((long)regs.orig_eax < 0)
 		__set_bit(IPIPE_STALL_FLAG, &ipipe_root_domain->cpudata[cpuid].status);
 #endif	/* CONFIG_SMP */
 
