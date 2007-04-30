@@ -875,6 +875,7 @@ void __init setup_boot_APIC_clock (void)
 	setup_APIC_timer(calibration_result);
 
 	local_irq_enable_hw();
+	local_irq_enable();
 }
 
 void __cpuinit setup_secondary_APIC_clock(void)
@@ -882,6 +883,7 @@ void __cpuinit setup_secondary_APIC_clock(void)
 	local_irq_disable_hw(); /* FIXME: Do we need this? --RR */
 	setup_APIC_timer(calibration_result);
 	local_irq_enable_hw();
+	local_irq_enable();
 }
 
 void disable_APIC_timer(void)
