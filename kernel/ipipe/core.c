@@ -198,7 +198,7 @@ unsigned long __ipipe_test_and_stall_root(void)
 	return x;
 }
 
-void fastcall __ipipe_restore_root(unsigned long x)
+void __ipipe_restore_root(unsigned long x)
 {
 	if (x)
 		__ipipe_stall_root();
