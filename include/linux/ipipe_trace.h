@@ -39,6 +39,11 @@ int ipipe_trace_frozen_reset(void);
 void ipipe_trace_panic_freeze(void);
 void ipipe_trace_panic_dump(void);
 
-#endif /* CONFIG_IPIPE_TRACE */
+#else /* !CONFIG_IPIPE_TRACE */
+
+static inline void ipipe_trace_panic_freeze(void) { }
+static inline void ipipe_trace_panic_dump(void) { }
+
+#endif /* !CONFIG_IPIPE_TRACE */
 
 #endif	/* !__LINUX_IPIPE_H */
