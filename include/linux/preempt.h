@@ -8,6 +8,7 @@
 
 #include <linux/thread_info.h>
 #include <linux/linkage.h>
+#include <linux/ipipe_base.h>
 
 #ifdef CONFIG_DEBUG_PREEMPT
   extern void fastcall add_preempt_count(int val);
@@ -26,52 +27,40 @@
 
 asmlinkage void preempt_schedule(void);
 
-#ifdef CONFIG_IPIPE
-#include <asm/ipipe.h>
-DECLARE_PER_CPU(struct ipipe_domain *, ipipe_percpu_domain);
-extern struct ipipe_domain ipipe_root;
-#define ipipe_preempt_guard() (per_cpu(ipipe_percpu_domain, ipipe_processor_id()) == &ipipe_root)
-#else  /* !CONFIG_IPIPE */
-#define ipipe_preempt_guard()	1
-#endif /* CONFIG_IPIPE */
-
-#define preempt_disable()						\
-do {									\
-	if (ipipe_preempt_guard()) {					\
-		inc_preempt_count();					\
-		barrier();						\
-	}								\
-} while (0)
-
-#define preempt_enable_no_resched()					\
-do {									\
-	if (ipipe_preempt_guard()) {					\
-		barrier();						\
-		dec_preempt_count();					\
-	}								\
-} while (0)
-
-#define preempt_check_resched()						\
-do {									\
-	if (ipipe_preempt_guard()) {					\
-		if (unlikely(test_thread_flag(TIF_NEED_RESCHED)))	\
-			preempt_schedule();				\
-	}								\
-} while (0)
-
-#define preempt_enable()						\
-do {									\
-	preempt_enable_no_resched();					\
+#define preempt_disable() \
+do { \
+	ipipe_check_context(ipipe_root_domain); \
+	inc_preempt_count(); \
 	barrier(); \
-	preempt_check_resched();					\
+} while (0)
+
+#define preempt_enable_no_resched() \
+do { \
+	ipipe_check_context(ipipe_root_domain); \
+	barrier(); \
+	dec_preempt_count(); \
+} while (0)
+
+#define preempt_check_resched() \
+do { \
+	ipipe_check_context(ipipe_root_domain); \
+	if (unlikely(test_thread_flag(TIF_NEED_RESCHED))) \
+		preempt_schedule(); \
+} while (0)
+
+#define preempt_enable() \
+do { \
+	preempt_enable_no_resched(); \
+	barrier(); \
+	preempt_check_resched(); \
 } while (0)
 
 #else
 
-#define preempt_disable()		do { } while (0)
-#define preempt_enable_no_resched()	do { } while (0)
-#define preempt_enable()		do { } while (0)
-#define preempt_check_resched()		do { } while (0)
+#define preempt_disable()		ipipe_check_context(ipipe_root_domain)
+#define preempt_enable_no_resched()	ipipe_check_context(ipipe_root_domain)
+#define preempt_enable()		ipipe_check_context(ipipe_root_domain)
+#define preempt_check_resched()		ipipe_check_context(ipipe_root_domain)
 
 #endif
 

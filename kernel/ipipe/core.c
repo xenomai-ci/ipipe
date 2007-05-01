@@ -33,6 +33,7 @@
 #include <linux/proc_fs.h>
 #include <linux/seq_file.h>
 #endif	/* CONFIG_PROC_FS */
+#include <linux/ipipe_trace.h>
 
 static int __ipipe_ptd_key_count;
 
@@ -147,6 +148,7 @@ void __ipipe_cleanup_domain(struct ipipe_domain *ipd)
 #endif	/* CONFIG_SMP */
 }
 
+#ifdef CONFIG_SMP
 void __ipipe_stall_root(void)
 {
 	ipipe_declare_cpuid;
@@ -155,22 +157,6 @@ void __ipipe_stall_root(void)
 	ipipe_get_cpu(flags); /* Care for migration. */
 	set_bit(IPIPE_STALL_FLAG, &ipipe_root_domain->cpudata[cpuid].status);
 	ipipe_put_cpu(flags);
-}
-
-void __ipipe_unstall_root(void)
-{
-	ipipe_declare_cpuid;
-
-	local_irq_disable_hw();
-
-	ipipe_load_cpuid();
-
-	__clear_bit(IPIPE_STALL_FLAG, &ipipe_root_domain->cpudata[cpuid].status);
-
-	if (unlikely(ipipe_root_domain->cpudata[cpuid].irq_pending_hi != 0))
-		__ipipe_sync_pipeline(IPIPE_IRQMASK_ANY);
-
-	local_irq_enable_hw();
 }
 
 unsigned long __ipipe_test_root(void)
@@ -196,6 +182,23 @@ unsigned long __ipipe_test_and_stall_root(void)
 	ipipe_put_cpu(flags);
 
 	return x;
+}
+#endif /* CONFIG_SMP */
+
+void __ipipe_unstall_root(void)
+{
+        ipipe_declare_cpuid;
+
+        local_irq_disable_hw();
+
+        ipipe_load_cpuid();
+
+        __clear_bit(IPIPE_STALL_FLAG, &ipipe_root_domain->cpudata[cpuid].status);
+
+        if (unlikely(ipipe_root_domain->cpudata[cpuid].irq_pending_hi != 0))
+                __ipipe_sync_pipeline(IPIPE_IRQMASK_ANY);
+
+        local_irq_enable_hw();
 }
 
 void __ipipe_restore_root(unsigned long x)
@@ -1381,6 +1384,30 @@ void __init ipipe_init_proc(void)
 
 #endif	/* CONFIG_PROC_FS */
 
+#ifdef CONFIG_IPIPE_DEBUG_CONTEXT
+void ipipe_check_context(struct ipipe_domain *border_ipd)
+{
+	static int check_hit;
+
+	if (likely(ipipe_current_domain->priority <= border_ipd->priority) ||
+	    check_hit)
+		return;
+
+	check_hit = 1;
+
+	ipipe_trace_panic_freeze();
+	ipipe_set_printk_sync(ipipe_current_domain);
+	printk(KERN_ERR "I-pipe: Detected illicit call from domain '%s'\n"
+	       KERN_ERR "        into a service reserved for domain '%s' and "
+			"below.\n",
+	       ipipe_current_domain->name, border_ipd->name);
+	show_stack(NULL, NULL);
+	ipipe_trace_panic_dump();
+}
+
+EXPORT_SYMBOL(ipipe_check_context);
+#endif /* CONFIG_IPIPE_DEBUG_CONTEXT */
+
 EXPORT_SYMBOL(ipipe_virtualize_irq);
 EXPORT_SYMBOL(ipipe_control_irq);
 EXPORT_SYMBOL(ipipe_suspend_domain);
@@ -1395,10 +1422,12 @@ EXPORT_SYMBOL(ipipe_test_and_unstall_pipeline_from);
 EXPORT_SYMBOL(ipipe_unstall_pipeline_head);
 EXPORT_SYMBOL(__ipipe_restore_pipeline_head);
 EXPORT_SYMBOL(__ipipe_unstall_root);
-EXPORT_SYMBOL(__ipipe_stall_root);
 EXPORT_SYMBOL(__ipipe_restore_root);
-EXPORT_SYMBOL(__ipipe_test_and_stall_root);
+#ifdef CONFIG_SMP
+EXPORT_SYMBOL(__ipipe_stall_root);
 EXPORT_SYMBOL(__ipipe_test_root);
+EXPORT_SYMBOL(__ipipe_test_and_stall_root);
+#endif /* CONFIG_SMP */
 EXPORT_SYMBOL(__ipipe_pipeline);
 EXPORT_SYMBOL(ipipe_register_domain);
 EXPORT_SYMBOL(ipipe_unregister_domain);
