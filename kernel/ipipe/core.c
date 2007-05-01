@@ -33,6 +33,7 @@
 #include <linux/proc_fs.h>
 #include <linux/seq_file.h>
 #endif	/* CONFIG_PROC_FS */
+#include <linux/ipipe_trace.h>
 
 static int __ipipe_ptd_key_count;
 
@@ -1382,6 +1383,30 @@ void __init ipipe_init_proc(void)
 }
 
 #endif	/* CONFIG_PROC_FS */
+
+#ifdef CONFIG_IPIPE_DEBUG_CONTEXT
+void ipipe_check_context(struct ipipe_domain *border_ipd)
+{
+	static int check_hit;
+
+	if (likely(ipipe_current_domain->priority <= border_ipd->priority) ||
+	    check_hit)
+		return;
+
+	check_hit = 1;
+
+	ipipe_trace_panic_freeze();
+	ipipe_set_printk_sync(ipipe_current_domain);
+	printk(KERN_ERR "I-pipe: Detected illicit call from domain '%s'\n"
+	       KERN_ERR "        into a service reserved for domain '%s' and "
+			"below.\n",
+	       ipipe_current_domain->name, border_ipd->name);
+	show_stack(NULL, NULL);
+	ipipe_trace_panic_dump();
+}
+
+EXPORT_SYMBOL(ipipe_check_context);
+#endif /* CONFIG_IPIPE_DEBUG_CONTEXT */
 
 EXPORT_SYMBOL(ipipe_virtualize_irq);
 EXPORT_SYMBOL(ipipe_control_irq);

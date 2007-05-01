@@ -1,7 +1,7 @@
 /* -*- linux-c -*-
  * include/linux/ipipe.h
  *
- * Copyright (C) 2002-2005 Philippe Gerum.
+ * Copyright (C) 2002-2007 Philippe Gerum.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
