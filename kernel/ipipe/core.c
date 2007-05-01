@@ -147,6 +147,7 @@ void __ipipe_cleanup_domain(struct ipipe_domain *ipd)
 #endif	/* CONFIG_SMP */
 }
 
+#ifdef CONFIG_SMP
 void __ipipe_stall_root(void)
 {
 	ipipe_declare_cpuid;
@@ -155,22 +156,6 @@ void __ipipe_stall_root(void)
 	ipipe_get_cpu(flags); /* Care for migration. */
 	set_bit(IPIPE_STALL_FLAG, &ipipe_root_domain->cpudata[cpuid].status);
 	ipipe_put_cpu(flags);
-}
-
-void __ipipe_unstall_root(void)
-{
-	ipipe_declare_cpuid;
-
-	local_irq_disable_hw();
-
-	ipipe_load_cpuid();
-
-	__clear_bit(IPIPE_STALL_FLAG, &ipipe_root_domain->cpudata[cpuid].status);
-
-	if (unlikely(ipipe_root_domain->cpudata[cpuid].irq_pending_hi != 0))
-		__ipipe_sync_pipeline(IPIPE_IRQMASK_ANY);
-
-	local_irq_enable_hw();
 }
 
 unsigned long __ipipe_test_root(void)
@@ -196,6 +181,23 @@ unsigned long __ipipe_test_and_stall_root(void)
 	ipipe_put_cpu(flags);
 
 	return x;
+}
+#endif /* CONFIG_SMP */
+
+void __ipipe_unstall_root(void)
+{
+        ipipe_declare_cpuid;
+
+        local_irq_disable_hw();
+
+        ipipe_load_cpuid();
+
+        __clear_bit(IPIPE_STALL_FLAG, &ipipe_root_domain->cpudata[cpuid].status);
+
+        if (unlikely(ipipe_root_domain->cpudata[cpuid].irq_pending_hi != 0))
+                __ipipe_sync_pipeline(IPIPE_IRQMASK_ANY);
+
+        local_irq_enable_hw();
 }
 
 void __ipipe_restore_root(unsigned long x)
@@ -1395,10 +1397,12 @@ EXPORT_SYMBOL(ipipe_test_and_unstall_pipeline_from);
 EXPORT_SYMBOL(ipipe_unstall_pipeline_head);
 EXPORT_SYMBOL(__ipipe_restore_pipeline_head);
 EXPORT_SYMBOL(__ipipe_unstall_root);
-EXPORT_SYMBOL(__ipipe_stall_root);
 EXPORT_SYMBOL(__ipipe_restore_root);
-EXPORT_SYMBOL(__ipipe_test_and_stall_root);
+#ifdef CONFIG_SMP
+EXPORT_SYMBOL(__ipipe_stall_root);
 EXPORT_SYMBOL(__ipipe_test_root);
+EXPORT_SYMBOL(__ipipe_test_and_stall_root);
+#endif /* CONFIG_SMP */
 EXPORT_SYMBOL(__ipipe_pipeline);
 EXPORT_SYMBOL(ipipe_register_domain);
 EXPORT_SYMBOL(ipipe_unregister_domain);

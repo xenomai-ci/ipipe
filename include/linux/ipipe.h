@@ -53,13 +53,6 @@
 #define IPIPE_SPRINTK_FLAG	0	/* Synchronous printk() allowed */
 #define IPIPE_AHEAD_FLAG	1	/* Domain always heads the pipeline */
 
-/* Per-cpu pipeline status */
-#define IPIPE_STALL_FLAG	0	/* Stalls a pipeline stage -- guaranteed at bit #0 */
-#define IPIPE_SYNC_FLAG		1	/* The interrupt syncer is running for the domain */
-#define IPIPE_NOSTACK_FLAG	2	/* Domain currently runs on a foreign stack */
-
-#define IPIPE_SYNC_MASK		(1 << IPIPE_SYNC_FLAG)
-
 /* Interrupt control bits */
 #define IPIPE_HANDLE_FLAG	0
 #define IPIPE_PASS_FLAG		1
@@ -142,10 +135,8 @@ typedef int (*ipipe_event_handler_t)(unsigned event,
 				     void *data);
 struct ipipe_domain {
 
-	struct list_head p_link;	/* Link in pipeline */
-
 	struct ipcpudata {
-		unsigned long status;
+		unsigned long status;	/* Must be first in ipipe_domain */
 		unsigned long irq_pending_hi;
 		unsigned long irq_pending_lo[IPIPE_IRQ_IWORDS];
 		struct ipirqcnt {
@@ -162,6 +153,7 @@ struct ipipe_domain {
 		void *cookie;
 	} ____cacheline_aligned irqs[IPIPE_NR_IRQS];
 
+	struct list_head p_link;	/* Link in pipeline */
 	ipipe_event_handler_t evhand[IPIPE_NR_EVENTS]; /* Event handlers. */
 	unsigned long long evself;	/* Self-monitored event bits. */
 	unsigned long flags;
