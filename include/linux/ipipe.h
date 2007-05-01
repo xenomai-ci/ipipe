@@ -28,6 +28,7 @@
 #include <linux/mutex.h>
 #include <linux/linkage.h>
 #include <linux/irq.h>
+#include <linux/ipipe_base.h>
 #include <asm/ipipe.h>
 
 #ifdef CONFIG_IPIPE
@@ -277,10 +278,6 @@ do {						\
 
 DECLARE_PER_CPU(struct ipipe_domain *, ipipe_percpu_domain);
 
-extern struct ipipe_domain ipipe_root;
-
-#define ipipe_root_domain (&ipipe_root)
-
 extern unsigned __ipipe_printk_virq;
 
 extern unsigned long __ipipe_virtual_irq_map;
@@ -316,17 +313,7 @@ void __ipipe_remove_domain_proc(struct ipipe_domain *ipd);
 
 void __ipipe_flush_printk(unsigned irq, void *cookie);
 
-void __ipipe_stall_root(void);
-
-void __ipipe_unstall_root(void);
-
-unsigned long __ipipe_test_root(void);
-
-unsigned long __ipipe_test_and_stall_root(void);
-
 void fastcall __ipipe_walk_pipeline(struct list_head *pos, int cpuid);
-
-void fastcall __ipipe_restore_root(unsigned long x);
 
 int fastcall __ipipe_schedule_irq(unsigned irq, struct list_head *head);
 
