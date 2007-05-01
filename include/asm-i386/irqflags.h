@@ -54,6 +54,7 @@ static inline void raw_local_irq_restore(unsigned long flags)
 static inline void raw_local_irq_disable(void)
 {
 #ifdef CONFIG_IPIPE
+	ipipe_check_context(ipipe_root_domain);
 	__ipipe_stall_root();
 	barrier();
 #else
@@ -144,8 +145,10 @@ static inline unsigned long __raw_local_irq_save(void)
 #define raw_local_save_flags(flags) \
 		do { (flags) = __raw_local_save_flags(); } while (0)
 
-#define raw_local_irq_save(flags) \
-		do { (flags) = __raw_local_irq_save(); } while (0)
+#define raw_local_irq_save(flags) do {			\
+		ipipe_check_context(ipipe_root_domain);	\
+		(flags) = __raw_local_irq_save();	\
+	} while (0)
 
 static inline int raw_irqs_disabled_flags(unsigned long flags)
 {
