@@ -15,17 +15,8 @@
  * Interrupt control:
  */
 
+#include <linux/ipipe_base.h>
 #include <linux/ipipe_trace.h>
-
-void __ipipe_stall_root(void);
-
-void __ipipe_unstall_root(void);
-
-unsigned long __ipipe_test_root(void);
-
-unsigned long __ipipe_test_and_stall_root(void);
-
-void fastcall __ipipe_restore_root(unsigned long flags);
 
 static inline unsigned long __raw_local_save_flags(void)
 {
