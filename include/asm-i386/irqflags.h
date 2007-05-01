@@ -24,6 +24,7 @@ static inline unsigned long __raw_local_save_flags(void)
 
 #ifdef CONFIG_IPIPE
 	flags = (!__ipipe_test_root()) << 9;
+	barrier();
 #else
 	__asm__ __volatile__(
 		"pushfl ; popl %0"
@@ -38,6 +39,7 @@ static inline unsigned long __raw_local_save_flags(void)
 static inline void raw_local_irq_restore(unsigned long flags)
 {
 #ifdef CONFIG_IPIPE
+	barrier();
 	__ipipe_restore_root(!(flags & 0x200));
 #else
 	__asm__ __volatile__(
@@ -53,6 +55,7 @@ static inline void raw_local_irq_disable(void)
 {
 #ifdef CONFIG_IPIPE
 	__ipipe_stall_root();
+	barrier();
 #else
 	__asm__ __volatile__("cli" : : : "memory");
 #endif
@@ -61,6 +64,7 @@ static inline void raw_local_irq_disable(void)
 static inline void raw_local_irq_enable(void)
 {
 #ifdef CONFIG_IPIPE
+	barrier();
 	__ipipe_unstall_root();
 #else
 	__asm__ __volatile__("sti" : : : "memory");
@@ -96,17 +100,29 @@ static inline void halt(void)
  */
 static inline unsigned long __raw_local_irq_save(void)
 {
+#ifdef CONFIG_IPIPE
+	unsigned long flags = (!__ipipe_test_and_stall_root()) << 9;
+
+	barrier();
+#else
 	unsigned long flags = __raw_local_save_flags();
 
 	raw_local_irq_disable();
-
+#endif
 	return flags;
 }
 
 #else
 
 #ifdef CONFIG_IPIPE
-#define DISABLE_INTERRUPTS(clobbers)		call __ipipe_stall_root	;  sti
+#ifdef CONFIG_SMP
+#define DISABLE_INTERRUPTS(clobbers)		call __ipipe_stall_root; sti
+#else /* !CONFIG_SMP */
+/*
+ * Disable IRQs == set IPIPE_STALL_FLAG in ipipe_root.cpudata[0].status
+ */
+#define DISABLE_INTERRUPTS(clobbers)		btsl $0,ipipe_root; sti
+#endif /* !CONFIG_SMP */
 #define ENABLE_INTERRUPTS(clobbers)		call __ipipe_unstall_root
 #define ENABLE_INTERRUPTS_HW_COND		sti
 #define DISABLE_INTERRUPTS_HW(clobbers)    	cli
