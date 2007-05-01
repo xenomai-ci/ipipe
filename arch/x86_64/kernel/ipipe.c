@@ -611,8 +611,13 @@ asmlinkage int __ipipe_handle_exception(struct pt_regs *regs, long error_code, i
 	/* Track the hw interrupt state before calling the Linux
 	 * exception handler, replicating it into the virtual mask. */
 
-	if (irqs_disabled_hw())
-		local_irq_disable();
+	if (irqs_disabled_hw()) {
+		/* Do not trigger the alarm in ipipe_check_context() by using
+		 * plain local_irq_disable(). */
+		__ipipe_stall_root();
+		trace_hardirqs_off();
+		barrier();
+	}
 
 #ifdef CONFIG_KGDB
 	/* catch exception KGDB is interested in over non-root domains */
