@@ -55,6 +55,7 @@ typedef struct ppc440spe_adma_device {
  * @pending: allows batching of hardware operations
  * @completed_cookie: identifier for the most recently completed operation
  * @slots_allocated: records the actual size of the descriptor slot pool
+ * @hw_chain_inited: h/w descriptor chain initialization flag
  * @irq_tasklet: bottom half where ppc440spe_adma_slot_cleanup runs
  */
 typedef struct ppc440spe_adma_chan {
@@ -68,6 +69,7 @@ typedef struct ppc440spe_adma_chan {
 	int pending;
 	dma_cookie_t completed_cookie;
 	int slots_allocated;
+	int hw_chain_inited;
 	struct tasklet_struct irq_tasklet;
 } ppc440spe_ch_t;
 

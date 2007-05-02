@@ -461,6 +461,8 @@ static inline void ppc440spe_chan_set_first_xor_descriptor(ppc440spe_ch_t *chan,
 	xor_last_submit = xor_last_linked = next_desc;
 	xor_reg->cblalr = next_desc->phys;
 	xor_reg->cbcr |= XOR_CBCR_LNK_BIT;
+
+	chan->hw_chain_inited = 1;
 }
 
 /**
@@ -524,6 +526,7 @@ static inline void ppc440spe_chan_append(ppc440spe_ch_t *chan)
 				cur_desc |= DMA_CDB_NO_INT;
 			/* put descriptor into FIFO */
 			out_le32 (&dma_reg->cpfpl, cur_desc);
+			chan->hw_chain_inited = 1;
 		}
 		break;
 	case PPC440SPE_XOR_ID:
@@ -563,6 +566,11 @@ static inline u32 ppc440spe_chan_get_current_descriptor(ppc440spe_ch_t *chan)
 {
 	volatile dma_regs_t *dma_reg;
 	volatile xor_regs_t *xor_reg;
+
+	if (unlikely(!chan->hw_chain_inited)) {
+		/* h/w descriptor chain is not initialized yet */
+		return 0;
+	}
 
 	switch (chan->device->id) {
 	case PPC440SPE_DMA0_ID:
@@ -998,6 +1006,9 @@ static int ppc440spe_adma_alloc_chan_resources(struct dma_chan *chan)
 		if (test_bit(DMA_XOR,
 			&ppc440spe_chan->device->common.capabilities))
 			ppc440spe_chan_start_null_xor(ppc440spe_chan);
+		if (test_bit(DMA_MEMCPY,
+			&ppc440spe_chan->device->common.capabilities))
+			ppc440spe_chan->hw_chain_inited = 0;
 	}
 
 	return (i > 0) ? i : -ENOMEM;
