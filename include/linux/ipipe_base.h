@@ -25,7 +25,7 @@
 
 #ifdef CONFIG_IPIPE
 
-#include <asm/bitops.h>
+#include <linux/bitops.h>
 
 /* Per-cpu pipeline status */
 #define IPIPE_STALL_FLAG	0	/* Stalls a pipeline stage -- guaranteed at bit #0 */
