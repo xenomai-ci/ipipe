@@ -33,21 +33,14 @@
 #define IPIPE_PATCH_NUMBER	3
 
 #ifdef CONFIG_X86_LOCAL_APIC
-/* We want to cover the whole IRQ space when the APIC is enabled.
-   Reserve 32 IRQs for APIC interrupts, we don't want them to mess
-   with the normally assigned interrupts.*/
-#if (NR_IRQS > 16)
-#define IPIPE_NR_XIRQS		(NR_IRQS + 32)
+/* System interrupts are mapped beyond the last defined external IRQ
+ * number. */
 #define IPIPE_FIRST_APIC_IRQ	NR_IRQS
-#else
-#define IPIPE_NR_XIRQS		256
-#define IPIPE_FIRST_APIC_IRQ	224
-#endif
+#define IPIPE_NR_XIRQS		(NR_IRQS + 256 - FIRST_SYSTEM_VECTOR)
 #define ipipe_apic_irq_vector(irq)  ((irq) - IPIPE_FIRST_APIC_IRQ + FIRST_SYSTEM_VECTOR)
 #define ipipe_apic_vector_irq(vec)  ((vec) - FIRST_SYSTEM_VECTOR + IPIPE_FIRST_APIC_IRQ)
-
 /* If the APIC is enabled, then we expose four service vectors in the
-   APIC space which are freely available to domains. */
+ * APIC space which are freely available to domains. */
 #define IPIPE_SERVICE_VECTOR0	0xf5
 #define IPIPE_SERVICE_IPI0	ipipe_apic_vector_irq(IPIPE_SERVICE_VECTOR0)
 #define IPIPE_SERVICE_VECTOR1	0xf6
@@ -56,12 +49,13 @@
 #define IPIPE_SERVICE_IPI2	ipipe_apic_vector_irq(IPIPE_SERVICE_VECTOR2)
 #define IPIPE_SERVICE_VECTOR3	0xf8
 #define IPIPE_SERVICE_IPI3	ipipe_apic_vector_irq(IPIPE_SERVICE_VECTOR3)
+#define IPIPE_CRITICAL_VECTOR  0xf9	/* SMP-only: used by ipipe_critical_enter/exit() */
+#define IPIPE_CRITICAL_IPI     ipipe_apic_vector_irq(IPIPE_CRITICAL_VECTOR)
 #else	/* !CONFIG_X86_LOCAL_APIC */
 #define IPIPE_NR_XIRQS		NR_IRQS
-#endif	/* CONFIG_X86_LOCAL_APIC */
+#endif	/* !CONFIG_X86_LOCAL_APIC */
 
 #define IPIPE_IRQ_ISHIFT  	5	/* 2^5 for 32bits arch. */
-#define NR_XIRQS		IPIPE_NR_XIRQS
 
 #define ex_do_divide_error		0
 #define ex_do_debug			1
@@ -98,9 +92,6 @@
 #include <asm/mpspec.h>
 #include <mach_apicdef.h>
 #include <linux/thread_info.h>
-
-#define IPIPE_CRITICAL_VECTOR  0xf9	/* Used by ipipe_critical_enter/exit() */
-#define IPIPE_CRITICAL_IPI     ipipe_apic_vector_irq(IPIPE_CRITICAL_VECTOR)
 
 extern int (*__ipipe_logical_cpuid)(void);
 
@@ -293,8 +284,6 @@ do { \
 #else /* !CONFIG_IPIPE */
 
 #define task_hijacked(p)	0
-
-#define NR_XIRQS NR_IRQS
 
 #define ipipe_note_apicid(apicid,cpu)  do { } while(0)
 

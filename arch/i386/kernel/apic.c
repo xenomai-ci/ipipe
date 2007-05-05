@@ -121,6 +121,12 @@ void __init apic_intr_init(void)
 #ifdef CONFIG_X86_MCE_P4THERMAL
 	set_intr_gate(THERMAL_APIC_VECTOR, thermal_interrupt);
 #endif
+#ifdef CONFIG_IPIPE
+	set_intr_gate(IPIPE_SERVICE_VECTOR0, ipipe_ipi0);
+	set_intr_gate(IPIPE_SERVICE_VECTOR1, ipipe_ipi1);
+	set_intr_gate(IPIPE_SERVICE_VECTOR2, ipipe_ipi2);
+	set_intr_gate(IPIPE_SERVICE_VECTOR3, ipipe_ipi3);
+#endif
 }
 
 /* Using APIC to generate smp_local_timer_interrupt? */

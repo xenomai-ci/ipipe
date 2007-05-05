@@ -649,7 +649,7 @@ ENTRY(interrupt)
 vector=0
 ENTRY(irq_entries_start)
 	RING0_INT_FRAME
-.rept NR_XIRQS
+.rept NR_IRQS
 	ALIGN
  .if vector
 	CFI_ADJUST_CFA_OFFSET -4
@@ -680,7 +680,7 @@ common_interrupt:
 #define BUILD_INTERRUPT(name, nr)	\
 ENTRY(name)				\
 	RING0_INT_FRAME;		\
-	pushl $~(nr-FIRST_EXTERNAL_VECTOR);\
+	pushl $~(nr-FIRST_SYSTEM_VECTOR+NR_IRQS);\
 	CFI_ADJUST_CFA_OFFSET 4;	\
 	SAVE_ALL;			\
 	IPIPE_TRACE_IRQ_ENTER;	\
@@ -692,6 +692,17 @@ ENTRY(name)				\
 	addl $4, %esp;			\
 	iret;			 	\
 	CFI_ENDPROC
+
+#ifdef CONFIG_X86_LOCAL_APIC
+	BUILD_INTERRUPT(ipipe_ipi0,IPIPE_SERVICE_VECTOR0)
+	BUILD_INTERRUPT(ipipe_ipi1,IPIPE_SERVICE_VECTOR1)
+	BUILD_INTERRUPT(ipipe_ipi2,IPIPE_SERVICE_VECTOR2)
+	BUILD_INTERRUPT(ipipe_ipi3,IPIPE_SERVICE_VECTOR3)
+#ifdef CONFIG_SMP
+	BUILD_INTERRUPT(ipipe_ipiX,IPIPE_CRITICAL_VECTOR)
+#endif	
+#endif
+
 #else /* !CONFIG_IPIPE */
 /*
  * the CPU automatically disables interrupts when executing an IRQ vector,

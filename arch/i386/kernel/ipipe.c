@@ -711,13 +711,8 @@ fastcall int __ipipe_handle_exception(struct pt_regs *regs, long error_code, int
 	/* Track the hw interrupt state before calling the Linux
 	 * exception handler, replicating it into the virtual mask. */
 
-	if (irqs_disabled_hw()) {
-		/* Do not trigger the alarm in ipipe_check_context() by using
-		 * plain local_irq_disable(). */
-		__ipipe_stall_root();
-		trace_hardirqs_off();
-		barrier();
-	}
+	if (irqs_disabled_hw())
+		local_irq_disable();
 
 #ifdef CONFIG_KGDB
 	/* catch exception KGDB is interested in over non-root domains */
@@ -779,13 +774,6 @@ int __ipipe_handle_irq(struct pt_regs regs)
 
 	if ((long)regs.orig_eax < 0) {
 		irq = ~irq;
-#ifdef CONFIG_X86_LOCAL_APIC
-		{
-			unsigned vector = irq + FIRST_EXTERNAL_VECTOR;
-			if (vector >= FIRST_SYSTEM_VECTOR)
-				irq = ipipe_apic_vector_irq(vector);
-		}
-#endif
 		m_ack = 0;
 	} else /* This is a self-triggered interrupt. */
 		m_ack = 1;
