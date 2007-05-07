@@ -91,8 +91,6 @@ static inline void ppc440spe_desc_init_interrupt (ppc440spe_desc_t *desc,
  */
 static inline void ppc440spe_desc_init_null_xor(ppc440spe_desc_t *desc)
 {
-	xor_cb_t *hw_desc = desc->hw_desc;
-
 	memset (desc->hw_desc, 0, sizeof(xor_cb_t));
 	desc->hw_next = NULL;
 	desc->src_cnt = 0;
@@ -389,6 +387,13 @@ static inline void ppc440spe_adma_device_clear_eot_status (ppc440spe_ch_t *chan)
 
                 if (rv & (XOR_IE_ICBIE_BIT|XOR_IE_ICIE_BIT|XOR_IE_RPTIE_BIT)) {
 			printk ("XOR ERR 0x%x status\n", rv);
+			if (rv & XOR_IE_RPTIE_BIT) {
+				/* Read PLB Timeout Error.
+				 * Try to resubmit the CB
+				 */
+				xor_reg->cblalr = xor_reg->ccbalr;
+				xor_reg->crsr = XOR_CRSR_XAE_BIT;
+			}
 			break;
 		}
 
@@ -456,6 +461,8 @@ static inline void ppc440spe_chan_set_first_xor_descriptor(ppc440spe_ch_t *chan,
 	xor_last_submit = xor_last_linked = next_desc;
 	xor_reg->cblalr = next_desc->phys;
 	xor_reg->cbcr |= XOR_CBCR_LNK_BIT;
+
+	chan->hw_chain_inited = 1;
 }
 
 /**
@@ -519,6 +526,7 @@ static inline void ppc440spe_chan_append(ppc440spe_ch_t *chan)
 				cur_desc |= DMA_CDB_NO_INT;
 			/* put descriptor into FIFO */
 			out_le32 (&dma_reg->cpfpl, cur_desc);
+			chan->hw_chain_inited = 1;
 		}
 		break;
 	case PPC440SPE_XOR_ID:
@@ -558,6 +566,11 @@ static inline u32 ppc440spe_chan_get_current_descriptor(ppc440spe_ch_t *chan)
 {
 	volatile dma_regs_t *dma_reg;
 	volatile xor_regs_t *xor_reg;
+
+	if (unlikely(!chan->hw_chain_inited)) {
+		/* h/w descriptor chain is not initialized yet */
+		return 0;
+	}
 
 	switch (chan->device->id) {
 	case PPC440SPE_DMA0_ID:
@@ -696,8 +709,14 @@ static void __ppc440spe_adma_slot_cleanup(ppc440spe_ch_t *chan)
 	int busy = ppc440spe_chan_is_busy(chan);
 	int seen_current = 0, slot_cnt = 0, slots_per_op = 0;
 
-
 	PRINTK ("ppc440spe adma%d: %s\n", chan->device->id, __FUNCTION__);
+
+	if (!current_desc) {
+		/*  There were no transactions yet, so
+		 * nothing to clean
+		 */
+		return;
+	}
 
 	/* free completed slots from the chain starting with
 	 * the oldest descriptor
@@ -987,6 +1006,9 @@ static int ppc440spe_adma_alloc_chan_resources(struct dma_chan *chan)
 		if (test_bit(DMA_XOR,
 			&ppc440spe_chan->device->common.capabilities))
 			ppc440spe_chan_start_null_xor(ppc440spe_chan);
+		if (test_bit(DMA_MEMCPY,
+			&ppc440spe_chan->device->common.capabilities))
+			ppc440spe_chan->hw_chain_inited = 0;
 	}
 
 	return (i > 0) ? i : -ENOMEM;

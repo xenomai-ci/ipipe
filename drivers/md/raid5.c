@@ -706,18 +706,18 @@ ops_run_biodrain(struct stripe_head *sh, struct dma_async_tx_descriptor *tx)
 				sh->dev[i].dpage = bio_iovec_idx(pbio,k)->bv_page;
 				continue;
 			}
-
-			/* come here in two cases:
-			 * - the dev[i] is not covered fully with the bio
-			 * - there are more than one bios cover the dev[i]
-			 * in both cases use the intermediate copy from bio to dev[i].page
-			 */
-
-			PRINTK("%s: do intermediate copying because of disk %d\n",
-				__FUNCTION__, i);
-			clear_bit(STRIPE_FULL_WRITE, &sh->state);
-			break;
 		}
+
+		/* come here in two cases:
+		 * - the dev[i] is not covered fully with the bio
+		 * - there are more than one bios cover the dev[i]
+		 * in both cases use the intermediate copy from bio to dev[i].page
+		 */
+
+		PRINTK("%s: do intermediate copying because of disk %d\n",
+			__FUNCTION__, i);
+		clear_bit(STRIPE_FULL_WRITE, &sh->state);
+		break;
 	}
 #endif
 
