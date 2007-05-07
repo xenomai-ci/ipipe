@@ -75,12 +75,12 @@ void __ipipe_unstall_root(void);
 
 void __ipipe_restore_root(unsigned long x);
 
+#endif /* !CONFIG_IPIPE */ 
+
 #ifdef CONFIG_IPIPE_DEBUG_CONTEXT
 void ipipe_check_context(struct ipipe_domain *border_ipd);
-#else /* !CONFIG_IPIPE_DEBUG_CONTEXT */
-static inline void ipipe_check_context(struct ipipe_domain *border_ipd) { }
+#else  /* !CONFIG_IPIPE_DEBUG_CONTEXT */
+#define ipipe_check_context(border_ipd)        do { } while (0)
 #endif /* !CONFIG_IPIPE_DEBUG_CONTEXT */
-
-#endif	/* CONFIG_IPIPE */
 
 #endif	/* !__LINUX_IPIPE_BASE_H */
