@@ -373,7 +373,7 @@ int fastcall __ipipe_send_ipi (unsigned ipi, cpumask_t cpumask)
 	cpu_clear(cpuid,cpumask);
 
 	if (!cpus_empty(cpumask))
-		send_IPI_mask(cpumask,ipi + FIRST_EXTERNAL_VECTOR);
+		send_IPI_mask(cpumask,ipipe_apic_irq_vector(ipi));
 
 	if (self)
 		ipipe_trigger_irq(ipi);
