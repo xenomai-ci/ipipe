@@ -453,6 +453,12 @@ config ATA_OVER_ETH
 	This driver provides Support for ATA over Ethernet block
 	devices like the Coraid EtherDrive (R) Storage Blade.
 
+config XILINX_SYSACE
+	tristate "Xilinx SystemACE support"
+	depends on 4xx
+	help
+	  Include support for the Xilinx SystemACE CompactFlash interface
+
 endmenu
 
 endif

@@ -73,11 +73,31 @@ unsigned char ppc4xx_uic_ext_irq_cfg[] __initdata = {
 	(IRQ_SENSE_LEVEL | IRQ_POLARITY_NEGATIVE),	/* IRQ7:  EXT */
 	(IRQ_SENSE_LEVEL | IRQ_POLARITY_NEGATIVE),	/* IRQ6:  EXT */
 	(IRQ_SENSE_LEVEL | IRQ_POLARITY_NEGATIVE),	/* IRQ5:  EXT */
-	(IRQ_SENSE_LEVEL | IRQ_POLARITY_NEGATIVE),	/* IRQ4:  EXT */
+	(IRQ_SENSE_LEVEL | IRQ_POLARITY_POSITIVE),	/* IRQ4:  Xilinx SysACE */
 	(IRQ_SENSE_LEVEL | IRQ_POLARITY_NEGATIVE),	/* IRQ3:  EXT */
 	(IRQ_SENSE_LEVEL | IRQ_POLARITY_NEGATIVE),	/* IRQ2:  EXT */
 	(IRQ_SENSE_LEVEL | IRQ_POLARITY_NEGATIVE),	/* IRQ1:  EXT */
 	(IRQ_SENSE_LEVEL | IRQ_POLARITY_NEGATIVE),	/* IRQ0:  EXT */
+};
+
+/*
+ * SystemACE platform device
+ */
+static struct platform_device sysace_device = {
+	.name		= "xsysace",
+	.id		= 0,
+	.num_resources	= 2,
+	.resource = (struct resource[]) {
+		{
+			.start	= 0xfe000000,
+			.end	= 0xfe000fff,
+			.flags	= IORESOURCE_MEM,
+		},
+		{
+			.start	= 32 + 32 + 25,
+			.flags	= IORESOURCE_IRQ,
+		},
+	},
 };
 
 /*
@@ -110,7 +130,6 @@ static struct mtd_partition katmai_nor_parts[] = {
 	{
 		.name = "user",
 		.offset = MTDPART_OFS_APPEND,
-/*		.size = RW_PART2_SZ */ /* will be adjusted dynamically */
 	},
 	{
 		.name = "env",
@@ -140,10 +159,11 @@ static struct platform_device katmai_nor_device = {
 	.resource	= &katmai_nor_resource,
 };
 
-static int katmai_setup_flash(void)
+static int katmai_setup_pdevs(void)
 {
 	katmai_nor_resource.start = __res.bi_flashstart;
-	katmai_nor_resource.end = 0xffffffff;
+	katmai_nor_resource.end = __res.bi_flashstart +
+		__res.bi_flashsize - 1;
 
 	/*
 	 * Adjust partition 2 to flash size
@@ -153,9 +173,17 @@ static int katmai_setup_flash(void)
 
 	platform_device_register(&katmai_nor_device);
 
+	/*
+	 * Setup CS1 for Xilinx SysACE access (not correctly setup
+	 * in some earlier U-Boot versions
+	 */
+	EBC_WRITE(DCRN_EBC0_B1CR, 0xfe01a000);
+	EBC_WRITE(DCRN_EBC0_B1AP, 0x02000080);
+	platform_device_register(&sysace_device);
+
 	return 0;
 }
-arch_initcall(katmai_setup_flash);
+arch_initcall(katmai_setup_pdevs);
 
 static void __init
 katmai_calibrate_decr(void)
