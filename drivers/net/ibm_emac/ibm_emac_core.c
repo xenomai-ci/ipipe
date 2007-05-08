@@ -603,6 +603,9 @@ static int emac_configure(struct ocp_enet_private *dev)
 		break;
 	}
 
+	/* do special speed setup if necessary */
+	emac_speed_setup(gige);
+
 	if (dev->rgmii_dev)
 		rgmii_set_speed(dev->rgmii_dev, dev->rgmii_input,
 				dev->phy.speed);
