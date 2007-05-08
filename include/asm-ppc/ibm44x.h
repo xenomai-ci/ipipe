@@ -769,6 +769,23 @@
 #define NR_UICS 2
 #endif
 
+/* EBC read/write helper macros */
+#define DCRN_EBC_CONFIG_ADDR 	0x12
+#define DCRN_EBC_CONFIG_DATA	0x13
+
+#define DCRN_EBC0_B0CR		0x00
+#define DCRN_EBC0_B1CR		0x01
+#define DCRN_EBC0_B2CR		0x02
+#define DCRN_EBC0_B3CR		0x03
+#define DCRN_EBC0_B0AP		0x10
+#define DCRN_EBC0_B1AP		0x11
+#define DCRN_EBC0_B2AP		0x12
+#define DCRN_EBC0_B3AP		0x13
+
+#define EBC_WRITE(offset, data) do { \
+	mtdcr(DCRN_EBC_CONFIG_ADDR, offset); \
+	mtdcr(DCRN_EBC_CONFIG_DATA, data);} while (0)
+
 #include <asm/ibm4xx.h>
 
 #endif /* __ASSEMBLY__ */
