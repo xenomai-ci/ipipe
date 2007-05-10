@@ -161,6 +161,11 @@ static int __init motionpro_probe(void)
 	return 1;
 }
 
+#ifdef CONFIG_RTC_DRV_DS1307
+void ds1307_get_rtc_time(struct rtc_time *);
+int ds1307_set_rtc_time(struct rtc_time *);
+#endif
+
 define_machine(motionpro) {
 	.name 		= "motionpro",
 	.probe 		= motionpro_probe,
@@ -169,5 +174,9 @@ define_machine(motionpro) {
 	.init_IRQ 	= mpc52xx_init_irq,
 	.get_irq 	= mpc52xx_get_irq,
 	.show_cpuinfo	= motionpro_show_cpuinfo,
+#ifdef CONFIG_RTC_DRV_DS1307
+	.get_rtc_time	= ds1307_get_rtc_time,
+	.set_rtc_time	= ds1307_set_rtc_time,
+#endif
 	.calibrate_decr	= generic_calibrate_decr,
 };
