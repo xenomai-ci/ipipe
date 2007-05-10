@@ -179,7 +179,7 @@
 			interrupt-parent = <500>;
 		};
 
-		gpio-wkup@b00 {
+		gpio-wkup@c00 {
 			compatible = "mpc5200b-gpio-wkup\0mpc5200-gpio-wkup";
 			reg = <c00 40>;
 			interrupts = <1 8 0 0 3 0>;
@@ -264,6 +264,16 @@
 		//	interrupt-parent = <500>;
 		//};
 
+		// PSC2 in spi master mode 
+		spi@2200 {		// PSC2
+			device_type = "spi";
+			compatible = "mpc5200b-psc-spi\0mpc5200-psc-spi";
+			cell-index = <1>;
+			reg = <2200 100>;
+			interrupts = <2 2 0>;
+			interrupt-parent = <500>;
+		};
+
 		// PSC3 in CODEC mode example
 		//i2s@2400 {		// PSC3
 		//	device_type = "sound";
@@ -337,5 +347,34 @@
 			compatible = "mpc5200b-sram\0mpc5200-sram\0sram";
 			reg = <8000 4000>;
 		};
+	
 	};
+	kollmorgen {
+		device_type = "kollmorgen";
+		compatible = "kollmorgen";
+		reg = <50000000 ffff>;
+		interrupts = <1 1 0>;
+		interrupt-parent = <500>;
+	};
+	cpld {
+		device_type = "cpld";
+		compatible = "cpld";
+		reg = <50010000 ffff>;
+	};
+	anybus {
+		device_type = "anybus";
+		compatible = "anybus";
+		reg = <50020000 ffff>;
+	};
+	pro_module_general {
+		device_type = "pro_module_general";
+		compatible = "pro_module_general";
+		reg = <50020000 3>;
+	};
+	pro_module_dio {
+		device_type = "pro_module_dio";
+		compatible = "pro_module_dio";
+		reg = <50020800 2>;
+	};
+
 };
