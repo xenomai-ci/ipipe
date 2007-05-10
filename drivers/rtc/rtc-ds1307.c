@@ -16,6 +16,7 @@
 #include <linux/string.h>
 #include <linux/rtc.h>
 #include <linux/bcd.h>
+#include <linux/mutex.h>
 
 
 
@@ -36,6 +37,9 @@ enum ds_type {
 	// rs5c372 too?  different address...
 };
 
+static DEFINE_MUTEX(ds1307_mutex);
+
+static struct device *save_device = NULL;
 static unsigned short normal_i2c[] = { 0x68, I2C_CLIENT_END };
 
 I2C_CLIENT_INSMOD;
@@ -182,6 +186,30 @@ static const struct rtc_class_ops ds13xx_rtc_ops = {
 	.read_time	= ds1307_get_time,
 	.set_time	= ds1307_set_time,
 };
+
+
+void ds1307_get_rtc_time(struct rtc_time *t)
+{
+	if (save_device) {
+		mutex_lock(&ds1307_mutex);
+		ds1307_get_time(save_device, t);
+		mutex_unlock(&ds1307_mutex);
+	}
+}
+
+int ds1307_set_rtc_time(struct rtc_time *t)
+{
+	int err;
+
+	if (save_device) {
+		mutex_lock(&ds1307_mutex);
+		err = ds1307_set_time(save_device, t);
+		mutex_unlock(&ds1307_mutex);
+	} else
+		err = -ENODEV;
+
+	return err;
+}
 
 static struct i2c_driver ds1307_driver;
 
@@ -332,6 +360,7 @@ read_rtc:
 			"unable to register the class device\n");
 		goto exit_detach;
 	}
+	save_device = &client->dev;
 
 	return 0;
 
@@ -360,6 +389,7 @@ static int __devexit ds1307_detach_client(struct i2c_client *client)
 	if ((err = i2c_detach_client(client)))
 		return err;
 	kfree(ds1307);
+	save_device = NULL;
 	return 0;
 }
 
