@@ -2,6 +2,7 @@
 # Makefile for miscellaneous I2C chip drivers.
 #
 
+obj-$(CONFIG_SENSORS_AD7416)	+= ad7416.o
 obj-$(CONFIG_SENSORS_DS1337)	+= ds1337.o
 obj-$(CONFIG_SENSORS_DS1374)	+= ds1374.o
 obj-$(CONFIG_SENSORS_EEPROM)	+= eeprom.o
