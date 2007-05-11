@@ -125,3 +125,36 @@ mpc52xx_declare_of_platform_devices(void)
 			"Error while probing of_platform bus\n");
 }
 
+void
+mpc52xx_restart(char *cmd)
+{
+	struct mpc52xx_gpt __iomem *gpt0;
+	
+	gpt0 = mpc52xx_find_and_map("mpc5200-gpt");
+
+	local_irq_disable();
+
+	/* Turn on the watchdog and wait for it to expire. It effectively
+	  does a reset */
+	out_be32(&gpt0->count, 0x000000ff);
+	out_be32(&gpt0->mode, 0x00009004);
+
+	while (1);
+}
+
+void
+mpc52xx_halt(void)
+{
+	local_irq_disable();
+
+	while (1);
+}
+
+void
+mpc52xx_power_off(void)
+{
+	/* By default we don't have any way of shut down.
+	   If a specific board wants to, it can set the power down
+	   code to any hardware implementation dependent code */
+	mpc52xx_halt();
+}
