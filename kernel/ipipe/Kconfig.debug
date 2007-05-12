@@ -5,6 +5,7 @@ config IPIPE_DEBUG
 config IPIPE_DEBUG_CONTEXT
 	bool "Check for illicit cross-domain calls"
 	depends on IPIPE_DEBUG
+	default y
 	---help---
 	  Enable this feature to arm checkpoints in the kernel that
 	  verify the correct invocation context. On entry of critical
