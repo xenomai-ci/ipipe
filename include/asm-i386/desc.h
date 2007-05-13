@@ -101,7 +101,7 @@ static inline fastcall void native_set_ldt(const void *addr,
 	if (likely(entries == 0))
 		__asm__ __volatile__("lldt %w0"::"q" (0));
 	else {
-		unsigned cpu = smp_processor_id();
+		unsigned cpu = smp_processor_id_hw();
 		__u32 a, b;
 
 		pack_descriptor(&a, &b, (unsigned long)addr,
