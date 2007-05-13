@@ -10,7 +10,6 @@
 
 #include <asm/cacheflush.h>
 #include <asm/pgtable.h>
-#include <asm/pgalloc.h>
 
 static int ioremap_pte_range(pmd_t *pmd, unsigned long addr,
 		unsigned long end, unsigned long phys_addr, pgprot_t prot)
