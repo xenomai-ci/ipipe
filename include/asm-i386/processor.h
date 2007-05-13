@@ -104,7 +104,7 @@ DECLARE_PER_CPU(struct tss_struct, init_tss);
 
 #ifdef CONFIG_SMP
 extern struct cpuinfo_x86 cpu_data[];
-#define current_cpu_data cpu_data[smp_processor_id()]
+#define current_cpu_data cpu_data[smp_processor_id_hw()]
 #else
 #define cpu_data (&boot_cpu_data)
 #define current_cpu_data boot_cpu_data
