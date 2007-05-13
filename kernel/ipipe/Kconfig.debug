@@ -66,6 +66,7 @@ config IPIPE_TRACE_SHIFT
 config IPIPE_TRACE_VMALLOC
 	bool "Use vmalloc'ed trace buffer"
 	depends on IPIPE_TRACE
+	default y if EMBEDDED
 	---help---
 	  Instead of reserving static kernel data, the required buffer
 	  is allocated via vmalloc during boot-up when this option is
