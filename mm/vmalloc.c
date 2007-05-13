@@ -19,7 +19,6 @@
 
 #include <asm/uaccess.h>
 #include <asm/tlbflush.h>
-#include <asm/pgalloc.h>
 
 
 DEFINE_RWLOCK(vmlist_lock);
