@@ -86,30 +86,7 @@
 #include <linux/threads.h>
 #include <asm/ptrace.h>
 
-#ifdef CONFIG_SMP
-
-#include <asm/fixmap.h>
-#include <asm/mpspec.h>
-#include <mach_apicdef.h>
-#include <linux/thread_info.h>
-
-extern int (*__ipipe_logical_cpuid)(void);
-
-#define ipipe_processor_id()  __ipipe_logical_cpuid()
-
-extern u8 __ipipe_apicid_2_cpu[];
-
-#define ipipe_note_apicid(apicid,cpu)  \
-do {	\
-	__ipipe_apicid_2_cpu[apicid] = cpu; \
-} while(0)
-
-#else	/* !CONFIG_SMP */
-
-#define ipipe_note_apicid(apicid,cpu)  do { } while(0)
-#define ipipe_processor_id()    0
-
-#endif	/* !CONFIG_SMP */
+#define ipipe_processor_id()   raw_smp_processor_id()
 
 #define prepare_arch_switch(next)		\
 do {						\
@@ -284,8 +261,6 @@ do { \
 #else /* !CONFIG_IPIPE */
 
 #define task_hijacked(p)	0
-
-#define ipipe_note_apicid(apicid,cpu)  do { } while(0)
 
 #endif /* CONFIG_IPIPE */
 
