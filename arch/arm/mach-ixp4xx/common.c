@@ -438,7 +438,7 @@ void __ipipe_mach_acktimer(void)
 
 EXPORT_SYMBOL(__ipipe_mach_acktimer);
 
-unsigned long long __ipipe_mach_get_tsc(void)
+notrace unsigned long long __ipipe_mach_get_tsc(void)
 {
 	if (likely(ixp4xx_timer_initialized)) {
 		static union {
@@ -458,7 +458,7 @@ unsigned long long __ipipe_mach_get_tsc(void)
 		unsigned long stamp, flags;
 		unsigned long long result;
 
-		local_irq_save_hw(flags);
+		local_irq_save_hw_notrace(flags);
 		local_tsc = &tsc[ipipe_processor_id()];
 		stamp = *IXP4XX_OSTS;
 		if (unlikely(stamp < local_tsc->low))
@@ -466,7 +466,7 @@ unsigned long long __ipipe_mach_get_tsc(void)
 			local_tsc->high++;
 		local_tsc->low = stamp;
 		result = local_tsc->full;
-		local_irq_restore_hw(flags);
+		local_irq_restore_hw_notrace(flags);
 
 		return result;
 	}

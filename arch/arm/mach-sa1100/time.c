@@ -284,7 +284,7 @@ notrace unsigned long long __ipipe_mach_get_tsc(void)
 		unsigned long stamp, flags;
 		unsigned long long result;
 
-		local_irq_save_hw(flags);
+		local_irq_save_hw_notrace(flags);
 		local_tsc = &tsc[ipipe_processor_id()];
 		stamp = OSCR;
 		if (unlikely(stamp < local_tsc->low))
@@ -292,7 +292,7 @@ notrace unsigned long long __ipipe_mach_get_tsc(void)
 			local_tsc->high++;
 		local_tsc->low = stamp;
 		result = local_tsc->full;
-		local_irq_restore_hw(flags);
+		local_irq_restore_hw_notrace(flags);
 
 		return result;
 	}

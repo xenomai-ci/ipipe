@@ -43,17 +43,9 @@
 #define ipipe_processor_id()	0
 #endif	/* CONFIG_SMP */
 
-/* Note that we disable the interrupts around context_switch,
- * or we'll get into severe problems when scheduling Xenomai's
- * user space real time threads.
- * This can however cause high latencies, see for example:
- * 	http://www.ussg.iu.edu/hypermail/linux/kernel/0405.2/1388.html
- * This may need further optimization...
- */
 #define prepare_arch_switch(next)				\
 do {								\
 	ipipe_schedule_notify(current, next);			\
-	local_irq_disable_hw();					\
 } while(0)
 
 #define task_hijacked(p)						\
@@ -61,7 +53,7 @@ do {								\
 		int __x__ = ipipe_current_domain != ipipe_root_domain;	\
 		/* We would need to clear the SYNC flag for the root domain */ \
 		/* over the current processor in SMP mode. */		\
-		local_irq_enable_hw(); __x__;				\
+		 __x__;				\
 	})
 
 /* ARM traps */
@@ -109,6 +101,7 @@ struct ipipe_sysinfo {
 	} archdep;
 };
 
+DECLARE_PER_CPU(struct mm_struct *,ipipe_active_mm);
 /* arch specific stuff */
 extern int __ipipe_mach_timerint;
 extern int __ipipe_mach_timerstolen;
@@ -181,12 +174,19 @@ static inline unsigned long __ipipe_ffnz(unsigned long ul)
 /* When running handlers, enable hw interrupts for all domains but the
  * one heading the pipeline, so that IRQs can never be significantly
  * deferred for the latter. */
-#define __ipipe_run_isr(ipd, irq, cpuid) 	\
-do {					 	\
-	local_irq_enable_nohead(ipd);		\
-	if (ipd == ipipe_root_domain) {		\
-		((void (*)(unsigned, struct pt_regs *))			\
-		 ipd->irqs[irq].handler) (irq, __ipipe_tick_regs + cpuid); \
+#define __ipipe_run_isr(ipd, irq, cpuid)                                \
+do {                                                                    \
+	local_irq_enable_nohead(ipd);                                   \
+	if (ipd == ipipe_root_domain) {                                 \
+                if (likely(!ipipe_virtual_irq_p(irq)))                  \
+                        ((void (*)(unsigned, struct pt_regs *))         \
+                         ipd->irqs[irq].handler) (irq,                  \
+                                                  __ipipe_tick_regs + cpuid); \
+                else {                                                  \
+                        irq_enter();                                    \
+                        ipd->irqs[irq].handler(irq,ipd->irqs[irq].cookie); \
+                        irq_exit();                                     \
+                }                                                       \
 	} else {							\
 		__clear_bit(IPIPE_SYNC_FLAG, &cpudata->status);		\
 		ipd->irqs[irq].handler(irq,ipd->irqs[irq].cookie);	\

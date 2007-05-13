@@ -49,6 +49,9 @@ unsigned long long __ipipe_decr_next[IPIPE_NR_CPUS];
 
 struct pt_regs __ipipe_tick_regs[IPIPE_NR_CPUS];
 
+DEFINE_PER_CPU(struct mm_struct *,ipipe_active_mm);
+EXPORT_PER_CPU_SYMBOL(ipipe_active_mm);
+
 extern struct irqdesc irq_desc[];
 extern asmlinkage void asm_do_IRQ(unsigned int irq, struct pt_regs *regs);
 

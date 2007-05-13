@@ -322,9 +322,11 @@ notrace unsigned long long __ipipe_mach_get_tsc(void)
 	unsigned long long result;
 	unsigned long flags;
 
-	spin_lock_irqsave(&timer_lock, flags);
+	local_irq_save_hw_notrace(flags);
+	spin_lock(&timer_lock);
 	result = __ipipe_mach_tsc + getticksoffset();
-	spin_unlock_irqrestore(&timer_lock, flags);
+	spin_unlock(&timer_lock);
+	local_irq_restore_hw_notrace(flags);
 	return result;
 }
 EXPORT_SYMBOL(__ipipe_mach_get_tsc);

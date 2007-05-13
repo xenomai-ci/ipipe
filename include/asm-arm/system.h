@@ -198,7 +198,9 @@ extern struct task_struct *__switch_to(struct task_struct *, struct thread_info 
 
 #define switch_to(prev,next,last)					\
 do {									\
-	last = __switch_to(prev,task_thread_info(prev), task_thread_info(next));	\
+	local_irq_disable_hw_cond();					\
+	last = __switch_to(prev,task_thread_info(prev), task_thread_info(next)); \
+	local_irq_enable_hw_cond();					\
 } while (0)
 
 /*
