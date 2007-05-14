@@ -23,6 +23,8 @@
 
 #include <asm/hardware.h>
 
+#ifndef CONFIG_IPIPE
+
 #if defined(CONFIG_ARCH_AT91RM9200)
 
 #define CLOCK_TICK_RATE		(AT91_SLOW_CLOCK)
@@ -32,6 +34,12 @@
 #define AT91SAM9_MASTER_CLOCK	99300000
 #define CLOCK_TICK_RATE		(AT91SAM9_MASTER_CLOCK/16)
 
-#endif
+#endif /* arch specific */
+
+#else /* !CONFIG_IPIPE */
+
+#define CLOCK_TICK_RATE         (CONFIG_IPIPE_AT91_MCK / 32)
+
+#endif /* !CONFIG_IPIPE */
 
 #endif

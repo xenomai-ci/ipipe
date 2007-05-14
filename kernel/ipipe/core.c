@@ -1383,6 +1383,7 @@ void __init ipipe_init_proc(void)
 }
 
 #endif	/* CONFIG_PROC_FS */
+#include <linux/irq.h>
 
 #ifdef CONFIG_IPIPE_DEBUG_CONTEXT
 void ipipe_check_context(struct ipipe_domain *border_ipd)

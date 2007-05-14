@@ -20,6 +20,8 @@ obj-$(CONFIG_ISA_DMA)		+= dma-isa.o
 obj-$(CONFIG_PCI)		+= bios32.o isa.o
 obj-$(CONFIG_SMP)		+= smp.o
 obj-$(CONFIG_OABI_COMPAT)	+= sys_oabi-compat.o
+obj-$(CONFIG_IPIPE)		+= ipipe.o
+obj-$(CONFIG_IPIPE_TRACE_MCOUNT)	+= ipipe-mcount.o
 
 obj-$(CONFIG_CRUNCH)		+= crunch.o crunch-bits.o
 AFLAGS_crunch-bits.o		:= -Wa,-mcpu=ep9312

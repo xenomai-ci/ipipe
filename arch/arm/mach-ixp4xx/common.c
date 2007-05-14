@@ -42,6 +42,30 @@
 
 static int __init ixp4xx_clocksource_init(void);
 
+#ifdef CONFIG_IPIPE
+#include <linux/ipipe.h>
+
+/* We have no cascaded interrupts. */
+void __ipipe_mach_demux_irq(unsigned irq, struct pt_regs *regs) {}
+
+#ifdef CONFIG_NO_IDLE_HZ
+#error "dynamic tick timer not yet supported with IPIPE"
+#endif
+
+int __ipipe_mach_timerint = IRQ_IXP4XX_TIMER1;
+int __ipipe_mach_timerstolen = 0;
+unsigned int __ipipe_mach_ticks_per_jiffy = LATCH;
+
+EXPORT_SYMBOL(__ipipe_mach_timerint);
+EXPORT_SYMBOL(__ipipe_mach_timerstolen);
+EXPORT_SYMBOL(__ipipe_mach_ticks_per_jiffy);
+
+static int ixp4xx_timer_initialized;
+
+#define ONE_SHOT_ENABLE (IXP4XX_OST_ENABLE|IXP4XX_OST_ONE_SHOT)
+
+#endif /* CONFIG_IPIPE */
+
 /*************************************************************************
  * IXP4xx chipset I/O mapping
  *************************************************************************/
@@ -243,6 +267,37 @@ static unsigned volatile last_jiffy_time;
 
 #define CLOCK_TICKS_PER_USEC	((CLOCK_TICK_RATE + USEC_PER_SEC/2) / USEC_PER_SEC)
 
+#ifdef CONFIG_IPIPE
+
+static irqreturn_t ixp4xx_timer_interrupt(int irq, void *dev_id)
+{
+	write_seqlock(&xtime_lock);
+	if (__ipipe_mach_timerstolen) {
+		/* If some other domain has taken over the timer, then
+		 * do nothing (ipipe has acked it, and the other
+		 * domain has reprogramed it)
+		 */
+		timer_tick();
+		last_jiffy_time += LATCH;
+	} else {
+		/* If Linux is running under ipipe, but it still has
+		 * the control over the timer (no Xenomai for
+		 * example), then reprogram the timer (ipipe has
+		 * already acked it)
+		 */
+		while ((signed long)(*IXP4XX_OSTS - last_jiffy_time) >= LATCH) {
+			/* Catch up with the real idea of time */
+			timer_tick();
+			last_jiffy_time += LATCH;
+		}
+		*IXP4XX_OSRT1 = (last_jiffy_time + LATCH - *IXP4XX_OSTS) | ONE_SHOT_ENABLE;
+	}
+	write_sequnlock(&xtime_lock);
+	return IRQ_HANDLED;
+}
+
+#else /* !CONFIG_IPIPE */
+
 static irqreturn_t ixp4xx_timer_interrupt(int irq, void *dev_id)
 {
 	write_seqlock(&xtime_lock);
@@ -263,6 +318,8 @@ static irqreturn_t ixp4xx_timer_interrupt(int irq, void *dev_id)
 	return IRQ_HANDLED;
 }
 
+#endif /* !CONFIG_IPIPE */
+
 static struct irqaction ixp4xx_timer_irq = {
 	.name		= "IXP4xx Timer Tick",
 	.flags		= IRQF_DISABLED | IRQF_TIMER,
@@ -275,7 +332,12 @@ static void __init ixp4xx_timer_init(void)
 	*IXP4XX_OSST = IXP4XX_OSST_TIMER_1_PEND;
 
 	/* Setup the Timer counter value */
+#ifdef CONFIG_IPIPE
+	ixp4xx_timer_initialized = 1;
+	*IXP4XX_OSRT1 = LATCH | ONE_SHOT_ENABLE;
+#else
 	*IXP4XX_OSRT1 = (LATCH & ~IXP4XX_OST_RELOAD_MASK) | IXP4XX_OST_ENABLE;
+#endif
 
 	/* Reset time-stamp counter */
 	*IXP4XX_OSTS = 0;
@@ -408,3 +470,94 @@ static int __init ixp4xx_clocksource_init(void)
 
 	return 0;
 }
+
+#ifdef CONFIG_IPIPE
+
+void __ipipe_mach_acktimer(void)
+{
+	/* Clear Pending Interrupt by writing '1' to it */
+	*IXP4XX_OSST = IXP4XX_OSST_TIMER_1_PEND;
+}
+
+EXPORT_SYMBOL(__ipipe_mach_acktimer);
+
+notrace unsigned long long __ipipe_mach_get_tsc(void)
+{
+	if (likely(ixp4xx_timer_initialized)) {
+		static union {
+#ifdef __BIG_ENDIAN
+			struct {
+				unsigned long high;
+				unsigned long low;
+			};
+#else /* __LITTLE_ENDIAN */
+			struct {
+				unsigned long low;
+				unsigned long high;
+			};
+#endif /* __LITTLE_ENDIAN */
+			unsigned long long full;
+		} tsc[NR_CPUS], *local_tsc;
+		unsigned long stamp, flags;
+		unsigned long long result;
+
+		local_irq_save_hw_notrace(flags);
+		local_tsc = &tsc[ipipe_processor_id()];
+		stamp = *IXP4XX_OSTS;
+		if (unlikely(stamp < local_tsc->low))
+			/* 32 bit counter wrapped, increment high word. */
+			local_tsc->high++;
+		local_tsc->low = stamp;
+		result = local_tsc->full;
+		local_irq_restore_hw_notrace(flags);
+
+		return result;
+	}
+	
+        return 0;
+}
+
+EXPORT_SYMBOL(__ipipe_mach_get_tsc);
+
+/*
+ * Reprogram the timer
+ *
+ * The timer is aperiodic (most of the time) when running Xenomai, so
+ * __ipipe_mach_set_dec is called for each timer tick and programs the
+ * timer hardware for the next tick.
+ *
+ */
+#define MIN_DELAY 333 /* 5 usec with the 66.66 MHz system clock */
+
+void __ipipe_mach_set_dec(unsigned long delay)
+{
+	unsigned long flags;
+	if (delay > MIN_DELAY) {
+		local_irq_save_hw(flags);
+		*IXP4XX_OSRT1 = delay | ONE_SHOT_ENABLE;
+		local_irq_restore_hw(flags);
+	} else {
+		ipipe_trigger_irq(IRQ_IXP4XX_TIMER1);
+	}
+}
+
+EXPORT_SYMBOL(__ipipe_mach_set_dec);
+
+/*
+ * This returns the number of clock ticks remaining.
+ */
+unsigned long __ipipe_mach_get_dec(void)
+{
+	return(*IXP4XX_OST1); /* remaining */
+}
+
+EXPORT_SYMBOL(__ipipe_mach_get_dec);
+
+void __ipipe_mach_release_timer(void)
+{
+       __ipipe_mach_set_dec(__ipipe_mach_ticks_per_jiffy);
+}
+
+EXPORT_SYMBOL(__ipipe_mach_release_timer);
+
+#endif /* CONFIG_IPIPE */

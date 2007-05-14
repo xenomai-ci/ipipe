@@ -148,6 +148,9 @@ extern void iwmmxt_task_switch(struct thread_info *);
 #define TIF_USING_IWMMXT	17
 #define TIF_MEMDIE		18
 #define TIF_FREEZE		19
+#ifdef CONFIG_IPIPE
+#define TIF_MMSWITCH_INT        20
+#endif /* CONFIG_IPIPE */
 
 #define _TIF_NOTIFY_RESUME	(1 << TIF_NOTIFY_RESUME)
 #define _TIF_SIGPENDING		(1 << TIF_SIGPENDING)
@@ -156,6 +159,9 @@ extern void iwmmxt_task_switch(struct thread_info *);
 #define _TIF_POLLING_NRFLAG	(1 << TIF_POLLING_NRFLAG)
 #define _TIF_USING_IWMMXT	(1 << TIF_USING_IWMMXT)
 #define _TIF_FREEZE		(1 << TIF_FREEZE)
+#ifdef CONFIG_IPIPE
+#define _TIF_MMSWITCH_INT       (1 << TIF_MMSWITCH_INT)
+#endif /* CONFIG_IPIPE */
 
 /*
  * Change these and you break ASM code in entry-common.S
