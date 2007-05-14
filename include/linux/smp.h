@@ -128,17 +128,9 @@ static inline int smp_call_function_single(int cpuid, void (*func) (void *info),
  */
 #ifdef CONFIG_DEBUG_PREEMPT
   extern unsigned int debug_smp_processor_id(void);
-# define smp_processor_id()				\
-	({						\
-		ipipe_check_context(ipipe_root_domain);	\
-		debug_smp_processor_id();		\
-	})
+# define smp_processor_id() debug_smp_processor_id()
 #else
-# define smp_processor_id()				\
-	({						\
-		ipipe_check_context(ipipe_root_domain);	\
-		raw_smp_processor_id();			\
-	})
+# define smp_processor_id() raw_smp_processor_id()
 #endif
 
 #define get_cpu()		({ preempt_disable(); smp_processor_id(); })
