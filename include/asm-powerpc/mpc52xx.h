@@ -251,6 +251,10 @@ extern unsigned int mpc52xx_get_irq(void);
 
 extern int __init mpc52xx_add_bridge(struct device_node *node);
 
+extern void mpc52xx_restart(char *cmd);
+extern void mpc52xx_halt(void);
+extern void mpc52xx_power_off(void);
+
 #endif /* __ASSEMBLY__ */
 
 #endif /* __ASM_POWERPC_MPC52xx_H__ */
