@@ -3422,10 +3422,8 @@ asmlinkage void __sched schedule(void)
 	long *switch_count;
 	struct rq *rq;
 
-#ifdef CONFIG_IPIPE
-	if (unlikely(!ipipe_root_domain_p))
-		return;
-#endif /* CONFIG_IPIPE */
+	ipipe_check_context(ipipe_root_domain);
+
 	/*
 	 * Test if we are atomic.  Since do_exit() needs to call into
 	 * schedule() atomically, we ignore that path for now.
@@ -3600,11 +3598,7 @@ asmlinkage void __sched preempt_schedule(void)
 	struct task_struct *task = current;
 	int saved_lock_depth;
 #endif
-#ifdef CONFIG_IPIPE
-	/* Do not reschedule over non-Linux domains. */
-	if (unlikely(!ipipe_root_domain_p))
-		return;
-#endif /* CONFIG_IPIPE */
+	ipipe_check_context(ipipe_root_domain);
 	/*
 	 * If there is a non-zero preempt_count or interrupts are disabled,
 	 * we do not want to preempt the current task.  Just return..
