@@ -27,10 +27,10 @@
 #include <linux/threads.h>
 #include <irq_vectors.h>
 
-#define IPIPE_ARCH_STRING	"1.8-01"
+#define IPIPE_ARCH_STRING	"1.8-02"
 #define IPIPE_MAJOR_NUMBER	1
 #define IPIPE_MINOR_NUMBER	8
-#define IPIPE_PATCH_NUMBER	1
+#define IPIPE_PATCH_NUMBER	2
 
 #ifdef CONFIG_X86_LOCAL_APIC
 /* System interrupts are mapped beyond the last defined external IRQ
