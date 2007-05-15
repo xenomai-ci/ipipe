@@ -227,9 +227,11 @@ int __kprobes atomic_notifier_call_chain(struct atomic_notifier_head *nh,
 {
 	int ret;
 
-	rcu_read_lock();
+	if (ipipe_root_domain_p)
+		rcu_read_lock();
 	ret = notifier_call_chain(&nh->head, val, v);
-	rcu_read_unlock();
+	if (ipipe_root_domain_p)
+		rcu_read_unlock();
 	return ret;
 }
 
