@@ -474,12 +474,13 @@ static int emac_reset(struct ocp_enet_private *dev)
 		emac_tx_disable(dev);
 	}
 
-#if defined(CONFIG_440EPX) || defined(CONFIG_440GRX)
-	// test-only: really needed?????????????
+#if defined(CONFIG_440EPX) || defined(CONFIG_440GRX) || defined(CONFIG_440SPE)
 	/*
-	 * this sequence is needed to avoid EMAC soft reset to lock
-	 * when no external clock is available
-	 * provide clocks for EMAC internal loopback
+	 * This sequence is needed to avoid EMAC soft reset to lock
+	 * when no external clock is available (no ethernet used in
+	 * U-Boot at all before running Linux, like flash_self).
+	 *
+	 * Provide clocks for EMAC internal loopback
 	 */
 	SDR_WRITE(DCRN_SDR_MFR, SDR_READ(DCRN_SDR_MFR) | (0x08000000 >> dev->def->index));
 	/* set EMAC internal loopback to avoid softreset to lock if no link */
@@ -491,9 +492,8 @@ static int emac_reset(struct ocp_enet_private *dev)
 		--n;
 	local_irq_restore(flags);
 
-#if defined(CONFIG_440EPX) || defined(CONFIG_440GRX)
-	// test-only: really needed?????????????
-	/* Restore Initial Config     */
+#if defined(CONFIG_440EPX) || defined(CONFIG_440GRX) || defined(CONFIG_440SPE)
+	/* Restore Initial Config */
 	SDR_WRITE(DCRN_SDR_MFR, SDR_READ(DCRN_SDR_MFR) & ~(0x08000000 >> dev->def->index));
 	out_be32(&p->mr1, in_be32(&p->mr1) & ~EMAC_MR1_ILE);
 #endif
@@ -602,6 +602,9 @@ static int emac_configure(struct ocp_enet_private *dev)
 		gige = 0;
 		break;
 	}
+
+	/* do special speed setup if necessary */
+	emac_speed_setup(gige);
 
 	if (dev->rgmii_dev)
 		rgmii_set_speed(dev->rgmii_dev, dev->rgmii_input,

@@ -54,6 +54,28 @@ TODC_ALLOC();
 static int __init
 p3m750_map_irq(struct pci_dev *dev, unsigned char idsel, unsigned char pin)
 {
+	struct pci_controller	*hose = pci_bus_to_hose(dev->bus->number);
+
+	if (hose->index == 0) {
+		static char pci_irq_table[][4] =
+			/*
+			 *	PCI IDSEL/INTPIN->INTLINE
+			 * 	   A   B   C   D
+			 */
+			{
+				{P3M750_PCI_INTA, P3M750_PCI_INTB, 0, 0}, /* Peripheral/Oxford */
+				{P3M750_PCI_INTC, 0, 0, 0}, /* PLX */
+				{P3M750_PCI_INTA, P3M750_PCI_INTB, P3M750_PCI_INTC, P3M750_PCI_INTD}, /* Universe */
+				{P3M750_PCI_INTB, P3M750_PCI_INTC, P3M750_PCI_INTD, P3M750_PCI_INTA}, /* PrPMC site 2 secondary */
+				{P3M750_PCI_INTB, P3M750_PCI_INTC, P3M750_PCI_INTD, P3M750_PCI_INTA}, /* PrPMC site 2 primary */
+				{0, 0, 0, 0}, /* PrPMC site 1 secondary */
+				{0, 0, 0, 0}, /* PrPMC site 1 primary */
+			};
+
+		const long min_idsel = 9, max_idsel = 15, irqs_per_slot = 4;
+		return PCI_IRQ_TABLE_LOOKUP;
+	}
+
 	return 0;
 }
 
@@ -145,6 +167,7 @@ void __init
 p3m750_setup_peripherals(void)
 {
 	u32 base;
+	u32 data;
 
 	/* Set up window for boot CS */
 	mv64x60_set_32bit_window(&bh, MV64x60_CPU2BOOT_WIN,
@@ -171,6 +194,30 @@ p3m750_setup_peripherals(void)
 	 * while after reset it's not configured.
 	 */
 	memset(sram_base, 0, MV64360_SRAM_SIZE);
+
+	/* setting pci interrupts */
+	/* MPPs are GPIO */
+	data = mv64x60_read(&bh, MV64x60_MPP_CNTL_3);
+	data &= ~(0x00f0f000);
+	mv64x60_write(&bh, MV64x60_MPP_CNTL_3, data);
+	data = mv64x60_read(&bh, MV64x60_MPP_CNTL_2);
+	data &= ~(0x000000ff);
+	mv64x60_write(&bh, MV64x60_MPP_CNTL_2, data);
+
+#define GPP_EXTERNAL_INTERRUPTS		 \
+		((1 << P3M750_PCI_INTA) |\
+		 (1 << P3M750_PCI_INTB) |\
+		 (1 << P3M750_PCI_INTC) |\
+		 (1 << P3M750_PCI_INTD))
+
+	/* PCI interrupts are inputs */
+	mv64x60_clr_bits(&bh, MV64x60_GPP_IO_CNTL, GPP_EXTERNAL_INTERRUPTS);
+	/* PCI interrupts are active low */
+	mv64x60_set_bits(&bh, MV64x60_GPP_LEVEL_CNTL, GPP_EXTERNAL_INTERRUPTS);
+
+	/* Clear any pending interrupts for these inputs and enable them. */
+	mv64x60_write(&bh, MV64x60_GPP_INTR_CAUSE, ~GPP_EXTERNAL_INTERRUPTS);
+	mv64x60_set_bits(&bh, MV64x60_GPP_INTR_MASK, GPP_EXTERNAL_INTERRUPTS);
 }
 
 static void __init

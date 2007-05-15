@@ -32,6 +32,11 @@
 #ifndef __PPC_PLATFORMS_P3M750_H
 #define __PPC_PLATFORMS_P3M750_H
 
+#define P3M750_PCI_INTA				27
+#define P3M750_PCI_INTB				29
+#define P3M750_PCI_INTC				16
+#define P3M750_PCI_INTD				17
+
 /* MPP30 is used for resetting the board */
 #define P3M750_RST_PIN				30
 

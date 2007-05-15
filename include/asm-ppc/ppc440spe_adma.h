@@ -15,6 +15,11 @@
 #include <asm/ppc440spe_dma.h>
 #include <asm/ppc440spe_xor.h>
 
+#define to_ppc440spe_adma_chan(chan) container_of(chan,ppc440spe_ch_t,common)
+#define to_ppc440spe_adma_device(dev) container_of(dev,ppc440spe_dev_t,common)
+#define tx_to_ppc440spe_adma_slot(tx) container_of(tx,ppc440spe_desc_t,async_tx)
+
+
 #define PPC440SPE_ADMA_THRESHOLD	5
 
 #define PPC440SPE_DMA0_ID	0
@@ -55,7 +60,9 @@ typedef struct ppc440spe_adma_device {
  * @pending: allows batching of hardware operations
  * @completed_cookie: identifier for the most recently completed operation
  * @slots_allocated: records the actual size of the descriptor slot pool
+ * @hw_chain_inited: h/w descriptor chain initialization flag
  * @irq_tasklet: bottom half where ppc440spe_adma_slot_cleanup runs
+ * @needs_unmap: if buffers should not be unmapped upon final processing
  */
 typedef struct ppc440spe_adma_chan {
 	spinlock_t lock;
@@ -68,7 +75,9 @@ typedef struct ppc440spe_adma_chan {
 	int pending;
 	dma_cookie_t completed_cookie;
 	int slots_allocated;
+	int hw_chain_inited;
 	struct tasklet_struct irq_tasklet;
+	u8 needs_unmap;
 } ppc440spe_ch_t;
 
 /**

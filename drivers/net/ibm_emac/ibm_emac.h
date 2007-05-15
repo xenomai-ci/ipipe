@@ -291,6 +291,30 @@ static inline int emac_phy_done(u32 stacr)
 #define EMAC_STACR_START 		0
 #endif /* !CONFIG_440SPE */
 
+/*
+ * On 440SPe the SDR0_PFC1 register has to be setup according to the
+ * detected link speed.
+ */
+#if defined(CONFIG_440SPE)
+#define DCRN_SDR_PFC1		0x4101
+#define SDR0_PFC1_EM_1000	0x00200000
+
+static inline void emac_speed_setup(int gige)
+{
+	if (gige)
+		SDR_WRITE(DCRN_SDR_PFC1, SDR_READ(DCRN_SDR_PFC1) |
+			  SDR0_PFC1_EM_1000);
+	else
+		SDR_WRITE(DCRN_SDR_PFC1, SDR_READ(DCRN_SDR_PFC1) &
+			  ~SDR0_PFC1_EM_1000);
+}
+#else /* CONFIG_440SPE */
+static inline void emac_speed_setup(int speed)
+{
+	/* nothing to be done here */
+}
+#endif /* CONFIG_440SPE */
+
 /* EMACx_TRTR */
 #if !defined(CONFIG_IBM_EMAC4)
 #define EMAC_TRTR_SHIFT			27

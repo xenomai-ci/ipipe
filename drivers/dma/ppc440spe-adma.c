@@ -38,10 +38,6 @@
 #include <linux/platform_device.h>
 #include <asm/ppc440spe_adma.h>
 
-#define to_ppc440spe_adma_chan(chan) container_of(chan,ppc440spe_ch_t,common)
-#define to_ppc440spe_adma_device(dev) container_of(dev,ppc440spe_dev_t,common)
-#define tx_to_ppc440spe_adma_slot(tx) container_of(tx,ppc440spe_desc_t,async_tx)
-
 #define PPC440SPE_ADMA_WATCHDOG_MSEC		3
 
 #define PPC440SPE_ADMA_MAX_BYTE_COUNT		0xFFFFFF
@@ -91,8 +87,6 @@ static inline void ppc440spe_desc_init_interrupt (ppc440spe_desc_t *desc,
  */
 static inline void ppc440spe_desc_init_null_xor(ppc440spe_desc_t *desc)
 {
-	xor_cb_t *hw_desc = desc->hw_desc;
-
 	memset (desc->hw_desc, 0, sizeof(xor_cb_t));
 	desc->hw_next = NULL;
 	desc->src_cnt = 0;
@@ -141,12 +135,17 @@ static inline void ppc440spe_desc_set_src_addr( ppc440spe_desc_t *desc,
 {
 	dma_cdb_t *dma_hw_desc;
 	xor_cb_t *xor_hw_desc;
+	phys_addr_t addr64, tmplow, tmphi;
 
 	switch (chan->device->id) {
 	case PPC440SPE_DMA0_ID:
 	case PPC440SPE_DMA1_ID:
+		addr64 = fixup_bigphys_addr(addr, sizeof(phys_addr_t));
+		tmphi = (addr64 >> 32);
+		tmplow = (addr64 & 0xFFFFFFFF);
 		dma_hw_desc = desc->hw_desc;
-		dma_hw_desc->sg1l = cpu_to_le32(addr);
+		dma_hw_desc->sg1l = cpu_to_le32((u32)tmplow);
+		dma_hw_desc->sg1u = cpu_to_le32((u32)tmphi);
 		break;
 	case PPC440SPE_XOR_ID:
 		xor_hw_desc = desc->hw_desc;
@@ -163,12 +162,17 @@ static inline void ppc440spe_desc_set_dest_addr(ppc440spe_desc_t *desc,
 {
 	dma_cdb_t *dma_hw_desc;
 	xor_cb_t *xor_hw_desc;
+	phys_addr_t addr64, tmphi, tmplow;
 
 	switch (chan->device->id) {
 	case PPC440SPE_DMA0_ID:
 	case PPC440SPE_DMA1_ID:
+		addr64 = fixup_bigphys_addr(addr, sizeof(phys_addr_t));
+		tmphi = (addr64 >> 32);
+		tmplow = (addr64 & 0xFFFFFFFF);
 		dma_hw_desc = desc->hw_desc;
-		dma_hw_desc->sg2l = cpu_to_le32(addr);
+		dma_hw_desc->sg2l = cpu_to_le32((u32)tmplow);
+		dma_hw_desc->sg2u = cpu_to_le32((u32)tmphi);
 		break;
 	case PPC440SPE_XOR_ID:
 		xor_hw_desc = desc->hw_desc;
@@ -463,6 +467,8 @@ static inline void ppc440spe_chan_set_first_xor_descriptor(ppc440spe_ch_t *chan,
 	xor_last_submit = xor_last_linked = next_desc;
 	xor_reg->cblalr = next_desc->phys;
 	xor_reg->cbcr |= XOR_CBCR_LNK_BIT;
+
+	chan->hw_chain_inited = 1;
 }
 
 /**
@@ -526,6 +532,7 @@ static inline void ppc440spe_chan_append(ppc440spe_ch_t *chan)
 				cur_desc |= DMA_CDB_NO_INT;
 			/* put descriptor into FIFO */
 			out_le32 (&dma_reg->cpfpl, cur_desc);
+			chan->hw_chain_inited = 1;
 		}
 		break;
 	case PPC440SPE_XOR_ID:
@@ -565,6 +572,11 @@ static inline u32 ppc440spe_chan_get_current_descriptor(ppc440spe_ch_t *chan)
 {
 	volatile dma_regs_t *dma_reg;
 	volatile xor_regs_t *xor_reg;
+
+	if (unlikely(!chan->hw_chain_inited)) {
+		/* h/w descriptor chain is not initialized yet */
+		return 0;
+	}
 
 	switch (chan->device->id) {
 	case PPC440SPE_DMA0_ID:
@@ -644,7 +656,8 @@ static dma_cookie_t ppc440spe_adma_run_tx_complete_actions(
 		/* unmap dma addresses
 		 * (unmap_single vs unmap_page?)
 		 */
-		if (desc->group_head && desc->async_tx.type != DMA_INTERRUPT) {
+		if (chan && chan->needs_unmap &&
+		    desc->group_head && desc->async_tx.type != DMA_INTERRUPT) {
 			ppc440spe_desc_t *unmap = desc->group_head;
 			u32 src_cnt = unmap->unmap_src_cnt;
 			dma_addr_t addr = ppc440spe_desc_get_dest_addr(unmap,
@@ -703,9 +716,19 @@ static void __ppc440spe_adma_slot_cleanup(ppc440spe_ch_t *chan)
 	int busy = ppc440spe_chan_is_busy(chan);
 	int seen_current = 0, slot_cnt = 0, slots_per_op = 0;
 
-
 	PRINTK ("ppc440spe adma%d: %s\n", chan->device->id, __FUNCTION__);
 
+	if (!current_desc) {
+		/*  There were no transactions yet, so
+		 * nothing to clean
+		 */
+		return;
+	}
+
+	if (!current_desc) {
+		/* There were no transactions yet */
+		return;
+	}
 	/* free completed slots from the chain starting with
 	 * the oldest descriptor
 	 */
@@ -994,6 +1017,18 @@ static int ppc440spe_adma_alloc_chan_resources(struct dma_chan *chan)
 		if (test_bit(DMA_XOR,
 			&ppc440spe_chan->device->common.capabilities))
 			ppc440spe_chan_start_null_xor(ppc440spe_chan);
+		if (test_bit(DMA_MEMCPY,
+			&ppc440spe_chan->device->common.capabilities)) {
+			ppc440spe_chan->hw_chain_inited = 0;
+
+			/* Assume dma_map_single/dma_unmap buffers.
+			 * PCI accesses use pre-allocated  cache-coherent
+			 * buffer and does not need dma_unmap stuff upon
+			 * push for pending bits
+			 */
+
+			ppc440spe_chan->needs_unmap = 1;
+		}
 	}
 
 	return (i > 0) ? i : -ENOMEM;
