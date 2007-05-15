@@ -47,7 +47,8 @@ static cycle_t pit_read(void)
 
 #ifdef CONFIG_IPIPE
 	if (!__ipipe_pipeline_head_p(ipipe_root_domain))
-		return 0;	/* We don't really own the PIT. */
+		/* We don't really own the PIT. */
+		return (cycle_t)(jiffies * LATCH) + (LATCH - 1) - old_count;
 #endif /* CONFIG_IPIPE */
 
 	spin_lock_irqsave(&i8253_lock, flags);
