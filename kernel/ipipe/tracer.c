@@ -566,6 +566,9 @@ void ipipe_trace_panic_freeze(void)
 	unsigned long flags;
 	int cpu_id;
 
+	if (!ipipe_trace_enable)
+		return;
+
 	ipipe_trace_enable = 0;
 	local_irq_save_hw_notrace(flags);
 
@@ -614,6 +617,9 @@ void ipipe_trace_panic_dump(void)
 	int cnt = back_trace;
 	int start, pos;
 	char task_info[12];
+
+	if (!panic_path)
+		return;
 
 	printk("I-pipe tracer log (%d points):\n", cnt);
 
@@ -668,6 +674,8 @@ void ipipe_trace_panic_dump(void)
 		}
 		pos = WRAP_POINT_NO(pos - 1);
 	}
+
+	panic_path = NULL;
 }
 EXPORT_SYMBOL(ipipe_trace_panic_dump);
 

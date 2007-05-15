@@ -13,10 +13,8 @@ unsigned int debug_smp_processor_id(void)
 	int this_cpu = raw_smp_processor_id();
 	cpumask_t this_mask;
 
-#ifdef CONFIG_IPIPE
- 	if (ipipe_current_domain != ipipe_root_domain)
-	    return this_cpu;
-#endif /* CONFIG_IPIPE */
+	if (!ipipe_root_domain_p)
+		goto this_cpu;
 
 	if (likely(preempt_count))
 		goto out;
