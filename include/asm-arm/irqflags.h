@@ -138,10 +138,7 @@
 
 #ifdef CONFIG_IPIPE
 
-void __ipipe_stall_root(void);
 void __ipipe_unstall_root(void);
-unsigned long __ipipe_test_root(void);
-unsigned long __ipipe_test_and_stall_root(void);
 void __ipipe_restore_root(unsigned long flags);
 
 /* PSR_I_BIT is bit no. 7 and is set if interrupts are _disabled_ */

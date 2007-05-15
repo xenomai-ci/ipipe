@@ -34,6 +34,7 @@
 #include <linux/seq_file.h>
 #endif	/* CONFIG_PROC_FS */
 #include <linux/ipipe_trace.h>
+#include <linux/irq.h>          /* For irq_desc */
 
 static int __ipipe_ptd_key_count;
 
