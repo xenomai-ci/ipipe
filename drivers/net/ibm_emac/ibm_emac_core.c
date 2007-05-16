@@ -1147,18 +1147,12 @@ static int emac_link_differs(struct ocp_enet_private *dev)
 	int duplex = r & EMAC_MR1_FDE ? DUPLEX_FULL : DUPLEX_HALF;
 	int speed, pause, asym_pause;
 
-	switch (r & EMAC_MR1_MF_MASK) {
-	case EMAC_MR1_MF_1000:
-	case EMAC_MR1_MF_1000GPCS:
-		speed = 1000;
-		break;
-	case EMAC_MR1_MF_10:
-		speed = 10;
-		break;
-	case EMAC_MR1_MF_100:
-	default:
-		speed = 100;
-	}
+	if (r & EMAC_MR1_MF_1000)
+		speed = SPEED_1000;
+	else if (r & EMAC_MR1_MF_100)
+		speed = SPEED_100;
+	else
+		speed = SPEED_10;
 
 	switch (r & (EMAC_MR1_EIFC | EMAC_MR1_APP)) {
 	case (EMAC_MR1_EIFC | EMAC_MR1_APP):
