@@ -1143,7 +1143,7 @@ ipipe_event_handler_t ipipe_catch_event(struct ipipe_domain *ipd,
 cpumask_t ipipe_set_irq_affinity (unsigned irq, cpumask_t cpumask)
 {
 #ifdef CONFIG_SMP
-	if (irq >= IPIPE_NR_XIRQS)
+	if (irq >= NR_IRQS)
 		/* Allow changing affinity of external IRQs only. */
 		return CPU_MASK_NONE;
 
