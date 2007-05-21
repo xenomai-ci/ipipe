@@ -193,19 +193,16 @@ static struct resource ppc440spe_xor_resources[] = {
 /* DMA and XOR platform devices' data */
 static struct ppc440spe_adma_platform_data ppc440spe_dma_0_data = {
 	.hw_id  = PPC440SPE_DMA0_ID,
-	.capabilities = DMA_CAP_MEMCPY | DMA_CAP_INTERRUPT,
 	.pool_size = PAGE_SIZE,
 };
 
 static struct ppc440spe_adma_platform_data ppc440spe_dma_1_data = {
 	.hw_id  = PPC440SPE_DMA1_ID,
-	.capabilities =  DMA_CAP_MEMCPY | DMA_CAP_INTERRUPT,
 	.pool_size = PAGE_SIZE,
 };
 
 static struct ppc440spe_adma_platform_data ppc440spe_xor_data = {
 	.hw_id  = PPC440SPE_XOR_ID,
-	.capabilities = DMA_CAP_XOR | DMA_CAP_INTERRUPT,
 	.pool_size = PAGE_SIZE,
 };
 
@@ -344,14 +341,20 @@ static void ppc440spe_configure_raid_devices(void)
 	ppc440spe_dma_0_channel.resource[0].start = (resource_size_t)(dma_reg0);
 	ppc440spe_dma_0_channel.resource[0].end =
 		ppc440spe_dma_0_channel.resource[0].start+DMA_MMAP_SIZE;
+	dma_cap_set(DMA_MEMCPY, ppc440spe_dma_0_data.cap_mask);
+	dma_cap_set(DMA_INTERRUPT, ppc440spe_dma_0_data.cap_mask);
 
 	ppc440spe_dma_1_channel.resource[0].start = (resource_size_t)(dma_reg1);
 	ppc440spe_dma_1_channel.resource[0].end =
 		ppc440spe_dma_1_channel.resource[0].start+DMA_MMAP_SIZE;
+	dma_cap_set(DMA_MEMCPY, ppc440spe_dma_1_data.cap_mask);
+	dma_cap_set(DMA_INTERRUPT, ppc440spe_dma_1_data.cap_mask);
 
 	ppc440spe_xor_channel.resource[0].start = (resource_size_t)(xor_reg);
 	ppc440spe_xor_channel.resource[0].end =
 		ppc440spe_xor_channel.resource[0].start+XOR_MMAP_SIZE;
+	dma_cap_set(DMA_XOR, ppc440spe_xor_data.cap_mask);
+	dma_cap_set(DMA_INTERRUPT, ppc440spe_xor_data.cap_mask);
 
 	return;
 err4:

@@ -126,7 +126,7 @@ typedef struct ppc440spe_adma_desc_slot {
 
 typedef struct ppc440spe_adma_platform_data {
 	int hw_id;
-	unsigned long capabilities;
+	dma_cap_mask_t cap_mask;
 	size_t pool_size;
 } ppc440spe_aplat_t;
 
