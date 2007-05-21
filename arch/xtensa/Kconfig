@@ -259,4 +259,6 @@ source "crypto/Kconfig"
 
 source "lib/Kconfig"
 
+source "async_tx/Kconfig"
+
 

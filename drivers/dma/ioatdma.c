@@ -31,7 +31,6 @@
 #include <linux/dmaengine.h>
 #include <linux/delay.h>
 #include <linux/dma-mapping.h>
-#include <linux/async_tx.h>
 #include "ioatdma.h"
 #include "ioatdma_io.h"
 #include "ioatdma_registers.h"
@@ -73,7 +72,6 @@ static int enumerate_dma_channels(struct ioat_device *device)
 		INIT_LIST_HEAD(&ioat_chan->used_desc);
 		/* This should be made common somewhere in dmaengine.c */
 		ioat_chan->common.device = &device->common;
-		ioat_chan->common.client = NULL;
 		list_add_tail(&ioat_chan->common.device_node,
 		              &device->common.channels);
 	}
@@ -723,7 +721,7 @@ static int __devinit ioat_probe(struct pci_dev *pdev,
 	INIT_LIST_HEAD(&device->common.channels);
 	enumerate_dma_channels(device);
 
-	set_bit(DMA_MEMCPY, &device->common.capabilities);
+	dma_cap_set(DMA_MEMCPY, device->common.cap_mask);
 	device->common.device_alloc_chan_resources = ioat_dma_alloc_chan_resources;
 	device->common.device_free_chan_resources = ioat_dma_free_chan_resources;
 	device->common.device_prep_dma_memcpy = ioat_dma_prep_memcpy;
@@ -732,6 +730,7 @@ static int __devinit ioat_probe(struct pci_dev *pdev,
 	device->common.device_is_tx_complete = ioat_dma_is_complete;
 	device->common.device_issue_pending = ioat_dma_memcpy_issue_pending;
 	device->common.device_dependency_added = ioat_dma_dependency_added;
+	device->common.device_tx_submit = ioat_tx_submit;
 	device->common.dev = &pdev->dev;
 	printk(KERN_INFO "Intel(R) I/OAT DMA Engine found, %d channels\n",
 		device->common.chancnt);

@@ -18,43 +18,46 @@
  * The full GNU General Public License is included in this distribution in the
  * file called COPYING.
  */
+#ifndef _ASYNC_TX_H_
+#define _ASYNC_TX_H_
 #include <linux/dmaengine.h>
 #include <linux/spinlock.h>
 #include <linux/interrupt.h>
 
+/**
+ * dma_chan_ref - object used to manage dma channels received from the
+ *   dmaengine core.
+ * @chan - the channel being tracked
+ * @node - node for the channel to be placed on async_tx_master_list
+ * @rcu - for list_del_rcu
+ * @count - number of times this channel is listed in the pool
+ *	(for channels with multiple capabiities)
+ */
 struct dma_chan_ref {
 	struct dma_chan *chan;
-	struct list_head async_node;
+	struct list_head node;
 	struct rcu_head rcu;
-};
-
-struct async_iter_percpu {
-	struct list_head *iter;
-	unsigned long local_version;
-};
-
-struct async_channel_entry {
-	struct list_head list;
-	spinlock_t lock;
-	struct async_iter_percpu *local_iter;
-	atomic_t version;
+	atomic_t count;
 };
 
 /**
  * async_tx_flags - modifiers for the async_* calls
- * @ASYNC_TX_XOR_ZERO_DST: for synchronous xor: zero the destination
- *	asynchronous assumes a pre-zeroed destination
- * @ASYNC_TX_XOR_DROP_DST: for synchronous xor: drop source index zero (dest)
- *	the dest is an implicit source to the synchronous routine
+ * @ASYNC_TX_XOR_ZERO_DST: this flag must be used for xor operations where the
+ * the destination address is not a source.  The asynchronous case handles this
+ * implicitly, the synchronous case needs to zero the destination block.
+ * @ASYNC_TX_XOR_DROP_DST: this flag must be used if the destination address is
+ * also one of the source addresses.  In the synchronous case the destination
+ * address is an implied source, whereas the asynchronous case it must be listed
+ * as a source.  The destination address must be the first address in the source
+ * array.
  * @ASYNC_TX_ASSUME_COHERENT: skip cache maintenance operations
- * @ASYNC_TX_ACK: immediately ack the descriptor, preclude setting up a
- *	dependency chain
- * @ASYNC_TX_DEP_ACK: ack the dependency
- * @ASYNC_TX_INT_EN: have the dma engine trigger an interrupt on completion
- * @ASYNC_TX_KMAP_SRC: take an atomic mapping (KM_USER0) on the source page(s)
- *	if the transaction is to be performed synchronously
- * @ASYNC_TX_KMAP_DST: take an atomic mapping (KM_USER0) on the dest page(s)
- *	if the transaction is to be performed synchronously
+ * @ASYNC_TX_ACK: immediately ack the descriptor, precludes setting up a
+ * dependency chain
+ * @ASYNC_TX_DEP_ACK: ack the dependency descriptor.  Useful for chaining.
+ * @ASYNC_TX_KMAP_SRC: if the transaction is to be performed synchronously
+ * take an atomic mapping (KM_USER0) on the source page(s)
+ * @ASYNC_TX_KMAP_DST: if the transaction is to be performed synchronously
+ * take an atomic mapping (KM_USER0) on the dest page(s)
  */
 enum async_tx_flags {
 	ASYNC_TX_XOR_ZERO_DST	 = (1 << 0),
@@ -62,9 +65,8 @@ enum async_tx_flags {
 	ASYNC_TX_ASSUME_COHERENT = (1 << 2),
 	ASYNC_TX_ACK		 = (1 << 3),
 	ASYNC_TX_DEP_ACK	 = (1 << 4),
-	ASYNC_TX_INT_EN		 = (1 << 5),
-	ASYNC_TX_KMAP_SRC	 = (1 << 6),
-	ASYNC_TX_KMAP_DST	 = (1 << 7),
+	ASYNC_TX_KMAP_SRC	 = (1 << 5),
+	ASYNC_TX_KMAP_DST	 = (1 << 6),
 };
 
 #ifdef CONFIG_DMA_ENGINE
@@ -89,13 +91,13 @@ dma_wait_for_async_tx(struct dma_async_tx_descriptor *tx)
 	return status;
 }
 
-extern struct async_channel_entry async_tx_master_list;
+extern struct list_head async_tx_master_list;
 static inline void async_tx_issue_pending_all(void)
 {
 	struct dma_chan_ref *ref;
 
 	rcu_read_lock();
-	list_for_each_entry_rcu(ref, &async_tx_master_list.list, async_node)
+	list_for_each_entry_rcu(ref, &async_tx_master_list, node)
 		ref->chan->device->device_issue_pending(ref->chan);
 	rcu_read_unlock();
 }
@@ -143,38 +145,46 @@ static inline void async_tx_issue_pending_all(void)
 }
 #endif
 
-static inline void
-async_tx_ack(struct dma_async_tx_descriptor *tx)
-{
-	tx->ack = 1;
-}
+void
+async_tx_submit(struct dma_chan *chan, struct dma_async_tx_descriptor *tx,
+	enum async_tx_flags flags, struct dma_async_tx_descriptor *depend_tx,
+	dma_async_tx_callback callback, void *callback_param);
+
+struct dma_chan *
+async_tx_find_channel(struct dma_async_tx_descriptor *depend_tx,
+	enum dma_transaction_type tx_type);
+
+void
+async_tx_sync_epilog(unsigned long flags, struct dma_async_tx_descriptor *depend_tx,
+	dma_async_tx_callback callback, void *callback_param);
 
 struct dma_async_tx_descriptor *
 async_xor(struct page *dest, struct page **src_list, unsigned int offset,
-	unsigned int src_cnt, size_t len, enum async_tx_flags flags,
+	int src_cnt, size_t len, enum async_tx_flags flags,
 	struct dma_async_tx_descriptor *depend_tx,
 	dma_async_tx_callback callback, void *callback_param);
+
 struct dma_async_tx_descriptor *
 async_xor_zero_sum(struct page *dest, struct page **src_list,
-	unsigned int offset, unsigned int src_cnt, size_t len,
+	unsigned int offset, int src_cnt, size_t len,
 	u32 *result, enum async_tx_flags flags,
 	struct dma_async_tx_descriptor *depend_tx,
 	dma_async_tx_callback callback, void *callback_param);
+
 struct dma_async_tx_descriptor *
 async_memcpy(struct page *dest, struct page *src, unsigned int dest_offset,
 	unsigned int src_offset, size_t len, enum async_tx_flags flags,
 	struct dma_async_tx_descriptor *depend_tx,
 	dma_async_tx_callback callback, void *callback_param);
+
 struct dma_async_tx_descriptor *
 async_memset(struct page *dest, int val, unsigned int offset,
 	size_t len, enum async_tx_flags flags,
 	struct dma_async_tx_descriptor *depend_tx,
 	dma_async_tx_callback callback, void *callback_param);
+
 struct dma_async_tx_descriptor *
-async_interrupt(enum async_tx_flags flags,
+async_trigger_callback(enum async_tx_flags flags,
 	struct dma_async_tx_descriptor *depend_tx,
 	dma_async_tx_callback callback, void *callback_param);
-struct dma_async_tx_descriptor *
-async_interrupt_cond(enum dma_transaction_type next_op,
-	enum async_tx_flags flags,
-	struct dma_async_tx_descriptor *depend_tx);
+#endif

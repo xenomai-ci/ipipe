@@ -1244,6 +1244,8 @@ source "arch/powerpc/platforms/iseries/Kconfig"
 
 source "lib/Kconfig"
 
+source "async_tx/Kconfig"
+
 menu "Instrumentation Support"
         depends on EXPERIMENTAL
 

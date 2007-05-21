@@ -493,29 +493,46 @@ static void ops_complete_biofill(void *stripe_head_ref)
 {
 	struct stripe_head *sh = stripe_head_ref;
 	struct bio *return_bi = NULL, *bi;
-	int i;
+	raid5_conf_t *conf = sh->raid_conf;
+	int i, more_to_read=0;
 
 	PRINTK("%s: stripe %llu\n", __FUNCTION__,
 		(unsigned long long)sh->sector);
 
 	/* clear completed biofills */
-	spin_lock(&sh->lock);
-	BUG_ON(!test_and_clear_bit(STRIPE_OP_BIOFILL, &sh->ops.ack));
-	BUG_ON(!test_and_clear_bit(STRIPE_OP_BIOFILL, &sh->ops.pending));
 	for (i=sh->disks ; i-- ;) {
 		struct r5dev *dev = &sh->dev[i];
+		/* check if this stripe has new incoming reads */
+		if (dev->toread)
+			more_to_read++;
+
 		/* acknowledge completion of a biofill operation */
-		if (test_bit(R5_Wantfill, &dev->flags) && !dev->toread)
+		/* and check if we need to reply to a read request 
+		 */
+		if (test_bit(R5_Wantfill, &dev->flags) && !dev->toread) {
+			struct bio *rbi, *rbi2;
 			clear_bit(R5_Wantfill, &dev->flags);
 
-		/* reply to the read */
-		if (dev->read && !test_bit(R5_Wantfill, &dev->flags) &&
-			!test_bit(STRIPE_OP_BIOFILL, &sh->ops.pending)) {
-			return_bi = dev->read;
+			/* dev->read is outside spin_lock_irq(&conf->device_lock)
+			 * but is protected by the STRIPE_OP_BIOFILL pending bit
+			 */
+			BUG_ON(!dev->read);
+			rbi = dev->read;
 			dev->read = NULL;
+			while (rbi && rbi->bi_sector < dev->sector + STRIPE_SECTORS) {
+				rbi2 = r5_next_bio(rbi, dev->sector);
+				spin_lock_irq(&conf->device_lock);
+				if (--rbi->bi_phys_segments == 0) {
+					rbi->bi_next = return_bi;
+					return_bi = rbi;
+				}
+				spin_unlock_irq(&conf->device_lock);
+				rbi = rbi2;
+			}
 		}
 	}
-	spin_unlock(&sh->lock);
+	clear_bit(STRIPE_OP_BIOFILL, &sh->ops.ack);
+	clear_bit(STRIPE_OP_BIOFILL, &sh->ops.pending);
 
 	while ((bi=return_bi)) {
 		int bytes = bi->bi_size;
@@ -527,13 +544,14 @@ static void ops_complete_biofill(void *stripe_head_ref)
 			      test_bit(BIO_UPTODATE, &bi->bi_flags)
 			        ? 0 : -EIO);
 	}
-	
+
+	if (more_to_read)
+		set_bit(STRIPE_HANDLE, &sh->state);
 	release_stripe(sh);
 }
 
 static void ops_run_biofill(struct stripe_head *sh)
 {
-	struct bio *return_bi = NULL;
 	struct dma_async_tx_descriptor *tx = NULL;
 	raid5_conf_t *conf = sh->raid_conf;
 	int i;
@@ -544,29 +562,21 @@ static void ops_run_biofill(struct stripe_head *sh)
 	for (i=sh->disks ; i-- ;) {
 		struct r5dev *dev = &sh->dev[i];
 		if (test_bit(R5_Wantfill, &dev->flags)) {
-			struct bio *rbi, *rbi2;
+			struct bio *rbi;
 			spin_lock_irq(&conf->device_lock);
-			rbi = dev->toread;
+			dev->read = rbi = dev->toread;
 			dev->toread = NULL;
 			spin_unlock_irq(&conf->device_lock);
 			while (rbi && rbi->bi_sector < dev->sector + STRIPE_SECTORS) {
 				tx = async_copy_data(0, rbi, dev->page,
 					dev->sector, tx);
-				rbi2 = r5_next_bio(rbi, dev->sector);
-				spin_lock_irq(&conf->device_lock);
-				if (--rbi->bi_phys_segments == 0) {
-					rbi->bi_next = return_bi;
-					return_bi = rbi;
-				}
-				spin_unlock_irq(&conf->device_lock);
-				rbi = rbi2;
+				rbi = r5_next_bio(rbi, dev->sector);;
 			}
-			dev->read = return_bi;
 		}
 	}
 
 	atomic_inc(&sh->count);
-	async_interrupt(ASYNC_TX_DEP_ACK | ASYNC_TX_ACK, tx,
+	async_trigger_callback(ASYNC_TX_DEP_ACK | ASYNC_TX_ACK, tx,
 		ops_complete_biofill, sh);
 }
 
@@ -580,8 +590,9 @@ static void ops_complete_compute5(void *stripe_head_ref)
 		(unsigned long long)sh->sector);
 
 	set_bit(R5_UPTODATE, &tgt->flags);
-	BUG_ON(!test_and_clear_bit(R5_Wantcompute, &tgt->flags));
-	BUG_ON(test_and_set_bit(STRIPE_OP_COMPUTE_BLK, &sh->ops.complete));
+	BUG_ON(!test_bit(R5_Wantcompute, &tgt->flags));
+	clear_bit(R5_Wantcompute, &tgt->flags);
+	set_bit(STRIPE_OP_COMPUTE_BLK, &sh->ops.complete);
 	set_bit(STRIPE_HANDLE, &sh->state);
 	release_stripe(sh);
 }
@@ -609,10 +620,13 @@ ops_run_compute5(struct stripe_head *sh, unsigned long pending)
 
 	atomic_inc(&sh->count);
 
-	tx = async_xor(xor_dest, xor_srcs, 0, count, STRIPE_SIZE,
-		ASYNC_TX_XOR_ZERO_DST | ASYNC_TX_INT_EN, NULL,
-		ops_complete_compute5, sh);
-
+	if (unlikely(count == 1))
+		tx = async_memcpy(xor_dest, xor_srcs[0], 0, 0, STRIPE_SIZE,
+			0, NULL, ops_complete_compute5, sh);
+	else
+		tx = async_xor(xor_dest, xor_srcs, 0, count, STRIPE_SIZE,
+			ASYNC_TX_XOR_ZERO_DST, NULL,
+			ops_complete_compute5, sh);
 	/* ack now if postxor is not set to be run */
 	if (tx && !test_bit(STRIPE_OP_POSTXOR, &pending))
 		async_tx_ack(tx);
@@ -654,9 +668,6 @@ ops_run_prexor(struct stripe_head *sh, struct dma_async_tx_descriptor *tx)
 	tx = async_xor(xor_dest, xor_srcs, 0, count, STRIPE_SIZE,
 		ASYNC_TX_DEP_ACK | ASYNC_TX_XOR_DROP_DST, tx,
 		ops_complete_prexor, sh);
-
-	/* trigger a channel switch if necesary */
-	tx = async_interrupt_cond(DMA_MEMCPY, ASYNC_TX_DEP_ACK, tx);
 
 	return tx;
 }
@@ -767,7 +778,7 @@ static void ops_complete_postxor(void *stripe_head_ref)
 	PRINTK("%s: stripe %llu\n", __FUNCTION__,
 		(unsigned long long)sh->sector);
 
-	BUG_ON(test_and_set_bit(STRIPE_OP_POSTXOR, &sh->ops.complete));
+	set_bit(STRIPE_OP_POSTXOR, &sh->ops.complete);
 	set_bit(STRIPE_HANDLE, &sh->state);
 	release_stripe(sh);
 }
@@ -792,8 +803,8 @@ static void ops_complete_write(void *stripe_head_ref)
 		}
 	}
 
-	BUG_ON(test_and_set_bit(STRIPE_OP_BIODRAIN, &sh->ops.complete));
-	BUG_ON(test_and_set_bit(STRIPE_OP_POSTXOR, &sh->ops.complete));
+	set_bit(STRIPE_OP_BIODRAIN, &sh->ops.complete);
+	set_bit(STRIPE_OP_POSTXOR, &sh->ops.complete);
 
 	set_bit(STRIPE_HANDLE, &sh->state);
 	release_stripe(sh);
@@ -845,12 +856,18 @@ ops_run_postxor(struct stripe_head *sh, struct dma_async_tx_descriptor *tx)
 	 * set ASYNC_TX_XOR_DROP_DST and ASYNC_TX_XOR_ZERO_DST
 	 * for the synchronous xor case
 	 */
-	flags = ASYNC_TX_DEP_ACK | ASYNC_TX_ACK | ASYNC_TX_INT_EN |
+	flags = ASYNC_TX_DEP_ACK | ASYNC_TX_ACK | 
 		(prexor ? ASYNC_TX_XOR_DROP_DST : ASYNC_TX_XOR_ZERO_DST);
 
 	atomic_inc(&sh->count);
-	tx = async_xor(xor_dest, xor_srcs, 0, count, STRIPE_SIZE,
-		flags, tx, callback, sh);
+
+	if (unlikely(count == 1)) {
+		flags &= ~(ASYNC_TX_XOR_DROP_DST | ASYNC_TX_XOR_ZERO_DST);
+		tx = async_memcpy(xor_dest, xor_srcs[0], 0, 0, STRIPE_SIZE,
+			flags, tx, callback, sh);
+	} else
+		tx = async_xor(xor_dest, xor_srcs, 0, count, STRIPE_SIZE,
+			flags, tx, callback, sh);
 }
 
 static void ops_complete_check(void *stripe_head_ref)
@@ -865,7 +882,7 @@ static void ops_complete_check(void *stripe_head_ref)
 		sh->ops.zero_sum_result == 0)
 		set_bit(R5_UPTODATE, &sh->dev[pd_idx].flags);
 
-	BUG_ON(test_and_set_bit(STRIPE_OP_CHECK, &sh->ops.complete));
+	set_bit(STRIPE_OP_CHECK, &sh->ops.complete);
 	set_bit(STRIPE_HANDLE, &sh->state);
 	release_stripe(sh);
 }
@@ -898,7 +915,7 @@ static void ops_run_check(struct stripe_head *sh)
 		clear_bit(STRIPE_OP_MOD_DMA_CHECK, &sh->ops.pending);
 
 	atomic_inc(&sh->count);
-	tx = async_interrupt(ASYNC_TX_DEP_ACK | ASYNC_TX_ACK, tx,
+	tx = async_trigger_callback(ASYNC_TX_DEP_ACK | ASYNC_TX_ACK, tx,
 		ops_complete_check, sh);
 }
 
@@ -969,8 +986,8 @@ static int grow_stripes(raid5_conf_t *conf, int num)
 	struct kmem_cache *sc;
 	int devs = conf->raid_disks;
 
-	sprintf(conf->cache_name[0], "raid5/%s", mdname(conf->mddev));
-	sprintf(conf->cache_name[1], "raid5/%s-alt", mdname(conf->mddev));
+	sprintf(conf->cache_name[0], "raid5-%s", mdname(conf->mddev));
+	sprintf(conf->cache_name[1], "raid5-%s-alt", mdname(conf->mddev));
 	conf->active_name = 0;
 	sc = kmem_cache_create(conf->cache_name[conf->active_name],
 			       sizeof(struct stripe_head)+(devs-1)*sizeof(struct r5dev),
@@ -1726,15 +1743,14 @@ static int handle_write_operations5(struct stripe_head *sh, int rcw, int expand)
 	int i, pd_idx = sh->pd_idx, disks = sh->disks;
 	int locked=0;
 
-	if (rcw == 0) {
+	if (rcw) {
 		/* skip the drain operation on an expand */
 		if (!expand) {
-			BUG_ON(test_and_set_bit(STRIPE_OP_BIODRAIN,
-				&sh->ops.pending));
+			set_bit(STRIPE_OP_BIODRAIN, &sh->ops.pending);
 			sh->ops.count++;
 		}
 
-		BUG_ON(test_and_set_bit(STRIPE_OP_POSTXOR, &sh->ops.pending));
+		set_bit(STRIPE_OP_POSTXOR, &sh->ops.pending);
 		sh->ops.count++;
 
 		for (i=disks ; i-- ;) {
@@ -1751,9 +1767,9 @@ static int handle_write_operations5(struct stripe_head *sh, int rcw, int expand)
 		BUG_ON(!(test_bit(R5_UPTODATE, &sh->dev[pd_idx].flags) ||
 			test_bit(R5_Wantcompute, &sh->dev[pd_idx].flags)));
 
-		BUG_ON(test_and_set_bit(STRIPE_OP_PREXOR, &sh->ops.pending) ||
-			test_and_set_bit(STRIPE_OP_BIODRAIN, &sh->ops.pending) ||
-			test_and_set_bit(STRIPE_OP_POSTXOR, &sh->ops.pending));
+		set_bit(STRIPE_OP_PREXOR, &sh->ops.pending);
+		set_bit(STRIPE_OP_BIODRAIN, &sh->ops.pending);
+		set_bit(STRIPE_OP_POSTXOR, &sh->ops.pending);
 
 		sh->ops.count += 3;
 
@@ -1940,20 +1956,26 @@ static void handle_stripe5(struct stripe_head *sh)
 		PRINTK("check %d: state 0x%lx toread %p read %p write %p written %p\n",
 		i, dev->flags, dev->toread, dev->read, dev->towrite, dev->written);
 
-		/* maybe we can start a biofill operation */
-		if (test_bit(R5_UPTODATE, &dev->flags) && dev->toread) {
-			to_read--;
-			if (!test_bit(STRIPE_OP_BIOFILL, &sh->ops.pending))
-				set_bit(R5_Wantfill, &dev->flags);
-		}
+		/* maybe we can request a biofill operation
+		 *
+		 * new wantfill requests are only permitted while
+		 * STRIPE_OP_BIOFILL is clear
+		 */
+		if (test_bit(R5_UPTODATE, &dev->flags) && dev->toread &&
+			!test_bit(STRIPE_OP_BIOFILL, &sh->ops.pending))
+			set_bit(R5_Wantfill, &dev->flags);
 
 		/* now count some things */
 		if (test_bit(R5_LOCKED, &dev->flags)) locked++;
 		if (test_bit(R5_UPTODATE, &dev->flags)) uptodate++;
-		if (test_bit(R5_Wantfill, &dev->flags)) to_fill++;
+
+		if (test_bit(R5_Wantfill, &dev->flags))
+			to_fill++;
+		else if (dev->toread)
+			to_read++;
+
 		if (test_bit(R5_Wantcompute, &dev->flags)) BUG_ON(++compute > 1);
 
-		if (dev->toread) to_read++;
 		if (dev->towrite) {
 			to_write++;
 			if (!test_bit(R5_OVERWRITE, &dev->flags))
@@ -2032,9 +2054,12 @@ static void handle_stripe5(struct stripe_head *sh)
 				bi = bi2;
 			}
 
-			/* fail any reads if this device is non-operational */
-			if (!test_bit(R5_Insync, &sh->dev[i].flags) ||
-			    test_bit(R5_ReadError, &sh->dev[i].flags)) {
+			/* fail any reads if this device is non-operational and
+			 * the data has not reached the cache yet.
+			 */
+			if (!test_bit(R5_Wantfill, &sh->dev[i].flags) &&
+				(!test_bit(R5_Insync, &sh->dev[i].flags) ||
+				test_bit(R5_ReadError, &sh->dev[i].flags))) {
 				bi = sh->dev[i].toread;
 				sh->dev[i].toread = NULL;
 				if (test_and_clear_bit(R5_Overlap, &sh->dev[i].flags))
@@ -2172,7 +2197,7 @@ static void handle_stripe5(struct stripe_head *sh)
 						set_bit(STRIPE_OP_COMPUTE_BLK, &sh->ops.pending);
 						set_bit(R5_Wantcompute, &dev->flags);
 						sh->ops.target = i;
-						BUG_ON(req_compute++);
+						req_compute++;
 						sh->ops.count++;
 						/* Careful: from this point on 'uptodate' is in the eye of
 						 * raid5_run_ops which services 'compute' operations before
@@ -2180,6 +2205,7 @@ static void handle_stripe5(struct stripe_head *sh)
 						 * by the time it is needed for a subsequent operation.
 						 */
 						uptodate++;
+						break; /* uptodate + compute == disks */
 					} else if ((uptodate < disks-1) && test_bit(R5_Insync, &dev->flags)) {
 						/* Note: we hold off compute operations while checks are in flight,
 						 * but we still prefer 'compute' over 'read' hence we only read if
@@ -2341,7 +2367,7 @@ static void handle_stripe5(struct stripe_head *sh)
 		if ((req_compute || !test_bit(STRIPE_OP_COMPUTE_BLK, &sh->ops.pending)) &&
 			(locked == 0 && (rcw == 0 ||rmw == 0) &&
 			!test_bit(STRIPE_BIT_DELAY, &sh->state)))
-			locked += handle_write_operations5(sh, rcw, 0);
+			locked += handle_write_operations5(sh, rcw == 0, 0);
 	}
 
 	/* 1/ Maybe we need to check and possibly fix the parity for this stripe.
@@ -2381,13 +2407,12 @@ static void handle_stripe5(struct stripe_head *sh)
 						/* don't try to repair!! */
 						set_bit(STRIPE_INSYNC, &sh->state);
 					else {
-						BUG_ON(test_and_set_bit(
-							STRIPE_OP_COMPUTE_BLK,
-							&sh->ops.pending));
+						set_bit(STRIPE_OP_COMPUTE_BLK,
+							&sh->ops.pending);
 						set_bit(STRIPE_OP_MOD_REPAIR_PD,
 							&sh->ops.pending);
-						BUG_ON(test_and_set_bit(R5_Wantcompute,
-							&sh->dev[sh->pd_idx].flags));
+						set_bit(R5_Wantcompute,
+							&sh->dev[sh->pd_idx].flags);
 						sh->ops.target = sh->pd_idx;
 						sh->ops.count++;
 						uptodate++;

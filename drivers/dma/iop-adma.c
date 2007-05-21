@@ -39,9 +39,6 @@
 #define to_iop_adma_device(dev) container_of(dev, struct iop_adma_device, common)
 #define tx_to_iop_adma_slot(tx) container_of(tx, struct iop_adma_desc_slot, async_tx)
 
-#define IOP_ADMA_DEBUG 0
-#define PRINTK(x...) ((void)(IOP_ADMA_DEBUG && printk(x)))
-
 /**
  * iop_adma_free_slots - flags descriptor slots for reuse
  * @slot: Slot to free
@@ -123,8 +120,8 @@ iop_adma_clean_slot(struct iop_adma_desc_slot *desc,
 	if (desc->chain_node.next == &iop_chan->chain)
 		return 1;
 
-	PRINTK("\tfree slot: %d slots_per_op: %d\n", desc->idx,
-		desc->slots_per_op);
+	dev_dbg(iop_chan->device->common.dev, "\tfree slot: %d slots_per_op: %d\n",
+		desc->idx, desc->slots_per_op);
 
 	list_del(&desc->chain_node);
 	iop_adma_free_slots(desc);
@@ -140,13 +137,13 @@ static void __iop_adma_slot_cleanup(struct iop_adma_chan *iop_chan)
 	int busy = iop_chan_is_busy(iop_chan);
 	int seen_current = 0, slot_cnt = 0, slots_per_op = 0;
 
-	PRINTK("iop adma%d: %s\n", iop_chan->device->id, __FUNCTION__);
+	dev_dbg(iop_chan->device->common.dev, "%s\n", __FUNCTION__);
 	/* free completed slots from the chain starting with
 	 * the oldest descriptor
 	 */
 	list_for_each_entry_safe(iter, _iter, &iop_chan->chain,
 					chain_node) {
-		PRINTK("\tcookie: %d slot: %d busy: %d "
+		pr_debug("\tcookie: %d slot: %d busy: %d "
 			"this_desc: %#x next_desc: %#x ack: %d\n",
 			iter->async_tx.cookie, iter->idx, busy, iter->phys,
 			iop_desc_get_next_desc(iter),
@@ -182,7 +179,7 @@ static void __iop_adma_slot_cleanup(struct iop_adma_chan *iop_chan)
 		}
 
 		if (slot_cnt) {
-			PRINTK("\tgroup++\n");
+			pr_debug("\tgroup++\n");
 			if (!group_start)
 				group_start = iter;
 			slot_cnt -= slots_per_op;
@@ -192,7 +189,7 @@ static void __iop_adma_slot_cleanup(struct iop_adma_chan *iop_chan)
 		if (slots_per_op != 0 && slot_cnt == 0) {
 			struct iop_adma_desc_slot *grp_iter, *_grp_iter;
 			int end_of_chain = 0;
-			PRINTK("\tgroup end\n");
+			pr_debug("\tgroup end\n");
 
 			/* collect the total results */
 			if (group_start->xor_check_result) {
@@ -204,13 +201,13 @@ static void __iop_adma_slot_cleanup(struct iop_adma_chan *iop_chan)
 					&iop_chan->chain, chain_node) {
 					zero_sum_result |=
 						iop_desc_get_zero_result(grp_iter);
-					PRINTK("\titer%d result: %d\n", grp_iter->idx,
+					pr_debug("\titer%d result: %d\n", grp_iter->idx,
 						zero_sum_result);
 					slot_cnt -= slots_per_op;
 					if (slot_cnt == 0)
 						break;
 				}
-				PRINTK("\tgroup_start->xor_check_result: %p\n",
+				pr_debug("\tgroup_start->xor_check_result: %p\n",
 					group_start->xor_check_result);
 				*group_start->xor_check_result = zero_sum_result;
 			}
@@ -258,7 +255,7 @@ static void __iop_adma_slot_cleanup(struct iop_adma_chan *iop_chan)
 
 	if (cookie > 0) {
 		iop_chan->completed_cookie = cookie;
-		PRINTK("\tcompleted cookie %d\n", cookie);
+		pr_debug("\tcompleted cookie %d\n", cookie);
 	}
 }
 
@@ -327,9 +324,9 @@ retry:
 			iter = alloc_start;
 			while (num_slots) {
 				int i;
-				PRINTK("iop adma%d: allocated slot: %d "
+				dev_dbg(iop_chan->device->common.dev,
+					"allocated slot: %d "
 					"(desc %p phys: %#x) slots_per_op %d\n",
-					iop_chan->device->id,
 					iter->idx, iter->hw_desc, iter->phys,
 					slots_per_op);
 
@@ -367,7 +364,7 @@ retry:
 
 	/* try to free some slots if the allocation fails */
 	tasklet_schedule(&iop_chan->irq_tasklet);
-
+	
 	return NULL;
 }
 
@@ -420,17 +417,17 @@ static int iop_adma_alloc_chan_resources(struct dma_chan *chan)
 					struct iop_adma_desc_slot,
 					slot_node);
 
-	PRINTK("iop adma%d: allocated %d descriptor slots last_used: %p\n",
-		iop_chan->device->id, iop_chan->slots_allocated,
-		iop_chan->last_used);
+	dev_dbg(iop_chan->device->common.dev,
+		"allocated %d descriptor slots last_used: %p\n",
+		iop_chan->slots_allocated, iop_chan->last_used);
 
 	/* initialize the channel and the chain with a null operation */
 	if (init) {
-		if (test_bit(DMA_MEMCPY,
-			&iop_chan->device->common.capabilities))
+		if (dma_has_cap(DMA_MEMCPY,
+			iop_chan->device->common.cap_mask))
 			iop_chan_start_null_memcpy(iop_chan);
-		else if (test_bit(DMA_XOR,
-			&iop_chan->device->common.capabilities))
+		else if (dma_has_cap(DMA_XOR,
+			iop_chan->device->common.cap_mask))
 			iop_chan_start_null_xor(iop_chan);
 		else
 			BUG();
@@ -453,7 +450,7 @@ iop_desc_assign_cookie(struct iop_adma_chan *iop_chan,
 
 static void iop_adma_check_threshold(struct iop_adma_chan *iop_chan)
 {
-	PRINTK("iop adma%d: pending: %d\n", iop_chan->device->id,
+	dev_dbg(iop_chan->device->common.dev, "pending: %d\n",
 		iop_chan->pending);
 
 	if (iop_chan->pending >= IOP_ADMA_THRESHOLD) {
@@ -500,20 +497,20 @@ iop_adma_tx_submit(struct dma_async_tx_descriptor *tx)
 	iop_adma_check_threshold(iop_chan);
 	spin_unlock_bh(&iop_chan->lock);
 
-	PRINTK("iop adma%d: %s cookie: %d slot: %d\n", iop_chan->device->id,
+	dev_dbg(iop_chan->device->common.dev, "%s cookie: %d slot: %d\n",
 		__FUNCTION__, sw_desc->async_tx.cookie, sw_desc->idx);
 
 	return cookie;
 }
 
-struct dma_async_tx_descriptor *
+static struct dma_async_tx_descriptor *
 iop_adma_prep_dma_interrupt(struct dma_chan *chan)
 {
 	struct iop_adma_chan *iop_chan = to_iop_adma_chan(chan);
 	struct iop_adma_desc_slot *sw_desc, *group_start;
 	int slot_cnt, slots_per_op;
 
-	PRINTK("iop adma%d: %s\n", iop_chan->device->id, __FUNCTION__);
+	dev_dbg(iop_chan->device->common.dev, "%s\n", __FUNCTION__);
 
 	spin_lock_bh(&iop_chan->lock);
 	slot_cnt = iop_chan_interrupt_slot_count(&slots_per_op, iop_chan);
@@ -528,7 +525,7 @@ iop_adma_prep_dma_interrupt(struct dma_chan *chan)
 	return sw_desc ? &sw_desc->async_tx : NULL;
 }
 
-struct dma_async_tx_descriptor *
+static struct dma_async_tx_descriptor *
 iop_adma_prep_dma_memcpy(struct dma_chan *chan, size_t len, int int_en)
 {
 	struct iop_adma_chan *iop_chan = to_iop_adma_chan(chan);
@@ -539,8 +536,8 @@ iop_adma_prep_dma_memcpy(struct dma_chan *chan, size_t len, int int_en)
 		return NULL;
 	BUG_ON(unlikely(len > IOP_ADMA_MAX_BYTE_COUNT));
 
-	PRINTK("iop adma%d: %s len: %u\n",
-	iop_chan->device->id, __FUNCTION__, len);
+	dev_dbg(iop_chan->device->common.dev, "%s len: %u\n",
+		__FUNCTION__, len);
 
 	spin_lock_bh(&iop_chan->lock);
 	slot_cnt = iop_chan_memcpy_slot_count(len, &slots_per_op);
@@ -558,7 +555,7 @@ iop_adma_prep_dma_memcpy(struct dma_chan *chan, size_t len, int int_en)
 	return sw_desc ? &sw_desc->async_tx : NULL;
 }
 
-struct dma_async_tx_descriptor *
+static struct dma_async_tx_descriptor *
 iop_adma_prep_dma_memset(struct dma_chan *chan, int value, size_t len,
 	int int_en)
 {
@@ -570,8 +567,8 @@ iop_adma_prep_dma_memset(struct dma_chan *chan, int value, size_t len,
 		return NULL;
 	BUG_ON(unlikely(len > IOP_ADMA_MAX_BYTE_COUNT));
 
-	PRINTK("iop adma%d: %s len: %u\n",
-	iop_chan->device->id, __FUNCTION__, len);
+	dev_dbg(iop_chan->device->common.dev, "%s len: %u\n",
+		__FUNCTION__, len);
 
 	spin_lock_bh(&iop_chan->lock);
 	slot_cnt = iop_chan_memset_slot_count(len, &slots_per_op);
@@ -590,7 +587,7 @@ iop_adma_prep_dma_memset(struct dma_chan *chan, int value, size_t len,
 	return sw_desc ? &sw_desc->async_tx : NULL;
 }
 
-struct dma_async_tx_descriptor *
+static struct dma_async_tx_descriptor *
 iop_adma_prep_dma_xor(struct dma_chan *chan, unsigned int src_cnt, size_t len,
 	int int_en)
 {
@@ -602,8 +599,8 @@ iop_adma_prep_dma_xor(struct dma_chan *chan, unsigned int src_cnt, size_t len,
 		return NULL;
 	BUG_ON(unlikely(len > IOP_ADMA_XOR_MAX_BYTE_COUNT));
 
-	PRINTK("iop adma%d: %s src_cnt: %d len: %u int_en: %d\n",
-	iop_chan->device->id, __FUNCTION__, src_cnt, len, int_en);
+	dev_dbg(iop_chan->device->common.dev, "%s src_cnt: %d len: %u int_en: %d\n",
+		__FUNCTION__, src_cnt, len, int_en);
 
 	spin_lock_bh(&iop_chan->lock);
 	slot_cnt = iop_chan_xor_slot_count(len, src_cnt, &slots_per_op);
@@ -621,7 +618,7 @@ iop_adma_prep_dma_xor(struct dma_chan *chan, unsigned int src_cnt, size_t len,
 	return sw_desc ? &sw_desc->async_tx : NULL;
 }
 
-struct dma_async_tx_descriptor *
+static struct dma_async_tx_descriptor *
 iop_adma_prep_dma_zero_sum(struct dma_chan *chan, unsigned int src_cnt,
 	size_t len, u32 *result, int int_en)
 {
@@ -632,8 +629,8 @@ iop_adma_prep_dma_zero_sum(struct dma_chan *chan, unsigned int src_cnt,
 	if (unlikely(!len))
 		return NULL;
 
-	PRINTK("iop adma%d: %s src_cnt: %d len: %u\n",
-	iop_chan->device->id, __FUNCTION__, src_cnt, len);
+	dev_dbg(iop_chan->device->common.dev, "%s src_cnt: %d len: %u\n",
+		__FUNCTION__, src_cnt, len);
 
 	spin_lock_bh(&iop_chan->lock);
 	slot_cnt = iop_chan_zero_sum_slot_count(len, src_cnt, &slots_per_op);
@@ -643,7 +640,7 @@ iop_adma_prep_dma_zero_sum(struct dma_chan *chan, unsigned int src_cnt,
 		iop_desc_init_zero_sum(group_start, src_cnt, int_en);
 		iop_desc_set_zero_sum_byte_count(group_start, len);
 		group_start->xor_check_result = result;
-		PRINTK("\t%s: group_start->xor_check_result: %p\n",
+		pr_debug("\t%s: group_start->xor_check_result: %p\n",
 			__FUNCTION__, group_start->xor_check_result);
 		sw_desc->unmap_src_cnt = src_cnt;
 		sw_desc->unmap_len = len;
@@ -726,7 +723,7 @@ static void iop_adma_free_chan_resources(struct dma_chan *chan)
 	}
 	iop_chan->last_used = NULL;
 
-	PRINTK("iop adma%d %s slots_allocated %d\n", iop_chan->device->id,
+	dev_dbg(iop_chan->device->common.dev, "%s slots_allocated %d\n",
 		__FUNCTION__, iop_chan->slots_allocated);
 	spin_unlock_bh(&iop_chan->lock);
 
@@ -780,7 +777,7 @@ static irqreturn_t iop_adma_eot_handler(int irq, void *data)
 {
 	struct iop_adma_chan *chan = data;
 
-	PRINTK("iop adma%d: %s\n", chan->device->id, __FUNCTION__);
+	dev_dbg(chan->device->common.dev, "%s\n", __FUNCTION__);
 
 	tasklet_schedule(&chan->irq_tasklet);
 
@@ -793,7 +790,7 @@ static irqreturn_t iop_adma_eoc_handler(int irq, void *data)
 {
 	struct iop_adma_chan *chan = data;
 
-	PRINTK("iop adma%d: %s\n", chan->device->id, __FUNCTION__);
+	dev_dbg(chan->device->common.dev, "%s\n", __FUNCTION__);
 
 	tasklet_schedule(&chan->irq_tasklet);
 
@@ -805,10 +802,9 @@ static irqreturn_t iop_adma_eoc_handler(int irq, void *data)
 static irqreturn_t iop_adma_err_handler(int irq, void *data)
 {
 	struct iop_adma_chan *chan = data;
-	int id = chan->device->id;
 	unsigned long status = iop_chan_get_status(chan);
 
-	printk(KERN_ERR "iop adma%d: error ( %s%s%s%s%s%s%s)\n", id,
+	dev_printk(KERN_ERR, chan->device->common.dev, "error ( %s%s%s%s%s%s%s)\n",
 		iop_is_err_int_parity(status, chan) ? "int_parity " : "",
 		iop_is_err_mcu_abort(status, chan) ? "mcu_abort " : "",
 		iop_is_err_int_tabort(status, chan) ? "int_tabort " : "",
@@ -850,7 +846,7 @@ static int __devinit iop_adma_memcpy_self_test(struct iop_adma_device *device)
 	int err = 0;
 	struct iop_adma_chan *iop_chan;
 
-	PRINTK("iop adma%d: %s\n", device->id, __FUNCTION__);
+	dev_dbg(device->common.dev, "%s\n", __FUNCTION__);
 
 	src = kzalloc(sizeof(u8) * IOP_ADMA_TEST_SIZE, GFP_KERNEL);
 	if (!src)
@@ -929,7 +925,7 @@ static int __devinit iop_adma_xor_zero_sum_self_test(struct iop_adma_device *dev
 	int err = 0;
 	struct iop_adma_chan *iop_chan;
 
-	PRINTK("iop adma%d: %s\n", device->id, __FUNCTION__);
+	dev_dbg(device->common.dev, "%s\n", __FUNCTION__);
 
 	for (src_idx = 0; src_idx < IOP_ADMA_NUM_SRC_TEST; src_idx++) {
 		xor_srcs[src_idx] = alloc_page(GFP_KERNEL);
@@ -1006,7 +1002,7 @@ static int __devinit iop_adma_xor_zero_sum_self_test(struct iop_adma_device *dev
 		PAGE_SIZE, DMA_TO_DEVICE);
 
 	/* skip zero sum if the capability is not present */
-	if (!test_bit(DMA_ZERO_SUM, &dma_chan->device->capabilities))
+	if (!dma_has_cap(DMA_ZERO_SUM, dma_chan->device->cap_mask))
 		goto free_resources;
 
 	/* zero sum the sources with the destintation page */
@@ -1171,11 +1167,11 @@ static int __devinit iop_adma_probe(struct platform_device *pdev)
 		goto err_dma_alloc;
 	}
 
-	PRINTK("%s: allocted descriptor pool virt %p phys %p\n",
-	__FUNCTION__, adev->dma_desc_pool_virt, (void *) adev->dma_desc_pool);
+	dev_dbg(&pdev->dev, "%s: allocted descriptor pool virt %p phys %p\n",
+		__FUNCTION__, adev->dma_desc_pool_virt, (void *) adev->dma_desc_pool);
 
 	adev->id = plat_data->hw_id;
-	adev->common.capabilities = plat_data->capabilities;
+	adev->common.cap_mask = plat_data->cap_mask;
 
 	adev->pdev = pdev;
 	platform_set_drvdata(pdev, adev);
@@ -1194,18 +1190,18 @@ static int __devinit iop_adma_probe(struct platform_device *pdev)
 	adev->common.dev = &pdev->dev;
 
 	/* set prep routines based on capability */
-	if (test_bit(DMA_MEMCPY, &adev->common.capabilities))
+	if (dma_has_cap(DMA_MEMCPY, adev->common.cap_mask))
 		adev->common.device_prep_dma_memcpy = iop_adma_prep_dma_memcpy;
-	if (test_bit(DMA_MEMSET, &adev->common.capabilities))
+	if (dma_has_cap(DMA_MEMSET, adev->common.cap_mask))
 		adev->common.device_prep_dma_memset = iop_adma_prep_dma_memset;
-	if (test_bit(DMA_XOR, &adev->common.capabilities)) {
+	if (dma_has_cap(DMA_XOR, adev->common.cap_mask)) {
 		adev->common.max_xor = iop_adma_get_max_xor();
 		adev->common.device_prep_dma_xor = iop_adma_prep_dma_xor;
 	}
-	if (test_bit(DMA_ZERO_SUM, &adev->common.capabilities))
+	if (dma_has_cap(DMA_ZERO_SUM, adev->common.cap_mask))
 		adev->common.device_prep_dma_zero_sum =
 			iop_adma_prep_dma_zero_sum;
-	if (test_bit(DMA_INTERRUPT, &adev->common.capabilities))
+	if (dma_has_cap(DMA_INTERRUPT, adev->common.cap_mask))
 		adev->common.device_prep_dma_interrupt =
 			iop_adma_prep_dma_interrupt;
 
@@ -1281,34 +1277,33 @@ static int __devinit iop_adma_probe(struct platform_device *pdev)
 	iop_chan->common.device = &adev->common;
 	list_add_tail(&iop_chan->common.device_node, &adev->common.channels);
 
-	if (test_bit(DMA_MEMCPY, &adev->common.capabilities)) {
+	if (dma_has_cap(DMA_MEMCPY, adev->common.cap_mask)) {
 		ret = iop_adma_memcpy_self_test(adev);
-		PRINTK("iop adma%d: memcpy self test returned %d\n", adev->id, ret);
+		dev_dbg(&pdev->dev, "memcpy self test returned %d\n", ret);
 		if (ret)
 			goto err_self_test;
 	}
 
-	if (test_bit(DMA_XOR, &adev->common.capabilities) ||
-		test_bit(DMA_MEMSET, &adev->common.capabilities)) {
+	if (dma_has_cap(DMA_XOR, adev->common.cap_mask) ||
+		dma_has_cap(DMA_MEMSET, adev->common.cap_mask)) {
 		ret = iop_adma_xor_zero_sum_self_test(adev);
-		PRINTK("iop adma%d: xor self test returned %d\n", adev->id, ret);
+		dev_dbg(&pdev->dev, "xor self test returned %d\n", ret);
 		if (ret)
 			goto err_self_test;
 	}
 
-	printk(KERN_INFO "Intel(R) IOP ADMA Engine found [%d]: "
+	dev_printk(KERN_INFO, &pdev->dev, "Intel(R) IOP: "
 	  "( %s%s%s%s%s%s%s%s%s%s)\n",
-	  adev->id,
-	  test_bit(DMA_PQ_XOR, &adev->common.capabilities) ? "pq_xor " : "",
-	  test_bit(DMA_PQ_UPDATE, &adev->common.capabilities) ? "pq_update " : "",
-	  test_bit(DMA_PQ_ZERO_SUM, &adev->common.capabilities) ? "pq_zero_sum " : "",
-	  test_bit(DMA_XOR, &adev->common.capabilities) ? "xor " : "",
-	  test_bit(DMA_DUAL_XOR, &adev->common.capabilities) ? "dual_xor " : "",
-	  test_bit(DMA_ZERO_SUM, &adev->common.capabilities) ? "xor_zero_sum " : "",
-	  test_bit(DMA_MEMSET, &adev->common.capabilities)  ? "memset " : "",
-	  test_bit(DMA_MEMCPY_CRC32C, &adev->common.capabilities) ? "memcpy+crc " : "",
-	  test_bit(DMA_MEMCPY, &adev->common.capabilities) ? "memcpy " : "",
-	  test_bit(DMA_INTERRUPT, &adev->common.capabilities) ? "int " : "");
+	  dma_has_cap(DMA_PQ_XOR, adev->common.cap_mask) ? "pq_xor " : "",
+	  dma_has_cap(DMA_PQ_UPDATE, adev->common.cap_mask) ? "pq_update " : "",
+	  dma_has_cap(DMA_PQ_ZERO_SUM, adev->common.cap_mask) ? "pq_zero_sum " : "",
+	  dma_has_cap(DMA_XOR, adev->common.cap_mask) ? "xor " : "",
+	  dma_has_cap(DMA_DUAL_XOR, adev->common.cap_mask) ? "dual_xor " : "",
+	  dma_has_cap(DMA_ZERO_SUM, adev->common.cap_mask) ? "xor_zero_sum " : "",
+	  dma_has_cap(DMA_MEMSET, adev->common.cap_mask)  ? "memset " : "",
+	  dma_has_cap(DMA_MEMCPY_CRC32C, adev->common.cap_mask) ? "memcpy+crc " : "",
+	  dma_has_cap(DMA_MEMCPY, adev->common.cap_mask) ? "memcpy " : "",
+	  dma_has_cap(DMA_INTERRUPT, adev->common.cap_mask) ? "int " : "");
 
 	dma_async_device_register(&adev->common);
 	goto out;
@@ -1339,7 +1334,7 @@ static void iop_chan_start_null_memcpy(struct iop_adma_chan *iop_chan)
 	dma_cookie_t cookie;
 	int slot_cnt, slots_per_op;
 
-	PRINTK("iop adma%d: %s\n", iop_chan->device->id, __FUNCTION__);
+	dev_dbg(iop_chan->device->common.dev, "%s\n", __FUNCTION__);
 
 	spin_lock_bh(&iop_chan->lock);
 	slot_cnt = iop_chan_memcpy_slot_count(0, &slots_per_op);
@@ -1391,7 +1386,7 @@ static void iop_chan_start_null_xor(struct iop_adma_chan *iop_chan)
 	dma_cookie_t cookie;
 	int slot_cnt, slots_per_op;
 
-	PRINTK("iop adma%d: %s\n", iop_chan->device->id, __FUNCTION__);
+	dev_dbg(iop_chan->device->common.dev, "%s\n", __FUNCTION__);
 
 	spin_lock_bh(&iop_chan->lock);
 	slot_cnt = iop_chan_xor_slot_count(0, 2, &slots_per_op);
@@ -1442,7 +1437,7 @@ static struct platform_driver iop_adma_driver = {
 	.remove		= iop_adma_remove,
 	.driver		= {
 		.owner	= THIS_MODULE,
-		.name	= "IOP-ADMA",
+		.name	= "iop-adma",
 	},
 };
 

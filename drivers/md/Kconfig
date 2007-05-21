@@ -8,7 +8,6 @@ menu "Multi-device support (RAID and LVM)"
 
 config MD
 	bool "Multiple devices driver support (RAID and LVM)"
-	select ASYNC_TX_DMA
 	help
 	  Support multiple physical spindles through a single logical device.
 	  Required for RAID and logical volume management.
@@ -109,7 +108,10 @@ config MD_RAID10
 
 config MD_RAID456
 	tristate "RAID-4/RAID-5/RAID-6 mode"
-	depends on BLK_DEV_MD && ASYNC_TX_DMA
+	depends on BLK_DEV_MD
+	select ASYNC_CORE
+	select ASYNC_MEMCPY
+	select ASYNC_XOR
 	---help---
 	  A RAID-5 set of N drives with a capacity of C MB per drive provides
 	  the capacity of C * (N - 1) MB, and protects against a failure

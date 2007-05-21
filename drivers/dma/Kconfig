@@ -3,6 +3,7 @@
 #
 
 menu "DMA Engine support"
+	depends on !S390
 
 config DMA_ENGINE
 	bool "Support for DMA engines"
@@ -21,16 +22,6 @@ config NET_DMA
 	  offload receive copy-to-user operations, freeing CPU cycles.
 	  Since this is the main user of the DMA engine, it should be enabled;
 	  say Y here.
-
-config ASYNC_TX_DMA
-	tristate "Asynchronous Bulk Memory Transfers/Transforms API"
-	---help---
-	  This enables the async_tx management layer for dma engines.
-	  Subsystems coded to this API will use offload engines for bulk
-	  memory operations where present.  Software implementations are
-	  called when a dma engine is not present or fails to allocate
-	  memory to carry out the transaction.
-	  Current subsystems ported to async_tx: MD_RAID4,5
 
 comment "DMA Devices"
 
