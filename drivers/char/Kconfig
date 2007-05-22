@@ -1071,5 +1071,23 @@ config TELCLOCK
 	  /sys/devices/platform/telco_clock, with a number of files for
 	  controlling the behavior of this hardware.
 
+config PPC405EZ_ADC
+	bool "AMCC PowerPC 405EZ ADC core support"
+	depends on 405EZ
+	help
+	  Give userspace access to the ADC controller on the
+	  AMCC PPC405EZ.
+
+	  If compiled as a module, it will be called ppc405ez_adc.
+
+config PPC405EZ_DAC
+	bool "AMCC PowerPC 405EZ DAC core support"
+	depends on 405EZ
+	help
+	  Give userspace access to the DAC controller on the
+	  AMCC PPC405EZ.
+
+	  If compiled as a module, it will be called ppc405ez_dac.
+
 endmenu
 
