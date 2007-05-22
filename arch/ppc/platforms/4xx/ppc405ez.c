@@ -195,26 +195,23 @@ unsigned int get_base_baud(unsigned int port, unsigned int sysclk)
 		pllFwdDiv, pllFbkDiv, pllFwdDivB,
 		plloutb, uart_div, uart_clk, baud_base;
 
-        mtdcr(DCRN_CPR_CFGADDR,CPR_PLLD);
-        plld_data   = mfdcr(DCRN_CPR_CFGDATA);
+	plld_data = CPR_READ(CPR_PLLD);
+	perd0_data = CPR_READ(CPR_PERD0);
 
-        mtdcr(DCRN_CPR_CFGADDR,CPR_PERD0);
-        perd0_data = mfdcr(DCRN_CPR_CFGDATA);
+	pllFwdDiv = (plld_data & CPR_PLLD_FWDVA_MASK) >> 16;
 
-        pllFwdDiv  = (plld_data&CPR_PLLD_FWDVA_MASK) >> 16;
+	pllFbkDiv = (plld_data & CPR_PLLD_FBDV_MASK)  >> 24;
+	pllFbkDiv = (pllFbkDiv == 0) ? 256 : pllFbkDiv;
 
-        pllFbkDiv  = (plld_data&CPR_PLLD_FBDV_MASK)  >> 24;
-        pllFbkDiv  = (pllFbkDiv == 0)? 256 : pllFbkDiv;
+	pllFwdDivB = (plld_data&CPR_PLLD_FWDVB_MASK) >> 8;
+	pllFwdDivB = (pllFwdDivB == 0) ? 8 : pllFwdDivB;
 
-        pllFwdDivB = (plld_data&CPR_PLLD_FWDVB_MASK) >> 8;
-        pllFwdDivB = (pllFwdDivB == 0)? 8 : pllFwdDivB;
+	uart_div = (perd0_data&CPR_PERD0_U0DV_MASK) >> 8;
+	uart_div = (uart_div == 0) ? 256 : uart_div;
 
-        uart_div   = (perd0_data&CPR_PERD0_U0DV_MASK) >> 8;
-        uart_div   = (uart_div == 0)? 256 : uart_div;
+	plloutb = (sysclk * pllFwdDiv * pllFbkDiv) / pllFwdDivB;
+	uart_clk = plloutb / uart_div;
+	baud_base = uart_clk / 16;
 
-        plloutb    = (sysclk * pllFwdDiv * pllFbkDiv) / pllFwdDivB;
-        uart_clk   = plloutb / uart_div;
-        baud_base  = uart_clk / 16;
-
-        return baud_base;
+	return baud_base;
 }
