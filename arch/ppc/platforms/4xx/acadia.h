@@ -19,7 +19,18 @@
 #include <platforms/4xx/ppc405ez.h>
 #include <asm/ppcboot.h>
 
-#define BOARD_SYSCLK		66666666
+/* Acadia Boards with different revisions may have different SysClk
+ * input frequencies
+ */
+#define BOARD_SYSCLK_REV10	66666666
+#define BOARD_SYSCLK_REV11	33333000
+
+#define CS_NAND_0		3	/* use chip select 3 for NAND device 0 */
+
+#define ACADIA_NAND_FLASH_ADDR	0xD0000000ULL
+#define ACADIA_NAND_FLASH_SIZE	0x2000
+
+#define ACADIA_CPLD_ADDR	0x80000000UL
 
 /* The UART clock is based off an internal clock -
  * define BASE_BAUD based on the internal clock and divider(s).
