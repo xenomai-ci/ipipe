@@ -1,7 +1,7 @@
 #
 # Automatically generated make config: don't edit
-# Linux kernel version: 2.6.21-rc6
-# Mon Apr 16 15:46:05 2007
+# Linux kernel version: 2.6.21-rc7
+# Thu May 24 08:28:54 2007
 #
 CONFIG_MMU=y
 CONFIG_GENERIC_HARDIRQS=y
@@ -392,7 +392,13 @@ CONFIG_MTD_PHYSMAP_BANKWIDTH=2
 #
 # NAND Flash Device Drivers
 #
-# CONFIG_MTD_NAND is not set
+CONFIG_MTD_NAND=y
+CONFIG_MTD_NAND_VERIFY_WRITE=y
+CONFIG_MTD_NAND_ECC_SMC=y
+CONFIG_MTD_NAND_IDS=y
+CONFIG_MTD_NAND_NDFC=y
+# CONFIG_MTD_NAND_DISKONCHIP is not set
+# CONFIG_MTD_NAND_NANDSIM is not set
 
 #
 # OneNAND Flash Device Drivers
@@ -651,6 +657,8 @@ CONFIG_HW_RANDOM=m
 # TPM devices
 #
 # CONFIG_TCG_TPM is not set
+# CONFIG_PPC405EZ_ADC is not set
+# CONFIG_PPC405EZ_DAC is not set
 
 #
 # I2C support
@@ -917,26 +925,7 @@ CONFIG_USB_MON=y
 #
 # USB Gadget Support
 #
-CONFIG_USB_GADGET=m
-# CONFIG_USB_GADGET_DEBUG_FILES is not set
-CONFIG_USB_GADGET_SELECTED=y
-# CONFIG_USB_GADGET_NET2280 is not set
-# CONFIG_USB_GADGET_PXA2XX is not set
-# CONFIG_USB_GADGET_GOKU is not set
-# CONFIG_USB_GADGET_LH7A40X is not set
-# CONFIG_USB_GADGET_PD12 is not set
-# CONFIG_USB_GADGET_OMAP is not set
-# CONFIG_USB_GADGET_AT91 is not set
-# CONFIG_USB_GADGET_MUSBHSFC is not set
-CONFIG_USB_GADGET_DUMMY_HCD=y
-CONFIG_USB_DUMMY_HCD=m
-CONFIG_USB_GADGET_DUALSPEED=y
-# CONFIG_USB_ZERO is not set
-# CONFIG_USB_ETH is not set
-# CONFIG_USB_GADGETFS is not set
-# CONFIG_USB_FILE_STORAGE is not set
-# CONFIG_USB_G_SERIAL is not set
-# CONFIG_USB_MIDI_GADGET is not set
+# CONFIG_USB_GADGET is not set
 
 #
 # MMC/SD Card support
