@@ -1,7 +1,7 @@
 #
 # Automatically generated make config: don't edit
-# Linux kernel version: 2.6.21-rc7
-# Thu May 24 08:28:54 2007
+# Linux kernel version: 2.6.21.1
+# Thu May 24 11:22:19 2007
 #
 CONFIG_MMU=y
 CONFIG_GENERIC_HARDIRQS=y
@@ -430,6 +430,7 @@ CONFIG_BLK_DEV_RAM_SIZE=4096
 CONFIG_BLK_DEV_RAM_BLOCKSIZE=1024
 # CONFIG_CDROM_PKTCDVD is not set
 # CONFIG_ATA_OVER_ETH is not set
+# CONFIG_XILINX_SYSACE is not set
 
 #
 # Misc devices
@@ -657,8 +658,8 @@ CONFIG_HW_RANDOM=m
 # TPM devices
 #
 # CONFIG_TCG_TPM is not set
-# CONFIG_PPC405EZ_ADC is not set
-# CONFIG_PPC405EZ_DAC is not set
+CONFIG_PPC405EZ_ADC=y
+CONFIG_PPC405EZ_DAC=y
 
 #
 # I2C support
@@ -687,6 +688,8 @@ CONFIG_I2C_IBM_IIC=y
 #
 # Miscellaneous I2C Chip support
 #
+# CONFIG_SENSORS_24C01A is not set
+# CONFIG_SENSORS_AD7416 is not set
 # CONFIG_SENSORS_DS1337 is not set
 # CONFIG_SENSORS_DS1374 is not set
 CONFIG_SENSORS_EEPROM=y
