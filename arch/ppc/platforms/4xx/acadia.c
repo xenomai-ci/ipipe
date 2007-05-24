@@ -105,6 +105,75 @@ static struct platform_device acadia_nor_device = {
 	.resource	= &acadia_nor_resource,
 };
 
+/*
+ * NAND FLASH configuration (NDFC)
+ */
+static struct resource acadia_ndfc = {
+	.start = (u32)ACADIA_NAND_FLASH_ADDR,
+	.end = (u32)ACADIA_NAND_FLASH_ADDR + ACADIA_NAND_FLASH_SIZE,
+	.flags = IORESOURCE_MEM,
+};
+
+static struct mtd_partition acadia_nand_parts[] = {
+        {
+                .name   = "content",
+                .offset = 0,
+                .size   = MTDPART_SIZ_FULL,
+        }
+};
+
+struct ndfc_controller_settings acadia_ndfc_settings = {
+	.ccr_settings = (NDFC_CCR_BS(CS_NAND_0) | NDFC_CCR_ARAC1),
+	.ndfc_erpn = (ACADIA_NAND_FLASH_ADDR) >> 32,
+};
+
+struct platform_nand_ctrl acadia_nand_ctrl = {
+	.priv = &acadia_ndfc_settings,
+};
+
+static struct platform_device acadia_ndfc_device = {
+	.name = "ndfc-nand",
+	.id = 0,
+	.dev = {
+		.platform_data = &acadia_nand_ctrl,
+	},
+	.num_resources = 1,
+	.resource = &acadia_ndfc,
+};
+
+static struct ndfc_chip_settings acadia_chip0_settings = {
+	.bank_settings = 0x80002222,
+};
+
+static struct nand_ecclayout nand_oob_16 = {
+	.eccbytes = 6,
+	.eccpos = {9, 10, 11, 13, 14, 15},
+	.oobfree = {
+		 {.offset = 8,
+		  .length = 8}}
+};
+
+static struct platform_nand_chip acadia_nand_chip0 = {
+	.nr_chips = 1,
+	.chip_offset = CS_NAND_0,
+	.nr_partitions = ARRAY_SIZE(acadia_nand_parts),
+	.partitions = acadia_nand_parts,
+	.chip_delay = 50,
+	.ecclayout = &nand_oob_16,
+	.priv = &acadia_chip0_settings,
+};
+
+static struct platform_device acadia_nand_device = {
+	.name = "ndfc-chip",
+	.id = 0,
+	.num_resources = 1,
+	.resource = &acadia_ndfc,
+	.dev = {
+		.platform_data = &acadia_nand_chip0,
+		.parent = &acadia_ndfc_device.dev,
+	}
+};
+
 static int acadia_setup_flash(void)
 {
 	acadia_nor_resource.start = __res.bi_flashstart;
@@ -119,6 +188,9 @@ static int acadia_setup_flash(void)
 
 	platform_device_register(&acadia_nor_device);
 
+	platform_device_register(&acadia_ndfc_device);
+	platform_device_register(&acadia_nand_device);
+
 	return 0;
 }
 arch_initcall(acadia_setup_flash);
@@ -130,12 +202,25 @@ arch_initcall(acadia_setup_flash);
 static void __init acadia_early_serial_map(void)
 {
 	struct uart_port port;
+	void *cpld_base;
+	u8 board_rev;
+	u32 board_sysclk;
+
+	/* Acadia Boards with different revisions may have different
+	 * SysClk input frequencies
+	 */
+	cpld_base = ioremap(ACADIA_CPLD_ADDR, PAGE_SIZE);
+	board_rev = in_8(cpld_base);
+	if (board_rev <= 0x0c)
+		board_sysclk = BOARD_SYSCLK_REV10;
+	else
+		board_sysclk = BOARD_SYSCLK_REV11;
 
 	/* Setup serial port access */
 	memset(&port, 0, sizeof(port));
 	port.membase = (void*)UART0_IO_BASE;
 	port.irq = UART0_INT;
-	port.uartclk = get_base_baud(0, BOARD_SYSCLK) * 16;
+	port.uartclk = get_base_baud(0, board_sysclk) * 16;
 	port.regshift = 0;
 	port.iotype = UPIO_MEM;
 	port.flags = UPF_BOOT_AUTOCONF | UPF_SKIP_TEST;
@@ -146,11 +231,13 @@ static void __init acadia_early_serial_map(void)
 
 	port.membase = (void*)UART1_IO_BASE;
 	port.irq = UART1_INT;
-	port.uartclk = get_base_baud(1, BOARD_SYSCLK) * 16;
+	port.uartclk = get_base_baud(1, board_sysclk) * 16;
 	port.line = 1;
 
 	if (early_serial_setup(&port) != 0)
 		printk("Early serial init of port 1 failed\n");
+
+	iounmap(cpld_base);
 }
 
 void __init acadia_setup_arch(void)
