@@ -444,8 +444,6 @@ config CDROM_PKTCDVD_WCACHE
 	  this option is dangerous unless the CD-RW media is known good, as we
 	  don't do deferred write error handling yet.
 
-source "drivers/s390/block/Kconfig"
-
 config ATA_OVER_ETH
 	tristate "ATA over Ethernet support"
 	depends on NET
@@ -458,6 +456,8 @@ config XILINX_SYSACE
 	depends on 4xx
 	help
 	  Include support for the Xilinx SystemACE CompactFlash interface
+
+source "drivers/s390/block/Kconfig"
 
 endmenu
 

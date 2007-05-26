@@ -481,7 +481,8 @@ static void cpm_uart_shutdown(struct uart_port *port)
 }
 
 static void cpm_uart_set_termios(struct uart_port *port,
-				 struct ktermios *termios, struct ktermios *old)
+                                 struct ktermios *termios,
+                                 struct ktermios *old)
 {
 	int baud;
 	unsigned long flags;
@@ -933,7 +934,7 @@ struct uart_cpm_port cpm_uart_ports[UART_NR] = {
 			.irq		= SMC1_IRQ,
 			.ops		= &cpm_uart_pops,
 			.iotype		= UPIO_MEM,
-			.lock		= SPIN_LOCK_UNLOCKED,
+			.lock		= __SPIN_LOCK_UNLOCKED(cpm_uart_ports[UART_SMC1].port.lock),
 		},
 		.flags = FLAG_SMC,
 		.tx_nrfifos = TX_NUM_FIFO,
@@ -947,7 +948,7 @@ struct uart_cpm_port cpm_uart_ports[UART_NR] = {
 			.irq		= SMC2_IRQ,
 			.ops		= &cpm_uart_pops,
 			.iotype		= UPIO_MEM,
-			.lock		= SPIN_LOCK_UNLOCKED,
+			.lock		= __SPIN_LOCK_UNLOCKED(cpm_uart_ports[UART_SMC2].port.lock),
 		},
 		.flags = FLAG_SMC,
 		.tx_nrfifos = TX_NUM_FIFO,
@@ -964,7 +965,7 @@ struct uart_cpm_port cpm_uart_ports[UART_NR] = {
 			.irq		= SCC1_IRQ,
 			.ops		= &cpm_uart_pops,
 			.iotype		= UPIO_MEM,
-			.lock		= SPIN_LOCK_UNLOCKED,
+			.lock		= __SPIN_LOCK_UNLOCKED(cpm_uart_ports[UART_SCC1].port.lock),
 		},
 		.tx_nrfifos = TX_NUM_FIFO,
 		.tx_fifosize = TX_BUF_SIZE,
@@ -978,7 +979,7 @@ struct uart_cpm_port cpm_uart_ports[UART_NR] = {
 			.irq		= SCC2_IRQ,
 			.ops		= &cpm_uart_pops,
 			.iotype		= UPIO_MEM,
-			.lock		= SPIN_LOCK_UNLOCKED,
+			.lock		= __SPIN_LOCK_UNLOCKED(cpm_uart_ports[UART_SCC2].port.lock),
 		},
 		.tx_nrfifos = TX_NUM_FIFO,
 		.tx_fifosize = TX_BUF_SIZE,
@@ -992,7 +993,7 @@ struct uart_cpm_port cpm_uart_ports[UART_NR] = {
 			.irq		= SCC3_IRQ,
 			.ops		= &cpm_uart_pops,
 			.iotype		= UPIO_MEM,
-			.lock		= SPIN_LOCK_UNLOCKED,
+			.lock		= __SPIN_LOCK_UNLOCKED(cpm_uart_ports[UART_SCC3].port.lock),
 		},
 		.tx_nrfifos = TX_NUM_FIFO,
 		.tx_fifosize = TX_BUF_SIZE,
@@ -1006,7 +1007,7 @@ struct uart_cpm_port cpm_uart_ports[UART_NR] = {
 			.irq		= SCC4_IRQ,
 			.ops		= &cpm_uart_pops,
 			.iotype		= UPIO_MEM,
-			.lock		= SPIN_LOCK_UNLOCKED,
+			.lock		= __SPIN_LOCK_UNLOCKED(cpm_uart_ports[UART_SCC4].port.lock),
 		},
 		.tx_nrfifos = TX_NUM_FIFO,
 		.tx_fifosize = TX_BUF_SIZE,

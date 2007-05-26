@@ -43,5 +43,4 @@ obj-$(CONFIG_440SPE)		+= ppc440spe.o
 obj-$(CONFIG_405EP)		+= ibm405ep.o
 obj-$(CONFIG_405EZ)		+= ppc405ez.o
 obj-$(CONFIG_405GPR)		+= ibm405gpr.o
-obj-$(CONFIG_XILINX_VIRTEX)	+= virtex.o
 
