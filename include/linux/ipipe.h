@@ -646,8 +646,6 @@ int ipipe_disable_ondemand_mappings(struct task_struct *tsk);
 			local_irq_disable_hw();		\
 	} while(0)
 
-#define smp_processor_id_hw()				ipipe_processor_id()
-
 #define ipipe_irq_lock(irq)						\
 	do {								\
 		ipipe_declare_cpuid;					\
@@ -681,7 +679,6 @@ int ipipe_disable_ondemand_mappings(struct task_struct *tsk);
 #define local_irq_disable_hw_cond()		do { } while(0)
 #define local_irq_save_hw_cond(flags)	do { (void)(flags); } while(0)
 #define local_irq_restore_hw_cond(flags)	do { } while(0)
-#define smp_processor_id_hw()			smp_processor_id()
 
 #define ipipe_irq_lock(irq)		do { } while(0)
 #define ipipe_irq_unlock(irq)		do { } while(0)
