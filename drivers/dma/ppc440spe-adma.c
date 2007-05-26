@@ -701,7 +701,7 @@ static int ppc440spe_adma_clean_slot(ppc440spe_desc_t *desc,
 			desc->phys == ppc440spe_chan_get_current_descriptor(chan))
 		return 1;
 
-	dev_dbg(chan->device->common.dev, "\tfree slot %x: %d stride: %d\n", 
+	dev_dbg(chan->device->common.dev, "\tfree slot %x: %d stride: %d\n",
 		desc->phys, desc->idx, desc->stride);
 
 	list_del(&desc->chain_node);
@@ -719,7 +719,7 @@ static void __ppc440spe_adma_slot_cleanup(ppc440spe_ch_t *chan)
 	int busy = ppc440spe_chan_is_busy(chan);
 	int seen_current = 0, slot_cnt = 0, slots_per_op = 0;
 
-	dev_dbg(chan->device->common.dev, "ppc440spe adma%d: %s\n", 
+	dev_dbg(chan->device->common.dev, "ppc440spe adma%d: %s\n",
 		chan->device->id, __FUNCTION__);
 
 	if (!current_desc) {
@@ -1054,7 +1054,7 @@ static dma_cookie_t ppc440spe_desc_assign_cookie(ppc440spe_ch_t *chan,
 
 static void ppc440spe_adma_check_threshold(ppc440spe_ch_t *chan)
 {
-	dev_dbg(chan->device->common.dev, "ppc440spe adma%d: pending: %d\n", 
+	dev_dbg(chan->device->common.dev, "ppc440spe adma%d: pending: %d\n",
 		chan->device->id, chan->pending);
 
 	if (chan->pending >= PPC440SPE_ADMA_THRESHOLD) {
@@ -1093,7 +1093,7 @@ static dma_cookie_t ppc440spe_adma_tx_submit(struct dma_async_tx_descriptor *tx)
 	ppc440spe_adma_check_threshold(chan);
 	spin_unlock_bh(&chan->lock);
 
-	dev_dbg(chan->device->common.dev, 
+	dev_dbg(chan->device->common.dev,
 		"ppc440spe adma%d: %s cookie: %d slot: %d tx %p\n",
 		chan->device->id,__FUNCTION__,
 		sw_desc->async_tx.cookie, sw_desc->idx, sw_desc);
@@ -1138,7 +1138,7 @@ static struct dma_async_tx_descriptor *ppc440spe_adma_prep_dma_memcpy(
 
 	spin_lock_bh(&ppc440spe_chan->lock);
 
-	dev_dbg(ppc440spe_chan->device->common.dev, 
+	dev_dbg(ppc440spe_chan->device->common.dev,
 		"ppc440spe adma%d: %s len: %u int_en %d\n",
 		ppc440spe_chan->device->id, __FUNCTION__, len, int_en);
 
