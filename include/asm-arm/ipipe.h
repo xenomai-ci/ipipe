@@ -43,6 +43,8 @@
 #define ipipe_processor_id()	0
 #endif	/* CONFIG_SMP */
 
+#define smp_processor_id_hw() ipipe_processor_id()
+
 #define prepare_arch_switch(next)				\
 do {								\
 	ipipe_schedule_notify(current, next);			\
@@ -200,7 +202,9 @@ do {                                                                    \
 
 #else /* !CONFIG_IPIPE */
 
-#define task_hijacked(p)	0
+#define task_hijacked(p)		0
+
+#define smp_processor_id_hw()		smp_processor_id()
 
 #endif /* CONFIG_IPIPE */
 
