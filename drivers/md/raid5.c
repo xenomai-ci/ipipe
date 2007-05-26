@@ -229,7 +229,7 @@ static void init_stripe(struct stripe_head *sh, sector_t sector, int pd_idx, int
 	BUG_ON(sh->ops.pending || sh->ops.ack || sh->ops.complete);
 
 	CHECK_DEVLOCK();
-	PRINTK("init_stripe called, stripe %llu\n", 
+	PRINTK("init_stripe called, stripe %llu\n",
 		(unsigned long long)sh->sector);
 
 	remove_hash(sh);
@@ -507,7 +507,7 @@ static void ops_complete_biofill(void *stripe_head_ref)
 			more_to_read++;
 
 		/* acknowledge completion of a biofill operation */
-		/* and check if we need to reply to a read request 
+		/* and check if we need to reply to a read request
 		 */
 		if (test_bit(R5_Wantfill, &dev->flags) && !dev->toread) {
 			struct bio *rbi, *rbi2;
@@ -856,7 +856,7 @@ ops_run_postxor(struct stripe_head *sh, struct dma_async_tx_descriptor *tx)
 	 * set ASYNC_TX_XOR_DROP_DST and ASYNC_TX_XOR_ZERO_DST
 	 * for the synchronous xor case
 	 */
-	flags = ASYNC_TX_DEP_ACK | ASYNC_TX_ACK | 
+	flags = ASYNC_TX_DEP_ACK | ASYNC_TX_ACK |
 		(prexor ? ASYNC_TX_XOR_DROP_DST : ASYNC_TX_XOR_ZERO_DST);
 
 	atomic_inc(&sh->count);
@@ -1170,8 +1170,8 @@ static int raid5_end_read_request(struct bio * bi, unsigned int bytes_done,
 		if (bi == &sh->dev[i].req)
 			break;
 
-	PRINTK("end_read_request %llu/%d, count: %d, uptodate %d.\n", 
-		(unsigned long long)sh->sector, i, atomic_read(&sh->count), 
+	PRINTK("end_read_request %llu/%d, count: %d, uptodate %d.\n",
+		(unsigned long long)sh->sector, i, atomic_read(&sh->count),
 		uptodate);
 	if (i == disks) {
 		BUG();
@@ -1246,7 +1246,7 @@ static int raid5_end_write_request (struct bio *bi, unsigned int bytes_done,
 		if (bi == &sh->dev[i].req)
 			break;
 
-	PRINTK("end_write_request %llu/%d, count %d, uptodate: %d.\n", 
+	PRINTK("end_write_request %llu/%d, count %d, uptodate: %d.\n",
 		(unsigned long long)sh->sector, i, atomic_read(&sh->count),
 		uptodate);
 	if (i == disks) {
@@ -1258,7 +1258,7 @@ static int raid5_end_write_request (struct bio *bi, unsigned int bytes_done,
 		md_error(conf->mddev, conf->disks[i].rdev);
 
 	rdev_dec_pending(conf->disks[i].rdev, conf->mddev);
-	
+
 	clear_bit(R5_LOCKED, &sh->dev[i].flags);
 	set_bit(STRIPE_HANDLE, &sh->state);
 	release_stripe(sh);
@@ -1267,7 +1267,7 @@ static int raid5_end_write_request (struct bio *bi, unsigned int bytes_done,
 
 
 static sector_t compute_blocknr(struct stripe_head *sh, int i);
-	
+
 static void raid5_build_block (struct stripe_head *sh, int i)
 {
 	struct r5dev *dev = &sh->dev[i];
@@ -1919,7 +1919,7 @@ static int stripe_to_pdidx(sector_t stripe, raid5_conf_t *conf, int disks)
  * get BH_Lock set before the stripe lock is released.
  *
  */
- 
+
 static void handle_stripe5(struct stripe_head *sh)
 {
 	raid5_conf_t *conf = sh->raid_conf;
@@ -2097,7 +2097,7 @@ static void handle_stripe5(struct stripe_head *sh)
 	       || (failed == 1 && failed_num == sh->pd_idx))
 	    ) {
 	    /* any written block on an uptodate or failed drive can be returned.
-	     * Note that if we 'wrote' to a failed drive, it will be UPTODATE, but 
+	     * Note that if we 'wrote' to a failed drive, it will be UPTODATE, but
 	     * never LOCKED, so we don't need to test 'failed' directly.
 	     */
 	    for (i=disks; i--; )
@@ -2291,7 +2291,7 @@ static void handle_stripe5(struct stripe_head *sh)
 			/* would I have to read this buffer for read_modify_write */
 			dev = &sh->dev[i];
 			if ((dev->towrite || i == sh->pd_idx) &&
-			    (!test_bit(R5_LOCKED, &dev->flags) 
+			    (!test_bit(R5_LOCKED, &dev->flags)
 				    ) &&
 			    !(test_bit(R5_UPTODATE, &dev->flags) || test_bit(R5_Wantcompute, &dev->flags))) {
 				if (test_bit(R5_Insync, &dev->flags)
@@ -2302,14 +2302,14 @@ static void handle_stripe5(struct stripe_head *sh)
 			}
 			/* Would I have to read this buffer for reconstruct_write */
 			if (!test_bit(R5_OVERWRITE, &dev->flags) && i != sh->pd_idx &&
-			    (!test_bit(R5_LOCKED, &dev->flags) 
+			    (!test_bit(R5_LOCKED, &dev->flags)
 				    ) &&
 			    !(test_bit(R5_UPTODATE, &dev->flags) || test_bit(R5_Wantcompute, &dev->flags))) {
 				if (test_bit(R5_Insync, &dev->flags)) rcw++;
 				else rcw += 2*disks;
 			}
 		}
-		PRINTK("for sector %llu, rmw=%d rcw=%d\n", 
+		PRINTK("for sector %llu, rmw=%d rcw=%d\n",
 			(unsigned long long)sh->sector, rmw, rcw);
 		set_bit(STRIPE_HANDLE, &sh->state);
 		if (rmw < rcw && rmw > 0)
@@ -3610,7 +3610,7 @@ static int make_request(request_queue_t *q, struct bio * bi)
  		new_sector = raid5_compute_sector(logical_sector, disks, data_disks,
 						  &dd_idx, &pd_idx, conf);
 		PRINTK("raid5: make_request, sector %llu logical %llu\n",
-			(unsigned long long)new_sector, 
+			(unsigned long long)new_sector,
 			(unsigned long long)logical_sector);
 
 		sh = get_active_stripe(conf, new_sector, disks, pd_idx, (bi->bi_rw&RWA_MASK));
@@ -3666,7 +3666,7 @@ static int make_request(request_queue_t *q, struct bio * bi)
 			finish_wait(&conf->wait_for_overlap, &w);
 			break;
 		}
-			
+
 	}
 	spin_lock_irq(&conf->device_lock);
 	remaining = --bi->bi_phys_segments;
@@ -4029,7 +4029,7 @@ static void raid5d (mddev_t *mddev)
 		atomic_inc(&sh->count);
 		BUG_ON(atomic_read(&sh->count)!= 1);
 		spin_unlock_irq(&conf->device_lock);
-		
+
 		handled++;
 		handle_stripe(sh, conf->spare_page);
 		release_stripe(sh);
@@ -4268,7 +4268,7 @@ static int run(mddev_t *mddev)
 		goto abort;
 	}
 	if (conf->algorithm > ALGORITHM_RIGHT_SYMMETRIC) {
-		printk(KERN_ERR 
+		printk(KERN_ERR
 			"raid5: unsupported parity algorithm %d for %s\n",
 			conf->algorithm, mdname(mddev));
 		goto abort;
@@ -4298,7 +4298,7 @@ static int run(mddev_t *mddev)
 	{
 		mddev->thread = md_register_thread(raid5d, mddev, "%s_raid5");
 		if (!mddev->thread) {
-			printk(KERN_ERR 
+			printk(KERN_ERR
 				"raid5: couldn't allocate thread for %s\n",
 				mdname(mddev));
 			goto abort;
@@ -4307,7 +4307,7 @@ static int run(mddev_t *mddev)
 	memory = conf->max_nr_stripes * (sizeof(struct stripe_head) +
 		 conf->raid_disks * ((sizeof(struct bio) + PAGE_SIZE))) / 1024;
 	if (grow_stripes(conf, conf->max_nr_stripes)) {
-		printk(KERN_ERR 
+		printk(KERN_ERR
 			"raid5: couldn't allocate %dkB for buffers\n", memory);
 		shrink_stripes(conf);
 		md_unregister_thread(mddev->thread);
@@ -4318,7 +4318,7 @@ static int run(mddev_t *mddev)
 
 	if (mddev->degraded == 0)
 		printk("raid5: raid level %d set %s active with %d out of %d"
-			" devices, algorithm %d\n", conf->level, mdname(mddev), 
+			" devices, algorithm %d\n", conf->level, mdname(mddev),
 			mddev->raid_disks-mddev->degraded, mddev->raid_disks,
 			conf->algorithm);
 	else

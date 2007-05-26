@@ -41,7 +41,7 @@ static struct dma_client async_tx_dma = {
 };
 
 /**
- * dma_cap_mask_all - enable iteration over all operation types 
+ * dma_cap_mask_all - enable iteration over all operation types
  */
 static dma_cap_mask_t dma_cap_mask_all;
 
@@ -133,7 +133,7 @@ static void async_tx_rebalance(void)
 		return;
 
 	spin_lock_irqsave(&async_tx_lock, flags);
-	
+
 	/* undo the last distribution */
 	for_each_dma_cap_mask(cap, dma_cap_mask_all)
 		for_each_possible_cpu(cpu) {
