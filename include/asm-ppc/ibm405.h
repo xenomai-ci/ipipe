@@ -437,7 +437,15 @@
 	mfdcr(DCRN_SDR_CONFIG_DATA);})
 #define SDR_WRITE(offset, data) ({		\
 	mtdcr(DCRN_SDR_CONFIG_ADDR, offset);	\
-	mtdcr(DCRN_SDR_CONFIG_DATA,data);})
+	mtdcr(DCRN_SDR_CONFIG_DATA, data);})
+
+/* SDR read/write helper macros */
+#define CPR_READ(offset) ({			\
+	mtdcr(DCRN_CPR_CFGADDR, offset);	\
+	mfdcr(DCRN_CPR_CFGDATA);})
+#define CPR_WRITE(offset, data) ({		\
+	mtdcr(DCRN_CPR_CFGADDR, offset);	\
+	mtdcr(DCRN_CPR_CFGDATA, data);})
 
 /*
  * EMAC interrupt coalesing
