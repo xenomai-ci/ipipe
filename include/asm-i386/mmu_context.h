@@ -16,7 +16,7 @@ void destroy_context(struct mm_struct *mm);
 static inline void enter_lazy_tlb(struct mm_struct *mm, struct task_struct *tsk)
 {
 #ifdef CONFIG_SMP
-	unsigned cpu = smp_processor_id_hw();
+	unsigned cpu = smp_processor_id();
 	if (per_cpu(cpu_tlbstate, cpu).state == TLBSTATE_OK)
 		per_cpu(cpu_tlbstate, cpu).state = TLBSTATE_LAZY;
 #endif
@@ -26,7 +26,7 @@ static inline void switch_mm(struct mm_struct *prev,
 			     struct mm_struct *next,
 			     struct task_struct *tsk)
 {
-	int cpu = smp_processor_id_hw();
+	int cpu = smp_processor_id();
 
 	if (likely(prev != next)) {
 		/* stop flush ipis for the previous mm */

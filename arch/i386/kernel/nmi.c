@@ -896,7 +896,7 @@ static __kprobes int default_nmi_watchdog_tick (struct pt_regs * regs, unsigned 
 	 */
 	unsigned int sum;
 	int touched = 0;
-	int cpu = smp_processor_id_hw();
+	int cpu = smp_processor_id();
 	struct nmi_watchdog_ctlblk *wd = &__get_cpu_var(nmi_watchdog_ctlblk);
 	u64 dummy;
 	int rc=0;

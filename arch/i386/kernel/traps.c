@@ -725,7 +725,7 @@ static __kprobes void default_do_nmi(struct pt_regs * regs)
 	unsigned char reason = 0;
 
 	/* Only the BSP gets external NMIs from the system.  */
-	if (!smp_processor_id_hw())
+	if (!smp_processor_id())
 		reason = get_nmi_reason();
  
 	if (!(reason & 0xc0)) {
