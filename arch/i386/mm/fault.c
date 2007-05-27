@@ -23,6 +23,7 @@
 #include <linux/module.h>
 #include <linux/kprobes.h>
 #include <linux/uaccess.h>
+#include <linux/ipipe_trace.h>
 
 #include <asm/system.h>
 #include <asm/desc.h>
@@ -68,9 +69,13 @@ void bust_spinlocks(int yes)
 	int loglevel_save = console_loglevel;
 
 	if (yes) {
+		ipipe_trace_panic_freeze();
 		oops_in_progress = 1;
 		return;
 	}
+
+	ipipe_trace_panic_dump();
+
 #ifdef CONFIG_VT
 	unblank_screen();
 #endif
