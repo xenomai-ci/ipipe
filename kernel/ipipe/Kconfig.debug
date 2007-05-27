@@ -26,9 +26,10 @@ config IPIPE_TRACE
 	  in-kernel tracing API. The collected data and runtime control
 	  is available via /proc/ipipe/trace/*.
 
+if IPIPE_TRACE
+
 config IPIPE_TRACE_ENABLE
 	bool "Enable tracing on boot"
-	depends on IPIPE_TRACE
 	default y
 	---help---
 	  Disable this option if you want to arm the tracer after booting
@@ -37,7 +38,6 @@ config IPIPE_TRACE_ENABLE
 
 config IPIPE_TRACE_MCOUNT
 	bool "Instrument function entries"
-	depends on IPIPE_TRACE
 	default y
 	---help---
 	  When enabled, records every kernel function entry in the tracer
@@ -48,7 +48,6 @@ config IPIPE_TRACE_MCOUNT
 
 config IPIPE_TRACE_IRQSOFF
 	bool "Trace IRQs-off times"
-	depends on IPIPE_TRACE
 	default y
 	---help---
 	  Activate this option if I-pipe shall trace the longest path
@@ -58,14 +57,12 @@ config IPIPE_TRACE_SHIFT
 	int "Depth of trace log (14 => 16Kpoints, 15 => 32Kpoints)"
 	range 10 18
 	default 14
-	depends on IPIPE_TRACE
 	---help---
 	  The number of trace points to hold tracing data for each
 	  trace path, as a power of 2.
 
 config IPIPE_TRACE_VMALLOC
 	bool "Use vmalloc'ed trace buffer"
-	depends on IPIPE_TRACE
 	default y if EMBEDDED
 	---help---
 	  Instead of reserving static kernel data, the required buffer
@@ -74,7 +71,18 @@ config IPIPE_TRACE_VMALLOC
 	  but it slightly degrades overall performance. Try this option
 	  when a traced kernel hangs unexpectedly at boot time.
 
+config IPIPE_TRACE_PANIC
+	bool "Enable panic back traces"
+	default y
+	---help---
+	  Provides services to freeze and dump a back trace on panic
+	  situations. This is used on IPIPE_DEBUG_CONTEXT exceptions
+	  as well as ordinary kernel oopses. You can control the number
+	  of printed back trace points via /proc/ipipe/trace.
+
 config IPIPE_TRACE_ENABLE_VALUE
 	int
 	default 0 if !IPIPE_TRACE_ENABLE
 	default 1 if IPIPE_TRACE_ENABLE
+
+endif

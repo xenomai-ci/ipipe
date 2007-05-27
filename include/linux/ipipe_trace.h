@@ -2,7 +2,7 @@
  * include/linux/ipipe_trace.h
  *
  * Copyright (C) 2005 Luotao Fu.
- *               2005, 2006 Jan Kiszka.
+ *               2005-2007 Jan Kiszka.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -23,8 +23,6 @@
 #ifndef _LINUX_IPIPE_TRACE_H
 #define _LINUX_IPIPE_TRACE_H
 
-#ifdef CONFIG_IPIPE_TRACE
-
 #include <linux/types.h>
 
 void ipipe_trace_begin(unsigned long v);
@@ -36,14 +34,16 @@ void ipipe_trace_pid(pid_t pid, short prio);
 int ipipe_trace_max_reset(void);
 int ipipe_trace_frozen_reset(void);
 
+#ifdef CONFIG_IPIPE_TRACE_PANIC
+
 void ipipe_trace_panic_freeze(void);
 void ipipe_trace_panic_dump(void);
 
-#else /* !CONFIG_IPIPE_TRACE */
+#else /* !CONFIG_IPIPE_TRACE_PANIC */
 
 static inline void ipipe_trace_panic_freeze(void) { }
 static inline void ipipe_trace_panic_dump(void) { }
 
-#endif /* !CONFIG_IPIPE_TRACE */
+#endif /* !CONFIG_IPIPE_TRACE_PANIC */
 
 #endif	/* !__LINUX_IPIPE_H */
