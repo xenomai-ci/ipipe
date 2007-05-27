@@ -395,7 +395,9 @@ static struct net_device_stats *fec_get_stats(struct net_device *dev)
 
 	stats->rx_bytes = in_be32(&fec->rmon_r_octets);
 	stats->rx_packets = in_be32(&fec->rmon_r_packets);
-	stats->rx_errors = stats->rx_packets - in_be32(&fec->ieee_r_frame_ok);
+	stats->rx_errors = stats->rx_packets - (
+			in_be32(&fec->ieee_r_frame_ok) +
+			in_be32(&fec->rmon_r_mc_pkt));
 	stats->tx_bytes = in_be32(&fec->rmon_t_octets);
 	stats->tx_packets = in_be32(&fec->rmon_t_packets);
 	stats->tx_errors = stats->tx_packets - (

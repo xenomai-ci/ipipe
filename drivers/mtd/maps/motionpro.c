@@ -31,7 +31,7 @@
  * NOTE: Any partition can be configured as read-only by setting
  * MTD_WRITEABLE in mask_flags field.
  */
-static struct mtd_partition motionpro_flash_partitions[] = {
+static struct mtd_partition motionpro_static_flash_partitions[] = {
 	{
 		.name		= "fs",
 		.offset		= 0x00000000,
@@ -53,29 +53,39 @@ static struct mtd_partition motionpro_flash_partitions[] = {
 		.size		= 0x00010000,
 	},
 	{
-		.name		= "dtb",
+		.name		= "redund_env",
 		.offset		= 0x00f50000,
 		.size		= 0x00010000,
 	},
 	{
-		.name		= "user_data",
+		.name		= "dtb",
 		.offset		= 0x00f60000,
-		.size		= 0x000a0000,
+		.size		= 0x00010000,
+	},
+	{
+		.name		= "user_data",
+		.offset		= 0x00f70000,
+		.size		= 0x00090000,
 	}
 };
 
 static struct map_info motionpro_flash_map = {
-	.name		= "Motion-PRO flash",
+	.name		= "motionpro-0",
 	.size		= WINDOW_SIZE,
 	.bankwidth	= 2,
 	.phys		= WINDOW_ADDR,
 };
 
-static struct mtd_info *motionpro_mtd = NULL;
+static struct mtd_info		*motionpro_mtd = NULL;
+static struct mtd_partition	*motionpro_parts = NULL;
 
 static int __init init_motionpro_flash(void)
 {
+#ifdef CONFIG_MTD_CMDLINE_PARTS
+	const char *probes[] = { "cmdlinepart", NULL };
+#endif
 	int err = 0;
+	int n;
 
 	motionpro_flash_map.virt = ioremap(WINDOW_ADDR, WINDOW_SIZE);
 	if (motionpro_flash_map.virt == NULL) {
@@ -92,9 +102,18 @@ static int __init init_motionpro_flash(void)
 	}
 
 	motionpro_mtd->owner = THIS_MODULE;
-	err = add_mtd_partitions(motionpro_mtd,
-			motionpro_flash_partitions,
-			ARRAY_SIZE(motionpro_flash_partitions));
+#ifdef CONFIG_MTD_CMDLINE_PARTS
+	n = parse_mtd_partitions(motionpro_mtd, probes, &motionpro_parts, 0);
+	printk("Motion-PRO MTD map: Using %s definition of flash partitions\n",
+		((n <= 0) ? "static" : "cmdline"));
+	if (n <= 0)
+#endif
+	{
+		motionpro_parts = motionpro_static_flash_partitions;
+		n = ARRAY_SIZE(motionpro_static_flash_partitions);
+	}
+
+	err = add_mtd_partitions(motionpro_mtd, motionpro_parts, n);
 	if (err) {
 		printk("init_motionpro_flash: add_mtd_partitions failed\n");
 		map_destroy(motionpro_mtd);
@@ -102,8 +121,15 @@ static int __init init_motionpro_flash(void)
 	}
 
 fail:
-	if (err)
+	if (err) {
+#ifdef CONFIG_MTD_CMDLINE_PARTS
+		if (motionpro_parts != motionpro_static_flash_partitions &&
+				motionpro_parts != NULL)
+			kfree(motionpro_parts);
+#endif
+		motionpro_parts = NULL;
 		iounmap(motionpro_flash_map.virt);
+	}
 	return (err);
 }
 
@@ -113,6 +139,12 @@ static void __exit cleanup_motionpro_flash(void)
 		return;
 
 	del_mtd_partitions(motionpro_mtd);
+#ifdef CONFIG_MTD_CMDLINE_PARTS
+	if (motionpro_parts != motionpro_static_flash_partitions &&
+			motionpro_parts != NULL)
+		kfree(motionpro_parts);
+#endif
+	motionpro_parts = NULL;
 	map_destroy(motionpro_mtd);
 	motionpro_mtd = NULL;
 

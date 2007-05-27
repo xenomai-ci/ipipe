@@ -43,7 +43,7 @@
 #define I2C_DRIVERID_EEPROM24	80
 #define EEPROM_SIZE		128
 #define EEPROM_PAGE_SIZE	2
-#define WRITE_DELAY		70
+#define WRITE_DELAY		5	/* 2ms per page + 3ms extra delay */
 
 /* Addresses to scan */
 static unsigned short normal_i2c[]	= { 0x50, 0x52, 0x54, I2C_CLIENT_END };

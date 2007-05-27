@@ -158,7 +158,7 @@
 			device_type = "mscan";
 			compatible = "mpc5200b-mscan\0mpc5200-mscan";
 			cell-index = <0>;
-			interrupts = <2 11 0>;
+			interrupts = <2 12 0>;
 			interrupt-parent = <500>;
 			reg = <900 80>;
 		};
