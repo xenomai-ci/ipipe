@@ -589,9 +589,10 @@ __ipipe_get_task_info(char *task_info, struct ipipe_trace_point *point,
 	int i;
 	int locked = 1;
 
-	if (trylock && !read_trylock(&tasklist_lock))
-		locked = 0;
-	else
+	if (trylock) {
+		if (!read_trylock(&tasklist_lock))
+			locked = 0;
+	} else
 		read_lock(&tasklist_lock);
 
 	if (locked)
