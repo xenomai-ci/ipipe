@@ -12,14 +12,19 @@
 #include <linux/tty.h>
 #include <linux/wait.h>
 #include <linux/vt_kern.h>
+#include <linux/ipipe_trace.h>
 
 
 void bust_spinlocks(int yes)
 {
 	if (yes) {
+		ipipe_trace_panic_freeze();
 		oops_in_progress = 1;
 	} else {
 		int loglevel_save = console_loglevel;
+
+		ipipe_trace_panic_dump();
+
 #ifdef CONFIG_VT
 		unblank_screen();
 #endif
