@@ -132,7 +132,9 @@ static unsigned long trace_overhead;
 
 static DEFINE_MUTEX(out_mutex);
 static struct ipipe_trace_path *print_path;
+#ifdef CONFIG_IPIPE_TRACE_PANIC
 static struct ipipe_trace_path *panic_path;
+#endif /* CONFIG_IPIPE_TRACE_PANIC */
 static int print_pre_trace;
 static int print_post_trace;
 
@@ -561,25 +563,6 @@ int ipipe_trace_frozen_reset(void)
 }
 EXPORT_SYMBOL(ipipe_trace_frozen_reset);
 
-void ipipe_trace_panic_freeze(void)
-{
-	unsigned long flags;
-	int cpu_id;
-
-	if (!ipipe_trace_enable)
-		return;
-
-	ipipe_trace_enable = 0;
-	local_irq_save_hw_notrace(flags);
-
-	cpu_id = ipipe_processor_id();
-
-	panic_path = &trace_paths[cpu_id][active_path[cpu_id]];
-
-	local_irq_restore_hw(flags);
-}
-EXPORT_SYMBOL(ipipe_trace_panic_freeze);
-
 static void
 __ipipe_get_task_info(char *task_info, struct ipipe_trace_point *point,
                       int trylock)
@@ -589,9 +572,10 @@ __ipipe_get_task_info(char *task_info, struct ipipe_trace_point *point,
 	int i;
 	int locked = 1;
 
-	if (trylock && !read_trylock(&tasklist_lock))
-		locked = 0;
-	else
+	if (trylock) {
+		if (!read_trylock(&tasklist_lock))
+			locked = 0;
+	} else
 		read_lock(&tasklist_lock);
 
 	if (locked)
@@ -611,6 +595,26 @@ __ipipe_get_task_info(char *task_info, struct ipipe_trace_point *point,
 	sprintf(buf, " %d ", point->type >> IPIPE_TYPE_BITS);
 	strcpy(task_info + (11 - strlen(buf)), buf);
 }
+
+#ifdef CONFIG_IPIPE_TRACE_PANIC
+void ipipe_trace_panic_freeze(void)
+{
+	unsigned long flags;
+	int cpu_id;
+
+	if (!ipipe_trace_enable)
+		return;
+
+	ipipe_trace_enable = 0;
+	local_irq_save_hw_notrace(flags);
+
+	cpu_id = ipipe_processor_id();
+
+	panic_path = &trace_paths[cpu_id][active_path[cpu_id]];
+
+	local_irq_restore_hw(flags);
+}
+EXPORT_SYMBOL(ipipe_trace_panic_freeze);
 
 void ipipe_trace_panic_dump(void)
 {
@@ -678,6 +682,7 @@ void ipipe_trace_panic_dump(void)
 	panic_path = NULL;
 }
 EXPORT_SYMBOL(ipipe_trace_panic_dump);
+#endif /* CONFIG_IPIPE_TRACE_PANIC */
 
 
 /* --- /proc output --- */
@@ -800,8 +805,17 @@ static void __ipipe_print_symname(struct seq_file *m, unsigned long eip)
 
 	sym_name = kallsyms_lookup(eip, &size, &offset, &modname, namebuf);
 
-	/* printing to /proc? */
-	if (m) {
+#ifdef CONFIG_IPIPE_TRACE_PANIC
+	if (!m) {
+		/* panic dump */
+		if (sym_name) {
+			printk("%s+0x%lx", sym_name, offset);
+			if (modname)
+				printk(" [%s]", modname);
+		}
+	} else
+#endif /* CONFIG_IPIPE_TRACE_PANIC */
+	{
 		if (sym_name) {
 			if (verbose_trace) {
 				seq_printf(m, "%s+0x%lx", sym_name, offset);
@@ -811,13 +825,6 @@ static void __ipipe_print_symname(struct seq_file *m, unsigned long eip)
 				seq_puts(m, sym_name);
 		} else
 			seq_printf(m, "<%08lx>", eip);
-	} else {
-		/* panic dump */
-		if (sym_name) {
-			printk("%s+0x%lx", sym_name, offset);
-			if (modname)
-				printk(" [%s]", modname);
-		}
 	}
 }
 
