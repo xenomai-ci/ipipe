@@ -86,9 +86,47 @@ error:
 	iounmap(gpio);
 }
 
+
+#ifdef CONFIG_LEDS_MOTIONPRO
+
+/* Initialize GPT register connected to LED. Turn off LED. */
+static void motionpro_setup_led(const char *reg_path)
+{
+	void __iomem *reg_addr;
+	u32 reg;
+
+	reg_addr = mpc52xx_find_and_map_path(reg_path);
+	if (!reg_addr){
+		printk(KERN_ERR __FILE__ ": "
+		       "LED setup error: can't map GPIO register %s\n",
+		       reg_path);
+		return;
+	}
+
+	reg = in_be32(reg_addr);
+	reg |= MPC52xx_GPT_ENABLE_OUTPUT;
+	reg &= ~MPC52xx_GPT_OUTPUT_1;
+	out_be32(reg_addr, reg);
+
+	iounmap(reg_addr);
+}
+
+/* Initialize Motionpro status and ready LEDs */
+static void motionpro_setup_leds(void)
+{
+	motionpro_setup_led("/soc5200@f0000000/gpt@660");
+	motionpro_setup_led("/soc5200@f0000000/gpt@670");
+}
+
+#endif
+
 static void __init motionpro_setup_arch(void)
 {
 	struct device_node *np;
+
+#ifdef CONFIG_LEDS_MOTIONPRO
+	motionpro_setup_leds();
+#endif
 
 	if (ppc_md.progress)
 		ppc_md.progress("motionpro_setup_arch()", 0);

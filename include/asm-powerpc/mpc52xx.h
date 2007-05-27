@@ -140,6 +140,11 @@ struct mpc52xx_gpio {
 #define MPC52xx_GPIO_PSC_CONFIG_UART_WITH_CD	5
 #define MPC52xx_GPIO_PCI_DIS			(1<<15)
 
+/* Enables GPT register to operate as simple GPIO output register */
+#define MPC52xx_GPT_ENABLE_OUTPUT	0x00000024
+/* Puts 1 on GPT output pin */
+#define MPC52xx_GPT_OUTPUT_1		0x00000010
+
 /* GPIO with WakeUp*/
 struct mpc52xx_gpio_wkup {
 	u8 wkup_gpioe;		/* GPIO_WKUP + 0x00 */
@@ -242,6 +247,7 @@ struct mpc52xx_cdm {
 #ifndef __ASSEMBLY__
 
 extern void __iomem * mpc52xx_find_and_map(const char *);
+extern void __iomem * mpc52xx_find_and_map_path(const char *path);
 extern unsigned int mpc52xx_find_ipb_freq(struct device_node *node);
 extern void mpc52xx_setup_cpu(void);
 extern void mpc52xx_declare_of_platform_devices(void);

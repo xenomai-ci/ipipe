@@ -802,15 +802,20 @@ CONFIG_USB_ARCH_HAS_OHCI=y
 #
 # LED devices
 #
-# CONFIG_NEW_LEDS is not set
+CONFIG_NEW_LEDS=y
+CONFIG_LEDS_CLASS=y
 
 #
 # LED drivers
 #
+CONFIG_LEDS_MOTIONPRO=y
 
 #
 # LED Triggers
 #
+CONFIG_LEDS_TRIGGERS=y
+CONFIG_LEDS_TRIGGER_TIMER=y
+# CONFIG_LEDS_TRIGGER_HEARTBEAT is not set
 
 #
 # InfiniBand support
