@@ -20,8 +20,14 @@
 /* Number of operands supported in the h/w */
 #define XOR_MAX_OPS		16
 
-/* XOR Memory Mapped Registers base address */
+/* XOR Memory Mapped Registers base address is different
+ * for ppc440sp and ppc440spe processors
+ */
+#ifdef CONFIG_440SP
+#define XOR_MMAP_BASE		0x100200000ULL
+#else
 #define XOR_MMAP_BASE		0x400200000ULL
+#endif
 #define XOR_MMAP_SIZE		0x224ULL
 
 /* XOR Interrupt Source, UIC1[31] */

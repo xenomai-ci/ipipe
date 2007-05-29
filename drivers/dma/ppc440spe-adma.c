@@ -1473,7 +1473,7 @@ static int __devinit ppc440spe_adma_probe(struct platform_device *pdev)
 	chan->common.device = &adev->common;
 	list_add_tail(&chan->common.device_node, &adev->common.channels);
 
-	dev_printk(KERN_INFO, &pdev->dev,  "AMCC(R) PPC440SPE ADMA Engine found [%d]: "
+	dev_printk(KERN_INFO, &pdev->dev,  "AMCC(R) PPC440SP(E) ADMA Engine found [%d]: "
 	  "( %s%s%s%s%s%s%s%s%s%s)\n",
 	  adev->id,
 	  dma_has_cap(DMA_PQ_XOR, adev->common.cap_mask) ? "pq_xor " : "",
@@ -1552,7 +1552,7 @@ static struct platform_driver ppc440spe_adma_driver = {
 	.remove		= ppc440spe_adma_remove,
 	.driver		= {
 		.owner	= THIS_MODULE,
-		.name	= "PPC440SPE-ADMA",
+		.name	= "PPC440SP(E)-ADMA",
 	},
 };
 
