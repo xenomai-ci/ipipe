@@ -1,3 +1,3 @@
 ## Makefile for the RB532 CF port
 
-obj-y		+= bdev.o ata.o
+obj-$(CONFIG_BLK_DEV_CF_MIPS)	+= bdev.o ata.o
