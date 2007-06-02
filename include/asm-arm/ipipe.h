@@ -28,10 +28,10 @@
 #include <asm/irq.h>
 #include <asm/percpu.h>
 
-#define IPIPE_ARCH_STRING	"1.7-02"
+#define IPIPE_ARCH_STRING	"1.7-03"
 #define IPIPE_MAJOR_NUMBER	1
 #define IPIPE_MINOR_NUMBER	7
-#define IPIPE_PATCH_NUMBER	2
+#define IPIPE_PATCH_NUMBER	3
 
 #define IPIPE_NR_XIRQS		NR_IRQS
 #define IPIPE_IRQ_ISHIFT	5	/* 25 for 32bits arch. */
@@ -90,6 +90,23 @@ extern unsigned long arm_return_addr(int level);
 
 struct ipipe_domain;
 
+#define IPIPE_TSC_TYPE_NONE        0
+#define IPIPE_TSC_TYPE_FREERUNNING 1
+#define IPIPE_TSC_TYPE_DECREMENTER 2
+
+struct __ipipe_tscinfo {
+        unsigned type;
+        union {
+                struct {
+                        unsigned *counter; /* Hw counter physical address */
+                        unsigned mask; /* Significant bits in the hw counter. */
+                        unsigned long long *tsc; /* 64 bits tsc value. */
+                } fr;
+                struct {
+                } dec;
+        } u;
+};
+
 struct ipipe_sysinfo {
 
 	int ncpus;		/* Number of CPUs on board */
@@ -100,11 +117,13 @@ struct ipipe_sysinfo {
 	struct {
 		unsigned tmirq;	/* Timer tick IRQ */
 		u64 tmfreq;	/* Timer frequency */
+                struct __ipipe_tscinfo tsc; /* exported data for u.s. tsc */
 	} archdep;
 };
 
 DECLARE_PER_CPU(struct mm_struct *,ipipe_active_mm);
 /* arch specific stuff */
+extern void *__ipipe_tsc_area;
 extern int __ipipe_mach_timerint;
 extern int __ipipe_mach_timerstolen;
 extern unsigned int __ipipe_mach_ticks_per_jiffy;
@@ -114,6 +133,7 @@ extern void __ipipe_mach_set_dec(unsigned long);
 extern void __ipipe_mach_release_timer(void);
 extern unsigned long __ipipe_mach_get_dec(void);
 extern void __ipipe_mach_demux_irq(unsigned irq, struct pt_regs *regs);
+void __ipipe_mach_get_tscinfo(struct __ipipe_tscinfo *info);
 
 #define ipipe_read_tsc(t)		do { t = __ipipe_mach_get_tsc(); } while (0)
 #define __ipipe_read_timebase()		__ipipe_mach_get_tsc()

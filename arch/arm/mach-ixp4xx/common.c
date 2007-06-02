@@ -64,6 +64,45 @@ static int ixp4xx_timer_initialized;
 
 #define ONE_SHOT_ENABLE (IXP4XX_OST_ENABLE|IXP4XX_OST_ONE_SHOT)
 
+union tsc_reg {
+#ifdef __BIG_ENDIAN
+	struct {
+		unsigned long high;
+		unsigned short mid;
+		unsigned short low;
+	};
+#else /* __LITTLE_ENDIAN */
+	struct {
+		unsigned short low;
+		unsigned short mid;
+		unsigned long high;
+	};
+#endif /* __LITTLE_ENDIAN */
+	unsigned long long full;
+};
+
+#ifdef CONFIG_SMP
+static union tsc_reg tsc[NR_CPUS];
+
+void __ipipe_mach_get_tscinfo(struct __ipipe_tscinfo *info)
+{
+	info->type = IPIPE_TSC_TYPE_NONE;
+}
+
+#else /* !CONFIG_SMP */
+static union tsc_reg *tsc;
+
+void __ipipe_mach_get_tscinfo(struct __ipipe_tscinfo *info)
+{
+	info->type = IPIPE_TSC_TYPE_FREERUNNING;
+	info->u.fr.counter =
+		(unsigned *)
+		(IXP4XX_TIMER_BASE_PHYS + IXP4XX_OSTS_OFFSET);
+	info->u.fr.mask = 0xffffffff;
+	info->u.fr.tsc = &tsc->full;
+}
+#endif /* !CONFIG_SMP */
+
 #endif /* CONFIG_IPIPE */
 
 /*************************************************************************
@@ -333,8 +372,14 @@ static void __init ixp4xx_timer_init(void)
 
 	/* Setup the Timer counter value */
 #ifdef CONFIG_IPIPE
-	ixp4xx_timer_initialized = 1;
 	*IXP4XX_OSRT1 = LATCH | ONE_SHOT_ENABLE;
+
+#ifndef CONFIG_SMP
+	tsc = (union tsc_reg *) __ipipe_tsc_area;
+	barrier();
+#endif /* CONFIG_SMP */
+
+	ixp4xx_timer_initialized = 1;
 #else
 	*IXP4XX_OSRT1 = (LATCH & ~IXP4XX_OST_RELOAD_MASK) | IXP4XX_OST_ENABLE;
 #endif
@@ -472,7 +517,6 @@ static int __init ixp4xx_clocksource_init(void)
 }
 
 #ifdef CONFIG_IPIPE
-
 void __ipipe_mach_acktimer(void)
 {
 	/* Clear Pending Interrupt by writing '1' to it */
@@ -484,20 +528,7 @@ EXPORT_SYMBOL(__ipipe_mach_acktimer);
 notrace unsigned long long __ipipe_mach_get_tsc(void)
 {
 	if (likely(ixp4xx_timer_initialized)) {
-		static union {
-#ifdef __BIG_ENDIAN
-			struct {
-				unsigned long high;
-				unsigned long low;
-			};
-#else /* __LITTLE_ENDIAN */
-			struct {
-				unsigned long low;
-				unsigned long high;
-			};
-#endif /* __LITTLE_ENDIAN */
-			unsigned long long full;
-		} tsc[NR_CPUS], *local_tsc;
+		union tsc_reg *local_tsc;
 		unsigned long stamp, flags;
 		unsigned long long result;
 

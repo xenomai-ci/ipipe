@@ -46,6 +46,43 @@ EXPORT_SYMBOL(__ipipe_mach_ticks_per_jiffy);
 
 static int pxa_timer_initialized;
 static unsigned long last_jiffy_time;
+
+union tsc_reg {
+#ifdef __BIG_ENDIAN
+	struct {
+		unsigned long high;
+		unsigned short mid;
+		unsigned short low;
+	};
+#else /* __LITTLE_ENDIAN */
+	struct {
+		unsigned short low;
+		unsigned short mid;
+		unsigned long high;
+	};
+#endif /* __LITTLE_ENDIAN */
+	unsigned long long full;
+};
+
+#ifdef CONFIG_SMP
+static union tsc_reg tsc[NR_CPUS];
+
+void __ipipe_mach_get_tscinfo(struct __ipipe_tscinfo *info)
+{
+	info->type = IPIPE_TSC_TYPE_NONE;
+}
+
+#else /* !CONFIG_SMP */
+static union tsc_reg *tsc;
+
+void __ipipe_mach_get_tscinfo(struct __ipipe_tscinfo *info)
+{
+	info->type = IPIPE_TSC_TYPE_FREERUNNING;
+	info->u.fr.counter = (unsigned *) 0x40A00010;
+	info->u.fr.mask = 0xffffffff;
+	info->u.fr.tsc = &tsc->full;
+}
+#endif /* !CONFIG_SMP */
 #endif /* CONFIG_IPIPE */
 
 static inline unsigned long pxa_get_rtc_time(void)
@@ -178,6 +215,11 @@ static void __init pxa_timer_init(void)
 		clocksource_hz2mult(CLOCK_TICK_RATE, clocksource_pxa.shift);
 	clocksource_register(&clocksource_pxa);
 #ifdef CONFIG_IPIPE
+#ifndef CONFIG_SMP
+	tsc = (union tsc_reg *) __ipipe_tsc_area;
+	barrier();
+#endif /* CONFIG_SMP */
+
 	pxa_timer_initialized = 1;
 #endif /* CONFIG_IPIPE */
 }
@@ -266,20 +308,7 @@ void __ipipe_mach_acktimer(void)
 notrace unsigned long long __ipipe_mach_get_tsc(void)
 {
 	if (likely(pxa_timer_initialized)) {
-		static union {
-#ifdef __BIG_ENDIAN
-			struct {
-				unsigned long high;
-				unsigned long low;
-			};
-#else /* __LITTLE_ENDIAN */
-			struct {
-				unsigned long low;
-				unsigned long high;
-			};
-#endif /* __LITTLE_ENDIAN */
-			unsigned long long full;
-		} tsc[NR_CPUS], *local_tsc;
+		union tsc_reg *local_tsc;
 		unsigned long stamp, flags;
 		unsigned long long result;
 

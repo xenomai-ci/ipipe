@@ -271,26 +271,50 @@ static irqreturn_t at91rm9200_bad_freq(int irq, void *dev_id)
 	      clk_get_rate(clk_get(NULL, "mck")));
 }
 
+union tsc_reg {
+#ifdef __BIG_ENDIAN
+	struct {
+		unsigned long high;
+		unsigned short mid;
+		unsigned short low;
+	};
+#else /* __LITTLE_ENDIAN */
+	struct {
+		unsigned short low;
+		unsigned short mid;
+		unsigned long high;
+	};
+#endif /* __LITTLE_ENDIAN */
+	unsigned long long full;
+};
+
+#ifdef CONFIG_SMP
+static union tsc_reg tsc[NR_CPUS];
+
+void __ipipe_mach_get_tscinfo(struct __ipipe_tscinfo *info)
+{
+	info->type = IPIPE_TSC_TYPE_NONE;
+}
+
+#else /* !CONFIG_SMP */
+static union tsc_reg *tsc;
+
+void __ipipe_mach_get_tscinfo(struct __ipipe_tscinfo *info)
+{
+	info->type = IPIPE_TSC_TYPE_FREERUNNING;
+	info->u.fr.counter =
+		(unsigned *)
+		(AT91_BASE_TCB0 + 0x40 * CONFIG_IPIPE_AT91_TC + AT91_TC_CV);
+	info->u.fr.mask = AT91_TC_REG_MASK;
+	info->u.fr.tsc = &tsc->full;
+}
+#endif /* !CONFIG_SMP */
+
 notrace unsigned long long __ipipe_mach_get_tsc(void)
 {
 	if (likely(at91_timer_initialized)) {
-		static union {
-#ifdef __BIG_ENDIAN
-			struct {
-				unsigned long high;
-				unsigned short mid;
-				unsigned short low;
-			};
-#else /* __LITTLE_ENDIAN */
-			struct {
-				unsigned short low;
-				unsigned short mid;
-				unsigned long high;
-			};
-#endif /* __LITTLE_ENDIAN */
-			unsigned long long full;
-		} tsc[NR_CPUS], *local_tsc;
 		unsigned long long result;
+		union tsc_reg *local_tsc;
 		unsigned short stamp;
 		unsigned long flags;
 
@@ -397,6 +421,11 @@ void __init at91rm9200_timer_init(void)
 
 	/* Enable the channel. */
 	at91_tc_write(AT91_TC_CCR, AT91_TC_CLKEN | AT91_TC_SWTRG);
+
+#ifndef CONFIG_SMP
+	tsc = (union tsc_reg *) __ipipe_tsc_area;
+	barrier();
+#endif /* CONFIG_SMP */
 
 	at91_timer_initialized = 1;
 }

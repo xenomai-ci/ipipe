@@ -210,6 +210,11 @@ static IPIPE_DEFINE_SPINLOCK(timer_lock);
 
 int __ipipe_mach_timerstolen = 0;
 EXPORT_SYMBOL(__ipipe_mach_timerstolen);
+
+void __ipipe_mach_get_tscinfo(struct __ipipe_tscinfo *info)
+{
+	info->type = IPIPE_TSC_TYPE_NONE;
+}
 #endif
 
 /*
@@ -345,6 +350,7 @@ void __init integrator_time_init(unsigned long reload, unsigned int ctrl)
 }
 
 #ifdef CONFIG_IPIPE
+
 void __ipipe_mach_acktimer(void)
 {
 	writel(1, TIMER1_VA_BASE + TIMER_INTCLR);

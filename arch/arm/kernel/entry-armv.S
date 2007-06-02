@@ -724,6 +724,18 @@ ENTRY(__switch_to)
  * purpose.
  */
 
+#ifdef CONFIG_IPIPE
+/* We use the same mechanism as Linux user helpers to store variables related to
+   TSC emulation, so that they can be used in user-space. */
+	.align 5
+	.globl  __ipipe_tsc_area_start
+
+__ipipe_tsc_area_start:	
+	.rep	8
+	.word	0
+	.endr
+#endif /* CONFIG_IPIPE */
+
 	.macro	usr_ret, reg
 #ifdef CONFIG_ARM_THUMB
 	bx	\reg

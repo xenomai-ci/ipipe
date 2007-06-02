@@ -74,6 +74,11 @@ static IPIPE_DEFINE_SPINLOCK(timer_lock);
 
 int __ipipe_mach_timerstolen = 0;
 EXPORT_SYMBOL(__ipipe_mach_timerstolen);
+
+void __ipipe_mach_get_tscinfo(struct __ipipe_tscinfo *info)
+{
+	info->type = IPIPE_TSC_TYPE_NONE;
+}
 #endif /* CONFIG_IPIPE */
 
 /* timer_mask_usec_ticks

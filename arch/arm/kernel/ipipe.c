@@ -131,6 +131,7 @@ int ipipe_get_sysinfo(struct ipipe_sysinfo *info)
 	info->cpufreq = ipipe_cpu_freq();
 	info->archdep.tmirq = __ipipe_mach_timerint;
 	info->archdep.tmfreq = info->cpufreq;
+        __ipipe_mach_get_tscinfo(&info->archdep.tsc);
 
 	return 0;
 }
