@@ -33,7 +33,7 @@ SECTIONS
   .text      :
   {
     _text = .;
-    *(.text)
+    TEXT_TEXT
     SCHED_TEXT
     LOCK_TEXT
     *(.fixup)
@@ -68,7 +68,7 @@ SECTIONS
   . = ALIGN(PAGE_SIZE);
   .data    :
   {
-    *(.data)
+    DATA_DATA
     *(.data1)
     *(.sdata)
     *(.sdata2)
@@ -131,7 +131,7 @@ SECTIONS
   __ftr_fixup : { *(__ftr_fixup) }
   __stop___ftr_fixup = .;
 
-  . = ALIGN(32);
+  . = ALIGN(4096);
   __per_cpu_start = .;
   .data.percpu  : { *(.data.percpu) }
   __per_cpu_end = .;

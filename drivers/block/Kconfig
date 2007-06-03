@@ -444,8 +444,6 @@ config CDROM_PKTCDVD_WCACHE
 	  this option is dangerous unless the CD-RW media is known good, as we
 	  don't do deferred write error handling yet.
 
-source "drivers/s390/block/Kconfig"
-
 config ATA_OVER_ETH
 	tristate "ATA over Ethernet support"
 	depends on NET
@@ -466,6 +464,8 @@ config BLK_DEV_CF_MIPS
 	help
 	  The Routerboard 532 has a CF slot on it. Enable the special block
 	  device driver for it.
+
+source "drivers/s390/block/Kconfig"
 
 endmenu
 

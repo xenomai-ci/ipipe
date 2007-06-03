@@ -10,6 +10,7 @@ obj-$(CONFIG_USB_LH7A40X)	+= lh7a40x_udc.o
 obj-$(CONFIG_USB_AT91)		+= at91_udc.o
 obj-$(CONFIG_USB_PD12)		+= pd12_udc.o
 obj-$(CONFIG_USB_MUSBHSFC)	+= musbhsfc_udc.o
+obj-$(CONFIG_USB_FSL_USB2)	+= fsl_usb2_udc.o
 
 #
 # USB gadget drivers
