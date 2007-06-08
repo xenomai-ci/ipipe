@@ -297,7 +297,13 @@ static phy_info_t phy_info_lxt971 = {
 	"LXT971",
 
 	(const phy_cmd_t []) {	/* config */
-		{ mk_mii_write(MII_REG_ANAR, 0x0A1), NULL }, /* 10/100, HD */
+		{ mk_mii_write(MII_REG_ANAR,
+				(ADVERTISE_CSMA |
+				ADVERTISE_10HALF |
+				ADVERTISE_10FULL |
+				ADVERTISE_100HALF |
+				ADVERTISE_100FULL)), NULL },
+
 		{ mk_mii_read(MII_REG_CR), mii_parse_cr },
 		{ mk_mii_read(MII_REG_ANAR), mii_parse_anar },
 		{ mk_mii_end, }
