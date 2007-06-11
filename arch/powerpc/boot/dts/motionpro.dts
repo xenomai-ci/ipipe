@@ -154,20 +154,11 @@
 			interrupt-parent = <500>;
 		};
 
-		mscan@900 {
-			device_type = "mscan";
-			compatible = "mpc5200b-mscan\0mpc5200-mscan";
-			cell-index = <0>;
-			interrupts = <2 12 0>;
-			interrupt-parent = <500>;
-			reg = <900 80>;
-		};
-
 		mscan@980 {
 			device_type = "mscan";
 			compatible = "mpc5200b-mscan\0mpc5200-mscan";
 			cell-index = <1>;
-			interrupts = <1 12 0>;
+			interrupts = <2 12 0>;
 			interrupt-parent = <500>;
 			reg = <980 80>;
 		};
