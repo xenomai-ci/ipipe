@@ -116,7 +116,7 @@ static int ad7416_attach(struct i2c_adapter *adap, int addr, int kind)
 	struct i2c_client *client;
 	int err;
 
-	client = kmalloc(sizeof(*client), GFP_KERNEL);
+	client = kzalloc(sizeof(*client), GFP_KERNEL);
 	if (client == NULL)
 		return -ENOMEM;
 	client->adapter = adap;
@@ -282,7 +282,11 @@ static int init_ad7416(void)
 {
 	int err = 0;
 
-	i2c_add_driver(&i2c_driver_ad7416);
+	err = i2c_add_driver(&i2c_driver_ad7416);
+	if (err < 0) {
+		printk(KERN_ALERT "ERROR: Couldn't add driver %s\n", HW_NAME);
+		return err;
+	}
 
 	/*
 	 * Finally register the driver.
