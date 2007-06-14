@@ -782,11 +782,6 @@ M:	rathamahata@php4.ru
 L:	linux-kernel@vger.kernel.org
 S:	Maintained
 
-BERKSHIRE PRODUCTS PC WATCHDOG DRIVER
-P:	Kenji Hollis
-W:	http://ftp.bitgate.com/pcwd/
-S:	Maintained
-
 BFS FILE SYSTEM
 P:	Tigran A. Aivazian
 M:	tigran@aivazian.fsnet.co.uk
@@ -1484,6 +1479,13 @@ FREESCALE HIGHSPEED USB DEVICE DRIVER
 P:	Li Yang
 M:	leoli@freescale.com
 L:	linux-usb-devel@lists.sourceforge.net
+L:	linuxppc-embedded@ozlabs.org
+S:	Maintained
+
+FREESCALE QUICC ENGINE UCC ETHERNET DRIVER
+P:	Li Yang
+M:	leoli@freescale.com
+L:	netdev@vger.kernel.org
 L:	linuxppc-embedded@ozlabs.org
 S:	Maintained
 
@@ -3018,7 +3020,7 @@ S:	Maintained
 REISERFS FILE SYSTEM
 P:	Hans Reiser
 M:	reiserfs-dev@namesys.com
-L:	reiserfs-list@namesys.com
+L:	reiserfs-devel@vger.kernel.org
 W:	http://www.namesys.com
 S:	Supported
 
@@ -3545,7 +3547,7 @@ S:	Maintained
 
 TULIP NETWORK DRIVER
 P:	Valerie Henson
-M:	val_henson@linux.intel.com
+M:	val@nmt.edu
 L:	tulip-users@lists.sourceforge.net
 W:	http://sourceforge.net/projects/tulip/
 S:	Maintained
@@ -3897,10 +3899,6 @@ S:	Maintained
 
 UCLINUX FOR NEC V850
 P:	Miles Bader
-M:	uclinux-v850@lsi.nec.co.jp
-W:	http://www.ic.nec.co.jp/micro/uclinux/eng/
-W:	http://www.ee.nec.de/uclinux/
-S:	Supported
 
 UCLINUX FOR RENESAS H8/300
 P:	Yoshinori Sato
@@ -3909,10 +3907,10 @@ W:	http://uclinux-h8.sourceforge.jp/
 S:	Supported
 
 UFS FILESYSTEM
-P: Evgeniy Dushistov
-M: dushistov@mail.ru
-L: linux-kernel@vger.kernel.org
-S: Maintained
+P:	Evgeniy Dushistov
+M:	dushistov@mail.ru
+L:	linux-kernel@vger.kernel.org
+S:	Maintained
 
 USB DIAMOND RIO500 DRIVER
 P:	Cesar Miquel
