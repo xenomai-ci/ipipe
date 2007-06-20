@@ -10,6 +10,7 @@ obj-$(CONFIG_EBONY)		+= ebony.o
 obj-$(CONFIG_EP405)		+= ep405.o
 obj-$(CONFIG_KATMAI)		+= katmai.o
 obj-$(CONFIG_LUAN)		+= luan.o
+obj-$(CONFIG_LWMON5)		+= lwmon5.o
 obj-$(CONFIG_OCOTEA)		+= ocotea.o
 obj-$(CONFIG_P3P440)		+= p3p440.o
 obj-$(CONFIG_PPChameleonEVB)	+= ppchameleon.o

@@ -57,6 +57,7 @@ obj-$(CONFIG_KATMAI)		+= pci_auto.o
 obj-$(CONFIG_LOPEC)		+= pci_auto.o todc_time.o
 obj-$(CONFIG_HDPU)		+= pci_auto.o
 obj-$(CONFIG_LUAN)		+= pci_auto.o todc_time.o
+obj-$(CONFIG_LWMON5)		+= pci_auto.o
 obj-$(CONFIG_YUCCA)		+= pci_auto.o todc_time.o
 obj-$(CONFIG_KATANA)		+= pci_auto.o
 obj-$(CONFIG_MV64360)		+= mv64360_pic.o

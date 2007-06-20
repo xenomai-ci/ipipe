@@ -125,6 +125,12 @@ config LUAN
 	help
 	  This option enables support for the IBM PPC440SP evaluation board.
 
+config LWMON5
+	bool "LWMON5"
+	select WANT_EARLY_SERIAL
+	help
+	  This option enables support for the Lieherr LWMON5 board.
+
 config OCOTEA
 	bool "Ocotea"
 	select WANT_EARLY_SERIAL
@@ -196,7 +202,7 @@ config 440EP
 
 config 440EPX
 	bool
-	depends on SEQUOIA
+	depends on LWMON5 || SEQUOIA
 	select PPC_FPU
 	select USB_EHCI_BIG_ENDIAN_MMIO
 	select USB_EHCI_BIG_ENDIAN_DESC
@@ -266,7 +272,7 @@ config BOOKE
 
 config IBM_OCP
 	bool
-	depends on ACADIA || ALPR || ASH || BAMBOO || BUBINGA || CPCI405 || EBONY || EP405 || KATMAI || LUAN || OCOTEA || P3P440 || PPChameleonEVB || RAINIER || REDWOOD_5 || REDWOOD_6 || SC3 || SEQUOIA || SYCAMORE || TAIHU || TAISHAN || WALNUT || YELLOWSTONE || YOSEMITE || YUCCA
+	depends on ACADIA || ALPR || ASH || BAMBOO || BUBINGA || CPCI405 || EBONY || EP405 || KATMAI || LUAN || LWMON5 || OCOTEA || P3P440 || PPChameleonEVB || RAINIER || REDWOOD_5 || REDWOOD_6 || SC3 || SEQUOIA || SYCAMORE || TAIHU || TAISHAN || WALNUT || YELLOWSTONE || YOSEMITE || YUCCA
 	default y
 
 config IBM_EMAC4
