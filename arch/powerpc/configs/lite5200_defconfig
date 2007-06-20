@@ -191,8 +191,8 @@ CONFIG_GENERIC_ISA_DMA=y
 # CONFIG_MPIC_WEIRD is not set
 # CONFIG_PPC_I8259 is not set
 # CONFIG_PPC_INDIRECT_PCI is not set
-CONFIG_PCI=y
-CONFIG_PCI_DOMAINS=y
+# CONFIG_PCI is not set
+# CONFIG_PCI_DOMAINS is not set
 # CONFIG_PCIEPORTBUS is not set
 # CONFIG_PCI_DEBUG is not set
 
@@ -553,8 +553,13 @@ CONFIG_NETDEVICES=y
 #
 # Ethernet (10 or 100Mbit)
 #
-# CONFIG_NET_ETHERNET is not set
+CONFIG_NET_ETHERNET=y
 
+#
+# MPC5200 Networking Options
+#
+CONFIG_FEC_MPC52xx=y
+CONFIG_USE_MDIO=y
 #
 # Ethernet (1000 Mbit)
 #
@@ -864,7 +869,8 @@ CONFIG_RAMFS=y
 #
 # Network File Systems
 #
-# CONFIG_NFS_FS is not set
+CONFIG_NFS_FS=yes
+CONFIG_ROOT_NFS=y
 # CONFIG_NFSD is not set
 # CONFIG_SMB_FS is not set
 # CONFIG_CIFS is not set

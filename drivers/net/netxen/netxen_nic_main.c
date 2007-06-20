@@ -542,6 +542,13 @@ netxen_nic_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
 				NETXEN_ROMUSB_GLB_PEGTUNE_DONE));
 		/* Handshake with the card before we register the devices. */
 		netxen_phantom_init(adapter, NETXEN_NIC_PEG_TUNE);
+
+	       /* leave the hw in the same state as reboot */
+	       writel(0, NETXEN_CRB_NORMALIZE(adapter, CRB_CMDPEG_STATE));
+	       netxen_pinit_from_rom(adapter, 0);
+	       udelay(500);
+	       netxen_load_firmware(adapter);
+	       netxen_phantom_init(adapter, NETXEN_NIC_PEG_TUNE);
 	}
 
 	/*
@@ -654,8 +661,6 @@ static void __devexit netxen_nic_remove(struct pci_dev *pdev)
 	if (adapter->portnum == 0)
 		netxen_free_adapter_offload(adapter);
 
-	if (adapter->irq)
-		free_irq(adapter->irq, adapter);
 	if(adapter->portnum == 0) {
 		/* leave the hw in the same state as reboot */
 		writel(0, NETXEN_CRB_NORMALIZE(adapter, CRB_CMDPEG_STATE));
