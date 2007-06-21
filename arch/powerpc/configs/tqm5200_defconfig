@@ -1,7 +1,7 @@
 #
 # Automatically generated make config: don't edit
 # Linux kernel version: 2.6.22-rc5
-# Wed Jun 20 12:47:48 2007
+# Thu Jun 21 15:51:00 2007
 #
 # CONFIG_PPC64 is not set
 CONFIG_PPC_PM_NEEDS_RTC_LIB=y
@@ -342,7 +342,7 @@ CONFIG_MTD=y
 CONFIG_MTD_CONCAT=y
 CONFIG_MTD_PARTITIONS=y
 # CONFIG_MTD_REDBOOT_PARTS is not set
-# CONFIG_MTD_CMDLINE_PARTS is not set
+CONFIG_MTD_CMDLINE_PARTS=y
 
 #
 # User Modules And Translation Layers
@@ -388,6 +388,7 @@ CONFIG_MTD_ROM=y
 # CONFIG_MTD_PHYSMAP is not set
 # CONFIG_MTD_PHYSMAP_OF is not set
 # CONFIG_MTD_PLATRAM is not set
+CONFIG_MTD_TQM5200=y
 
 #
 # Self-contained MTD device drivers
