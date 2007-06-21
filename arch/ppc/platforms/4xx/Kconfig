@@ -129,7 +129,7 @@ config LWMON5
 	bool "LWMON5"
 	select WANT_EARLY_SERIAL
 	help
-	  This option enables support for the Lieherr LWMON5 board.
+	  This option enables support for the Liebherr LWMON5 board.
 
 config OCOTEA
 	bool "Ocotea"
