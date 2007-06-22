@@ -82,3 +82,4 @@ obj-$(CONFIG_MTD_TAIHU)		+= taihu.o
 obj-$(CONFIG_MTD_ALPR)		+= alpr.o
 obj-$(CONFIG_MTD_SC3)		+= sc3.o
 obj-$(CONFIG_MTD_MOTIONPRO)	+= motionpro.o
+obj-$(CONFIG_MTD_TQM5200)	+= tqm5200.o
