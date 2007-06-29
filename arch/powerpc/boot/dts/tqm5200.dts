@@ -84,6 +84,14 @@
 			has-wdt;
 		};
 
+		usb@1000 {
+			device_type = "usb-ohci-be";
+			compatible = "mpc5200-ohci\0ohci-be";
+			reg = <1000 ff>;
+			interrupts = <2 6 0>;
+			interrupt-parent = <&mpc5200_pic>;
+		};
+
 		bestcomm@1200 {
 			device_type = "dma-controller";
 			compatible = "mpc5200-bestcomm";
