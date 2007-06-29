@@ -73,9 +73,11 @@ static void __init tqm5200_setup_arch(void)
 	mpc52xx_setup_cpu();
 
 #ifdef CONFIG_PCI
-	np = of_find_node_by_type(np, "pci");
-	if (np)
+	np = of_find_node_by_type(NULL, "pci");
+	if (np) {
 		mpc52xx_add_bridge(np);
+		of_node_put(np);
+	}
 #endif
 
 #ifdef CONFIG_BLK_DEV_INITRD
