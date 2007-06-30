@@ -89,8 +89,8 @@ VM_MASK		= 0x00020000
 				js    bypass1 ; \
 				jne   bypass2 ; \
 				movl PT_ORIG_EAX(%esp),%eax
-#define PUSH_XCODE(v)		pushl $ ex_/**/v
-#define PUSH_XVEC(v)		pushl $ ex_/**/v
+#define PUSH_XCODE(v)		pushl $ ex_ ## v
+#define PUSH_XVEC(v)		pushl $ ex_ ## v
 #define HANDLE_EXCEPTION(code)	movl %code,%ecx ; \
 				call __ipipe_handle_exception ; \
 				testl %eax,%eax	; \
@@ -99,7 +99,7 @@ VM_MASK		= 0x00020000
 				movl %ecx, %ds ; \
 				movl %ecx, %es ; \
 				movl %esp, %eax	; \
-				movl $ex_/**/code,%edx ; \
+				movl $ex_ ## code,%edx ; \
 				call __ipipe_divert_exception ; \
 				testl %eax,%eax	; \
 				jnz restore_nocheck_notrace
