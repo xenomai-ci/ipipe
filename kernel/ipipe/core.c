@@ -252,6 +252,59 @@ unsigned long fastcall ipipe_test_and_stall_pipeline_from(struct ipipe_domain *i
 	return s;
 }
 
+void fastcall __ipipe_spin_lock_irq(raw_spinlock_t *lock)
+{
+	struct ipipe_domain *ipd;
+	ipipe_declare_cpuid;
+
+	local_irq_disable_hw();
+	__raw_spin_lock(lock);
+	ipipe_load_cpuid();
+	ipd = per_cpu(ipipe_percpu_domain, cpuid);
+	__set_bit(IPIPE_STALL_FLAG, &ipd->cpudata[cpuid].status);
+}
+
+void fastcall __ipipe_spin_unlock_irq(raw_spinlock_t *lock)
+{
+	struct ipipe_domain *ipd;
+	ipipe_declare_cpuid;
+
+	__raw_spin_unlock(lock);
+	ipipe_load_cpuid();
+	ipd = per_cpu(ipipe_percpu_domain, cpuid);
+	__clear_bit(IPIPE_STALL_FLAG, &ipd->cpudata[cpuid].status);
+	local_irq_enable_hw();
+}
+
+unsigned long fastcall __ipipe_spin_lock_irqsave(raw_spinlock_t *lock)
+{
+	struct ipipe_domain *ipd;
+	ipipe_declare_cpuid;
+	unsigned long flags;
+	int s;
+
+	local_irq_save_hw(flags);
+	__raw_spin_lock(lock);
+	ipipe_load_cpuid();
+	ipd = per_cpu(ipipe_percpu_domain, cpuid);
+	s = __test_and_set_bit(IPIPE_STALL_FLAG, &ipd->cpudata[cpuid].status);
+
+	return raw_mangle_irq_bits(s, flags);
+}
+
+void fastcall __ipipe_spin_unlock_irqrestore(raw_spinlock_t *lock, unsigned long x)
+{
+	struct ipipe_domain *ipd;
+	ipipe_declare_cpuid;
+
+	__raw_spin_unlock(lock);
+	ipipe_load_cpuid();
+	ipd = per_cpu(ipipe_percpu_domain, cpuid);
+	if (!raw_demangle_irq_bits(&x))
+		__clear_bit(IPIPE_STALL_FLAG, &ipd->cpudata[cpuid].status);
+	local_irq_restore_hw(x);
+}
+
 /*
  * ipipe_unstall_pipeline_from() -- Unstall the pipeline and
  * synchronize pending interrupts for a given domain. See
@@ -1428,6 +1481,10 @@ EXPORT_SYMBOL(__ipipe_stall_root);
 EXPORT_SYMBOL(__ipipe_test_root);
 EXPORT_SYMBOL(__ipipe_test_and_stall_root);
 #endif /* CONFIG_SMP */
+EXPORT_SYMBOL(__ipipe_spin_lock_irq);
+EXPORT_SYMBOL(__ipipe_spin_unlock_irq);
+EXPORT_SYMBOL(__ipipe_spin_lock_irqsave);
+EXPORT_SYMBOL(__ipipe_spin_unlock_irqrestore);
 EXPORT_SYMBOL(__ipipe_pipeline);
 EXPORT_SYMBOL(ipipe_register_domain);
 EXPORT_SYMBOL(ipipe_unregister_domain);
