@@ -40,19 +40,33 @@ phys_addr_t fixup_bigphys_addr(phys_addr_t addr, phys_addr_t size)
         /*
 	 * Trap the least significant 32-bit portions of an
 	 * address in the 440's 36-bit address space.  Fix
-	 * them up with the appropriate ERPN
+	 * them up with the appropriate ERPN.
+	 * Least significant 32-bit portions of PPC44x_PCIxCFG addresses
+	 * are being fixed too (because they are set to some virtual values
+	 * to avoid any confusion with addresses in RAM).
 	 */
 	if ((addr >= PPC44x_IO_LO) && (addr <= PPC44x_IO_HI))
 		page_4gb = PPC44x_IO_PAGE;
-	else if ((addr >= PPC44x_PCI0CFG_LO) && (addr <= PPC44x_PCI0CFG_HI))
+	else if ((addr >= PPC44x_PCI0CFG_LO) && (addr <= PPC44x_PCI0CFG_HI)) {
+#ifdef PPC44x_PCI_CFG_MSK
+		/* fix low address */
+		addr &= PPC44x_PCI_CFG_MSK;
+		addr |= PPC44x_PCI0CFG_MSK;
+#endif
 		page_4gb = PPC44x_PCICFG_PAGE;
 #ifdef CONFIG_440SP
-	else if ((addr >= PPC44x_PCI1CFG_LO) && (addr <= PPC44x_PCI1CFG_HI))
+	} else if ((addr >= PPC44x_PCI1CFG_LO) && (addr <= PPC44x_PCI1CFG_HI)) {
 		page_4gb = PPC44x_PCICFG_PAGE;
-	else if ((addr >= PPC44x_PCI2CFG_LO) && (addr <= PPC44x_PCI2CFG_HI))
+		/* fix low address */
+		addr &= PPC44x_PCI_CFG_MSK;
+		addr |= PPC44x_PCI1CFG_MSK;
+	} else if ((addr >= PPC44x_PCI2CFG_LO) && (addr <= PPC44x_PCI2CFG_HI)) {
 		page_4gb = PPC44x_PCICFG_PAGE;
+		/* fix low address */
+		addr &= PPC44x_PCI_CFG_MSK;
+		addr |= PPC44x_PCI2CFG_MSK;
 #endif
-	else if ((addr >= PPC44x_PCIMEM_LO) && (addr <= PPC44x_PCIMEM_HI))
+	} else if ((addr >= PPC44x_PCIMEM_LO) && (addr <= PPC44x_PCIMEM_HI))
 		page_4gb = PPC44x_PCIMEM_PAGE;
 
 	return (page_4gb | addr);

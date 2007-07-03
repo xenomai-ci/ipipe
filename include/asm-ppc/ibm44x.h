@@ -95,12 +95,16 @@
 #if defined(CONFIG_440SP) || defined(CONFIG_440SPE)
 #define PPC44x_IO_LO		0xf0000000UL
 #define PPC44x_IO_HI		0xffffffffUL	/* used not only for PCI-IO but for EBC too */
-#define PPC44x_PCI0CFG_LO	0x0ec00000UL
-#define PPC44x_PCI0CFG_HI	0x0ec00007UL
-#define PPC44x_PCI1CFG_LO	0x1ec00000UL
-#define PPC44x_PCI1CFG_HI	0x1ec00007UL
-#define PPC44x_PCI2CFG_LO	0x2ec00000UL
-#define PPC44x_PCI2CFG_HI	0x2ec00007UL
+#define PPC44x_PCI_CFG_MSK	0x0fffffffUL	/* virtual address mask */
+#define PPC44x_PCI0CFG_LO	0x5ec00000UL
+#define PPC44x_PCI0CFG_HI	0x5ec00007UL
+#define PPC44x_PCI0CFG_MSK	0x00000000UL	/* PCI0 physical address mask */
+#define PPC44x_PCI1CFG_LO	0x6ec00000UL
+#define PPC44x_PCI1CFG_HI	0x6ec00007UL
+#define PPC44x_PCI1CFG_MSK	0x10000000UL	/* PCI1 physical address mask */
+#define PPC44x_PCI2CFG_LO	0x7ec00000UL
+#define PPC44x_PCI2CFG_HI	0x7ec00007UL
+#define PPC44x_PCI2CFG_MSK	0x20000000UL	/* PCI2 physical address mask */
 #define PPC44x_PCIMEM_LO	0x80000000UL
 #define PPC44x_PCIMEM_HI	0xdfffffffUL
 #elif defined(CONFIG_440EP) || defined(CONFIG_440GR)
@@ -120,8 +124,10 @@
 #else
 #define PPC44x_IO_LO		0x40000000UL
 #define PPC44x_IO_HI		0x40000fffUL
-#define PPC44x_PCI0CFG_LO	0x0ec00000UL
-#define PPC44x_PCI0CFG_HI	0x0ec00007UL
+#define PPC44x_PCI_CFG_MSK	0x0fffffffUL	/* virtual address mask */
+#define PPC44x_PCI0CFG_LO	0x5ec00000UL
+#define PPC44x_PCI0CFG_HI	0x5ec00007UL
+#define PPC44x_PCI0CFG_MSK	0x00000000UL	/* PCI0 physical address mask */
 #define PPC44x_PCIMEM_LO	0x80002000UL
 #define PPC44x_PCIMEM_HI	0xffffffffUL
 #endif
