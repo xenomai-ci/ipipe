@@ -757,6 +757,11 @@ config P3M750
 	help
 	  Select P3M750 if configuring a Prodrive P3M750 platform
 
+config P3M7448
+	bool "Prodrive P3M7448"
+	help
+	  Select P3M7448 if configuring a Prodrive P3M7448 platform
+
 config TQM834x
 	bool "TQM834x"
 	help
@@ -863,7 +868,7 @@ config GT64260
 
 config MV64360		# Really MV64360 & MV64460
 	bool
-	depends on CHESTNUT || KATANA || RADSTONE_PPC7D || HDPU || EV64360 || P3M750
+	depends on CHESTNUT || KATANA || RADSTONE_PPC7D || HDPU || EV64360 || P3M750 || P3M7448
 	default y
 
 config MV64X60
@@ -874,12 +879,12 @@ config MV64X60
 
 config MV643XX_ETH_0
 	bool
-	depends on MV643XX_ETH && (KATANA || RADSTONE_PPC7D || EV64360 || HDPU || P3M750)
+	depends on MV643XX_ETH && (KATANA || RADSTONE_PPC7D || EV64360 || HDPU || P3M750 || P3M7448)
 	default y
 
 config MV643XX_ETH_1
 	bool
-	depends on MV643XX_ETH && (KATANA || RADSTONE_PPC7D || EV64360)
+	depends on MV643XX_ETH && (KATANA || RADSTONE_PPC7D || EV64360 || P3M7448)
 	default y
 
 config MV643XX_ETH_2

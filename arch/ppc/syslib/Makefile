@@ -62,6 +62,7 @@ obj-$(CONFIG_YUCCA)		+= pci_auto.o todc_time.o
 obj-$(CONFIG_KATANA)		+= pci_auto.o
 obj-$(CONFIG_MV64360)		+= mv64360_pic.o
 obj-$(CONFIG_P3M750)		+= mv64360_pic.o
+obj-$(CONFIG_P3M7448)		+= mv64360_pic.o
 obj-$(CONFIG_MV64X60)		+= mv64x60.o mv64x60_win.o
 obj-$(CONFIG_MVME5100)		+= open_pic.o todc_time.o \
 					pci_auto.o hawk_common.o
