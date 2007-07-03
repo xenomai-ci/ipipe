@@ -394,14 +394,14 @@ static inline void ppc440spe_adma_device_clear_eot_status (ppc440spe_ch_t *chan)
 		xor_reg->sr = rv;
 
                 if (rv & (XOR_IE_ICBIE_BIT|XOR_IE_ICIE_BIT|XOR_IE_RPTIE_BIT)) {
-			printk ("XOR ERR 0x%x status\n", rv);
 			if (rv & XOR_IE_RPTIE_BIT) {
 				/* Read PLB Timeout Error.
 				 * Try to resubmit the CB
 				 */
 				xor_reg->cblalr = xor_reg->ccbalr;
 				xor_reg->crsr = XOR_CRSR_XAE_BIT;
-			}
+			} else
+				printk (KERN_ERR "XOR ERR 0x%x status\n", rv);
 			break;
 		}
 
@@ -759,7 +759,7 @@ static void __ppc440spe_adma_slot_cleanup(ppc440spe_ch_t *chan)
 		if (iter->phys == current_desc) {
 			BUG_ON(seen_current++);
 			if (busy || ppc440spe_desc_get_link(iter, chan)) {
-				ppc440spe_adma_run_tx_complete_actions(iter,
+				cookie = ppc440spe_adma_run_tx_complete_actions(iter,
 					chan, cookie);
 				break;
 			}
