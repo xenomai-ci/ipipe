@@ -481,6 +481,7 @@ static inline void ppc440spe_chan_append(ppc440spe_ch_t *chan)
 	volatile dma_regs_t *dma_reg;
 	volatile xor_regs_t *xor_reg;
 	ppc440spe_desc_t *iter;
+	xor_cb_t *xcb;
 	u32 cur_desc;
 	unsigned long flags;
 
@@ -546,6 +547,14 @@ static inline void ppc440spe_chan_append(ppc440spe_ch_t *chan)
 		xor_reg = (xor_regs_t *)chan->device->pdev->resource[0].start;
 
 		local_irq_save(flags);
+
+		/* the last linked CDB has to generate an interrupt
+		 * that we'd be able to append the next lists to h/w
+		 * regardless of the XOR engine state at the moment of
+		 * appending of these next lists
+		 */
+		xcb = xor_last_linked->hw_desc;
+		xcb->cbc |= XOR_CBCR_CBCE_BIT;
 
 		if (!(xor_reg->sr & XOR_SR_XCP_BIT)) {
 			/* XORcore is idle. Refetch now */
