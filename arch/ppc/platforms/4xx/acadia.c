@@ -147,7 +147,7 @@ static struct ndfc_chip_settings acadia_chip0_settings = {
 
 static struct nand_ecclayout nand_oob_16 = {
 	.eccbytes = 6,
-	.eccpos = {9, 10, 11, 13, 14, 15},
+	.eccpos = {0, 1, 2, 3, 6, 7},
 	.oobfree = {
 		 {.offset = 8,
 		  .length = 8}}

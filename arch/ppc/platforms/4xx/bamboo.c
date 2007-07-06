@@ -466,10 +466,10 @@ static struct ndfc_chip_settings bamboo_chip0_settings = {
 
 static struct nand_ecclayout nand_oob_16 = {
 	.eccbytes = 6,
-	.eccpos = {9, 10, 11, 13, 14, 15},
+	.eccpos = {0, 1, 2, 3, 6, 7},
 	.oobfree = {
 		 {.offset = 8,
-		  . length = 8}}
+		  .length = 8}}
 };
 
 static struct platform_nand_chip bamboo_nand_chip0 = {
