@@ -189,5 +189,20 @@
 			compatible = "mpc5200-sram\0sram";
 			reg = <8000 4000>;
 		};
+
+		flash@c000000 {
+			device_type = "rom";
+			compatible = "direct-mapped";
+			reg = <0c000000 02000000>;
+			probe-type = "CFI";
+			bank-width = <4>;
+			partitions = <00000000 000a0000
+				      000a0000 00160000
+				      00200000 00200000
+				      00400000 00400000
+				      00800000 00800000
+				      01000000 01000000>;
+			partition-names = "firmware\0kernel\0initrd\0small-fs\0misc\0big-fs";
+		};
 	};
 };

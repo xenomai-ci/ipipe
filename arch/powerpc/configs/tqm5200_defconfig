@@ -392,9 +392,9 @@ CONFIG_MTD_ROM=y
 #
 # CONFIG_MTD_COMPLEX_MAPPINGS is not set
 # CONFIG_MTD_PHYSMAP is not set
-# CONFIG_MTD_PHYSMAP_OF is not set
+CONFIG_MTD_PHYSMAP_OF=y
 # CONFIG_MTD_PLATRAM is not set
-CONFIG_MTD_TQM5200=y
+# CONFIG_MTD_TQM5200 is not set
 
 #
 # Self-contained MTD device drivers
