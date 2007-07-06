@@ -51,6 +51,41 @@
  *
  */
 
+static void __init
+tqm5200_setup_cpu(void)
+{
+	struct mpc52xx_gpio __iomem *gpio;
+	u32 port_config;
+
+	/* Map zones */
+	gpio = mpc52xx_find_and_map("mpc5200-gpio");
+	if (!gpio) {
+		printk(KERN_ERR __FILE__ ": "
+			"Error while mapping GPIO register for port config. "
+			"Expect some abnormal behavior\n");
+		goto error;
+	}
+
+	/* Set port config */
+	port_config = in_be32(&gpio->port_config);
+
+	port_config &= ~0x00800000;	/* 48Mhz internal, pin is GPIO	*/
+
+	port_config &= ~0x00007000;	/* USB port : Differential mode	*/
+	port_config |=  0x00001000;	/*            USB 1 only	*/
+
+	port_config &= ~0x03000000;	/* ATA CS is on csb_4/5		*/
+	port_config |=  0x01000000;
+
+	pr_debug("port_config: old:%x new:%x\n",
+	         in_be32(&gpio->port_config), port_config);
+	out_be32(&gpio->port_config, port_config);
+
+	/* Unmap zone */
+error:
+	iounmap(gpio);
+}
+
 static void __init tqm5200_setup_arch(void)
 {
 	struct device_node *np;
@@ -71,6 +106,7 @@ static void __init tqm5200_setup_arch(void)
 
 	/* CPU & Port mux setup */
 	mpc52xx_setup_cpu();
+	tqm5200_setup_cpu();
 
 #ifdef CONFIG_PCI
 	np = of_find_node_by_type(NULL, "pci");

@@ -84,6 +84,13 @@
 			has-wdt;
 		};
 
+		gpio@b00 {
+			compatible = "mpc5200-gpio";
+			reg = <b00 40>;
+			interrupts = <1 7 0>;
+			interrupt-parent = <&mpc5200_pic>;
+		};
+
 		usb@1000 {
 			device_type = "usb-ohci-be";
 			compatible = "mpc5200-ohci\0ohci-be";
