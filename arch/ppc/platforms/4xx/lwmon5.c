@@ -73,12 +73,13 @@ static struct resource lwmon5_nor_resource = {
 		.flags = IORESOURCE_MEM,
 };
 
-#define RW_PART0_OF	0
-#define RW_PART0_SZ	0x180000
-#define RW_PART1_SZ	0x280000
-/* Partition 2 will be autosized dynamically... */
-#define RW_PART3_SZ	0x80000
-#define RW_PART4_SZ	0x80000
+#define RW_PART0_SZ	0x800000
+#define RW_PART1_SZ	0x800000
+#define RW_PART2_SZ	0x200000
+/* Partition 3 will be autosized dynamically... */
+#define RW_PART4_SZ	0x2000000
+#define RW_PART5_SZ	0x80000
+#define RW_PART6_SZ	0x80000
 
 static struct mtd_partition lwmon5_nor_parts[] = {
 	{
@@ -87,24 +88,34 @@ static struct mtd_partition lwmon5_nor_parts[] = {
 		.size = RW_PART0_SZ
 	},
 	{
-		.name = "root",
+		.name = "kernel_bak",
 		.offset = MTDPART_OFS_APPEND,
-		.size = RW_PART1_SZ,
+		.size = RW_PART1_SZ
 	},
 	{
-		.name = "user",
+		.name = "bitmap",
 		.offset = MTDPART_OFS_APPEND,
-/*		.size = RW_PART2_SZ */ /* will be adjusted dynamically */
+		.size = RW_PART2_SZ,
+	},
+	{
+		.name = "appdisk",
+		.offset = MTDPART_OFS_APPEND,
+/*		.size = RW_PART3_SZ */ /* will be adjusted dynamically */
+	},
+	{
+		.name = "rootfs",
+		.offset = MTDPART_OFS_APPEND,
+		.size = RW_PART4_SZ,
 	},
 	{
 		.name = "env",
 		.offset = MTDPART_OFS_APPEND,
-		.size = RW_PART3_SZ,
+		.size = RW_PART5_SZ,
 	},
 	{
 		.name = "u-boot",
 		.offset = MTDPART_OFS_APPEND,
-		.size = RW_PART4_SZ,
+		.size = RW_PART6_SZ,
 	}
 };
 
@@ -129,10 +140,11 @@ static int lwmon5_setup_flash(void)
 	lwmon5_nor_resource.start = __res.bi_flashstart;
 
 	/*
-	 * Adjust partition 2 to flash size
+	 * Adjust partition 3 to flash size
 	 */
-	lwmon5_nor_parts[2].size = __res.bi_flashsize -
-		RW_PART0_SZ - RW_PART1_SZ - RW_PART3_SZ - RW_PART4_SZ;
+	lwmon5_nor_parts[3].size = __res.bi_flashsize
+		- RW_PART0_SZ - RW_PART1_SZ - RW_PART2_SZ - RW_PART4_SZ
+		- RW_PART5_SZ - RW_PART6_SZ;
 
 	platform_device_register(&lwmon5_nor_device);
 
