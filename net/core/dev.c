@@ -2022,6 +2022,7 @@ static void net_rx_action(struct softirq_action *h)
 		}
 	}
 out:
+	local_irq_enable();
 #ifdef CONFIG_NET_DMA
 	/*
 	 * There may not be any more sk_buffs coming right now, so push
@@ -2036,7 +2037,6 @@ out:
 		}
 	}
 #endif
-	local_irq_enable();
 	return;
 
 softnet_break:
