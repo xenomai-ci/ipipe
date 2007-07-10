@@ -41,6 +41,10 @@
 
 static void __iomem *reset_reg;
 
+#ifdef CONFIG_PPC_PASEMI_A2_WORKAROUNDS
+DEFINE_SPINLOCK(lbi_lock);
+#endif
+
 static void pas_restart(char *cmd)
 {
 	printk("Restarting...\n");

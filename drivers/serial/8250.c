@@ -352,6 +352,114 @@ static inline int map_8250_out_reg(struct uart_8250_port *up, int offset)
 
 #endif
 
+#ifdef CONFIG_PPC_PASEMI_A2_WORKAROUNDS
+extern spinlock_t lbi_lock;
+
+static unsigned int serial_in(struct uart_8250_port *up, int offset)
+{
+	unsigned int tmp;
+	int ret, flags;
+	offset = map_8250_in_reg(up, offset) << up->port.regshift;
+
+	spin_lock_irqsave(&lbi_lock, flags);
+	switch (up->port.iotype) {
+	case UPIO_HUB6:
+		outb(up->port.hub6 - 1 + offset, up->port.iobase);
+		ret = inb(up->port.iobase + 1);
+		break;
+
+	case UPIO_MEM:
+	case UPIO_DWAPB:
+		ret = readb(up->port.membase + offset);
+		break;
+
+	case UPIO_RM9000:
+	case UPIO_MEM32:
+		ret = readl(up->port.membase + offset);
+		break;
+
+#ifdef CONFIG_SERIAL_8250_AU1X00
+	case UPIO_AU:
+		ret = __raw_readl(up->port.membase + offset);
+		break;
+#endif
+
+	case UPIO_TSI:
+		if (offset == UART_IIR) {
+			tmp = readl(up->port.membase + (UART_IIR & ~3));
+			ret = (tmp >> 16) & 0xff; /* UART_IIR % 4 == 2*/
+		} else
+			ret = readb(up->port.membase + offset);
+		break;
+
+	default:
+		ret = inb(up->port.iobase + offset);
+		break;
+	}
+	spin_unlock_irqrestore(&lbi_lock, flags);
+	return ret;
+}
+
+static void
+serial_out(struct uart_8250_port *up, int offset, int value)
+{
+	/* Save the offset before it's remapped */
+	int save_offset = offset, flags;
+	offset = map_8250_out_reg(up, offset) << up->port.regshift;
+
+	spin_lock_irqsave(&lbi_lock, flags);
+	switch (up->port.iotype) {
+	case UPIO_HUB6:
+		outb(up->port.hub6 - 1 + offset, up->port.iobase);
+		outb(value, up->port.iobase + 1);
+		break;
+
+	case UPIO_MEM:
+		writeb(value, up->port.membase + offset);
+		break;
+
+	case UPIO_RM9000:
+	case UPIO_MEM32:
+		writel(value, up->port.membase + offset);
+		break;
+
+#ifdef CONFIG_SERIAL_8250_AU1X00
+	case UPIO_AU:
+		__raw_writel(value, up->port.membase + offset);
+		break;
+#endif
+	case UPIO_TSI:
+		if (!((offset == UART_IER) && (value & UART_IER_UUE)))
+			writeb(value, up->port.membase + offset);
+		break;
+
+	case UPIO_DWAPB:
+		/* Save the LCR value so it can be re-written when a
+		 * Busy Detect interrupt occurs. */
+		if (save_offset == UART_LCR)
+			up->lcr = value;
+		writeb(value, up->port.membase + offset);
+		/* Read the IER to ensure any interrupt is cleared before
+		 * returning from ISR. */
+		if (save_offset == UART_TX || save_offset == UART_IER)
+			value = serial_in(up, UART_IER);
+		break;
+
+	default:
+		outb(value, up->port.iobase + offset);
+	}
+
+#if defined(CONFIG_IDT_EB434) || defined(CONFIG_MIKROTIK_RB500)
+	__SLOW_DOWN_IO;
+	__SLOW_DOWN_IO;
+	__SLOW_DOWN_IO;
+	__SLOW_DOWN_IO;
+#endif
+	spin_unlock_irqrestore(&lbi_lock, flags);
+}
+
+#else /* CONFIG_PPC_PASEMI_A2_WORKAROUNDS */
+
 static unsigned int serial_in(struct uart_8250_port *up, int offset)
 {
 	unsigned int tmp;
@@ -442,6 +550,8 @@ serial_out(struct uart_8250_port *up, int offset, int value)
 	__SLOW_DOWN_IO;
 #endif
 }
+
+#endif /* CONFIG_PPC_PASEMI_A2_WORKAROUNDS */
 
 static void
 serial_out_sync(struct uart_8250_port *up, int offset, int value)
