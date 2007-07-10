@@ -620,7 +620,11 @@ void timer_interrupt(struct pt_regs * regs)
 	u64 tb_next_jiffy;
 
 #ifdef CONFIG_PPC_PASEMI_A2_WORKAROUNDS
+	extern spinlock_t native_tlbie_lock;
+
+	spin_lock(&native_tlbie_lock);
 	asm("ptesync");
+	spin_unlock(&native_tlbie_lock);
 #endif
 
 #ifdef CONFIG_PPC32

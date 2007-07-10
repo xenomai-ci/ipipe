@@ -36,7 +36,11 @@
 
 #define HPTE_LOCK_BIT 3
 
+#ifdef CONFIG_PPC_PASEMI_A2_WORKAROUNDS
+DEFINE_SPINLOCK(native_tlbie_lock);
+#else
 static DEFINE_SPINLOCK(native_tlbie_lock);
+#endif
 
 static inline void __tlbie(unsigned long va, unsigned int psize)
 {
