@@ -1528,6 +1528,56 @@ void __devinit smp_mpic_setup_cpu(int cpu)
 }
 #endif /* CONFIG_SMP */
 
+#ifdef CONFIG_PPC_PASEMI_A2_WORKAROUNDS
+
+/* Workaround for errata 4712 */
+static irqreturn_t intr_4712(int irq, void *data)
+{
+	return IRQ_HANDLED;
+}
+
+static int do_4712_workaround(void)
+{
+	struct mpic *mpic = mpic_primary;
+	int irq, ret;
+
+	/* HACK: setup timers 4 and 5: 2Hz for now, hold off for 1 sec */
+	/* Steal vectors 250 and 251, nothing uses them */
+
+	irq = irq_create_mapping(NULL, 250);
+	ret = request_irq(irq, &intr_4712, IRQF_DISABLED,
+			  "4712 workaround cpu0", NULL);
+
+	irq = irq_create_mapping(NULL, 251);
+	ret = request_irq(irq, &intr_4712, IRQF_DISABLED,
+			  "4712 workaround cpu1", NULL);
+
+	mpic_write(mpic->tmregs, 0 * MPIC_INFO(TIMER_STRIDE) +
+		   MPIC_INFO(TIMER_DESTINATION), 1);
+	mpic_write(mpic->tmregs, 0 * MPIC_INFO(TIMER_STRIDE) +
+		   MPIC_INFO(TIMER_VECTOR_PRI), (10 << MPIC_VECPRI_PRIORITY_SHIFT) | 250);
+	mpic_write(mpic->tmregs, 0 * MPIC_INFO(TIMER_STRIDE) +
+		   MPIC_INFO(TIMER_BASE_CNT), 8333333/4);
+
+	mpic_write(mpic->tmregs, 0 * MPIC_INFO(TIMER_STRIDE) +
+		   MPIC_INFO(TIMER_CURRENT_CNT), 8333333);
+
+	mpic_write(mpic->tmregs, 3 * MPIC_INFO(TIMER_STRIDE) +
+		   MPIC_INFO(TIMER_DESTINATION), 2);
+	mpic_write(mpic->tmregs, 3 * MPIC_INFO(TIMER_STRIDE) +
+		   MPIC_INFO(TIMER_VECTOR_PRI),
+		   (10 << MPIC_VECPRI_PRIORITY_SHIFT) | 251);
+	mpic_write(mpic->tmregs, 3 * MPIC_INFO(TIMER_STRIDE) +
+		   MPIC_INFO(TIMER_BASE_CNT), 8333333/4);
+	mpic_write(mpic->tmregs, 3 * MPIC_INFO(TIMER_STRIDE) +
+		   MPIC_INFO(TIMER_CURRENT_CNT), 8333333);
+
+	return 0;
+}
+late_initcall(do_4712_workaround);
+
+#endif
+
 #ifdef CONFIG_PM
 static int mpic_suspend(struct sys_device *dev, pm_message_t state)
 {
