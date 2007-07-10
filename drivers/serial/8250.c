@@ -179,7 +179,11 @@ static const struct serial8250_config uart_config[] = {
 		.name		= "16550A",
 		.fifo_size	= 16,
 		.tx_loadsz	= 16,
+#ifdef CONFIG_PPC_PASEMI_A2_WORKAROUNDS
+		.fcr		= UART_FCR_ENABLE_FIFO | UART_FCR_R_TRIG_11,
+#else
 		.fcr		= UART_FCR_ENABLE_FIFO | UART_FCR_R_TRIG_10,
+#endif
 		.flags		= UART_CAP_FIFO,
 	},
 	[PORT_CIRRUS] = {
@@ -1099,10 +1103,18 @@ static void autoconfig(struct uart_8250_port *up, unsigned int probeflags)
 	case 1:
 		up->port.type = PORT_UNKNOWN;
 		break;
+#ifdef CONFIG_PPC_PASEMI_A2_WORKAROUNDS
+	case 3:
+#else
 	case 2:
+#endif
 		up->port.type = PORT_16550;
 		break;
+#ifdef CONFIG_PPC_PASEMI_A2_WORKAROUNDS
+	case 2:
+#else
 	case 3:
+#endif
 		autoconfig_16550a(up);
 		break;
 	}
@@ -1252,10 +1264,14 @@ static void serial8250_start_tx(struct uart_port *port)
 			unsigned char lsr, iir;
 			lsr = serial_in(up, UART_LSR);
 			iir = serial_in(up, UART_IIR) & 0x0f;
+#ifdef CONFIG_PPC_PASEMI_A2_WORKAROUNDS
+			if (lsr & UART_LSR_TEMT && !(iir & UART_IIR_NO_INT))
+#else
 			if ((up->port.type == PORT_RM9000) ?
 				(lsr & UART_LSR_THRE &&
 				(iir == UART_IIR_NO_INT || iir == UART_IIR_THRI)) :
 				(lsr & UART_LSR_TEMT && iir & UART_IIR_NO_INT))
+#endif
 				transmit_chars(up);
 		}
 	}
@@ -1478,7 +1494,11 @@ static irqreturn_t serial8250_interrupt(int irq, void *dev_id)
 		up = list_entry(l, struct uart_8250_port, list);
 
 		iir = serial_in(up, UART_IIR);
+#ifdef CONFIG_PPC_PASEMI_A2_WORKAROUNDS
+		if ((iir & UART_IIR_NO_INT)) {
+#else
 		if (!(iir & UART_IIR_NO_INT)) {
+#endif
 			serial8250_handle_port(up);
 
 			handled = 1;
@@ -1596,7 +1616,11 @@ static void serial8250_timeout(unsigned long data)
 	unsigned int iir;
 
 	iir = serial_in(up, UART_IIR);
+#ifdef CONFIG_PPC_PASEMI_A2_WORKAROUNDS
+	if ((iir & UART_IIR_NO_INT))
+#else
 	if (!(iir & UART_IIR_NO_INT))
+#endif
 		serial8250_handle_port(up);
 	mod_timer(&up->timer, jiffies + poll_timeout(up->port.timeout));
 }
@@ -1889,7 +1913,11 @@ static int serial8250_startup(struct uart_port *port)
 	iir = serial_in(up, UART_IIR);
 	serial_outp(up, UART_IER, 0);
 
+#ifdef CONFIG_PPC_PASEMI_A2_WORKAROUNDS
+	if (lsr & UART_LSR_TEMT && !(iir & UART_IIR_NO_INT)) {
+#else
 	if (lsr & UART_LSR_TEMT && iir & UART_IIR_NO_INT) {
+#endif
 		if (!(up->bugs & UART_BUG_TXEN)) {
 			up->bugs |= UART_BUG_TXEN;
 			pr_debug("ttyS%d - enabling bad tx status workarounds\n",
