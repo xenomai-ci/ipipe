@@ -79,7 +79,11 @@ static inline void create_shadowed_slbe(unsigned long ea, unsigned long flags,
 	slb_shadow_update(mk_esid_data(ea, entry), mk_vsid_data(ea, flags),
 			  entry);
 
+#ifdef CONFIG_PPC_PASEMI_A2_WORKAROUNDS
+	asm volatile("slbmte  %0,%1 ; mfmsr %0 ; mtmsrd %0" :
+#else
 	asm volatile("slbmte  %0,%1" :
+#endif
 		     : "r" (mk_vsid_data(ea, flags)),
 		       "r" (mk_esid_data(ea, entry))
 		     : "memory" );
@@ -113,8 +117,18 @@ void slb_flush_and_rebolt(void)
 		     "slbia\n"
 		     /* Slot 1 - first VMALLOC segment */
 		     "slbmte	%0,%1\n"
+#ifdef CONFIG_PPC_PASEMI_A2_WORKAROUNDS
+		     /* PA6T Ax workaround */
+		     "mfmsr	%0\n"
+		     "mtmsrd	%0\n"
+#endif
 		     /* Slot 2 - kernel stack */
 		     "slbmte	%2,%3\n"
+#ifdef CONFIG_PPC_PASEMI_A2_WORKAROUNDS
+		     /* PA6T Ax workaround */
+		     "mfmsr	%0\n"
+		     "mtmsrd	%0\n"
+#endif
 		     "isync"
 		     :: "r"(mk_vsid_data(VMALLOC_START, vflags)),
 		        "r"(mk_esid_data(VMALLOC_START, 1)),
