@@ -619,6 +619,10 @@ void timer_interrupt(struct pt_regs * regs)
 	unsigned long ticks;
 	u64 tb_next_jiffy;
 
+#ifdef CONFIG_PPC_PASEMI_A2_WORKAROUNDS
+	asm("ptesync");
+#endif
+
 #ifdef CONFIG_PPC32
 	if (atomic_read(&ppc_n_lost_interrupts) != 0)
 		do_IRQ(regs);
