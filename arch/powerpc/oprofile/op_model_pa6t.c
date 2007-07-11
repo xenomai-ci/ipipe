@@ -109,6 +109,10 @@ static void pa6t_reg_setup(struct op_counter_config *ctr,
 			pr_debug("turned off counter %u\n", pmc);
 		}
 
+#ifdef CONFIG_PPC_PASEMI_A2_WORKAROUNDS
+	sys->mmcr0 |= PA6T_MMCR0_FCM1;
+#endif
+
 	if (sys->enable_kernel)
 		sys->mmcr0 |= PA6T_MMCR0_SUPEN | PA6T_MMCR0_HYPEN;
 	else

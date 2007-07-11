@@ -331,6 +331,13 @@ struct task_struct *__switch_to(struct task_struct *prev,
 
 	last = _switch(old_thread, new_thread);
 
+#ifdef CONFIG_PPC_PASEMI_A2_WORKAROUNDS
+	/* current is still really us, just a different us :-) */
+	if (current->mm) {
+		__hash_page_4K(0, _PAGE_USER|_PAGE_RW, get_vsid(current->mm->context.id, 0), &current->zero_pte, 0x300, 1);
+	}
+#endif
+
 	local_irq_restore(flags);
 
 	return last;
@@ -967,12 +974,25 @@ void ppc64_runlatch_on(void)
 {
 	unsigned long ctrl;
 
-	if (cpu_has_feature(CPU_FTR_CTRL) && !test_thread_flag(TIF_RUNLATCH)) {
+
+#ifdef CONFIG_PPC_PASEMI_A2_WORKAROUNDS
+	if (!test_thread_flag(TIF_RUNLATCH))
+#else
+	if (cpu_has_feature(CPU_FTR_CTRL) &&
+	    !test_thread_flag(TIF_RUNLATCH))
+#endif
+	{
 		HMT_medium();
 
 		ctrl = mfspr(SPRN_CTRLF);
 		ctrl |= CTRL_RUNLATCH;
 		mtspr(SPRN_CTRLT, ctrl);
+
+#ifndef CONFIG_PPC_PASEMI_A2_WORKAROUNDS
+		ctrl = mfmsr();
+		ctrl &= ~MSR_PMM;
+		mtmsrd(ctrl);
+#endif
 
 		set_thread_flag(TIF_RUNLATCH);
 	}
@@ -982,7 +1002,13 @@ void ppc64_runlatch_off(void)
 {
 	unsigned long ctrl;
 
-	if (cpu_has_feature(CPU_FTR_CTRL) && test_thread_flag(TIF_RUNLATCH)) {
+#ifdef CONFIG_PPC_PASEMI_A2_WORKAROUNDS
+	if (!test_thread_flag(TIF_RUNLATCH))
+#else
+	if (cpu_has_feature(CPU_FTR_CTRL) &&
+	    !test_thread_flag(TIF_RUNLATCH))
+#endif
+	{
 		HMT_medium();
 
 		clear_thread_flag(TIF_RUNLATCH);
@@ -990,6 +1016,12 @@ void ppc64_runlatch_off(void)
 		ctrl = mfspr(SPRN_CTRLF);
 		ctrl &= ~CTRL_RUNLATCH;
 		mtspr(SPRN_CTRLT, ctrl);
+
+#ifdef CONFIG_PPC_PASEMI_A2_WORKAROUNDS
+		ctrl = mfmsr();
+		ctrl |= MSR_PMM;
+		mtmsrd(ctrl);
+#endif
 	}
 }
 #endif
