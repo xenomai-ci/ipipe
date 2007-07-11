@@ -84,7 +84,7 @@ extern int edac_debug_level;
 #define PCI_VEND_DEV(vend, dev) PCI_VENDOR_ID_ ## vend, \
 	PCI_DEVICE_ID_ ## vend ## _ ## dev
 
-#if defined(CONFIG_X86) && defined(CONFIG_PCI)
+#if (defined(CONFIG_X86) || defined(CONFIG_PPC)) && defined(CONFIG_PCI)
 #define dev_name(dev) pci_name(to_pci_dev(dev))
 #else
 #define dev_name(dev) to_platform_device(dev)->name
@@ -185,7 +185,7 @@ enum scrub_type {
 #define SCRUB_FLAG_SW_PROG_SRC	BIT(SCRUB_SW_PROG_SRC_CORR)
 #define SCRUB_FLAG_SW_TUN	BIT(SCRUB_SW_SCRUB_TUNABLE)
 #define SCRUB_FLAG_HW_PROG	BIT(SCRUB_HW_PROG)
-#define SCRUB_FLAG_HW_SRC	BIT(SCRUB_HW_SRC_CORR)
+#define SCRUB_FLAG_HW_SRC	BIT(SCRUB_HW_SRC)
 #define SCRUB_FLAG_HW_PROG_SRC	BIT(SCRUB_HW_PROG_SRC_CORR)
 #define SCRUB_FLAG_HW_TUN	BIT(SCRUB_HW_TUNABLE)
 

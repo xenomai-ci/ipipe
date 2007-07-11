@@ -11,7 +11,7 @@ menu 'EDAC - error detection and reporting (RAS) (EXPERIMENTAL)'
 
 config EDAC
 	tristate "EDAC core system error reporting (EXPERIMENTAL)"
-	depends on X86 && EXPERIMENTAL
+	depends on (X86 || PPC) && EXPERIMENTAL
 	help
 	  EDAC is designed to report errors in the core system.
 	  These are low-level errors that are reported in the CPU or
@@ -97,6 +97,13 @@ config EDAC_R82600
 	help
 	  Support for error detection and correction on the Radisys
 	  82600 embedded chipset.
+
+config EDAC_PASEMI
+	tristate "PA Semi PA6T-1682M"
+	depends on EDAC_MM_EDAC && PCI
+	help
+	  Support for error detection and correction on the PA Semi
+	  PA6T-1682M processor.
 
 choice
 	prompt "Error detecting method"
