@@ -40,6 +40,7 @@
 #include "pasemi.h"
 
 static void __iomem *reset_reg;
+void __iomem *mem_errsta0, *mem_errsta1;
 
 #ifdef CONFIG_PPC_PASEMI_A2_WORKAROUNDS
 DEFINE_SPINLOCK(lbi_lock);
@@ -104,6 +105,9 @@ void __init pas_setup_arch(void)
 	reset_reg = ioremap(0xfc101100, 4);
 
 	pasemi_idle_init();
+
+	mem_errsta0 = ioremap(0xe0020730, 4);
+	mem_errsta1 = ioremap(0xe0028730, 4);
 }
 
 static __init void pas_init_IRQ(void)
@@ -170,6 +174,8 @@ static int pas_machine_check_handler(struct pt_regs *regs)
 {
 	int cpu = smp_processor_id();
 	unsigned long srr0, srr1, dsisr;
+	int dump_slb = 0;
+	int dump_memsta = 0;
 
 	srr0 = regs->nip;
 	srr1 = regs->msr;
@@ -183,25 +189,57 @@ static int pas_machine_check_handler(struct pt_regs *regs)
 		printk(KERN_ERR "Signalled by SDC\n");
 	if (srr1 & 0x100000) {
 		printk(KERN_ERR "Load/Store detected error:\n");
-		if (dsisr & 0x8000)
+		if (dsisr & 0x8000) {
 			printk(KERN_ERR "D-cache ECC double-bit error or bus error\n");
+			dump_memsta = 1;
+		}
 		if (dsisr & 0x4000)
 			printk(KERN_ERR "LSU snoop response error\n");
-		if (dsisr & 0x2000)
+		if (dsisr & 0x2000) {
 			printk(KERN_ERR "MMU SLB multi-hit or invalid B field\n");
+			dump_slb = 1;
+		}
 		if (dsisr & 0x1000)
 			printk(KERN_ERR "Recoverable Duptags\n");
-		if (dsisr & 0x800)
+		if (dsisr & 0x800) {
 			printk(KERN_ERR "Recoverable D-cache parity error count overflow\n");
+			dump_memsta = 1;
+		}
 		if (dsisr & 0x400)
 			printk(KERN_ERR "TLB parity error count overflow\n");
 	}
 	if (srr1 & 0x80000)
 		printk(KERN_ERR "Bus Error\n");
-	if (srr1 & 0x40000)
+	if (srr1 & 0x40000) {
 		printk(KERN_ERR "I-side SLB multiple hit\n");
-	if (srr1 & 0x20000)
+		dump_slb = 1;
+	}
+	if (srr1 & 0x20000) {
 		printk(KERN_ERR "I-cache parity error hit\n");
+		dump_memsta = 1;
+	}
+
+	if (dump_memsta) {
+		unsigned int errsta;
+		errsta = in_le32(mem_errsta0);
+		printk("mc0_mcdebug_errsta: 0x%08x (MER %d SER %d)\n",
+			errsta, !!(errsta & 0x2), !!(errsta & 0x1));
+		errsta = in_le32(mem_errsta1);
+		printk("mc1_mcdebug_errsta: 0x%08x (MER %d SER %d)\n",
+			errsta, !!(errsta & 0x2), !!(errsta & 0x1));
+	}
+
+	if (dump_slb) {
+		unsigned long slb_e, slb_v;
+		int i;
+		printk("slb contents:\n");
+		for (i = 0; i < SLB_NUM_ENTRIES; i++) {
+			asm volatile("slbmfee  %0,%1" : "=r" (slb_e) : "r" (i));
+			asm volatile("slbmfev  %0,%1" : "=r" (slb_v) : "r" (i));
+
+			printk("%02d %016lx %016lx\n", i, slb_e, slb_v);
+		}
+	}
 
 	/* SRR1[62] is from MSR[62] if recoverable, so pass that back */
 	return !!(srr1 & 0x2);
