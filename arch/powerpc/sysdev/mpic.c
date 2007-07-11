@@ -1254,6 +1254,12 @@ void __init mpic_init(struct mpic *mpic)
 			   mpic_read(mpic->gregs, MPIC_INFO(GREG_GLOBAL_CONF_0))
 			   | MPIC_GREG_GCONF_8259_PTHROU_DIS);
 
+#ifdef CONFIG_PPC_PASEMI_A2_WORKAROUNDS
+	mpic_write(mpic->gregs, MPIC_INFO(GREG_GLOBAL_CONF_0),
+		   mpic_read(mpic->gregs, MPIC_INFO(GREG_GLOBAL_CONF_0))
+		   | 0x10000000);
+#endif
+
 	/* Set current processor priority to 0 */
 	mpic_cpu_write(MPIC_INFO(CPU_CURRENT_TASK_PRI), 0);
 
