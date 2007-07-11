@@ -517,6 +517,13 @@ config SENSORS_VIA686A
 	  This driver can also be built as a module.  If so, the module
 	  will be called via686a.
 
+config SENSORS_VT1115
+	tristate "Voltera 1115"
+	depends on HWMON
+	select HWMON_VID
+	help
+	  Voltera 1115 driver
+
 config SENSORS_VT1211
 	tristate "VIA VT1211"
 	depends on EXPERIMENTAL
