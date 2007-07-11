@@ -251,6 +251,7 @@ static void __init pas_init_early(void)
 }
 
 static struct of_device_id pasemi_bus_ids[] = {
+	{ .type = "localbus", },
 	{ .type = "sdc", },
 	{},
 };
