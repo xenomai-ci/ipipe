@@ -5,6 +5,7 @@ config PPC_PASEMI
 	select MPIC
 	select PPC_UDBG_16550
 	select PPC_NATIVE
+	select EMBEDDED
 	help
 	  This option enables support for PA Semi's PWRficient line
 	  of SoC processors, including PA6T-1682M
@@ -33,5 +34,14 @@ config PPC_PASEMI_A2_WORKAROUNDS
 	  A2 is an early version of PA Semi PA6T-1682M processor. It has some 
 	  bugs that will be likely fixed in future versions of the chip. This
 	  option enables workarounds for these bugs.
+
+config ELECTRA_IDE
+      tristate "Electra IDE driver"
+      default y
+      depends on PPC_PASEMI && ATA
+      select PATA_PLATFORM
+      help
+	This includes driver support for the Electra on-board IDE
+	interface.
 
 endmenu
