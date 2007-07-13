@@ -9,6 +9,7 @@ targets		:= vmlinux vmlinux.bin vmlinux.bin.gz head.o misc.o piggy.o \
 EXTRA_AFLAGS	:= -traditional
 
 LDFLAGS_vmlinux := -T
+CFLAGS := $(subst -pg,,$(CFLAGS))
 CFLAGS_misc.o += -fPIC
 hostprogs-y	:= relocs
 

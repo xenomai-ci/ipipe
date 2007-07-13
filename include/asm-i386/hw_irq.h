@@ -40,6 +40,13 @@ fastcall void error_interrupt(void);
 fastcall void spurious_interrupt(void);
 fastcall void thermal_interrupt(void);
 #define platform_legacy_irq(irq)	((irq) < 16)
+#ifdef CONFIG_IPIPE
+fastcall void ipipe_ipi0(void);
+fastcall void ipipe_ipi1(void);
+fastcall void ipipe_ipi2(void);
+fastcall void ipipe_ipi3(void);
+fastcall void ipipe_ipiX(void);
+#endif
 #endif
 
 void disable_8259A_irq(unsigned int irq);

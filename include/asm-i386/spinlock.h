@@ -54,7 +54,7 @@ static inline void __raw_spin_lock(raw_spinlock_t *lock)
  * NOTE: there's an irqs-on section here, which normally would have to be
  * irq-traced, but on CONFIG_TRACE_IRQFLAGS we never use this variant.
  */
-#ifndef CONFIG_PROVE_LOCKING
+#if !defined(CONFIG_PROVE_LOCKING) && !defined(CONFIG_IPIPE)
 static inline void __raw_spin_lock_flags(raw_spinlock_t *lock, unsigned long flags)
 {
 	asm volatile(

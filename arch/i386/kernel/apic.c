@@ -249,7 +249,7 @@ static void lapic_timer_setup(enum clock_event_mode mode,
 	if (!local_apic_timer_verify_ok)
 		return;
 
-	local_irq_save(flags);
+	local_irq_save_hw(flags);
 
 	switch (mode) {
 	case CLOCK_EVT_MODE_PERIODIC:
@@ -265,7 +265,7 @@ static void lapic_timer_setup(enum clock_event_mode mode,
 		break;
 	}
 
-	local_irq_restore(flags);
+	local_irq_restore_hw(flags);
 }
 
 /*
@@ -712,13 +712,13 @@ void lapic_shutdown(void)
 	if (!cpu_has_apic)
 		return;
 
-	local_irq_save(flags);
+	local_irq_save_hw(flags);
 	clear_local_APIC();
 
 	if (enabled_via_apicbase)
 		disable_local_APIC();
 
-	local_irq_restore(flags);
+	local_irq_restore_hw(flags);
 }
 
 /*
@@ -1268,7 +1268,7 @@ void smp_spurious_interrupt(struct pt_regs *regs)
 	 */
 	v = apic_read(APIC_ISR + ((SPURIOUS_APIC_VECTOR & ~0x1f) >> 1));
 	if (v & (1 << (SPURIOUS_APIC_VECTOR & 0x1f)))
-		ack_APIC_irq();
+		__ack_APIC_irq();
 
 	/* see sw-dev-man vol 3, chapter 7.4.13.5 */
 	printk(KERN_INFO "spurious APIC interrupt on CPU#%d, "
@@ -1324,6 +1324,12 @@ void __init apic_intr_init(void)
 	/* thermal monitor LVT interrupt */
 #ifdef CONFIG_X86_MCE_P4THERMAL
 	set_intr_gate(THERMAL_APIC_VECTOR, thermal_interrupt);
+#endif
+#ifdef CONFIG_IPIPE
+	set_intr_gate(IPIPE_SERVICE_VECTOR0, ipipe_ipi0);
+	set_intr_gate(IPIPE_SERVICE_VECTOR1, ipipe_ipi1);
+	set_intr_gate(IPIPE_SERVICE_VECTOR2, ipipe_ipi2);
+	set_intr_gate(IPIPE_SERVICE_VECTOR3, ipipe_ipi3);
 #endif
 }
 
@@ -1463,9 +1469,9 @@ static int lapic_suspend(struct sys_device *dev, pm_message_t state)
 		apic_pm_state.apic_thmr = apic_read(APIC_LVTTHMR);
 #endif
 
-	local_irq_save(flags);
+	local_irq_save_hw(flags);
 	disable_local_APIC();
-	local_irq_restore(flags);
+	local_irq_restore_hw(flags);
 	return 0;
 }
 
@@ -1480,7 +1486,7 @@ static int lapic_resume(struct sys_device *dev)
 
 	maxlvt = lapic_get_maxlvt();
 
-	local_irq_save(flags);
+	local_irq_save_hw(flags);
 
 	/*
 	 * Make sure the APICBASE points to the right address
@@ -1515,7 +1521,7 @@ static int lapic_resume(struct sys_device *dev)
 	apic_write(APIC_LVTERR, apic_pm_state.apic_lvterr);
 	apic_write(APIC_ESR, 0);
 	apic_read(APIC_ESR);
-	local_irq_restore(flags);
+	local_irq_restore_hw(flags);
 	return 0;
 }
 

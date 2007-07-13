@@ -3,7 +3,7 @@
 
 #include <linux/clockchips.h>
 
-extern spinlock_t i8253_lock;
+extern ipipe_spinlock_t i8253_lock;
 
 extern struct clock_event_device *global_clock_event;
 

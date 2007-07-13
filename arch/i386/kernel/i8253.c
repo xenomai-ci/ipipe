@@ -8,6 +8,7 @@
 #include <linux/sysdev.h>
 #include <linux/module.h>
 #include <linux/init.h>
+#include <linux/ipipe.h>
 
 #include <asm/smp.h>
 #include <asm/delay.h>
@@ -16,7 +17,7 @@
 
 #include "io_ports.h"
 
-DEFINE_SPINLOCK(i8253_lock);
+IPIPE_DEFINE_SPINLOCK(i8253_lock);
 EXPORT_SYMBOL(i8253_lock);
 
 /*
@@ -132,6 +133,12 @@ static cycle_t pit_read(void)
 	u32 jifs;
 	static int old_count;
 	static u32 old_jifs;
+
+#ifdef CONFIG_IPIPE
+	if (!__ipipe_pipeline_head_p(ipipe_root_domain))
+		/* We don't really own the PIT. */
+		return (cycle_t)(jiffies * LATCH) + (LATCH - 1) - old_count;
+#endif /* CONFIG_IPIPE */
 
 	spin_lock_irqsave(&i8253_lock, flags);
 	/*
