@@ -107,6 +107,8 @@ static inline int smp_call_function_single(int cpuid, void (*func) (void *info),
 
 #endif /* !SMP */
 
+#include <linux/ipipe_base.h>
+
 /*
  * smp_processor_id(): get the current CPU ID.
  *

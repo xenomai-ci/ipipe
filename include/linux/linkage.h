@@ -64,4 +64,8 @@
 #define fastcall
 #endif
 
+#ifndef notrace
+#define notrace		__attribute__((no_instrument_function))
+#endif
+
 #endif

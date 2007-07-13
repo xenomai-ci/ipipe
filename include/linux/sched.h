@@ -54,6 +54,7 @@ struct sched_param {
 #include <linux/cpumask.h>
 #include <linux/errno.h>
 #include <linux/nodemask.h>
+#include <linux/ipipe.h>
 
 #include <asm/system.h>
 #include <asm/semaphore.h>
@@ -152,6 +153,13 @@ extern unsigned long weighted_cpuload(const int cpu);
 /* in tsk->state again */
 #define TASK_NONINTERACTIVE	64
 #define TASK_DEAD		128
+#ifdef CONFIG_IPIPE
+#define TASK_ATOMICSWITCH	512
+#define TASK_NOWAKEUP          1024
+#else  /* !CONFIG_IPIPE */
+#define TASK_ATOMICSWITCH	0
+#define TASK_NOWAKEUP          0
+#endif /* CONFIG_IPIPE */
 
 #define __set_task_state(tsk, state_value)		\
 	do { (tsk)->state = (state_value); } while (0)
@@ -1065,6 +1073,9 @@ struct task_struct {
 
 	atomic_t fs_excl;	/* holding fs exclusive resources */
 	struct rcu_head rcu;
+#ifdef CONFIG_IPIPE
+	void *ptd[IPIPE_ROOT_NPTDKEYS];
+#endif
 
 	/*
 	 * cache last used pipe for splice
@@ -1184,6 +1195,11 @@ static inline void put_task_struct(struct task_struct *t)
 #define PF_MEMPOLICY	0x10000000	/* Non-default NUMA mempolicy */
 #define PF_MUTEX_TESTER	0x20000000	/* Thread belongs to the rt mutex tester */
 #define PF_FREEZER_SKIP	0x40000000	/* Freezer should not count it as freezeable */
+#ifdef CONFIG_IPIPE
+#define PF_EVNOTIFY	0x80000000	/* Notify other domains about internal events */
+#else
+#define PF_EVNOTIFY	0
+#endif /* CONFIG_IPIPE */
 
 /*
  * Only the _current_ task can read/write to tsk->flags, but other
