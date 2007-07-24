@@ -90,8 +90,8 @@ int timer_over_8254 __initdata = 1;
 /* Where if anywhere is the i8259 connect in external int mode */
 static struct { int pin, apic; } ioapic_i8259 = { -1, -1 };
 
-static DEFINE_SPINLOCK(ioapic_lock);
-DEFINE_SPINLOCK(vector_lock);
+static IPIPE_DEFINE_SPINLOCK(ioapic_lock);
+IPIPE_DEFINE_SPINLOCK(vector_lock);
 
 /*
  * # of IRQ routing registers
@@ -332,6 +332,7 @@ static void mask_IO_APIC_irq (unsigned int irq)
 	unsigned long flags;
 
 	spin_lock_irqsave(&ioapic_lock, flags);
+	ipipe_irq_lock(irq);
 	__mask_IO_APIC_irq(irq);
 	spin_unlock_irqrestore(&ioapic_lock, flags);
 }
@@ -342,6 +343,7 @@ static void unmask_IO_APIC_irq (unsigned int irq)
 
 	spin_lock_irqsave(&ioapic_lock, flags);
 	__unmask_IO_APIC_irq(irq);
+	ipipe_irq_unlock(irq);
 	spin_unlock_irqrestore(&ioapic_lock, flags);
 }
 
@@ -1303,6 +1305,7 @@ static unsigned int startup_ioapic_irq(unsigned int irq)
 			was_pending = 1;
 	}
 	__unmask_IO_APIC_irq(irq);
+	ipipe_irq_unlock(irq);
 	spin_unlock_irqrestore(&ioapic_lock, flags);
 
 	return was_pending;
@@ -1393,13 +1396,16 @@ static inline void irq_complete_move(unsigned int irq) {}
 
 static void ack_apic_edge(unsigned int irq)
 {
+#ifndef CONFIG_IPIPE
 	irq_complete_move(irq);
 	move_native_irq(irq);
-	ack_APIC_irq();
+#endif
+	__ack_APIC_irq();
 }
 
 static void ack_apic_level(unsigned int irq)
 {
+#ifndef CONFIG_IPIPE
 	int do_unmask_irq = 0;
 
 	irq_complete_move(irq);
@@ -1421,6 +1427,9 @@ static void ack_apic_level(unsigned int irq)
 	move_masked_irq(irq);
 	if (unlikely(do_unmask_irq))
 		unmask_IO_APIC_irq(irq);
+#else /* CONFIG_IPIPE */
+	__ack_APIC_irq();
+#endif /* CONFIG_IPIPE */
 }
 
 static struct irq_chip ioapic_chip __read_mostly = {
@@ -1486,7 +1495,7 @@ static void disable_lapic_irq (unsigned int irq)
 
 static void ack_lapic_irq (unsigned int irq)
 {
-	ack_APIC_irq();
+	__ack_APIC_irq();
 }
 
 static void end_lapic_irq (unsigned int i) { /* nothing */ }
@@ -2143,5 +2152,13 @@ void __init setup_ioapic_dest(void)
 		}
 
 	}
+}
+#endif
+
+#ifdef CONFIG_IPIPE
+unsigned __ipipe_get_irq_vector(int irq)
+{
+	return irq >= IPIPE_FIRST_APIC_IRQ && irq < IPIPE_NR_XIRQS ?
+		ipipe_apic_irq_vector(irq) : irq_cfg[irq].vector;
 }
 #endif

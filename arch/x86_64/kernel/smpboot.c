@@ -318,7 +318,7 @@ static inline void set_cpu_sibling_map(int cpu)
 /*
  * Setup code on secondary processor (after comming out of the trampoline)
  */
-void __cpuinit start_secondary(void)
+void __cpuinit notrace start_secondary(void)
 {
 	/*
 	 * Dont put anything before smp_callin(), SMP
@@ -950,9 +950,9 @@ int __cpuinit __cpu_up(unsigned int cpu)
 	/*
   	 * Make sure and check TSC sync:
  	 */
-	local_irq_save(flags);
+	local_irq_save_hw(flags);
 	check_tsc_sync_source(cpu);
-	local_irq_restore(flags);
+	local_irq_restore_hw(flags);
 
 	while (!cpu_isset(cpu, cpu_online_map))
 		cpu_relax();

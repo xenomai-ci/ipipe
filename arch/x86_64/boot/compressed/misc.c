@@ -23,6 +23,12 @@
  * This means that it is not safe to place pointers in static structures.
  */
 
+#ifdef CONFIG_IPIPE_TRACE_MCOUNT
+void __attribute__ ((no_instrument_function)) mcount(void)
+{
+}
+#endif
+
 /*
  * Getting to provable safe in place decompression is hard.
  * Worst case behaviours need to be analized.
