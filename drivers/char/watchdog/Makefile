@@ -84,4 +84,5 @@ obj-$(CONFIG_SH_WDT) += shwdt.o
 # SPARC64 Architecture
 
 # Architecture Independant
+obj-$(CONFIG_WD) += wd.o
 obj-$(CONFIG_SOFT_WATCHDOG) += softdog.o
