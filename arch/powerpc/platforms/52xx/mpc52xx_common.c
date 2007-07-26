@@ -88,12 +88,23 @@ mpc52xx_find_ipb_freq(struct device_node *node)
 }
 EXPORT_SYMBOL(mpc52xx_find_ipb_freq);
 
+/*
+ * This variable is mapped in mpc52xx_setup_cpu() by a call to
+ * mpc52xx_find_and_map(), and used in mpc52xx_restart(). This is because
+ * mpc52xx_restart() can be called from interrupt context (e.g., watchdog
+ * interrupt handler), and mpc52xx_find_and_map() (ioremap() to be exact)
+ * can't be called from interrupt context.
+ */
+volatile struct mpc52xx_gpt *mpc52xx_gpt0 = NULL;
 
 void __init
 mpc52xx_setup_cpu(void)
 {
 	struct mpc52xx_cdm  __iomem *cdm;
 	struct mpc52xx_xlb  __iomem *xlb;
+
+	/* mpc52xx_gpt0 is mapped here and used in mpc52xx_restart */
+	mpc52xx_gpt0 = mpc52xx_find_and_map("mpc5200-gpt");
 
 	/* Map zones */
 	cdm = mpc52xx_find_and_map("mpc5200-cdm");
@@ -141,16 +152,17 @@ mpc52xx_declare_of_platform_devices(void)
 void
 mpc52xx_restart(char *cmd)
 {
-	struct mpc52xx_gpt __iomem *gpt0;
-	
-	gpt0 = mpc52xx_find_and_map("mpc5200-gpt");
-
 	local_irq_disable();
 
 	/* Turn on the watchdog and wait for it to expire. It effectively
 	  does a reset */
-	out_be32(&gpt0->count, 0x000000ff);
-	out_be32(&gpt0->mode, 0x00009004);
+	if (mpc52xx_gpt0) {
+		out_be32(&mpc52xx_gpt0->mode, 0x00000000);
+		out_be32(&mpc52xx_gpt0->count, 0x000000ff);
+		out_be32(&mpc52xx_gpt0->mode, 0x00009004);
+	} else
+		printk("mpc52xx_restart: Can't access gpt. "
+			"Restart impossible, system halted\n");
 
 	while (1);
 }
