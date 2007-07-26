@@ -45,5 +45,13 @@
  * informations about wd_*_t functions are in include/linux/wd.h.
  */
 
+#ifdef CONFIG_WD_MPC5200
+/* Extern declarations of low-level MPC5200 watchdog functions */
+extern wd_init_t		wd_mpc5200_init;
+extern wd_kick_t		wd_mpc5200_kick;
+extern wd_delete_t		wd_mpc5200_delete;
+extern wd_machine_restart_t	wd_mpc5200_machine_restart;
+#endif /* CONFIG_WD_MPC5200 */
+
 #endif /* CONFIG_WD */
 #endif /* !_LINUX_WD_HW_H */

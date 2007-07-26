@@ -65,6 +65,13 @@ config WD_TIMEOUT
 
 comment "Low-level watchdog drivers"
 
+config WD_MPC5200
+	bool "Driver for MPC5200(B) built-in watchdog"
+	select PPC_MPC5200
+	default n
+	help
+	  Low level functions for MPC5200(B) watchdog driver based on GPT.
+
 endif # WD
 
 config SOFT_WATCHDOG
