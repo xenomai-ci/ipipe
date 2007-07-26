@@ -804,6 +804,40 @@ console_initcall(mpc52xx_console_init);
 #endif
 
 
+#ifdef CONFIG_IPIPE
+
+#include <stdarg.h>
+
+void __ipipe_serial_debug(const char *fmt, ...)
+{
+	struct console *co = MPC52xx_PSC_CONSOLE;
+	unsigned long flags, count;
+	struct uart_port *port;
+	char buf[128];
+	va_list ap;
+
+	if (co->index < 0)
+		return;		/* No console. */
+
+	port = &mpc52xx_uart_ports[co->index];
+
+	if (!port->mapbase)
+		return;		/* Too early. */
+
+	va_start(ap, fmt);
+	vsprintf(buf, fmt, ap);
+	va_end(ap);
+	count = strlen(buf);
+
+	local_irq_save_hw(flags);
+	mpc52xx_console_write(co, buf, count);
+	local_irq_restore_hw(flags);
+}
+
+EXPORT_SYMBOL(__ipipe_serial_debug);
+
+#endif
+
 /* ======================================================================== */
 /* UART Driver                                                              */
 /* ======================================================================== */

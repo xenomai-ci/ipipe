@@ -153,7 +153,10 @@ static inline int init_new_context(struct task_struct *t, struct mm_struct *mm)
  */
 static inline void destroy_context(struct mm_struct *mm)
 {
+	unsigned long flags;
+
 	preempt_disable();
+	local_irq_save_hw_cond(flags);
 	if (mm->context.id != NO_CONTEXT) {
 		clear_bit(mm->context.id, context_map);
 		mm->context.id = NO_CONTEXT;
@@ -161,6 +164,7 @@ static inline void destroy_context(struct mm_struct *mm)
 		atomic_inc(&nr_free_contexts);
 #endif
 	}
+ 	local_irq_restore_hw_cond(flags);
 	preempt_enable();
 }
 
@@ -193,7 +197,13 @@ static inline void switch_mm(struct mm_struct *prev, struct mm_struct *next,
  * After we have set current->mm to a new value, this activates
  * the context for the new mm so we see the new mappings.
  */
-#define activate_mm(active_mm, mm)   switch_mm(active_mm, mm, current)
+#define activate_mm(active_mm, mm)   \
+do { \
+	unsigned long flags; \
+	local_irq_save_hw_cond(flags); \
+	switch_mm(active_mm, mm, current); \
+	local_irq_restore_hw_cond(flags);	   \
+} while(0)
 
 extern void mmu_context_init(void);
 

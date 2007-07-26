@@ -16,6 +16,10 @@ extern void timer_interrupt(struct pt_regs *);
 #ifdef CONFIG_PPC64
 #include <asm/paca.h>
 
+#ifdef CONFIG_IPIPE
+#error "I-pipe: arch/powerpc64 not supported yet - use an older Adeos patch."
+#endif
+
 static inline unsigned long local_get_flags(void)
 {
 	unsigned long flags;
@@ -51,17 +55,36 @@ extern void iseries_handle_interrupts(void);
 #define hard_irq_enable()	__mtmsrd(mfmsr() | MSR_EE, 1)
 #define hard_irq_disable()	__mtmsrd(mfmsr() & ~MSR_EE, 1)
 
-#else
+#else  /* !CONFIG_PPC64 */
 
+static inline unsigned long raw_mangle_irq_bits(int virt, unsigned long real)
+{
+	/* Merge virtual and real interrupt mask bits into a single
+	   32bit word. */
+	return real | (virt << 31);
+}
+
+static inline int raw_demangle_irq_bits(unsigned long *x)
+{
+	int virt = (*x & (1 << 31)) != 0;
+	*x &= ~(1L << 31);
+	return virt;
+}
+
+#define local_save_flags_hw(flags)		((flags) = mfmsr())
+#define local_test_iflag_hw(x)			((x) & MSR_EE)
+#define irqs_disabled_hw()			((mfmsr() & MSR_EE) == 0)
+#define local_irq_save_hw_notrace(flags)	local_irq_save_ptr_hw(&flags)
+#define raw_irqs_disabled_flags(flags)		(!local_test_iflag_hw(flags))
 #if defined(CONFIG_BOOKE)
-#define SET_MSR_EE(x)	mtmsr(x)
-#define local_irq_restore(flags)	__asm__ __volatile__("wrtee %0" : : "r" (flags) : "memory")
+#define local_irq_restore_hw_notrace(flags)	\
+	__asm__ __volatile__("wrtee %0" : : "r" (flags) : "memory")
 #else
 #define SET_MSR_EE(x)	mtmsr(x)
-#define local_irq_restore(flags)	mtmsr(flags)
+#define local_irq_restore_hw_notrace(flags)	mtmsr(flags)
 #endif
 
-static inline void local_irq_disable(void)
+static inline void local_irq_disable_hw_notrace(void)
 {
 #ifdef CONFIG_BOOKE
 	__asm__ __volatile__("wrteei 0": : :"memory");
@@ -73,7 +96,7 @@ static inline void local_irq_disable(void)
 #endif
 }
 
-static inline void local_irq_enable(void)
+static inline void local_irq_enable_hw_notrace(void)
 {
 #ifdef CONFIG_BOOKE
 	__asm__ __volatile__("wrteei 1": : :"memory");
@@ -85,7 +108,7 @@ static inline void local_irq_enable(void)
 #endif
 }
 
-static inline void local_irq_save_ptr(unsigned long *flags)
+static inline void local_irq_save_ptr_hw(unsigned long *flags)
 {
 	unsigned long msr;
 	msr = mfmsr();
@@ -98,9 +121,108 @@ static inline void local_irq_save_ptr(unsigned long *flags)
 	__asm__ __volatile__("": : :"memory");
 }
 
-#define local_save_flags(flags)	((flags) = mfmsr())
-#define local_irq_save(flags)	local_irq_save_ptr(&flags)
-#define irqs_disabled()		((mfmsr() & MSR_EE) == 0)
+#ifdef CONFIG_IPIPE
+
+#include <linux/ipipe_base.h>
+
+#ifdef CONFIG_IPIPE_TRACE_IRQSOFF
+
+#include <linux/ipipe_trace.h>
+
+static inline void local_irq_disable_hw(void)
+{
+	if (!irqs_disabled_hw()) {
+		local_irq_disable_hw_notrace();
+		ipipe_trace_begin(0x80000000);
+	}
+}
+
+static inline void local_irq_enable_hw(void)
+{
+	if (irqs_disabled_hw()) {
+		ipipe_trace_end(0x80000000);
+		local_irq_enable_hw_notrace();
+	}
+}
+
+#define local_irq_save_hw(flags) \
+do {						       \
+	local_irq_save_ptr_hw(&(flags));	       \
+	if (local_test_iflag_hw(flags))		       \
+		ipipe_trace_begin(0x80000001);	       \
+} while(0)
+
+static inline void local_irq_restore_hw(unsigned long flags)
+{
+	if (local_test_iflag_hw(flags))
+		ipipe_trace_end(0x80000001);
+
+	local_irq_restore_hw_notrace(flags);
+}
+
+#else /* !CONFIG_IPIPE_TRACE_IRQSOFF */
+
+#define local_irq_disable_hw    local_irq_disable_hw_notrace
+#define local_irq_enable_hw     local_irq_enable_hw_notrace
+#define local_irq_save_hw       local_irq_save_hw_notrace
+#define local_irq_restore_hw    local_irq_restore_hw_notrace
+
+#endif /* CONFIG_IPIPE_TRACE_IRQSOFF */
+
+static inline void local_irq_disable(void)
+{
+	ipipe_check_context(ipipe_root_domain);
+	__ipipe_stall_root();
+	barrier();
+}
+
+static inline void local_irq_enable(void)
+{
+	barrier();
+	__ipipe_unstall_root();
+}
+
+static inline void local_irq_save_ptr(unsigned long *flags)
+{
+	*flags = (!__ipipe_test_and_stall_root()) << 15;
+	barrier();
+}
+
+static inline void local_irq_restore(unsigned long flags)
+{
+	barrier();
+	__ipipe_restore_root(!(flags & MSR_EE));
+}
+
+#define local_save_flags(flags)		\
+do {						\
+	(flags) = (!__ipipe_test_root()) << 15;	\
+	barrier();				\
+} while(0)
+
+#define local_irq_save(flags)			\
+do {						\
+	ipipe_check_context(ipipe_root_domain);	\
+	local_irq_save_ptr(&flags);		\
+} while(0)
+
+#define irqs_disabled()		__ipipe_test_root()
+
+#else /* !CONFIG_IPIPE */
+
+#define local_irq_disable_hw    	local_irq_disable_hw_notrace
+#define local_irq_enable_hw     	local_irq_enable_hw_notrace
+#define local_irq_save_hw       	local_irq_save_hw_notrace
+#define local_irq_restore_hw    	local_irq_restore_hw_notrace
+#define local_irq_restore(flags)	local_irq_restore_hw(flags)
+#define local_irq_disable()		local_irq_disable_hw()
+#define local_irq_enable()		local_irq_enable_hw()
+#define local_irq_save_ptr(flags)	local_irq_save_ptr_hw(flags)
+#define irqs_disabled()			irqs_disabled_hw()
+#define local_save_flags(flags)		local_save_flags_hw(flags)
+#define local_irq_save(flags)  		local_irq_save_hw(flags)
+
+#endif /* !CONFIG_IPIPE */
 
 #define hard_irq_enable()	local_irq_enable()
 #define hard_irq_disable()	local_irq_disable()

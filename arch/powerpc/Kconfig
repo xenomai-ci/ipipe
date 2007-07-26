@@ -705,6 +705,8 @@ source arch/powerpc/platforms/ps3/Kconfig
 
 menu "Kernel options"
 
+source "kernel/ipipe/Kconfig"
+
 config HIGHMEM
 	bool "High memory support"
 	depends on PPC32

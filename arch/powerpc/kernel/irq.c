@@ -70,7 +70,7 @@
 #endif
 
 int __irq_offset_value;
-static int ppc_spurious_interrupts;
+int ppc_spurious_interrupts;
 
 #ifdef CONFIG_PPC32
 EXPORT_SYMBOL(__irq_offset_value);

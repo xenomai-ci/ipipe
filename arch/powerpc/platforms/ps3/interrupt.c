@@ -318,7 +318,7 @@ struct bmp {
 		unsigned long mask;
 		unsigned long unused_2[3];
 	} __attribute__ ((packed));
-	spinlock_t lock;
+	ipipe_spinlock_t lock;
 	unsigned long ipi_debug_brk_mask;
 };
 
