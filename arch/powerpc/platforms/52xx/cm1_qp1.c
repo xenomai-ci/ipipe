@@ -29,6 +29,8 @@
 #include <linux/seq_file.h>
 #include <linux/root_dev.h>
 #include <linux/initrd.h>
+#include <linux/wd.h>
+#include <linux/wd_hw.h>
 
 #include <asm/system.h>
 #include <asm/atomic.h>
@@ -54,6 +56,14 @@ static void __init cm1_qp1_setup_cpu(void)
 {
 	struct mpc52xx_gpio __iomem *gpio;
 	u32 port_config;
+
+#if defined(CONFIG_WD) && defined(CONFIG_WD_MPC5200)
+	/* Init watchdog functions structure */
+	wd_hw_functions.wd_init = wd_mpc5200_init;
+	wd_hw_functions.wd_kick = wd_mpc5200_kick;
+	wd_hw_functions.wd_delete = wd_mpc5200_delete;
+	wd_hw_functions.wd_machine_restart = wd_mpc5200_machine_restart;
+#endif /* CONFIG_WD && CONFIG_WD_MPC5200 */
 
 	/* Map zones */
 	gpio = mpc52xx_find_and_map("mpc5200-gpio");
