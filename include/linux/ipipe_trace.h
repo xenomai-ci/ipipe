@@ -36,6 +36,8 @@ void ipipe_trace_pid(pid_t pid, short prio);
 int ipipe_trace_max_reset(void);
 int ipipe_trace_frozen_reset(void);
 
+#endif /* CONFIG_IPIPE */
+
 #ifdef CONFIG_IPIPE_TRACE_PANIC
 
 void ipipe_trace_panic_freeze(void);
@@ -47,7 +49,5 @@ static inline void ipipe_trace_panic_freeze(void) { }
 static inline void ipipe_trace_panic_dump(void) { }
 
 #endif /* !CONFIG_IPIPE_TRACE_PANIC */
-
-#endif /* CONFIG_IPIPE */
 
 #endif	/* !__LINUX_IPIPE_H */
