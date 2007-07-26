@@ -388,8 +388,13 @@ handle_fasteoi_irq(unsigned int irq, struct irq_desc *desc)
 
 	spin_lock(&desc->lock);
 	desc->status &= ~IRQ_INPROGRESS;
+#ifdef CONFIG_IPIPE
+	desc->chip->unmask(irq);
+#endif
 out:
+#ifndef CONFIG_IPIPE
 	desc->chip->eoi(irq);
+#endif
 
 	spin_unlock(&desc->lock);
 }
@@ -499,11 +504,13 @@ void fastcall __ipipe_end_level_irq(unsigned irq, struct irq_desc *desc)
 
 void fastcall __ipipe_ack_fasteoi_irq(unsigned irq, struct irq_desc *desc)
 {
+	desc->chip->mask(irq);
+	desc->chip->eoi(irq);
 }
 
 void fastcall __ipipe_end_fasteoi_irq(unsigned irq, struct irq_desc *desc)
 {
-	desc->chip->eoi(irq);
+	desc->chip->unmask(irq);
 }
 
 void fastcall __ipipe_ack_edge_irq(unsigned irq, struct irq_desc *desc)
