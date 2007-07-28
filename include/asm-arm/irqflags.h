@@ -134,7 +134,20 @@
 	local_save_flags_hw(flags);		\
 	raw_irqs_disabled_flags(flags);		\
 })
-			
+
+static inline unsigned long raw_mangle_irq_bits(int virt, unsigned long real)
+{
+	/* Merge virtual and real interrupt mask bits into a single
+	   32bit word. */
+	return (real & ~(1L << 8)) | ((virt != 0) << 8);
+}
+
+static inline int raw_demangle_irq_bits(unsigned long *x)
+{
+	int virt = (*x & (1 << 8)) != 0;
+	*x &= ~(1L << 8);
+	return virt;
+}
 
 #ifdef CONFIG_IPIPE
 
@@ -149,8 +162,6 @@ void __ipipe_restore_root(unsigned long flags);
 #define local_fiq_disable()		__ipipe_stall_root()
 #define raw_local_save_flags(flags)	((flags) = __ipipe_test_root() << 7)
 #define raw_local_irq_restore(flags)	__ipipe_restore_root(flags & (1 << 7))
-
-#define raw_irqs_disabled()		__ipipe_test_root()
 
 #ifdef CONFIG_IPIPE_TRACE_IRQSOFF
 
@@ -170,13 +181,13 @@ void __ipipe_restore_root(unsigned long flags);
 } while (0)
 #define local_irq_save_hw(x) do { \
 	local_save_flags_hw(x); \
-	if (raw_irqs_disabled_flags(x)) { \
+	if (!raw_irqs_disabled_flags(x)) { \
 		local_irq_disable_hw_notrace(); \
 		ipipe_trace_begin(0x80000001); \
 	} \
 } while (0)
 #define local_irq_restore_hw(x) do { \
-	if (raw_irqs_disabled_flags(x)) \
+	if (!raw_irqs_disabled_flags(x)) \
 		ipipe_trace_end(0x80000001); \
 	local_irq_restore_hw_notrace(x); \
 } while (0)
@@ -208,8 +219,6 @@ void __ipipe_restore_root(unsigned long flags);
 #define local_fiq_enable_hw()		local_fiq_enable_hw_notrace()
 #define local_fiq_disable_hw()		local_fiq_disable_hw_notrace()
 #define local_irq_restore_hw(flags)	local_irq_restore_hw_notrace(flags)
-
-#define irqs_disabled()		irqs_disabled_hw()
 
 #endif /* CONFIG_IPIPE */
 

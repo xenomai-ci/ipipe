@@ -3,7 +3,7 @@
  * Copyright (C) 2003-2005 Simtec Electronics
  *	Ben Dooks, <ben@simtec.co.uk>
  *
- * Copyright (C) 2006 Sebastian Smolorz <ssmolorz@emlix.com>, emlix GmbH
+ * Copyright (C) 2006, 2007 Sebastian Smolorz <ssmolorz@emlix.com>, emlix GmbH
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -62,6 +62,11 @@ static unsigned long free_running_tcon = 0;
 static unsigned long timer_lxlost = 0;
 
 #ifdef CONFIG_IPIPE
+
+#ifdef CONFIG_NO_IDLE_HZ
+#error "dynamic tick timer not yet supported with IPIPE"
+#endif /* CONFIG_NO_IDLE_HZ */
+
 unsigned int __ipipe_mach_ticks_per_jiffy;
 EXPORT_SYMBOL(__ipipe_mach_ticks_per_jiffy);
 

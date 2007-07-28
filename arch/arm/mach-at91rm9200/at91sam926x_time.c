@@ -371,6 +371,12 @@ void __init at91sam926x_timer_init(void)
 {
 	unsigned long v;
 	
+	/* Disable timer */
+	at91_sys_write(AT91_PIT_MR, 0);
+
+	/* Clear any pending interrupts */
+	(void) at91_sys_read(AT91_PIT_PIVR);
+
 	if (clk_get_rate(clk_get(NULL, "mck")) != CONFIG_IPIPE_AT91_MCK)
 		at91sam926x_timer_irq.handler = &at91sam926x_bad_freq;
 

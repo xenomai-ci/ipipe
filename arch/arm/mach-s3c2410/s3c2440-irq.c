@@ -3,7 +3,7 @@
  * Copyright (c) 2003,2004 Simtec Electronics
  *	Ben Dooks <ben@simtec.co.uk>
  *
- * Copyright (C) 2006 Sebastian Smolorz <ssmolorz@emlix.com>, emlix GmbH
+ * Copyright (C) 2006, 2007 Sebastian Smolorz <ssmolorz@emlix.com>, emlix GmbH
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -110,19 +110,6 @@ void __ipipe_s3c_irq_demux_wdtac97(unsigned int subsrc, struct pt_regs *regs)
 			__ipipe_handle_irq(IRQ_S3C2440_WDT, regs);
 		if (subsrc & 2)
 			__ipipe_handle_irq(IRQ_S3C2440_AC97, regs);
-	}
-}
-
-void __ipipe_s3c_irq_demux_cam(unsigned int subsrc, struct pt_regs *regs)
-{
-	subsrc >>= 11;
-	subsrc &= 3;
-
-	if (subsrc != 0) {
-		if (subsrc & 1)
-			__ipipe_handle_irq(IRQ_S3C2440_CAM_C, regs);
-		if (subsrc & 2)
-			__ipipe_handle_irq(IRQ_S3C2440_CAM_P, regs);
 	}
 }
 #endif /* CONFIG_IPIPE */

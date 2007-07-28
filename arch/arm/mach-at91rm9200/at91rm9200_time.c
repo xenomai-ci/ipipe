@@ -384,6 +384,10 @@ void __init at91rm9200_timer_init(void)
 {
 	unsigned long v;
 	
+	/* Disable all timer interrupts */
+	at91_sys_write(AT91_ST_IDR, AT91_ST_PITS | AT91_ST_WDOVF | AT91_ST_RTTINC | AT91_ST_ALMS);
+	(void) at91_sys_read(AT91_ST_SR);	/* Clear any pending interrupts */
+
 	if (clk_get_rate(clk_get(NULL, "mck")) != CONFIG_IPIPE_AT91_MCK)
 		at91rm9200_timer_irq.handler = &at91rm9200_bad_freq;
 

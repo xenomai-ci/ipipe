@@ -3,7 +3,7 @@
  * Copyright (c) 2003,2004 Simtec Electronics
  *	Ben Dooks <ben@simtec.co.uk>
  *
- * Copyright (C) 2006 Sebastian Smolorz <ssmolorz@emlix.com>, emlix GmbH
+ * Copyright (C) 2006, 2007 Sebastian Smolorz <ssmolorz@emlix.com>, emlix GmbH
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -701,6 +701,26 @@ static void __ipipe_s3c_irq_demux_adc(unsigned int subsrc,
 	}
 }
 
+static void __ipipe_s3c_irq_demux_extint(unsigned long mask,
+						struct pt_regs *regs)
+{
+	unsigned int irq;
+	unsigned long eintpnd = __raw_readl(S3C24XX_EINTPEND);
+	unsigned long eintmsk = __raw_readl(S3C24XX_EINTMASK);
+
+	eintpnd &= ~eintmsk;
+	eintpnd &= mask;
+
+	while (eintpnd) {
+		irq = __ffs(eintpnd);
+		eintpnd &= ~(1<<irq);
+
+		irq += (IRQ_EINT4 - 4);
+
+		__ipipe_handle_irq(irq, regs);
+	}
+}
+
 void __ipipe_mach_demux_irq(unsigned irq, struct pt_regs *regs)
 {
 	unsigned int subsrc, submsk;
@@ -726,14 +746,22 @@ void __ipipe_mach_demux_irq(unsigned irq, struct pt_regs *regs)
 	case IRQ_ADCPARENT:
 		__ipipe_s3c_irq_demux_adc(subsrc, regs);
 		break;
+	case IRQ_EINT4t7:
+		__ipipe_s3c_irq_demux_extint(0xff, regs);
+		break;
+	case IRQ_EINT8t23:
+		__ipipe_s3c_irq_demux_extint(0xffffff00, regs);
+		break;
 #ifdef CONFIG_CPU_S3C2440
 	case IRQ_WDT:
 		__ipipe_s3c_irq_demux_wdtac97(subsrc, regs);
 		break;
+#endif /* CONFIG_CPU_S3C2440 */
+#ifdef CONFIG_CPU_S3C244X
 	case IRQ_CAM:
 		__ipipe_s3c_irq_demux_cam(subsrc, regs);
 		break;
-#endif /* CONFIG_CPU_S3C2440 */
+#endif /* CONFIG_CPU_S3C244X */
 	}
 
 	desc_unused->chip->unmask(irq);
