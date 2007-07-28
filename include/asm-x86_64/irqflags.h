@@ -161,7 +161,7 @@ static inline unsigned long raw_mangle_irq_bits(int virt, unsigned long real)
 {
 	/* Merge virtual and real interrupt mask bits into a single
 	   64bit word. */
-	return real | ((long)virt << 63);
+	return (real & ~(1L << 63)) | ((long)virt << 63);
 }
 
 static inline int raw_demangle_irq_bits(unsigned long *x)
