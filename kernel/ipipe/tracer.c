@@ -443,7 +443,7 @@ static void __ipipe_global_path_unlock(unsigned long flags)
 	struct ipipe_trace_path *tp;
 
 	/* release spinlock first - it's not involved in the NMI issue */
-	spin_unlock(&global_path_lock);
+	__ipipe_spin_unlock_irqbegin(&global_path_lock);
 
 	cpu_id = ipipe_processor_id();
 	tp = &trace_paths[cpu_id][active_path[cpu_id]];
@@ -455,7 +455,8 @@ static void __ipipe_global_path_unlock(unsigned long flags)
 		__ipipe_trace(IPIPE_TRACE_FREEZE, tp->nmi_saved_eip,
 		              tp->nmi_saved_parent_eip, tp->nmi_saved_v);
 
-	local_irq_restore_hw(flags);
+  	/* See __ipipe_spin_lock_irqsave() and friends. */
+ 	__ipipe_spin_unlock_irqcomplete(flags);
 }
 
 void notrace ipipe_trace_begin(unsigned long v)
