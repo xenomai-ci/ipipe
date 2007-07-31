@@ -184,7 +184,7 @@ static inline void local_irq_enable(void)
 
 static inline void local_irq_save_ptr(unsigned long *x)
 {
-	*x = (!__ipipe_test_and_stall_root()) << 15;
+	*x = (!__ipipe_test_and_stall_root()) << MSR_EE_LG;
 	barrier();
 }
 
@@ -196,7 +196,7 @@ static inline void local_irq_restore(unsigned long x)
 
 #define local_save_flags(x)			\
 do {						\
-	(x) = (!__ipipe_test_root()) << 15;	\
+	(x) = (!__ipipe_test_root()) << MSR_EE_LG;	\
 	barrier();				\
 } while(0)
 
