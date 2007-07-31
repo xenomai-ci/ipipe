@@ -555,8 +555,11 @@ static void mpic_unmask_irq(unsigned int irq)
 	unsigned int loops = 100000;
 	struct mpic *mpic = mpic_from_irq(irq);
 	unsigned int src = mpic_irq_to_hw(irq);
+	unsigned long flags;
 
 	DBG("%p: %s: enable_irq: %d (src %d)\n", mpic, mpic->name, irq, src);
+
+	local_irq_save_hw_cond(flags);
 
 	mpic_irq_write(src, MPIC_INFO(IRQ_VECTOR_PRI),
 		       mpic_irq_read(src, MPIC_INFO(IRQ_VECTOR_PRI)) &
@@ -564,10 +567,12 @@ static void mpic_unmask_irq(unsigned int irq)
 	/* make sure mask gets to controller before we return to user */
 	do {
 		if (!loops--) {
-			printk(KERN_ERR "mpic_enable_irq timeout\n");
+			printk(KERN_ERR "mpic_unmask_irq timeout\n");
 			break;
 		}
 	} while(mpic_irq_read(src, MPIC_INFO(IRQ_VECTOR_PRI)) & MPIC_VECPRI_MASK);
+
+	local_irq_restore_hw_cond(flags);
 }
 
 static void mpic_mask_irq(unsigned int irq)
@@ -575,8 +580,11 @@ static void mpic_mask_irq(unsigned int irq)
 	unsigned int loops = 100000;
 	struct mpic *mpic = mpic_from_irq(irq);
 	unsigned int src = mpic_irq_to_hw(irq);
+	unsigned long flags;
 
 	DBG("%s: disable_irq: %d (src %d)\n", mpic->name, irq, src);
+
+	local_irq_save_hw_cond(flags);
 
 	mpic_irq_write(src, MPIC_INFO(IRQ_VECTOR_PRI),
 		       mpic_irq_read(src, MPIC_INFO(IRQ_VECTOR_PRI)) |
@@ -585,10 +593,12 @@ static void mpic_mask_irq(unsigned int irq)
 	/* make sure mask gets to controller before we return to user */
 	do {
 		if (!loops--) {
-			printk(KERN_ERR "mpic_enable_irq timeout\n");
+			printk(KERN_ERR "mpic_mask_irq timeout\n");
 			break;
 		}
 	} while(!(mpic_irq_read(src, MPIC_INFO(IRQ_VECTOR_PRI)) & MPIC_VECPRI_MASK));
+
+	local_irq_restore_hw_cond(flags);
 }
 
 static void mpic_end_irq(unsigned int irq)
@@ -730,6 +740,7 @@ static int mpic_set_irq_type(unsigned int virq, unsigned int flow_type)
 	unsigned int src = mpic_irq_to_hw(virq);
 	struct irq_desc *desc = get_irq_desc(virq);
 	unsigned int vecpri, vold, vnew;
+	unsigned long flags;
 
 	DBG("mpic: set_irq_type(mpic:@%p,virq:%d,src:0x%x,type:0x%x)\n",
 	    mpic, virq, src, flow_type);
@@ -754,12 +765,16 @@ static int mpic_set_irq_type(unsigned int virq, unsigned int flow_type)
 	else
 		vecpri = mpic_type_to_vecpri(mpic, flow_type);
 
+	local_irq_save_hw_cond(flags);
+
 	vold = mpic_irq_read(src, MPIC_INFO(IRQ_VECTOR_PRI));
 	vnew = vold & ~(MPIC_INFO(VECPRI_POLARITY_MASK) |
 			MPIC_INFO(VECPRI_SENSE_MASK));
 	vnew |= vecpri;
 	if (vold != vnew)
 		mpic_irq_write(src, MPIC_INFO(IRQ_VECTOR_PRI), vnew);
+
+	local_irq_restore_hw_cond(flags);
 
 	return 0;
 }
