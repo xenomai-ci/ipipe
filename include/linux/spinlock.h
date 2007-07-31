@@ -436,6 +436,8 @@ void fastcall __ipipe_spin_unlock_irq(raw_spinlock_t *lock);
 unsigned long fastcall __ipipe_spin_lock_irqsave(raw_spinlock_t *lock);
 void fastcall __ipipe_spin_unlock_irqrestore(raw_spinlock_t *lock,
 					     unsigned long x);
+void fastcall __ipipe_spin_unlock_irqbegin(raw_spinlock_t *lock);
+void fastcall __ipipe_spin_unlock_irqcomplete(unsigned long x);
 #define spin_lock_irqsave_cond(lock, flags) \
 	spin_lock_irqsave(lock, flags)
 #define spin_unlock_irqrestore_cond(lock, flags) \
@@ -449,6 +451,8 @@ void fastcall __ipipe_spin_unlock_irqrestore(raw_spinlock_t *lock,
 #define __ipipe_spin_unlock_irq(lock)		do { } while(0)
 #define __ipipe_spin_lock_irqsave(lock)		0
 #define __ipipe_spin_unlock_irqrestore(lock, x)	do { (void)(x); } while(0)
+#define __ipipe_spin_unlock_irqbegin(lock)	do { } while(0)
+#define __ipipe_spin_unlock_irqcomplete(x)	do { (void)(x); } while(0)
 #endif
 
 #endif /* __LINUX_SPINLOCK_H */
