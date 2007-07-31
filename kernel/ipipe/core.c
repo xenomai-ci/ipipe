@@ -519,6 +519,23 @@ void fastcall __ipipe_spin_unlock_irqrestore(raw_spinlock_t *lock, unsigned long
 	local_irq_restore_hw(x);
 }
 
+void fastcall __ipipe_spin_unlock_irqbegin(raw_spinlock_t *lock)
+{
+	__raw_spin_unlock(lock);
+}
+
+void fastcall __ipipe_spin_unlock_irqcomplete(unsigned long x)
+{
+	struct ipipe_domain *ipd;
+	ipipe_declare_cpuid;
+
+	ipipe_load_cpuid();
+	ipd = per_cpu(ipipe_percpu_domain, cpuid);
+	if (!raw_demangle_irq_bits(&x))
+		__clear_bit(IPIPE_STALL_FLAG, &ipd->cpudata[cpuid].status);
+	local_irq_restore_hw(x);
+}
+
 /* __ipipe_walk_pipeline(): Plays interrupts pending in the log. Must
    be called with local hw interrupts disabled. */
 
