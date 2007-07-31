@@ -754,13 +754,8 @@ static int pasemi_mac_open(struct net_device *dev)
 
 	flags |= PAS_MAC_CFG_PCFG_TSR_1G | PAS_MAC_CFG_PCFG_SPD_1G;
 
-#ifdef CONFIG_PPC_PASEMI_A2_WORKAROUNDS
 	pci_write_config_dword(mac->iob_pdev, PAS_IOB_DMA_RXCH_CFG(mac->dma_rxch),
 			       PAS_IOB_DMA_RXCH_CFG_CNTTH(0));
-#else
-	pci_write_config_dword(mac->iob_pdev, PAS_IOB_DMA_RXCH_CFG(mac->dma_rxch),
-			       PAS_IOB_DMA_RXCH_CFG_CNTTH(1));
-#endif
 
 	pci_write_config_dword(mac->iob_pdev, PAS_IOB_DMA_TXCH_CFG(mac->dma_txch),
 			       PAS_IOB_DMA_TXCH_CFG_CNTTH(32));
