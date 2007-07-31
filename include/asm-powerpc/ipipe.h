@@ -32,10 +32,10 @@
 #include <linux/cpumask.h>
 #include <linux/threads.h>
 
-#define IPIPE_ARCH_STRING	"1.6-02"
+#define IPIPE_ARCH_STRING	"1.6-03"
 #define IPIPE_MAJOR_NUMBER	1
 #define IPIPE_MINOR_NUMBER	6
-#define IPIPE_PATCH_NUMBER	2
+#define IPIPE_PATCH_NUMBER	3
 
 #define IPIPE_NR_XIRQS		NR_IRQS
 #define IPIPE_IRQ_ISHIFT	5	/* 2^5 for 32bits arch. */
