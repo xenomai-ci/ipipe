@@ -26,10 +26,10 @@
 
 #include <linux/threads.h>
 
-#define IPIPE_ARCH_STRING	"1.1-01"
+#define IPIPE_ARCH_STRING	"1.1-02"
 #define IPIPE_MAJOR_NUMBER	1
 #define IPIPE_MINOR_NUMBER	1
-#define IPIPE_PATCH_NUMBER	1
+#define IPIPE_PATCH_NUMBER	2
 
 /* Local APIC is always compiled in on x86_64.  Reserve 32 IRQs for
    APIC interrupts, we don't want them to mess with the normally
