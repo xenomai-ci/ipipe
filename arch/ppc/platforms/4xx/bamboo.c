@@ -300,9 +300,7 @@ bamboo_setup_hose(void)
 		(unsigned long)ioremap64(BAMBOO_PCI_IO_BASE, BAMBOO_PCI_IO_SIZE);
 	hose->io_base_virt = (void *)isa_io_base;
 
-	setup_indirect_pci(hose,
-			BAMBOO_PCI_CFGA_PLB32,
-			BAMBOO_PCI_CFGD_PLB32);
+	setup_indirect_pci(hose, PCIX0_CFGA, PCIX0_CFGD);
 	hose->set_cfg_type = 1;
 
 	/* Zero config bars */

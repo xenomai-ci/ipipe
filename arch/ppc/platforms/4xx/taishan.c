@@ -280,9 +280,7 @@ taishan_setup_hose(void)
 	hose->io_base_virt = ioremap64(TAISHAN_PCI_IO_BASE, TAISHAN_PCI_IO_SIZE);
 	isa_io_base = (unsigned long) hose->io_base_virt;
 
-	setup_indirect_pci(hose,
-			TAISHAN_PCI_CFGA_PLB32,
-			TAISHAN_PCI_CFGD_PLB32);
+	setup_indirect_pci(hose, PCIX0_CFGA, PCIX0_CFGD);
 	hose->set_cfg_type = 1;
 
 	hose->last_busno = pciauto_bus_scan(hose, hose->first_busno);

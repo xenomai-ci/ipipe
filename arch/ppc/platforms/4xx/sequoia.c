@@ -422,7 +422,7 @@ static void __init sequoia_setup_hose(void)
 		(unsigned long)ioremap64(SEQUOIA_PCI_IO_BASE, SEQUOIA_PCI_IO_SIZE);
 	hose->io_base_virt = (void *)isa_io_base;
 
-	setup_indirect_pci(hose, SEQUOIA_PCI_CFGA_PLB32, SEQUOIA_PCI_CFGD_PLB32);
+	setup_indirect_pci(hose, PCIX0_CFGA, PCIX0_CFGD);
 	hose->set_cfg_type = 1;
 
 	/* Zero config bars */

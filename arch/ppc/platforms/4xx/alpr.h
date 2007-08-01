@@ -81,10 +81,6 @@ int alpr_unmap_ibuf_fpga(void __iomem *vbar0, void __iomem *vbar1, void __iomem 
 #define ALPR_PCI_LOWER_MEM	0x80000000
 #define ALPR_PCI_UPPER_MEM	0xffffefff
 
-#define ALPR_PCI_CFGREGS_BASE	0x000000020ec00000ULL
-#define ALPR_PCI_CFGA_PLB32	0x0ec00000
-#define ALPR_PCI_CFGD_PLB32	0x0ec00004
-
 #define ALPR_PCI_IO_BASE	0x0000000208000000ULL
 #define ALPR_PCI_IO_SIZE	0x00010000
 #define ALPR_PCI_MEM_OFFSET	0x00000000
