@@ -1081,6 +1081,7 @@ static inline void __iomem * __devinit map_onedev(struct pci_dev *p, int index)
 {
 	struct device_node *dn;
 	void __iomem *ret;
+	int iomem_size;
 
 	dn = pci_device_to_OF_node(p);
 	if (!dn)
@@ -1095,8 +1096,11 @@ fallback:
 	/* This is hardcoded and ugly, but we have some firmware versions
 	 * who don't provide the register space in the device tree. Luckily
 	 * they are at well-known locations so we can just do the math here.
+	 * We ioremap 4 KiB regions, except for I/O Bridge which needs
+	 * larger region of 8 KiB.
 	 */
-	return ioremap(0xe0000000 + (p->devfn << 12), 0x1000);
+	iomem_size = (p->device == 0xa001) ? 0x2000 : 0x1000;
+	return ioremap(0xe0000000 + (p->devfn << 12), iomem_size);
 }
 
 static int __devinit pasemi_mac_map_regs(struct pasemi_mac *mac)
