@@ -436,7 +436,7 @@ void fastcall __ipipe_spin_unlock_irq(raw_spinlock_t *lock);
 unsigned long fastcall __ipipe_spin_lock_irqsave(raw_spinlock_t *lock);
 void fastcall __ipipe_spin_unlock_irqrestore(raw_spinlock_t *lock,
 					     unsigned long x);
-void fastcall __ipipe_spin_unlock_irqbegin(raw_spinlock_t *lock);
+void fastcall __ipipe_spin_unlock_irqbegin(ipipe_spinlock_t *lock);
 void fastcall __ipipe_spin_unlock_irqcomplete(unsigned long x);
 #define spin_lock_irqsave_cond(lock, flags) \
 	spin_lock_irqsave(lock, flags)
