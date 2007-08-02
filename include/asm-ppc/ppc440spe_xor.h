@@ -31,7 +31,7 @@
 #define XOR_MMAP_SIZE		0x224ULL
 
 /* XOR Interrupt Source, UIC1[31] */
-#define XOR_INTERRUPT		63
+#define XOR_IRQ			63
 
 /*
  * XOR Command Block Control Register bits
@@ -41,6 +41,7 @@
 #define XOR_CBCR_CBCE_BIT       (1<<29) /* command block compete enable */
 #define XOR_CBCR_RNZE_BIT       (1<<28) /* result not zero enable */
 #define XOR_CBCR_XNOR_BIT       (1<<15) /* XOR/XNOR */
+#define XOR_CDCR_OAC_MSK        (0x7F)  /* operand address count */
 
 /*
  * XORCore Status Register bits

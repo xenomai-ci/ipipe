@@ -550,6 +550,21 @@
 #define MQ0_CONFIG_SIZE_2G		0x0000c000
 #define MQ0_CONFIG_SIZE_4G		0x00008000
 
+/* 440SP/440SPe XOR DCRs */
+#define DCRN_MQ0_XORBA			0x44
+#define DCRN_MQ0_CF2H			0x46
+#define DCRN_MQ0_BAUL			0x4a
+#define DCRN_MQ0_CFBHL			0x4f
+#define DCRN_MQ0_BAUH			0x50
+
+/* RXOR BlockSize Register */
+#define MQ0_CF2H_RXOR_BS_MASK		0xfffffe00
+
+/* HB/LL Paths Configuration Register */
+#define MQ0_CFBHL_TPLM			28
+#define MQ0_CFBHL_HBCL			23
+#define MQ0_CFBHL_POLY			15
+
 /* Internal SRAM Controller 440GX/440SP/440SPe/440EPx/440GRx */
 #if defined(CONFIG_440EPX) || defined(CONFIG_440GRX)
 #define DCRN_SRAM0_BASE		0x360
