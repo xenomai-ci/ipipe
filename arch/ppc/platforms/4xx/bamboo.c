@@ -403,7 +403,7 @@ static struct resource bamboo_sram = {
 
 static struct resource bamboo_ndfc = {
 	.start = BAMBOO_NAND_FLASH_REG_ADDR,
-	.end = BAMBOO_NAND_FLASH_REG_ADDR + BAMBOO_NAND_FLASH_REG_SIZE,
+	.end = BAMBOO_NAND_FLASH_REG_ADDR + BAMBOO_NAND_FLASH_REG_SIZE - 1,
 	.flags = IORESOURCE_MEM,
 };
 
@@ -483,8 +483,7 @@ static struct platform_nand_chip bamboo_nand_chip0 = {
 static struct platform_device bamboo_nand_device = {
 	.name = "ndfc-chip",
 	.id = 0,
-	.num_resources = 1,
-	.resource = &bamboo_ndfc,
+	.num_resources = 0,
 	.dev = {
 		.platform_data = &bamboo_nand_chip0,
 		.parent = &bamboo_ndfc_device.dev,

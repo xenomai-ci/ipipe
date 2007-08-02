@@ -133,7 +133,7 @@ static struct platform_device sequoia_nor_device = {
  */
 static struct resource sequoia_ndfc = {
 	.start = (u32)SEQUOIA_NAND_FLASH_REG_ADDR,
-	.end = (u32)SEQUOIA_NAND_FLASH_REG_ADDR + SEQUOIA_NAND_FLASH_REG_SIZE,
+	.end = (u32)SEQUOIA_NAND_FLASH_REG_ADDR + SEQUOIA_NAND_FLASH_REG_SIZE - 1,
 	.flags = IORESOURCE_MEM,
 };
 
@@ -193,8 +193,7 @@ static struct platform_nand_chip sequoia_nand_chip0 = {
 static struct platform_device sequoia_nand_device = {
 	.name = "ndfc-chip",
 	.id = 0,
-	.num_resources = 1,
-	.resource = &sequoia_ndfc,
+	.num_resources = 0,
 	.dev = {
 		.platform_data = &sequoia_nand_chip0,
 		.parent = &sequoia_ndfc_device.dev,

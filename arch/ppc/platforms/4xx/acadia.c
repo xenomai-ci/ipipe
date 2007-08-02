@@ -110,7 +110,7 @@ static struct platform_device acadia_nor_device = {
  */
 static struct resource acadia_ndfc = {
 	.start = (u32)ACADIA_NAND_FLASH_ADDR,
-	.end = (u32)ACADIA_NAND_FLASH_ADDR + ACADIA_NAND_FLASH_SIZE,
+	.end = (u32)ACADIA_NAND_FLASH_ADDR + ACADIA_NAND_FLASH_SIZE - 1,
 	.flags = IORESOURCE_MEM,
 };
 
@@ -166,8 +166,7 @@ static struct platform_nand_chip acadia_nand_chip0 = {
 static struct platform_device acadia_nand_device = {
 	.name = "ndfc-chip",
 	.id = 0,
-	.num_resources = 1,
-	.resource = &acadia_ndfc,
+	.num_resources = 0,
 	.dev = {
 		.platform_data = &acadia_nand_chip0,
 		.parent = &acadia_ndfc_device.dev,
