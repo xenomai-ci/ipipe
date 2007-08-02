@@ -170,8 +170,10 @@ struct stripe_head {
 		unsigned long	   ack;	     /* submitted operations (set for issue->complete */
 		unsigned long	   complete; /* completed operations flags (set for complete) */
 		int		   target;   /* STRIPE_OP_COMPUTE_BLK target */
+		int		   target2;  /* second target for STRIPE_OP_COMPUTE_BLK2 */
 		int		   count;    /* raid5_runs_ops is set to run when this is non-zero */
-		u32		   zero_sum_result;
+		u32		   zero_sum_result;	/* P-parity check */
+		u32		   zero_qsum_result;	/* Q-parity check */
 	} ops;
 	struct r5dev {
 		struct bio	req;
@@ -236,6 +238,14 @@ struct stripe_head {
 /* modifiers to the base operations */
 #define STRIPE_OP_MOD_REPAIR_PD	7 /* compute the parity block and write it back */
 #define STRIPE_OP_MOD_DMA_CHECK	8 /* parity is not corrupted by the check */
+
+#define	STRIPE_OP_POSTPQXOR	9
+
+#define STRIPE_OP_CHECK_PP	10
+#define STRIPE_OP_CHECK_QP	11
+
+#define STRIPE_OP_UPDATE_PP	12
+#define STRIPE_OP_UPDATE_QP	13
 
 /*
  * Plugging:
