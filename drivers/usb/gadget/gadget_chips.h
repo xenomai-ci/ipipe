@@ -131,6 +131,12 @@
 #define gadget_is_mpc8272(g)	0
 #endif
 
+#ifdef CONFIG_USB_GADGET_DWC_OTG
+#define gadget_is_dwc_otg(g)    !strcmp("dwc_otg_pcd", (g)->name)
+#else
+#define gadget_is_dwc_otg(g)    0
+#endif
+
 // CONFIG_USB_GADGET_SX2
 // CONFIG_USB_GADGET_AU1X00
 // ...
@@ -191,5 +197,7 @@ static inline int usb_gadget_controller_number(struct usb_gadget *gadget)
 		return 0x18;
 	else if (gadget_is_fsl_usb2(gadget))
 		return 0x19;
+	else if (gadget_is_dwc_otg(gadget))
+		return 0x1a;
 	return -ENOENT;
 }
