@@ -28,10 +28,10 @@
 #include <asm/irq.h>
 #include <asm/percpu.h>
 
-#define IPIPE_ARCH_STRING	"1.7-04"
+#define IPIPE_ARCH_STRING	"1.7-05"
 #define IPIPE_MAJOR_NUMBER	1
 #define IPIPE_MINOR_NUMBER	7
-#define IPIPE_PATCH_NUMBER	4
+#define IPIPE_PATCH_NUMBER	5
 
 #define IPIPE_NR_XIRQS		NR_IRQS
 #define IPIPE_IRQ_ISHIFT	5	/* 25 for 32bits arch. */
