@@ -411,9 +411,9 @@ void fastcall __ipipe_restore_pipeline_head(struct ipipe_domain *head, unsigned 
 	}
 }
 
-void fastcall __ipipe_spin_unlock_irqbegin(raw_spinlock_t *lock)
+void fastcall __ipipe_spin_unlock_irqbegin(ipipe_spinlock_t *lock)
 {
-	__raw_spin_unlock(lock);
+	__raw_spin_unlock(&lock->__raw_lock);
 }
 
 void fastcall __ipipe_spin_unlock_irqcomplete(unsigned long x)
