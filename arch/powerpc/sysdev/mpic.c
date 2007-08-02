@@ -567,7 +567,7 @@ static void mpic_unmask_irq(unsigned int irq)
 	/* make sure mask gets to controller before we return to user */
 	do {
 		if (!loops--) {
-			printk(KERN_ERR "mpic_unmask_irq timeout\n");
+			printk(KERN_ERR "mpic_unmask_irq timeout (irq %u)\n", irq);
 			break;
 		}
 	} while(mpic_irq_read(src, MPIC_INFO(IRQ_VECTOR_PRI)) & MPIC_VECPRI_MASK);
@@ -589,11 +589,10 @@ static void mpic_mask_irq(unsigned int irq)
 	mpic_irq_write(src, MPIC_INFO(IRQ_VECTOR_PRI),
 		       mpic_irq_read(src, MPIC_INFO(IRQ_VECTOR_PRI)) |
 		       MPIC_VECPRI_MASK);
-
 	/* make sure mask gets to controller before we return to user */
 	do {
 		if (!loops--) {
-			printk(KERN_ERR "mpic_mask_irq timeout\n");
+			printk(KERN_ERR "mpic_mask_irq timeout (irq=%u)\n", irq);
 			break;
 		}
 	} while(!(mpic_irq_read(src, MPIC_INFO(IRQ_VECTOR_PRI)) & MPIC_VECPRI_MASK));
