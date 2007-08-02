@@ -24,4 +24,12 @@ config ASYNC_MEMSET
 	default m
 	tristate "async_memset support"
 
+config ASYNC_PQXOR
+	default m
+	tristate "async_pqxor support"
+
+config ASYNC_R6RECOV
+	default m
+	tristate "async_r6recovery support"
+
 endif
