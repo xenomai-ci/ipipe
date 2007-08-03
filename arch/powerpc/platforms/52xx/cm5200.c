@@ -1,8 +1,8 @@
 /*
- * Schindler CM1.QP1 board support
+ * Schindler CM5200 board support
  *
  * Written by: Grant Likely <grant.likely@secretlab.ca>
- * Adapted for CM1.QP1 by: Jan Wrobel <wrr@semihalf.com>
+ * Adapted for CM5200 by: Jan Wrobel <wrr@semihalf.com>
  *
  * Copyright (C) Secret Lab Technologies Ltd. 2006. All rights reserved.
  * Copyright (C) Freescale Semicondutor, Inc. 2006. All rights reserved.
@@ -52,7 +52,7 @@
  * Setup the architecture
  *
  */
-static void __init cm1_qp1_setup_cpu(void)
+static void __init cm5200_setup_cpu(void)
 {
 	struct mpc52xx_gpio __iomem *gpio;
 	u32 port_config;
@@ -92,7 +92,7 @@ error:
 	iounmap(gpio);
 }
 
-static void __init cm1_qp1_setup_arch(void)
+static void __init cm5200_setup_arch(void)
 {
 	struct device_node *np;
 
@@ -109,7 +109,7 @@ static void __init cm1_qp1_setup_arch(void)
 
 	/* CPU & Port mux setup */
 	mpc52xx_setup_cpu();	/* Generic */
-	cm1_qp1_setup_cpu();	/* Platorm specific */
+	cm5200_setup_cpu();	/* Platorm specific */
 
 #ifdef CONFIG_BLK_DEV_INITRD
 	if (initrd_start)
@@ -130,7 +130,7 @@ static void __init cm1_qp1_setup_arch(void)
 
 }
 
-void cm1_qp1_show_cpuinfo(struct seq_file *m)
+void cm5200_show_cpuinfo(struct seq_file *m)
 {
 	struct device_node* np = of_find_all_nodes(NULL);
 	const char *model = NULL;
@@ -147,26 +147,26 @@ void cm1_qp1_show_cpuinfo(struct seq_file *m)
 /*
  * Called very early, MMU is off, device-tree isn't unflattened
  */
-static int __init cm1_qp1_probe(void)
+static int __init cm5200_probe(void)
 {
 	unsigned long node = of_get_flat_dt_root();
 	const char *model = of_get_flat_dt_prop(node, "model", NULL);
 
-	if (!of_flat_dt_is_compatible(node, "fsl,cm1_qp1"))
+	if (!of_flat_dt_is_compatible(node, "fsl,cm5200"))
 		return 0;
 	pr_debug("%s board found\n", model ? model : "unknown");
 
 	return 1;
 }
 
-define_machine(cm1_qp1) {
-	.name		= "cm1_qp1",
-	.probe		= cm1_qp1_probe,
-	.setup_arch	= cm1_qp1_setup_arch,
+define_machine(cm5200) {
+	.name		= "cm5200",
+	.probe		= cm5200_probe,
+	.setup_arch	= cm5200_setup_arch,
 	.init		= mpc52xx_declare_of_platform_devices,
 	.init_IRQ	= mpc52xx_init_irq,
 	.get_irq	= mpc52xx_get_irq,
-	.show_cpuinfo	= cm1_qp1_show_cpuinfo,
+	.show_cpuinfo	= cm5200_show_cpuinfo,
 	.calibrate_decr	= generic_calibrate_decr,
 	.restart	= mpc52xx_restart,
 	.halt		= mpc52xx_halt,

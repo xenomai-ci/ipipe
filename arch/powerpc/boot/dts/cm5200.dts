@@ -1,8 +1,8 @@
 /*
- * CM1.QP1 board Device Tree Source
+ * CM5200 board Device Tree Source
  *
  * Copyright (C) 2007 Semihalf
- * Modified for CM1.QP1 by Jan Wrobel <wrr@semihalf.com>
+ * Modified for CM5200 by Jan Wrobel <wrr@semihalf.com>
  *
  * Copyright 2006-2007 Secret Lab Technologies Ltd.
  * Grant Likely <grant.likely@secretlab.ca>
@@ -20,8 +20,8 @@
  */
 
 / {
-	model = "fsl,cm1_qp1";
-	compatible = "fsl,cm1_qp1\0generic-mpc5200";
+	model = "cm5200";
+	compatible = "fsl,cm5200\0generic-mpc5200";
 	#address-cells = <1>;
 	#size-cells = <1>;
 
