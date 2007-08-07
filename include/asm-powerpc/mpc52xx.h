@@ -104,6 +104,9 @@ struct mpc52xx_gpt {
 	u32 status;		/* GPTx + 0X0c */
 };
 
+/* Static instance of GPT0 */
+extern volatile struct mpc52xx_gpt *mpc52xx_gpt0;
+
 /* GPIO */
 struct mpc52xx_gpio {
 	u32 port_config;	/* GPIO + 0x00 */
