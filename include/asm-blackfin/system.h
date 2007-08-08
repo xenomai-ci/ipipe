@@ -43,6 +43,150 @@
 
 extern unsigned long irq_flags;
 
+#ifdef CONFIG_IPIPE
+
+void __ipipe_stall_root(void);
+
+void __ipipe_unstall_root(void);
+
+unsigned long __ipipe_test_root(void);
+
+unsigned long __ipipe_test_and_stall_root(void);
+
+void __ipipe_restore_root(unsigned long flags);
+
+#ifdef CONFIG_DEBUG_HWERR
+#define __all_masked_irq_flags  0x3f
+#define __save_and_cli_hw(x) do {		\
+	__asm__ __volatile__ (			\
+		"cli %0;\n\tsti %1;"		\
+		:"=&d"(x): "d" (0x3F));		\
+} while (0)
+#else
+#define __all_masked_irq_flags  0x1f
+#define __save_and_cli_hw(x) do {	\
+	__asm__ __volatile__ (          \
+		"cli %0;"		\
+		:"=&d"(x):);		\
+} while (0)
+#endif
+
+#define irqs_enabled_from_flags_hw(x) ((x) != __all_masked_irq_flags)
+
+#define raw_irqs_disabled_flags(flags) (!irqs_enabled_from_flags_hw(flags))
+
+#define local_test_iflag_hw(x) irqs_enabled_from_flags_hw(x)
+
+#define local_save_flags(x)		\
+do {					\
+    (x) = __ipipe_test_root()?__all_masked_irq_flags:irq_flags;	\
+} while(0)
+
+#define local_irq_save(x)		\
+do {					\
+	(x) = __ipipe_test_and_stall_root(); \
+} while(0)
+
+#define local_irq_restore(x)	__ipipe_restore_root(x)
+#define local_irq_disable()	__ipipe_stall_root()
+#define local_irq_enable()	__ipipe_unstall_root()
+#define irqs_disabled()	__ipipe_test_root()
+
+#define local_save_flags_hw(x) asm volatile ("cli %0;"  \
+					     "sti %0;"	\
+					     :"=d"(x):)
+
+#define	irqs_disabled_hw()			\
+({						\
+	unsigned long flags;			\
+	local_save_flags_hw(flags);		\
+	!irqs_enabled_from_flags_hw(flags);	\
+})
+
+#ifdef CONFIG_IPIPE_TRACE_IRQSOFF
+
+#include <linux/ipipe_trace.h>
+
+#define local_irq_disable_hw()		\
+do {						\
+	int _tmp_dummy;				\
+	if (!irqs_disabled_hw())		\
+		ipipe_trace_begin(0x80000000);	\
+	__asm__ __volatile__ ( "cli %0;":"=d" (_tmp_dummy):);	\
+} while (0)
+
+#define local_irq_enable_hw()			\
+do {						\
+	if (irqs_disabled_hw())	     		\
+		ipipe_trace_end(0x80000000);	\
+	__asm__ __volatile__ ("sti %0;"::"d"(irq_flags)); \
+} while (0)
+
+#define local_irq_save_hw(x)			\
+do {						\
+	__save_and_cli_hw(x);			\
+	if (local_test_iflag_hw(x))		\
+		ipipe_trace_begin(0x80000001);	\
+} while (0)
+
+#define local_irq_restore_hw(x)		\
+do {						\
+	if (local_test_iflag_hw(x)) {		\
+		ipipe_trace_end(0x80000001);	\
+		local_irq_enable_hw_notrace();	\
+	}					\
+} while (0)
+
+#define local_irq_disable_hw_notrace()  \
+do {					\
+	int _tmp_dummy;						\
+	__asm__ __volatile__ ( "cli %0;":"=d" (_tmp_dummy):);	\
+} while(0)
+
+#define local_irq_enable_hw_notrace() \
+	__asm__ __volatile__ ("sti %0;"::"d"(irq_flags))
+
+#define local_irq_save_hw_notrace(x) __save_and_cli_hw(x)
+
+#define local_irq_restore_hw_notrace(x)	\
+do {						\
+	if (local_test_iflag_hw(x))		\
+		local_irq_enable_hw_notrace();	\
+} while (0)
+
+#else /* CONFIG_IPIPE_TRACE_IRQSOFF */
+
+#define local_irq_enable_hw() 	\
+do {					\
+	__asm__ __volatile__ (		\
+		"sti %0;"		\
+		::"d"(irq_flags));	\
+} while(0)
+
+#define local_irq_disable_hw() 	\
+do {					\
+	int _tmp_dummy;			\
+	__asm__ __volatile__ (		\
+		"cli %0;"		\
+		:"=d" (_tmp_dummy):);	\
+} while(0)
+
+#define local_irq_restore_hw(x) do {			\
+	if (irqs_enabled_from_flags_hw(x))		\
+		local_irq_enable_hw();			\
+} while (0)
+
+#define local_irq_save_hw(x) __save_and_cli_hw(x)
+
+#define local_irq_disable_hw_notrace()	local_irq_disable_hw()
+#define local_irq_enable_hw_notrace()	local_irq_enable_hw()
+#define local_irq_save_hw_notrace(flags)	local_irq_save_hw(flags)
+#define local_irq_restore_hw_notrace(flags)	local_irq_restore_hw(flags)
+
+#endif  /* CONFIG_IPIPE_TRACE_IRQSOFF */
+
+#else /* !CONFIG_IPIPE */
+
 #define local_irq_enable() do {		\
 	__asm__ __volatile__ (		\
 		"sti %0;"		\
@@ -56,22 +200,6 @@ extern unsigned long irq_flags;
 		:"=d" (_tmp_dummy):);	\
 } while (0)
 
-#if defined(ANOMALY_05000244) && defined (CONFIG_BLKFIN_CACHE)
-#define idle_with_irq_disabled() do {   \
-        __asm__ __volatile__ (          \
-                "nop; nop;\n"           \
-                ".align 8;\n"           \
-                "sti %0; idle;\n"       \
-                ::"d" (irq_flags));     \
-} while (0)
-#else
-#define idle_with_irq_disabled() do {   \
-	__asm__ __volatile__ (          \
-		".align 8;\n"           \
-		"sti %0; idle;\n"       \
-		::"d" (irq_flags));     \
-} while (0)
-#endif
 
 #ifdef CONFIG_DEBUG_HWERR
 #define __save_and_cli(x) do {			\
@@ -112,6 +240,31 @@ extern unsigned long irq_flags;
 	!irqs_enabled_from_flags(flags);	\
 })
 
+#define local_irq_save_hw(flags)	local_irq_save(flags)
+#define local_irq_restore_hw(flags)	local_irq_restore(flags)
+#define local_irq_enable_hw()		local_irq_enable()
+#define local_irq_disable_hw(flags)	local_irq_disable()
+#define irqs_disabled_hw(flags)	irqs_disabled()
+
+#endif /* CONFIG_IPIPE */
+
+#if defined(ANOMALY_05000244) && defined (CONFIG_BLKFIN_CACHE)
+#define idle_with_irq_disabled() do {   \
+        __asm__ __volatile__ (          \
+                "nop; nop;\n"           \
+                ".align 8;\n"           \
+                "sti %0; idle;\n"       \
+                ::"d" (irq_flags));     \
+} while (0)
+#else
+#define idle_with_irq_disabled() do {   \
+	__asm__ __volatile__ (          \
+		".align 8;\n"           \
+		"sti %0; idle;\n"       \
+		::"d" (irq_flags));     \
+} while (0)
+#endif
+
 /*
  * Force strict CPU ordering.
  */
@@ -150,7 +303,7 @@ static inline unsigned long __xchg(unsigned long x, volatile void *ptr,
 	unsigned long tmp = 0;
 	unsigned long flags = 0;
 
-	local_irq_save(flags);
+	local_irq_save_hw(flags);
 
 	switch (size) {
 	case 1:
@@ -172,7 +325,7 @@ static inline unsigned long __xchg(unsigned long x, volatile void *ptr,
 			 : "=&d" (tmp) : "d" (x), "m" (*__xg(ptr)) : "memory");
 		break;
 	}
-	local_irq_restore(flags);
+	local_irq_restore_hw(flags);
 	return tmp;
 }
 
@@ -187,7 +340,7 @@ static inline unsigned long __cmpxchg(volatile void *ptr, unsigned long old,
 	unsigned long tmp = 0;
 	unsigned long flags = 0;
 
-	local_irq_save(flags);
+	local_irq_save_hw(flags);
 
 	switch (size) {
 	case 1:
@@ -218,7 +371,7 @@ static inline unsigned long __cmpxchg(volatile void *ptr, unsigned long old,
 			 : "=&d" (tmp) : "d" (old), "d" (new), "m" (*__xg(ptr)) : "memory");
 		break;
 	}
-	local_irq_restore(flags);
+	local_irq_restore_hw(flags);
 	return tmp;
 }
 

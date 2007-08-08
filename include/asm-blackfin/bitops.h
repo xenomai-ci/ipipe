@@ -24,9 +24,9 @@ static __inline__ void set_bit(int nr, volatile unsigned long *addr)
 
 	a += nr >> 5;
 	mask = 1 << (nr & 0x1f);
-	local_irq_save(flags);
+	local_irq_save_hw(flags);
 	*a |= mask;
-	local_irq_restore(flags);
+	local_irq_restore_hw(flags);
 }
 
 static __inline__ void __set_bit(int nr, volatile unsigned long *addr)
@@ -52,9 +52,9 @@ static __inline__ void clear_bit(int nr, volatile unsigned long *addr)
 	unsigned long flags;
 	a += nr >> 5;
 	mask = 1 << (nr & 0x1f);
-	local_irq_save(flags);
+	local_irq_save_hw(flags);
 	*a &= ~mask;
-	local_irq_restore(flags);
+	local_irq_restore_hw(flags);
 }
 
 static __inline__ void __clear_bit(int nr, volatile unsigned long *addr)
@@ -74,9 +74,9 @@ static __inline__ void change_bit(int nr, volatile unsigned long *addr)
 
 	ADDR += nr >> 5;
 	mask = 1 << (nr & 31);
-	local_irq_save(flags);
+	local_irq_save_hw(flags);
 	*ADDR ^= mask;
-	local_irq_restore(flags);
+	local_irq_restore_hw(flags);
 }
 
 static __inline__ void __change_bit(int nr, volatile unsigned long *addr)
@@ -97,10 +97,10 @@ static __inline__ int test_and_set_bit(int nr, void *addr)
 
 	a += nr >> 5;
 	mask = 1 << (nr & 0x1f);
-	local_irq_save(flags);
+	local_irq_save_hw(flags);
 	retval = (mask & *a) != 0;
 	*a |= mask;
-	local_irq_restore(flags);
+	local_irq_restore_hw(flags);
 
 	return retval;
 }
@@ -125,10 +125,10 @@ static __inline__ int test_and_clear_bit(int nr, volatile unsigned long *addr)
 
 	a += nr >> 5;
 	mask = 1 << (nr & 0x1f);
-	local_irq_save(flags);
+	local_irq_save_hw(flags);
 	retval = (mask & *a) != 0;
 	*a &= ~mask;
-	local_irq_restore(flags);
+	local_irq_restore_hw(flags);
 
 	return retval;
 }
@@ -153,10 +153,10 @@ static __inline__ int test_and_change_bit(int nr, volatile unsigned long *addr)
 
 	a += nr >> 5;
 	mask = 1 << (nr & 0x1f);
-	local_irq_save(flags);
+	local_irq_save_hw(flags);
 	retval = (mask & *a) != 0;
 	*a ^= mask;
-	local_irq_restore(flags);
+	local_irq_restore_hw(flags);
 	return retval;
 }
 

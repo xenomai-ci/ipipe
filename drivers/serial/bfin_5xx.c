@@ -837,6 +837,50 @@ bfin_serial_console_write(struct console *co, const char *s, unsigned int count)
 
 }
 
+#ifdef CONFIG_IPIPE
+
+#include <stdarg.h>
+
+void __ipipe_serial_debug(const char *fmt, ...)
+{
+	struct bfin_serial_port *uart = &bfin_serial_ports[0];
+	unsigned short status, tmp;
+	int flags, i, count;
+	char buf[128];
+	va_list ap;
+
+	va_start(ap, fmt);
+	vsprintf(buf, fmt, ap);
+	va_end(ap);
+	count = strlen(buf);
+
+	local_irq_save_hw(flags);
+
+	for (i = 0; i < count; i++) {
+		do {
+			status = UART_GET_LSR(uart);
+		} while (!(status & THRE));
+
+		tmp = UART_GET_LCR(uart);
+		tmp &= ~DLAB;
+		UART_PUT_LCR(uart, tmp);
+
+		UART_PUT_CHAR(uart, buf[i]);
+		if (buf[i] == '\n') {
+			do {
+				status = UART_GET_LSR(uart);
+			} while(!(status & THRE));
+			UART_PUT_CHAR(uart, '\r');
+		}
+	}
+
+	local_irq_restore_hw(flags);
+}
+
+EXPORT_SYMBOL(__ipipe_serial_debug);
+
+#endif /* CONFIG_IPIPE */
+
 /*
  * If the port was already initialised (eg, by a boot loader),
  * try to determine the current setup.

@@ -401,6 +401,9 @@ asmlinkage void trap_c(struct pt_regs *fp)
 		break;
 	}
 
+	if (ipipe_trap_notify(fp->seqstat & 0x3f,fp))
+		goto nsig;
+
 	info.si_signo = sig;
 	info.si_errno = 0;
 	info.si_addr = (void *)fp->pc;
@@ -432,7 +435,7 @@ asmlinkage void trap_c(struct pt_regs *fp)
 			panic("Help - I've fallen and can't get up\n");
 		}
 	}
-
+ nsig:
 	trace_buffer_restore(j);
 	return;
 }

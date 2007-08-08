@@ -1,0 +1,293 @@
+/*   -*- linux-c -*-
+ *   include/asm-blackfin/ipipe.h
+ *
+ *   Copyright (C) 2002-2005 Philippe Gerum.
+ *
+ *   This program is free software; you can redistribute it and/or modify
+ *   it under the terms of the GNU General Public License as published by
+ *   the Free Software Foundation, Inc., 675 Mass Ave, Cambridge MA 02139,
+ *   USA; either version 2 of the License, or (at your option) any later
+ *   version.
+ *
+ *   This program is distributed in the hope that it will be useful,
+ *   but WITHOUT ANY WARRANTY; without even the implied warranty of
+ *   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ *   GNU General Public License for more details.
+ *
+ *   You should have received a copy of the GNU General Public License
+ *   along with this program; if not, write to the Free Software
+ *   Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+ */
+
+#ifndef __BLACKFIN_IPIPE_H
+#define __BLACKFIN_IPIPE_H
+
+#ifdef CONFIG_IPIPE
+
+#include <linux/cpumask.h>
+#include <linux/list.h>
+#include <linux/threads.h>
+#include <linux/irq.h>
+#include <asm/ptrace.h>
+#include <asm/mach/irq.h>
+#include <asm/bitops.h>
+#include <asm/atomic.h>
+#include <asm/traps.h>
+
+#define IPIPE_ARCH_STRING     "1.6-02"
+#define IPIPE_MAJOR_NUMBER    1
+#define IPIPE_MINOR_NUMBER    6
+#define IPIPE_PATCH_NUMBER    2
+
+#define IPIPE_NR_XIRQS		NR_IRQS
+#define IPIPE_IRQ_ISHIFT	5	/* 2^5 for 32bits arch. */
+
+/* Blackfin-specific, global domain flags */
+#define IPIPE_ROOTLOCK_FLAG	1	/* Lock pipeline for root */
+
+#ifdef CONFIG_SMP
+#error "I-pipe/blackfin: SMP not implemented"
+#else /* !CONFIG_SMP */
+#define ipipe_processor_id()	0
+#endif	/* CONFIG_SMP */
+
+#define prepare_arch_switch(next)		\
+do {						\
+	ipipe_schedule_notify(current, next);	\
+	local_irq_disable_hw();			\
+} while(0)
+
+#define task_hijacked(p)						\
+	({								\
+		int __x__ = ipipe_current_domain != ipipe_root_domain;	\
+		/* We would need to clear the SYNC flag for the root domain */ \
+		/* over the current processor in SMP mode. */		\
+		local_irq_enable_hw(); __x__;				\
+	})
+
+ /* Blackfin traps -- i.e. exception vector numbers */
+#define IPIPE_NR_FAULTS		52 /* We leave a gap after VEC_ILL_RES. */
+/* Pseudo-vectors used for kernel events */
+#define IPIPE_FIRST_EVENT	IPIPE_NR_FAULTS
+#define IPIPE_EVENT_SYSCALL	(IPIPE_FIRST_EVENT)
+#define IPIPE_EVENT_SCHEDULE	(IPIPE_FIRST_EVENT + 1)
+#define IPIPE_EVENT_SIGWAKE	(IPIPE_FIRST_EVENT + 2)
+#define IPIPE_EVENT_SETSCHED	(IPIPE_FIRST_EVENT + 3)
+#define IPIPE_EVENT_INIT	(IPIPE_FIRST_EVENT + 4)
+#define IPIPE_EVENT_EXIT	(IPIPE_FIRST_EVENT + 5)
+#define IPIPE_EVENT_CLEANUP	(IPIPE_FIRST_EVENT + 6)
+#define IPIPE_LAST_EVENT	IPIPE_EVENT_CLEANUP
+#define IPIPE_NR_EVENTS		(IPIPE_LAST_EVENT + 1)
+
+struct ipipe_domain;
+
+struct ipipe_sysinfo {
+
+	int ncpus;		/* Number of CPUs on board */
+	u64 cpufreq;		/* CPU frequency (in Hz) */
+
+	/* Arch-dependent block */
+
+	struct {
+		unsigned tmirq;	/* Timer tick IRQ */
+		u64 tmfreq;	/* Timer frequency */
+	} archdep;
+};
+
+#define ipipe_read_tsc(t)					\
+	({							\
+	unsigned long __cy2;					\
+	__asm__ __volatile__ (	"1: %0 = CYCLES2\n"		\
+				"%1 = CYCLES\n"			\
+				"%2 = CYCLES2\n"		\
+				"CC = %2 == %0\n"		\
+				"if ! CC jump 1b\n"		\
+				:"=r" (((unsigned long *)&t)[1]),	\
+				"=r" (((unsigned long *)&t)[0]),	\
+				"=r" (__cy2)				\
+				: /*no input*/ : "CC");			\
+	t;								\
+	})
+
+#define ipipe_cpu_freq()	__ipipe_core_clock
+#define ipipe_tsc2ns(_t)	(((unsigned long)(_t)) * __ipipe_freq_scale)
+#define ipipe_tsc2us(_t)	(ipipe_tsc2ns(_t) / 1000 + 1)
+
+/* Private interface -- Internal use only */
+
+#define __ipipe_check_platform()	do { } while(0)
+
+#define __ipipe_init_platform()	do { } while(0)
+
+extern atomic_t __ipipe_irq_lvdepth[IVG15 + 1];
+
+extern unsigned long __ipipe_irq_lvmask;
+
+extern struct ipipe_domain ipipe_root;
+
+/* enable/disable_irqdesc _must_ be used in pairs. */
+
+static __inline__ void __ipipe_enable_irqdesc(struct ipipe_domain *ipd,
+					      unsigned irq)
+{
+	struct irq_desc *desc = irq_desc + irq;
+	int prio = desc->ic_prio;
+
+	desc->depth = 0;
+	if (ipd != &ipipe_root &&
+	    atomic_inc_return(&__ipipe_irq_lvdepth[prio]) == 1) {
+		__set_bit(prio, &__ipipe_irq_lvmask);
+		barrier();
+	}
+}
+
+static __inline__ void __ipipe_disable_irqdesc(struct ipipe_domain *ipd,
+					       unsigned irq)
+{
+	struct irq_desc *desc = irq_desc + irq;
+	int prio = desc->ic_prio;
+
+	if (ipd != &ipipe_root &&
+	    atomic_dec_and_test(&__ipipe_irq_lvdepth[prio])) {
+		__clear_bit(prio, &__ipipe_irq_lvmask);
+		barrier();
+	}
+}
+
+#define __ipipe_enable_irq(irq)	irq_desc[irq].chip->unmask(irq)
+
+#define __ipipe_disable_irq(irq)	irq_desc[irq].chip->mask(irq)
+
+#define __ipipe_lock_root() \
+	set_bit(IPIPE_ROOTLOCK_FLAG, &ipipe_root_domain->flags)
+
+#define __ipipe_unlock_root() \
+	clear_bit(IPIPE_ROOTLOCK_FLAG, &ipipe_root_domain->flags)
+
+void __ipipe_enable_pipeline(void);
+
+#define __ipipe_hook_critical_ipi(ipd) do { } while(0)
+
+#define __ipipe_sync_pipeline(syncmask)				\
+do {								\
+	struct ipipe_domain *ipd = ipipe_current_domain;	\
+	if (likely(ipd != ipipe_root_domain || !test_bit(IPIPE_ROOTLOCK_FLAG, &ipd->flags))) \
+		__ipipe_sync_stage(syncmask);			\
+} while(0)
+
+void __ipipe_handle_irq(unsigned irq,
+			struct pt_regs *regs);
+
+int __ipipe_get_irq_priority(unsigned irq);
+
+int __ipipe_get_irqthread_priority(unsigned irq);
+
+void __ipipe_stall_root_raw(void);
+
+void __ipipe_unstall_root_raw(void);
+
+void __ipipe_serial_debug(const char *fmt,
+			  ...);
+
+extern struct pt_regs __ipipe_irq_regs[];
+
+extern unsigned long __ipipe_core_clock;
+
+extern unsigned long __ipipe_freq_scale;
+
+extern unsigned long __ipipe_irq_tail_hook;
+
+#define IPIPE_TIMER_IRQ  IRQ_CORETMR
+
+#define IRQ_SYSTMR       IRQ_TMR0
+
+#ifdef CONFIG_BF533
+#define IRQ_PRIOTMR      CONFIG_TIMER0
+#define PRIO_GPIODEMUX   CONFIG_PFA
+#else
+#define IRQ_PRIOTMR      CONFIG_IRQ_TMR0
+#define PRIO_GPIODEMUX   CONFIG_IRQ_PROG_INTA
+#endif
+
+unsigned long get_cclk(void);	/* Core clock freq (HZ) */
+
+unsigned long get_sclk(void);	/* System clock freq (HZ) */
+
+static inline unsigned long __ipipe_ffnz(unsigned long ul)
+{
+	return ffs(ul) - 1;
+}
+
+#define __ipipe_run_irqtail()  /* Must be a macro */	\
+do {							\
+	asmlinkage void __ipipe_call_irqtail(void);	\
+	unsigned long pending;				\
+	__builtin_bfin_csync();				\
+	pending = bfin_read_IPEND();			\
+	if (pending & 0x8000) {				\
+		pending &= ~0x8010;				\
+		if (pending && (pending & (pending - 1)) == 0)	\
+			__ipipe_call_irqtail();			\
+	}							\
+} while(0)
+
+#define __ipipe_run_isr(ipd, irq, cpuid) 	\
+do {					 	\
+	if (ipd == ipipe_root_domain) {		\
+	/*							\
+	 * Note: the I-pipe implements a threaded interrupt model on	\
+	 * this arch for Linux external IRQs. The interrupt handler we	\
+	 * call here only wakes up the associated IRQ thread.		\
+	 */								\
+		if (ipipe_virtual_irq_p(irq)) {				\
+			/* No irqtail here; virtual interrupts have no effect \
+			   on IPEND so there is no need for processing	\
+			   deferral. */					\
+			local_irq_enable_nohead(ipd);			\
+			ipd->irqs[irq].handler(irq, ipd->irqs[irq].cookie); \
+			local_irq_disable_nohead(ipd);			\
+		} else							\
+			/* No need to run the irqtail here either; we	\
+			   are not preemptable by hw IRQs, so		\
+			   non-Linux IRQs cannot stack over the short	\
+			   thread wakeup code. Which in turn means	\
+			   that no irqtail condition could be pending	\
+			   for domains above Linux in the pipeline. */	\
+			ipd->irqs[irq].handler(irq, __ipipe_irq_regs + cpuid);	\
+	} else {							\
+		__clear_bit(IPIPE_SYNC_FLAG, &cpudata->status);		\
+		local_irq_enable_nohead(ipd);				\
+		ipd->irqs[irq].handler(irq, ipd->irqs[irq].cookie);	\
+		/* Attempt to exit the outer interrupt level before	\
+		 * starting the deferred IRQ processing. */		\
+		local_irq_disable_nohead(ipd);				\
+		__ipipe_run_irqtail();					\
+		__set_bit(IPIPE_SYNC_FLAG, &cpudata->status);		\
+	}								\
+} while(0)
+
+#define __ipipe_syscall_watched_p(p, sc)	\
+	(((p)->flags & PF_EVNOTIFY) || (unsigned long)sc >= NR_syscalls)
+
+void ipipe_init_irq_threads(void);
+
+int ipipe_start_irq_thread(unsigned irq,
+			   struct irq_desc *desc);
+
+#else /* !CONFIG_IPIPE */
+
+#define task_hijacked(p)		0
+#define ipipe_trap_notify(t,r)  	0
+
+#define __ipipe_stall_root_raw()	do { } while(0)
+#define __ipipe_unstall_root_raw()	do { } while(0)
+
+#define IRQ_SYSTMR     IRQ_CORETMR
+#define IRQ_PRIOTMR    IRQ_CORETMR
+
+#define ipipe_init_irq_threads()		do { } while(0)
+#define ipipe_start_irq_thread(irq, desc)	0
+
+#endif /* CONFIG_IPIPE */
+
+#endif	/* !__BLACKFIN_IPIPE_H */

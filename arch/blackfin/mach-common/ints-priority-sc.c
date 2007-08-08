@@ -106,6 +106,112 @@ static void __init search_IAR(void)
 	}
 }
 
+#ifdef CONFIG_IPIPE
+
+/* Implement a threaded interrupt model a la PREEMPT_RT on top of the
+   I-pipe, so that Linux device IRQ handlers cannot defer the
+   interrupt tail code for too long. */
+
+#include <linux/kthread.h>
+
+static int create_irq_threads;
+
+static DEFINE_PER_CPU(unsigned long, pending_irqthread_mask);
+
+static DEFINE_PER_CPU(int [IVG13 + 1], pending_irq_count);
+
+static int do_irqd(void * __desc)
+{
+	struct irq_desc *desc = __desc;
+	unsigned irq = desc - irq_desc;
+	int thrprio = desc->thr_prio;
+	int thrmask = 1 << thrprio;
+	int cpu = smp_processor_id();
+	cpumask_t cpumask;
+
+	sigfillset(&current->blocked);
+	current->flags |= PF_NOFREEZE;
+	cpumask = cpumask_of_cpu(cpu);
+	set_cpus_allowed(current, cpumask);
+	ipipe_setscheduler_root(current,SCHED_FIFO, 50 + thrprio);
+
+	while (!kthread_should_stop()) {
+		local_irq_disable();
+		if (!(desc->status & IRQ_SCHEDULED)) {
+			set_current_state(TASK_INTERRUPTIBLE);
+		resched:
+			local_irq_enable();
+			schedule();
+			local_irq_disable();
+		}
+		__set_current_state(TASK_RUNNING);
+		/* If higher priority interrupt servers are ready to
+		 * run, reschedule immediately. We need this for the
+		 * GPIO demux IRQ handler to unmask the interrupt line
+		 * _last_, after all GPIO IRQs have run. */
+		if (per_cpu(pending_irqthread_mask, cpu) & ~(thrmask|(thrmask-1)))
+			goto resched;
+		if (--per_cpu(pending_irq_count[thrprio], cpu) == 0)
+			per_cpu(pending_irqthread_mask, cpu) &= ~thrmask;
+		desc->status &= ~IRQ_SCHEDULED;
+		desc->thr_handler(irq, get_irq_regs());
+		local_irq_enable();
+	}
+	__set_current_state(TASK_RUNNING);
+	return 0;
+}
+
+static void kick_irqd(unsigned irq, void *cookie)
+{
+	struct irq_desc *desc = irq_desc + irq;
+	int thrprio = desc->thr_prio;
+	int thrmask = 1 << thrprio;
+	int cpu = smp_processor_id();
+
+	if (!(desc->status & IRQ_SCHEDULED)) {
+		desc->status |= IRQ_SCHEDULED;
+		per_cpu(pending_irqthread_mask, cpu) |= thrmask;
+		++per_cpu(pending_irq_count[thrprio], cpu);
+		set_irq_regs((struct pt_regs *)cookie);
+		wake_up_process(desc->thread);
+	}
+}
+
+int ipipe_start_irq_thread(unsigned irq, struct irq_desc *desc)
+{
+	if (desc->thread || !create_irq_threads)
+		return 0;
+
+	desc->thread = kthread_create(do_irqd, desc, "IRQ %d", irq);
+
+	if (!desc->thread) {
+		printk(KERN_ERR "irqd: could not create IRQ thread %d!\n", irq);
+		return -ENOMEM;
+	}
+
+	wake_up_process(desc->thread);
+
+	desc->thr_handler = ipipe_root_domain->irqs[irq].handler;
+	ipipe_root_domain->irqs[irq].handler = &kick_irqd;
+
+	return 0;
+}
+
+void __init ipipe_init_irq_threads(void)
+{
+	unsigned irq;
+
+	create_irq_threads = 1;
+
+	for (irq = 0; irq < NR_IRQS; irq++) {
+		struct irq_desc *desc = irq_desc + irq;
+		if (desc->action != NULL || desc->ipipe_demux != NULL)
+		    ipipe_start_irq_thread(irq, desc);
+	}
+}
+
+#endif /* CONFIG_IPIPE */
+
 /*
  * This is for BF533 internal IRQs
  */
@@ -118,8 +224,8 @@ static void ack_noop(unsigned int irq)
 static void bfin_core_mask_irq(unsigned int irq)
 {
 	irq_flags &= ~(1 << irq);
-	if (!irqs_disabled())
-		local_irq_enable();
+	if (!irqs_disabled_hw())
+		local_irq_enable_hw();
 }
 
 static void bfin_core_unmask_irq(unsigned int irq)
@@ -134,8 +240,8 @@ static void bfin_core_unmask_irq(unsigned int irq)
 	 * local_irq_enable just does "STI irq_flags", so it's exactly
 	 * what we need.
 	 */
-	if (!irqs_disabled())
-		local_irq_enable();
+	if (!irqs_disabled_hw())
+		local_irq_enable_hw();
 	return;
 }
 
@@ -178,23 +284,23 @@ static void bfin_generic_error_mask_irq(unsigned int irq)
 	error_int_mask &= ~(1L << (irq - IRQ_PPI_ERROR));
 
 	if (!error_int_mask) {
-		local_irq_disable();
+		local_irq_disable_hw();
 		bfin_write_SIC_IMASK(bfin_read_SIC_IMASK() &
 				     ~(1 <<
 				       (IRQ_GENERIC_ERROR -
 					(IRQ_CORETMR + 1))));
 		SSYNC();
-		local_irq_enable();
+		local_irq_enable_hw();
 	}
 }
 
 static void bfin_generic_error_unmask_irq(unsigned int irq)
 {
-	local_irq_disable();
+	local_irq_disable_hw();
 	bfin_write_SIC_IMASK(bfin_read_SIC_IMASK() | 1 <<
 			     (IRQ_GENERIC_ERROR - (IRQ_CORETMR + 1)));
 	SSYNC();
-	local_irq_enable();
+	local_irq_enable_hw();
 
 	error_int_mask |= 1L << (irq - IRQ_PPI_ERROR);
 }
@@ -236,8 +342,12 @@ static void bfin_demux_error_irq(unsigned int int_err_irq,
 
 	if (irq) {
 		if (error_int_mask & (1L << (irq - IRQ_PPI_ERROR))) {
-			struct irq_desc *desc = irq_desc + irq;
-			desc->handle_irq(irq, desc);
+#ifdef CONFIG_IPIPE
+			__ipipe_handle_irq(irq, get_irq_regs());
+#else /* !CONFIG_IPIPE */
+                        struct irq_desc *desc = irq_desc + irq;
+                        desc->handle_irq(irq, desc);
+#endif  /* !CONFIG_IPIPE */
 		} else {
 
 			switch (irq) {
@@ -432,8 +542,12 @@ static void bfin_demux_gpio_irq(unsigned int intb_irq,
 
 		while (mask) {
 			if (mask & 1) {
-				struct irq_desc *desc = irq_desc + irq;
-				desc->handle_irq(irq, desc);
+#ifdef CONFIG_IPIPE
+				__ipipe_handle_irq(irq, get_irq_regs());
+#else /* !CONFIG_IPIPE */
+                                struct irq_desc *desc = irq_desc + irq;
+                                desc->handle_irq(irq, desc);
+#endif /* !CONFIG_IPIPE */
 			}
 			irq++;
 			mask >>= 1;
@@ -450,12 +564,12 @@ static void bfin_demux_gpio_irq(unsigned int intb_irq,
 int __init init_arch_irq(void)
 {
 	int irq;
-	unsigned long ilat = 0;
+	unsigned long ilat = 0, flags;
 	/*  Disable all the peripheral intrs  - page 4-29 HW Ref manual */
 	bfin_write_SIC_IMASK(SIC_UNMASK_ALL);
 	SSYNC();
-
-	local_irq_disable();
+        local_irq_save(flags);
+	//local_irq_disable();
 
 #ifndef CONFIG_KGDB
 	bfin_write_EVT0(evt_emulation);
@@ -491,17 +605,35 @@ int __init init_arch_irq(void)
 # endif
 			    ) {
 #endif
+#ifdef CONFIG_IPIPE
+				/* We want internal interrupt sources
+				   to be masked, because ISRs may
+				   trigger interrupts recursively
+				   (e.g. DMA), but interrupts are
+				   _not_ masked at CPU level. So let's
+				   handle them as level interrupts. */
+				set_irq_handler(irq, handle_level_irq);
+#else /* !CONFIG_IPIPE */
 				set_irq_handler(irq, handle_simple_irq);
+#endif /* !CONFIG_IPIPE */
 #ifdef CONFIG_IRQCHIP_DEMUX_GPIO
 			} else {
+#ifdef CONFIG_IPIPE
+				__set_irq_demux_handler(irq, bfin_demux_gpio_irq, 1, "GPIO demux");
+#else /* !CONFIG_IPIPE */
 				set_irq_chained_handler(irq,
 							bfin_demux_gpio_irq);
+#endif /* !CONFIG_IPIPE */
 			}
 #endif
 
 #ifdef BF537_GENERIC_ERROR_INT_DEMUX
 		} else {
+#ifdef CONFIG_IPIPE
+			__set_irq_demux_handler(irq, bfin_demux_error_irq, 0, "ERROR demux");
+#else /* !CONFIG_IPIPE */
 			set_irq_handler(irq, bfin_demux_error_irq);
+#endif /* !CONFIG_IPIPE */
 		}
 #endif
 	}
@@ -541,6 +673,15 @@ int __init init_arch_irq(void)
 	    IMASK_IVG10 | IMASK_IVG9 | IMASK_IVG8 | IMASK_IVG7 |
 	    IMASK_IVGHW;
 
+#ifdef CONFIG_IPIPE
+       for (irq = 0; irq < NR_IRQS; irq++) {
+               struct irq_desc *desc = irq_desc + irq;
+               desc->ic_prio = __ipipe_get_irq_priority(irq);
+               desc->thr_prio = __ipipe_get_irqthread_priority(irq);
+       }
+#endif /* CONFIG_IPIPE */
+
+        local_irq_restore(flags);
 	return 0;
 }
 
@@ -575,3 +716,121 @@ void do_irq(int vec, struct pt_regs *fp)
 	kgdb_process_breakpoint();
 #endif
 }
+
+#ifdef CONFIG_IPIPE
+
+int __ipipe_get_irq_priority(unsigned irq)
+{
+	int ient, prio;
+
+	if (irq <= IRQ_CORETMR)
+		return irq;
+
+	for (ient = 0; ient < NR_PERI_INTS; ient++) {
+		struct ivgx *ivg = ivg_table + ient;
+		if (ivg->irqno == irq) {
+			for (prio = 0; prio <= IVG13-IVG7; prio++) {
+				if (ivg7_13[prio].ifirst <= ivg &&
+				    ivg7_13[prio].istop > ivg)
+					return IVG7 + prio;
+			}
+		}
+	}
+
+	return IVG15;
+}
+
+int __ipipe_get_irqthread_priority(unsigned irq)
+{
+	int ient, prio;
+
+	/* The returned priority value is rescaled to [0..IVG13+1]
+	 * with 0 being the lowest effective priority level. */
+
+	if (irq <= IRQ_CORETMR)
+		return IVG13 - irq + 1;
+
+	if (irq == IRQ_PROG_INTA)
+		/* The GPIO demux interrupt is given a lower priority
+		 * than the GPIO IRQs, so that its threaded handler
+		 * unmasks the interrupt line after the decoded IRQs
+		 * have been processed. */
+		return IVG13 - PRIO_GPIODEMUX;
+
+	if (irq >= IRQ_PF0)
+		/* GPIO IRQs are given the priority of the demux
+		 * interrupt. */
+		return IVG13 - PRIO_GPIODEMUX + 1;
+
+	for (ient = 0; ient < NR_PERI_INTS; ient++) {
+		struct ivgx *ivg = ivg_table + ient;
+		if (ivg->irqno == irq) {
+			for (prio = 0; prio <= IVG13-IVG7; prio++) {
+				if (ivg7_13[prio].ifirst <= ivg &&
+				    ivg7_13[prio].istop > ivg)
+					return IVG7 - prio;
+			}
+		}
+	}
+
+	return 0;
+}
+
+/* Hw interrupts are disabled on entry (check SAVE_CONTEXT). */
+
+#ifdef CONFIG_DO_IRQ_L1
+asmlinkage int __ipipe_grab_irq(int vec, struct pt_regs *regs) __attribute__((l1_text));
+#endif
+
+asmlinkage int __ipipe_grab_irq(int vec, struct pt_regs *regs)
+{
+	struct ivgx *ivg_stop = ivg7_13[vec-IVG7].istop;
+	struct ivgx *ivg = ivg7_13[vec-IVG7].ifirst;
+	unsigned long sic_status;
+	ipipe_declare_cpuid;
+	int irq;
+
+	if (likely(vec == EVT_IVTMR_P)) {
+		irq = IRQ_CORETMR;
+		goto handle_irq;
+	}
+
+	__builtin_bfin_ssync();
+ 	sic_status = bfin_read_SIC_IMASK() & bfin_read_SIC_ISR();
+
+	for(;; ivg++) {
+		if (ivg >= ivg_stop)  {
+			num_spurious++;
+			return 0;
+		}
+		else if (sic_status & ivg->isrflag)
+			break;
+	}
+
+	irq = ivg->irqno;
+
+	ipipe_load_cpuid();
+
+	if (irq == IRQ_SYSTMR)
+	    bfin_write_TIMER_STATUS(1); /* Latch TIMIL0 */
+
+	/* This is basically what we need from the register frame. */
+	__ipipe_irq_regs[cpuid].ipend = regs->ipend;
+	__ipipe_irq_regs[cpuid].pc = regs->pc;
+
+handle_irq:
+
+#ifdef CONFIG_IPIPE_TRACE_IRQSOFF
+       ipipe_trace_begin(irq); 
+#endif /* CONFIG_IPIPE_TRACE_IRQSOFF */
+	__ipipe_handle_irq(irq, regs);
+#ifdef CONFIG_IPIPE_TRACE_IRQSOFF
+       ipipe_trace_end(irq);
+#endif /* CONFIG_IPIPE_TRACE_IRQSOFF */
+
+	return (per_cpu(ipipe_percpu_domain, cpuid) == ipipe_root_domain &&
+		!test_bit(IPIPE_STALL_FLAG,
+			  &ipipe_root_domain->cpudata[cpuid].status));
+}
+
+#endif /* CONFIG_IPIPE */

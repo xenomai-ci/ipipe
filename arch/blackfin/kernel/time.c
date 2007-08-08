@@ -135,6 +135,27 @@ static struct irqaction bfin_timer_irq = {
 static void
 time_sched_init(irqreturn_t(*timer_routine) (int, void *))
 {
+#ifdef CONFIG_IPIPE
+	/* Use builtin TIMER0 for time source instead of the high
+	 * priority core timer; this makes the latter available to
+	 * client RTOS running over the I-pipe. Xenomai will make good
+	 * use of this. */
+
+	/* Power down the core timer, just to play safe. */
+	bfin_write_TCNTL(0);
+	__builtin_bfin_csync();
+	/* We use TIMER0 in PWM_OUT, periodic mode. */
+	bfin_write_TIMER_DISABLE(1);    /* Disable TIMER0 for now. */
+	__builtin_bfin_ssync();
+	bfin_write_TIMER0_CONFIG(0x59); /* IRQ enable, periodic, PWM_OUT, SCLKed, OUT PAD disabled */
+	__builtin_bfin_ssync();
+	bfin_write_TIMER0_PERIOD(get_sclk() / HZ);
+	__builtin_bfin_ssync();
+	bfin_write_TIMER0_WIDTH(1);
+	__builtin_bfin_ssync();
+	bfin_write_TIMER_ENABLE(1);     /* Enable TIMER0. */
+	__builtin_bfin_ssync();
+#else /* !CONFIG_IPIPE */
 	u32 tcount;
 
 	/* power up the timer, but don't enable it just yet */
@@ -154,12 +175,14 @@ time_sched_init(irqreturn_t(*timer_routine) (int, void *))
 	CSYNC();
 
 	bfin_write_TCNTL(7);
+#endif  /* CONFIG_IPIPE */
 
 	bfin_timer_irq.handler = (irq_handler_t)timer_routine;
 	/* call setup_irq instead of request_irq because request_irq calls
 	 * kmalloc which has not been initialized yet
 	 */
-	setup_irq(IRQ_CORETMR, &bfin_timer_irq);
+	//setup_irq(IRQ_CORETMR, &bfin_timer_irq);
+	setup_irq(IRQ_SYSTMR, &bfin_timer_irq);
 }
 
 /*
@@ -170,17 +193,21 @@ static unsigned long gettimeoffset(void)
 	unsigned long offset;
 	unsigned long clocks_per_jiffy;
 
+#ifdef CONFIG_IPIPE
+	/* When the I-pipe is active, Linux uses TMR0 and not the core
+	   timer, which is then reserved to any real-time subsystem
+	   that may rely on Adeos for interrupt virtualization. */
+	clocks_per_jiffy =  bfin_read_TIMER0_PERIOD();
+	offset =  bfin_read_TIMER0_COUNTER() / (((clocks_per_jiffy + 1) * HZ) / USEC_PER_SEC);
+#else /* !CONFIG_IPIPE */
 	clocks_per_jiffy = bfin_read_TPERIOD();
 	offset =
 	    (clocks_per_jiffy -
 	     bfin_read_TCOUNT()) / (((clocks_per_jiffy + 1) * HZ) /
 				    USEC_PER_SEC);
-
-	/* Check if we just wrapped the counters and maybe missed a tick */
-	if ((bfin_read_ILAT() & (1 << IRQ_CORETMR))
-	    && (offset < (100000 / HZ / 2)))
+	if ((bfin_read_ILAT() & (1 << IRQ_PRIOTMR)) && (offset < (100000 / HZ / 2)))
 		offset += (USEC_PER_SEC / HZ);
-
+#endif /* CONFIG_IPIPE */
 	return offset;
 }
 

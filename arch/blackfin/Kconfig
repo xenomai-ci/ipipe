@@ -265,6 +265,7 @@ config BFIN_SHARED_FLASH_ENET
 source "arch/blackfin/mach-bf533/Kconfig"
 source "arch/blackfin/mach-bf561/Kconfig"
 source "arch/blackfin/mach-bf537/Kconfig"
+source "kernel/ipipe/Kconfig"
 
 menu "Board customizations"
 
