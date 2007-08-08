@@ -1241,7 +1241,7 @@ static inline int zeromap_pud_range(struct mm_struct *mm, pgd_t *pgd,
 		if (err)
 			break;
 	} while (pud++, addr = next, addr != end);
-	return 0;
+	return err;
 }
 
 int zeromap_page_range(struct vm_area_struct *vma,
