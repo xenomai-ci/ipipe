@@ -334,7 +334,11 @@ struct task_struct *__switch_to(struct task_struct *prev,
 #ifdef CONFIG_PPC_PASEMI_A2_WORKAROUNDS
 	/* current is still really us, just a different us :-) */
 	if (current->mm) {
+#ifdef CONFIG_PPC_64K_PAGES
+		__hash_page_64K(0, _PAGE_USER|_PAGE_RW, get_vsid(current->mm->context.id, 0), &current->zero_pte.pte, 0x300, 1);
+#else
 		__hash_page_4K(0, _PAGE_USER|_PAGE_RW, get_vsid(current->mm->context.id, 0), &current->zero_pte, 0x300, 1);
+#endif
 	}
 #endif
 

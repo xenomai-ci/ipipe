@@ -932,7 +932,7 @@ struct task_struct {
 	struct mm_struct *mm, *active_mm;
 
 #ifdef CONFIG_PPC_PASEMI_A2_WORKAROUNDS
-	pte_t zero_pte;
+	real_pte_t zero_pte;
 #endif
 
 /* task state */
