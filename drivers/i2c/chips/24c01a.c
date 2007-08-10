@@ -99,7 +99,7 @@ static int eeprom_attach(struct i2c_adapter *adap, int addr, int kind)
 	if (idx < 0)
 		return -ENODEV;
 
-	client = kmalloc(sizeof(*client), GFP_KERNEL);
+	client = kzalloc(sizeof(*client), GFP_KERNEL);
 	if (client == NULL)
 		return -ENOMEM;
 	client->adapter = adap;
@@ -315,7 +315,11 @@ static int init_eeprom(void)
 {
 	int err = 0;
 
-	i2c_add_driver(&i2c_driver_eeprom);
+	err = i2c_add_driver(&i2c_driver_eeprom);
+	if (err < 0) {
+		printk(KERN_ALERT "ERROR: Couldn't add driver %s\n", HW_NAME);
+		return err;
+	}
 
 	/*
 	 * Finally register the driver.
