@@ -19,6 +19,13 @@ config PPC_PASEMI_IOMMU
 	help
 	  IOMMU support for PA6T-1682M
 
+config PPC_PASEMI_L2RAM
+	depends on PPC_PASEMI
+	bool "PA Semi L2 as RAM support"
+	default y
+	help
+	  L2 as RAM support for PA6T-1682M
+
 config PPC_PASEMI_MDIO
 	depends on PHYLIB
 	tristate "MDIO support via GPIO"
