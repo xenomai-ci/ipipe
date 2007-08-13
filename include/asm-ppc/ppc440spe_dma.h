@@ -22,6 +22,9 @@
 /* Number of DMA engines available on the contoller */
 #define DMA_ENGINES_NUM		2
 
+/* Maximum h/w supported number of destinations */
+#define DMA_DEST_MAX_NUM	2
+
 /* FIFO's params */
 #define DMA0_FIFO_SIZE		0x1000
 #define DMA1_FIFO_SIZE		0x1000
@@ -42,11 +45,6 @@
 /* DMA Configuration Register. Force 64-byte Alignment */
 #define DMA_CFG_FALGN		(1 << 19)
 
-/* DMA Opcodes */
-#define	DMA_NOP_OPC		(u8)(0x00)
-#define DMA_MOVE_SG1_SF2_OPC	(u8)(0x01)
-#define DMA_MULTICAST_OPC	(u8)(0x05)
-
 /* I2O Memory Mapped Registers base address */
 #define I2O_MMAP_BASE		0x400100000ULL
 #define I2O_REG_ENABLE		0x1
@@ -58,10 +56,11 @@
 #define DMA_MMAP_SIZE		0x80
 
 /* DMA Interrupt Sources, UIC0[20],[22] */
-#define DMA0_CP_FIFO_NEED_SERVICE	19
-#define DMA0_CS_FIFO_NEED_SERVICE	20
-#define DMA1_CP_FIFO_NEED_SERVICE	21
-#define DMA1_CS_FIFO_NEED_SERVICE	22
+#define DMA0_CP_FIFO_FULL_IRQ		19
+#define DMA0_CS_FIFO_NEED_SERVICE_IRQ	20
+#define DMA1_CP_FIFO_FULL_IRQ		21
+#define DMA1_CS_FIFO_NEED_SERVICE_IRQ	22
+#define DMA_ERROR_IRQ			54
 
 /*UIC0:*/
 #define D0CPF_INT		(1<<12)
@@ -73,16 +72,51 @@
 
 /* I2O IOP Interrupt Mask Register */
 #define I2O_IOPIM_P0SNE		(1<<3)
+#define I2O_IOPIM_P0EM		(1<<5)
 #define I2O_IOPIM_P1SNE		(1<<6)
+#define I2O_IOPIM_P1EM		(1<<8)
 
 /* DMA CDB fields */
-#define DMA_CDB_MASK		(0xF)
+#define DMA_CDB_MSK		(0xF)
 #define DMA_CDB_64B_ADDR	(1<<2)
 #define DMA_CDB_NO_INT		(1<<3)
+#define DMA_CDB_STATUS_MSK	(0x3)
+#define DMA_CDB_ADDR_MSK	(0xFFFFFFF0)
 
 /* DMA CDB OpCodes */
-#define DMA_CDB_OPC_NO_OP	(0)
-#define DMA_CDB_OPC_MV_SG1_SG2	(1<<0)
+#define DMA_CDB_OPC_NO_OP	(0x00)
+#define DMA_CDB_OPC_MV_SG1_SG2	(0x01)
+#define DMA_CDB_OPC_MULTICAST	(0x05)
+#define DMA_CDB_OPC_DFILL128	(0x24)
+#define DMA_CDB_OPC_DCHECK128	(0x23)
+
+#define DMA_CUED_XOR_BASE	(0x10000000)
+#define DMA_CUED_XOR_HB		(0x00000008)
+
+#ifdef CONFIG_440SP
+#define DMA_CUED_MULT1_OFF	0
+#define DMA_CUED_MULT2_OFF	8
+#define DMA_CUED_MULT3_OFF	16
+#define DMA_CUED_REGION_OFF	24
+#define DMA_CUED_XOR_WIN_MSK	(0xFC000000)
+#else
+#define DMA_CUED_MULT1_OFF	2
+#define DMA_CUED_MULT2_OFF	10
+#define DMA_CUED_MULT3_OFF	18
+#define DMA_CUED_REGION_OFF	26
+#define DMA_CUED_XOR_WIN_MSK	(0xF0000000)
+#endif
+
+#define DMA_CUED_REGION_MSK	0x3
+#define DMA_RXOR123		0x0
+#define DMA_RXOR124		0x1
+#define DMA_RXOR125		0x2
+#define DMA_RXOR12		0x3
+
+/* S/G addresses */
+#define DMA_CDB_SG_SRC		1
+#define DMA_CDB_SG_DST1		2
+#define DMA_CDB_SG_DST2		3
 
 /*
  * DMAx engines Command Descriptor Block Type

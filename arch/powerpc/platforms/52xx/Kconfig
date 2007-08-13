@@ -50,8 +50,8 @@ config PPC_TQM5200
  	select PPC_MPC5200
  	default n
 
-config PPC_CM1_QP1
-	bool "Schindler CM1.QP1 Board"
+config PPC_CM5200
+	bool "Schindler CM5200 Boards"
 	depends on PPC_MULTIPLATFORM && PPC32
 	select PPC_MPC5200
 	default n

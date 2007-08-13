@@ -19,17 +19,23 @@
 #define to_ppc440spe_adma_device(dev) container_of(dev,ppc440spe_dev_t,common)
 #define tx_to_ppc440spe_adma_slot(tx) container_of(tx,ppc440spe_desc_t,async_tx)
 
+#define PPC440SPE_R6_PROC_ROOT	"driver/440spe_raid6"
+/* Default polynomial (for 440SP is only available) */
+#define PPC440SPE_DEFAULT_POLY	0x4d
 
+#define PPC440SPE_ADMA_WATCHDOG_MSEC	3
 #define PPC440SPE_ADMA_THRESHOLD	5
 
 #define PPC440SPE_DMA0_ID	0
 #define PPC440SPE_DMA1_ID	1
 #define PPC440SPE_XOR_ID	2
 
-#define PPC440SPE_DESC_INT	(1<<1)
-
-#define PPC440SPE_ADMA_XOR_MAX_BYTE_COUNT (1 << 31) /* this is the XOR_CBBCR width */
+#define PPC440SPE_ADMA_DMA_MAX_BYTE_COUNT	0xFFFFFFUL
+/* this is the XOR_CBBCR width */
+#define PPC440SPE_ADMA_XOR_MAX_BYTE_COUNT	(1 << 31)
 #define PPC440SPE_ADMA_ZERO_SUM_MAX_BYTE_COUNT PPC440SPE_ADMA_XOR_MAX_BYTE_COUNT
+
+#define PPC440SPE_RXOR_RUN	0
 
 #undef ADMA_LL_DEBUG
 
@@ -91,14 +97,15 @@ typedef struct ppc440spe_adma_chan {
  * @group_list: list of slots that make up a multi-descriptor transaction
  *      for example transfer lengths larger than the supported hw max
  * @unmap_len: transaction bytecount
- * @unmap_src_cnt: number of xor sources
  * @hw_desc: virtual address of the hardware descriptor chain
  * @stride: currently chained or not
  * @idx: pool index
  * @slot_cnt: total slots used in an transaction (group of operations)
+ * @src_cnt: number of sources set in this descriptor
+ * @dst_cnt: number of destinations set in the descriptor
  * @slots_per_op: number of slots per operation
+ * @flags: desc state/type
  * @xor_check_result: result of zero sum
- * @flags: desc state
  * @crc32_result: result crc calculation
  */
 typedef struct ppc440spe_adma_desc_slot {
@@ -110,14 +117,28 @@ typedef struct ppc440spe_adma_desc_slot {
 	struct list_head chain_node; /* node in channel ops list */
 	struct list_head group_list; /* list */
 	unsigned int unmap_len;
-	unsigned int unmap_src_cnt;
 	void *hw_desc;
 	u16 stride;
 	u16 idx;
 	u16 slot_cnt;
 	u8 src_cnt;
+	u8 dst_cnt;
 	u8 slots_per_op;
 	unsigned long flags;
+
+#define PPC440SPE_DESC_INT	0	/* generate interrupt on complete */
+#define PPC440SPE_ZERO_DST	1	/* this chain includes CDBs for zeroing dests */
+#define PPC440SPE_COHERENT	2	/* src/dst are coherent */
+
+#define PPC440SPE_DESC_WXOR	4	/* WXORs are in chain */
+#define PPC440SPE_DESC_RXOR	5	/* RXOR is in chain */
+
+#define PPC440SPE_DESC_RXOR123	8	/* CDB for RXOR123 operation */
+#define PPC440SPE_DESC_RXOR124	9	/* CDB for RXOR124 operation */
+#define PPC440SPE_DESC_RXOR125	10	/* CDB for RXOR125 operation */
+#define PPC440SPE_DESC_RXOR12	11	/* CDB for RXOR12 operation */
+#define PPC440SPE_DESC_RXOR_MSK	0x3
+
 	union {
 		u32 *xor_check_result;
 		u32 *crc32_result;

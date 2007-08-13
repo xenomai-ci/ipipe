@@ -26,8 +26,13 @@ static struct resource ppc440spe_dma_0_resources[] = {
 		.flags = IORESOURCE_MEM,
 	},
 	{
-		.start = DMA0_CS_FIFO_NEED_SERVICE,
-		.end = DMA0_CS_FIFO_NEED_SERVICE,
+		.start = DMA0_CS_FIFO_NEED_SERVICE_IRQ,
+		.end = DMA0_CS_FIFO_NEED_SERVICE_IRQ,
+		.flags = IORESOURCE_IRQ
+	},
+	{
+		.start = DMA_ERROR_IRQ,
+		.end = DMA_ERROR_IRQ,
 		.flags = IORESOURCE_IRQ
 	}
 };
@@ -37,8 +42,13 @@ static struct resource ppc440spe_dma_1_resources[] = {
 		.flags = IORESOURCE_MEM,
 	},
 	{
-		.start = DMA1_CS_FIFO_NEED_SERVICE,
-		.end = DMA1_CS_FIFO_NEED_SERVICE,
+		.start = DMA1_CS_FIFO_NEED_SERVICE_IRQ,
+		.end = DMA1_CS_FIFO_NEED_SERVICE_IRQ,
+		.flags = IORESOURCE_IRQ
+	},
+	{
+		.start = DMA_ERROR_IRQ,
+		.end = DMA_ERROR_IRQ,
 		.flags = IORESOURCE_IRQ
 	}
 };
@@ -48,26 +58,42 @@ static struct resource ppc440spe_xor_resources[] = {
 		.flags = IORESOURCE_MEM,
 	},
 	{
-		.start = XOR_INTERRUPT,
-		.end = XOR_INTERRUPT,
+		.start = XOR_IRQ,
+		.end = XOR_IRQ,
 		.flags = IORESOURCE_IRQ
 	}
 };
 
 /* DMA and XOR platform devices' data */
+
+/* DMA0,1 engines use FIFO to maintain CDBs, so we
+ * should allocate the pool accordingly to size of this
+ * FIFO. Thus, the pool size depends on the FIFO depth:
+ * how much CDBs pointers FIFO may contaun then so much
+ * CDBs we should provide in pool.
+ * That is
+ *   CDB size = 32B;
+ *   CDBs number = (DMA0_FIFO_SIZE >> 3);
+ *   Pool size = CDBs number * CDB size = 
+ *      = (DMA0_FIFO_SIZE >> 3) << 5 = DMA0_FIFO_SIZE << 2.
+ *
+ *  As far as the XOR engine is concerned, it does not
+ * use FIFOs but uses linked list. So there is no dependency
+ * between pool size to allocate and the engine configuration.
+ */
 static struct ppc440spe_adma_platform_data ppc440spe_dma_0_data = {
 	.hw_id  = PPC440SPE_DMA0_ID,
-	.pool_size = PAGE_SIZE,
+	.pool_size = DMA0_FIFO_SIZE << 2,
 };
 
 static struct ppc440spe_adma_platform_data ppc440spe_dma_1_data = {
 	.hw_id  = PPC440SPE_DMA1_ID,
-	.pool_size = PAGE_SIZE,
+	.pool_size = DMA0_FIFO_SIZE << 2,
 };
 
 static struct ppc440spe_adma_platform_data ppc440spe_xor_data = {
 	.hw_id  = PPC440SPE_XOR_ID,
-	.pool_size = PAGE_SIZE,
+	.pool_size = PAGE_SIZE << 1,
 };
 
 /* DMA and XOR platform devices definitions */
@@ -185,8 +211,28 @@ static void ppc440spe_configure_raid_devices(void)
 	out_le32(&dma_reg0->dsts, ~0);
 	out_le32(&dma_reg1->dsts, ~0);
 
-	/* Unmask 'CS FIFO Attention' interrupts */
-	mask = in_le32(&i2o_reg->iopim) & ~(I2O_IOPIM_P0SNE | I2O_IOPIM_P1SNE);
+	/*
+	 * Prepare WXOR/RXOR (finally it is being enabled via /proc interface of
+	 * the ppc440spe ADMA driver)
+	 */
+	/* Set HB alias */
+	mtdcr(DCRN_MQ0_BAUH, DMA_CUED_XOR_HB);
+
+	/* Set:
+	 * - LL transaction passing limit to 1;
+	 * - Memory controller cycle limit to 1;
+	 * - Galois Polynomial to 0x14d (default)
+	 */
+	mtdcr(DCRN_MQ0_CFBHL, (1 << MQ0_CFBHL_TPLM) |
+			      (1 << MQ0_CFBHL_HBCL) |
+			      (PPC440SPE_DEFAULT_POLY << MQ0_CFBHL_POLY));
+
+	/* Unmask 'CS FIFO Attention' interrupts and
+	 * enable generating interrupts on errors
+	 */
+	mask = in_le32(&i2o_reg->iopim) & ~(
+		I2O_IOPIM_P0SNE | I2O_IOPIM_P1SNE |
+		I2O_IOPIM_P0EM | I2O_IOPIM_P1EM);
 	out_le32(&i2o_reg->iopim, mask);
 
 	/* enable XOR engine interrupts */
@@ -206,12 +252,18 @@ static void ppc440spe_configure_raid_devices(void)
 		ppc440spe_dma_0_channel.resource[0].start+DMA_MMAP_SIZE;
 	dma_cap_set(DMA_MEMCPY, ppc440spe_dma_0_data.cap_mask);
 	dma_cap_set(DMA_INTERRUPT, ppc440spe_dma_0_data.cap_mask);
+	dma_cap_set(DMA_MEMSET, ppc440spe_dma_0_data.cap_mask);
+	dma_cap_set(DMA_PQ_XOR, ppc440spe_dma_0_data.cap_mask);
+	dma_cap_set(DMA_PQ_ZERO_SUM, ppc440spe_dma_0_data.cap_mask);
 
 	ppc440spe_dma_1_channel.resource[0].start = (resource_size_t)(dma_reg1);
 	ppc440spe_dma_1_channel.resource[0].end =
 		ppc440spe_dma_1_channel.resource[0].start+DMA_MMAP_SIZE;
 	dma_cap_set(DMA_MEMCPY, ppc440spe_dma_1_data.cap_mask);
 	dma_cap_set(DMA_INTERRUPT, ppc440spe_dma_1_data.cap_mask);
+	dma_cap_set(DMA_MEMSET, ppc440spe_dma_1_data.cap_mask);
+	dma_cap_set(DMA_PQ_XOR, ppc440spe_dma_1_data.cap_mask);
+	dma_cap_set(DMA_PQ_ZERO_SUM, ppc440spe_dma_1_data.cap_mask);
 
 	ppc440spe_xor_channel.resource[0].start = (resource_size_t)(xor_reg);
 	ppc440spe_xor_channel.resource[0].end =

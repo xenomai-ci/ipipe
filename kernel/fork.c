@@ -197,7 +197,11 @@ static struct task_struct *dup_task_struct(struct task_struct *orig)
 	tsk->stack_canary = get_random_int();
 #endif
 #ifdef CONFIG_PPC_PASEMI_A2_WORKAROUNDS
+#ifdef CONFIG_PPC_64K_PAGES
+	tsk->zero_pte.pte = mk_pte(zero_page,_PAGE_BASE|_PAGE_RW|_PAGE_USER|_PAGE_EXEC);
+#else
 	tsk->zero_pte = mk_pte(zero_page,_PAGE_BASE|_PAGE_RW|_PAGE_USER|_PAGE_EXEC);
+#endif
 #endif
 	/* One for us, one for whoever does the "release_task()" (usually parent) */
 	atomic_set(&tsk->usage,2);
