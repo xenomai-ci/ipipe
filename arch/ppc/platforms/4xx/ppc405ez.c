@@ -191,10 +191,11 @@ arch_initcall(ppc405ez_platform_add_devices);
 
 unsigned int get_base_baud(unsigned int port, unsigned int sysclk)
 {
-        unsigned int plld_data, perd0_data,
+        unsigned int pllc_data, plld_data, perd0_data,
 		pllFwdDiv, pllFbkDiv, pllFwdDivB,
 		plloutb, uart_div, uart_clk, baud_base;
 
+	pllc_data = CPR_READ(CPR_PLLC);
 	plld_data = CPR_READ(CPR_PLLD);
 	perd0_data = CPR_READ(CPR_PERD0);
 
@@ -203,13 +204,17 @@ unsigned int get_base_baud(unsigned int port, unsigned int sysclk)
 	pllFbkDiv = (plld_data & CPR_PLLD_FBDV_MASK)  >> 24;
 	pllFbkDiv = (pllFbkDiv == 0) ? 256 : pllFbkDiv;
 
-	pllFwdDivB = (plld_data&CPR_PLLD_FWDVB_MASK) >> 8;
+	pllFwdDivB = (plld_data & CPR_PLLD_FWDVB_MASK) >> 8;
 	pllFwdDivB = (pllFwdDivB == 0) ? 8 : pllFwdDivB;
 
-	uart_div = (perd0_data&CPR_PERD0_U0DV_MASK) >> 8;
+	uart_div = (perd0_data & CPR_PERD0_U0DV_MASK) >> 8;
 	uart_div = (uart_div == 0) ? 256 : uart_div;
 
-	plloutb = (sysclk * pllFwdDiv * pllFbkDiv) / pllFwdDivB;
+	if (pllc_data & CPR_PLLC_SRC_MASK)
+		plloutb = (sysclk * pllFwdDivB * pllFbkDiv) / pllFwdDivB;
+	else
+		plloutb = (sysclk * pllFwdDiv * pllFbkDiv) / pllFwdDivB;
+
 	uart_clk = plloutb / uart_div;
 	baud_base = uart_clk / 16;
 

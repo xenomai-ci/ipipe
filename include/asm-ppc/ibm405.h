@@ -309,6 +309,7 @@
 #define CPR_ENDVCH              0x20000000 /* Enable CPR Sys Divider changes */
 
 #define CPR_PLLC                0x0040
+#define CPR_PLLC_SRC_MASK       0x20000000
 #define CPR_PLL_TUNING_MASK     0x000003FF
 
 #define CPR_PLLD		0x0060
