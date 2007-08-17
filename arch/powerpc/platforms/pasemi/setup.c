@@ -36,6 +36,7 @@
 #include <asm/smp.h>
 #include <asm/time.h>
 #include <asm/of_platform.h>
+#include <asm/mmu-hash64.h>
 
 #include "pasemi.h"
 
@@ -174,7 +175,7 @@ static int pas_machine_check_handler(struct pt_regs *regs)
 {
 	int cpu = smp_processor_id();
 	unsigned long srr0, srr1, dsisr;
-	int dump_slb = 0;
+	int dump_slb = 0, flush_slb = 0;
 	int dump_memsta = 0;
 
 	srr0 = regs->nip;
@@ -198,6 +199,7 @@ static int pas_machine_check_handler(struct pt_regs *regs)
 		if (dsisr & 0x2000) {
 			printk(KERN_ERR "MMU SLB multi-hit or invalid B field\n");
 			dump_slb = 1;
+			flush_slb = 1;
 		}
 		if (dsisr & 0x1000)
 			printk(KERN_ERR "Recoverable Duptags\n");
@@ -213,6 +215,7 @@ static int pas_machine_check_handler(struct pt_regs *regs)
 	if (srr1 & 0x40000) {
 		printk(KERN_ERR "I-side SLB multiple hit\n");
 		dump_slb = 1;
+		flush_slb = 1;
 	}
 	if (srr1 & 0x20000) {
 		printk(KERN_ERR "I-cache parity error hit\n");
@@ -240,6 +243,10 @@ static int pas_machine_check_handler(struct pt_regs *regs)
 			printk("%02d %016lx %016lx\n", i, slb_e, slb_v);
 		}
 	}
+
+	if (flush_slb)
+		/* We really can recover from this. flush, rebolt and go. */
+		slb_flush_and_rebolt();
 
 	/* SRR1[62] is from MSR[62] if recoverable, so pass that back */
 	return !!(srr1 & 0x2);
