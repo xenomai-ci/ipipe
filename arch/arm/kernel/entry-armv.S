@@ -730,8 +730,8 @@ ENTRY(__switch_to)
 	.align 5
 	.globl  __ipipe_tsc_area_start
 
-__ipipe_tsc_area_start:	
-	.rep	8
+__ipipe_tsc_area_start:
+	.rep	12
 	.word	0
 	.endr
 #endif /* CONFIG_IPIPE */

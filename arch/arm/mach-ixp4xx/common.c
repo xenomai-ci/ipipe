@@ -68,13 +68,11 @@ union tsc_reg {
 #ifdef __BIG_ENDIAN
 	struct {
 		unsigned long high;
-		unsigned short mid;
-		unsigned short low;
+		unsigned long low;
 	};
 #else /* __LITTLE_ENDIAN */
 	struct {
-		unsigned short low;
-		unsigned short mid;
+		unsigned long low;
 		unsigned long high;
 	};
 #endif /* __LITTLE_ENDIAN */
@@ -521,6 +519,19 @@ void __ipipe_mach_acktimer(void)
 {
 	/* Clear Pending Interrupt by writing '1' to it */
 	*IXP4XX_OSST = IXP4XX_OSST_TIMER_1_PEND;
+	if (likely(ixp4xx_timer_initialized)) {
+		union tsc_reg *local_tsc;
+		unsigned long stamp, flags;
+
+		local_irq_save_hw(flags);
+		local_tsc = &tsc[ipipe_processor_id()];
+		stamp = *IXP4XX_OSTS;
+		if (unlikely(stamp < local_tsc->low))
+			/* 32 bit counter wrapped, increment high word. */
+			local_tsc->high++;
+		local_tsc->low = stamp;
+		local_irq_restore_hw(flags);
+	}	
 }
 
 EXPORT_SYMBOL(__ipipe_mach_acktimer);
@@ -528,23 +539,23 @@ EXPORT_SYMBOL(__ipipe_mach_acktimer);
 notrace unsigned long long __ipipe_mach_get_tsc(void)
 {
 	if (likely(ixp4xx_timer_initialized)) {
-		union tsc_reg *local_tsc;
-		unsigned long stamp, flags;
-		unsigned long long result;
+		union tsc_reg *local_tsc, result;
+		unsigned long stamp;
 
-		local_irq_save_hw_notrace(flags);
 		local_tsc = &tsc[ipipe_processor_id()];
-		stamp = *IXP4XX_OSTS;
-		if (unlikely(stamp < local_tsc->low))
-			/* 32 bit counter wrapped, increment high word. */
-			local_tsc->high++;
-		local_tsc->low = stamp;
-		result = local_tsc->full;
-		local_irq_restore_hw_notrace(flags);
 
-		return result;
+		__asm__ ("ldmia %1, %M0\n"
+			 : "=r"(result.full), "+&r"(local_tsc)
+			 : "m"(*local_tsc));
+		barrier();
+		stamp = *IXP4XX_OSTS;
+		if (unlikely(stamp < result.low))
+			/* 32 bit counter wrapped, increment high word. */
+			result.high++;
+		result.low = stamp;
+		return result.full;
 	}
-	
+
         return 0;
 }
 

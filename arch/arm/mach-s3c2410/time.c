@@ -73,7 +73,8 @@ EXPORT_SYMBOL(__ipipe_mach_ticks_per_jiffy);
 int __ipipe_mach_timerint = IRQ_TIMER4;
 EXPORT_SYMBOL(__ipipe_mach_timerint);
 
-static unsigned long long __ipipe_mach_tsc = 0;
+static unsigned long long *tsc;
+static unsigned *last_cnt;
 static unsigned long timer_ackval = 1UL << (IRQ_TIMER4 - IRQ_EINT0);
 static IPIPE_DEFINE_SPINLOCK(timer_lock);
 
@@ -82,7 +83,11 @@ EXPORT_SYMBOL(__ipipe_mach_timerstolen);
 
 void __ipipe_mach_get_tscinfo(struct __ipipe_tscinfo *info)
 {
-	info->type = IPIPE_TSC_TYPE_NONE;
+	info->type = IPIPE_TSC_TYPE_DECREMENTER;
+	info->u.dec.counter = (unsigned *)0x51000038;
+	info->u.dec.mask = 0xffff;
+	info->u.dec.last_cnt = last_cnt;
+	info->u.dec.tsc = tsc;
 }
 #endif /* CONFIG_IPIPE */
 
@@ -146,7 +151,8 @@ static inline unsigned long getticksoffset_tscupdate(void)
 	tval = timer_freerunning_getvalue();
 	ticks = timer_freerunning_getticksoffset(tval);
 	last_free_running_tcnt = tval;
-	__ipipe_mach_tsc += ticks;
+	*tsc += ticks;
+	*last_cnt = last_free_running_tcnt;
 	return ticks;
 }
 #endif /* CONFIG_IPIPE */
@@ -256,6 +262,10 @@ static void s3c2410_timer_setup (void)
 	}
 
 #ifdef CONFIG_IPIPE
+	tsc = (unsigned long long *)__ipipe_tsc_area;
+	last_cnt = (unsigned *)(tsc + 1);		/* means: +8 bytes */
+	barrier();
+
 	__ipipe_mach_ticks_per_jiffy = tcnt;
 #endif /* CONFIG_IPIPE */
 
@@ -334,7 +344,7 @@ notrace unsigned long long __ipipe_mach_get_tsc(void)
 
 	local_irq_save_hw_notrace(flags);
 	spin_lock(&timer_lock);
-	result = __ipipe_mach_tsc + getticksoffset();
+	result = *tsc + getticksoffset();
 	spin_unlock(&timer_lock);
 	local_irq_restore_hw_notrace(flags);
 	return result;

@@ -42,13 +42,11 @@ union tsc_reg {
 #ifdef __BIG_ENDIAN
 	struct {
 		unsigned long high;
-		unsigned short mid;
-		unsigned short low;
+		unsigned long low;
 	};
 #else /* __LITTLE_ENDIAN */
 	struct {
-		unsigned short low;
-		unsigned short mid;
+		unsigned long low;
 		unsigned long high;
 	};
 #endif /* __LITTLE_ENDIAN */
@@ -304,26 +302,39 @@ struct sys_timer sa1100_timer = {
 void __ipipe_mach_acktimer(void)
 {
 	OSSR = OSSR_M0;  /* Clear match on timer 0 */
-}
-
-notrace unsigned long long __ipipe_mach_get_tsc(void)
-{
 	if (likely(sa1100_timer_initialized)) {
 		union tsc_reg *local_tsc;
 		unsigned long stamp, flags;
-		unsigned long long result;
 
-		local_irq_save_hw_notrace(flags);
+		local_irq_save_hw(flags);
 		local_tsc = &tsc[ipipe_processor_id()];
 		stamp = OSCR;
 		if (unlikely(stamp < local_tsc->low))
 			/* 32 bit counter wrapped, increment high word. */
 			local_tsc->high++;
 		local_tsc->low = stamp;
-		result = local_tsc->full;
-		local_irq_restore_hw_notrace(flags);
+		local_irq_restore_hw(flags);
+	}
+}
 
-		return result;
+notrace unsigned long long __ipipe_mach_get_tsc(void)
+{
+	if (likely(sa1100_timer_initialized)) {
+		union tsc_reg *local_tsc, result;
+		unsigned long stamp;
+
+		local_tsc = &tsc[ipipe_processor_id()];
+
+		__asm__ ("ldmia %1, %M0\n"
+			 : "=r"(result.full), "+&r"(local_tsc)
+			 : "m"(*local_tsc));
+		barrier();
+		stamp = OSCR;
+		if (unlikely(stamp < result.low))
+			/* 32 bit counter wrapped, increment high word. */
+			result.high++;
+		result.low = stamp;
+		return result.full;
 	}
 	
         return 0;

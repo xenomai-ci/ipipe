@@ -103,6 +103,11 @@ struct __ipipe_tscinfo {
                         unsigned long long *tsc; /* 64 bits tsc value. */
                 } fr;
                 struct {
+			unsigned *counter; /* Hw counter physical address */
+			unsigned mask; /* Significant bits in the hw counter. */
+			unsigned *last_cnt; /* Counter value when updating
+						tsc value. */
+			unsigned long long *tsc; /* 64 bits tsc value. */
                 } dec;
         } u;
 };
