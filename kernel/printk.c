@@ -539,13 +539,18 @@ asmlinkage int printk(const char *fmt, ...)
 	int r, fbytes, oldcount;
     	unsigned long flags;
 	va_list args;
+	int cs = -1;
 
 	va_start(args, fmt);
 
-	if (ipipe_current_domain == ipipe_root_domain ||
-	    test_bit(IPIPE_SPRINTK_FLAG,&ipipe_current_domain->flags) ||
-	    oops_in_progress) {
+	if (test_bit(IPIPE_SPRINTK_FLAG,&ipipe_current_domain->flags) ||
+	    oops_in_progress)
+		cs = ipipe_disable_context_check(ipipe_processor_id());
+
+	if (ipipe_current_domain == ipipe_root_domain || cs != -1) {
 		r = vprintk(fmt, args);
+		if (cs != -1)
+			ipipe_restore_context_check(ipipe_processor_id(), cs);
 		goto out;
 	}
 
