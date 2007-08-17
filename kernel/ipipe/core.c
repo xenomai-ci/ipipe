@@ -1455,15 +1455,19 @@ void __init ipipe_init_proc(void)
 #endif	/* CONFIG_PROC_FS */
 
 #ifdef CONFIG_IPIPE_DEBUG_CONTEXT
+
+DEFINE_PER_CPU(int, __ipipe_context_check_enabled) = { 1 };
+
 void ipipe_check_context(struct ipipe_domain *border_ipd)
 {
-	static int check_hit;
-
+	/* Note: We don't make the per_cpu access atomic. We assume that code
+	   which temporarily disables the check does this in atomic context
+	   only. */
 	if (likely(ipipe_current_domain->priority <= border_ipd->priority) ||
-	    check_hit)
+	    !per_cpu(__ipipe_context_check_enabled, ipipe_processor_id()))
 		return;
 
-	check_hit = 1;
+        ipipe_context_check_off();
 
 	ipipe_trace_panic_freeze();
 	ipipe_set_printk_sync(ipipe_current_domain);
