@@ -689,4 +689,40 @@ int ipipe_disable_ondemand_mappings(struct task_struct *tsk);
 
 #endif	/* CONFIG_IPIPE */
 
+#ifdef CONFIG_IPIPE_DEBUG_CONTEXT
+
+#include <linux/cpumask.h>
+#include <asm/system.h>
+
+DECLARE_PER_CPU(int, __ipipe_context_check_enabled);
+
+static inline int ipipe_disable_context_check(int cpuid)
+{
+	return xchg(&per_cpu(__ipipe_context_check_enabled, cpuid), 0);
+}
+
+static inline void ipipe_restore_context_check(int cpuid, int old_state)
+{
+	per_cpu(__ipipe_context_check_enabled, cpuid) = old_state;
+}
+
+static inline void ipipe_context_check_off(void)
+{
+	int cpuid;
+	for_each_online_cpu(cpuid)
+		per_cpu(__ipipe_context_check_enabled, cpuid) = 0;
+}
+
+#else	/* !CONFIG_IPIPE_DEBUG_CONTEXT */
+
+static inline int ipipe_disable_context_check(int cpuid)
+{
+	return 0;
+}
+
+static inline void ipipe_restore_context_check(int cpuid, int old_state) { }
+static inline void ipipe_context_check_off(void) { }
+
+#endif	/* !CONFIG_IPIPE_DEBUG_CONTEXT */
+
 #endif	/* !__LINUX_IPIPE_H */
