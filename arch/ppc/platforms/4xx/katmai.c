@@ -65,10 +65,10 @@ unsigned char ppc4xx_uic_ext_irq_cfg[] __initdata = {
 	(IRQ_SENSE_LEVEL | IRQ_POLARITY_NEGATIVE),	/* IRQ15: EXT */
 	(IRQ_SENSE_LEVEL | IRQ_POLARITY_NEGATIVE),	/* IRQ14: EXT */
 	(IRQ_SENSE_LEVEL | IRQ_POLARITY_NEGATIVE),	/* IRQ13: EXT */
-	(IRQ_SENSE_LEVEL | IRQ_POLARITY_NEGATIVE),	/* IRQ12: PCI-X slot */
-	(IRQ_SENSE_LEVEL | IRQ_POLARITY_NEGATIVE),	/* IRQ11: EXT */
-	(IRQ_SENSE_LEVEL | IRQ_POLARITY_NEGATIVE),	/* IRQ10: EXT */
-	(IRQ_SENSE_LEVEL | IRQ_POLARITY_NEGATIVE),	/* IRQ9:  EXT */
+	(IRQ_SENSE_LEVEL | IRQ_POLARITY_NEGATIVE),	/* IRQ12: PCI-X slot INTD */
+	(IRQ_SENSE_LEVEL | IRQ_POLARITY_NEGATIVE),	/* IRQ11: PCI-X slot INTC */
+	(IRQ_SENSE_LEVEL | IRQ_POLARITY_NEGATIVE),	/* IRQ10: PCI-X slot INTB */
+	(IRQ_SENSE_LEVEL | IRQ_POLARITY_NEGATIVE),	/* IRQ9:  PCI-X slot INTA */
 	(IRQ_SENSE_LEVEL | IRQ_POLARITY_NEGATIVE),	/* IRQ8:  EXT */
 	(IRQ_SENSE_LEVEL | IRQ_POLARITY_NEGATIVE),	/* IRQ7:  EXT */
 	(IRQ_SENSE_LEVEL | IRQ_POLARITY_NEGATIVE),	/* IRQ6:  EXT */
@@ -297,7 +297,16 @@ katmai_map_irq(struct pci_dev *dev, unsigned char idsel, unsigned char pin)
 			 *	  A   B   C   D
 			 */
 			{
-				{ 52, -1, -1, -1 },	/* IDSEL 1 - PCIX0 Slot 0 */
+				/*
+				 * On Katmai, the following PCI-X interrupts signals
+				 * have to be enabled via jumpers (only INTA is
+				 * enabled per default):
+				 *
+				 * INTB: J3: 1-2
+				 * INTC: J2: 1-2
+				 * INTD: J1: 1-2
+				 */
+				{ 52, 51, 50, 49 },	/* IDSEL 1 - PCIX0 Slot 0 */
 			};
 		const long min_idsel = 1, max_idsel = 1, irqs_per_slot = 4;
 		return PCI_IRQ_TABLE_LOOKUP;
