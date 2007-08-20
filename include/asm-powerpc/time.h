@@ -173,6 +173,13 @@ static inline unsigned int get_dec(void)
 
 static inline void set_dec(int val)
 {
+#ifdef CONFIG_PPC_PASEMI
+	/* PA6T rev Ax have decrementer ticking at 1/2 tb rate */
+	val >>= 1;
+	if (!val)
+		val = 1;
+#endif
+
 #if defined(CONFIG_40x)
 	return;		/* Have to let it auto-reload */
 #elif defined(CONFIG_8xx_CPU6)
