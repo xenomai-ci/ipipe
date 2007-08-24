@@ -838,11 +838,24 @@ static void ops_complete_biofill(void *stripe_head_ref)
 		/* acknowledge completion of a biofill operation */
 		/* and check if we need to reply to a read request
 		 */
-		if (test_bit(R5_Wantfill, &dev_q->flags) && !dev_q->toread) {
+		if (test_bit(R5_Wantfill, &dev_q->flags)) {
 			struct bio *rbi, *rbi2;
 			struct r5dev *dev = &sh->dev[i];
 
-			clear_bit(R5_Wantfill, &dev_q->flags);
+			/* There is a chance that another fill operation
+			 * had been scheduled for this dev while we
+			 * processed sh. In this case do one of the following
+			 * alternatives:
+			 * - if there is no active completed biofill for the dev
+			 *   then go to the next dev leaving Wantfill set;
+			 * - if there is active completed biofill for the dev
+			 *   then ack it but leave Wantfill set.
+			 */
+			if (dev_q->toread && !dev->read)
+				continue;
+
+			if (!dev_q->toread)
+				clear_bit(R5_Wantfill, &dev_q->flags);
 
 			/* The access to dev->read is outside of the
 			 * spin_lock_irq(&conf->device_lock), but is protected
