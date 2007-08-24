@@ -148,7 +148,7 @@ static inline void local_irq_enable_hw(void)
 #define local_irq_save_hw(x) \
 do {						       \
 	local_irq_save_ptr_hw(&(x));		       \
-	if (local_test_iflag_hw())		       \
+	if (local_test_iflag_hw(x))		       \
 		ipipe_trace_begin(0x80000001);	       \
 } while(0)
 
