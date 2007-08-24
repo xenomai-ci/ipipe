@@ -106,7 +106,8 @@ static ssize_t show_in_use(struct class_device *cd, char *buf)
 	struct dma_chan *chan = container_of(cd, struct dma_chan, class_dev);
 	int in_use = 0;
 
-	if (unlikely(chan->slow_ref) && atomic_read(&chan->refcount.refcount) > 1)
+	if (unlikely(chan->slow_ref) &&
+		atomic_read(&chan->refcount.refcount) > 1)
 		in_use = 1;
 	else {
 		if (local_read(&(per_cpu_ptr(chan->local,
@@ -141,12 +142,15 @@ static struct class dma_devclass = {
 
 /* --- client and device registration --- */
 
-#define dma_async_chan_satisfies_mask(chan, mask) __dma_async_chan_satisfies_mask((chan), &(mask))
-static int __dma_async_chan_satisfies_mask(struct dma_chan *chan, dma_cap_mask_t *want)
+#define dma_chan_satisfies_mask(chan, mask) \
+	__dma_chan_satisfies_mask((chan), &(mask))
+static int
+__dma_chan_satisfies_mask(struct dma_chan *chan, dma_cap_mask_t *want)
 {
 	dma_cap_mask_t has;
 
-	bitmap_and(has.bits, want->bits, chan->device->cap_mask.bits, DMA_TX_TYPE_END);
+	bitmap_and(has.bits, want->bits, chan->device->cap_mask.bits,
+		DMA_TX_TYPE_END);
 	return bitmap_equal(want->bits, has.bits, DMA_TX_TYPE_END);
 }
 
@@ -166,7 +170,7 @@ static void dma_client_chan_alloc(struct dma_client *client)
 	/* Find a channel */
 	list_for_each_entry(device, &dma_device_list, global_node)
 		list_for_each_entry(chan, &device->channels, device_node) {
-			if (!dma_async_chan_satisfies_mask(chan, client->cap_mask))
+			if (!dma_chan_satisfies_mask(chan, client->cap_mask))
 				continue;
 
 			desc = chan->device->device_alloc_chan_resources(chan);
@@ -344,7 +348,7 @@ EXPORT_SYMBOL(dma_async_client_chan_request);
 int dma_async_device_register(struct dma_device *device)
 {
 	static int id;
-	int chancnt = 0;
+	int chancnt = 0, rc;
 	struct dma_chan* chan;
 
 	if (!device)
@@ -364,9 +368,6 @@ int dma_async_device_register(struct dma_device *device)
 
 	BUG_ON(!device->device_alloc_chan_resources);
 	BUG_ON(!device->device_free_chan_resources);
-	BUG_ON(!device->device_tx_submit);
-	BUG_ON(!device->device_set_dest);
-	BUG_ON(!device->device_set_src);
 	BUG_ON(!device->device_dependency_added);
 	BUG_ON(!device->device_is_tx_complete);
 	BUG_ON(!device->device_issue_pending);
@@ -388,11 +389,18 @@ int dma_async_device_register(struct dma_device *device)
 		snprintf(chan->class_dev.class_id, BUS_ID_SIZE, "dma%dchan%d",
 		         device->dev_id, chan->chan_id);
 
+		rc = class_device_register(&chan->class_dev);
+		if (rc) {
+			chancnt--;
+			free_percpu(chan->local);
+			chan->local = NULL;
+			goto err_out;
+		}
+
 		kref_get(&device->refcount);
 		kref_init(&chan->refcount);
 		chan->slow_ref = 0;
 		INIT_RCU_HEAD(&chan->rcu);
-		class_device_register(&chan->class_dev);
 	}
 
 	mutex_lock(&dma_list_mutex);
@@ -402,6 +410,17 @@ int dma_async_device_register(struct dma_device *device)
 	dma_clients_notify_available();
 
 	return 0;
+
+err_out:
+	list_for_each_entry(chan, &device->channels, device_node) {
+		if (chan->local == NULL)
+			continue;
+		kref_put(&device->refcount, dma_async_device_cleanup);
+		class_device_unregister(&chan->class_dev);
+		chancnt--;
+		free_percpu(chan->local);
+	}
+	return rc;
 }
 EXPORT_SYMBOL(dma_async_device_register);
 
@@ -452,8 +471,9 @@ EXPORT_SYMBOL(dma_async_device_unregister);
  * Both @dest and @src must stay memory resident (kernel memory or locked
  * user space pages).
  */
-dma_cookie_t dma_async_memcpy_buf_to_buf(struct dma_chan *chan,
-        void *dest, void *src, size_t len)
+dma_cookie_t
+dma_async_memcpy_buf_to_buf(struct dma_chan *chan, void *dest,
+			void *src, size_t len)
 {
 	struct dma_device *dev = chan->device;
 	struct dma_async_tx_descriptor *tx;
@@ -468,10 +488,10 @@ dma_cookie_t dma_async_memcpy_buf_to_buf(struct dma_chan *chan,
 	tx->ack = 1;
 	tx->callback = NULL;
 	addr = dma_map_single(dev->dev, src, len, DMA_TO_DEVICE);
-	dev->device_set_src(addr, tx, 0);
+	tx->tx_set_src(addr, tx, 0);
 	addr = dma_map_single(dev->dev, dest, len, DMA_FROM_DEVICE);
-	dev->device_set_dest(addr, tx, 0);
-	cookie = dev->device_tx_submit(tx);
+	tx->tx_set_dest(addr, tx, 0);
+	cookie = tx->tx_submit(tx);
 
 	cpu = get_cpu();
 	per_cpu_ptr(chan->local, cpu)->bytes_transferred += len;
@@ -495,8 +515,9 @@ EXPORT_SYMBOL(dma_async_memcpy_buf_to_buf);
  * Both @page/@offset and @kdata must stay memory resident (kernel memory or
  * locked user space pages)
  */
-dma_cookie_t dma_async_memcpy_buf_to_pg(struct dma_chan *chan,
-        struct page *page, unsigned int offset, void *kdata, size_t len)
+dma_cookie_t
+dma_async_memcpy_buf_to_pg(struct dma_chan *chan, struct page *page,
+			unsigned int offset, void *kdata, size_t len)
 {
 	struct dma_device *dev = chan->device;
 	struct dma_async_tx_descriptor *tx;
@@ -511,10 +532,10 @@ dma_cookie_t dma_async_memcpy_buf_to_pg(struct dma_chan *chan,
 	tx->ack = 1;
 	tx->callback = NULL;
 	addr = dma_map_single(dev->dev, kdata, len, DMA_TO_DEVICE);
-	dev->device_set_src(addr, tx, 0);
+	tx->tx_set_src(addr, tx, 0);
 	addr = dma_map_page(dev->dev, page, offset, len, DMA_FROM_DEVICE);
-	dev->device_set_dest(addr, tx, 0);
-	cookie = dev->device_tx_submit(tx);
+	tx->tx_set_dest(addr, tx, 0);
+	cookie = tx->tx_submit(tx);
 
 	cpu = get_cpu();
 	per_cpu_ptr(chan->local, cpu)->bytes_transferred += len;
@@ -539,9 +560,10 @@ EXPORT_SYMBOL(dma_async_memcpy_buf_to_pg);
  * Both @dest_page/@dest_off and @src_page/@src_off must stay memory resident
  * (kernel memory or locked user space pages).
  */
-dma_cookie_t dma_async_memcpy_pg_to_pg(struct dma_chan *chan,
-        struct page *dest_pg, unsigned int dest_off, struct page *src_pg,
-        unsigned int src_off, size_t len)
+dma_cookie_t
+dma_async_memcpy_pg_to_pg(struct dma_chan *chan, struct page *dest_pg,
+	unsigned int dest_off, struct page *src_pg, unsigned int src_off,
+	size_t len)
 {
 	struct dma_device *dev = chan->device;
 	struct dma_async_tx_descriptor *tx;
@@ -556,10 +578,10 @@ dma_cookie_t dma_async_memcpy_pg_to_pg(struct dma_chan *chan,
 	tx->ack = 1;
 	tx->callback = NULL;
 	addr = dma_map_page(dev->dev, src_pg, src_off, len, DMA_TO_DEVICE);
-	dev->device_set_src(addr, tx, 0);
+	tx->tx_set_src(addr, tx, 0);
 	addr = dma_map_page(dev->dev, dest_pg, dest_off, len, DMA_FROM_DEVICE);
-	dev->device_set_dest(addr, tx, 0);
-	cookie = dev->device_tx_submit(tx);
+	tx->tx_set_dest(addr, tx, 0);
+	cookie = tx->tx_submit(tx);
 
 	cpu = get_cpu();
 	per_cpu_ptr(chan->local, cpu)->bytes_transferred += len;

@@ -310,33 +310,22 @@ static struct resource iop13xx_adma_2_resources[] = {
 static u64 iop13xx_adma_dmamask = DMA_64BIT_MASK;
 static struct iop_adma_platform_data iop13xx_adma_0_data = {
 	.hw_id = 0,
-	.capabilities =	DMA_CAP_MEMCPY | DMA_CAP_XOR | DMA_CAP_DUAL_XOR |
-			DMA_CAP_ZERO_SUM | DMA_CAP_MEMSET |
-			DMA_CAP_MEMCPY_CRC32C | DMA_CAP_INTERRUPT,
 	.pool_size = PAGE_SIZE,
 };
 
 static struct iop_adma_platform_data iop13xx_adma_1_data = {
 	.hw_id = 1,
-	.capabilities =	DMA_CAP_MEMCPY | DMA_CAP_XOR | DMA_CAP_DUAL_XOR |
-			DMA_CAP_ZERO_SUM | DMA_CAP_MEMSET |
-			DMA_CAP_MEMCPY_CRC32C | DMA_CAP_INTERRUPT,
 	.pool_size = PAGE_SIZE,
 };
 
 static struct iop_adma_platform_data iop13xx_adma_2_data = {
 	.hw_id = 2,
-	.capabilities =	DMA_CAP_MEMCPY | DMA_CAP_XOR | DMA_CAP_DUAL_XOR |
-			DMA_CAP_ZERO_SUM | DMA_CAP_MEMSET |
-			DMA_CAP_MEMCPY_CRC32C | DMA_CAP_PQ_XOR |
-			DMA_CAP_PQ_UPDATE | DMA_CAP_PQ_ZERO_SUM |
-			DMA_CAP_INTERRUPT,
 	.pool_size = PAGE_SIZE,
 };
 
 /* The ids are fixed up later in iop13xx_platform_init */
 static struct platform_device iop13xx_adma_0_channel = {
-	.name = "IOP-ADMA",
+	.name = "iop-adma",
 	.id = 0,
 	.num_resources = 4,
 	.resource = iop13xx_adma_0_resources,
@@ -348,7 +337,7 @@ static struct platform_device iop13xx_adma_0_channel = {
 };
 
 static struct platform_device iop13xx_adma_1_channel = {
-	.name = "IOP-ADMA",
+	.name = "iop-adma",
 	.id = 0,
 	.num_resources = 4,
 	.resource = iop13xx_adma_1_resources,
@@ -360,7 +349,7 @@ static struct platform_device iop13xx_adma_1_channel = {
 };
 
 static struct platform_device iop13xx_adma_2_channel = {
-	.name = "IOP-ADMA",
+	.name = "iop-adma",
 	.id = 0,
 	.num_resources = 4,
 	.resource = iop13xx_adma_2_resources,
@@ -377,9 +366,9 @@ void __init iop13xx_map_io(void)
 	iotable_init(iop13xx_std_desc, ARRAY_SIZE(iop13xx_std_desc));
 }
 
-static int init_uart = 0;
-static int init_i2c = 0;
-static int init_adma = 0;
+static int init_uart;
+static int init_i2c;
+static int init_adma;
 
 void __init iop13xx_platform_init(void)
 {
@@ -474,22 +463,52 @@ void __init iop13xx_platform_init(void)
 		}
 	}
 
+	/* initialize adma channel ids and capabilities */
 	adma_idx = 0;
-	for(i = 0; i < IQ81340_NUM_ADMA; i++) {
+	for (i = 0; i < IQ81340_NUM_ADMA; i++) {
+		struct iop_adma_platform_data *plat_data;
 		if ((init_adma & (1 << i)) && IOP13XX_SETUP_DEBUG)
-			printk("Adding adma%d to platform device list\n", i);
-		switch(init_adma & (1 << i)) {
+			printk(KERN_INFO
+				"Adding adma%d to platform device list\n", i);
+		switch (init_adma & (1 << i)) {
 		case IOP13XX_INIT_ADMA_0:
 			iop13xx_adma_0_channel.id = adma_idx++;
 			iop13xx_devices[plat_idx++] = &iop13xx_adma_0_channel;
+			plat_data = &iop13xx_adma_0_data;
+			dma_cap_set(DMA_MEMCPY, plat_data->cap_mask);
+			dma_cap_set(DMA_XOR, plat_data->cap_mask);
+			dma_cap_set(DMA_DUAL_XOR, plat_data->cap_mask);
+			dma_cap_set(DMA_ZERO_SUM, plat_data->cap_mask);
+			dma_cap_set(DMA_MEMSET, plat_data->cap_mask);
+			dma_cap_set(DMA_MEMCPY_CRC32C, plat_data->cap_mask);
+			dma_cap_set(DMA_INTERRUPT, plat_data->cap_mask);
 			break;
 		case IOP13XX_INIT_ADMA_1:
 			iop13xx_adma_1_channel.id = adma_idx++;
 			iop13xx_devices[plat_idx++] = &iop13xx_adma_1_channel;
+			plat_data = &iop13xx_adma_1_data;
+			dma_cap_set(DMA_MEMCPY, plat_data->cap_mask);
+			dma_cap_set(DMA_XOR, plat_data->cap_mask);
+			dma_cap_set(DMA_DUAL_XOR, plat_data->cap_mask);
+			dma_cap_set(DMA_ZERO_SUM, plat_data->cap_mask);
+			dma_cap_set(DMA_MEMSET, plat_data->cap_mask);
+			dma_cap_set(DMA_MEMCPY_CRC32C, plat_data->cap_mask);
+			dma_cap_set(DMA_INTERRUPT, plat_data->cap_mask);
 			break;
 		case IOP13XX_INIT_ADMA_2:
 			iop13xx_adma_2_channel.id = adma_idx++;
 			iop13xx_devices[plat_idx++] = &iop13xx_adma_2_channel;
+			plat_data = &iop13xx_adma_2_data;
+			dma_cap_set(DMA_MEMCPY, plat_data->cap_mask);
+			dma_cap_set(DMA_XOR, plat_data->cap_mask);
+			dma_cap_set(DMA_DUAL_XOR, plat_data->cap_mask);
+			dma_cap_set(DMA_ZERO_SUM, plat_data->cap_mask);
+			dma_cap_set(DMA_MEMSET, plat_data->cap_mask);
+			dma_cap_set(DMA_MEMCPY_CRC32C, plat_data->cap_mask);
+			dma_cap_set(DMA_INTERRUPT, plat_data->cap_mask);
+			dma_cap_set(DMA_PQ_XOR, plat_data->cap_mask);
+			dma_cap_set(DMA_PQ_UPDATE, plat_data->cap_mask);
+			dma_cap_set(DMA_PQ_ZERO_SUM, plat_data->cap_mask);
 			break;
 		}
 	}
@@ -565,7 +584,7 @@ static int __init iop13xx_init_adma_setup(char *str)
 {
 	if (str)	{
 		while (*str != '\0') {
-			switch(*str) {
+			switch (*str) {
 			case '0':
 				init_adma |= IOP13XX_INIT_ADMA_0;
 				break;

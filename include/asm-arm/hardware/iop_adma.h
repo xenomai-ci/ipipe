@@ -1,22 +1,19 @@
 /*
- * Copyright(c) 2006 Intel Corporation. All rights reserved.
+ * Copyright © 2006, Intel Corporation.
  *
  * This program is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the Free
- * Software Foundation; either version 2 of the License, or (at your option)
- * any later version.
+ * under the terms and conditions of the GNU General Public License,
+ * version 2, as published by the Free Software Foundation.
  *
- * This program is distributed in the hope that it will be useful, but WITHOUT
+ * This program is distributed in the hope it will be useful, but WITHOUT
  * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
  * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
  * more details.
  *
  * You should have received a copy of the GNU General Public License along with
- * this program; if not, write to the Free Software Foundation, Inc., 59
- * Temple Place - Suite 330, Boston, MA  02111-1307, USA.
+ * this program; if not, write to the Free Software Foundation, Inc.,
+ * 51 Franklin St - Fifth Floor, Boston, MA 02110-1301 USA.
  *
- * The full GNU General Public License is included in this distribution in the
- * file called COPYING.
  */
 #ifndef IOP_ADMA_H
 #define IOP_ADMA_H
@@ -61,7 +58,7 @@ struct iop_adma_device {
 struct iop_adma_chan {
 	int pending;
 	dma_cookie_t completed_cookie;
-	spinlock_t lock;
+	spinlock_t lock; /* protects the descriptor slot pool */
 	void __iomem *mmr_base;
 	struct list_head chain;
 	struct iop_adma_device *device;
@@ -95,7 +92,6 @@ struct iop_adma_desc_slot {
 	struct list_head slot_node;
 	struct list_head chain_node;
 	void *hw_desc;
-	dma_addr_t phys;
 	struct iop_adma_desc_slot *group_head;
 	u16 slot_cnt;
 	u16 slots_per_op;
@@ -103,7 +99,6 @@ struct iop_adma_desc_slot {
 	u16 unmap_src_cnt;
 	size_t unmap_len;
 	struct dma_async_tx_descriptor async_tx;
-	struct list_head group_list;
 	union {
 		u32 *xor_check_result;
 		u32 *crc32_result;
@@ -112,10 +107,12 @@ struct iop_adma_desc_slot {
 
 struct iop_adma_platform_data {
         int hw_id;
-        unsigned long capabilities;
+	dma_cap_mask_t cap_mask;
         size_t pool_size;
 };
 
-#define to_iop_sw_desc(addr_hw_desc) container_of(addr_hw_desc, struct iop_adma_desc_slot, hw_desc)
-#define iop_hw_desc_slot_idx(hw_desc, idx) ( (void *) (((unsigned long) hw_desc) + ((idx) << 5)) )
+#define to_iop_sw_desc(addr_hw_desc) \
+	container_of(addr_hw_desc, struct iop_adma_desc_slot, hw_desc)
+#define iop_hw_desc_slot_idx(hw_desc, idx) \
+	( (void *) (((unsigned long) hw_desc) + ((idx) << 5)) )
 #endif

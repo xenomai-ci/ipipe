@@ -1,31 +1,31 @@
 /*
- * Copyright(c) 2006 Intel Corporation. All rights reserved.
+ * copy offload engine support
  *
- *	Dan Williams <dan.j.williams@intel.com>
+ * Copyright © 2006, Intel Corporation.
  *
- *	with architecture considerations by:
- *	Neil Brown <neilb@suse.de>
- *	Jeff Garzik <jeff@garzik.org>
+ *      Dan Williams <dan.j.williams@intel.com>
+ *
+ *      with architecture considerations by:
+ *      Neil Brown <neilb@suse.de>
+ *      Jeff Garzik <jeff@garzik.org>
  *
  * This program is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the Free
- * Software Foundation; either version 2 of the License, or (at your option)
- * any later version.
+ * under the terms and conditions of the GNU General Public License,
+ * version 2, as published by the Free Software Foundation.
  *
- * This program is distributed in the hope that it will be useful, but WITHOUT
+ * This program is distributed in the hope it will be useful, but WITHOUT
  * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
  * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
  * more details.
  *
  * You should have received a copy of the GNU General Public License along with
- * this program; if not, write to the Free Software Foundation, Inc., 59
- * Temple Place - Suite 330, Boston, MA  02111-1307, USA.
+ * this program; if not, write to the Free Software Foundation, Inc.,
+ * 51 Franklin St - Fifth Floor, Boston, MA 02110-1301 USA.
  *
- * The full GNU General Public License is included in this distribution in the
- * file called COPYING.
  */
 #include <linux/kernel.h>
 #include <linux/highmem.h>
+#include <linux/mm.h>
 #include <linux/dma-mapping.h>
 #include <linux/async_tx.h>
 
@@ -38,24 +38,24 @@
  * @flags: ASYNC_TX_ASSUME_COHERENT, ASYNC_TX_ACK, ASYNC_TX_DEP_ACK,
  *	ASYNC_TX_KMAP_SRC, ASYNC_TX_KMAP_DST
  * @depend_tx: memcpy depends on the result of this transaction
- * @callback: function to call when the memcpy completes
- * @callback_param: parameter to pass to the callback routine
+ * @cb_fn: function to call when the memcpy completes
+ * @cb_param: parameter to pass to the callback routine
  */
 struct dma_async_tx_descriptor *
 async_memcpy(struct page *dest, struct page *src, unsigned int dest_offset,
 	unsigned int src_offset, size_t len, enum async_tx_flags flags,
 	struct dma_async_tx_descriptor *depend_tx,
-	dma_async_tx_callback callback, void *callback_param)
+	dma_async_tx_callback cb_fn, void *cb_param)
 {
 	struct dma_chan *chan = async_tx_find_channel(depend_tx, DMA_MEMCPY);
 	struct dma_device *device = chan ? chan->device : NULL;
-	int int_en = callback ? 1 : 0;
+	int int_en = cb_fn ? 1 : 0;
 	struct dma_async_tx_descriptor *tx = device ?
 		device->device_prep_dma_memcpy(chan, len,
 		int_en) : NULL;
 
 	if (tx) { /* run the memcpy asynchronously */
-		dma_addr_t dma_addr;
+		dma_addr_t addr;
 		enum dma_data_direction dir;
 
 		pr_debug("%s: (async) len: %zu\n", __FUNCTION__, len);
@@ -63,17 +63,16 @@ async_memcpy(struct page *dest, struct page *src, unsigned int dest_offset,
 		dir = (flags & ASYNC_TX_ASSUME_COHERENT) ?
 			DMA_NONE : DMA_FROM_DEVICE;
 
-		dma_addr = dma_map_page(device->dev, dest, dest_offset, len, dir);
-	     	device->device_set_dest(dma_addr, tx, 0);
+		addr = dma_map_page(device->dev, dest, dest_offset, len, dir);
+		tx->tx_set_dest(addr, tx, 0);
 
 		dir = (flags & ASYNC_TX_ASSUME_COHERENT) ?
 			DMA_NONE : DMA_TO_DEVICE;
 
-		dma_addr = dma_map_page(device->dev, src, src_offset, len, dir);
-	     	device->device_set_src(dma_addr, tx, 0);
+		addr = dma_map_page(device->dev, src, src_offset, len, dir);
+		tx->tx_set_src(addr, tx, 0);
 
-		async_tx_submit(chan, tx, flags, depend_tx, callback,
-			callback_param);
+		async_tx_submit(chan, tx, flags, depend_tx, cb_fn, cb_param);
 	} else { /* run the memcpy synchronously */
 		void *dest_buf, *src_buf;
 		pr_debug("%s: (sync) len: %zu\n", __FUNCTION__, len);
@@ -107,7 +106,7 @@ async_memcpy(struct page *dest, struct page *src, unsigned int dest_offset,
 		if (flags & ASYNC_TX_KMAP_SRC)
 			kunmap_atomic(src_buf, KM_USER0);
 
-		async_tx_sync_epilog(flags, depend_tx, callback, callback_param);
+		async_tx_sync_epilog(flags, depend_tx, cb_fn, cb_param);
 	}
 
 	return tx;
@@ -121,7 +120,7 @@ static int __init async_memcpy_init(void)
 
 static void __exit async_memcpy_exit(void)
 {
-	do { } while(0);
+	do { } while (0);
 }
 
 module_init(async_memcpy_init);

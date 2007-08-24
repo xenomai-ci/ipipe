@@ -178,9 +178,9 @@ static inline int iop13xx_cpu_id(void)
 #define IQ81340_NUM_I2C      		3
 #define IQ81340_NUM_PHYS_MAP_FLASH	1
 #define IQ81340_NUM_ADMA     		3
-#define IQ81340_MAX_PLAT_DEVICES (IQ81340_NUM_UART +\
-				IQ81340_NUM_I2C +\
-				IQ81340_NUM_PHYS_MAP_FLASH +\
+#define IQ81340_MAX_PLAT_DEVICES (IQ81340_NUM_UART + \
+				IQ81340_NUM_I2C + \
+				IQ81340_NUM_PHYS_MAP_FLASH + \
 				IQ81340_NUM_ADMA)
 
 /*========================== PMMR offsets for key registers ============*/

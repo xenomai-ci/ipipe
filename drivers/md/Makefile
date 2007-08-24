@@ -17,7 +17,7 @@ raid456-objs	:= raid5.o raid6algos.o raid6recov.o raid6tables.o \
 hostprogs-y	:= mktables
 
 # Note: link order is important.  All raid personalities
-# must come before md.o, as they each initialise
+# and must come before md.o, as they each initialise
 # themselves, and md.o may use the personalities when it
 # auto-initialised.
 

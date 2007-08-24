@@ -1,31 +1,31 @@
 /*
- * Copyright(c) 2006 Intel Corporation. All rights reserved.
+ * xor offload engine api
  *
- *	Dan Williams <dan.j.williams@intel.com>
+ * Copyright © 2006, Intel Corporation.
  *
- *	with architecture considerations by:
- *	Neil Brown <neilb@suse.de>
- *	Jeff Garzik <jeff@garzik.org>
+ *      Dan Williams <dan.j.williams@intel.com>
+ *
+ *      with architecture considerations by:
+ *      Neil Brown <neilb@suse.de>
+ *      Jeff Garzik <jeff@garzik.org>
  *
  * This program is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the Free
- * Software Foundation; either version 2 of the License, or (at your option)
- * any later version.
+ * under the terms and conditions of the GNU General Public License,
+ * version 2, as published by the Free Software Foundation.
  *
- * This program is distributed in the hope that it will be useful, but WITHOUT
+ * This program is distributed in the hope it will be useful, but WITHOUT
  * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
  * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
  * more details.
  *
  * You should have received a copy of the GNU General Public License along with
- * this program; if not, write to the Free Software Foundation, Inc., 59
- * Temple Place - Suite 330, Boston, MA  02111-1307, USA.
+ * this program; if not, write to the Free Software Foundation, Inc.,
+ * 51 Franklin St - Fifth Floor, Boston, MA 02110-1301 USA.
  *
- * The full GNU General Public License is included in this distribution in the
- * file called COPYING.
  */
 #include <linux/kernel.h>
 #include <linux/interrupt.h>
+#include <linux/mm.h>
 #include <linux/dma-mapping.h>
 #include <linux/raid/xor.h>
 #include <linux/async_tx.h>
@@ -35,7 +35,7 @@ do_async_xor(struct dma_async_tx_descriptor *tx, struct dma_device *device,
 	struct dma_chan *chan, struct page *dest, struct page **src_list,
 	unsigned int offset, unsigned int src_cnt, size_t len,
 	enum async_tx_flags flags, struct dma_async_tx_descriptor *depend_tx,
-	dma_async_tx_callback callback, void *callback_param)
+	dma_async_tx_callback cb_fn, void *cb_param)
 {
 	dma_addr_t dma_addr;
 	enum dma_data_direction dir;
@@ -47,7 +47,7 @@ do_async_xor(struct dma_async_tx_descriptor *tx, struct dma_device *device,
 		DMA_NONE : DMA_FROM_DEVICE;
 
 	dma_addr = dma_map_page(device->dev, dest, offset, len, dir);
-     	device->device_set_dest(dma_addr, tx, 0);
+	tx->tx_set_dest(dma_addr, tx, 0);
 
 	dir = (flags & ASYNC_TX_ASSUME_COHERENT) ?
 		DMA_NONE : DMA_TO_DEVICE;
@@ -55,18 +55,17 @@ do_async_xor(struct dma_async_tx_descriptor *tx, struct dma_device *device,
 	for (i = 0; i < src_cnt; i++) {
 		dma_addr = dma_map_page(device->dev, src_list[i],
 			offset, len, dir);
-	     	device->device_set_src(dma_addr, tx, i);
+		tx->tx_set_src(dma_addr, tx, i);
 	}
 
-	async_tx_submit(chan, tx, flags, depend_tx, callback,
-		callback_param);
+	async_tx_submit(chan, tx, flags, depend_tx, cb_fn, cb_param);
 }
 
 static void
 do_sync_xor(struct page *dest, struct page **src_list, unsigned int offset,
 	unsigned int src_cnt, size_t len, enum async_tx_flags flags,
 	struct dma_async_tx_descriptor *depend_tx,
-	dma_async_tx_callback callback, void *callback_param)
+	dma_async_tx_callback cb_fn, void *cb_param)
 {
 	void *_dest;
 	int i;
@@ -84,15 +83,15 @@ do_sync_xor(struct page *dest, struct page **src_list, unsigned int offset,
 	if (flags & ASYNC_TX_XOR_ZERO_DST)
 		memset(_dest, 0, len);
 
-	xor_block(src_cnt, len, _dest,
+	xor_blocks(src_cnt, len, _dest,
 		(void **) src_list);
 
-	async_tx_sync_epilog(flags, depend_tx, callback, callback_param);
+	async_tx_sync_epilog(flags, depend_tx, cb_fn, cb_param);
 }
 
 /**
  * async_xor - attempt to xor a set of blocks with a dma engine.
- *	xor_block always uses the dest as a source so the ASYNC_TX_XOR_ZERO_DST
+ *	xor_blocks always uses the dest as a source so the ASYNC_TX_XOR_ZERO_DST
  *	flag must be set to not include dest data in the calculation.  The
  *	assumption with dma eninges is that they only use the destination
  *	buffer as a source when it is explicity specified in the source list.
@@ -103,22 +102,22 @@ do_sync_xor(struct page *dest, struct page **src_list, unsigned int offset,
  * @src_cnt: number of source pages
  * @len: length in bytes
  * @flags: ASYNC_TX_XOR_ZERO_DST, ASYNC_TX_XOR_DROP_DEST,
- 	ASYNC_TX_ASSUME_COHERENT, ASYNC_TX_ACK, ASYNC_TX_DEP_ACK
+ *	ASYNC_TX_ASSUME_COHERENT, ASYNC_TX_ACK, ASYNC_TX_DEP_ACK
  * @depend_tx: xor depends on the result of this transaction.
- * @callback: function to call when the xor completes
- * @callback_param: parameter to pass to the callback routine
+ * @cb_fn: function to call when the xor completes
+ * @cb_param: parameter to pass to the callback routine
  */
 struct dma_async_tx_descriptor *
 async_xor(struct page *dest, struct page **src_list, unsigned int offset,
 	int src_cnt, size_t len, enum async_tx_flags flags,
 	struct dma_async_tx_descriptor *depend_tx,
-	dma_async_tx_callback callback, void *callback_param)
+	dma_async_tx_callback cb_fn, void *cb_param)
 {
 	struct dma_chan *chan = async_tx_find_channel(depend_tx, DMA_XOR);
 	struct dma_device *device = chan ? chan->device : NULL;
 	struct dma_async_tx_descriptor *tx = NULL;
-	dma_async_tx_callback _callback;
-	void *_callback_param;
+	dma_async_tx_callback _cb_fn;
+	void *_cb_param;
 	unsigned long local_flags;
 	int xor_src_cnt;
 	int i = 0, src_off = 0, int_en;
@@ -134,14 +133,14 @@ async_xor(struct page *dest, struct page **src_list, unsigned int offset,
 			 */
 			if (src_cnt > xor_src_cnt) {
 				local_flags &= ~ASYNC_TX_ACK;
-				_callback = NULL;
-				_callback_param = NULL;
+				_cb_fn = NULL;
+				_cb_param = NULL;
 			} else {
-				_callback = callback;
-				_callback_param = callback_param;
+				_cb_fn = cb_fn;
+				_cb_param = cb_param;
 			}
 
-			int_en = _callback ? 1 : 0;
+			int_en = _cb_fn ? 1 : 0;
 
 			tx = device->device_prep_dma_xor(
 				chan, xor_src_cnt, len, int_en);
@@ -149,8 +148,8 @@ async_xor(struct page *dest, struct page **src_list, unsigned int offset,
 			if (tx) {
 				do_async_xor(tx, device, chan, dest,
 				&src_list[src_off], offset, xor_src_cnt, len,
-				local_flags, depend_tx, _callback,
-				_callback_param);
+				local_flags, depend_tx, _cb_fn,
+				_cb_param);
 			} else /* fall through */
 				goto xor_sync;
 		} else { /* run the xor synchronously */
@@ -171,11 +170,11 @@ xor_sync:
 			 */
 			if (src_cnt > xor_src_cnt) {
 				local_flags &= ~ASYNC_TX_ACK;
-				_callback = NULL;
-				_callback_param = NULL;
+				_cb_fn = NULL;
+				_cb_param = NULL;
 			} else {
-				_callback = callback;
-				_callback_param = callback_param;
+				_cb_fn = cb_fn;
+				_cb_param = cb_param;
 			}
 
 			/* wait for any prerequisite operations */
@@ -184,14 +183,16 @@ xor_sync:
 				 * we are referring to the correct operation
 				 */
 				BUG_ON(depend_tx->ack);
-				if (dma_wait_for_async_tx(depend_tx) == DMA_ERROR)
-					panic("%s: DMA_ERROR waiting for depend_tx\n",
+				if (dma_wait_for_async_tx(depend_tx) ==
+					DMA_ERROR)
+					panic("%s: DMA_ERROR waiting for "
+						"depend_tx\n",
 						__FUNCTION__);
 			}
 
 			do_sync_xor(dest, &src_list[src_off], offset,
 				xor_src_cnt, len, local_flags, depend_tx,
-				_callback, _callback_param);
+				_cb_fn, _cb_param);
 		}
 
 		/* the previous tx is hidden from the client,
@@ -225,11 +226,11 @@ xor_sync:
 }
 EXPORT_SYMBOL_GPL(async_xor);
 
-static int page_is_zero(struct page *p, size_t len)
+static int page_is_zero(struct page *p, unsigned int offset, size_t len)
 {
-	char *a = page_address(p);
-	return ((*(u32*)a) == 0 &&
-		memcmp(a, a+4, len-4)==0);
+	char *a = page_address(p) + offset;
+	return ((*(u32 *) a) == 0 &&
+		memcmp(a, a + 4, len - 4) == 0);
 }
 
 /**
@@ -243,19 +244,19 @@ static int page_is_zero(struct page *p, size_t len)
  * @result: 0 if sum == 0 else non-zero
  * @flags: ASYNC_TX_ASSUME_COHERENT, ASYNC_TX_ACK, ASYNC_TX_DEP_ACK
  * @depend_tx: xor depends on the result of this transaction.
- * @callback: function to call when the xor completes
- * @callback_param: parameter to pass to the callback routine
+ * @cb_fn: function to call when the xor completes
+ * @cb_param: parameter to pass to the callback routine
  */
 struct dma_async_tx_descriptor *
 async_xor_zero_sum(struct page *dest, struct page **src_list,
 	unsigned int offset, int src_cnt, size_t len,
 	u32 *result, enum async_tx_flags flags,
 	struct dma_async_tx_descriptor *depend_tx,
-	dma_async_tx_callback callback, void *callback_param)
+	dma_async_tx_callback cb_fn, void *cb_param)
 {
 	struct dma_chan *chan = async_tx_find_channel(depend_tx, DMA_ZERO_SUM);
 	struct dma_device *device = chan ? chan->device : NULL;
-	int int_en = callback ? 1 : 0;
+	int int_en = cb_fn ? 1 : 0;
 	struct dma_async_tx_descriptor *tx = device ?
 		device->device_prep_dma_zero_sum(chan, src_cnt, len, result,
 			int_en) : NULL;
@@ -275,11 +276,10 @@ async_xor_zero_sum(struct page *dest, struct page **src_list,
 		for (i = 0; i < src_cnt; i++) {
 			dma_addr = dma_map_page(device->dev, src_list[i],
 				offset, len, dir);
-		     	device->device_set_src(dma_addr, tx, i);
+			tx->tx_set_src(dma_addr, tx, i);
 		}
 
-		async_tx_submit(chan, tx, flags, depend_tx, callback,
-			callback_param);
+		async_tx_submit(chan, tx, flags, depend_tx, cb_fn, cb_param);
 	} else {
 		unsigned long xor_flags = flags;
 
@@ -298,11 +298,11 @@ async_xor_zero_sum(struct page *dest, struct page **src_list,
 			async_tx_ack(tx);
 		}
 
-		*result = page_is_zero(dest, len) ? 0 : 1;
+		*result = page_is_zero(dest, offset, len) ? 0 : 1;
 
 		tx = NULL;
 
-		async_tx_sync_epilog(flags, depend_tx, callback, callback_param);
+		async_tx_sync_epilog(flags, depend_tx, cb_fn, cb_param);
 	}
 
 	return tx;

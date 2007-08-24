@@ -27,7 +27,6 @@
 #include <linux/completion.h>
 #include <linux/rcupdate.h>
 #include <linux/dma-mapping.h>
-#include <linux/jiffies.h>
 
 /**
  * enum dma_state - resource PNP/power managment state
@@ -89,7 +88,7 @@ enum dma_transaction_type {
 	DMA_PQ_ZERO_SUM,
 	DMA_MEMSET,
 	DMA_MEMCPY_CRC32C,
-	DMA_INTERRUPT, /* when updating, make this the last entry */
+	DMA_INTERRUPT,
 };
 
 /* last transaction type for creation of the capabilities mask */
@@ -199,27 +198,40 @@ struct dma_client {
 typedef void (*dma_async_tx_callback)(void *dma_async_param);
 /**
  * struct dma_async_tx_descriptor - async transaction descriptor
+ * ---dma generic offload fields---
  * @cookie: tracking cookie for this transaction, set to -EBUSY if
  *	this tx is sitting on a dependency list
  * @ack: the descriptor can not be reused until the client acknowledges
  *	receipt, i.e. has has a chance to establish any dependency chains
- * @type: allows backend implementations to key off the tx_type
+ * @phys: physical address of the descriptor
+ * @tx_list: driver common field for operations that require multiple
+ *	descriptors
+ * @chan: target channel for this operation
+ * @tx_submit: set the prepared descriptor(s) to be executed by the engine
+ * @tx_set_dest: set a destination address in a hardware descriptor
+ * @tx_set_src: set a source address in a hardware descriptor
  * @callback: routine to call after this operation is complete
  * @callback_param: general parameter to pass to the callback routine
- * @chan: target channel for this operation
+ * ---async_tx api specific fields---
  * @depend_list: at completion this list of transactions are submitted
  * @depend_node: allow this transaction to be executed after another
- *	transaction has completed
+ *	transaction has completed, possibly on another channel
  * @parent: pointer to the next level up in the dependency chain
  * @lock: protect the dependency list
  */
 struct dma_async_tx_descriptor {
 	dma_cookie_t cookie;
 	int ack;
-	enum dma_transaction_type type;
+	dma_addr_t phys;
+	struct list_head tx_list;
+	struct dma_chan *chan;
+	dma_cookie_t (*tx_submit)(struct dma_async_tx_descriptor *tx);
+	void (*tx_set_dest)(dma_addr_t addr,
+		struct dma_async_tx_descriptor *tx, int index);
+	void (*tx_set_src)(dma_addr_t addr,
+		struct dma_async_tx_descriptor *tx, int index);
 	dma_async_tx_callback callback;
 	void *callback_param;
-	struct dma_chan *chan;
 	struct list_head depend_list;
 	struct list_head depend_node;
 	struct dma_async_tx_descriptor *parent;
@@ -242,15 +254,9 @@ struct dma_async_tx_descriptor {
  * @device_free_chan_resources: release DMA channel's resources
  * @device_prep_dma_memcpy: prepares a memcpy operation
  * @device_prep_dma_xor: prepares a xor operation
- * @device_prep_dma_pqxor: prepares a pq-xor operation
  * @device_prep_dma_zero_sum: prepares a zero_sum operation
- * @device_prep_dma_pqzero_sum: prepares a pqzero_sum operation
  * @device_prep_dma_memset: prepares a memset operation
  * @device_prep_dma_interrupt: prepares an end of chain interrupt operation
- * @device_tx_submit: execute an operation
- * @device_set_dest: set a destination address in a hardware descriptor
- * @device_set_src: set a source address in a hardware descriptor
- * @device_set_src_mult: set a GF-multiplier in a hardware descriptor
  * @device_dependency_added: async_tx notifies the channel about new deps
  * @device_issue_pending: push pending transactions to hardware
  */
@@ -276,29 +282,14 @@ struct dma_device {
 	struct dma_async_tx_descriptor *(*device_prep_dma_xor)(
 		struct dma_chan *chan, unsigned int src_cnt, size_t len,
 		int int_en);
-	struct dma_async_tx_descriptor *(*device_prep_dma_pqxor)(
-		struct dma_chan *chan, struct page **sas,
-		unsigned int src_cnt, unsigned int dst_cnt,
-		size_t len, int zero_dst, int int_en);
 	struct dma_async_tx_descriptor *(*device_prep_dma_zero_sum)(
 		struct dma_chan *chan, unsigned int src_cnt, size_t len,
 		u32 *result, int int_en);
-	struct dma_async_tx_descriptor *(*device_prep_dma_pqzero_sum)(
-		struct dma_chan *chan,
-		unsigned int src_cnt, unsigned int dst_cnt, size_t len,
-		u32 *presult, u32 *qresult, int int_en);
 	struct dma_async_tx_descriptor *(*device_prep_dma_memset)(
 		struct dma_chan *chan, int value, size_t len, int int_en);
 	struct dma_async_tx_descriptor *(*device_prep_dma_interrupt)(
 		struct dma_chan *chan);
 
-	dma_cookie_t (*device_tx_submit)(struct dma_async_tx_descriptor *tx);
-	void (*device_set_dest)(dma_addr_t addr,
-		struct dma_async_tx_descriptor *tx, int index);
-	void (*device_set_src)(dma_addr_t addr,
-		struct dma_async_tx_descriptor *tx, int index);
-	void (*device_set_src_mult)(unsigned char mult,
-		struct dma_async_tx_descriptor *tx, int index);
 	void (*device_dependency_added)(struct dma_chan *chan);
 	enum dma_status (*device_is_tx_complete)(struct dma_chan *chan,
 			dma_cookie_t cookie, dma_cookie_t *last,
@@ -330,23 +321,27 @@ async_tx_ack(struct dma_async_tx_descriptor *tx)
 #define first_dma_cap(mask) __first_dma_cap(&(mask))
 static inline int __first_dma_cap(const dma_cap_mask_t *srcp)
 {
-	return min_t(int, DMA_TX_TYPE_END, find_first_bit(srcp->bits, DMA_TX_TYPE_END));
+	return min_t(int, DMA_TX_TYPE_END,
+		find_first_bit(srcp->bits, DMA_TX_TYPE_END));
 }
 
 #define next_dma_cap(n, mask) __next_dma_cap((n), &(mask))
 static inline int __next_dma_cap(int n, const dma_cap_mask_t *srcp)
 {
-	return min_t(int, DMA_TX_TYPE_END, find_next_bit(srcp->bits, DMA_TX_TYPE_END, n+1));
+	return min_t(int, DMA_TX_TYPE_END,
+		find_next_bit(srcp->bits, DMA_TX_TYPE_END, n+1));
 }
 
 #define dma_cap_set(tx, mask) __dma_cap_set((tx), &(mask))
-static inline void __dma_cap_set(enum dma_transaction_type tx_type, dma_cap_mask_t *dstp)
+static inline void
+__dma_cap_set(enum dma_transaction_type tx_type, dma_cap_mask_t *dstp)
 {
 	set_bit(tx_type, dstp->bits);
 }
 
 #define dma_has_cap(tx, mask) __dma_has_cap((tx), &(mask))
-static inline int __dma_has_cap(enum dma_transaction_type tx_type, dma_cap_mask_t *srcp)
+static inline int
+__dma_has_cap(enum dma_transaction_type tx_type, dma_cap_mask_t *srcp)
 {
 	return test_bit(tx_type, srcp->bits);
 }

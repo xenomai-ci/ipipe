@@ -1522,5 +1522,3 @@ source "arch/ppc/Kconfig.debug"
 source "security/Kconfig"
 
 source "crypto/Kconfig"
-
-source "async_tx/Kconfig"

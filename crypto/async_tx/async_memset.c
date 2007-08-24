@@ -1,31 +1,31 @@
 /*
- * Copyright(c) 2006 Intel Corporation. All rights reserved.
+ * memory fill offload engine support
  *
- *	Dan Williams <dan.j.williams@intel.com>
+ * Copyright © 2006, Intel Corporation.
  *
- *	with architecture considerations by:
- *	Neil Brown <neilb@suse.de>
- *	Jeff Garzik <jeff@garzik.org>
+ *      Dan Williams <dan.j.williams@intel.com>
+ *
+ *      with architecture considerations by:
+ *      Neil Brown <neilb@suse.de>
+ *      Jeff Garzik <jeff@garzik.org>
  *
  * This program is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the Free
- * Software Foundation; either version 2 of the License, or (at your option)
- * any later version.
+ * under the terms and conditions of the GNU General Public License,
+ * version 2, as published by the Free Software Foundation.
  *
- * This program is distributed in the hope that it will be useful, but WITHOUT
+ * This program is distributed in the hope it will be useful, but WITHOUT
  * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
  * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
  * more details.
  *
  * You should have received a copy of the GNU General Public License along with
- * this program; if not, write to the Free Software Foundation, Inc., 59
- * Temple Place - Suite 330, Boston, MA  02111-1307, USA.
+ * this program; if not, write to the Free Software Foundation, Inc.,
+ * 51 Franklin St - Fifth Floor, Boston, MA 02110-1301 USA.
  *
- * The full GNU General Public License is included in this distribution in the
- * file called COPYING.
  */
 #include <linux/kernel.h>
 #include <linux/interrupt.h>
+#include <linux/mm.h>
 #include <linux/dma-mapping.h>
 #include <linux/async_tx.h>
 
@@ -37,18 +37,18 @@
  * @len: length in bytes
  * @flags: ASYNC_TX_ASSUME_COHERENT, ASYNC_TX_ACK, ASYNC_TX_DEP_ACK
  * @depend_tx: memset depends on the result of this transaction
- * @callback: function to call when the memcpy completes
- * @callback_param: parameter to pass to the callback routine
+ * @cb_fn: function to call when the memcpy completes
+ * @cb_param: parameter to pass to the callback routine
  */
 struct dma_async_tx_descriptor *
 async_memset(struct page *dest, int val, unsigned int offset,
 	size_t len, enum async_tx_flags flags,
 	struct dma_async_tx_descriptor *depend_tx,
-	dma_async_tx_callback callback, void *callback_param)
+	dma_async_tx_callback cb_fn, void *cb_param)
 {
 	struct dma_chan *chan = async_tx_find_channel(depend_tx, DMA_MEMSET);
 	struct dma_device *device = chan ? chan->device : NULL;
-	int int_en = callback ? 1 : 0;
+	int int_en = cb_fn ? 1 : 0;
 	struct dma_async_tx_descriptor *tx = device ?
 		device->device_prep_dma_memset(chan, val, len,
 			int_en) : NULL;
@@ -62,10 +62,9 @@ async_memset(struct page *dest, int val, unsigned int offset,
 			DMA_NONE : DMA_FROM_DEVICE;
 
 		dma_addr = dma_map_page(device->dev, dest, offset, len, dir);
-	     	device->device_set_dest(dma_addr, tx, 0);
+		tx->tx_set_dest(dma_addr, tx, 0);
 
-		async_tx_submit(chan, tx, flags, depend_tx, callback,
-			callback_param);
+		async_tx_submit(chan, tx, flags, depend_tx, cb_fn, cb_param);
 	} else { /* run the memset synchronously */
 		void *dest_buf;
 		pr_debug("%s: (sync) len: %zu\n", __FUNCTION__, len);
@@ -85,7 +84,7 @@ async_memset(struct page *dest, int val, unsigned int offset,
 
 		memset(dest_buf, val, len);
 
-		async_tx_sync_epilog(flags, depend_tx, callback, callback_param);
+		async_tx_sync_epilog(flags, depend_tx, cb_fn, cb_param);
 	}
 
 	return tx;

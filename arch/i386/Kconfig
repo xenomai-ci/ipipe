@@ -1236,8 +1236,6 @@ source "crypto/Kconfig"
 
 source "lib/Kconfig"
 
-source "async_tx/Kconfig"
-
 #
 # Use the generic interrupt handling code in kernel/irq/:
 #

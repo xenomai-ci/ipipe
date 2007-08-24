@@ -1,5 +1,7 @@
 /*
- * Copyright(c) 2006 Intel Corporation. All rights reserved.
+ * core routines for the asynchronous memory transfer/transform api
+ *
+ * Copyright © 2006, Intel Corporation.
  *
  *	Dan Williams <dan.j.williams@intel.com>
  *
@@ -8,26 +10,20 @@
  *	Jeff Garzik <jeff@garzik.org>
  *
  * This program is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the Free
- * Software Foundation; either version 2 of the License, or (at your option)
- * any later version.
+ * under the terms and conditions of the GNU General Public License,
+ * version 2, as published by the Free Software Foundation.
  *
- * This program is distributed in the hope that it will be useful, but WITHOUT
+ * This program is distributed in the hope it will be useful, but WITHOUT
  * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
  * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
  * more details.
  *
  * You should have received a copy of the GNU General Public License along with
- * this program; if not, write to the Free Software Foundation, Inc., 59
- * Temple Place - Suite 330, Boston, MA  02111-1307, USA.
+ * this program; if not, write to the Free Software Foundation, Inc.,
+ * 51 Franklin St - Fifth Floor, Boston, MA 02110-1301 USA.
  *
- * The full GNU General Public License is included in this distribution in the
- * file called COPYING.
  */
 #include <linux/kernel.h>
-#include <linux/interrupt.h>
-#include <linux/dma-mapping.h>
-#include <linux/raid/xor.h>
 #include <linux/async_tx.h>
 
 #ifdef CONFIG_DMA_ENGINE
@@ -61,8 +57,73 @@ static struct chan_ref_percpu *channel_table[DMA_TX_TYPE_END];
  */
 static spinlock_t async_tx_lock;
 
-struct list_head async_tx_master_list = LIST_HEAD_INIT(async_tx_master_list);
-EXPORT_SYMBOL_GPL(async_tx_master_list);
+static struct list_head
+async_tx_master_list = LIST_HEAD_INIT(async_tx_master_list);
+
+/* async_tx_issue_pending_all - start all transactions on all channels */
+void async_tx_issue_pending_all(void)
+{
+	struct dma_chan_ref *ref;
+
+	rcu_read_lock();
+	list_for_each_entry_rcu(ref, &async_tx_master_list, node)
+		ref->chan->device->device_issue_pending(ref->chan);
+	rcu_read_unlock();
+}
+EXPORT_SYMBOL_GPL(async_tx_issue_pending_all);
+
+/* dma_wait_for_async_tx - spin wait for a transcation to complete
+ * @tx: transaction to wait on
+ */
+enum dma_status
+dma_wait_for_async_tx(struct dma_async_tx_descriptor *tx)
+{
+	enum dma_status status;
+	struct dma_async_tx_descriptor *iter;
+
+	if (!tx)
+		return DMA_SUCCESS;
+
+	/* poll through the dependency chain, return when tx is complete */
+	do {
+		iter = tx;
+		while (iter->cookie == -EBUSY)
+			iter = iter->parent;
+
+		status = dma_sync_wait(iter->chan, iter->cookie);
+	} while (status == DMA_IN_PROGRESS || (iter != tx));
+
+	return status;
+}
+EXPORT_SYMBOL_GPL(dma_wait_for_async_tx);
+
+/* async_tx_run_dependencies - helper routine for dma drivers to process
+ *	(start) dependent operations on their target channel
+ * @tx: transaction with dependencies
+ */
+void
+async_tx_run_dependencies(struct dma_async_tx_descriptor *tx)
+{
+	struct dma_async_tx_descriptor *dep_tx, *_dep_tx;
+	struct dma_device *dev;
+	struct dma_chan *chan;
+
+	list_for_each_entry_safe(dep_tx, _dep_tx, &tx->depend_list,
+		depend_node) {
+		chan = dep_tx->chan;
+		dev = chan->device;
+		/* we can't depend on ourselves */
+		BUG_ON(chan == tx->chan);
+		list_del(&dep_tx->depend_node);
+		tx->tx_submit(dep_tx);
+
+		/* we need to poke the engine as client code does not
+		 * know about dependency submission events
+		 */
+		dev->device_issue_pending(chan);
+	}
+}
+EXPORT_SYMBOL_GPL(async_tx_run_dependencies);
 
 static void
 free_dma_chan_ref(struct rcu_head *rcu)
@@ -141,7 +202,8 @@ static void async_tx_rebalance(void)
 				per_cpu_ptr(channel_table[cap], cpu)->ref;
 			if (ref) {
 				atomic_set(&ref->count, 0);
-				per_cpu_ptr(channel_table[cap], cpu)->ref = NULL;
+				per_cpu_ptr(channel_table[cap], cpu)->ref =
+									NULL;
 			}
 		}
 
@@ -178,7 +240,8 @@ dma_channel_add_remove(struct dma_client *client,
 			}
 		rcu_read_unlock();
 
-		pr_debug("async_tx: dma resource available [%s]\n", found ? "old" : "new");
+		pr_debug("async_tx: dma resource available [%s]\n",
+			found ? "old" : "new");
 
 		if (!found)
 			ack = DMA_ACK;
@@ -211,7 +274,8 @@ dma_channel_add_remove(struct dma_client *client,
 		spin_lock_irqsave(&async_tx_lock, flags);
 		list_for_each_entry_rcu(ref, &async_tx_master_list, node)
 			if (ref->chan == chan) {
-				dma_chan_put(ref->chan); /* permit backing devices to go away */
+				/* permit backing devices to go away */
+				dma_chan_put(ref->chan);
 				list_del_rcu(&ref->node);
 				call_rcu(&ref->rcu, free_dma_chan_ref);
 				found = 1;
@@ -219,7 +283,8 @@ dma_channel_add_remove(struct dma_client *client,
 			}
 		spin_unlock_irqrestore(&async_tx_lock, flags);
 
-		pr_debug("async_tx: dma resource removed [%s]\n", found ? "ours" : "not ours");
+		pr_debug("async_tx: dma resource removed [%s]\n",
+			found ? "ours" : "not ours");
 
 		if (found)
 			ack = DMA_ACK;
@@ -263,11 +328,11 @@ async_tx_init(void)
 	dma_async_client_register(&async_tx_dma);
 	dma_async_client_chan_request(&async_tx_dma);
 
-	printk("async_tx: api initialized (async)\n");
+	printk(KERN_INFO "async_tx: api initialized (async)\n");
 
 	return 0;
 err:
-	printk("async_tx: initialization failure\n");
+	printk(KERN_ERR "async_tx: initialization failure\n");
 
 	while (--cap >= 0)
 		free_percpu(channel_table[cap]);
@@ -315,7 +380,7 @@ EXPORT_SYMBOL_GPL(async_tx_find_channel);
 #else
 static int __init async_tx_init(void)
 {
-	printk("async_tx: api initialized (sync-only)\n");
+	printk(KERN_INFO "async_tx: api initialized (sync-only)\n");
 	return 0;
 }
 
@@ -323,23 +388,15 @@ static void __exit async_tx_exit(void)
 {
 	do { } while (0);
 }
-
-struct dma_chan *
-async_tx_find_channel(struct dma_async_tx_descriptor *depend_tx,
-	enum dma_transaction_type tx_type)
-{
-	return NULL;
-}
-EXPORT_SYMBOL_GPL(async_tx_find_channel);
 #endif
 
 void
 async_tx_submit(struct dma_chan *chan, struct dma_async_tx_descriptor *tx,
 	enum async_tx_flags flags, struct dma_async_tx_descriptor *depend_tx,
-	dma_async_tx_callback callback, void *callback_param)
+	dma_async_tx_callback cb_fn, void *cb_param)
 {
-	tx->callback = callback;
-	tx->callback_param = callback_param;
+	tx->callback = cb_fn;
+	tx->callback_param = cb_param;
 
 	/* set this new tx to run after depend_tx if:
 	 * 1/ a dependency exists (depend_tx is !NULL)
@@ -365,7 +422,7 @@ async_tx_submit(struct dma_chan *chan, struct dma_async_tx_descriptor *tx,
 		async_trigger_callback(ASYNC_TX_ACK, depend_tx, NULL, NULL);
 	} else {
 		tx->parent = NULL;
-		chan->device->device_tx_submit(tx);
+		tx->tx_submit(tx);
 	}
 
 	if (flags & ASYNC_TX_ACK)
@@ -377,36 +434,17 @@ async_tx_submit(struct dma_chan *chan, struct dma_async_tx_descriptor *tx,
 EXPORT_SYMBOL_GPL(async_tx_submit);
 
 /**
- * async_tx_sync_epilog - actions to take if an operation is run synchronously
- * @flags: async_tx flags
- * @depend_tx: transaction depends on depend_tx
- * @callback: function to call when the transaction completes
- * @callback_param: parameter to pass to the callback routine
- */
-void
-async_tx_sync_epilog(unsigned long flags, struct dma_async_tx_descriptor *depend_tx,
-	dma_async_tx_callback callback, void *callback_param)
-{
-	if (callback)
-		callback(callback_param);
-
-	if (depend_tx && (flags & ASYNC_TX_DEP_ACK))
-		async_tx_ack(depend_tx);
-}
-EXPORT_SYMBOL_GPL(async_tx_sync_epilog);
-
-/**
  * async_trigger_callback - schedules the callback function to be run after
  * any dependent operations have been completed.
  * @flags: ASYNC_TX_ACK, ASYNC_TX_DEP_ACK
  * @depend_tx: 'callback' requires the completion of this transaction
- * @callback: function to call after depend_tx completes
- * @callback_param: parameter to pass to the callback routine
+ * @cb_fn: function to call after depend_tx completes
+ * @cb_param: parameter to pass to the callback routine
  */
 struct dma_async_tx_descriptor *
 async_trigger_callback(enum async_tx_flags flags,
 	struct dma_async_tx_descriptor *depend_tx,
-	dma_async_tx_callback callback, void *callback_param)
+	dma_async_tx_callback cb_fn, void *cb_param)
 {
 	struct dma_chan *chan;
 	struct dma_device *device;
@@ -429,8 +467,7 @@ async_trigger_callback(enum async_tx_flags flags,
 	if (tx) {
 		pr_debug("%s: (async)\n", __FUNCTION__);
 
-		async_tx_submit(chan, tx, flags, depend_tx, callback,
-			callback_param);
+		async_tx_submit(chan, tx, flags, depend_tx, cb_fn, cb_param);
 	} else {
 		pr_debug("%s: (sync)\n", __FUNCTION__);
 
@@ -445,7 +482,7 @@ async_trigger_callback(enum async_tx_flags flags,
 					__FUNCTION__);
 		}
 
-		async_tx_sync_epilog(flags, depend_tx, callback, callback_param);
+		async_tx_sync_epilog(flags, depend_tx, cb_fn, cb_param);
 	}
 
 	return tx;
