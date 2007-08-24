@@ -111,6 +111,8 @@ config MD_RAID456
 	depends on BLK_DEV_MD
 	select ASYNC_MEMCPY
 	select ASYNC_XOR
+	select ASYNC_PQXOR
+	select ASYNC_R6RECOV
 	---help---
 	  A RAID-5 set of N drives with a capacity of C MB per drive provides
 	  the capacity of C * (N - 1) MB, and protects against a failure
