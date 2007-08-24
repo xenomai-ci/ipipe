@@ -179,8 +179,10 @@ struct stripe_head {
 		unsigned long	   ack;
 		unsigned long	   complete;
 		int		   target;
+		int                target2;  /* second target for STRIPE_OP_COMPUTE_BLK2 */
 		int		   count;
-		u32		   zero_sum_result;
+		u32                zero_sum_result;     /* P-parity check */
+		u32                zero_qsum_result;    /* Q-parity check */
 	} ops;
 	struct stripe_queue *sq; /* list of pending bios for this stripe */
 	struct r5dev {
@@ -293,6 +295,12 @@ struct stripe_queue {
  */
 #define STRIPE_OP_MOD_REPAIR_PD 7
 #define STRIPE_OP_MOD_DMA_CHECK 8
+
+#define	STRIPE_OP_POSTPQXOR	9
+#define STRIPE_OP_CHECK_PP	10
+#define STRIPE_OP_CHECK_QP	11
+#define STRIPE_OP_UPDATE_PP	12
+#define STRIPE_OP_UPDATE_QP	13
 
 /*
  * Stripe-queue state
