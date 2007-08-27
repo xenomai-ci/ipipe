@@ -293,6 +293,11 @@ static int __init pas_probe(void)
 	return 1;
 }
 
+#ifdef CONFIG_RTC_DRV_DS1307
+void ds1307_get_rtc_time(struct rtc_time *);
+int ds1307_set_rtc_time(struct rtc_time *);
+#endif
+
 define_machine(pasemi) {
 	.name			= "PA Semi PA6T-1682M",
 	.probe			= pas_probe,
@@ -301,6 +306,10 @@ define_machine(pasemi) {
 	.init_IRQ		= pas_init_IRQ,
 	.get_irq		= mpic_get_irq,
 	.restart		= pas_restart,
+#ifdef CONFIG_RTC_DRV_DS1307
+	.get_rtc_time		= ds1307_get_rtc_time,
+	.set_rtc_time		= ds1307_set_rtc_time,
+#endif
 	.get_boot_time		= pas_get_boot_time,
 	.calibrate_decr		= generic_calibrate_decr,
 	.progress		= pas_progress,
