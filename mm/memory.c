@@ -453,10 +453,10 @@ static inline void cow_user_page(struct page *dst, struct page *src, unsigned lo
  * covered by this vma.
  */
 
-static inline int
+static inline void
 copy_one_pte(struct mm_struct *dst_mm, struct mm_struct *src_mm,
-		pte_t *dst_pte, pte_t *src_pte, struct vm_area_struct *vma,
-		unsigned long addr, int *rss)
+	     pte_t *dst_pte, pte_t *src_pte, struct vm_area_struct *vma,
+	     unsigned long addr, int *rss, struct page *uncow_page)
 {
 	unsigned long vm_flags = vma->vm_flags;
 	pte_t pte = *src_pte;
@@ -496,21 +496,17 @@ copy_one_pte(struct mm_struct *dst_mm, struct mm_struct *src_mm,
 	 */
 	if (is_cow_mapping(vm_flags)) {
 #ifdef CONFIG_IPIPE
-		if (((vm_flags|src_mm->def_flags) & (VM_LOCKED|VM_PINNED)) == (VM_LOCKED|VM_PINNED)) {
+		if (uncow_page) {
 			struct page *old_page = vm_normal_page(vma, addr, pte);
-			page = alloc_page_vma(GFP_HIGHUSER, vma, addr);
-			if (!page)
-				return -ENOMEM;
-
-			cow_user_page(page, old_page, addr, vma);
-			pte = mk_pte(page, vma->vm_page_prot);
+			cow_user_page(uncow_page, old_page, addr, vma);
+			pte = mk_pte(uncow_page, vma->vm_page_prot);
 			
 			if (vm_flags & VM_SHARED)
 				pte = pte_mkclean(pte);
 			pte = pte_mkold(pte);
 
-			page_dup_rmap(page, vma, addr);
-			rss[!!PageAnon(page)]++;
+			page_dup_rmap(uncow_page, vma, addr);
+			rss[!!PageAnon(uncow_page)]++;
 			goto out_set_pte;
 		}
 #endif /* CONFIG_IPIPE */
@@ -535,7 +531,6 @@ copy_one_pte(struct mm_struct *dst_mm, struct mm_struct *src_mm,
 
 out_set_pte:
 	set_pte_at(dst_mm, addr, dst_pte, pte);
-	return 0;
 }
 
 static int copy_pte_range(struct mm_struct *dst_mm, struct mm_struct *src_mm,
@@ -545,13 +540,27 @@ static int copy_pte_range(struct mm_struct *dst_mm, struct mm_struct *src_mm,
 	pte_t *src_pte, *dst_pte;
 	spinlock_t *src_ptl, *dst_ptl;
 	int progress = 0;
+	struct page *uncow_page = NULL;
 	int rss[2];
-
+#ifdef CONFIG_IPIPE
+	int do_cow_break = 0;
 again:
+	if (do_cow_break) {
+		uncow_page = alloc_page_vma(GFP_HIGHUSER, vma, addr);
+		if (!uncow_page)
+			return -ENOMEM;
+		do_cow_break = 0;
+	}
+#else
+again:
+#endif
 	rss[1] = rss[0] = 0;
 	dst_pte = pte_alloc_map_lock(dst_mm, dst_pmd, addr, &dst_ptl);
-	if (!dst_pte)
+	if (!dst_pte) {
+		if (uncow_page)
+			page_cache_release(uncow_page);
 		return -ENOMEM;
+	}
 	src_pte = pte_offset_map_nested(src_pmd, addr);
 	src_ptl = pte_lockptr(src_mm, src_pmd);
 	spin_lock_nested(src_ptl, SINGLE_DEPTH_NESTING);
@@ -573,9 +582,20 @@ again:
 			progress++;
 			continue;
 		}
-		if (copy_one_pte(dst_mm, src_mm, dst_pte,
-				 src_pte, vma, addr, rss))
-			return -ENOMEM;
+#ifdef CONFIG_IPIPE
+		if (likely(uncow_page == NULL) && likely(pte_present(*src_pte))) {
+			if (is_cow_mapping(vma->vm_flags)) {
+				if (((vma->vm_flags|src_mm->def_flags) & (VM_LOCKED|VM_PINNED))
+				    == (VM_LOCKED|VM_PINNED)) {
+					do_cow_break = 1;
+					break;
+				}
+			}
+		}
+#endif
+		copy_one_pte(dst_mm, src_mm, dst_pte,
+			     src_pte, vma, addr, rss, uncow_page);
+		uncow_page = NULL;
 		progress += 8;
 	} while (dst_pte++, src_pte++, addr += PAGE_SIZE, addr != end);
 
@@ -1221,7 +1241,7 @@ static inline int zeromap_pud_range(struct mm_struct *mm, pgd_t *pgd,
 		if (err)
 			break;
 	} while (pud++, addr = next, addr != end);
-	return 0;
+	return err;
 }
 
 int zeromap_page_range(struct vm_area_struct *vma,
