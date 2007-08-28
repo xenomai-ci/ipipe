@@ -1,0 +1,89 @@
+/* -*- linux-c -*-
+ * include/asm-i386/ipipe_base.h
+ *
+ * Copyright (C) 2007 Philippe Gerum.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, Inc., 675 Mass Ave, Cambridge MA 02139,
+ * USA; either version 2 of the License, or (at your option) any later
+ * version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+ */
+
+#ifndef __I386_IPIPE_BASE_H
+#define __I386_IPIPE_BASE_H
+
+#include <linux/threads.h>
+#include <irq_vectors.h>
+
+#ifdef CONFIG_X86_LOCAL_APIC
+/* System interrupts are mapped beyond the last defined external IRQ
+ * number. */
+#define IPIPE_FIRST_APIC_IRQ	NR_IRQS
+#define IPIPE_NR_XIRQS		(NR_IRQS + 256 - FIRST_SYSTEM_VECTOR)
+#define ipipe_apic_irq_vector(irq)  ((irq) - IPIPE_FIRST_APIC_IRQ + FIRST_SYSTEM_VECTOR)
+#define ipipe_apic_vector_irq(vec)  ((vec) - FIRST_SYSTEM_VECTOR + IPIPE_FIRST_APIC_IRQ)
+/* If the APIC is enabled, then we expose four service vectors in the
+ * APIC space which are freely available to domains. */
+#define IPIPE_SERVICE_VECTOR0	0xf5
+#define IPIPE_SERVICE_IPI0	ipipe_apic_vector_irq(IPIPE_SERVICE_VECTOR0)
+#define IPIPE_SERVICE_VECTOR1	0xf6
+#define IPIPE_SERVICE_IPI1	ipipe_apic_vector_irq(IPIPE_SERVICE_VECTOR1)
+#define IPIPE_SERVICE_VECTOR2	0xf7
+#define IPIPE_SERVICE_IPI2	ipipe_apic_vector_irq(IPIPE_SERVICE_VECTOR2)
+#define IPIPE_SERVICE_VECTOR3	0xf8
+#define IPIPE_SERVICE_IPI3	ipipe_apic_vector_irq(IPIPE_SERVICE_VECTOR3)
+#define IPIPE_CRITICAL_VECTOR  0xf9	/* SMP-only: used by ipipe_critical_enter/exit() */
+#define IPIPE_CRITICAL_IPI     ipipe_apic_vector_irq(IPIPE_CRITICAL_VECTOR)
+#else	/* !CONFIG_X86_LOCAL_APIC */
+#define IPIPE_NR_XIRQS		NR_IRQS
+#endif	/* !CONFIG_X86_LOCAL_APIC */
+
+#define IPIPE_IRQ_ISHIFT  	5	/* 2^5 for 32bits arch. */
+
+#define ex_do_divide_error		0
+#define ex_do_debug			1
+/* NMI not pipelined. */
+#define ex_do_int3			3
+#define ex_do_overflow			4
+#define ex_do_bounds			5
+#define ex_do_invalid_op		6
+#define ex_device_not_available		7
+/* Double fault not pipelined. */
+#define ex_do_coprocessor_segment_overrun 9
+#define ex_do_invalid_TSS		10
+#define ex_do_segment_not_present	11
+#define ex_do_stack_segment		12
+#define ex_do_general_protection	13
+#define ex_do_page_fault		14
+#define ex_do_spurious_interrupt_bug	15
+#define ex_do_coprocessor_error		16
+#define ex_do_alignment_check		17
+#define ex_machine_check_vector		18
+#define ex_do_simd_coprocessor_error	19
+#define ex_do_iret_error		32
+
+/* IDT fault vectors */
+#define IPIPE_NR_FAULTS		33 /* 32 from IDT + iret_error */
+/* Pseudo-vectors used for kernel events */
+#define IPIPE_FIRST_EVENT	IPIPE_NR_FAULTS
+#define IPIPE_EVENT_SYSCALL	(IPIPE_FIRST_EVENT)
+#define IPIPE_EVENT_SCHEDULE	(IPIPE_FIRST_EVENT + 1)
+#define IPIPE_EVENT_SIGWAKE	(IPIPE_FIRST_EVENT + 2)
+#define IPIPE_EVENT_SETSCHED	(IPIPE_FIRST_EVENT + 3)
+#define IPIPE_EVENT_INIT	(IPIPE_FIRST_EVENT + 4)
+#define IPIPE_EVENT_EXIT	(IPIPE_FIRST_EVENT + 5)
+#define IPIPE_EVENT_CLEANUP	(IPIPE_FIRST_EVENT + 6)
+#define IPIPE_LAST_EVENT	IPIPE_EVENT_CLEANUP
+#define IPIPE_NR_EVENTS		(IPIPE_LAST_EVENT + 1)
+
+#endif	/* !__I386_IPIPE_BASE_H */

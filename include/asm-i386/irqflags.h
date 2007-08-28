@@ -127,11 +127,9 @@ static inline unsigned long __raw_local_irq_save(void)
 {
 #ifdef CONFIG_IPIPE
 	unsigned long flags = (!__ipipe_test_and_stall_root()) << 9;
-
 	barrier();
 #else
 	unsigned long flags = __raw_local_save_flags();
-
 	raw_local_irq_disable();
 #endif
 	return flags;
@@ -140,28 +138,21 @@ static inline unsigned long __raw_local_irq_save(void)
 #else
 
 #ifdef CONFIG_IPIPE
-#ifdef CONFIG_SMP
 #define DISABLE_INTERRUPTS(clobbers)	call __ipipe_stall_root; sti
-#else /* !CONFIG_SMP */
-/*
- * Disable IRQs == set IPIPE_STALL_FLAG in ipipe_root.cpudata[0].status
- */
-#define DISABLE_INTERRUPTS(clobbers)	btsl $0,ipipe_root; sti
-#endif /* !CONFIG_SMP */
 #define ENABLE_INTERRUPTS(clobbers)	call __ipipe_unstall_root
 #define ENABLE_INTERRUPTS_HW_COND	sti
-#define DISABLE_INTERRUPTS_HW(clobbers)   	cli
+#define DISABLE_INTERRUPTS_HW(clobbers)	cli
 #define ENABLE_INTERRUPTS_HW(clobbers)	sti
 #else /* !CONFIG_IPIPE */
 #define DISABLE_INTERRUPTS(clobbers)	cli
 #define ENABLE_INTERRUPTS(clobbers)	sti
 #define ENABLE_INTERRUPTS_HW_COND
-#define DISABLE_INTERRUPTS_HW(clobbers)   	DISABLE_INTERRUPTS(clobbers)
+#define DISABLE_INTERRUPTS_HW(clobbers)	DISABLE_INTERRUPTS(clobbers)
 #define ENABLE_INTERRUPTS_HW(clobbers)	ENABLE_INTERRUPTS(clobbers)
 #endif /* !CONFIG_IPIPE */
 #define ENABLE_INTERRUPTS_SYSEXIT	sti; sysexit
-#define INTERRUPT_RETURN			iret
-#define GET_CR0_INTO_EAX			movl %cr0, %eax
+#define INTERRUPT_RETURN		iret
+#define GET_CR0_INTO_EAX		movl %cr0, %eax
 #endif /* __ASSEMBLY__ */
 #endif /* CONFIG_PARAVIRT */
 

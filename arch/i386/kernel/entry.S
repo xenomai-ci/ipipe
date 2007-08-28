@@ -44,7 +44,7 @@
 #include <linux/linkage.h>
 #include <asm/thread_info.h>
 #include <asm/irqflags.h>
-#include <asm/ipipe.h>
+#include <asm/ipipe_base.h>
 #include <asm/errno.h>
 #include <asm/segment.h>
 #include <asm/smp.h>

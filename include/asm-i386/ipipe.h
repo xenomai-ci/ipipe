@@ -24,66 +24,17 @@
 
 #ifdef CONFIG_IPIPE
 
-#include <linux/threads.h>
-#include <irq_vectors.h>
-
-#define IPIPE_ARCH_STRING	"1.9-03"
+#define IPIPE_ARCH_STRING	"1.10-00"
 #define IPIPE_MAJOR_NUMBER	1
-#define IPIPE_MINOR_NUMBER	9
-#define IPIPE_PATCH_NUMBER	3
-
-#ifdef CONFIG_X86_LOCAL_APIC
-/* System interrupts are mapped beyond the last defined external IRQ
- * number. */
-#define IPIPE_FIRST_APIC_IRQ	NR_IRQS
-#define IPIPE_NR_XIRQS		(NR_IRQS + 256 - FIRST_SYSTEM_VECTOR)
-#define ipipe_apic_irq_vector(irq)  ((irq) - IPIPE_FIRST_APIC_IRQ + FIRST_SYSTEM_VECTOR)
-#define ipipe_apic_vector_irq(vec)  ((vec) - FIRST_SYSTEM_VECTOR + IPIPE_FIRST_APIC_IRQ)
-/* If the APIC is enabled, then we expose four service vectors in the
- * APIC space which are freely available to domains. */
-#define IPIPE_SERVICE_VECTOR0	0xf5
-#define IPIPE_SERVICE_IPI0	ipipe_apic_vector_irq(IPIPE_SERVICE_VECTOR0)
-#define IPIPE_SERVICE_VECTOR1	0xf6
-#define IPIPE_SERVICE_IPI1	ipipe_apic_vector_irq(IPIPE_SERVICE_VECTOR1)
-#define IPIPE_SERVICE_VECTOR2	0xf7
-#define IPIPE_SERVICE_IPI2	ipipe_apic_vector_irq(IPIPE_SERVICE_VECTOR2)
-#define IPIPE_SERVICE_VECTOR3	0xf8
-#define IPIPE_SERVICE_IPI3	ipipe_apic_vector_irq(IPIPE_SERVICE_VECTOR3)
-#define IPIPE_CRITICAL_VECTOR  0xf9	/* SMP-only: used by ipipe_critical_enter/exit() */
-#define IPIPE_CRITICAL_IPI     ipipe_apic_vector_irq(IPIPE_CRITICAL_VECTOR)
-#else	/* !CONFIG_X86_LOCAL_APIC */
-#define IPIPE_NR_XIRQS		NR_IRQS
-#endif	/* !CONFIG_X86_LOCAL_APIC */
-
-#define IPIPE_IRQ_ISHIFT  	5	/* 2^5 for 32bits arch. */
-
-#define ex_do_divide_error		0
-#define ex_do_debug			1
-/* NMI not pipelined. */
-#define ex_do_int3			3
-#define ex_do_overflow			4
-#define ex_do_bounds			5
-#define ex_do_invalid_op		6
-#define ex_device_not_available		7
-/* Double fault not pipelined. */
-#define ex_do_coprocessor_segment_overrun 9
-#define ex_do_invalid_TSS		10
-#define ex_do_segment_not_present	11
-#define ex_do_stack_segment		12
-#define ex_do_general_protection	13
-#define ex_do_page_fault		14
-#define ex_do_spurious_interrupt_bug	15
-#define ex_do_coprocessor_error		16
-#define ex_do_alignment_check		17
-#define ex_machine_check_vector		18
-#define ex_do_simd_coprocessor_error	19
-#define ex_do_iret_error		32
+#define IPIPE_MINOR_NUMBER	10
+#define IPIPE_PATCH_NUMBER	0
 
 #ifndef __ASSEMBLY__
 
 #include <linux/cpumask.h>
 #include <linux/list.h>
 #include <linux/threads.h>
+#include <linux/ipipe_percpu.h>
 #include <asm/ptrace.h>
 
 #define ipipe_processor_id()   raw_smp_processor_id()
@@ -94,24 +45,10 @@ do {						\
 	local_irq_disable_hw();			\
 } while(0)
 
-#define task_hijacked(p)	\
-  ({ int x = ipipe_current_domain != ipipe_root_domain; \
-     __clear_bit(IPIPE_SYNC_FLAG,&ipipe_root_domain->cpudata[task_cpu(p)].status); \
-     local_irq_enable_hw(); x; })
-
-/* IDT fault vectors */
-#define IPIPE_NR_FAULTS		33 /* 32 from IDT + iret_error */
-/* Pseudo-vectors used for kernel events */
-#define IPIPE_FIRST_EVENT	IPIPE_NR_FAULTS
-#define IPIPE_EVENT_SYSCALL	(IPIPE_FIRST_EVENT)
-#define IPIPE_EVENT_SCHEDULE	(IPIPE_FIRST_EVENT + 1)
-#define IPIPE_EVENT_SIGWAKE	(IPIPE_FIRST_EVENT + 2)
-#define IPIPE_EVENT_SETSCHED	(IPIPE_FIRST_EVENT + 3)
-#define IPIPE_EVENT_INIT	(IPIPE_FIRST_EVENT + 4)
-#define IPIPE_EVENT_EXIT	(IPIPE_FIRST_EVENT + 5)
-#define IPIPE_EVENT_CLEANUP	(IPIPE_FIRST_EVENT + 6)
-#define IPIPE_LAST_EVENT	IPIPE_EVENT_CLEANUP
-#define IPIPE_NR_EVENTS		(IPIPE_LAST_EVENT + 1)
+#define task_hijacked(p)						\
+	({ int x = ipipe_current_domain != ipipe_root_domain;		\
+	__clear_bit(IPIPE_SYNC_FLAG, &ipipe_cpudom_var(ipipe_root_domain, status)); \
+	local_irq_enable_hw(); x; })
 
 struct ipipe_domain;
 
@@ -168,8 +105,6 @@ void __ipipe_enable_pipeline(void);
 int __ipipe_handle_irq(struct pt_regs regs);
 
 void __ipipe_do_critical_sync(unsigned irq, void *cookie);
-
-extern struct pt_regs __ipipe_tick_regs[];
 
 extern int __ipipe_tick_irq;
 
@@ -233,7 +168,7 @@ static inline unsigned long __ipipe_ffnz(unsigned long ul)
 /* When running handlers, enable hw interrupts for all domains but the
  * one heading the pipeline, so that IRQs can never be significantly
  * deferred for the latter. */
-#define __ipipe_run_isr(ipd, irq, cpuid) \
+#define __ipipe_run_isr(ipd, irq) \
 do { \
 	local_irq_enable_nohead(ipd);				 \
 	if (ipd == ipipe_root_domain) {				 \
@@ -246,9 +181,9 @@ do { \
 			__ipipe_finalize_root_virq_handler();	 \
 		}						\
 	} else {						\
-		__clear_bit(IPIPE_SYNC_FLAG, &cpudata->status); \
-		ipd->irqs[irq].handler(irq, ipd->irqs[irq].cookie); \
-		__set_bit(IPIPE_SYNC_FLAG, &cpudata->status);	\
+		__clear_bit(IPIPE_SYNC_FLAG, &ipipe_this_cpudom_var(status)); \
+		ipd->irqs[irq].handler(irq, ipd->irqs[irq].cookie);	\
+		__set_bit(IPIPE_SYNC_FLAG, &ipipe_this_cpudom_var(status)); \
 	}							\
 	local_irq_disable_nohead(ipd);				\
 } while(0)
