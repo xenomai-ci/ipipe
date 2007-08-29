@@ -656,7 +656,7 @@ void timer_interrupt(struct pt_regs * regs)
 		 */
 		if (!cpu_is_offline(cpu))
 #ifdef CONFIG_IPIPE
-			account_process_time(__ipipe_tick_regs + cpu);
+			account_process_time(&__raw_get_cpu_var(__ipipe_tick_regs));
 #else
 			account_process_time(regs);
 #endif

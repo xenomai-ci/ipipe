@@ -877,7 +877,7 @@ void kernel_fp_unavailable_exception(struct pt_regs *regs)
 {
 	printk(KERN_EMERG "Unrecoverable FP Unavailable Exception "
 			  "%lx at %lx\n", regs->trap, regs->nip);
-	if (ipipe_trap_notify(IPIPE_TRAP_FPUNAVAIL,regs))
+	if (ipipe_trap_notify(IPIPE_TRAP_KFPUNAVAIL,regs))
 	    	return;
 	die("Unrecoverable FP Unavailable Exception", regs, SIGABRT);
 }
