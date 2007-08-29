@@ -45,6 +45,8 @@ extern unsigned long irq_flags;
 
 #ifdef CONFIG_IPIPE
 
+#include <linux/ipipe_trace.h>
+
 void __ipipe_stall_root(void);
 
 void __ipipe_unstall_root(void);
@@ -71,117 +73,127 @@ void __ipipe_restore_root(unsigned long flags);
 } while (0)
 #endif
 
-#define irqs_enabled_from_flags_hw(x) ((x) != __all_masked_irq_flags)
+#define irqs_enabled_from_flags_hw(x)	((x) != __all_masked_irq_flags)
+#define raw_irqs_disabled_flags(flags)	(!irqs_enabled_from_flags_hw(flags))
+#define local_test_iflag_hw(x)		irqs_enabled_from_flags_hw(x)
 
-#define raw_irqs_disabled_flags(flags) (!irqs_enabled_from_flags_hw(flags))
+#define local_save_flags(x)						\
+	do {								\
+		(x) = __ipipe_test_root()?__all_masked_irq_flags:irq_flags; \
+	} while(0)
 
-#define local_test_iflag_hw(x) irqs_enabled_from_flags_hw(x)
-
-#define local_save_flags(x)		\
-do {					\
-    (x) = __ipipe_test_root()?__all_masked_irq_flags:irq_flags;	\
-} while(0)
-
-#define local_irq_save(x)		\
-do {					\
-	(x) = __ipipe_test_and_stall_root(); \
-} while(0)
+#define local_irq_save(x)				\
+	do {						\
+		(x) = __ipipe_test_and_stall_root();	\
+	} while(0)
 
 #define local_irq_restore(x)	__ipipe_restore_root(x)
 #define local_irq_disable()	__ipipe_stall_root()
 #define local_irq_enable()	__ipipe_unstall_root()
-#define irqs_disabled()	__ipipe_test_root()
+#define irqs_disabled()		__ipipe_test_root()
 
 #define local_save_flags_hw(x) asm volatile ("cli %0;"  \
 					     "sti %0;"	\
 					     :"=d"(x):)
 
-#define	irqs_disabled_hw()			\
-({						\
-	unsigned long flags;			\
-	local_save_flags_hw(flags);		\
-	!irqs_enabled_from_flags_hw(flags);	\
-})
+#define	irqs_disabled_hw()				\
+	({						\
+		unsigned long flags;			\
+		local_save_flags_hw(flags);		\
+		!irqs_enabled_from_flags_hw(flags);	\
+	})
+
+static inline unsigned long raw_mangle_irq_bits(int virt, unsigned long real)
+{
+	/* Merge virtual and real interrupt mask bits into a single
+	   32bit word. */
+	return (real & ~(1 << 31)) | ((virt != 0) << 31);
+}
+
+static inline int raw_demangle_irq_bits(unsigned long *x)
+{
+	int virt = (*x & (1 << 31)) != 0;
+	*x &= ~(1L << 31);
+	return virt;
+}
 
 #ifdef CONFIG_IPIPE_TRACE_IRQSOFF
 
-#include <linux/ipipe_trace.h>
+#define local_irq_disable_hw()						\
+	do {								\
+		int _tmp_dummy;						\
+		if (!irqs_disabled_hw())				\
+			ipipe_trace_begin(0x80000000);			\
+		__asm__ __volatile__ ( "cli %0;":"=d" (_tmp_dummy):);	\
+	} while (0)
 
-#define local_irq_disable_hw()		\
-do {						\
-	int _tmp_dummy;				\
-	if (!irqs_disabled_hw())		\
-		ipipe_trace_begin(0x80000000);	\
-	__asm__ __volatile__ ( "cli %0;":"=d" (_tmp_dummy):);	\
-} while (0)
+#define local_irq_enable_hw()						\
+	do {								\
+		if (irqs_disabled_hw())					\
+			ipipe_trace_end(0x80000000);			\
+		__asm__ __volatile__ ("sti %0;"::"d"(irq_flags));	\
+	} while (0)
 
-#define local_irq_enable_hw()			\
-do {						\
-	if (irqs_disabled_hw())	     		\
-		ipipe_trace_end(0x80000000);	\
-	__asm__ __volatile__ ("sti %0;"::"d"(irq_flags)); \
-} while (0)
+#define local_irq_save_hw(x)				\
+	do {						\
+		__save_and_cli_hw(x);			\
+		if (local_test_iflag_hw(x))		\
+			ipipe_trace_begin(0x80000001);	\
+	} while (0)
 
-#define local_irq_save_hw(x)			\
-do {						\
-	__save_and_cli_hw(x);			\
-	if (local_test_iflag_hw(x))		\
-		ipipe_trace_begin(0x80000001);	\
-} while (0)
+#define local_irq_restore_hw(x)				\
+	do {						\
+		if (local_test_iflag_hw(x)) {		\
+			ipipe_trace_end(0x80000001);	\
+			local_irq_enable_hw_notrace();	\
+		}					\
+	} while (0)
 
-#define local_irq_restore_hw(x)		\
-do {						\
-	if (local_test_iflag_hw(x)) {		\
-		ipipe_trace_end(0x80000001);	\
-		local_irq_enable_hw_notrace();	\
-	}					\
-} while (0)
+#define local_irq_disable_hw_notrace()					\
+	do {								\
+		int _tmp_dummy;						\
+		__asm__ __volatile__ ( "cli %0;":"=d" (_tmp_dummy):);	\
+	} while(0)
 
-#define local_irq_disable_hw_notrace()  \
-do {					\
-	int _tmp_dummy;						\
-	__asm__ __volatile__ ( "cli %0;":"=d" (_tmp_dummy):);	\
-} while(0)
-
-#define local_irq_enable_hw_notrace() \
+#define local_irq_enable_hw_notrace()				\
 	__asm__ __volatile__ ("sti %0;"::"d"(irq_flags))
 
 #define local_irq_save_hw_notrace(x) __save_and_cli_hw(x)
 
-#define local_irq_restore_hw_notrace(x)	\
-do {						\
-	if (local_test_iflag_hw(x))		\
-		local_irq_enable_hw_notrace();	\
-} while (0)
+#define local_irq_restore_hw_notrace(x)			\
+	do {						\
+		if (local_test_iflag_hw(x))		\
+			local_irq_enable_hw_notrace();	\
+	} while (0)
 
 #else /* CONFIG_IPIPE_TRACE_IRQSOFF */
 
-#define local_irq_enable_hw() 	\
-do {					\
-	__asm__ __volatile__ (		\
-		"sti %0;"		\
-		::"d"(irq_flags));	\
-} while(0)
+#define local_irq_enable_hw()			\
+	do {					\
+		__asm__ __volatile__ (		\
+			"sti %0;"		\
+			::"d"(irq_flags));	\
+	} while(0)
 
-#define local_irq_disable_hw() 	\
-do {					\
-	int _tmp_dummy;			\
-	__asm__ __volatile__ (		\
-		"cli %0;"		\
-		:"=d" (_tmp_dummy):);	\
-} while(0)
+#define local_irq_disable_hw()			\
+	do {					\
+		int _tmp_dummy;			\
+		__asm__ __volatile__ (		\
+			"cli %0;"		\
+			:"=d" (_tmp_dummy):);	\
+	} while(0)
 
 #define local_irq_restore_hw(x) do {			\
-	if (irqs_enabled_from_flags_hw(x))		\
-		local_irq_enable_hw();			\
-} while (0)
+		if (irqs_enabled_from_flags_hw(x))	\
+			local_irq_enable_hw();		\
+	} while (0)
 
-#define local_irq_save_hw(x) __save_and_cli_hw(x)
+#define local_irq_save_hw(x)		__save_and_cli_hw(x)
 
 #define local_irq_disable_hw_notrace()	local_irq_disable_hw()
 #define local_irq_enable_hw_notrace()	local_irq_enable_hw()
-#define local_irq_save_hw_notrace(flags)	local_irq_save_hw(flags)
-#define local_irq_restore_hw_notrace(flags)	local_irq_restore_hw(flags)
+#define local_irq_save_hw_notrace(x)	local_irq_save_hw(x)
+#define local_irq_restore_hw_notrace(x)	local_irq_restore_hw(x)
 
 #endif  /* CONFIG_IPIPE_TRACE_IRQSOFF */
 
@@ -240,11 +252,11 @@ do {					\
 	!irqs_enabled_from_flags(flags);	\
 })
 
-#define local_irq_save_hw(flags)	local_irq_save(flags)
-#define local_irq_restore_hw(flags)	local_irq_restore(flags)
+#define local_irq_save_hw(x)	local_	irq_save(x)
+#define local_irq_restore_hw(x)		local_irq_restore(x)
 #define local_irq_enable_hw()		local_irq_enable()
-#define local_irq_disable_hw(flags)	local_irq_disable()
-#define irqs_disabled_hw(flags)	irqs_disabled()
+#define local_irq_disable_hw()		local_irq_disable()
+#define irqs_disabled_hw()		irqs_disabled()
 
 #endif /* CONFIG_IPIPE */
 

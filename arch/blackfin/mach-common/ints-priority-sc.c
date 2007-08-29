@@ -787,7 +787,6 @@ asmlinkage int __ipipe_grab_irq(int vec, struct pt_regs *regs)
 	struct ivgx *ivg_stop = ivg7_13[vec-IVG7].istop;
 	struct ivgx *ivg = ivg7_13[vec-IVG7].ifirst;
 	unsigned long sic_status;
-	ipipe_declare_cpuid;
 	int irq;
 
 	if (likely(vec == EVT_IVTMR_P)) {
@@ -800,7 +799,7 @@ asmlinkage int __ipipe_grab_irq(int vec, struct pt_regs *regs)
 
 	for(;; ivg++) {
 		if (ivg >= ivg_stop)  {
-			num_spurious++;
+			atomic_inc(&num_spurious);
 			return 0;
 		}
 		else if (sic_status & ivg->isrflag)
@@ -809,28 +808,23 @@ asmlinkage int __ipipe_grab_irq(int vec, struct pt_regs *regs)
 
 	irq = ivg->irqno;
 
-	ipipe_load_cpuid();
-
 	if (irq == IRQ_SYSTMR)
-	    bfin_write_TIMER_STATUS(1); /* Latch TIMIL0 */
+		bfin_write_TIMER_STATUS(1); /* Latch TIMIL0 */
 
 	/* This is basically what we need from the register frame. */
-	__ipipe_irq_regs[cpuid].ipend = regs->ipend;
-	__ipipe_irq_regs[cpuid].pc = regs->pc;
+	__raw_get_cpu_var(__ipipe_irq_regs).ipend = regs->ipend;
+	__raw_get_cpu_var(__ipipe_irq_regs).pc = regs->pc;
 
 handle_irq:
 
-#ifdef CONFIG_IPIPE_TRACE_IRQSOFF
-       ipipe_trace_begin(irq); 
-#endif /* CONFIG_IPIPE_TRACE_IRQSOFF */
+	ipipe_trace_irq_entry(irq); 
 	__ipipe_handle_irq(irq, regs);
-#ifdef CONFIG_IPIPE_TRACE_IRQSOFF
-       ipipe_trace_end(irq);
-#endif /* CONFIG_IPIPE_TRACE_IRQSOFF */
+       ipipe_trace_irq_exit(irq);
 
-	return (per_cpu(ipipe_percpu_domain, cpuid) == ipipe_root_domain &&
-		!test_bit(IPIPE_STALL_FLAG,
-			  &ipipe_root_domain->cpudata[cpuid].status));
+       if (ipipe_root_domain_p)
+	       return !test_bit(IPIPE_STALL_FLAG, &ipipe_this_cpudom_var(status));
+
+       return 0;
 }
 
 #endif /* CONFIG_IPIPE */
