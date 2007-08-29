@@ -61,6 +61,7 @@ typedef	void fastcall (*irq_flow_handler_t)(unsigned int irq,
 #define IRQ_WAKEUP		0x00100000	/* IRQ triggers system wakeup */
 #define IRQ_MOVE_PENDING	0x00200000	/* need to re-target IRQ destination */
 #define IRQ_NO_BALANCING	0x00400000	/* IRQ is excluded from balancing */
+#define IRQ_SCHEDULED           0x80000000      /* IRQ thread is scheduled (I-pipe) */
 
 #ifdef CONFIG_IRQ_PER_CPU
 # define CHECK_IRQ_PER_CPU(var) ((var) & IRQ_PER_CPU)
@@ -152,8 +153,14 @@ struct irq_desc {
 #ifdef CONFIG_IPIPE
 	void			fastcall (*ipipe_ack)(unsigned int irq,
 						      struct irq_desc *desc);
+	void			fastcall (*ipipe_demux)(unsigned int irq,
+							struct irq_desc *desc);
 	void			fastcall (*ipipe_end)(unsigned int irq,
 						      struct irq_desc *desc);
+	struct task_struct      *thread;
+	void                    (*thr_handler)(unsigned irq, void *);
+	int                     thr_prio;
+	int                     ic_prio;
 #endif /* CONFIG_IPIPE */
 	irq_flow_handler_t	handle_irq;
 	struct irq_chip		*chip;
@@ -351,6 +358,14 @@ set_irq_handler(unsigned int irq, irq_flow_handler_t handle)
 {
 	__set_irq_handler(irq, handle, 0, NULL);
 }
+
+#ifdef CONFIG_IPIPE
+extern void
+__set_irq_demux_handler(unsigned int irq,
+			void fastcall (*decode)(unsigned int, struct irq_desc *),
+			int is_chained,
+			const char *name);
+#endif /* CONFIG_IPIPE */
 
 /*
  * Set a highlevel chained flow handler for a given IRQ.

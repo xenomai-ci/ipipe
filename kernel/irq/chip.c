@@ -549,6 +549,41 @@ void fastcall __ipipe_end_edge_irq(unsigned irq, struct irq_desc *desc)
 {
 }
 
+void fastcall __ipipe_ack_demux_irq(unsigned irq, struct irq_desc *desc)
+{
+	/* Handling is delegated to some demultiplexer routine,
+	 * e.g. GPIO. We mask_ack it, then call back into the demux
+	 * handler, which should decode the interrupt and feed the
+	 * pipeline as needed. */
+	if (desc->chip->mask)
+		desc->chip->mask(irq);
+	desc->ipipe_demux(irq, desc);
+}
+
+void fastcall __ipipe_end_demux_irq(unsigned irq, struct irq_desc *desc)
+{
+	if (desc->chip->unmask)
+		desc->chip->unmask(irq);
+}
+
+void fastcall
+handle_demux_irq(unsigned int irq, struct irq_desc *desc)
+{
+    /* The regular IRQ handler will run last of all GPIO handlers, to
+       unmask the demux IRQ. */
+    __ipipe_end_demux_irq(irq, desc);
+}
+
+void __set_irq_demux_handler(unsigned int irq,
+			     void fastcall (*decode)(unsigned int, struct irq_desc *),
+			     int is_chained,
+			     const char *name)
+{
+	struct irq_desc *desc = irq_desc + irq;
+	__set_irq_handler(irq, &handle_demux_irq, is_chained, name);
+	desc->ipipe_demux = decode;
+}
+
 void fastcall __ipipe_ack_bad_irq(unsigned irq, struct irq_desc *desc)
 {
 	static int done;
@@ -658,6 +693,10 @@ __set_irq_handler(unsigned int irq, irq_flow_handler_t handle, int is_chained,
 		desc->ipipe_end = &__ipipe_end_percpu_irq;
 	}
 #endif /* CONFIG_SMP */
+	else if (handle == &handle_demux_irq) {
+		desc->ipipe_ack = &__ipipe_ack_demux_irq;
+		desc->ipipe_end = &__ipipe_end_demux_irq;
+	}
 #endif /* CONFIG_IPIPE */
 	else if (desc->chip == &no_irq_chip) {
 		printk(KERN_WARNING "Trying to install %sinterrupt handler "
