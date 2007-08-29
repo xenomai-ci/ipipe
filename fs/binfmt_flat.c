@@ -757,7 +757,7 @@ static int load_flat_file(struct linux_binprm * bprm,
 			}
 
 			/* Get the pointer's value.  */
-			addr = flat_get_addr_from_rp(rp, relval, flags);
+			addr = flat_get_addr_from_rp(rp, relval, flags, 0);
 			if (addr != 0) {
 				/*
 				 * Do the relocation.  PIC relocs in the data section are
