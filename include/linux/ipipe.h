@@ -130,7 +130,7 @@ struct ipipe_domain_attr {
 };
 
 #ifdef CONFIG_SMP
-/* These ops must start and complete on the current CPU: care for
+/* These ops must start and complete on the same CPU: care for
  * migration. */
 #define set_bit_safe(b, a)						\
 		({ unsigned long __flags;				\
