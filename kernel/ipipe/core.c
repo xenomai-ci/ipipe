@@ -696,7 +696,7 @@ int ipipe_virtualize_irq(struct ipipe_domain *ipd,
 	ipd->irqs[irq].control = modemask;
 
 	if (irq < NR_IRQS && handler != NULL && !ipipe_virtual_irq_p(irq)) {
-		__ipipe_enable_irqdesc(irq);
+		__ipipe_enable_irqdesc(ipd, irq);
 
 		if ((modemask & IPIPE_ENABLE_MASK) != 0) {
 			if (ipd != ipipe_current_domain) {
