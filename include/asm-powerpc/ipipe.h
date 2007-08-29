@@ -37,10 +37,10 @@
 #include <linux/cache.h>
 #include <linux/threads.h>
 
-#define IPIPE_ARCH_STRING	"1.7-00"
+#define IPIPE_ARCH_STRING	"1.6-04"
 #define IPIPE_MAJOR_NUMBER	1
-#define IPIPE_MINOR_NUMBER	7
-#define IPIPE_PATCH_NUMBER	0
+#define IPIPE_MINOR_NUMBER	6
+#define IPIPE_PATCH_NUMBER	4
 
 #define prepare_arch_switch(next)			\
 	do {						\
@@ -141,8 +141,6 @@ void __ipipe_handle_irq(int irq,
 			struct pt_regs *regs);
 
 void __ipipe_serial_debug(const char *fmt, ...);
-
-#define __ipipe_tick_irq	IPIPE_TIMER_VIRQ
 
 static inline unsigned long __ipipe_ffnz(unsigned long ul)
 {

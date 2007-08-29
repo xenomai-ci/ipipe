@@ -31,6 +31,8 @@
  */
 #define IPIPE_TIMER_VIRQ	IPIPE_VIRQ_BASE
 
+#define __ipipe_tick_irq	IPIPE_TIMER_VIRQ
+
 #ifdef CONFIG_SMP
 /* 
  * These are virtual IPI numbers. The OpenPIC supports only 4 IPIs and
