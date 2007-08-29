@@ -29,6 +29,7 @@
 #include <linux/sched.h>
 #include <linux/kallsyms.h>
 #include <linux/interrupt.h>
+#include <linux/bitops.h>
 #ifdef CONFIG_PROC_FS
 #include <linux/proc_fs.h>
 #include <linux/seq_file.h>
@@ -39,12 +40,14 @@ static int __ipipe_ptd_key_count;
 
 static unsigned long __ipipe_ptd_key_map;
 
-struct ipipe_domain ipipe_root =
-	{ .cpudata = {[0 ... IPIPE_NR_CPUS-1] =
-		{ .status = (1<<IPIPE_STALL_FLAG) } } };
+static unsigned long __ipipe_domain_slot_map;
 
-DEFINE_PER_CPU(struct ipipe_domain *, ipipe_percpu_domain) =
-	{ &ipipe_root };
+struct ipipe_domain ipipe_root;
+
+DEFINE_PER_CPU(struct ipipe_percpu_domain_data, ipipe_percpu_darray[CONFIG_IPIPE_DOMAINS]) =
+{ [0] = { .status = IPIPE_STALL_MASK } }; /* Root domain stalled on each CPU at startup. */
+
+DEFINE_PER_CPU(struct ipipe_domain *, ipipe_percpu_domain) = { &ipipe_root };
 
 static IPIPE_DEFINE_SPINLOCK(__ipipe_pipelock);
 
@@ -74,6 +77,10 @@ void ipipe_init(void)
 	 * secondary CPUs are still lost in space.
 	 */
 
+	/* Reserve percpu data slot #0 for the root domain. */
+	ipd->slot = 0;
+	set_bit(0, &__ipipe_domain_slot_map);
+
 	ipd->name = "Linux";
 	ipd->domid = IPIPE_ROOT_ID;
 	ipd->priority = IPIPE_ROOT_PRIO;
@@ -101,20 +108,21 @@ void ipipe_init(void)
 
 void __ipipe_init_stage(struct ipipe_domain *ipd)
 {
-	int cpuid, n;
+	int cpu, n;
 
-	for (cpuid = 0; cpuid < IPIPE_NR_CPUS; cpuid++) {
-		ipd->cpudata[cpuid].irq_pending_hi = 0;
+	for_each_online_cpu(cpu) {
 
-		for (n = 0; n < IPIPE_IRQ_IWORDS; n++)
-			ipd->cpudata[cpuid].irq_pending_lo[n] = 0;
+		ipipe_percpudom(ipd, irqpend_himask, cpu) = 0;
 
-		for (n = 0; n < IPIPE_NR_IRQS; n++) {
-			ipd->cpudata[cpuid].irq_counters[n].total_hits = 0;
-			ipd->cpudata[cpuid].irq_counters[n].pending_hits = 0;
+		for (n = 0; n < IPIPE_IRQ_IWORDS; n++) {
+			ipipe_percpudom(ipd, irqpend_lomask, cpu)[n] = 0;
+			ipipe_percpudom(ipd, irqheld_mask, cpu)[n] = 0;
 		}
 
-		ipd->cpudata[cpuid].evsync = 0;
+		for (n = 0; n < IPIPE_NR_IRQS; n++)
+			ipipe_percpudom(ipd, irqall, cpu)[n] = 0;
+
+		ipipe_percpudom(ipd, evsync, cpu) = 0;
 	}
 
 	for (n = 0; n < IPIPE_NR_IRQS; n++) {
@@ -135,67 +143,41 @@ void __ipipe_init_stage(struct ipipe_domain *ipd)
 void __ipipe_cleanup_domain(struct ipipe_domain *ipd)
 {
 	ipipe_unstall_pipeline_from(ipd);
-
 #ifdef CONFIG_SMP
 	{
 		int cpu;
 
 		for_each_online_cpu(cpu) {
-			while (ipd->cpudata[cpu].irq_pending_hi != 0)
+			while (ipipe_percpudom(ipd, irqpend_himask, cpu) != 0)
 				cpu_relax();
 		}
 	}
 #endif	/* CONFIG_SMP */
+	clear_bit(ipd->slot, &__ipipe_domain_slot_map);
 }
 
-#ifdef CONFIG_SMP
 void __ipipe_stall_root(void)
 {
-	ipipe_declare_cpuid;
-	unsigned long flags;
-
-	ipipe_get_cpu(flags); /* Care for migration. */
-	set_bit(IPIPE_STALL_FLAG, &ipipe_root_domain->cpudata[cpuid].status);
-	ipipe_put_cpu(flags);
-}
-
-unsigned long __ipipe_test_root(void)
-{
-	unsigned long flags, x;
-	ipipe_declare_cpuid;
-
-	ipipe_get_cpu(flags); /* Care for migration. */
-	x = test_bit(IPIPE_STALL_FLAG, &ipipe_root_domain->cpudata[cpuid].status);
-	ipipe_put_cpu(flags);
-
-	return x;
+	set_bit_safe(IPIPE_STALL_FLAG, &ipipe_cpudom_var(ipipe_root_domain, status));
 }
 
 unsigned long __ipipe_test_and_stall_root(void)
 {
-	unsigned long flags, x;
-	ipipe_declare_cpuid;
-
-	ipipe_get_cpu(flags); /* Care for migration. */
-	x = test_and_set_bit(IPIPE_STALL_FLAG,
-			     &ipipe_root_domain->cpudata[cpuid].status);
-	ipipe_put_cpu(flags);
-
-	return x;
+	return test_and_set_bit_safe(IPIPE_STALL_FLAG, &ipipe_cpudom_var(ipipe_root_domain, status));
 }
-#endif /* CONFIG_SMP */
+
+unsigned long __ipipe_test_root(void)
+{
+	return test_bit(IPIPE_STALL_FLAG, &ipipe_cpudom_var(ipipe_root_domain, status));
+}
 
 void __ipipe_unstall_root(void)
 {
-        ipipe_declare_cpuid;
-
         local_irq_disable_hw();
 
-        ipipe_load_cpuid();
+        __clear_bit(IPIPE_STALL_FLAG, &ipipe_cpudom_var(ipipe_root_domain, status));
 
-        __clear_bit(IPIPE_STALL_FLAG, &ipipe_root_domain->cpudata[cpuid].status);
-
-        if (unlikely(ipipe_root_domain->cpudata[cpuid].irq_pending_hi != 0))
+        if (unlikely(ipipe_cpudom_var(ipipe_root_domain, irqpend_himask) != 0))
                 __ipipe_sync_pipeline(IPIPE_IRQMASK_ANY);
 
         local_irq_enable_hw();
@@ -211,98 +193,22 @@ void __ipipe_restore_root(unsigned long x)
 
 void fastcall ipipe_stall_pipeline_from(struct ipipe_domain *ipd)
 {
-	ipipe_declare_cpuid;
-#ifdef CONFIG_SMP
-	unsigned long flags;
-
-	ipipe_lock_cpu(flags); /* Care for migration. */
-
-	__set_bit(IPIPE_STALL_FLAG, &ipd->cpudata[cpuid].status);
-
-	if (!__ipipe_pipeline_head_p(ipd))
-		ipipe_unlock_cpu(flags);
-#else	/* CONFIG_SMP */
-	set_bit(IPIPE_STALL_FLAG, &ipd->cpudata[cpuid].status);
+	set_bit_safe(IPIPE_STALL_FLAG, &ipipe_cpudom_var(ipd, status));
 
 	if (__ipipe_pipeline_head_p(ipd))
 		local_irq_disable_hw();
-#endif	/* CONFIG_SMP */
 }
 
 unsigned long fastcall ipipe_test_and_stall_pipeline_from(struct ipipe_domain *ipd)
 {
-	ipipe_declare_cpuid;
-	unsigned long s;
-#ifdef CONFIG_SMP
-	unsigned long flags;
+	unsigned long x;
 
-	ipipe_lock_cpu(flags); /* Care for migration. */
-
-	s = __test_and_set_bit(IPIPE_STALL_FLAG, &ipd->cpudata[cpuid].status);
-
-	if (!__ipipe_pipeline_head_p(ipd))
-		ipipe_unlock_cpu(flags);
-#else	/* CONFIG_SMP */
-	s = test_and_set_bit(IPIPE_STALL_FLAG, &ipd->cpudata[cpuid].status);
+	x = test_and_set_bit_safe(IPIPE_STALL_FLAG, &ipipe_cpudom_var(ipd, status));
 
 	if (__ipipe_pipeline_head_p(ipd))
 		local_irq_disable_hw();
-#endif	/* CONFIG_SMP */
 
-	return s;
-}
-
-void fastcall __ipipe_spin_lock_irq(raw_spinlock_t *lock)
-{
-	struct ipipe_domain *ipd;
-	ipipe_declare_cpuid;
-
-	local_irq_disable_hw();
-	__raw_spin_lock(lock);
-	ipipe_load_cpuid();
-	ipd = per_cpu(ipipe_percpu_domain, cpuid);
-	__set_bit(IPIPE_STALL_FLAG, &ipd->cpudata[cpuid].status);
-}
-
-void fastcall __ipipe_spin_unlock_irq(raw_spinlock_t *lock)
-{
-	struct ipipe_domain *ipd;
-	ipipe_declare_cpuid;
-
-	__raw_spin_unlock(lock);
-	ipipe_load_cpuid();
-	ipd = per_cpu(ipipe_percpu_domain, cpuid);
-	__clear_bit(IPIPE_STALL_FLAG, &ipd->cpudata[cpuid].status);
-	local_irq_enable_hw();
-}
-
-unsigned long fastcall __ipipe_spin_lock_irqsave(raw_spinlock_t *lock)
-{
-	struct ipipe_domain *ipd;
-	ipipe_declare_cpuid;
-	unsigned long flags;
-	int s;
-
-	local_irq_save_hw(flags);
-	__raw_spin_lock(lock);
-	ipipe_load_cpuid();
-	ipd = per_cpu(ipipe_percpu_domain, cpuid);
-	s = __test_and_set_bit(IPIPE_STALL_FLAG, &ipd->cpudata[cpuid].status);
-
-	return raw_mangle_irq_bits(s, flags);
-}
-
-void fastcall __ipipe_spin_unlock_irqrestore(raw_spinlock_t *lock, unsigned long x)
-{
-	struct ipipe_domain *ipd;
-	ipipe_declare_cpuid;
-
-	__raw_spin_unlock(lock);
-	ipipe_load_cpuid();
-	ipd = per_cpu(ipipe_percpu_domain, cpuid);
-	if (!raw_demangle_irq_bits(&x))
-		__clear_bit(IPIPE_STALL_FLAG, &ipd->cpudata[cpuid].status);
-	local_irq_restore_hw(x);
+	return x;
 }
 
 /*
@@ -314,34 +220,30 @@ void fastcall ipipe_unstall_pipeline_from(struct ipipe_domain *ipd)
 {
 	struct list_head *pos;
 	unsigned long flags;
-	ipipe_declare_cpuid;
 
-	ipipe_lock_cpu(flags);
+	local_irq_save_hw(flags);
 
-	__clear_bit(IPIPE_STALL_FLAG, &ipd->cpudata[cpuid].status);
+	__clear_bit(IPIPE_STALL_FLAG, &ipipe_cpudom_var(ipd, status));
 
-	if (ipd == per_cpu(ipipe_percpu_domain, cpuid))
+	if (ipd == ipipe_current_domain)
 		pos = &ipd->p_link;
 	else
 		pos = __ipipe_pipeline.next;
 
-	__ipipe_walk_pipeline(pos, cpuid);
+	__ipipe_walk_pipeline(pos);
 
-	if (__ipipe_pipeline_head_p(ipd))
+	if (likely(__ipipe_pipeline_head_p(ipd)))
 		local_irq_enable_hw();
 	else
-		ipipe_unlock_cpu(flags);
+		local_irq_restore_hw(flags);
 }
 
 unsigned long fastcall ipipe_test_and_unstall_pipeline_from(struct ipipe_domain *ipd)
 {
-	unsigned long flags, x;
-	ipipe_declare_cpuid;
+	unsigned long x;
 
-	ipipe_get_cpu(flags);
-	x = test_bit(IPIPE_STALL_FLAG, &ipd->cpudata[cpuid].status);
+	x = test_bit(IPIPE_STALL_FLAG, &ipipe_cpudom_var(ipd, status));
 	ipipe_unstall_pipeline_from(ipd);
-	ipipe_put_cpu(flags);
 
 	return x;
 }
@@ -357,38 +259,34 @@ void fastcall ipipe_restore_pipeline_from(struct ipipe_domain *ipd,
 
 void ipipe_unstall_pipeline_head(void)
 {
-	struct ipipe_domain *head;
-	ipipe_declare_cpuid;
+	struct ipipe_domain *head_domain;
 
 	local_irq_disable_hw();
-	ipipe_load_cpuid();
-	head = __ipipe_pipeline_head();
-	__clear_bit(IPIPE_STALL_FLAG, &head->cpudata[cpuid].status);
 
-	if (unlikely(head->cpudata[cpuid].irq_pending_hi != 0)) {
-		if (likely(head == per_cpu(ipipe_percpu_domain, cpuid)))
+	head_domain = __ipipe_pipeline_head();
+	__clear_bit(IPIPE_STALL_FLAG, &ipipe_cpudom_var(head_domain, status));
+
+	if (unlikely(ipipe_cpudom_var(head_domain, irqpend_himask) != 0)) {
+		if (likely(head_domain == ipipe_current_domain))
 			__ipipe_sync_pipeline(IPIPE_IRQMASK_ANY);
 		else
-			__ipipe_walk_pipeline(&head->p_link, cpuid);
+			__ipipe_walk_pipeline(&head_domain->p_link);
         }
 
 	local_irq_enable_hw();
 }
 
-void fastcall __ipipe_restore_pipeline_head(struct ipipe_domain *head, unsigned long x)
+void fastcall __ipipe_restore_pipeline_head(struct ipipe_domain *head_domain, unsigned long x)
 {
-	ipipe_declare_cpuid;
-
 	local_irq_disable_hw();
-	ipipe_load_cpuid();
 
 	if (x) {
 #ifdef CONFIG_DEBUG_KERNEL
 		static int warned;
-		if (!warned && test_and_set_bit(IPIPE_STALL_FLAG, &head->cpudata[cpuid].status)) {
+		if (!warned && test_and_set_bit(IPIPE_STALL_FLAG, &ipipe_cpudom_var(head_domain, status))) {
 			/*
 			 * Already stalled albeit ipipe_restore_pipeline_head()
-			 * should have detected it? Send a warning once.\n");
+			 * should have detected it? Send a warning once.
 			 */
 			warned = 1;
 			printk(KERN_WARNING
@@ -396,19 +294,53 @@ void fastcall __ipipe_restore_pipeline_head(struct ipipe_domain *head, unsigned 
 			dump_stack();
 		}
 #else /* !CONFIG_DEBUG_KERNEL */
-		set_bit(IPIPE_STALL_FLAG, &head->cpudata[cpuid].status);
+		set_bit(IPIPE_STALL_FLAG, &ipipe_cpudom_var(head_domain, status));
 #endif /* CONFIG_DEBUG_KERNEL */
 	}
 	else {
-		__clear_bit(IPIPE_STALL_FLAG, &head->cpudata[cpuid].status);
-		if (unlikely(head->cpudata[cpuid].irq_pending_hi != 0)) {
-			if (likely(head == per_cpu(ipipe_percpu_domain, cpuid)))
+		__clear_bit(IPIPE_STALL_FLAG, &ipipe_cpudom_var(head_domain, status));
+		if (unlikely(ipipe_cpudom_var(head_domain, irqpend_himask) != 0)) {
+			if (likely(head_domain == ipipe_current_domain))
 				__ipipe_sync_pipeline(IPIPE_IRQMASK_ANY);
 			else
-				__ipipe_walk_pipeline(&head->p_link, cpuid);
+				__ipipe_walk_pipeline(&head_domain->p_link);
 		}
 		local_irq_enable_hw();
 	}
+}
+
+void fastcall __ipipe_spin_lock_irq(raw_spinlock_t *lock)
+{
+	local_irq_disable_hw();
+	__raw_spin_lock(lock);
+	__set_bit(IPIPE_STALL_FLAG, &ipipe_this_cpudom_var(status));
+}
+
+void fastcall __ipipe_spin_unlock_irq(raw_spinlock_t *lock)
+{
+	__raw_spin_unlock(lock);
+	__clear_bit(IPIPE_STALL_FLAG, &ipipe_this_cpudom_var(status));
+	local_irq_enable_hw();
+}
+
+unsigned long fastcall __ipipe_spin_lock_irqsave(raw_spinlock_t *lock)
+{
+	unsigned long flags;
+	int s;
+
+	local_irq_save_hw(flags);
+	__raw_spin_lock(lock);
+	s = __test_and_set_bit(IPIPE_STALL_FLAG, &ipipe_this_cpudom_var(status));
+
+	return raw_mangle_irq_bits(s, flags);
+}
+
+void fastcall __ipipe_spin_unlock_irqrestore(raw_spinlock_t *lock, unsigned long x)
+{
+	__raw_spin_unlock(lock);
+	if (!raw_demangle_irq_bits(&x))
+		__clear_bit(IPIPE_STALL_FLAG, &ipipe_this_cpudom_var(status));
+	local_irq_restore_hw(x);
 }
 
 void fastcall __ipipe_spin_unlock_irqbegin(ipipe_spinlock_t *lock)
@@ -418,45 +350,89 @@ void fastcall __ipipe_spin_unlock_irqbegin(ipipe_spinlock_t *lock)
 
 void fastcall __ipipe_spin_unlock_irqcomplete(unsigned long x)
 {
-	struct ipipe_domain *ipd;
-	ipipe_declare_cpuid;
-
-	ipipe_load_cpuid();
-	ipd = per_cpu(ipipe_percpu_domain, cpuid);
 	if (!raw_demangle_irq_bits(&x))
-		__clear_bit(IPIPE_STALL_FLAG, &ipd->cpudata[cpuid].status);
+		__clear_bit(IPIPE_STALL_FLAG, &ipipe_this_cpudom_var(status));
 	local_irq_restore_hw(x);
+}
+
+/* Must be called hw IRQs off. */
+void fastcall __ipipe_set_irq_pending(struct ipipe_domain *ipd, unsigned irq)
+{
+	int level = irq >> IPIPE_IRQ_ISHIFT, rank = irq & IPIPE_IRQ_IMASK;
+
+	if (likely(!test_bit(IPIPE_LOCK_FLAG, &ipd->irqs[irq].control))) {
+		__set_bit(rank, &ipipe_cpudom_var(ipd, irqpend_lomask)[level]);
+		__set_bit(level,&ipipe_cpudom_var(ipd, irqpend_himask));
+	} else
+		__set_bit(rank, &ipipe_cpudom_var(ipd, irqheld_mask)[level]);
+
+	ipipe_cpudom_var(ipd, irqall)[irq]++;
+}
+
+/* Must be called hw IRQs off. */
+void fastcall __ipipe_lock_irq(struct ipipe_domain *ipd, int cpu, unsigned irq)
+{
+	if (likely(!test_and_set_bit(IPIPE_LOCK_FLAG, &ipd->irqs[irq].control))) {
+		int level = irq >> IPIPE_IRQ_ISHIFT, rank = irq & IPIPE_IRQ_IMASK;
+		if (__test_and_clear_bit(rank, &ipipe_percpudom(ipd, irqpend_lomask, cpu)[level]))
+			__set_bit(rank, &ipipe_cpudom_var(ipd, irqheld_mask)[level]);
+		if (ipipe_percpudom(ipd, irqpend_lomask, cpu)[level] == 0)
+			__clear_bit(level, &ipipe_percpudom(ipd, irqpend_himask, cpu));
+	}
+}
+
+/* Must be called hw IRQs off. */
+void fastcall __ipipe_unlock_irq(struct ipipe_domain *ipd, unsigned irq)
+{
+	int cpu;
+
+	if (likely(test_and_clear_bit(IPIPE_LOCK_FLAG, &ipd->irqs[irq].control))) {
+		int level = irq >> IPIPE_IRQ_ISHIFT, rank = irq & IPIPE_IRQ_IMASK;
+		for_each_online_cpu(cpu) {
+			if (test_and_clear_bit(rank, &ipipe_percpudom(ipd, irqheld_mask, cpu)[level])) {
+				/* We need atomic ops here: */
+				set_bit(rank, &ipipe_percpudom(ipd, irqpend_lomask, cpu)[level]);
+				set_bit(level, &ipipe_percpudom(ipd, irqpend_himask, cpu));
+			}
+		}
+	}
 }
 
 /* __ipipe_walk_pipeline(): Plays interrupts pending in the log. Must
    be called with local hw interrupts disabled. */
 
-void fastcall __ipipe_walk_pipeline(struct list_head *pos, int cpuid)
+void fastcall __ipipe_walk_pipeline(struct list_head *pos)
 {
-	struct ipipe_domain *this_domain = per_cpu(ipipe_percpu_domain, cpuid);
+	struct ipipe_domain *this_domain = ipipe_current_domain, *next_domain;
 
 	while (pos != &__ipipe_pipeline) {
-		struct ipipe_domain *next_domain =
-		    list_entry(pos, struct ipipe_domain, p_link);
 
-		if (test_bit
-		    (IPIPE_STALL_FLAG, &next_domain->cpudata[cpuid].status))
+		next_domain = list_entry(pos, struct ipipe_domain, p_link);
+
+		if (test_bit(IPIPE_STALL_FLAG, &ipipe_cpudom_var(next_domain, status)))
 			break;	/* Stalled stage -- do not go further. */
 
-		if (next_domain->cpudata[cpuid].irq_pending_hi != 0) {
+		if (ipipe_cpudom_var(next_domain, irqpend_himask) != 0) {
 
 			if (next_domain == this_domain)
 				__ipipe_sync_pipeline(IPIPE_IRQMASK_ANY);
 			else {
-				__ipipe_switch_to(this_domain, next_domain,
-						  cpuid);
 
-				ipipe_load_cpuid();	/* Processor might have changed. */
+				ipipe_cpudom_var(this_domain, evsync) = 0;
+				ipipe_current_domain = next_domain;
+				ipipe_suspend_domain();	/* Sync stage and propagate interrupts. */
 
-				if (this_domain->cpudata[cpuid].
-				    irq_pending_hi != 0
-				    && !test_bit(IPIPE_STALL_FLAG,
-						 &this_domain->cpudata[cpuid].status))
+				if (ipipe_current_domain == next_domain)
+					ipipe_current_domain = this_domain;
+				/*
+				 * Otherwise, something changed the current domain under our
+				 * feet recycling the register set; do not override the new
+				 * domain.
+				 */
+
+				if (ipipe_cpudom_var(this_domain, irqpend_himask) != 0 &&
+				    !test_bit(IPIPE_STALL_FLAG,
+					      &ipipe_cpudom_var(this_domain, status)))
 					__ipipe_sync_pipeline(IPIPE_IRQMASK_ANY);
 			}
 
@@ -477,15 +453,14 @@ void ipipe_suspend_domain(void)
 	struct ipipe_domain *this_domain, *next_domain;
 	struct list_head *ln;
 	unsigned long flags;
-	ipipe_declare_cpuid;
 
-	ipipe_lock_cpu(flags);
+	local_irq_save_hw(flags);
 
-	this_domain = next_domain = per_cpu(ipipe_percpu_domain, cpuid);
+	this_domain = next_domain = ipipe_current_domain;
 
-	__clear_bit(IPIPE_STALL_FLAG, &this_domain->cpudata[cpuid].status);
+	__clear_bit(IPIPE_STALL_FLAG, &ipipe_cpudom_var(this_domain, status));
 
-	if (this_domain->cpudata[cpuid].irq_pending_hi != 0)
+	if (ipipe_cpudom_var(this_domain, irqpend_himask) != 0)
 		goto sync_stage;
 
 	for (;;) {
@@ -497,30 +472,28 @@ void ipipe_suspend_domain(void)
 		next_domain = list_entry(ln, struct ipipe_domain, p_link);
 
 		if (test_bit(IPIPE_STALL_FLAG,
-			     &next_domain->cpudata[cpuid].status))
+			     &ipipe_cpudom_var(next_domain, status)) != 0)
 			break;
 
-		if (next_domain->cpudata[cpuid].irq_pending_hi == 0)
+		if (ipipe_cpudom_var(next_domain, irqpend_himask) == 0)
 			continue;
 
-		per_cpu(ipipe_percpu_domain, cpuid) = next_domain;
+		ipipe_current_domain = next_domain;
 
 sync_stage:
 		__ipipe_sync_pipeline(IPIPE_IRQMASK_ANY);
 
-		ipipe_load_cpuid();	/* Processor might have changed. */
-
-		if (per_cpu(ipipe_percpu_domain, cpuid) != next_domain)
+		if (ipipe_current_domain != next_domain)
 			/*
 			 * Something has changed the current domain under our
 			 * feet, recycling the register set; take note.
 			 */
-			this_domain = per_cpu(ipipe_percpu_domain, cpuid);
+			this_domain = ipipe_current_domain;
 	}
 
-	per_cpu(ipipe_percpu_domain, cpuid) = this_domain;
+	ipipe_current_domain = this_domain;
 
-	ipipe_unlock_cpu(flags);
+	local_irq_restore_hw(flags);
 }
 
 /* ipipe_alloc_virq() -- Allocate a pipelined virtual/soft interrupt.
@@ -690,15 +663,13 @@ int fastcall __ipipe_dispatch_event (unsigned event, void *data)
 	ipipe_event_handler_t evhand;
 	struct list_head *pos, *npos;
 	unsigned long flags;
-	ipipe_declare_cpuid;
 	int propagate = 1;
 
-	ipipe_lock_cpu(flags);
+	local_irq_save_hw(flags);
 
-	start_domain = this_domain = per_cpu(ipipe_percpu_domain, cpuid);
+	start_domain = this_domain = ipipe_current_domain;
 
-	list_for_each_safe(pos,npos,&__ipipe_pipeline) {
-
+	list_for_each_safe(pos, npos, &__ipipe_pipeline) {
 		/*
 		 * Note: Domain migration may occur while running
 		 * event or interrupt handlers, in which case the
@@ -707,43 +678,41 @@ int fastcall __ipipe_dispatch_event (unsigned event, void *data)
 		 * care for that, always tracking the current domain
 		 * descriptor upon return from those handlers.
 		 */
-		next_domain = list_entry(pos,struct ipipe_domain,p_link);
+		next_domain = list_entry(pos, struct ipipe_domain, p_link);
 
 		/*
 		 * Keep a cached copy of the handler's address since
 		 * ipipe_catch_event() may clear it under our feet.
 		 */
-
 		evhand = next_domain->evhand[event];
 
 		if (evhand != NULL) {
-			per_cpu(ipipe_percpu_domain, cpuid) = next_domain;
-			next_domain->cpudata[cpuid].evsync |= (1LL << event);
-			ipipe_unlock_cpu(flags);
-			propagate = !evhand(event,start_domain,data);
-			ipipe_lock_cpu(flags);
-			next_domain->cpudata[cpuid].evsync &= ~(1LL << event);
-			if (per_cpu(ipipe_percpu_domain, cpuid) != next_domain)
-				this_domain = per_cpu(ipipe_percpu_domain, cpuid);
+			ipipe_current_domain = next_domain;
+			ipipe_cpudom_var(next_domain, evsync) |= (1LL << event);
+			local_irq_restore_hw(flags);
+			propagate = !evhand(event, start_domain, data);
+			local_irq_save_hw(flags);
+			ipipe_cpudom_var(next_domain, evsync) &= ~(1LL << event);
+			if (ipipe_current_domain != next_domain)
+				this_domain = ipipe_current_domain;
 		}
 
 		if (next_domain != ipipe_root_domain &&	/* NEVER sync the root stage here. */
-		    next_domain->cpudata[cpuid].irq_pending_hi != 0 &&
-		    !test_bit(IPIPE_STALL_FLAG,&next_domain->cpudata[cpuid].status)) {
-			per_cpu(ipipe_percpu_domain, cpuid) = next_domain;
+		    ipipe_cpudom_var(next_domain, irqpend_himask) != 0 &&
+		    !test_bit(IPIPE_STALL_FLAG, &ipipe_cpudom_var(next_domain, status))) {
+			ipipe_current_domain = next_domain;
 			__ipipe_sync_pipeline(IPIPE_IRQMASK_ANY);
-			ipipe_load_cpuid();
-			if (per_cpu(ipipe_percpu_domain, cpuid) != next_domain)
-				this_domain = per_cpu(ipipe_percpu_domain, cpuid);
+			if (ipipe_current_domain != next_domain)
+				this_domain = ipipe_current_domain;
 		}
 
-		per_cpu(ipipe_percpu_domain, cpuid) = this_domain;
+		ipipe_current_domain = this_domain;
 
 		if (next_domain == this_domain || !propagate)
 			break;
 	}
 
-	ipipe_unlock_cpu(flags);
+	local_irq_restore_hw(flags);
 
 	return !propagate;
 }
@@ -774,44 +743,38 @@ int fastcall __ipipe_dispatch_event (unsigned event, void *data)
  * Called with hw interrupts off.
  */
 
-int fastcall __ipipe_dispatch_wired(struct ipipe_domain *head, unsigned irq)
+int fastcall __ipipe_dispatch_wired(struct ipipe_domain *head_domain, unsigned irq)
 {
-	struct ipcpudata *cpudata;
 	struct ipipe_domain *old;
-	ipipe_declare_cpuid;
 
-	ipipe_load_cpuid();
-	cpudata = &head->cpudata[cpuid];
-	cpudata->irq_counters[irq].total_hits++;
-
-	if (test_bit(IPIPE_LOCK_FLAG, &head->irqs[irq].control)) {
+	if (test_bit(IPIPE_LOCK_FLAG, &head_domain->irqs[irq].control)) {
 		/* If we can't process this IRQ right now, we must
-		 * mark it as pending, so that it will get played
-		 * during normal log sync when the corresponding
-		 * interrupt source is eventually unlocked. */
-		cpudata->irq_counters[irq].pending_hits++;
+		 * mark it as held, so that it will get played during
+		 * normal log sync when the corresponding interrupt
+		 * source is eventually unlocked. */
+		ipipe_cpudom_var(head_domain, irqall)[irq]++;
+		__set_bit(irq & IPIPE_IRQ_IMASK, &ipipe_cpudom_var(head_domain, irqheld_mask)[irq >> IPIPE_IRQ_ISHIFT]);
 		return 0;
 	}
 
-	if (test_bit(IPIPE_STALL_FLAG, &cpudata->status)) {
-		cpudata->irq_counters[irq].pending_hits++;
-		__ipipe_set_irq_bit(head, cpuid, irq);
+	if (test_bit(IPIPE_STALL_FLAG, &ipipe_cpudom_var(head_domain, status))) {
+		__ipipe_set_irq_pending(head_domain, irq);
 		return 0;
 	}
 
-	old = per_cpu(ipipe_percpu_domain, cpuid);
-	per_cpu(ipipe_percpu_domain, cpuid) = head; /* Switch to the head domain. */
+	old = ipipe_current_domain;
+	ipipe_current_domain = head_domain; /* Switch to the head domain. */
 
-	__set_bit(IPIPE_STALL_FLAG, &cpudata->status);
-	head->irqs[irq].handler(irq,head->irqs[irq].cookie); /* Call the ISR. */
+	__set_bit(IPIPE_STALL_FLAG, &ipipe_cpudom_var(head_domain, status));
+	head_domain->irqs[irq].handler(irq, head_domain->irqs[irq].cookie); /* Call the ISR. */
 	__ipipe_run_irqtail();
-	__clear_bit(IPIPE_STALL_FLAG, &cpudata->status);
+	__clear_bit(IPIPE_STALL_FLAG, &ipipe_cpudom_var(head_domain, status));
 
 	/* We expect the caller to start a complete pipeline walk upon
 	 * return, so that propagated interrupts will get played. */
 
-	if (per_cpu(ipipe_percpu_domain, cpuid) == head)
-		per_cpu(ipipe_percpu_domain, cpuid) = old; /* Back to the preempted domain. */
+	if (ipipe_current_domain == head_domain)
+		ipipe_current_domain = old; /* Back to the preempted domain. */
 
 	return 1;
 }
@@ -833,18 +796,15 @@ int fastcall __ipipe_dispatch_wired(struct ipipe_domain *head, unsigned irq)
 void fastcall __ipipe_sync_stage(unsigned long syncmask)
 {
 	unsigned long mask, submask;
-	struct ipcpudata *cpudata;
 	struct ipipe_domain *ipd;
-	ipipe_declare_cpuid;
-	int level, rank;
+	int level, rank, cpu;
 	unsigned irq;
 
-	ipipe_load_cpuid();
-	ipd = per_cpu(ipipe_percpu_domain, cpuid);
-	cpudata = &ipd->cpudata[cpuid];
-
-	if (__test_and_set_bit(IPIPE_SYNC_FLAG, &cpudata->status))
+	if (__test_and_set_bit(IPIPE_SYNC_FLAG, &ipipe_this_cpudom_var(status)))
 		return;
+
+	ipd = ipipe_current_domain;
+	cpu = ipipe_processor_id();
 
 	/*
 	 * The policy here is to keep the dispatching code interrupt-free
@@ -854,35 +814,34 @@ void fastcall __ipipe_sync_stage(unsigned long syncmask)
 	 * sigaction()), it will have to unstall (then stall again before
 	 * returning to us!) the stage when it sees fit.
 	 */
-	while ((mask = (cpudata->irq_pending_hi & syncmask)) != 0) {
+	while ((mask = (ipipe_this_cpudom_var(irqpend_himask) & syncmask)) != 0) {
 		level = __ipipe_ffnz(mask);
 
-		while ((submask = cpudata->irq_pending_lo[level]) != 0) {
+		while ((submask = ipipe_this_cpudom_var(irqpend_lomask)[level]) != 0) {
 			rank = __ipipe_ffnz(submask);
 			irq = (level << IPIPE_IRQ_ISHIFT) + rank;
 
 			if (test_bit(IPIPE_LOCK_FLAG, &ipd->irqs[irq].control)) {
-				__clear_bit(rank, &cpudata->irq_pending_lo[level]);
+				__clear_bit(rank, &ipipe_this_cpudom_var(irqpend_lomask)[level]);
 				continue;
 			}
 
-			if (--cpudata->irq_counters[irq].pending_hits == 0) {
-				__clear_bit(rank, &cpudata->irq_pending_lo[level]);
-				if (cpudata->irq_pending_lo[level] == 0)
-					__clear_bit(level, &cpudata->irq_pending_hi);
-			}
+			__clear_bit(rank, &ipipe_this_cpudom_var(irqpend_lomask)[level]);
 
-			__set_bit(IPIPE_STALL_FLAG, &cpudata->status);
+			if (ipipe_this_cpudom_var(irqpend_lomask)[level] == 0)
+				__clear_bit(level, &ipipe_this_cpudom_var(irqpend_himask));
+
+			__set_bit(IPIPE_STALL_FLAG, &ipipe_this_cpudom_var(status));
 
 			if (ipd == ipipe_root_domain)
 				trace_hardirqs_off();
 
-			__ipipe_run_isr(ipd, irq, cpuid);
+			__ipipe_run_isr(ipd, irq);
 #ifdef CONFIG_SMP
 			{
-				int _cpuid = ipipe_processor_id();
+				int newcpu = ipipe_processor_id();
 
-				if (_cpuid != cpuid) {	/* Handle CPU migration. */
+				if (newcpu != cpu) {	/* Handle CPU migration. */
 					/*
 					 * We expect any domain to clear the SYNC bit each
 					 * time it switches in a new task, so that preemptions
@@ -895,21 +854,20 @@ void fastcall __ipipe_sync_stage(unsigned long syncmask)
 					 * since it must have scheduled another task in by
 					 * now.
 					 */
-					cpuid = _cpuid;
-					cpudata = &ipd->cpudata[cpuid];
-					__set_bit(IPIPE_SYNC_FLAG, &cpudata->status);
+					__set_bit(IPIPE_SYNC_FLAG, &ipipe_this_cpudom_var(status));
+					cpu = newcpu;
 				}
 			}
 #endif	/* CONFIG_SMP */
 			if (ipd == ipipe_root_domain &&
-			    test_bit(IPIPE_STALL_FLAG, &cpudata->status))
+			    test_bit(IPIPE_STALL_FLAG, &ipipe_this_cpudom_var(status)))
 				trace_hardirqs_on();
 
-			__clear_bit(IPIPE_STALL_FLAG, &cpudata->status);
+			__clear_bit(IPIPE_STALL_FLAG, &ipipe_this_cpudom_var(status));
 		}
 	}
 
-	__clear_bit(IPIPE_SYNC_FLAG, &cpudata->status);
+	__clear_bit(IPIPE_SYNC_FLAG, &ipipe_this_cpudom_var(status));
 }
 
 /* ipipe_register_domain() -- Link a new domain to the pipeline. */
@@ -917,6 +875,7 @@ void fastcall __ipipe_sync_stage(unsigned long syncmask)
 int ipipe_register_domain(struct ipipe_domain *ipd,
 			  struct ipipe_domain_attr *attr)
 {
+	struct ipipe_domain *_ipd;
 	struct list_head *pos;
 	unsigned long flags;
 
@@ -932,18 +891,25 @@ int ipipe_register_domain(struct ipipe_domain *ipd,
 
 	flags = ipipe_critical_enter(NULL);
 
-	list_for_each(pos, &__ipipe_pipeline) {
-		struct ipipe_domain *_ipd =
-			list_entry(pos, struct ipipe_domain, p_link);
-		if (_ipd->domid == attr->domid)
-			break;
+	pos = NULL;
+	ipd->slot = ffz(__ipipe_domain_slot_map);
+
+	if (__ipipe_dslot(ipd) < CONFIG_IPIPE_DOMAINS) {
+		set_bit(ipd->slot, &__ipipe_domain_slot_map);
+		list_for_each(pos, &__ipipe_pipeline) {
+			_ipd = list_entry(pos, struct ipipe_domain, p_link);
+			if (_ipd->domid == attr->domid)
+				break;
+		}
 	}
 
 	ipipe_critical_exit(flags);
 
-	if (pos != &__ipipe_pipeline)
-		/* A domain with the given id already exists -- fail. */
+	if (pos != &__ipipe_pipeline) {
+		if (ipd->slot < CONFIG_IPIPE_DOMAINS)
+			clear_bit(ipd->slot, &__ipipe_domain_slot_map);
 		return -EBUSY;
+	}
 
 	ipd->name = attr->name;
 	ipd->domid = attr->domid;
@@ -968,8 +934,7 @@ int ipipe_register_domain(struct ipipe_domain *ipd,
 	flags = ipipe_critical_enter(NULL);
 
 	list_for_each(pos, &__ipipe_pipeline) {
-		struct ipipe_domain *_ipd =
-			list_entry(pos, struct ipipe_domain, p_link);
+		_ipd = list_entry(pos, struct ipipe_domain, p_link);
 		if (ipd->priority > _ipd->priority)
 			break;
 	}
@@ -978,7 +943,7 @@ int ipipe_register_domain(struct ipipe_domain *ipd,
 
 	ipipe_critical_exit(flags);
 
-	printk(KERN_WARNING "I-pipe: Domain %s registered.\n", ipd->name);
+	printk(KERN_INFO "I-pipe: Domain %s registered.\n", ipd->name);
 
 	/*
 	 * Finally, allow the new domain to perform its initialization
@@ -986,22 +951,17 @@ int ipipe_register_domain(struct ipipe_domain *ipd,
 	 */
 
 	if (attr->entry != NULL) {
-		ipipe_declare_cpuid;
-
-		ipipe_lock_cpu(flags);
-
-		per_cpu(ipipe_percpu_domain, cpuid) = ipd;
+		ipipe_current_domain = ipd;
 		attr->entry();
-		per_cpu(ipipe_percpu_domain, cpuid) = ipipe_root_domain;
+		ipipe_current_domain = ipipe_root_domain;
 
-		ipipe_load_cpuid();	/* Processor might have changed. */
+		local_irq_save_hw(flags);
 
-		if (ipipe_root_domain->cpudata[cpuid].irq_pending_hi != 0 &&
-		    !test_bit(IPIPE_STALL_FLAG,
-			      &ipipe_root_domain->cpudata[cpuid].status))
+		if (ipipe_this_cpudom_var(irqpend_himask) != 0 &&
+		    !test_bit(IPIPE_STALL_FLAG, &ipipe_this_cpudom_var(status)))
 			__ipipe_sync_pipeline(IPIPE_IRQMASK_ANY);
 
-		ipipe_unlock_cpu(flags);
+		local_irq_restore_hw(flags);
 	}
 
 	return 0;
@@ -1026,8 +986,8 @@ int ipipe_unregister_domain(struct ipipe_domain *ipd)
 	}
 #ifdef CONFIG_SMP
 	{
-		int nr_cpus = num_online_cpus(), _cpuid;
 		unsigned irq;
+		int cpu;
 
 		/*
 		 * In the SMP case, wait for the logged events to drain on
@@ -1047,10 +1007,10 @@ int ipipe_unregister_domain(struct ipipe_domain *ipd)
 
 		ipipe_critical_exit(flags);
 
-		for (_cpuid = 0; _cpuid < nr_cpus; _cpuid++)
-			for (irq = 0; irq < IPIPE_NR_IRQS; irq++)
-				while (ipd->cpudata[_cpuid].irq_counters[irq].pending_hits > 0)
-					cpu_relax();
+		for_each_online_cpu(cpu) {
+			while (ipipe_percpudom(ipd, irqpend_himask, cpu) > 0)
+				cpu_relax();
+		}
 	}
 #endif	/* CONFIG_SMP */
 
@@ -1072,7 +1032,7 @@ int ipipe_unregister_domain(struct ipipe_domain *ipd)
 
 	mutex_unlock(&ipd->mutex);
 
-	printk(KERN_WARNING "I-pipe: Domain %s unregistered.\n", ipd->name);
+	printk(KERN_INFO "I-pipe: Domain %s unregistered.\n", ipd->name);
 
 	return 0;
 }
@@ -1085,35 +1045,33 @@ int ipipe_unregister_domain(struct ipipe_domain *ipd)
  */
 int fastcall __ipipe_schedule_irq(unsigned irq, struct list_head *head)
 {
+	struct ipipe_domain *ipd;
 	struct list_head *ln;
 	unsigned long flags;
-	ipipe_declare_cpuid;
 
 	if (irq >= IPIPE_NR_IRQS ||
 	    (ipipe_virtual_irq_p(irq)
 	     && !test_bit(irq - IPIPE_VIRQ_BASE, &__ipipe_virtual_irq_map)))
 		return -EINVAL;
 
-	ipipe_lock_cpu(flags);
+	local_irq_save_hw(flags);
 
 	ln = head;
 
 	while (ln != &__ipipe_pipeline) {
-		struct ipipe_domain *ipd =
-			list_entry(ln, struct ipipe_domain, p_link);
+
+		ipd = list_entry(ln, struct ipipe_domain, p_link);
 
 		if (test_bit(IPIPE_HANDLE_FLAG, &ipd->irqs[irq].control)) {
-			ipd->cpudata[cpuid].irq_counters[irq].total_hits++;
-			ipd->cpudata[cpuid].irq_counters[irq].pending_hits++;
-			__ipipe_set_irq_bit(ipd, cpuid, irq);
-			ipipe_unlock_cpu(flags);
+			__ipipe_set_irq_pending(ipd, irq);
+			local_irq_restore_hw(flags);
 			return 1;
 		}
 
 		ln = ipd->p_link.next;
 	}
 
-	ipipe_unlock_cpu(flags);
+	local_irq_restore_hw(flags);
 
 	return 0;
 }
@@ -1149,7 +1107,7 @@ ipipe_event_handler_t ipipe_catch_event(struct ipipe_domain *ipd,
 {
 	ipipe_event_handler_t old_handler;
 	unsigned long flags;
-	int self = 0, cpuid;
+	int self = 0, cpu;
 
 	if (event & IPIPE_EVENT_SELF) {
 		event &= ~IPIPE_EVENT_SELF;
@@ -1201,8 +1159,8 @@ ipipe_event_handler_t ipipe_catch_event(struct ipipe_domain *ipd,
 		 * on all CPUs.
 		 */
 
-		for_each_online_cpu(cpuid) {
-			while (ipd->cpudata[cpuid].evsync & (1LL << event))
+		for_each_online_cpu(cpu) {
+			while (ipipe_percpudom(ipd, evsync, cpu) & (1LL << event))
 				schedule_timeout_interruptible(HZ / 50);
 		}
 	}
@@ -1455,15 +1413,19 @@ void __init ipipe_init_proc(void)
 #endif	/* CONFIG_PROC_FS */
 
 #ifdef CONFIG_IPIPE_DEBUG_CONTEXT
+
+DEFINE_PER_CPU(int, ipipe_percpu_context_check) = { 1 };
+
 void ipipe_check_context(struct ipipe_domain *border_ipd)
 {
-	static int check_hit;
-
+	/* Note: We don't make the per_cpu access atomic. We assume that code
+	   which temporarily disables the check does this in atomic context
+	   only. */
 	if (likely(ipipe_current_domain->priority <= border_ipd->priority) ||
-	    check_hit)
+	    !per_cpu(ipipe_percpu_context_check, ipipe_processor_id()))
 		return;
 
-	check_hit = 1;
+	ipipe_context_check_off();
 
 	ipipe_trace_panic_freeze();
 	ipipe_set_printk_sync(ipipe_current_domain);
@@ -1493,16 +1455,17 @@ EXPORT_SYMBOL(ipipe_unstall_pipeline_head);
 EXPORT_SYMBOL(__ipipe_restore_pipeline_head);
 EXPORT_SYMBOL(__ipipe_unstall_root);
 EXPORT_SYMBOL(__ipipe_restore_root);
-#ifdef CONFIG_SMP
 EXPORT_SYMBOL(__ipipe_stall_root);
 EXPORT_SYMBOL(__ipipe_test_root);
 EXPORT_SYMBOL(__ipipe_test_and_stall_root);
-#endif /* CONFIG_SMP */
 EXPORT_SYMBOL(__ipipe_spin_lock_irq);
 EXPORT_SYMBOL(__ipipe_spin_unlock_irq);
 EXPORT_SYMBOL(__ipipe_spin_lock_irqsave);
 EXPORT_SYMBOL(__ipipe_spin_unlock_irqrestore);
 EXPORT_SYMBOL(__ipipe_pipeline);
+EXPORT_SYMBOL(__ipipe_set_irq_pending);
+EXPORT_SYMBOL(__ipipe_lock_irq);
+EXPORT_SYMBOL(__ipipe_unlock_irq);
 EXPORT_SYMBOL(ipipe_register_domain);
 EXPORT_SYMBOL(ipipe_unregister_domain);
 EXPORT_SYMBOL(ipipe_free_virq);
@@ -1515,3 +1478,7 @@ EXPORT_SYMBOL(ipipe_get_ptd);
 EXPORT_SYMBOL(ipipe_set_irq_affinity);
 EXPORT_SYMBOL(ipipe_send_ipi);
 EXPORT_SYMBOL(__ipipe_schedule_irq);
+#ifdef CONFIG_GENERIC_CLOCKEVENTS
+EXPORT_SYMBOL(ipipe_request_tickdev);
+EXPORT_SYMBOL(ipipe_release_tickdev);
+#endif
