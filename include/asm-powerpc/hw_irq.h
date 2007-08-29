@@ -124,10 +124,9 @@ static inline void local_irq_save_ptr_hw(unsigned long *x)
 #ifdef CONFIG_IPIPE
 
 #include <linux/ipipe_base.h>
+#include <linux/ipipe_trace.h>
 
 #ifdef CONFIG_IPIPE_TRACE_IRQSOFF
-
-#include <linux/ipipe_trace.h>
 
 static inline void local_irq_disable_hw(void)
 {
