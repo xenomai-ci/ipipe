@@ -26,50 +26,37 @@
 #ifdef CONFIG_IPIPE
 
 #include <linux/bitops.h>
+#include <asm/ipipe_base.h>
+
+/* Number of virtual IRQs */
+#define IPIPE_NR_VIRQS		BITS_PER_LONG
+/* First virtual IRQ # */
+#define IPIPE_VIRQ_BASE		(((IPIPE_NR_XIRQS + BITS_PER_LONG - 1) / BITS_PER_LONG) * BITS_PER_LONG)
+/* Total number of IRQ slots */
+#define IPIPE_NR_IRQS		(IPIPE_VIRQ_BASE + IPIPE_NR_VIRQS)
+/* Number of indirect words needed to map the whole IRQ space. */
+#define IPIPE_IRQ_IWORDS	((IPIPE_NR_IRQS + BITS_PER_LONG - 1) / BITS_PER_LONG)
+#define IPIPE_IRQ_IMASK		(BITS_PER_LONG - 1)
+#define IPIPE_IRQMASK_ANY	(~0L)
+#define IPIPE_IRQMASK_VIRT	(IPIPE_IRQMASK_ANY << (IPIPE_VIRQ_BASE / BITS_PER_LONG))
 
 /* Per-cpu pipeline status */
 #define IPIPE_STALL_FLAG	0	/* Stalls a pipeline stage -- guaranteed at bit #0 */
 #define IPIPE_SYNC_FLAG		1	/* The interrupt syncer is running for the domain */
 #define IPIPE_NOSTACK_FLAG	2	/* Domain currently runs on a foreign stack */
 
-#define IPIPE_SYNC_MASK		(1 << IPIPE_SYNC_FLAG)
+#define IPIPE_STALL_MASK	(1L << IPIPE_STALL_FLAG)
+#define IPIPE_SYNC_MASK		(1L << IPIPE_SYNC_FLAG)
 
 extern struct ipipe_domain ipipe_root;
 
 #define ipipe_root_domain (&ipipe_root)
-
-#ifdef CONFIG_SMP
 
 void __ipipe_stall_root(void);
 
 unsigned long __ipipe_test_root(void);
 
 unsigned long __ipipe_test_and_stall_root(void);
-
-#else /* !CONFIG_SMP */
-
-/*
- * Note: This cast relies on cpudata[0].status being the first element in the
- *       root domain structure (for UP only).
- */
-#define __ipipe_root_status	(unsigned long *)&ipipe_root
-
-static inline void __ipipe_stall_root(void)
-{
-	set_bit(IPIPE_STALL_FLAG, __ipipe_root_status);
-}
-
-static inline unsigned long __ipipe_test_root(void)
-{
-	return test_bit(IPIPE_STALL_FLAG, __ipipe_root_status);
-}
-
-static inline unsigned long __ipipe_test_and_stall_root(void)
-{
-	return test_and_set_bit(IPIPE_STALL_FLAG, __ipipe_root_status);
-}
-
-#endif /* !CONFIG_SMP */
 
 void __ipipe_unstall_root(void);
 
