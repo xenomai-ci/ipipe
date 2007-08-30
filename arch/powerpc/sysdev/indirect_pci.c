@@ -90,6 +90,13 @@ indirect_write_config(struct pci_bus *bus, unsigned int devfn, int offset,
 	 * suitably aligned and that len is 1, 2 or 4.
 	 */
 	cfg_data = hose->cfg_data + (offset & 3);
+
+	/* Workaround for MRM failure in 440EPX */
+#if defined(CONFIG_440EPX)
+	if(offset == PCI_CACHE_LINE_SIZE) {
+		val = 0;
+	}
+#endif
 	switch (len) {
 	case 1:
 		out_8(cfg_data, val);
