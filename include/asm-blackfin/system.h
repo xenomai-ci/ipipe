@@ -252,7 +252,7 @@ static inline int raw_demangle_irq_bits(unsigned long *x)
 	!irqs_enabled_from_flags(flags);	\
 })
 
-#define local_irq_save_hw(x)	local_	irq_save(x)
+#define local_irq_save_hw(x)		local_irq_save(x)
 #define local_irq_restore_hw(x)		local_irq_restore(x)
 #define local_irq_enable_hw()		local_irq_enable()
 #define local_irq_disable_hw()		local_irq_disable()
