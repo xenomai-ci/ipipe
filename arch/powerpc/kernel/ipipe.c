@@ -610,6 +610,11 @@ notrace int __ipipe_check_root(void)
 	return ipipe_root_domain_p;
 }
 
+notrace void __ipipe_fast_stall_root(void)
+{
+	set_bit_safe(IPIPE_STALL_FLAG, &ipipe_cpudom_var(ipipe_root_domain, status));
+}
+
 notrace void __ipipe_fast_unstall_root(void)
 {
 	clear_bit_safe(IPIPE_STALL_FLAG, &ipipe_cpudom_var(ipipe_root_domain, status));
