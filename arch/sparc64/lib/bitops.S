@@ -1,4 +1,4 @@
-/* $Id: bitops.S,v 1.3 2001/11/18 00:12:56 davem Exp $
+/* $Id: bitops.S 2395 2006-11-02 09:34:16Z magicyang $
  * bitops.S: Sparc64 atomic bit operations.
  *
  * Copyright (C) 2000 David S. Miller (davem@redhat.com)

@@ -1,7 +1,7 @@
 #ifndef _LMC_VAR_H_
 #define _LMC_VAR_H_
 
-/* $Id: lmc_var.h,v 1.17 2000/04/06 12:16:47 asj Exp $ */
+/* $Id: lmc_var.h 2399 2006-11-03 05:32:46Z magicyang $ */
 
  /*
   * Copyright (c) 1997-2000 LAN Media Corporation (LMC)

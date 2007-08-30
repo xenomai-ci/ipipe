@@ -1,5 +1,5 @@
 /*
- * $Id: solutionengine.c,v 1.15 2005/11/07 11:14:28 gleixner Exp $
+ * $Id: solutionengine.c 2399 2006-11-03 05:32:46Z magicyang $
  *
  * Flash and EPROM on Hitachi Solution Engine and similar boards.
  *

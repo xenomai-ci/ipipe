@@ -37,7 +37,7 @@
  * IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGES.
  *
- * $Id: //depot/aic7xxx/aic7xxx/aic7770.c#32 $
+ * $Id: aic7770.c 2422 2006-11-08 06:58:15Z magicyang $
  *
  * $FreeBSD$
  */

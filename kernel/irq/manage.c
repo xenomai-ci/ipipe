@@ -282,6 +282,11 @@ int setup_irq(unsigned int irq, struct irqaction *new)
 		rand_initialize_irq(irq);
 	}
 
+#ifdef CONFIG_IPIPE
+	if (ipipe_start_irq_thread(irq, desc))
+		return -ENOMEM;
+#endif
+
 	/*
 	 * The following block of code has to be executed atomically
 	 */

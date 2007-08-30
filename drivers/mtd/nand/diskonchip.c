@@ -16,7 +16,7 @@
  *
  * Interface to generic NAND code for M-Systems DiskOnChip devices
  *
- * $Id: diskonchip.c,v 1.55 2005/11/07 11:14:30 gleixner Exp $
+ * $Id: diskonchip.c 3195 2007-05-25 05:56:06Z cooloney $
  */
 
 #include <linux/kernel.h>

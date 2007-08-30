@@ -1,5 +1,5 @@
 /*
- * $Id: amikbd.c,v 1.13 2002/02/01 16:02:24 vojtech Exp $
+ * $Id: amikbd.c 2959 2007-03-30 04:02:22Z cooloney $
  *
  *  Copyright (c) 2000-2001 Vojtech Pavlik
  *

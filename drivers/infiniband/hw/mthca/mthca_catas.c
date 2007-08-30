@@ -29,7 +29,7 @@
  * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
  *
- * $Id$
+ * $Id: mthca_catas.c 2959 2007-03-30 04:02:22Z cooloney $
  */
 
 #include <linux/jiffies.h>

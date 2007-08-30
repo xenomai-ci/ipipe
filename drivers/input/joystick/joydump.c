@@ -1,5 +1,5 @@
 /*
- * $Id: joydump.c,v 1.1 2002/01/23 06:56:16 jsimmons Exp $
+ * $Id: joydump.c 2396 2006-11-02 10:18:43Z magicyang $
  *
  *  Copyright (c) 1996-2001 Vojtech Pavlik
  */

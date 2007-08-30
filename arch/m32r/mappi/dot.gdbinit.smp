@@ -1,5 +1,5 @@
 # .gdbinit file
-# $Id$
+# $Id: dot.gdbinit.smp 2394 2006-11-02 07:11:55Z magicyang $
 
 # setting
 set width 0d70

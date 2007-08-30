@@ -31,7 +31,7 @@
  * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
  *
- * $Id: mthca_main.c 1396 2004-12-28 04:10:27Z roland $
+ * $Id: mthca_main.c 3544 2007-08-11 17:42:26Z cooloney $
  */
 
 #include <linux/module.h>

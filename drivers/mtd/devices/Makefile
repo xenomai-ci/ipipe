@@ -1,7 +1,7 @@
 #
 # linux/drivers/devices/Makefile
 #
-# $Id: Makefile.common,v 1.7 2004/12/22 17:51:15 joern Exp $
+# $Id: Makefile 3544 2007-08-11 17:42:26Z cooloney $
 
 obj-$(CONFIG_MTD_DOC2000)	+= doc2000.o
 obj-$(CONFIG_MTD_DOC2001)	+= doc2001.o

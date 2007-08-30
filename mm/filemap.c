@@ -448,6 +448,7 @@ int add_to_page_cache(struct page *page, struct address_space *mapping,
 			page->mapping = mapping;
 			page->index = offset;
 			mapping->nrpages++;
+
 			__inc_zone_page_state(page, NR_FILE_PAGES);
 		}
 		write_unlock_irq(&mapping->tree_lock);

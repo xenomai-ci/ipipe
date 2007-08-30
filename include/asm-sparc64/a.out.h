@@ -1,4 +1,4 @@
-/* $Id: a.out.h,v 1.8 2002/02/09 19:49:31 davem Exp $ */
+/* $Id: a.out.h 3195 2007-05-25 05:56:06Z cooloney $ */
 #ifndef __SPARC64_A_OUT_H__
 #define __SPARC64_A_OUT_H__
 

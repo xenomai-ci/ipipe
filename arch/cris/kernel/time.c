@@ -1,4 +1,4 @@
-/* $Id: time.c,v 1.18 2005/03/04 08:16:17 starvik Exp $
+/* $Id: time.c 3195 2007-05-25 05:56:06Z cooloney $
  *
  *  linux/arch/cris/kernel/time.c
  *

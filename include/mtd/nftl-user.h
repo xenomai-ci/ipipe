@@ -1,5 +1,5 @@
 /*
- * $Id: nftl-user.h,v 1.2 2005/11/07 11:14:56 gleixner Exp $
+ * $Id: nftl-user.h 2397 2006-11-02 10:51:58Z magicyang $
  *
  * Parts of NFTL headers shared with userspace
  *

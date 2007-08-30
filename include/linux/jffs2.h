@@ -8,7 +8,7 @@
  * For licensing information, see the file 'LICENCE' in the
  * jffs2 directory.
  *
- * $Id: jffs2.h,v 1.38 2005/09/26 11:37:23 havasi Exp $
+ * $Id: jffs2.h 2620 2007-01-10 08:32:17Z cooloney $
  *
  */
 

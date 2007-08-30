@@ -6,7 +6,7 @@
  *	as published by the Free Software Foundation; either version
  *	2 of the License, or (at your option) any later version.
  *
- *	$Id: ms02-nv.c,v 1.11 2005/11/14 13:41:47 macro Exp $
+ *	$Id: ms02-nv.c 2959 2007-03-30 04:02:22Z cooloney $
  */
 
 #include <linux/init.h>

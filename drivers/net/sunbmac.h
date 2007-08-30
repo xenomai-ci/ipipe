@@ -1,4 +1,4 @@
-/* $Id: sunbmac.h,v 1.7 2000/07/11 22:35:22 davem Exp $
+/* $Id: sunbmac.h 2399 2006-11-03 05:32:46Z magicyang $
  * sunbmac.h: Defines for the Sun "Big MAC" 100baseT ethernet cards.
  *
  * Copyright (C) 1997 David S. Miller (davem@caip.rutgers.edu)

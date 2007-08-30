@@ -1,4 +1,4 @@
-/* $Id: entry.S,v 1.28 2005/06/20 05:06:30 starvik Exp $
+/* $Id: entry.S 2620 2007-01-10 08:32:17Z cooloney $
  *
  *  linux/arch/cris/entry.S
  *

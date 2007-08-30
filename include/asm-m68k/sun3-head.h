@@ -1,4 +1,4 @@
-/* $Id: head.h,v 1.32 1996/12/04 00:12:48 ecd Exp $ */
+/* $Id: sun3-head.h 2959 2007-03-30 04:02:22Z cooloney $ */
 #ifndef __SUN3_HEAD_H
 #define __SUN3_HEAD_H
 

@@ -1,4 +1,4 @@
-/* $Id: gazel.c,v 2.19.2.4 2004/01/14 16:04:48 keil Exp $
+/* $Id: gazel.c 2620 2007-01-10 08:32:17Z cooloney $
  *
  * low level stuff for Gazel isdn cards
  *
@@ -20,7 +20,7 @@
 #include <linux/pci.h>
 
 extern const char *CardType[];
-static const char *gazel_revision = "$Revision: 2.19.2.4 $";
+static const char *gazel_revision = "$Revision: 2620 $";
 
 #define R647      1
 #define R685      2

@@ -30,7 +30,7 @@
  * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
  *
- * $Id: mad_rmpp.c 1921 2005-03-02 22:58:44Z sean.hefty $
+ * $Id: mad_rmpp.c 2959 2007-03-30 04:02:22Z cooloney $
  */
 
 #include "mad_priv.h"

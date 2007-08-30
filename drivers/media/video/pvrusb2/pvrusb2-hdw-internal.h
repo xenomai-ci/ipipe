@@ -1,6 +1,6 @@
 /*
  *
- *  $Id$
+ *  $Id: pvrusb2-hdw-internal.h 3544 2007-08-11 17:42:26Z cooloney $
  *
  *  Copyright (C) 2005 Mike Isely <isely@pobox.com>
  *

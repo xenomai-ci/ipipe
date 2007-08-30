@@ -1,4 +1,4 @@
-/* $Id: misc.c,v 1.36 2002/02/09 19:49:31 davem Exp $
+/* $Id: misc.c 3544 2007-08-11 17:42:26Z cooloney $
  * misc.c: Miscellaneous syscall emulation for Solaris
  *
  * Copyright (C) 1997,1998 Jakub Jelinek (jj@sunsite.mff.cuni.cz)

@@ -1,5 +1,5 @@
 /*
- * $Id: sermouse.c,v 1.17 2002/03/13 10:03:43 vojtech Exp $
+ * $Id: sermouse.c 3544 2007-08-11 17:42:26Z cooloney $
  *
  *  Copyright (c) 1999-2001 Vojtech Pavlik
  */

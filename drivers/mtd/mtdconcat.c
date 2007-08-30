@@ -7,7 +7,7 @@
  *
  * This code is GPL
  *
- * $Id: mtdconcat.c,v 1.11 2005/11/07 11:14:20 gleixner Exp $
+ * $Id: mtdconcat.c 3195 2007-05-25 05:56:06Z cooloney $
  */
 
 #include <linux/kernel.h>

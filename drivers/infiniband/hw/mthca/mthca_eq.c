@@ -30,7 +30,7 @@
  * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
  *
- * $Id: mthca_eq.c 1382 2004-12-24 02:21:02Z roland $
+ * $Id: mthca_eq.c 2959 2007-03-30 04:02:22Z cooloney $
  */
 
 #include <linux/errno.h>

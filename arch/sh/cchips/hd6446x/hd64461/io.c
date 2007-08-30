@@ -1,4 +1,5 @@
 /*
+ *	$Id: io.c 2620 2007-01-10 08:32:17Z cooloney $
  *	Copyright (C) 2000 YAEGASHI Takeshi
  *	Typical I/O routines for HD64461 system.
  */

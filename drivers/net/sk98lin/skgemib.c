@@ -2,8 +2,8 @@
  *
  * Name:	skgemib.c
  * Project:	GEnesis, PCI Gigabit Ethernet Adapter
- * Version:	$Revision: 1.11 $
- * Date:	$Date: 2003/09/15 13:38:12 $
+ * Version:	$Revision: 2399 $
+ * Date:	$Date: 2006-11-03 06:32:46 +0100 (Fri, 03 Nov 2006) $
  * Purpose:	Private Network Management Interface Management Database
  *
  ****************************************************************************/

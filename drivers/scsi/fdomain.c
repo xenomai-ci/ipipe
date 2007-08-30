@@ -295,7 +295,7 @@ MODULE_DESCRIPTION("Future domain SCSI driver");
 MODULE_LICENSE("GPL");
 
   
-#define VERSION          "$Revision: 5.51 $"
+#define VERSION          "$Revision: 2620 $"
 
 /* START OF USER DEFINABLE OPTIONS */
 

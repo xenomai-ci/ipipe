@@ -1,5 +1,5 @@
 /*
- * $Id: tsdev.c,v 1.15 2002/04/10 16:50:19 jsimmons Exp $
+ * $Id: tsdev.c 3544 2007-08-11 17:42:26Z cooloney $
  *
  *  Copyright (c) 2001 "Crazy" james Simmons
  *

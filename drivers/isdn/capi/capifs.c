@@ -1,4 +1,4 @@
-/* $Id: capifs.c,v 1.1.2.3 2004/01/16 21:09:26 keil Exp $
+/* $Id: capifs.c 2620 2007-01-10 08:32:17Z cooloney $
  * 
  * Copyright 2000 by Carsten Paeth <calle@calle.de>
  *
@@ -25,7 +25,7 @@ MODULE_LICENSE("GPL");
 
 /* ------------------------------------------------------------------ */
 
-static char *revision = "$Revision: 1.1.2.3 $";
+static char *revision = "$Revision: 2620 $";
 
 /* ------------------------------------------------------------------ */
 

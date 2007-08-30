@@ -1,4 +1,4 @@
-/* $Id: sh-sci.h,v 1.4 2004/02/19 16:43:56 lethal Exp $
+/* $Id: sh-sci.h 3544 2007-08-11 17:42:26Z cooloney $
  *
  *  linux/drivers/serial/sh-sci.h
  *

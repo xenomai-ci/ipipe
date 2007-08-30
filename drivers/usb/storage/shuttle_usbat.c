@@ -1,6 +1,6 @@
 /* Driver for SCM Microsystems (a.k.a. Shuttle) USB-ATAPI cable
  *
- * $Id: shuttle_usbat.c,v 1.17 2002/04/22 03:39:43 mdharm Exp $
+ * $Id: shuttle_usbat.c 3195 2007-05-25 05:56:06Z cooloney $
  *
  * Current development and maintenance by:
  *   (c) 2000, 2001 Robert Baruch (autophile@starband.net)

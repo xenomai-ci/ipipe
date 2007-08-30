@@ -25,7 +25,6 @@
 #include <linux/backing-dev.h>
 #include <linux/bootmem.h>
 #include <linux/pipe_fs_i.h>
-#include <linux/pfn.h>
 
 #include <asm/uaccess.h>
 #include <asm/io.h>
@@ -162,7 +161,7 @@ static ssize_t read_mem(struct file * file, char __user * buf,
 	return read;
 }
 
-static ssize_t write_mem(struct file * file, const char __user * buf, 
+static ssize_t write_mem(struct file * file, const char __user * buf,
 			 size_t count, loff_t *ppos)
 {
 	unsigned long p = *ppos;
@@ -245,22 +244,9 @@ static unsigned long get_unmapped_area_mem(struct file *file,
 					   unsigned long pgoff,
 					   unsigned long flags)
 {
-	if (!valid_mmap_phys_addr_range(pgoff, len))
+	if (!valid_mmap_phys_addr_range(pgoff, &len))
 		return (unsigned long) -EINVAL;
 	return pgoff << PAGE_SHIFT;
-}
-
-/* can't do an in-place private mapping if there's no MMU */
-static inline int private_mapping_ok(struct vm_area_struct *vma)
-{
-	return vma->vm_flags & VM_MAYSHARE;
-}
-#else
-#define get_unmapped_area_mem	NULL
-
-static inline int private_mapping_ok(struct vm_area_struct *vma)
-{
-	return 1;
 }
 #endif
 
@@ -271,8 +257,11 @@ static int mmap_mem(struct file * file, struct vm_area_struct * vma)
 	if (!valid_mmap_phys_addr_range(vma->vm_pgoff, size))
 		return -EINVAL;
 
-	if (!private_mapping_ok(vma))
+#ifndef CONFIG_MMU
+	/* can't do an in-place private mapping if there's no MMU */
+	if (!(vma->vm_flags & VM_MAYSHARE))
 		return -ENOSYS;
+#endif
 
 	vma->vm_page_prot = phys_mem_access_prot(file, vma->vm_pgoff,
 						 size,
@@ -349,7 +338,7 @@ extern long vwrite(char *buf, char *addr, unsigned long count);
 /*
  * This function reads the *virtual* memory as seen by the kernel.
  */
-static ssize_t read_kmem(struct file *file, char __user *buf, 
+static ssize_t read_kmem(struct file *file, char __user *buf,
 			 size_t count, loff_t *ppos)
 {
 	unsigned long p = *ppos;
@@ -496,7 +485,7 @@ do_write_kmem(void *p, unsigned long realp, const char __user * buf,
 /*
  * This function writes to the *virtual* memory as seen by the kernel.
  */
-static ssize_t write_kmem(struct file * file, const char __user * buf, 
+static ssize_t write_kmem(struct file * file, const char __user * buf,
 			  size_t count, loff_t *ppos)
 {
 	unsigned long p = *ppos;
@@ -559,10 +548,10 @@ static ssize_t read_port(struct file * file, char __user * buf,
 	char __user *tmp = buf;
 
 	if (!access_ok(VERIFY_WRITE, buf, count))
-		return -EFAULT; 
+		return -EFAULT;
 	while (count-- > 0 && i < 65536) {
-		if (__put_user(inb(i),tmp) < 0) 
-			return -EFAULT;  
+		if (__put_user(inb(i),tmp) < 0)
+			return -EFAULT;
 		i++;
 		tmp++;
 	}
@@ -656,8 +645,8 @@ static inline size_t read_zero_pagealigned(char __user * buf, size_t size)
 	}
 
 	up_read(&mm->mmap_sem);
-	
-	/* The shared case is hard. Let's do the conventional zeroing. */ 
+
+	/* The shared case is hard. Let's do the conventional zeroing. */
 	do {
 		unsigned long unwritten = clear_user(buf, PAGE_SIZE);
 		if (unwritten)
@@ -673,7 +662,7 @@ out_up:
 	return size;
 }
 
-static ssize_t read_zero(struct file * file, char __user * buf, 
+static ssize_t read_zero(struct file * file, char __user * buf,
 			 size_t count, loff_t *ppos)
 {
 	unsigned long left, unwritten, written = 0;
@@ -723,7 +712,7 @@ static int mmap_zero(struct file * file, struct vm_area_struct * vma)
 	return err;
 }
 #else /* CONFIG_MMU */
-static ssize_t read_zero(struct file * file, char * buf, 
+static ssize_t read_zero(struct file * file, char * buf,
 			 size_t count, loff_t *ppos)
 {
 	size_t todo = count;
@@ -815,16 +804,20 @@ static const struct file_operations mem_fops = {
 	.write		= write_mem,
 	.mmap		= mmap_mem,
 	.open		= open_mem,
+#ifndef CONFIG_MMU
 	.get_unmapped_area = get_unmapped_area_mem,
+#endif
 };
 
-static const struct file_operations kmem_fops = {
+static struct file_operations kmem_fops = {
 	.llseek		= memory_lseek,
 	.read		= read_kmem,
 	.write		= write_kmem,
 	.mmap		= mmap_kmem,
 	.open		= open_kmem,
+#ifndef CONFIG_MMU
 	.get_unmapped_area = get_unmapped_area_mem,
+#endif
 };
 
 static const struct file_operations null_fops = {
@@ -850,15 +843,17 @@ static const struct file_operations zero_fops = {
 	.mmap		= mmap_zero,
 };
 
-/*
- * capabilities for /dev/zero
- * - permits private mappings, "copies" are taken of the source of zeros
- */
 static struct backing_dev_info zero_bdi = {
 	.capabilities	= BDI_CAP_MAP_COPY,
 };
 
-static const struct file_operations full_fops = {
+ static struct backing_dev_info mem_bdi = {
+ 	.capabilities	= (/*BDI_CAP_MAP_COPY |*/ BDI_CAP_MAP_DIRECT |
+ 			   BDI_CAP_READ_MAP | BDI_CAP_WRITE_MAP |
+ 			   BDI_CAP_EXEC_MAP),
+ };
+
+static struct file_operations full_fops = {
 	.llseek		= full_lseek,
 	.read		= read_full,
 	.write		= write_full,
@@ -900,14 +895,12 @@ static int memory_open(struct inode * inode, struct file * filp)
 {
 	switch (iminor(inode)) {
 		case 1:
+			filp->f_mapping->backing_dev_info = &mem_bdi;
 			filp->f_op = &mem_fops;
-			filp->f_mapping->backing_dev_info =
-				&directly_mappable_cdev_bdi;
 			break;
 		case 2:
+			filp->f_mapping->backing_dev_info = &mem_bdi;
 			filp->f_op = &kmem_fops;
-			filp->f_mapping->backing_dev_info =
-				&directly_mappable_cdev_bdi;
 			break;
 		case 3:
 			filp->f_op = &null_fops;

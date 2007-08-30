@@ -1,4 +1,4 @@
-/* $Id: strncmp.S,v 1.2 1997/03/11 17:51:44 jj Exp $
+/* $Id: strncmp.S 2395 2006-11-02 09:34:16Z magicyang $
  * Sparc64 optimized strncmp code.
  *
  * Copyright (C) 1997 Jakub Jelinek (jj@sunsite.mff.cuni.cz)

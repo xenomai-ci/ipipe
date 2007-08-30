@@ -1,5 +1,5 @@
 /*
- *	$Id: setup.c,v 1.5 2004/03/16 00:07:50 lethal Exp $
+ *	$Id: setup.c 2620 2007-01-10 08:32:17Z cooloney $
  *	Copyright (C) 2000 YAEGASHI Takeshi
  *	Hitachi HD64461 companion chip support
  */

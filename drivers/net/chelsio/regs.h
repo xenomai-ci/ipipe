@@ -1,8 +1,8 @@
 /*****************************************************************************
  *                                                                           *
  * File: regs.h                                                              *
- * $Revision: 1.8 $                                                          *
- * $Date: 2005/06/21 18:29:48 $                                              *
+ * $Revision: 2959 $                                                          *
+ * $Date: 2007-03-30 06:02:22 +0200 (Fri, 30 Mar 2007) $                                              *
  * Description:                                                              *
  *  part of the Chelsio 10Gb Ethernet Driver.                                *
  *                                                                           *

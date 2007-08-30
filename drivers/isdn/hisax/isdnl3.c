@@ -1,4 +1,4 @@
-/* $Id: isdnl3.c,v 2.22.2.3 2004/01/13 14:31:25 keil Exp $
+/* $Id: isdnl3.c 3195 2007-05-25 05:56:06Z cooloney $
  *
  * Author       Karsten Keil
  *              based on the teles driver from Jan den Ouden
@@ -19,7 +19,7 @@
 #include "hisax.h"
 #include "isdnl3.h"
 
-const char *l3_revision = "$Revision: 2.22.2.3 $";
+const char *l3_revision = "$Revision: 3195 $";
 
 static struct Fsm l3fsm;
 

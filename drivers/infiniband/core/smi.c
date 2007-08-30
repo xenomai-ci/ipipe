@@ -34,6 +34,7 @@
  * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
  *
+ * $Id: smi.c 3544 2007-08-11 17:42:26Z cooloney $
  */
 
 #include <rdma/ib_smi.h>

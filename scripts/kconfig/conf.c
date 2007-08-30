@@ -558,7 +558,6 @@ int main(int ac, char **av)
 		if (stat(".config", &tmpstat)) {
 			printf(_("***\n"
 				"*** You have not yet configured your kernel!\n"
-				"*** (missing kernel .config file)\n"
 				"***\n"
 				"*** Please run some configurator (e.g. \"make oldconfig\" or\n"
 				"*** \"make menuconfig\" or \"make xconfig\").\n"
@@ -601,7 +600,7 @@ int main(int ac, char **av)
 			input_mode = ask_silent;
 			valid_stdin = 1;
 		}
-	} else if (conf_get_changed()) {
+	} else if (sym_change_count) {
 		name = getenv("KCONFIG_NOSILENTUPDATE");
 		if (name && *name) {
 			fprintf(stderr, _("\n*** Kernel configuration requires explicit update.\n\n"));

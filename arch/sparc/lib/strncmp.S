@@ -1,4 +1,4 @@
-/* $Id: strncmp.S,v 1.2 1996/09/09 02:47:20 davem Exp $
+/* $Id: strncmp.S 2395 2006-11-02 09:34:16Z magicyang $
  * strncmp.S: Hand optimized Sparc assembly of GCC output from GNU libc
  *            generic strncmp routine.
  */

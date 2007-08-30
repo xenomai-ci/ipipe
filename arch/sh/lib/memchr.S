@@ -1,4 +1,4 @@
-/* $Id: memchr.S,v 1.1 2000/04/14 16:49:01 mjd Exp $
+/* $Id: memchr.S 2395 2006-11-02 09:34:16Z magicyang $
  *
  * "memchr" implementation of SuperH
  *

@@ -30,7 +30,7 @@
  * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
  *
- * $Id: ib_user_mad.h 2814 2005-07-06 19:14:09Z halr $
+ * $Id: ib_user_mad.h 3195 2007-05-25 05:56:06Z cooloney $
  */
 
 #ifndef IB_USER_MAD_H

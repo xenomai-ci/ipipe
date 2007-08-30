@@ -163,6 +163,58 @@ out:
 __setup("log_buf_len=", log_buf_len_setup);
 
 /*
+ * Return the number of unread characters in the log buffer.
+ */
+int log_buf_get_len(void)
+{
+	return logged_chars;
+}
+
+/*
+ * Copy a range of characters from the log buffer.
+ */
+int log_buf_copy(char *dest, int idx, int len)
+{
+	int ret, max;
+	bool took_lock = false;
+
+	if (!oops_in_progress) {
+		spin_lock_irq(&logbuf_lock);
+		took_lock = true;
+	}
+
+	max = log_buf_get_len();
+	if (idx < 0 || idx >= max) {
+		ret = -1;
+	} else {
+		if (len > max)
+			len = max;
+		ret = len;
+		idx += (log_end - max);
+		while (len-- > 0)
+			dest[len] = LOG_BUF(idx + len);
+	}
+
+	if (took_lock)
+		spin_unlock_irq(&logbuf_lock);
+
+	return ret;
+}
+
+/*
+ * Extract a single character from the log buffer.
+ */
+int log_buf_read(int idx)
+{
+	char ret;
+
+	if (log_buf_copy(&ret, idx, 1) == 1)
+		return ret;
+	else
+		return -1;
+}
+
+/*
  * Commands to do_syslog:
  *
  * 	0 -- Close the log.  Currently a NOP.
@@ -1128,6 +1180,19 @@ int unregister_console(struct console *console)
 	return res;
 }
 EXPORT_SYMBOL(unregister_console);
+
+static int __init disable_boot_consoles(void)
+{
+	if (console_drivers != NULL) {
+		if (console_drivers->flags & CON_BOOT) {
+			printk(KERN_INFO "turn off boot console %s%d\n",
+				console_drivers->name, console_drivers->index);
+			return unregister_console(console_drivers);
+		}
+	}
+	return 0;
+}
+late_initcall(disable_boot_consoles);
 
 /**
  * tty_write_message - write a message to a certain tty, not just the console.

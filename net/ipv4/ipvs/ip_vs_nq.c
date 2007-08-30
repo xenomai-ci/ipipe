@@ -1,7 +1,7 @@
 /*
  * IPVS:        Never Queue scheduling module
  *
- * Version:     $Id: ip_vs_nq.c,v 1.2 2003/06/08 09:31:19 wensong Exp $
+ * Version:     $Id: ip_vs_nq.c 2393 2006-11-02 06:03:13Z magicyang $
  *
  * Authors:     Wensong Zhang <wensong@linuxvirtualserver.org>
  *

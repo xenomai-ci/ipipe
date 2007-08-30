@@ -36,7 +36,7 @@
  * IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGES.
  *
- * $Id: //depot/aic7xxx/linux/drivers/scsi/aic7xxx/aic7770_osm.c#14 $
+ * $Id: aic7770_osm.c 2620 2007-01-10 08:32:17Z cooloney $
  */
 
 #include "aic7xxx_osm.h"

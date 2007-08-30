@@ -34,7 +34,7 @@
  * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
  *
- * $Id: agent.c 1389 2004-12-27 22:56:47Z roland $
+ * $Id: agent.c 2401 2006-11-03 06:02:10Z magicyang $
  */
 
 #include <linux/slab.h>

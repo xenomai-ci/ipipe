@@ -1,4 +1,4 @@
-/* $Id: entry.S,v 1.170 2001/11/13 00:57:05 davem Exp $
+/* $Id: entry.S 3544 2007-08-11 17:42:26Z cooloney $
  * arch/sparc/kernel/entry.S:  Sparc trap low-level entry points.
  *
  * Copyright (C) 1995 David S. Miller (davem@caip.rutgers.edu)
@@ -1749,8 +1749,8 @@ fpload:
 __ndelay:
 	save	%sp, -STACKFRAME_SZ, %sp
 	mov	%i0, %o0
-	call	.umul
-	 mov	0x1ad, %o1		! 2**32 / (1 000 000 000 / HZ)
+	call	.umul			! round multiplier up so large ns ok
+	 mov	0x1ae, %o1		! 2**32 / (1 000 000 000 / HZ)
 	call	.umul
 	 mov	%i1, %o1		! udelay_val
 	ba	delay_continue
@@ -1760,11 +1760,17 @@ __ndelay:
 __udelay:
 	save	%sp, -STACKFRAME_SZ, %sp
 	mov	%i0, %o0
-	sethi	%hi(0x10c6), %o1
+	sethi	%hi(0x10c7), %o1	! round multiplier up so large us ok
 	call	.umul
-	 or	%o1, %lo(0x10c6), %o1	! 2**32 / 1 000 000
+	 or	%o1, %lo(0x10c7), %o1	! 2**32 / 1 000 000
 	call	.umul
 	 mov	%i1, %o1		! udelay_val
+	sethi	%hi(0x028f4b62), %l0	! Add in rounding constant * 2**32,
+	or	%g0, %lo(0x028f4b62), %l0
+	addcc	%o0, %l0, %o0		! 2**32 * 0.009 999
+	bcs,a	3f
+	 add	%o1, 0x01, %o1
+3:
 	call	.umul
 	 mov	HZ, %o0			! >>32 earlier for wider range
 

@@ -8,7 +8,7 @@
  * Author: Fabrice Bellard (fabrice.bellard@netgem.com)
  * Copyright (C) 2000 Netgem S.A.
  *
- * $Id: inftlmount.c,v 1.18 2005/11/07 11:14:20 gleixner Exp $
+ * $Id: inftlmount.c 3544 2007-08-11 17:42:26Z cooloney $
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -39,7 +39,7 @@
 #include <linux/mtd/inftl.h>
 #include <linux/mtd/compatmac.h>
 
-char inftlmountrev[]="$Revision: 1.18 $";
+char inftlmountrev[]="$Revision: 3544 $";
 
 extern int inftl_read_oob(struct mtd_info *mtd, loff_t offs, size_t len,
 			  size_t *retlen, uint8_t *buf);

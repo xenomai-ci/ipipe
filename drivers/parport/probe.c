@@ -1,4 +1,4 @@
-/* $Id: parport_probe.c,v 1.1 1999/07/03 08:56:17 davem Exp $
+/* $Id: probe.c 2401 2006-11-03 06:02:10Z magicyang $
  * Parallel port device probing code
  *
  * Authors:    Carsten Gross, carsten@sol.wohnheim.uni-ulm.de

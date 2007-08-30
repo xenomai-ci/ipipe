@@ -5,7 +5,7 @@
  *	Authors:
  *	Pedro Roque		<roque@di.fc.ul.pt>
  *
- *	$Id: tcp_ipv6.c,v 1.144 2002/02/01 22:01:04 davem Exp $
+ *	$Id: tcp_ipv6.c 3544 2007-08-11 17:42:26Z cooloney $
  *
  *	Based on:
  *	linux/net/ipv4/tcp.c
@@ -644,6 +644,7 @@ static int tcp_v6_md5_do_del(struct sock *sk, struct in6_addr *peer)
 			if (tp->md5sig_info->entries6 == 0) {
 				kfree(tp->md5sig_info->keys6);
 				tp->md5sig_info->keys6 = NULL;
+				tp->md5sig_info->alloced6 = 0;
 
 				tcp_free_md5sig_pool();
 

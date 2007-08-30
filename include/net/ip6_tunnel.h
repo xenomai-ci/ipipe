@@ -1,5 +1,5 @@
 /*
- * $Id$
+ * $Id: ip6_tunnel.h 2397 2006-11-02 10:51:58Z magicyang $
  */
 
 #ifndef _NET_IP6_TUNNEL_H

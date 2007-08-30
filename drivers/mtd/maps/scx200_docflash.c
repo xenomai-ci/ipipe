@@ -2,7 +2,7 @@
 
    Copyright (c) 2001,2002 Christer Weinigel <wingel@nano-system.com>
 
-   $Id: scx200_docflash.c,v 1.12 2005/11/07 11:14:28 gleixner Exp $
+   $Id: scx200_docflash.c 2620 2007-01-10 08:32:17Z cooloney $
 
    National Semiconductor SCx200 flash mapped with DOCCS
 */

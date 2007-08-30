@@ -1,5 +1,5 @@
 /*
- * $Id: mtd-user.h,v 1.2 2004/05/05 14:44:57 dwmw2 Exp $
+ * $Id: mtd-user.h 2397 2006-11-02 10:51:58Z magicyang $
  *
  * MTD ABI header for use by user space only.
  */

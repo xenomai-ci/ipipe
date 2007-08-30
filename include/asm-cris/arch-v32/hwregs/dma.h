@@ -1,4 +1,4 @@
-/* $Id: dma.h,v 1.7 2005/04/24 18:30:58 starvik Exp $
+/* $Id: dma.h 2387 2006-11-01 05:32:21Z magicyang $
  *
  * DMA C definitions and help macros
  *

@@ -1,5 +1,5 @@
 /* This version ported to the Linux-MTD system by dwmw2@infradead.org
- * $Id: ftl.c,v 1.59 2005/11/29 14:48:31 gleixner Exp $
+ * $Id: ftl.c 3195 2007-05-25 05:56:06Z cooloney $
  *
  * Fixes: Arnaldo Carvalho de Melo <acme@conectiva.com.br>
  * - fixes some leaks on failure in build_maps and ftl_notify_add, cleanups
@@ -1084,7 +1084,7 @@ struct mtd_blktrans_ops ftl_tr = {
 
 static int init_ftl(void)
 {
-	DEBUG(0, "$Id: ftl.c,v 1.59 2005/11/29 14:48:31 gleixner Exp $\n");
+	DEBUG(0, "$Id: ftl.c 3195 2007-05-25 05:56:06Z cooloney $\n");
 
 	return register_mtd_blktrans(&ftl_tr);
 }

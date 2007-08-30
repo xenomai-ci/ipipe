@@ -1,4 +1,4 @@
-/* $Id: semaphore.c,v 1.9 2001/11/18 00:12:56 davem Exp $
+/* $Id: semaphore.c 2395 2006-11-02 09:34:16Z magicyang $
  * semaphore.c: Sparc64 semaphore implementation.
  *
  * This is basically the PPC semaphore scheme ported to use

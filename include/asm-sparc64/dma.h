@@ -1,4 +1,4 @@
-/* $Id: dma.h,v 1.21 2001/12/13 04:16:52 davem Exp $
+/* $Id: dma.h 3195 2007-05-25 05:56:06Z cooloney $
  * include/asm-sparc64/dma.h
  *
  * Copyright 1996 (C) David S. Miller (davem@caip.rutgers.edu)

@@ -5,7 +5,7 @@
  *
  * This code is GPL
  *
- * $Id: pnc2000.c,v 1.18 2005/11/07 11:14:28 gleixner Exp $
+ * $Id: pnc2000.c 2399 2006-11-03 05:32:46Z magicyang $
  */
 
 #include <linux/module.h>

@@ -501,12 +501,10 @@ void conf_parse(const char *name)
 	}
 	menu_finalize(&rootmenu);
 	for_all_symbols(i, sym) {
-		if (sym_check_deps(sym))
-			zconfnerrs++;
+		sym_check_deps(sym);
         }
-	if (zconfnerrs)
-		exit(1);
-	sym_set_change_count(1);
+
+	sym_change_count = 1;
 }
 
 const char *zconf_tokenname(int token)

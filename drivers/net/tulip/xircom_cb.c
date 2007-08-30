@@ -11,7 +11,7 @@
  *      of the GNU General Public License, incorporated herein by reference.
  *
  *
- * 	$Id: xircom_cb.c,v 1.33 2001/03/19 14:02:07 arjanv Exp $
+ * 	$Id: xircom_cb.c 3544 2007-08-11 17:42:26Z cooloney $
  */
 
 #include <linux/module.h>

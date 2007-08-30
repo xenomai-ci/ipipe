@@ -12,7 +12,7 @@
  * the Free Software Foundation; either version 2 of the License, or
  * (at your option) any later version.
  *
- *  $Id: 8250.h,v 1.8 2002/07/21 21:32:30 rmk Exp $
+ *  $Id: 8250.h 2406 2006-11-06 01:56:29Z magicyang $
  */
 
 #include <linux/serial_8250.h>

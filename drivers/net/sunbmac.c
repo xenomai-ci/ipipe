@@ -1,4 +1,4 @@
-/* $Id: sunbmac.c,v 1.30 2002/01/15 06:48:55 davem Exp $
+/* $Id: sunbmac.c 3544 2007-08-11 17:42:26Z cooloney $
  * sunbmac.c: Driver for Sparc BigMAC 100baseT ethernet adapters.
  *
  * Copyright (C) 1997, 1998, 1999, 2003 David S. Miller (davem@redhat.com)

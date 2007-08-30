@@ -11,7 +11,7 @@
  * NMI handling support added by
  *     Dave Peterson <dsp@llnl.gov> <dave_peterson@pobox.com>
  *
- * $Id: edac_mc.h,v 1.4.2.10 2005/10/05 00:43:44 dsp_llnl Exp $
+ * $Id: edac_mc.h 3195 2007-05-25 05:56:06Z cooloney $
  *
  */
 

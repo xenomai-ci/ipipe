@@ -3,7 +3,7 @@
  * Copyright (C) 2001 Mark Langsdorf (mark.langsdorf@amd.com)
  *	based on sc520cdp.c by Sysgo Real-Time Solutions GmbH
  *
- * $Id: netsc520.c,v 1.14 2005/11/07 11:14:27 gleixner Exp $
+ * $Id: netsc520.c 3195 2007-05-25 05:56:06Z cooloney $
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by

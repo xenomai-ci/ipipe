@@ -33,6 +33,7 @@
  * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
  *
+ * $Id: smi.h 3544 2007-08-11 17:42:26Z cooloney $
  */
 
 #ifndef __SMI_H_

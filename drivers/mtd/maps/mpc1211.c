@@ -1,7 +1,7 @@
 /*
  * Flash on MPC-1211
  *
- * $Id: mpc1211.c,v 1.4 2004/09/16 23:27:13 gleixner Exp $
+ * $Id: mpc1211.c 2399 2006-11-03 05:32:46Z magicyang $
  *
  * (C) 2002 Interface, Saito.K & Jeanne
  *

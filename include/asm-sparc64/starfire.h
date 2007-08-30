@@ -1,4 +1,4 @@
-/* $Id: starfire.h,v 1.2 2001/07/04 00:18:18 davem Exp $
+/* $Id: starfire.h 2400 2006-11-03 05:43:27Z magicyang $
  * starfire.h: Group all starfire specific code together.
  *
  * Copyright (C) 2000 Anton Blanchard (anton@samba.org)

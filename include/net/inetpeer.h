@@ -1,7 +1,7 @@
 /*
  *		INETPEER - A storage for permanent information about peers
  *
- *  Version:	$Id: inetpeer.h,v 1.2 2002/01/12 07:54:56 davem Exp $
+ *  Version:	$Id: inetpeer.h 2620 2007-01-10 08:32:17Z cooloney $
  *
  *  Authors:	Andrey V. Savochkin <saw@msu.ru>
  */

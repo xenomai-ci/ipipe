@@ -207,6 +207,7 @@ enum
 	VM_PANIC_ON_OOM=33,	/* panic at out-of-memory */
 	VM_VDSO_ENABLED=34,	/* map VDSO into new processes? */
 	VM_MIN_SLAB=35,		 /* Percent pages ignored by zone reclaim */
+	VM_PAGECACHE_RATIO=36,	/* percent of RAM to use as page cache */
 
 	/* s390 vm cmm sysctls */
 	VM_CMM_PAGES=1111,
@@ -976,7 +977,6 @@ extern ctl_handler sysctl_string;
 extern ctl_handler sysctl_intvec;
 extern ctl_handler sysctl_jiffies;
 extern ctl_handler sysctl_ms_jiffies;
-
 
 /*
  * Register a set of sysctl names by calling register_sysctl_table

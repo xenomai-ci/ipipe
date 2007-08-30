@@ -1,4 +1,4 @@
-/* $Id: traps.c,v 1.4 2005/04/24 18:47:55 starvik Exp $
+/* $Id: traps.c 2386 2006-11-01 04:57:26Z magicyang $
  *
  *  linux/arch/cris/arch-v10/traps.c
  *

@@ -1,4 +1,4 @@
-/* $Id: irq.c,v 1.4 2005/01/04 12:22:28 starvik Exp $
+/* $Id: irq.c 2386 2006-11-01 04:57:26Z magicyang $
  *
  *	linux/arch/cris/kernel/irq.c
  *

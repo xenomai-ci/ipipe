@@ -1,5 +1,5 @@
 /*
- * $Id: gunze.c,v 1.12 2001/09/25 10:12:07 vojtech Exp $
+ * $Id: gunze.c 3544 2007-08-11 17:42:26Z cooloney $
  *
  *  Copyright (c) 2000-2001 Vojtech Pavlik
  */

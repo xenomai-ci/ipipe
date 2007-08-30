@@ -5,7 +5,7 @@
  *	Authors:
  *	Pedro Roque		<roque@di.fc.ul.pt>
  *
- *	$Id: icmp.c,v 1.38 2002/02/08 03:57:19 davem Exp $
+ *	$Id: icmp.c 3544 2007-08-11 17:42:26Z cooloney $
  *
  *	Based on net/ipv4/icmp.c
  *
@@ -604,7 +604,7 @@ static void icmpv6_notify(struct sk_buff *skb, int type, int code, __be32 info)
 
 	read_lock(&raw_v6_lock);
 	if ((sk = sk_head(&raw_v6_htable[hash])) != NULL) {
-		while((sk = __raw_v6_lookup(sk, nexthdr, daddr, saddr,
+		while ((sk = __raw_v6_lookup(sk, nexthdr, saddr, daddr,
 					    IP6CB(skb)->iif))) {
 			rawv6_err(sk, skb, NULL, type, code, inner_offset, info);
 			sk = sk_next(sk);

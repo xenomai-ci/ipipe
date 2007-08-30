@@ -12,7 +12,7 @@
  *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
  *  GNU General Public License for more details.
  *
- *  $Id: tun.c,v 1.15 2002/03/01 02:44:24 maxk Exp $
+ *  $Id: tun.c 3544 2007-08-11 17:42:26Z cooloney $
  */
 
 /*

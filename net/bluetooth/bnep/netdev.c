@@ -26,7 +26,7 @@
 */
 
 /*
- * $Id: netdev.c,v 1.8 2002/08/04 21:23:58 maxk Exp $
+ * $Id: netdev.c 3195 2007-05-25 05:56:06Z cooloney $
  */
 
 #include <linux/module.h>

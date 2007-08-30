@@ -1,4 +1,4 @@
-/* $Id: btfixup.h,v 1.4 1998/03/09 14:04:43 jj Exp $
+/* $Id: btfixup.h 2400 2006-11-03 05:43:27Z magicyang $
  *  asm-sparc/btfixup.h:    Macros for boot time linking.
  *
  *  Copyright (C) 1998 Jakub Jelinek (jj@sunsite.mff.cuni.cz)

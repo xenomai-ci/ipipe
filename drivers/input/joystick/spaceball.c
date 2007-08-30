@@ -1,5 +1,5 @@
 /*
- * $Id: spaceball.c,v 1.17 2002/01/22 20:29:03 vojtech Exp $
+ * $Id: spaceball.c 3544 2007-08-11 17:42:26Z cooloney $
  *
  *  Copyright (c) 1999-2001 Vojtech Pavlik
  *

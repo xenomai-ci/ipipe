@@ -1,5 +1,5 @@
 /*
- * $Id: iforce-serio.c,v 1.4 2002/01/28 22:45:00 jdeneux Exp $
+ * $Id: iforce-serio.c 3544 2007-08-11 17:42:26Z cooloney $
  *
  *  Copyright (c) 2000-2001 Vojtech Pavlik <vojtech@ucw.cz>
  *  Copyright (c) 2001, 2007 Johann Deneux <johann.deneux@gmail.com>

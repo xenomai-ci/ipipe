@@ -1,4 +1,4 @@
-/* $Id: wuf.S,v 1.39 2000/01/08 16:38:18 anton Exp $
+/* $Id: wuf.S 2395 2006-11-02 09:34:16Z magicyang $
  * wuf.S: Window underflow trap handler for the Sparc.
  *
  * Copyright (C) 1995 David S. Miller

@@ -49,32 +49,21 @@
 
 
 #include <linux/linkage.h>
+#include <linux/unistd.h>
 #include <asm/blackfin.h>
-#include <asm/unistd.h>
 #include <asm/errno.h>
 #include <asm/thread_info.h>  /* TIF_NEED_RESCHED */
 #include <asm/asm-offsets.h>
+#include <asm/trace.h>
 
 #include <asm/mach-common/context.S>
 
-#ifdef CONFIG_DEBUG_BFIN_NO_KERN_HWTRACE
-	/*
-	 * TODO: this should be proper save/restore, but for now
-	 * we'll just cheat and use 0x1/0x13
-	 */
-# define DEBUG_START_HWTRACE \
-	P5.l = LO(TBUFCTL); \
-	P5.h = HI(TBUFCTL); \
-	R7 = 0x13; \
-	[P5] = R7;
-# define DEBUG_STOP_HWTRACE \
-	P5.l = LO(TBUFCTL); \
-	P5.h = HI(TBUFCTL); \
-	R7 = 0x01; \
-	[P5] = R7;
+#if defined(CONFIG_BFIN_SCRATCH_REG_RETN)
+# define EX_SCRATCH_REG RETN
+#elif defined(CONFIG_BFIN_SCRATCH_REG_RETE)
+# define EX_SCRATCH_REG RETE
 #else
-# define DEBUG_START_HWTRACE
-# define DEBUG_STOP_HWTRACE
+# define EX_SCRATCH_REG CYCLES
 #endif
 
 #ifdef CONFIG_EXCPT_IRQ_SYSC_L1
@@ -88,7 +77,7 @@
  * patch up CPLB misses on the kernel stack.
  */
 ENTRY(_ex_dcplb)
-#if defined(ANOMALY_05000261)
+#if ANOMALY_05000261
 	/*
 	 * Work around an anomaly: if we see a new DCPLB fault, return
 	 * without doing anything.  Then, if we get the same fault again,
@@ -110,51 +99,20 @@ ENTRY(_ex_icplb)
 	ASTAT = [sp++];
 	SAVE_ALL_SYS
 	call __cplb_hdr;
-	DEBUG_START_HWTRACE
+	DEBUG_START_HWTRACE(p5, r7)
 	RESTORE_ALL_SYS
-	SP = RETN;
+	SP = EX_SCRATCH_REG;
 	rtx;
 ENDPROC(_ex_icplb)
 
-ENTRY(_ex_spinlock)
-	/* Transform this into a syscall - twiddle the syscall vector.  */
-	p5.l = lo(EVT15);
-	p5.h = hi(EVT15);
-	r7.l = _spinlock_bh;
-	r7.h = _spinlock_bh;
-	[p5] = r7;
-	csync;
-	/* Fall through.  */
-ENDPROC(_ex_spinlock)
-
 ENTRY(_ex_syscall)
-	DEBUG_START_HWTRACE
+	DEBUG_START_HWTRACE(p5, r7)
 	(R7:6,P5:4) = [sp++];
 	ASTAT = [sp++];
 	raise 15;		/* invoked by TRAP #0, for sys call */
-	sp = retn;
+	sp = EX_SCRATCH_REG;
 	rtx
 ENDPROC(_ex_syscall)
-
-ENTRY(_spinlock_bh)
-	SAVE_ALL_SYS
-	/* To end up here, vector 15 was changed - so we have to change it
-	 * back.
-	 */
-	p0.l = lo(EVT15);
-	p0.h = hi(EVT15);
-	p1.l = _evt_system_call;
-	p1.h = _evt_system_call;
-	[p0] = p1;
-	csync;
-	r0 = [sp + PT_R0];
-	sp += -12;
-	call _sys_bfin_spinlock;
-	sp += 12;
-	[SP + PT_R0] = R0;
-	RESTORE_ALL_SYS
-	rti;
-ENDPROC(_spinlock_bh)
 
 ENTRY(_ex_soft_bp)
 	r7 = retx;
@@ -185,9 +143,9 @@ ENTRY(_ex_single_step)
 	cc = r6 == r7;
 	if !cc jump _ex_trap_c;
 
-_return_from_exception:
-	DEBUG_START_HWTRACE
-#ifdef ANOMALY_05000257
+ENTRY(_return_from_exception)
+	DEBUG_START_HWTRACE(p5, r7)
+#if ANOMALY_05000257
 	R7=LC0;
 	LC0=R7;
 	R7=LC1;
@@ -195,7 +153,7 @@ _return_from_exception:
 #endif
 	(R7:6,P5:4) = [sp++];
 	ASTAT = [sp++];
-	sp = retn;
+	sp = EX_SCRATCH_REG;
 	rtx;
 ENDPROC(_ex_soft_bp)
 
@@ -208,10 +166,13 @@ ENTRY(_handle_bad_cplb)
 	 * need to make a CPLB exception look like a normal exception
 	 */
 
-	DEBUG_START_HWTRACE
+	DEBUG_START_HWTRACE(p5, r7)
 	RESTORE_ALL_SYS
 	[--sp] = ASTAT;
 	[--sp] = (R7:6, P5:4);
+
+ENTRY(_ex_replaceable)
+	nop;
 
 ENTRY(_ex_trap_c)
 	/* Call C code (trap_c) to handle the exception, which most
@@ -251,10 +212,10 @@ ENTRY(_ex_trap_c)
 	R6 = SEQSTAT;
 	[P5] = R6;
 
-	DEBUG_START_HWTRACE
+	DEBUG_START_HWTRACE(p5, r7)
 	(R7:6,P5:4) = [sp++];
 	ASTAT = [sp++];
-	SP = RETN;
+	SP = EX_SCRATCH_REG;
 	raise 5;
 	rtx;
 ENDPROC(_ex_trap_c)
@@ -329,19 +290,19 @@ ENTRY(_trap) /* Exception: 4th entry into system event table(supervisor mode)*/
 	 * covered by a CPLB.  Switch to an exception stack; use RETN as a
 	 * scratch register (for want of a better option).
 	 */
-	retn = sp;
+	EX_SCRATCH_REG = sp;
 	sp.l = _exception_stack_top;
 	sp.h = _exception_stack_top;
 	/* Try to deal with syscalls quickly.  */
 	[--sp] = ASTAT;
 	[--sp] = (R7:6, P5:4);
-	DEBUG_STOP_HWTRACE
+	DEBUG_STOP_HWTRACE(p5, r7)
 	r7 = SEQSTAT;		/* reason code is in bit 5:0 */
 	r6.l = lo(SEQSTAT_EXCAUSE);
 	r6.h = hi(SEQSTAT_EXCAUSE);
 	r7 = r7 & r6;
-	p5.h = _extable;
-	p5.l = _extable;
+	p5.h = _ex_table;
+	p5.l = _ex_table;
 	p4 = r7;
 	p5 = p5 + (p4 << 2);
 	p4 = [p5];
@@ -712,7 +673,7 @@ ENTRY(_return_from_int)
 	p1.h = _schedule_and_signal_from_int;
 	[p0] = p1;
 	csync;
-#if defined(ANOMALY_05000281)
+#if ANOMALY_05000281
 	r0.l = lo(CONFIG_BOOT_LOAD);
 	r0.h = hi(CONFIG_BOOT_LOAD);
 	reti = r0;
@@ -726,7 +687,7 @@ ENTRY(_return_from_int)
 ENDPROC(_return_from_int)
 
 ENTRY(_lower_to_irq14) /* Not called when the I-pipe is enabled. */
-#if defined(ANOMALY_05000281)
+#if ANOMALY_05000281
 	r0.l = lo(CONFIG_BOOT_LOAD);
 	r0.h = hi(CONFIG_BOOT_LOAD);
 	reti = r0;
@@ -769,6 +730,10 @@ _schedule_and_signal_from_int:
 	r0 = [p0];
 	sti r0;
 
+	r0 = sp;
+	sp += -12;
+	call _finish_atomic_sections;
+	sp += 12;
 	jump.s .Lresume_userspace;
 
 _schedule_and_signal:
@@ -805,6 +770,75 @@ ENTRY(_init_exception_buff)
 	rts;
 ENDPROC(_init_exception_buff)
 
+/* We handle this 100% in exception space - to reduce overhead
+ * Only potiential problem is if the software buffer gets swapped out of the
+ * CPLB table - then double fault. - so we don't let this happen in other places
+ */
+#ifdef CONFIG_DEBUG_BFIN_HWTRACE_EXPAND
+ENTRY(_ex_trace_buff_full)
+	[--sp] = P3;
+	[--sp] = P2;
+	[--sp] = LC0;
+	[--sp] = LT0;
+	[--sp] = LB0;
+	P5.L = _trace_buff_offset;
+	P5.H = _trace_buff_offset;
+	P3 = [P5];              /* trace_buff_offset */
+	P5.L = lo(TBUFSTAT);
+	P5.H = hi(TBUFSTAT);
+	R7 = [P5];
+	R7 <<= 1;               /* double, since we need to read twice */
+	LC0 = R7;
+	R7 <<= 2;               /* need to shift over again,
+				 * to get the number of bytes */
+	P5.L = lo(TBUF);
+	P5.H = hi(TBUF);
+	R6 = ((1 << CONFIG_DEBUG_BFIN_HWTRACE_EXPAND_LEN)*1024) - 1;
+
+	P2 = R7;
+	P3 = P3 + P2;
+	R7 = P3;
+	R7 = R7 & R6;
+	P3 = R7;
+	P2.L = _trace_buff_offset;
+	P2.H = _trace_buff_offset;
+	[P2] = P3;
+
+	P2.L = _software_trace_buff;
+	P2.H = _software_trace_buff;
+
+	LSETUP (.Lstart, .Lend) LC0;
+.Lstart:
+	R7 = [P5];      /* read TBUF */
+	P4 = P3 + P2;
+	[P4] = R7;
+	P3 += -4;
+	R7 = P3;
+	R7 = R7 & R6;
+.Lend:
+	P3 = R7;
+
+	LB0 = [sp++];
+	LT0 = [sp++];
+	LC0 = [sp++];
+	P2 = [sp++];
+	P3 = [sp++];
+	jump _return_from_exception;
+
+#if CONFIG_DEBUG_BFIN_HWTRACE_EXPAND_LEN == 4
+.data
+#else
+.section .l1.data.B
+#endif
+ENTRY(_trace_buff_offset)
+        .long 0;
+ALIGN
+ENTRY(_software_trace_buff)
+	.rept ((1 << CONFIG_DEBUG_BFIN_HWTRACE_EXPAND_LEN)*256);
+	.long 0
+	.endr
+#endif
+
 /*
  * Put these in the kernel data section - that should always be covered by
  * a CPLB. This is needed to ensure we don't get double fault conditions
@@ -815,30 +849,33 @@ ENDPROC(_init_exception_buff)
 #else
 .data
 #endif
-ALIGN
-_extable:
+ENTRY(_ex_table)
 	/* entry for each EXCAUSE[5:0]
-	 * This table bmust be in sync with the table in ./kernel/traps.c
+	 * This table must be in sync with the table in ./kernel/traps.c
 	 * EXCPT instruction can provide 4 bits of EXCAUSE, allowing 16 to be user defined
 	 */
-	.long _ex_syscall;      /* 0x00 - User Defined - Linux Syscall */
+	.long _ex_syscall       /* 0x00 - User Defined - Linux Syscall */
 	.long _ex_soft_bp       /* 0x01 - User Defined - Software breakpoint */
-	.long _ex_trap_c        /* 0x02 - User Defined */
-	.long _ex_trap_c        /* 0x03 - User Defined  - Atomic test and set service */
-	.long _ex_spinlock      /* 0x04 - User Defined */
-	.long _ex_trap_c        /* 0x05 - User Defined */
-	.long _ex_trap_c        /* 0x06 - User Defined */
-	.long _ex_trap_c        /* 0x07 - User Defined */
-	.long _ex_trap_c        /* 0x08 - User Defined */
-	.long _ex_trap_c        /* 0x09 - User Defined */
-	.long _ex_trap_c        /* 0x0A - User Defined */
-	.long _ex_trap_c        /* 0x0B - User Defined */
-	.long _ex_trap_c        /* 0x0C - User Defined */
-	.long _ex_trap_c        /* 0x0D - User Defined */
-	.long _ex_trap_c        /* 0x0E - User Defined */
-	.long _ex_trap_c        /* 0x0F - User Defined */
+	.long _ex_replaceable   /* 0x02 - User Defined */
+	.long _ex_trap_c        /* 0x03 - User Defined - userspace stack overflow */
+	.long _ex_replaceable   /* 0x04 - User Defined */
+	.long _ex_replaceable   /* 0x05 - User Defined */
+	.long _ex_replaceable   /* 0x06 - User Defined */
+	.long _ex_replaceable   /* 0x07 - User Defined */
+	.long _ex_replaceable   /* 0x08 - User Defined */
+	.long _ex_replaceable   /* 0x09 - User Defined */
+	.long _ex_replaceable   /* 0x0A - User Defined */
+	.long _ex_replaceable   /* 0x0B - User Defined */
+	.long _ex_replaceable   /* 0x0C - User Defined */
+	.long _ex_replaceable   /* 0x0D - User Defined */
+	.long _ex_replaceable   /* 0x0E - User Defined */
+	.long _ex_replaceable   /* 0x0F - User Defined */
 	.long _ex_single_step   /* 0x10 - HW Single step */
+#ifdef CONFIG_DEBUG_BFIN_HWTRACE_EXPAND
+	.long _ex_trace_buff_full /* 0x11 - Trace Buffer Full */
+#else
 	.long _ex_trap_c        /* 0x11 - Trace Buffer Full */
+#endif
 	.long _ex_trap_c        /* 0x12 - Reserved */
 	.long _ex_trap_c        /* 0x13 - Reserved */
 	.long _ex_trap_c        /* 0x14 - Reserved */
@@ -886,10 +923,10 @@ _extable:
 	.long _ex_trap_c        /* 0x3D - Reserved */
 	.long _ex_trap_c        /* 0x3E - Reserved */
 	.long _ex_trap_c        /* 0x3F - Reserved */
+END(_ex_table)
 
-ALIGN
 ENTRY(_sys_call_table)
-	.long _sys_ni_syscall	/* 0  -  old "setup()" system call*/
+	.long _sys_restart_syscall	/* 0 */
 	.long _sys_exit
 	.long _sys_fork
 	.long _sys_read
@@ -1058,7 +1095,7 @@ ENTRY(_sys_call_table)
 	.long _sys_ni_syscall	/* for vm86 */
 	.long _sys_ni_syscall	/* old "query_module" */
 	.long _sys_ni_syscall	/* sys_poll */
-	.long _sys_ni_syscall	/* sys_nfsservctl */
+	.long _sys_nfsservctl
 	.long _sys_setresgid	/* setresgid16 */	/* 170 */
 	.long _sys_getresgid	/* getresgid16 */
 	.long _sys_prctl
@@ -1114,7 +1151,7 @@ ENTRY(_sys_call_table)
 	.long _sys_ni_syscall	/* reserved for TUX */
 	.long _sys_ni_syscall
 	.long _sys_gettid
-	.long _sys_ni_syscall	/* 225 */ /* sys_readahead */
+	.long _sys_readahead	/* 225 */
 	.long _sys_setxattr
 	.long _sys_lsetxattr
 	.long _sys_fsetxattr
@@ -1231,6 +1268,18 @@ ENTRY(_sys_call_table)
 	.long _sys_shmctl
 	.long _sys_shmdt	/* 340 */
 	.long _sys_shmget
+	.long _sys_splice
+	.long _sys_sync_file_range
+	.long _sys_tee
+	.long _sys_vmsplice	/* 345 */
+	.long _sys_epoll_pwait
+	.long _sys_utimensat
+	.long _sys_signalfd
+	.long _sys_timerfd
+	.long _sys_eventfd	/* 350 */
+	.long _sys_pread64
+	.long _sys_pwrite64
+	.long _sys_fadvise64
 	.rept NR_syscalls-(.-_sys_call_table)/4
 	.long _sys_ni_syscall
 	.endr
@@ -1243,7 +1292,7 @@ _exception_stack:
 	.endr
 _exception_stack_top:
 
-#if defined(ANOMALY_05000261)
+#if ANOMALY_05000261
 /* Used by the assembly entry point to work around an anomaly.  */
 _last_cplb_fault_retx:
 	.long 0;

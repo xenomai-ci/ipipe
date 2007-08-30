@@ -1,4 +1,4 @@
-/* $Id: namei.h,v 1.1 2000/07/10 16:32:31 bjornw Exp $
+/* $Id: namei.h 2387 2006-11-01 05:32:21Z magicyang $
  * linux/include/asm-cris/namei.h
  *
  * Included from linux/fs/namei.c

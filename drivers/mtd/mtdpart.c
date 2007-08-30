@@ -5,7 +5,7 @@
  *
  * This code is GPL
  *
- * $Id: mtdpart.c,v 1.55 2005/11/07 11:14:20 gleixner Exp $
+ * $Id: mtdpart.c 3544 2007-08-11 17:42:26Z cooloney $
  *
  * 	02-21-2002	Thomas Gleixner <gleixner@autronix.de>
  *			added support for read_oob, write_oob
@@ -84,6 +84,17 @@ static void part_unpoint (struct mtd_info *mtd, u_char *addr, loff_t from, size_
 	struct mtd_part *part = PART(mtd);
 
 	part->master->unpoint (part->master, addr, from + part->offset, len);
+}
+
+static unsigned long part_get_unmapped_area(struct mtd_info *mtd,
+					    unsigned long len,
+					    unsigned long offset,
+					    unsigned long flags)
+{
+	struct mtd_part *part = PART(mtd);
+
+	return part->master->get_unmapped_area(part->master, len,
+					       offset + part->offset, flags);
 }
 
 static int part_read_oob(struct mtd_info *mtd, loff_t from,
@@ -357,6 +368,8 @@ int add_mtd_partitions(struct mtd_info *master,
 			slave->mtd.unpoint = part_unpoint;
 		}
 
+		if (master->get_unmapped_area)
+			slave->mtd.get_unmapped_area = part_get_unmapped_area;
 		if (master->read_oob)
 			slave->mtd.read_oob = part_read_oob;
 		if (master->write_oob)

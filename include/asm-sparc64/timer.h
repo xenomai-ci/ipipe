@@ -1,4 +1,4 @@
-/* $Id: timer.h,v 1.3 2000/05/09 17:40:15 davem Exp $
+/* $Id: timer.h 3544 2007-08-11 17:42:26Z cooloney $
  * timer.h: System timer definitions for sun5.
  *
  * Copyright (C) 1997 David S. Miller (davem@caip.rutgers.edu)

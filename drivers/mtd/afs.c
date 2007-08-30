@@ -21,7 +21,7 @@
    This is access code for flashes using ARM's flash partitioning
    standards.
 
-   $Id: afs.c,v 1.15 2005/11/07 11:14:19 gleixner Exp $
+   $Id: afs.c 2959 2007-03-30 04:02:22Z cooloney $
 
 ======================================================================*/
 

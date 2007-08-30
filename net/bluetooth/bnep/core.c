@@ -26,7 +26,7 @@
 */
 
 /*
- * $Id: core.c,v 1.20 2002/08/04 21:23:58 maxk Exp $
+ * $Id: core.c 3544 2007-08-11 17:42:26Z cooloney $
  */
 
 #include <linux/module.h>

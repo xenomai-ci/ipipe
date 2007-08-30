@@ -30,7 +30,7 @@
  * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
  *
- * $Id: ud_header.c 1349 2004-12-16 21:09:43Z roland $
+ * $Id: ud_header.c 2401 2006-11-03 06:02:10Z magicyang $
  */
 
 #include <linux/errno.h>

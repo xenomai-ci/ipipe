@@ -6,8 +6,6 @@ lex.*.c
 *.tab.c
 *.tab.h
 zconf.hash.c
-*.moc
-lkc_defs.h
 
 #
 # configuration programs

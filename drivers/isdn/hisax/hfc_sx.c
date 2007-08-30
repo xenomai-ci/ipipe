@@ -1,4 +1,4 @@
-/* $Id: hfc_sx.c,v 1.12.2.5 2004/02/11 13:21:33 keil Exp $
+/* $Id: hfc_sx.c 2959 2007-03-30 04:02:22Z cooloney $
  *
  * level driver for Cologne Chip Designs hfc-s+/sp based cards
  *
@@ -20,7 +20,7 @@
 
 extern const char *CardType[];
 
-static const char *hfcsx_revision = "$Revision: 1.12.2.5 $";
+static const char *hfcsx_revision = "$Revision: 2959 $";
 
 /***************************************/
 /* IRQ-table for CCDs demo board       */

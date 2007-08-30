@@ -1,5 +1,5 @@
 /*
- * $Id: evbug.c,v 1.10 2001/09/25 10:12:07 vojtech Exp $
+ * $Id: evbug.c 3544 2007-08-11 17:42:26Z cooloney $
  *
  *  Copyright (c) 1999-2001 Vojtech Pavlik
  */

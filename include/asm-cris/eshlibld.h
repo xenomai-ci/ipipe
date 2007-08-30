@@ -12,7 +12,7 @@
 *! (C) Copyright 1998, 1999 Axis Communications AB, LUND, SWEDEN
 *!
 *!**************************************************************************/
-/* $Id: eshlibld.h,v 1.2 2001/02/23 13:47:33 bjornw Exp $ */
+/* $Id: eshlibld.h 2387 2006-11-01 05:32:21Z magicyang $ */
 
 #ifndef _cris_relocate_h
 #define _cris_relocate_h

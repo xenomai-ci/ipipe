@@ -7,7 +7,7 @@
  *       Copyright (C) 2002 Marius Gröger (mag@sysgo.de)
  *       Copyright (c) 2001 Thomas Gleixner (gleixner@autronix.de)
  *
- * $Id: h1910.c,v 1.6 2005/11/07 11:14:30 gleixner Exp $
+ * $Id: h1910.c 2399 2006-11-03 05:32:46Z magicyang $
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as

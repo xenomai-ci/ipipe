@@ -22,7 +22,7 @@
  * BEGIN_DESC
  *
  *  File:
- *	@(#)	pa/spmath/sfdiv.c		$Revision: 1.1 $
+ *	@(#)	pa/spmath/sfdiv.c		$Revision: 2395 $
  *
  *  Purpose:
  *	Single Precision Floating-point Divide

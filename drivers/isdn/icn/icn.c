@@ -1,4 +1,4 @@
-/* $Id: icn.c,v 1.65.6.8 2001/09/23 22:24:55 kai Exp $
+/* $Id: icn.c 3544 2007-08-11 17:42:26Z cooloney $
  *
  * ISDN low-level module for the ICN active ISDN-Card.
  *
@@ -42,7 +42,7 @@ MODULE_PARM_DESC(icn_id2, "ID-String of first card, second S0 (4B only)");
 #undef MAP_DEBUG
 
 static char
-*revision = "$Revision: 1.65.6.8 $";
+*revision = "$Revision: 3544 $";
 
 static int icn_addcard(int, char *, char *);
 

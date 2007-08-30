@@ -33,7 +33,7 @@
  * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
  *
- * $Id: uverbs_main.c 2733 2005-06-28 19:14:34Z roland $
+ * $Id: uverbs_main.c 3544 2007-08-11 17:42:26Z cooloney $
  */
 
 #include <linux/module.h>

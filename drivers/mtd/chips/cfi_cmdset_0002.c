@@ -17,7 +17,7 @@
  *
  * This code is GPL
  *
- * $Id: cfi_cmdset_0002.c,v 1.122 2005/11/07 11:14:22 gleixner Exp $
+ * $Id: cfi_cmdset_0002.c 3195 2007-05-25 05:56:06Z cooloney $
  *
  */
 

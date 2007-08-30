@@ -57,6 +57,21 @@ obj-$(CONFIG_HVCS)		+= hvcs.o
 obj-$(CONFIG_SGI_MBCS)		+= mbcs.o
 obj-$(CONFIG_BRIQ_PANEL)	+= briq_panel.o
 
+obj-$(CONFIG_AD9960)		+= ad9960.o
+obj-$(CONFIG_SPI_ADC_BF533) += bfin_spi_adc.o
+obj-$(CONFIG_BFIN_TIMER_LATENCY) += bfin_timer_latency.o
+obj-$(CONFIG_BF5xx_PFLAGS) += bfin_pflags.o
+obj-$(CONFIG_BF5xx_PPIFCD) += bfin_ppifcd.o
+obj-$(CONFIG_BF5xx_TIMERS)       += bf5xx_timers.o
+obj-$(CONFIG_BFIN_SIMPLE_TIMER)  += bfin_simple_timer.o
+obj-$(CONFIG_BF5xx_PPI)          += bfin_ppi.o
+obj-$(CONFIG_BFIN_SPORT)  += bfin_sport.o
+obj-$(CONFIG_BLACKFIN_DPMC) 	+= bfin_dpmc.o
+obj-$(CONFIG_TWI_LCD)	+= bfin_twi_lcd.o
+obj-$(CONFIG_AD5304)		+= ad5304.o
+obj-$(CONFIG_BF5xx_FBDMA)	+= bfin_fbdma.o
+obj-$(CONFIG_BF5xx_TEA5764) 	+= tea5764.o
+
 obj-$(CONFIG_PRINTER)		+= lp.o
 obj-$(CONFIG_TIPAR)		+= tipar.o
 
@@ -94,6 +109,7 @@ obj-$(CONFIG_GPIO_VR41XX)	+= vr41xx_giu.o
 obj-$(CONFIG_GPIO_TB0219)	+= tb0219.o
 obj-$(CONFIG_TELCLOCK)		+= tlclk.o
 
+obj-$(CONFIG_CAN4LINUX)		+= can4linux/
 obj-$(CONFIG_WATCHDOG)		+= watchdog/
 obj-$(CONFIG_MWAVE)		+= mwave/
 obj-$(CONFIG_AGP)		+= agp/

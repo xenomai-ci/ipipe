@@ -1,6 +1,6 @@
 /*
  *
- *  $Id$
+ *  $Id: pvrusb2-v4l2.c 3544 2007-08-11 17:42:26Z cooloney $
  *
  *  Copyright (C) 2005 Mike Isely <isely@pobox.com>
  *  Copyright (C) 2004 Aurelien Alleaume <slts@free.fr>

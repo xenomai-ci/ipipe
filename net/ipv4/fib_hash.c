@@ -5,7 +5,7 @@
  *
  *		IPv4 FIB: lookup engine and maintenance routines.
  *
- * Version:	$Id: fib_hash.c,v 1.13 2001/10/31 21:55:54 davem Exp $
+ * Version:	$Id: fib_hash.c 3544 2007-08-11 17:42:26Z cooloney $
  *
  * Authors:	Alexey Kuznetsov, <kuznet@ms2.inr.ac.ru>
  *

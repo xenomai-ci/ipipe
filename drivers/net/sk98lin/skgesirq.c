@@ -2,8 +2,8 @@
  *
  * Name:	skgesirq.c
  * Project:	Gigabit Ethernet Adapters, Common Modules
- * Version:	$Revision: 1.92 $
- * Date:	$Date: 2003/09/16 14:37:07 $
+ * Version:	$Revision: 2959 $
+ * Date:	$Date: 2007-03-30 06:02:22 +0200 (Fri, 30 Mar 2007) $
  * Purpose:	Special IRQ module
  *
  ******************************************************************************/
@@ -48,7 +48,7 @@
 
 #if (defined(DEBUG) || ((!defined(LINT)) && (!defined(SK_SLIM))))
 static const char SysKonnectFileId[] =
-	"@(#) $Id: skgesirq.c,v 1.92 2003/09/16 14:37:07 rschmidt Exp $ (C) Marvell.";
+	"@(#) $Id: skgesirq.c 2959 2007-03-30 04:02:22Z cooloney $ (C) Marvell.";
 #endif
 
 #include "h/skdrv1st.h"		/* Driver Specific Definitions */

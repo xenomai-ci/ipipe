@@ -1,7 +1,7 @@
 /*
  *	For declaring structures shared with assembly routines
  *
- *	$Id: asstruct.h,v 1.1.1.1 1994/10/23 05:08:32 rick Exp $
+ *	$Id: dgrs_asstruct.h 2620 2007-01-10 08:32:17Z cooloney $
  */
 
 #ifdef ASSEMBLER

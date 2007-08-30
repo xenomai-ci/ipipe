@@ -28,7 +28,7 @@
  * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
  * SUCH DAMAGE.
  *
- * $Id: //depot/aic7xxx/aic7xxx/aic7xxx_93cx6.c#19 $
+ * $Id: aic7xxx_93cx6.c 1322 2006-03-23 03:12:41Z magicyang $
  */
 
 /*

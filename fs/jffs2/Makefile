@@ -1,6 +1,7 @@
 #
 # Makefile for the Linux Journalling Flash File System v2 (JFFS2)
 #
+# $Id: Makefile 2386 2006-11-01 04:57:26Z magicyang $
 #
 
 obj-$(CONFIG_JFFS2_FS) += jffs2.o

@@ -1,4 +1,4 @@
-/* $Id: telespci.c,v 2.23.2.3 2004/01/13 14:31:26 keil Exp $
+/* $Id: telespci.c 2620 2007-01-10 08:32:17Z cooloney $
  *
  * low level stuff for Teles PCI isdn cards
  *
@@ -20,7 +20,7 @@
 #include <linux/pci.h>
 
 extern const char *CardType[];
-static const char *telespci_revision = "$Revision: 2.23.2.3 $";
+static const char *telespci_revision = "$Revision: 2620 $";
 
 #define ZORAN_PO_RQ_PEN	0x02000000
 #define ZORAN_PO_WR	0x00800000

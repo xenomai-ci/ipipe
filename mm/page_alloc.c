@@ -59,6 +59,8 @@ unsigned long totalreserve_pages __read_mostly;
 long nr_swap_pages;
 int percpu_pagelist_fraction;
 
+int sysctl_pagecache_ratio = 100;
+
 static void __free_pages_ok(struct page *page, unsigned int order);
 
 /*
@@ -833,6 +835,16 @@ void split_page(struct page *page, unsigned int order)
 }
 
 /*
+ * Like split_page, but calls destroy_compound_page first
+ */
+void split_compound_page(struct page *page, unsigned int order)
+{
+	VM_BUG_ON(!PageCompound(page));
+	destroy_compound_page(page, order);
+	split_page(page, order);
+}
+
+/*
  * Really, prep_compound_page() should be called from __rmqueue_bulk().  But
  * we cheat by calling it from here, in the order > 0 path.  Saves a branch
  * or two.
@@ -1165,6 +1177,12 @@ zonelist_scan:
 			!cpuset_zone_allowed_softwall(zone, gfp_mask))
 				goto try_next_zone;
 
+		if ((gfp_mask & __GFP_PAGECACHE) &&
+				(zone_page_state(zone, NR_FILE_PAGES) -
+				 zone_page_state(zone, NR_FILE_MAPPED)) >
+					zone->max_pagecache_pages)
+				goto try_next_zone;
+
 		if (!(alloc_flags & ALLOC_NO_WATERMARKS)) {
 			unsigned long mark;
 			if (alloc_flags & ALLOC_WMARK_MIN)
@@ -1351,7 +1369,7 @@ nofail_alloc:
 	 */
 	do_retry = 0;
 	if (!(gfp_mask & __GFP_NORETRY)) {
-		if ((order <= 3) || (gfp_mask & __GFP_REPEAT))
+		if ((order <= CONFIG_BIG_ORDER_ALLOC_NOFAIL_MAGIC) || (gfp_mask & __GFP_REPEAT))
 			do_retry = 1;
 		if (gfp_mask & __GFP_NOFAIL)
 			do_retry = 1;
@@ -2638,6 +2656,8 @@ static void __meminit free_area_init_core(struct pglist_data *pgdat,
 						/ 100;
 		zone->min_slab_pages = (realsize * sysctl_min_slab_ratio) / 100;
 #endif
+		zone->max_pagecache_pages =
+			(realsize * sysctl_pagecache_ratio) / 100;
 		zone->name = zone_names[j];
 		spin_lock_init(&zone->lock);
 		spin_lock_init(&zone->lru_lock);
@@ -3237,6 +3257,22 @@ int sysctl_min_slab_ratio_sysctl_handler(ctl_table *table, int write,
 	return 0;
 }
 #endif
+
+int sysctl_pagecache_ratio_sysctl_handler(ctl_table *table, int write,
+	struct file *file, void __user *buffer, size_t *length, loff_t *ppos)
+{
+	struct zone *zone;
+	int rc;
+
+	rc = proc_dointvec_minmax(table, write, file, buffer, length, ppos);
+	if (rc)
+		return rc;
+
+	for_each_zone(zone)
+		zone->max_pagecache_pages = (zone->present_pages *
+				sysctl_pagecache_ratio) / 100;
+	return 0;
+}
 
 /*
  * lowmem_reserve_ratio_sysctl_handler - just a wrapper around

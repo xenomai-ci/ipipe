@@ -22,7 +22,7 @@
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
  *
- *  $Id: amba.c,v 1.41 2002/07/28 10:03:27 rmk Exp $
+ *  $Id: amba-pl011.c 3544 2007-08-11 17:42:26Z cooloney $
  *
  * This is a generic driver for ARM AMBA-type serial ports.  They
  * have a lot of 16550-like features, but are not register compatible.

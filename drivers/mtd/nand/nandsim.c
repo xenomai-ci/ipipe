@@ -22,7 +22,7 @@
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA
  *
- * $Id: nandsim.c,v 1.8 2005/03/19 15:33:56 dedekind Exp $
+ * $Id: nandsim.c 3544 2007-08-11 17:42:26Z cooloney $
  */
 
 #include <linux/init.h>

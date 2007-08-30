@@ -44,7 +44,7 @@
  *      Erez Zilber
  *
  *
- * $Id: iscsi_iser.c 6965 2006-05-07 11:36:20Z ogerlitz $
+ * $Id: iscsi_iser.c 2728 2007-02-06 06:35:03Z cooloney $
  */
 
 #include <linux/types.h>

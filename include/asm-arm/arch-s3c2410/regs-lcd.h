@@ -10,7 +10,7 @@
 
 
 #ifndef ___ASM_ARCH_REGS_LCD_H
-#define ___ASM_ARCH_REGS_LCD_H "$Id: lcd.h,v 1.3 2003/06/26 13:25:06 ben Exp $"
+#define ___ASM_ARCH_REGS_LCD_H "$Id: regs-lcd.h 2620 2007-01-10 08:32:17Z cooloney $"
 
 #define S3C2410_LCDREG(x) ((x) + S3C24XX_VA_LCD)
 

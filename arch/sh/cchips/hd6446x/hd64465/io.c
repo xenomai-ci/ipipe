@@ -1,5 +1,5 @@
 /*
- * $Id: io.c,v 1.4 2003/08/03 03:05:10 lethal Exp $
+ * $Id: io.c 2395 2006-11-02 09:34:16Z magicyang $
  * by Greg Banks <gbanks@pocketpenguins.com>
  * (c) 2000 PocketPenguins Inc
  *

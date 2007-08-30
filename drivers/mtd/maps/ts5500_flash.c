@@ -23,7 +23,7 @@
  * - If you have created your own jffs file system and the bios overwrites
  *   it during boot, try disabling Drive A: and B: in the boot order.
  *
- * $Id: ts5500_flash.c,v 1.5 2005/11/07 11:14:28 gleixner Exp $
+ * $Id: ts5500_flash.c 2399 2006-11-03 05:32:46Z magicyang $
  */
 
 #include <linux/init.h>

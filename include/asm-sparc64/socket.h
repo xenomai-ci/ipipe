@@ -1,4 +1,4 @@
-/* $Id: socket.h,v 1.10 2001/06/13 16:25:03 davem Exp $ */
+/* $Id: socket.h 3544 2007-08-11 17:42:26Z cooloney $ */
 #ifndef _ASM_SOCKET_H
 #define _ASM_SOCKET_H
 

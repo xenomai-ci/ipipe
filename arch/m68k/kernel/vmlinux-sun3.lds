@@ -8,11 +8,11 @@ ENTRY(_start)
 jiffies = jiffies_64 + 4;
 SECTIONS
 {
-  . = 0xE002000;
+  . = 0xE004000;
   _text = .;			/* Text and read-only data */
   .text : {
 	*(.head)
-	TEXT_TEXT
+	*(.text)
 	SCHED_TEXT
 	LOCK_TEXT
 	*(.fixup)
@@ -23,7 +23,7 @@ SECTIONS
   _etext = .;			/* End of text section */
 
   .data : {			/* Data */
-	DATA_DATA
+	*(.data)
 	CONSTRUCTORS
 	. = ALIGN(16);		/* Exception table */
 	__start___ex_table = .;
@@ -48,24 +48,23 @@ __init_begin = .;
 	__setup_end = .;
 	__initcall_start = .;
 	.initcall.init : {
-		INITCALLS
+		*(.initcall1.init)
+		*(.initcall2.init)
+		*(.initcall3.init)
+		*(.initcall4.init)
+		*(.initcall5.init)
+		*(.initcall6.init)
+		*(.initcall7.init)
 	}
 	__initcall_end = .;
 	__con_initcall_start = .;
 	.con_initcall.init : { *(.con_initcall.init) }
 	__con_initcall_end = .;
-	.m68k_fixup : {
-		__start_fixup = .;
-		*(.m68k_fixup)
-		__stop_fixup = .;
-	}
 	SECURITY_INIT
-#ifdef CONFIG_BLK_DEV_INITRD
 	. = ALIGN(8192);
 	__initramfs_start = .;
 	.init.ramfs : { *(.init.ramfs) }
 	__initramfs_end = .;
-#endif
 	. = ALIGN(8192);
 	__init_end = .;
 	.data.init.task : { *(.data.init_task) }

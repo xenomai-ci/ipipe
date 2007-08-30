@@ -1,5 +1,5 @@
 /*
- * $Id: mtdcore.c,v 1.47 2005/11/07 11:14:20 gleixner Exp $
+ * $Id: mtdcore.c 3195 2007-05-25 05:56:06Z cooloney $
  *
  * Core registration and callback routines for MTD
  * drivers and users.
@@ -21,6 +21,7 @@
 #include <linux/proc_fs.h>
 
 #include <linux/mtd/mtd.h>
+#include "internal.h"
 
 /* These are exported solely for the purpose of mtd_blkdevs.c. You
    should not use them for _anything_ else */
@@ -47,6 +48,19 @@ int add_mtd_device(struct mtd_info *mtd)
 	int i;
 
 	BUG_ON(mtd->writesize == 0);
+	if (!mtd->backing_dev_info) {
+		switch (mtd->type) {
+		case MTD_RAM:
+			mtd->backing_dev_info = &mtd_bdi_rw_mappable;
+			break;
+		case MTD_ROM:
+			mtd->backing_dev_info = &mtd_bdi_ro_mappable;
+			break;
+		default:
+			mtd->backing_dev_info = &mtd_bdi_unmappable;
+			break;
+		}
+	}
 	mutex_lock(&mtd_table_mutex);
 
 	for (i=0; i < MAX_MTD_DEVICES; i++)

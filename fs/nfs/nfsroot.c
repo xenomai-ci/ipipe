@@ -1,5 +1,5 @@
 /*
- *  $Id: nfsroot.c,v 1.45 1998/03/07 10:44:46 mj Exp $
+ *  $Id: nfsroot.c 3544 2007-08-11 17:42:26Z cooloney $
  *
  *  Copyright (C) 1995, 1996  Gero Kuhlmann <gero@gkminix.han.de>
  *

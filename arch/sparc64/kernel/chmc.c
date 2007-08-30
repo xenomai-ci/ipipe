@@ -1,4 +1,4 @@
-/* $Id: chmc.c,v 1.4 2002/01/08 16:00:14 davem Exp $
+/* $Id: chmc.c 3544 2007-08-11 17:42:26Z cooloney $
  * memctrlr.c: Driver for UltraSPARC-III memory controller.
  *
  * Copyright (C) 2001 David S. Miller (davem@redhat.com)

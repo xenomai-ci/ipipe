@@ -29,7 +29,7 @@
  * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
  *
- * $Id: ib_srp.c 3932 2005-11-01 17:19:29Z roland $
+ * $Id: ib_srp.c 3544 2007-08-11 17:42:26Z cooloney $
  */
 
 #include <linux/module.h>

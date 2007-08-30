@@ -1,5 +1,5 @@
 /*
- * $Id: cobra.c,v 1.19 2002/01/22 20:26:52 vojtech Exp $
+ * $Id: cobra.c 3544 2007-08-11 17:42:26Z cooloney $
  *
  *  Copyright (c) 1999-2001 Vojtech Pavlik
  */

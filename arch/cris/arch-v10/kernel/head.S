@@ -1,4 +1,4 @@
-/* $Id: head.S,v 1.10 2005/06/20 05:12:54 starvik Exp $
+/* $Id: head.S 2620 2007-01-10 08:32:17Z cooloney $
  * 
  * Head of the kernel - alter with care
  *

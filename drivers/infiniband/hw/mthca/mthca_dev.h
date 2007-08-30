@@ -33,7 +33,7 @@
  * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
  *
- * $Id: mthca_dev.h 1349 2004-12-16 21:09:43Z roland $
+ * $Id: mthca_dev.h 3544 2007-08-11 17:42:26Z cooloney $
  */
 
 #ifndef MTHCA_DEV_H

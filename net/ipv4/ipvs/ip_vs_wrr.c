@@ -1,7 +1,7 @@
 /*
  * IPVS:        Weighted Round-Robin Scheduling module
  *
- * Version:     $Id: ip_vs_wrr.c,v 1.12 2002/09/15 08:14:08 wensong Exp $
+ * Version:     $Id: ip_vs_wrr.c 2393 2006-11-02 06:03:13Z magicyang $
  *
  * Authors:     Wensong Zhang <wensong@linuxvirtualserver.org>
  *

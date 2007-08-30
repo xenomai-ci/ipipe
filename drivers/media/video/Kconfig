@@ -786,4 +786,6 @@ config USB_ZR364XX
 
 endif # V4L_USB_DRIVERS
 
+source "drivers/media/video/blackfin/Kconfig"
+
 endif # VIDEO_CAPTURE_DRIVERS

@@ -1,5 +1,5 @@
 /*
- * $Id: gpio.c,v 1.4 2003/05/19 22:24:18 lethal Exp $
+ * $Id: gpio.c 2620 2007-01-10 08:32:17Z cooloney $
  * by Greg Banks <gbanks@pocketpenguins.com>
  * (c) 2000 PocketPenguins Inc
  *

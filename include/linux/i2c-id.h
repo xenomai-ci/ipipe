@@ -160,6 +160,8 @@
 #define I2C_DRIVERID_FSCHER 1046
 #define I2C_DRIVERID_W83L785TS 1047
 #define I2C_DRIVERID_OV7670 1048	/* Omnivision 7670 camera */
+#define I2C_DRIVERID_PCF8575 1049
+#define I2C_DRIVERID_AD5252 1050
 
 /*
  * ---- Adapter types ----------------------------------------------------
@@ -195,6 +197,7 @@
 #define I2C_HW_B_EM28XX		0x01001f /* em28xx video capture cards */
 #define I2C_HW_B_CX2341X	0x010020 /* Conexant CX2341X MPEG encoder cards */
 #define I2C_HW_B_INTELFB	0x010021 /* intel framebuffer driver */
+#define I2C_HW_B_BLACKFIN	0x010022 /* ADI Blackfin I2C TWI driver */
 
 /* --- PCF 8584 based algorithms					*/
 #define I2C_HW_P_LP		0x020000 /* Parallel port interface */

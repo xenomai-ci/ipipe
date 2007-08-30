@@ -35,7 +35,7 @@
  * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
  *
- * $Id: ib_verbs.h 1349 2004-12-16 21:09:43Z roland $
+ * $Id: ib_verbs.h 3544 2007-08-11 17:42:26Z cooloney $
  */
 
 #if !defined(IB_VERBS_H)

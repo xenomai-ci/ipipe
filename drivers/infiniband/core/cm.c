@@ -32,7 +32,7 @@
  * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
  *
- * $Id: cm.c 4311 2005-12-05 18:42:01Z sean.hefty $
+ * $Id: cm.c 3544 2007-08-11 17:42:26Z cooloney $
  */
 
 #include <linux/completion.h>

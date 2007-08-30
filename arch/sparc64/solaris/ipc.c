@@ -1,4 +1,4 @@
-/* $Id: ipc.c,v 1.5 1999/12/09 00:41:00 davem Exp $
+/* $Id: ipc.c 3544 2007-08-11 17:42:26Z cooloney $
  * ipc.c: Solaris IPC emulation
  *
  * Copyright (C) 1997 Jakub Jelinek (jj@sunsite.mff.cuni.cz)

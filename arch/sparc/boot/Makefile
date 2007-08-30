@@ -1,4 +1,4 @@
-# $Id: Makefile,v 1.10 2000/02/23 08:17:46 jj Exp $
+# $Id: Makefile 2395 2006-11-02 09:34:16Z magicyang $
 # Makefile for the Sparc boot stuff.
 #
 # Copyright (C) 1995 David S. Miller (davem@caip.rutgers.edu)

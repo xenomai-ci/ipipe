@@ -5,7 +5,7 @@
  *
  * This code is GPL
  *
- * $Id: dc21285.c,v 1.24 2005/11/07 11:14:26 gleixner Exp $
+ * $Id: dc21285.c 2399 2006-11-03 05:32:46Z magicyang $
  */
 #include <linux/module.h>
 #include <linux/types.h>

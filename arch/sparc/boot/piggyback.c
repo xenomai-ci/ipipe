@@ -1,4 +1,4 @@
-/* $Id: piggyback.c,v 1.4 2000/12/05 00:48:57 anton Exp $
+/* $Id: piggyback.c 2395 2006-11-02 09:34:16Z magicyang $
    Simple utility to make a single-image install kernel with initial ramdisk
    for Sparc tftpbooting without need to set up nfs.
 

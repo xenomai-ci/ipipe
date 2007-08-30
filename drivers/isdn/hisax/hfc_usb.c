@@ -1,7 +1,7 @@
 /*
  * hfc_usb.c
  *
- * $Id: hfc_usb.c,v 2.3.2.13 2006/02/17 17:17:22 mbachem Exp $
+ * $Id: hfc_usb.c 3544 2007-08-11 17:42:26Z cooloney $
  *
  * modular HiSax ISDN driver for Colognechip HFC-S USB chip
  *
@@ -42,7 +42,7 @@
 #include "hfc_usb.h"
 
 static const char *hfcusb_revision =
-    "$Revision: 2.3.2.13 $ $Date: 2006/02/17 17:17:22 $ ";
+    "$Revision: 3544 $ $Date: 2007-08-11 19:42:26 +0200 (Sat, 11 Aug 2007) $ ";
 
 /* Hisax debug support
 * use "modprobe debug=x" where x is bitfield of USB_DBG & ISDN_DBG

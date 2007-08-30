@@ -1,4 +1,4 @@
-/* $Id: cris-ide-driver.patch,v 1.1 2005/06/29 21:39:07 akpm Exp $
+/* $Id: ide-cris.c 3544 2007-08-11 17:42:26Z cooloney $
  *
  * Etrax specific IDE functions, like init and PIO-mode setting etc.
  * Almost the entire ide.c is used for the rest of the Etrax ATA driver.

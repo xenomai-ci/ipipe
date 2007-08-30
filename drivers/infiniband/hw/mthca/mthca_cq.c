@@ -33,7 +33,7 @@
  * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
  *
- * $Id: mthca_cq.c 1369 2004-12-20 16:17:07Z roland $
+ * $Id: mthca_cq.c 3544 2007-08-11 17:42:26Z cooloney $
  */
 
 #include <linux/hardirq.h>

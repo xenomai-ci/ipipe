@@ -1,7 +1,7 @@
 #
 # Makefile for the kernel serial device drivers.
 #
-#  $Id: Makefile,v 1.8 2002/07/21 21:32:30 rmk Exp $
+#  $Id: Makefile 3544 2007-08-11 17:42:26Z cooloney $
 #
 
 obj-$(CONFIG_SERIAL_CORE) += serial_core.o
@@ -60,5 +60,6 @@ obj-$(CONFIG_SERIAL_SGI_IOC3) += ioc3_serial.o
 obj-$(CONFIG_SERIAL_ATMEL) += atmel_serial.o
 obj-$(CONFIG_SERIAL_UARTLITE) += uartlite.o
 obj-$(CONFIG_SERIAL_NETX) += netx-serial.o
+obj-$(CONFIG_SERIAL_BFIN_SPORT) += bfin_sport_uart.o
 obj-$(CONFIG_SERIAL_OF_PLATFORM) += of_serial.o
 obj-$(CONFIG_SERIAL_KS8695) += serial_ks8695.o

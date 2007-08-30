@@ -1,5 +1,5 @@
 /*
- * $Id: lightning.c,v 1.20 2002/01/22 20:41:31 vojtech Exp $
+ * $Id: lightning.c 2959 2007-03-30 04:02:22Z cooloney $
  *
  *  Copyright (c) 1998-2001 Vojtech Pavlik
  */

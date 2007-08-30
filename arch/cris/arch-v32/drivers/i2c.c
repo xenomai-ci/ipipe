@@ -22,7 +22,7 @@
 *! (C) Copyright 1999-2002 Axis Communications AB, LUND, SWEDEN
 *!
 *!***************************************************************************/
-/* $Id: i2c.c,v 1.2 2005/05/09 15:29:49 starvik Exp $ */
+/* $Id: i2c.c 3195 2007-05-25 05:56:06Z cooloney $ */
 /****************** INCLUDE FILES SECTION ***********************************/
 
 #include <linux/module.h>

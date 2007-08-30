@@ -1,4 +1,4 @@
-/* $Id: byteorder.h,v 1.8 1997/12/18 02:44:14 ecd Exp $ */
+/* $Id: byteorder.h 2400 2006-11-03 05:43:27Z magicyang $ */
 #ifndef _SPARC64_BYTEORDER_H
 #define _SPARC64_BYTEORDER_H
 

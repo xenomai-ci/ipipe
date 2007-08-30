@@ -1,5 +1,5 @@
 # drivers/mtd/nand/Kconfig
-# $Id: Kconfig,v 1.35 2005/11/07 11:14:30 gleixner Exp $
+# $Id: Kconfig 3544 2007-08-11 17:42:26Z cooloney $
 
 menuconfig MTD_NAND
 	tristate "NAND Device Support"
@@ -36,6 +36,46 @@ config MTD_NAND_MUSEUM_IDS
 	  Enable this option only when your board has first generation
 	  NAND chips (page size 256 byte, erase size 4-8KiB). The IDs
 	  of these chips were reused by later, larger chips.
+
+config MTD_NAND_BFIN
+	tristate "NAND Flash device for BF537 STAMP board"
+	depends on BFIN && MTD_NAND && MTD_PARTITIONS
+	help
+	  This enables the driver for the NAND flash ST-NAND123W3A 
+	  for Blackfin Processors
+
+config BFIN_NAND_BASE
+	hex "NAND Flash Base Address"
+	depends on MTD_NAND_BFIN
+	default 0x20212000
+	help
+	  NAND Flash Base Address
+
+config BFIN_NAND_CLE
+	int "NAND Flash Command Latch Enable (CLE) Address strobe A[x]"
+	depends on MTD_NAND_BFIN
+	range 1 19 
+	default 2
+	help
+	  NAND Flash Command Latch Enable (CLE) Address strobe A[x]
+
+config BFIN_NAND_ALE
+	int "NAND Flash Address Latch Enable (ALE) Address strobe A[x]"
+	depends on MTD_NAND_BFIN
+	range 1 19
+	default 1
+	help
+	  NAND Flash Address Latch Enable (ALE) Address strobe A[x]
+
+config BFIN_NAND_READY
+	int "NAND Flash Ready Strobe PF[x]"
+	depends on MTD_NAND_BFIN
+	range 0 15 if (BF533 || BF532 || BF531) 
+	range 0 47 if (BF534 || BF536 || BF537)
+	range 0 47 if BF561
+	default 3
+	help
+	  NAND Flash Ready Strobe PF[x]
 
 config MTD_NAND_AUTCPU12
 	tristate "SmartMediaCard on autronix autcpu12 board"
@@ -90,6 +130,24 @@ config MTD_NAND_AU1550
 	help
 	  This enables the driver for the NAND flash controller on the
 	  AMD/Alchemy 1550 SOC.
+
+config MTD_NAND_BF54X
+	tristate "NAND Flash support for Blackfin BF54X SoC DSP"
+	depends on BF54x && MTD_NAND
+	help
+	  This enables the NAND flash controller on the BF54X SoC DPSs
+
+	  No board specific support is done by this driver, each board
+	  must advertise a platform_device for the driver to attach.
+
+config MTD_NAND_BF54X_HWECC
+	bool "BF54X NAND Hardware ECC"
+	depends on MTD_NAND_BF54X
+	help
+	  Enable the use of the BF54X's internal ECC generator when
+	  using NAND. Early versions of the chip have had problems with
+	  incorrect ECC generation, and if using these, the default of
+	  software ECC is preferable.
 
 config MTD_NAND_RTC_FROM4
 	tristate "Renesas Flash ROM 4-slot interface board (FROM_BOARD4)"

@@ -1,5 +1,5 @@
 /*
- * $Id: nftl.h,v 1.16 2004/06/30 14:49:00 dbrown Exp $
+ * $Id: nftl.h 2397 2006-11-02 10:51:58Z magicyang $
  *
  * (C) 1999-2003 David Woodhouse <dwmw2@infradead.org>
  */

@@ -29,7 +29,7 @@
  * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
  *
- * $Id: mthca_reset.c 1349 2004-12-16 21:09:43Z roland $
+ * $Id: mthca_reset.c 2401 2006-11-03 06:02:10Z magicyang $
  */
 
 #include <linux/init.h>

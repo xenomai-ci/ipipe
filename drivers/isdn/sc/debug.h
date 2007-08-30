@@ -1,4 +1,4 @@
-/* $Id: debug.h,v 1.2.8.1 2001/09/23 22:24:59 kai Exp $
+/* $Id: debug.h 2401 2006-11-03 06:02:10Z magicyang $
  *
  * Copyright (C) 1996  SpellCaster Telecommunications Inc.
  *

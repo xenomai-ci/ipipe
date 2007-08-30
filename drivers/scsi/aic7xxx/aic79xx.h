@@ -37,7 +37,7 @@
  * IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGES.
  *
- * $Id: //depot/aic7xxx/aic7xxx/aic79xx.h#109 $
+ * $Id: aic79xx.h 3195 2007-05-25 05:56:06Z cooloney $
  *
  * $FreeBSD$
  */

@@ -1,4 +1,4 @@
-/* $Id: cache.h,v 1.9 1999/08/14 03:51:58 anton Exp $
+/* $Id: cache.h 2400 2006-11-03 05:43:27Z magicyang $
  * cache.h:  Cache specific code for the Sparc.  These include flushing
  *           and direct tag/data line access.
  *

@@ -1,4 +1,4 @@
-/* $Id: locks.S,v 1.16 2000/02/26 11:02:47 anton Exp $
+/* $Id: locks.S 2620 2007-01-10 08:32:17Z cooloney $
  * locks.S: SMP low-level lock primitives on Sparc.
  *
  * Copyright (C) 1996 David S. Miller (davem@caip.rutgers.edu)

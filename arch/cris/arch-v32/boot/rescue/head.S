@@ -1,4 +1,4 @@
-/* $Id: head.S,v 1.4 2004/11/01 16:10:28 starvik Exp $
+/* $Id: head.S 2386 2006-11-01 04:57:26Z magicyang $
  *
  * This used to be the rescue code but now that is handled by the
  * RedBoot based RFL instead. Nothing to see here, move along.

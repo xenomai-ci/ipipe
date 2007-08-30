@@ -1,5 +1,5 @@
 /*
- * $Id: wr_sbc82xx_flash.c,v 1.8 2005/11/07 11:14:29 gleixner Exp $
+ * $Id: wr_sbc82xx_flash.c 2399 2006-11-03 05:32:46Z magicyang $
  *
  * Map for flash chips on Wind River PowerQUICC II SBC82xx board.
  *

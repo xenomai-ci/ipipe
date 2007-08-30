@@ -27,15 +27,15 @@
  * 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
  */
 
-#include <asm/uaccess.h>
-#include <asm/traps.h>
-#include <asm/cacheflush.h>
-#include <asm/blackfin.h>
-#include <asm/uaccess.h>
-#include <asm/irq_handler.h>
+#include <linux/uaccess.h>
 #include <linux/interrupt.h>
 #include <linux/module.h>
 #include <linux/kallsyms.h>
+#include <asm/traps.h>
+#include <asm/cacheflush.h>
+#include <asm/blackfin.h>
+#include <asm/irq_handler.h>
+#include <asm/trace.h>
 
 #ifdef CONFIG_KGDB
 # include <linux/debugger.h>
@@ -50,10 +50,9 @@ void __init trap_init(void)
 	CSYNC();
 }
 
-asmlinkage void trap_c(struct pt_regs *fp);
-
 int kstack_depth_to_print = 48;
 
+#ifdef CONFIG_DEBUG_BFIN_HWTRACE_ON
 static int printk_address(unsigned long address)
 {
 	struct vm_list_struct *vml;
@@ -76,7 +75,7 @@ static int printk_address(unsigned long address)
 		if (!modname)
 			modname = delim = "";
 		return printk("<0x%p> { %s%s%s%s + 0x%lx }",
-		              (void*)address, delim, modname, delim, symname,
+		              (void *)address, delim, modname, delim, symname,
 		              (unsigned long)offset);
 
 	}
@@ -119,7 +118,7 @@ static int printk_address(unsigned long address)
 
 				write_unlock_irq(&tasklist_lock);
 				return printk("<0x%p> [ %s + 0x%lx ]",
-				              (void*)address, name, offset);
+				              (void *)address, name, offset);
 			}
 
 			vml = vml->next;
@@ -128,29 +127,23 @@ static int printk_address(unsigned long address)
 	write_unlock_irq(&tasklist_lock);
 
 	/* we were unable to find this address anywhere */
-	return printk("[<0x%p>]", (void*)address);
+	return printk("[<0x%p>]", (void *)address);
 }
-
-#define trace_buffer_save(x) \
-	do { \
-		(x) = bfin_read_TBUFCTL(); \
-		bfin_write_TBUFCTL((x) & ~TBUFEN); \
-	} while (0)
-#define trace_buffer_restore(x) \
-	do { \
-		bfin_write_TBUFCTL((x));	\
-	} while (0)
+#endif
 
 asmlinkage void trap_c(struct pt_regs *fp)
 {
-	int j, sig = 0;
+#ifdef CONFIG_DEBUG_BFIN_HWTRACE_ON
+	int j;
+#endif
+	int sig = 0;
 	siginfo_t info;
 	unsigned long trapnr = fp->seqstat & SEQSTAT_EXCAUSE;
 
 #ifdef CONFIG_KGDB
 # define CHK_DEBUGGER_TRAP() \
 	do { \
-		CHK_DEBUGGER(trapnr, sig, info.si_code, fp); \
+		CHK_DEBUGGER(trapnr, sig, info.si_code, fp, ); \
 	} while (0)
 # define CHK_DEBUGGER_TRAP_MAYBE() \
 	do { \
@@ -203,15 +196,14 @@ asmlinkage void trap_c(struct pt_regs *fp)
 #else
 	/* 0x02 - User Defined, Caught by default */
 #endif
-	/* 0x03  - Atomic test and set */
+	/* 0x03 - User Defined, userspace stack overflow */
 	case VEC_EXCPT03:
 		info.si_code = SEGV_STACKFLOW;
 		sig = SIGSEGV;
 		printk(KERN_EMERG EXC_0x03);
 		CHK_DEBUGGER_TRAP();
 		break;
-	/* 0x04 - spinlock - handled by _ex_spinlock,
-		getting here is an error */
+	/* 0x04 - User Defined, Caught by default */
 	/* 0x05 - User Defined, Caught by default */
 	/* 0x06 - User Defined, Caught by default */
 	/* 0x07 - User Defined, Caught by default */
@@ -442,24 +434,56 @@ asmlinkage void trap_c(struct pt_regs *fp)
 
 /* Typical exception handling routines	*/
 
+#define EXPAND_LEN ((1 << CONFIG_DEBUG_BFIN_HWTRACE_EXPAND_LEN) * 256 - 1)
+
 void dump_bfin_trace_buffer(void)
 {
-	int tflags;
+#ifdef CONFIG_DEBUG_BFIN_HWTRACE_ON
+	int tflags, i = 0;
+#ifdef CONFIG_DEBUG_BFIN_HWTRACE_EXPAND
+	int j, index;
+#endif
+
 	trace_buffer_save(tflags);
 
+	printk(KERN_EMERG "Hardware Trace:\n");
+
 	if (likely(bfin_read_TBUFSTAT() & TBUFCNT)) {
-		int i;
-		printk(KERN_EMERG "Hardware Trace:\n");
-		for (i = 0; bfin_read_TBUFSTAT() & TBUFCNT; i++) {
-			printk(KERN_EMERG "%2i Target : ", i);
+		for (; bfin_read_TBUFSTAT() & TBUFCNT; i++) {
+			printk(KERN_EMERG "%4i Target : ", i);
 			printk_address((unsigned long)bfin_read_TBUF());
-			printk("\n" KERN_EMERG "   Source : ");
+			printk("\n" KERN_EMERG "     Source : ");
 			printk_address((unsigned long)bfin_read_TBUF());
 			printk("\n");
 		}
 	}
 
+#ifdef CONFIG_DEBUG_BFIN_HWTRACE_EXPAND
+	if (trace_buff_offset)
+		index = trace_buff_offset/4 - 1;
+	else
+		index = EXPAND_LEN;
+
+	j = (1 << CONFIG_DEBUG_BFIN_HWTRACE_EXPAND_LEN) * 128;
+	while (j) {
+		printk(KERN_EMERG "%4i Target : ", i);
+		printk_address(software_trace_buff[index]);
+		index -= 1;
+		if (index < 0 )
+			index = EXPAND_LEN;
+		printk("\n" KERN_EMERG "     Source : ");
+		printk_address(software_trace_buff[index]);
+		index -= 1;
+		if (index < 0)
+			index = EXPAND_LEN;
+		printk("\n");
+		j--;
+		i++;
+	}
+#endif
+
 	trace_buffer_restore(tflags);
+#endif
 }
 EXPORT_SYMBOL(dump_bfin_trace_buffer);
 
@@ -523,7 +547,9 @@ void show_stack(struct task_struct *task, unsigned long *stack)
 void dump_stack(void)
 {
 	unsigned long stack;
+#ifdef CONFIG_DEBUG_BFIN_HWTRACE_ON
 	int tflags;
+#endif
 	trace_buffer_save(tflags);
 	dump_bfin_trace_buffer();
 	show_stack(current, &stack);
@@ -550,31 +576,29 @@ void dump_bfin_regs(struct pt_regs *fp, void *retaddr)
 		printk(KERN_EMERG "TEXT = 0x%p-0x%p  DATA = 0x%p-0x%p\n"
 		       KERN_EMERG "BSS = 0x%p-0x%p   USER-STACK = 0x%p\n"
 		       KERN_EMERG "\n",
-		       (void*)current->mm->start_code,
-		       (void*)current->mm->end_code,
-		       (void*)current->mm->start_data,
-		       (void*)current->mm->end_data,
-		       (void*)current->mm->end_data,
-		       (void*)current->mm->brk,
-		       (void*)current->mm->start_stack);
+		       (void *)current->mm->start_code,
+		       (void *)current->mm->end_code,
+		       (void *)current->mm->start_data,
+		       (void *)current->mm->end_data,
+		       (void *)current->mm->end_data,
+		       (void *)current->mm->brk,
+		       (void *)current->mm->start_stack);
 	}
 
 	printk(KERN_EMERG "return address: [0x%p]; contents of:", retaddr);
-	if (retaddr != 0 && retaddr <= (void*)physical_mem_end
+	if (retaddr != 0 && retaddr <= (void *)physical_mem_end
 #if L1_CODE_LENGTH != 0
 	    /* FIXME: Copy the code out of L1 Instruction SRAM through dma
 	       memcpy.  */
-	    && !(retaddr >= (void*)L1_CODE_START
-	         && retaddr < (void*)(L1_CODE_START + L1_CODE_LENGTH))
+	    && !(retaddr >= (void *)L1_CODE_START
+	         && retaddr < (void *)(L1_CODE_START + L1_CODE_LENGTH))
 #endif
 	) {
 		int i = ((unsigned int)retaddr & 0xFFFFFFF0) - 32;
 		unsigned short x = 0;
-		for (; i < ((unsigned int)retaddr & 0xFFFFFFF0 ) + 32 ;
-			i += 2) {
-			if ( !(i & 0xF) )
-				printk(KERN_EMERG "\n" KERN_EMERG
-					"0x%08x: ", i);
+		for (; i < ((unsigned int)retaddr & 0xFFFFFFF0) + 32; i += 2) {
+			if (!(i & 0xF))
+				printk("\n" KERN_EMERG "0x%08x: ", i);
 
 			if (get_user(x, (unsigned short *)i))
 				break;
@@ -591,7 +615,7 @@ void dump_bfin_regs(struct pt_regs *fp, void *retaddr)
 					" The rest of this error"
 					" is meanless\n");
 #endif
-			if ( i == (unsigned int)retaddr )
+			if (i == (unsigned int)retaddr)
 				printk("[%04x]", x);
 			else
 				printk(" %04x ", x);
@@ -669,6 +693,42 @@ asmlinkage int sys_bfin_spinlock(int *spinlock)
 	return ret;
 }
 
+int bfin_request_exception(unsigned int exception, void (*handler)(void))
+{
+	void (*curr_handler)(void);
+
+	if (exception > 0x3F)
+		return -EINVAL;
+
+	curr_handler = ex_table[exception];
+
+	if (curr_handler != ex_replaceable)
+		return -EBUSY;
+
+	ex_table[exception] = handler;
+
+	return 0;
+}
+EXPORT_SYMBOL(bfin_request_exception);
+
+int bfin_free_exception(unsigned int exception, void (*handler)(void))
+{
+	void (*curr_handler)(void);
+
+	if (exception > 0x3F)
+		return -EINVAL;
+
+	curr_handler = ex_table[exception];
+
+	if (curr_handler != handler)
+		return -EBUSY;
+
+	ex_table[exception] = ex_replaceable;
+
+	return 0;
+}
+EXPORT_SYMBOL(bfin_free_exception);
+
 void panic_cplb_error(int cplb_panic, struct pt_regs *fp)
 {
 	switch (cplb_panic) {
@@ -684,8 +744,8 @@ void panic_cplb_error(int cplb_panic, struct pt_regs *fp)
 		break;
 	}
 
-	printk(KERN_EMERG "DCPLB_FAULT_ADDR=%p\n", (void*)bfin_read_DCPLB_FAULT_ADDR());
-	printk(KERN_EMERG "ICPLB_FAULT_ADDR=%p\n", (void*)bfin_read_ICPLB_FAULT_ADDR());
+	printk(KERN_EMERG "DCPLB_FAULT_ADDR=%p\n", (void *)bfin_read_DCPLB_FAULT_ADDR());
+	printk(KERN_EMERG "ICPLB_FAULT_ADDR=%p\n", (void *)bfin_read_ICPLB_FAULT_ADDR());
 	dump_bfin_regs(fp, (void *)fp->retx);
 	dump_stack();
 	panic("Unrecoverable event\n");

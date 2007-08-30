@@ -1,4 +1,4 @@
-/* $Id: cf-enabler.c,v 1.4 2004/02/22 22:44:36 kkojima Exp $
+/* $Id: cf-enabler.c 3544 2007-08-11 17:42:26Z cooloney $
  *
  *  linux/drivers/block/cf-enabler.c
  *

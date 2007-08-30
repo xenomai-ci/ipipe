@@ -1,6 +1,6 @@
 /* Driver for USB Mass Storage compliant devices
  *
- * $Id: usb.c,v 1.75 2002/04/22 03:39:43 mdharm Exp $
+ * $Id: usb.c 3195 2007-05-25 05:56:06Z cooloney $
  *
  * Current development and maintenance by:
  *   (c) 1999-2003 Matthew Dharm (mdharm-usb@one-eyed-alien.net)

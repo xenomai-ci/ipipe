@@ -35,13 +35,13 @@
 #include <linux/personality.h>
 #include <linux/init.h>
 #include <linux/flat.h>
-#include <linux/syscalls.h>
 
 #include <asm/byteorder.h>
 #include <asm/system.h>
 #include <asm/uaccess.h>
 #include <asm/unaligned.h>
 #include <asm/cacheflush.h>
+#include <asm/mmu_context.h>
 
 /****************************************************************************/
 
@@ -76,6 +76,8 @@ static int load_flat_shared_library(int id, struct lib_info *p);
 
 static int load_flat_binary(struct linux_binprm *, struct pt_regs * regs);
 static int flat_core_dump(long signr, struct pt_regs * regs, struct file *file);
+
+extern void dump_thread(struct pt_regs *, struct user *);
 
 static struct linux_binfmt flat_format = {
 	.module		= THIS_MODULE,
@@ -413,20 +415,21 @@ void old_reloc(unsigned long rl)
 /****************************************************************************/
 
 static int load_flat_file(struct linux_binprm * bprm,
-		struct lib_info *libinfo, int id, unsigned long *extra_stack)
+			  struct lib_info *libinfo, int id,
+			  unsigned long *extra_stack,
+			  unsigned long *stack_base)
 {
 	struct flat_hdr * hdr;
 	unsigned long textpos = 0, datapos = 0, result;
 	unsigned long realdatastart = 0;
 	unsigned long text_len, data_len, bss_len, stack_len, flags;
-	unsigned long len, reallen, memp = 0;
-	unsigned long extra, rlim;
+	unsigned long len, memp = 0;
+	unsigned long memp_size, extra, rlim;
 	unsigned long *reloc = 0, *rp;
 	struct inode *inode;
 	int i, rev, relocs = 0;
 	loff_t fpos;
 	unsigned long start_code, end_code;
-	int ret;
 
 	hdr = ((struct flat_hdr *) bprm->buf);		/* exec-header */
 	inode = bprm->file->f_path.dentry->d_inode;
@@ -445,31 +448,29 @@ static int load_flat_file(struct linux_binprm * bprm,
 
 	if (strncmp(hdr->magic, "bFLT", 4)) {
 		/*
-		 * because a lot of people do not manage to produce good
-		 * flat binaries,  we leave this printk to help them realise
-		 * the problem.  We only print the error if its not a script file
+		 * Previously, here was a printk to tell people
+		 *   "BINFMT_FLAT: bad header magic".
+		 * But for the kernel which also use ELF FD-PIC format, this
+		 * error message is confusing.
 		 */
-		if (strncmp(hdr->magic, "#!", 2))
-			printk("BINFMT_FLAT: bad header magic\n");
-		ret = -ENOEXEC;
-		goto err;
+		return -ENOEXEC;
 	}
-
+#ifdef DEBUG
+	flags |= FLAT_FLAG_KTRACE;
+#endif
 	if (flags & FLAT_FLAG_KTRACE)
 		printk("BINFMT_FLAT: Loading file: %s\n", bprm->filename);
 
 	if (rev != FLAT_VERSION && rev != OLD_FLAT_VERSION) {
 		printk("BINFMT_FLAT: bad flat file version 0x%x (supported 0x%x and 0x%x)\n", rev, FLAT_VERSION, OLD_FLAT_VERSION);
-		ret = -ENOEXEC;
-		goto err;
+		return -ENOEXEC;
 	}
-	
+
 	/* Don't allow old format executables to use shared libraries */
 	if (rev == OLD_FLAT_VERSION && id != 0) {
 		printk("BINFMT_FLAT: shared libraries are not available before rev 0x%x\n",
 				(int) FLAT_VERSION);
-		ret = -ENOEXEC;
-		goto err;
+		return -ENOEXEC;
 	}
 
 	/*
@@ -482,8 +483,7 @@ static int load_flat_file(struct linux_binprm * bprm,
 #ifndef CONFIG_BINFMT_ZFLAT
 	if (flags & (FLAT_FLAG_GZIP|FLAT_FLAG_GZDATA)) {
 		printk("Support for ZFLAT executables is not enabled.\n");
-		ret = -ENOEXEC;
-		goto err;
+		return -ENOEXEC;
 	}
 #endif
 
@@ -495,18 +495,27 @@ static int load_flat_file(struct linux_binprm * bprm,
 	rlim = current->signal->rlim[RLIMIT_DATA].rlim_cur;
 	if (rlim >= RLIM_INFINITY)
 		rlim = ~0;
-	if (data_len + bss_len > rlim) {
-		ret = -ENOMEM;
-		goto err;
+	if (data_len + bss_len > rlim)
+		return -ENOMEM;
+
+	if (flags & FLAT_FLAG_L1STK) {
+		if (stack_base == 0) {
+			printk ("BINFMT_FLAT: requesting L1 stack for shared library\n");
+			return -ENOEXEC;
+		}
+		stack_len = alloc_l1stack(stack_len, stack_base);
+		if (stack_len == 0) {
+			printk("BINFMT_FLAT: stack size with arguments exceeds scratchpad memory\n");
+			return -ENOMEM;
+		}
+		*extra_stack = stack_len;
 	}
 
 	/* Flush all traces of the currently running executable */
 	if (id == 0) {
 		result = flush_old_exec(bprm);
-		if (result) {
-			ret = result;
-			goto err;
-		}
+		if (result)
+			goto out_fail;
 
 		/* OK, This is the point of no return */
 		set_personality(PER_LINUX_32BIT);
@@ -530,28 +539,24 @@ static int load_flat_file(struct linux_binprm * bprm,
 		DBG_FLT("BINFMT_FLAT: ROM mapping of file (we hope)\n");
 
 		down_write(&current->mm->mmap_sem);
-		textpos = do_mmap(bprm->file, 0, text_len, PROT_READ|PROT_EXEC, MAP_PRIVATE, 0);
+		textpos = do_mmap(bprm->file, 0, text_len,
+				  PROT_READ | PROT_EXEC,
+				  MAP_PRIVATE, 0);
 		up_write(&current->mm->mmap_sem);
 		if (!textpos  || textpos >= (unsigned long) -4096) {
 			if (!textpos)
 				textpos = (unsigned long) -ENOMEM;
 			printk("Unable to mmap process text, errno %d\n", (int)-textpos);
-			ret = textpos;
-			goto err;
+			result = textpos;
+			goto out_fail;
 		}
 
 		len = data_len + extra + MAX_SHARED_LIBS * sizeof(unsigned long);
+		len = PAGE_ALIGN(len);
 		down_write(&current->mm->mmap_sem);
 		realdatastart = do_mmap(0, 0, len,
-			PROT_READ|PROT_WRITE|PROT_EXEC, MAP_PRIVATE, 0);
-		/* Remap to use all availabe slack region space */
-		if (realdatastart && (realdatastart < (unsigned long)-4096)) {
-			reallen = ksize(realdatastart);
-			if (reallen > len) {
-				realdatastart = do_mremap(realdatastart, len,
-					reallen, MREMAP_FIXED, realdatastart);
-			}
-		}
+					PROT_READ|PROT_WRITE|PROT_EXEC,
+					MAP_PRIVATE, 0);
 		up_write(&current->mm->mmap_sem);
 
 		if (realdatastart == 0 || realdatastart >= (unsigned long)-4096) {
@@ -560,8 +565,8 @@ static int load_flat_file(struct linux_binprm * bprm,
 			printk("Unable to allocate RAM for process data, errno %d\n",
 					(int)-realdatastart);
 			do_munmap(current->mm, textpos, text_len);
-			ret = realdatastart;
-			goto err;
+			result = realdatastart;
+			goto out_fail;
 		}
 		datapos = realdatastart + MAX_SHARED_LIBS * sizeof(unsigned long);
 
@@ -583,27 +588,20 @@ static int load_flat_file(struct linux_binprm * bprm,
 			printk("Unable to read data+bss, errno %d\n", (int)-result);
 			do_munmap(current->mm, textpos, text_len);
 			do_munmap(current->mm, realdatastart, data_len + extra);
-			ret = result;
-			goto err;
+			goto out_fail;
 		}
 
 		reloc = (unsigned long *) (datapos+(ntohl(hdr->reloc_start)-text_len));
 		memp = realdatastart;
-
+		memp_size = len;
 	} else {
 
 		len = text_len + data_len + extra + MAX_SHARED_LIBS * sizeof(unsigned long);
+		len = PAGE_ALIGN(len);
 		down_write(&current->mm->mmap_sem);
 		textpos = do_mmap(0, 0, len,
-			PROT_READ | PROT_EXEC | PROT_WRITE, MAP_PRIVATE, 0);
-		/* Remap to use all availabe slack region space */
-		if (textpos && (textpos < (unsigned long) -4096)) {
-			reallen = ksize(textpos);
-			if (reallen > len) {
-				textpos = do_mremap(textpos, len, reallen,
-					MREMAP_FIXED, textpos);
-			}
-		}
+				  PROT_READ | PROT_EXEC | PROT_WRITE,
+				  MAP_PRIVATE, 0);
 		up_write(&current->mm->mmap_sem);
 
 		if (!textpos  || textpos >= (unsigned long) -4096) {
@@ -611,8 +609,8 @@ static int load_flat_file(struct linux_binprm * bprm,
 				textpos = (unsigned long) -ENOMEM;
 			printk("Unable to allocate RAM for process text/data, errno %d\n",
 					(int)-textpos);
-			ret = textpos;
-			goto err;
+			result = textpos;
+			goto out_fail;
 		}
 
 		realdatastart = textpos + ntohl(hdr->data_start);
@@ -620,7 +618,7 @@ static int load_flat_file(struct linux_binprm * bprm,
 		reloc = (unsigned long *) (textpos + ntohl(hdr->reloc_start) +
 				MAX_SHARED_LIBS * sizeof(unsigned long));
 		memp = textpos;
-
+		memp_size = len;
 #ifdef CONFIG_BINFMT_ZFLAT
 		/*
 		 * load it all in and treat it like a RAM load from now on
@@ -657,8 +655,7 @@ static int load_flat_file(struct linux_binprm * bprm,
 			printk("Unable to read code+data+bss, errno %d\n",(int)-result);
 			do_munmap(current->mm, textpos, text_len + data_len + extra +
 				MAX_SHARED_LIBS * sizeof(unsigned long));
-			ret = result;
-			goto err;
+			goto out_fail;
 		}
 	}
 
@@ -678,10 +675,13 @@ static int load_flat_file(struct linux_binprm * bprm,
 		 * set up the brk stuff, uses any slack left in data/bss/stack
 		 * allocation.  We put the brk after the bss (between the bss
 		 * and stack) like other platforms.
+		 * Userspace code relies on the stack pointer starting out at
+		 * an address right at the end of a page.
 		 */
 		current->mm->start_brk = datapos + data_len + bss_len;
 		current->mm->brk = (current->mm->start_brk + 3) & ~3;
-		current->mm->context.end_brk = memp + ksize((void *) memp) - stack_len;
+		current->mm->context.end_brk = memp + memp_size - stack_len;
+		current->mm->context.stack_start = current->mm->context.end_brk;
 	}
 
 	if (flags & FLAT_FLAG_KTRACE)
@@ -703,7 +703,7 @@ static int load_flat_file(struct linux_binprm * bprm,
 	libinfo->lib_list[id].loaded = 1;
 	libinfo->lib_list[id].entry = (0x00ffffff & ntohl(hdr->entry)) + textpos;
 	libinfo->lib_list[id].build_date = ntohl(hdr->build_date);
-	
+
 	/*
 	 * We just load the allocations into some temporary memory to
 	 * help simplify all this mumbo jumbo
@@ -722,8 +722,8 @@ static int load_flat_file(struct linux_binprm * bprm,
 			if (*rp) {
 				addr = calc_reloc(*rp, libinfo, id, 0);
 				if (addr == RELOC_FAILED) {
-					ret = -ENOEXEC;
-					goto err;
+					result = -ENOEXEC;
+					goto out_fail;
 				}
 				*rp = addr;
 			}
@@ -742,6 +742,7 @@ static int load_flat_file(struct linux_binprm * bprm,
 	 * __start to address 4 so that is okay).
 	 */
 	if (rev > OLD_FLAT_VERSION) {
+		unsigned long persistent = 0;
 		for (i=0; i < relocs; i++) {
 			unsigned long addr, relval;
 
@@ -749,16 +750,20 @@ static int load_flat_file(struct linux_binprm * bprm,
 			   relocated (of course, the address has to be
 			   relocated first).  */
 			relval = ntohl(reloc[i]);
+			if (flat_set_persistent (relval, &persistent))
+				continue;
 			addr = flat_get_relocate_addr(relval);
 			rp = (unsigned long *) calc_reloc(addr, libinfo, id, 1);
 			if (rp == (unsigned long *)RELOC_FAILED) {
-				ret = -ENOEXEC;
-				goto err;
+				result = -ENOEXEC;
+				goto out_fail;
 			}
 
 			/* Get the pointer's value.  */
-			addr = flat_get_addr_from_rp(rp, relval, flags, 0);
-			if (addr != 0) {
+			addr = flat_get_addr_from_rp(rp, relval, flags, &persistent);
+			if (addr == 0)
+				continue;
+			if (! flat_addr_absolute (relval)) {
 				/*
 				 * Do the relocation.  PIC relocs in the data section are
 				 * already in target order
@@ -767,30 +772,31 @@ static int load_flat_file(struct linux_binprm * bprm,
 					addr = ntohl(addr);
 				addr = calc_reloc(addr, libinfo, id, 0);
 				if (addr == RELOC_FAILED) {
-					ret = -ENOEXEC;
-					goto err;
+					result = -ENOEXEC;
+					goto out_fail;
 				}
-
-				/* Write back the relocated pointer.  */
-				flat_put_addr_at_rp(rp, addr, relval);
 			}
+			/* Write back the relocated pointer.  */
+			flat_put_addr_at_rp(rp, addr, relval);
 		}
 	} else {
 		for (i=0; i < relocs; i++)
 			old_reloc(ntohl(reloc[i]));
 	}
-	
+
 	flush_icache_range(start_code, end_code);
 
 	/* zero the BSS,  BRK and stack areas */
-	memset((void*)(datapos + data_len), 0, bss_len + 
-			(memp + ksize((void *) memp) - stack_len -	/* end brk */
+	memset((void*)(datapos + data_len), 0, bss_len +
+			(memp + memp_size - stack_len -	/* end brk */
 			libinfo->lib_list[id].start_brk) +		/* start brk */
 			stack_len);
 
 	return 0;
-err:
-	return ret;
+ out_fail:
+	if (flags & FLAT_FLAG_L1STK)
+		free_l1stack();
+	return result;
 }
 
 
@@ -821,7 +827,7 @@ static int load_flat_shared_library(int id, struct lib_info *libs)
 	res = prepare_binprm(&bprm);
 
 	if (res <= (unsigned long)-4096)
-		res = load_flat_file(&bprm, libs, id, NULL);
+		res = load_flat_file(&bprm, libs, id, NULL, NULL);
 	if (bprm.file) {
 		allow_write_access(bprm.file);
 		fput(bprm.file);
@@ -844,6 +850,7 @@ static int load_flat_binary(struct linux_binprm * bprm, struct pt_regs * regs)
 	unsigned long p = bprm->p;
 	unsigned long stack_len;
 	unsigned long start_addr;
+	unsigned long l1stack_base, ramstack_top;
 	unsigned long *sp;
 	int res;
 	int i, j;
@@ -861,11 +868,11 @@ static int load_flat_binary(struct linux_binprm * bprm, struct pt_regs * regs)
 	stack_len += (bprm->argc + 1) * sizeof(char *); /* the argv array */
 	stack_len += (bprm->envc + 1) * sizeof(char *); /* the envp array */
 
-	
-	res = load_flat_file(bprm, &libinfo, 0, &stack_len);
+	l1stack_base = 0;
+	res = load_flat_file(bprm, &libinfo, 0, &stack_len, &l1stack_base);
 	if (res > (unsigned long)-4096)
 		return res;
-	
+
 	/* Update data segment pointers for all libraries */
 	for (i=0; i<MAX_SHARED_LIBS; i++)
 		if (libinfo.lib_list[i].loaded)
@@ -880,6 +887,7 @@ static int load_flat_binary(struct linux_binprm * bprm, struct pt_regs * regs)
 	set_binfmt(&flat_format);
 
 	p = ((current->mm->context.end_brk + stack_len + 3) & ~3) - 4;
+	ramstack_top = p;
 	DBG_FLT("p=%x\n", (int)p);
 
 	/* copy the arg pages onto the stack, this could be more efficient :-) */
@@ -888,7 +896,7 @@ static int load_flat_binary(struct linux_binprm * bprm, struct pt_regs * regs)
 			((char *) page_address(bprm->page[i/PAGE_SIZE]))[i % PAGE_SIZE];
 
 	sp = (unsigned long *) create_flat_tables(p, bprm);
-	
+
 	/* Fake some return addresses to ensure the call chain will
 	 * initialise library in order for us.  We are required to call
 	 * lib 1 first, then 2, ... and finally the main program (id 0).
@@ -904,15 +912,24 @@ static int load_flat_binary(struct linux_binprm * bprm, struct pt_regs * regs)
 		}
 	}
 #endif
-	
+
 	/* Stash our initial stack pointer into the mm structure */
 	current->mm->start_stack = (unsigned long )sp;
 
-	
-	DBG_FLT("start_thread(regs=0x%x, entry=0x%x, start_stack=0x%x)\n",
-		(int)regs, (int)start_addr, (int)current->mm->start_stack);
-	
-	start_thread(regs, start_addr, current->mm->start_stack);
+	if (l1stack_base) {
+		/* Find L1 stack pointer corresponding to the current bottom
+		   of the stack in normal RAM.  */
+		l1stack_base += stack_len - (ramstack_top - (unsigned long)sp);
+		if (!activate_l1stack(current->mm, ramstack_top - stack_len))
+			l1stack_base = 0;
+	}
+
+	DBG_FLT("start_thread(regs=0x%x, entry=0x%x, start_stack=0x%x, l1stk=0x%x, len 0x%x)\n",
+		(int)regs, (int)start_addr, (int)current->mm->start_stack, l1stack_base,
+		stack_len);
+
+	start_thread(regs, start_addr,
+		     l1stack_base ? l1stack_base : current->mm->start_stack);
 
 	if (current->ptrace & PT_PTRACED)
 		send_sig(SIGTRAP, current, 0);

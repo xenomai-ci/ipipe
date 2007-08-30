@@ -1,5 +1,5 @@
 /*
- *  acpi_battery.c - ACPI Battery Driver ($Revision: 37 $)
+ *  acpi_battery.c - ACPI Battery Driver ($Revision: 3195 $)
  *
  *  Copyright (C) 2001, 2002 Andy Grover <andrew.grover@intel.com>
  *  Copyright (C) 2001, 2002 Paul Diefenbaugh <paul.s.diefenbaugh@intel.com>

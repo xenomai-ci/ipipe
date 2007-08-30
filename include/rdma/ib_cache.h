@@ -31,7 +31,7 @@
  * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
  *
- * $Id: ib_cache.h 1349 2004-12-16 21:09:43Z roland $
+ * $Id: ib_cache.h 2397 2006-11-02 10:51:58Z magicyang $
  */
 
 #ifndef _IB_CACHE_H

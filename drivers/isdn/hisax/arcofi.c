@@ -1,4 +1,4 @@
-/* $Id: arcofi.c,v 1.14.2.3 2004/01/13 14:31:24 keil Exp $
+/* $Id: arcofi.c 2396 2006-11-02 10:18:43Z magicyang $
  *
  * Ansteuerung ARCOFI 2165
  *

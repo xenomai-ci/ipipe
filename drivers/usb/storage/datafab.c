@@ -1,6 +1,6 @@
 /* Driver for Datafab USB Compact Flash reader
  *
- * $Id: datafab.c,v 1.7 2002/02/25 00:40:13 mdharm Exp $
+ * $Id: datafab.c 3195 2007-05-25 05:56:06Z cooloney $
  *
  * datafab driver v0.1:
  *

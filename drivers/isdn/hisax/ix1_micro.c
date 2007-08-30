@@ -1,4 +1,4 @@
-/* $Id: ix1_micro.c,v 2.12.2.4 2004/01/13 23:48:39 keil Exp $
+/* $Id: ix1_micro.c 2620 2007-01-10 08:32:17Z cooloney $
  *
  * low level stuff for ITK ix1-micro Rev.2 isdn cards
  * derived from the original file teles3.c from Karsten Keil
@@ -25,7 +25,7 @@
 #include "isdnl1.h"
 
 extern const char *CardType[];
-static const char *ix1_revision = "$Revision: 2.12.2.4 $";
+static const char *ix1_revision = "$Revision: 2620 $";
 
 #define byteout(addr,val) outb(val,addr)
 #define bytein(addr) inb(addr)

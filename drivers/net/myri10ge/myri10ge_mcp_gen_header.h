@@ -21,7 +21,7 @@
  * mcp_gen_header_t gen_mcp_header = {
  * .header_length = sizeof(mcp_gen_header_t),
  * .mcp_type = MCP_TYPE_XXX,
- * .version = "something $Id: mcp_gen_header.h,v 1.2 2006/05/13 10:04:35 bgoglin Exp $",
+ * .version = "something $Id: myri10ge_mcp_gen_header.h 2959 2007-03-30 04:02:22Z cooloney $",
  * .mcp_globals = (unsigned)&Globals
  * };
  */

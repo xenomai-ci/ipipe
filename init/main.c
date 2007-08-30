@@ -765,6 +765,8 @@ static int noinline init_post(void)
 	(void) sys_dup(0);
 	(void) sys_dup(0);
 
+	ipipe_init_irq_threads();
+
 	if (ramdisk_execute_command) {
 		run_init_process(ramdisk_execute_command);
 		printk(KERN_WARNING "Failed to execute %s\n",

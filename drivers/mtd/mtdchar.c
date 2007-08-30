@@ -1,5 +1,5 @@
 /*
- * $Id: mtdchar.c,v 1.76 2005/11/07 11:14:20 gleixner Exp $
+ * $Id: mtdchar.c 3544 2007-08-11 17:42:26Z cooloney $
  *
  * Character-device access to raw MTD devices.
  *
@@ -13,6 +13,7 @@
 #include <linux/module.h>
 #include <linux/slab.h>
 #include <linux/sched.h>
+#include <linux/backing-dev.h>
 
 #include <linux/mtd/mtd.h>
 #include <linux/mtd/compatmac.h>
@@ -108,6 +109,11 @@ static int mtd_open(struct inode *inode, struct file *file)
 		put_mtd_device(mtd);
 		return -ENODEV;
 	}
+
+	if (mtd->backing_dev_info)
+		file->f_mapping->backing_dev_info = mtd->backing_dev_info;
+
+	file->private_data = mtd;
 
 	/* You can't open it RW if it's not a writeable device */
 	if ((file->f_mode & 2) && !(mtd->flags & MTD_WRITEABLE)) {

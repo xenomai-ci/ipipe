@@ -1,4 +1,4 @@
-/* $Id: fpu.c,v 1.4 2004/01/13 05:52:11 kkojima Exp $
+/* $Id: fpu.c 3544 2007-08-11 17:42:26Z cooloney $
  *
  * linux/arch/sh/kernel/fpu.c
  *

@@ -1,4 +1,4 @@
-/* $Id: sunos_asm.S,v 1.15 2000/01/11 17:33:21 jj Exp $
+/* $Id: sunos_asm.S 2395 2006-11-02 09:34:16Z magicyang $
  * sunos_asm.S: SunOS system calls which must have a low-level
  *              entry point to operate correctly.
  *

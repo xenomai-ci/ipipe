@@ -1,5 +1,5 @@
 /*
- * $Id: redwood.c,v 1.11 2005/11/07 11:14:28 gleixner Exp $
+ * $Id: redwood.c 2620 2007-01-10 08:32:17Z cooloney $
  *
  * drivers/mtd/maps/redwood.c
  *

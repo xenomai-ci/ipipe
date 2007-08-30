@@ -26,7 +26,7 @@
  * 	NOTE: This is a multi-hosted header file for use with uHAL and
  * 	      supported debuggers.
  *
- * 	$Id: platform.s,v 1.32 2000/02/18 10:51:39 asims Exp $
+ * 	$Id: platform.h 3544 2007-08-11 17:42:26Z cooloney $
  *
  * ***********************************************************************/
 

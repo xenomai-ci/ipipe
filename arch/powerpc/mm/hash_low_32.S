@@ -1,5 +1,5 @@
 /*
- *  $Id: hashtable.S,v 1.6 1999/10/08 01:56:15 paulus Exp $
+ *  $Id: hash_low_32.S 3544 2007-08-11 17:42:26Z cooloney $
  *
  *  PowerPC version
  *    Copyright (C) 1995-1996 Gary Thomas (gdt@linuxppc.org)

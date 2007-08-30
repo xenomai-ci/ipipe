@@ -1,8 +1,8 @@
 /*****************************************************************************
  *                                                                           *
  * File: pm3393.c                                                            *
- * $Revision: 1.16 $                                                         *
- * $Date: 2005/05/14 00:59:32 $                                              *
+ * $Revision: 3544 $                                                         *
+ * $Date: 2007-08-11 19:42:26 +0200 (Sat, 11 Aug 2007) $                                              *
  * Description:                                                              *
  *  PMC/SIERRA (pm3393) MAC-PHY functionality.                               *
  *  part of the Chelsio 10Gb Ethernet Driver.                                *

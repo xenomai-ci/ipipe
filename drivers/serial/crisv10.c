@@ -1,4 +1,4 @@
-/* $Id: serial.c,v 1.25 2004/09/29 10:33:49 starvik Exp $
+/* $Id: crisv10.c 3195 2007-05-25 05:56:06Z cooloney $
  *
  * Serial port driver for the ETRAX 100LX chip
  *
@@ -423,7 +423,7 @@
  *
  */
 
-static char *serial_version = "$Revision: 1.25 $";
+static char *serial_version = "$Revision: 3195 $";
 
 #include <linux/types.h>
 #include <linux/errno.h>

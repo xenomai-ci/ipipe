@@ -6,7 +6,7 @@
  *  Derived from drivers/mtd/nand/autcpu12.c
  *       Copyright (c) 2001 Thomas Gleixner (gleixner@autronix.de)
  *
- * $Id: edb7312.c,v 1.12 2005/11/07 11:14:30 gleixner Exp $
+ * $Id: edb7312.c 2620 2007-01-10 08:32:17Z cooloney $
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as

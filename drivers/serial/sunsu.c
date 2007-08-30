@@ -1,4 +1,4 @@
-/* $Id: su.c,v 1.55 2002/01/08 16:00:16 davem Exp $
+/* $Id: sunsu.c 3544 2007-08-11 17:42:26Z cooloney $
  * su.c: Small serial driver for keyboard/mouse interface on sparc32/PCI
  *
  * Copyright (C) 1997  Eddie C. Dost  (ecd@skynet.be)
@@ -1288,7 +1288,17 @@ static void sunsu_console_write(struct console *co, const char *s,
 				unsigned int count)
 {
 	struct uart_sunsu_port *up = &sunsu_ports[co->index];
+	unsigned long flags;
 	unsigned int ier;
+	int locked = 1;
+
+	local_irq_save(flags);
+	if (up->port.sysrq) {
+		locked = 0;
+	} else if (oops_in_progress) {
+		locked = spin_trylock(&up->port.lock);
+	} else
+		spin_lock(&up->port.lock);
 
 	/*
 	 *	First save the UER then disable the interrupts
@@ -1304,6 +1314,10 @@ static void sunsu_console_write(struct console *co, const char *s,
 	 */
 	wait_for_xmitr(up);
 	serial_out(up, UART_IER, ier);
+
+	if (locked)
+		spin_unlock(&up->port.lock);
+	local_irq_restore(flags);
 }
 
 /*

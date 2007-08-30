@@ -17,7 +17,7 @@
 */
 
 /*
- * $Id: bnep.h,v 1.5 2002/08/04 21:23:58 maxk Exp $
+ * $Id: bnep.h 3195 2007-05-25 05:56:06Z cooloney $
  */
 
 #ifndef _BNEP_H

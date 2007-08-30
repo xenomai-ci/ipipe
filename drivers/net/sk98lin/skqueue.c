@@ -2,8 +2,8 @@
  *
  * Name:	skqueue.c
  * Project:	Gigabit Ethernet Adapters, Event Scheduler Module
- * Version:	$Revision: 1.20 $
- * Date:	$Date: 2003/09/16 13:44:00 $
+ * Version:	$Revision: 2399 $
+ * Date:	$Date: 2006-11-03 06:32:46 +0100 (Fri, 03 Nov 2006) $
  * Purpose:	Management of an event queue.
  *
  ******************************************************************************/
@@ -28,7 +28,7 @@
  */
 #if (defined(DEBUG) || ((!defined(LINT)) && (!defined(SK_SLIM))))
 static const char SysKonnectFileId[] =
-	"@(#) $Id: skqueue.c,v 1.20 2003/09/16 13:44:00 rschmidt Exp $ (C) Marvell.";
+	"@(#) $Id: skqueue.c 2399 2006-11-03 05:32:46Z magicyang $ (C) Marvell.";
 #endif
 
 #include "h/skdrv1st.h"		/* Driver Specific Definitions */

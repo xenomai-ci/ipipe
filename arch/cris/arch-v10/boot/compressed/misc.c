@@ -1,7 +1,7 @@
 /*
  * misc.c
  *
- * $Id: misc.c,v 1.6 2003/10/27 08:04:31 starvik Exp $
+ * $Id: misc.c 2386 2006-11-01 04:57:26Z magicyang $
  * 
  * This is a collection of several routines from gzip-1.0.3 
  * adapted for Linux.

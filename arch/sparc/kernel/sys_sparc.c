@@ -1,4 +1,4 @@
-/* $Id: sys_sparc.c,v 1.70 2001/04/14 01:12:02 davem Exp $
+/* $Id: sys_sparc.c 2620 2007-01-10 08:32:17Z cooloney $
  * linux/arch/sparc/kernel/sys_sparc.c
  *
  * This file contains various random system calls that

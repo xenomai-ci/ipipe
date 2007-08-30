@@ -1,7 +1,7 @@
 /*
  * ip_vs_ftp.c: IPVS ftp application module
  *
- * Version:	$Id: ip_vs_ftp.c,v 1.13 2002/09/15 08:14:08 wensong Exp $
+ * Version:	$Id: ip_vs_ftp.c 3544 2007-08-11 17:42:26Z cooloney $
  *
  * Authors:	Wensong Zhang <wensong@linuxvirtualserver.org>
  *

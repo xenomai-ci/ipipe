@@ -1,5 +1,5 @@
 /*
- * $Id: lubbock-flash.c,v 1.21 2005/11/07 11:14:27 gleixner Exp $
+ * $Id: lubbock-flash.c 2399 2006-11-03 05:32:46Z magicyang $
  *
  * Map driver for the Lubbock developer platform.
  *

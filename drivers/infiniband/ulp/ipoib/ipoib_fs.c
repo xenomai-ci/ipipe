@@ -29,7 +29,7 @@
  * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
  *
- * $Id: ipoib_fs.c 1389 2004-12-27 22:56:47Z roland $
+ * $Id: ipoib_fs.c 3195 2007-05-25 05:56:06Z cooloney $
  */
 
 #include <linux/err.h>

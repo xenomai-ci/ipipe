@@ -1,4 +1,4 @@
-# $Id: Makefile,v 1.28 2005/03/17 10:44:37 larsv Exp $
+# $Id: Makefile 2386 2006-11-01 04:57:26Z magicyang $
 # cris/Makefile
 #
 # This file is included by the global makefile so that you can add your own

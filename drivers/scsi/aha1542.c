@@ -1,4 +1,4 @@
-/* $Id: aha1542.c,v 1.1 1992/07/24 06:27:38 root Exp root $
+/* $Id: aha1542.c 3544 2007-08-11 17:42:26Z cooloney $
  *  linux/kernel/aha1542.c
  *
  *  Copyright (C) 1992  Tommy Thorn

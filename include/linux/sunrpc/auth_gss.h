@@ -8,7 +8,7 @@
  * Bruce Fields <bfields@umich.edu>
  * Copyright (c) 2000 The Regents of the University of Michigan
  *
- * $Id$
+ * $Id: auth_gss.h 2959 2007-03-30 04:02:22Z cooloney $
  */
 
 #ifndef _LINUX_SUNRPC_AUTH_GSS_H

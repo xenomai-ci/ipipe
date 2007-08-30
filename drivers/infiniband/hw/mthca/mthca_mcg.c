@@ -29,7 +29,7 @@
  * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
  *
- * $Id: mthca_mcg.c 1349 2004-12-16 21:09:43Z roland $
+ * $Id: mthca_mcg.c 2959 2007-03-30 04:02:22Z cooloney $
  */
 
 #include <linux/string.h>

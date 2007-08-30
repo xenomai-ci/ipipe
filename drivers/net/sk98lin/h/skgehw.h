@@ -2,8 +2,8 @@
  *
  * Name:	skgehw.h
  * Project:	Gigabit Ethernet Adapters, Common Modules
- * Version:	$Revision: 1.56 $
- * Date:	$Date: 2003/09/23 09:01:00 $
+ * Version:	$Revision: 2399 $
+ * Date:	$Date: 2006-11-03 06:32:46 +0100 (Fri, 03 Nov 2006) $
  * Purpose:	Defines and Macros for the Gigabit Ethernet Adapter Product Family
  *
  ******************************************************************************/

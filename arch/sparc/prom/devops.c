@@ -1,4 +1,4 @@
-/* $Id: devops.c,v 1.13 2000/08/26 02:38:03 anton Exp $
+/* $Id: devops.c 2395 2006-11-02 09:34:16Z magicyang $
  * devops.c:  Device operations using the PROM.
  *
  * Copyright (C) 1995 David S. Miller (davem@caip.rutgers.edu)

@@ -1,4 +1,4 @@
-/* $Id: sparc64_ksyms.c,v 1.121 2002/02/09 19:49:31 davem Exp $
+/* $Id: sparc64_ksyms.c 3544 2007-08-11 17:42:26Z cooloney $
  * arch/sparc64/kernel/sparc64_ksyms.c: Sparc64 specific ksyms support.
  *
  * Copyright (C) 1996 David S. Miller (davem@caip.rutgers.edu)

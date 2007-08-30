@@ -1,4 +1,4 @@
-/* $Id: a.out.h,v 1.13 2000/01/09 10:46:53 anton Exp $ */
+/* $Id: a.out.h 3195 2007-05-25 05:56:06Z cooloney $ */
 #ifndef __SPARC_A_OUT_H__
 #define __SPARC_A_OUT_H__
 

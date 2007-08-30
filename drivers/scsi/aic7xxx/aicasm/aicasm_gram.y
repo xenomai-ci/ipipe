@@ -38,7 +38,7 @@
  * IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGES.
  *
- * $Id: //depot/aic7xxx/aic7xxx/aicasm/aicasm_gram.y#30 $
+ * $Id: aicasm_gram.y 1322 2006-03-23 03:12:41Z magicyang $
  *
  * $FreeBSD$
  */
@@ -106,7 +106,6 @@ static void make_expression(expression_t *immed, int value);
 static void add_conditional(symbol_t *symbol);
 static void add_version(const char *verstring);
 static int  is_download_const(expression_t *immed);
-void yyerror(const char *string);
 
 #define SRAM_SYMNAME "SRAM_BASE"
 #define SCB_SYMNAME "SCB_BASE"

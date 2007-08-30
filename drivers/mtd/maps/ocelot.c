@@ -1,5 +1,5 @@
 /*
- * $Id: ocelot.c,v 1.17 2005/11/07 11:14:27 gleixner Exp $
+ * $Id: ocelot.c 2399 2006-11-03 05:32:46Z magicyang $
  *
  * Flash on Momenco Ocelot
  */

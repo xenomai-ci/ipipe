@@ -1,4 +1,4 @@
-/* $Id: uaccess.h,v 1.35 2002/02/09 19:49:31 davem Exp $ */
+/* $Id: uaccess.h 2400 2006-11-03 05:43:27Z magicyang $ */
 #ifndef _ASM_UACCESS_H
 #define _ASM_UACCESS_H
 

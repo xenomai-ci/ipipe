@@ -1,4 +1,4 @@
-/* $Id: concap.h,v 1.3.2.2 2004/01/12 23:08:35 keil Exp $
+/* $Id: concap.h 2397 2006-11-02 10:51:58Z magicyang $
  *
  * Copyright 1997 by Henner Eisen <eis@baty.hanse.de>
  *

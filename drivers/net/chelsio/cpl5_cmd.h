@@ -1,8 +1,8 @@
 /*****************************************************************************
  *                                                                           *
  * File: cpl5_cmd.h                                                          *
- * $Revision: 1.6 $                                                          *
- * $Date: 2005/06/21 18:29:47 $                                              *
+ * $Revision: 3195 $                                                          *
+ * $Date: 2007-05-25 07:56:06 +0200 (Fri, 25 May 2007) $                                              *
  * Description:                                                              *
  *  part of the Chelsio 10Gb Ethernet Driver.                                *
  *                                                                           *

@@ -1,5 +1,5 @@
 /*
- * $Id: grip_mp.c,v 1.9 2002/07/20 19:28:45 bonnland Exp $
+ * $Id: grip_mp.c 3544 2007-08-11 17:42:26Z cooloney $
  *
  *  Driver for the Gravis Grip Multiport, a gamepad "hub" that
  *  connects up to four 9-pin digital gamepads/joysticks.

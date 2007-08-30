@@ -1,4 +1,4 @@
-/* $Id: hisax_cfg.h,v 1.1.2.1 2004/01/24 20:47:23 keil Exp $
+/* $Id: hisax_cfg.h 2396 2006-11-02 10:18:43Z magicyang $
  * define of the basic HiSax configuration structures
  * and pcmcia interface
  *

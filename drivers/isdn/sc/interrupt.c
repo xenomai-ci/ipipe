@@ -1,4 +1,4 @@
-/* $Id: interrupt.c,v 1.4.8.3 2001/09/23 22:24:59 kai Exp $
+/* $Id: interrupt.c 3195 2007-05-25 05:56:06Z cooloney $
  *
  * Copyright (C) 1996  SpellCaster Telecommunications Inc.
  *

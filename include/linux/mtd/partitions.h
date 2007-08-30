@@ -5,7 +5,7 @@
  *
  * This code is GPL
  *
- * $Id: partitions.h,v 1.17 2005/11/07 11:14:55 gleixner Exp $
+ * $Id: partitions.h 2397 2006-11-02 10:51:58Z magicyang $
  */
 
 #ifndef MTD_PARTITIONS_H

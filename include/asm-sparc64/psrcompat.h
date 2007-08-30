@@ -1,4 +1,4 @@
-/* $Id: psrcompat.h,v 1.5 1998/10/06 09:28:39 jj Exp $ */
+/* $Id: psrcompat.h 2400 2006-11-03 05:43:27Z magicyang $ */
 #ifndef _SPARC64_PSRCOMPAT_H
 #define _SPARC64_PSRCOMPAT_H
 

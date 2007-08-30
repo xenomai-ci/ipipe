@@ -8,7 +8,7 @@
 
 /* proc info support a la one created by Sizif@Botik.RU for PGC */
 
-/* $Id: procfs.c,v 1.1.8.2 2001/07/15 17:08:42 god Exp $ */
+/* $Id: procfs.c 3544 2007-08-11 17:42:26Z cooloney $ */
 
 #include <linux/module.h>
 #include <linux/time.h>

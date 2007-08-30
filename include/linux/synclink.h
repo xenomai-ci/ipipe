@@ -1,7 +1,7 @@
 /*
  * SyncLink Multiprotocol Serial Adapter Driver
  *
- * $Id: synclink.h,v 3.14 2006/07/17 20:15:43 paulkf Exp $
+ * $Id: synclink.h 3544 2007-08-11 17:42:26Z cooloney $
  *
  * Copyright (C) 1998-2000 by Microgate Corporation
  *

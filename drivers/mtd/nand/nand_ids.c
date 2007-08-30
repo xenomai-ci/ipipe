@@ -3,7 +3,7 @@
  *
  *  Copyright (C) 2002 Thomas Gleixner (tglx@linutronix.de)
  *
- * $Id: nand_ids.c,v 1.16 2005/11/07 11:14:31 gleixner Exp $
+ * $Id: nand_ids.c 3544 2007-08-11 17:42:26Z cooloney $
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as

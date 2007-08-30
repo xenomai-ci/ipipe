@@ -11,7 +11,7 @@
 */
 
 #ifndef __ASM_ARM_REGS_NAND
-#define __ASM_ARM_REGS_NAND "$Id: nand.h,v 1.3 2003/12/09 11:36:29 ben Exp $"
+#define __ASM_ARM_REGS_NAND "$Id: regs-nand.h 2387 2006-11-01 05:32:21Z magicyang $"
 
 
 #define S3C2410_NFREG(x) (x)

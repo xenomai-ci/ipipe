@@ -1,5 +1,5 @@
 /*
- * $Id: ebony.c,v 1.16 2005/11/07 11:14:26 gleixner Exp $
+ * $Id: ebony.c 2620 2007-01-10 08:32:17Z cooloney $
  *
  * Mapping for Ebony user flash
  *

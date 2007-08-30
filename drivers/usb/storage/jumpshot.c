@@ -1,6 +1,6 @@
 /* Driver for Lexar "Jumpshot" Compact Flash reader
  *
- * $Id: jumpshot.c,v 1.7 2002/02/25 00:40:13 mdharm Exp $
+ * $Id: jumpshot.c 3195 2007-05-25 05:56:06Z cooloney $
  *
  * jumpshot driver v0.1:
  *

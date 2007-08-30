@@ -1,4 +1,4 @@
-/* $Id: scatterlist.h,v 1.11 2001/12/17 07:05:15 davem Exp $ */
+/* $Id: scatterlist.h 3544 2007-08-11 17:42:26Z cooloney $ */
 #ifndef _SPARC64_SCATTERLIST_H
 #define _SPARC64_SCATTERLIST_H
 

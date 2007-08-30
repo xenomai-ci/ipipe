@@ -1,4 +1,4 @@
-/* $Id: rem.S,v 1.7 1996/09/30 02:22:34 davem Exp $
+/* $Id: rem.S 2395 2006-11-02 09:34:16Z magicyang $
  * rem.S:       This routine was taken from glibc-1.09 and is covered
  *              by the GNU Library General Public License Version 2.
  */

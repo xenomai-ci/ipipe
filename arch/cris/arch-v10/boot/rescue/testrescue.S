@@ -1,4 +1,4 @@
-/* $Id: testrescue.S,v 1.1 2001/12/17 13:59:27 bjornw Exp $
+/* $Id: testrescue.S 2386 2006-11-01 04:57:26Z magicyang $
  *
  * Simple testcode to download by the rescue block.
  * Just lits some LEDs to show it was downloaded correctly.

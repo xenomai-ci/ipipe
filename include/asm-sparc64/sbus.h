@@ -1,4 +1,4 @@
-/* $Id: sbus.h,v 1.14 2000/02/18 13:50:55 davem Exp $
+/* $Id: sbus.h 2400 2006-11-03 05:43:27Z magicyang $
  * sbus.h: Defines for the Sun SBus.
  *
  * Copyright (C) 1996, 1999 David S. Miller (davem@redhat.com)

@@ -1,7 +1,7 @@
 /*
  * ip_vs_proto.c: transport protocol load balancing support for IPVS
  *
- * Version:     $Id: ip_vs_proto.c,v 1.2 2003/04/18 09:03:16 wensong Exp $
+ * Version:     $Id: ip_vs_proto.c 2959 2007-03-30 04:02:22Z cooloney $
  *
  * Authors:     Wensong Zhang <wensong@linuxvirtualserver.org>
  *              Julian Anastasov <ja@ssi.bg>

@@ -5,7 +5,7 @@
  *	Authors:
  *	Lennert Buytenhek		<buytenh@gnu.org>
  *
- *	$Id: br_if.c,v 1.7 2001/12/24 00:59:55 davem Exp $
+ *	$Id: br_if.c 3544 2007-08-11 17:42:26Z cooloney $
  *
  *	This program is free software; you can redistribute it and/or
  *	modify it under the terms of the GNU General Public License

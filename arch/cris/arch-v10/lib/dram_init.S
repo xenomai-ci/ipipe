@@ -1,4 +1,4 @@
-/* $Id: dram_init.S,v 1.4 2003/09/22 09:21:59 starvik Exp $
+/* $Id: dram_init.S 2620 2007-01-10 08:32:17Z cooloney $
  * 
  * DRAM/SDRAM initialization - alter with care
  * This file is intended to be included from other assembler files

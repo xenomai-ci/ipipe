@@ -1,5 +1,5 @@
 /*
- * $Id: logibm.c,v 1.11 2001/09/25 10:12:07 vojtech Exp $
+ * $Id: logibm.c 3195 2007-05-25 05:56:06Z cooloney $
  *
  *  Copyright (c) 1999-2001 Vojtech Pavlik
  *

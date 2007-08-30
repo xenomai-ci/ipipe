@@ -1,7 +1,7 @@
 /*
  * Common code to handle map devices which are simple RAM
  * (C) 2000 Red Hat. GPL'd.
- * $Id: map_ram.c,v 1.22 2005/01/05 18:05:12 dwmw2 Exp $
+ * $Id: map_ram.c 2959 2007-03-30 04:02:22Z cooloney $
  */
 
 #include <linux/module.h>
@@ -22,6 +22,10 @@ static int mapram_write (struct mtd_info *, loff_t, size_t, size_t *, const u_ch
 static int mapram_erase (struct mtd_info *, struct erase_info *);
 static void mapram_nop (struct mtd_info *);
 static struct mtd_info *map_ram_probe(struct map_info *map);
+static unsigned long mapram_unmapped_area(struct mtd_info *mtd,
+					  unsigned long len,
+					  unsigned long offset,
+					  unsigned long flags);
 
 
 static struct mtd_chip_driver mapram_chipdrv = {
@@ -70,6 +74,7 @@ static struct mtd_info *map_ram_probe(struct map_info *map)
 	mtd->sync = mapram_nop;
 	mtd->flags = MTD_CAP_RAM;
 	mtd->writesize = 1;
+	mtd->get_unmapped_area = mapram_unmapped_area;
 
 	mtd->erasesize = PAGE_SIZE;
  	while(mtd->size & (mtd->erasesize - 1))
@@ -79,6 +84,19 @@ static struct mtd_info *map_ram_probe(struct map_info *map)
 	return mtd;
 }
 
+/*
+ * Allow NOMMU mmap() to directly map the device (if not NULL)
+ * - return the address to which the offset maps
+ * - return -ENOSYS to indicate refusal to do the mapping
+ */
+static unsigned long mapram_unmapped_area(struct mtd_info *mtd,
+					  unsigned long len,
+					  unsigned long offset,
+					  unsigned long flags)
+{
+	struct map_info *map = mtd->priv;
+	return (unsigned long)(map->virt + offset);
+}
 
 static int mapram_read (struct mtd_info *mtd, loff_t from, size_t len, size_t *retlen, u_char *buf)
 {

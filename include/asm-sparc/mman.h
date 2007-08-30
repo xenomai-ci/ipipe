@@ -1,4 +1,4 @@
-/* $Id: mman.h,v 1.9 2000/03/15 02:44:23 davem Exp $ */
+/* $Id: mman.h 2400 2006-11-03 05:43:27Z magicyang $ */
 #ifndef __SPARC_MMAN_H__
 #define __SPARC_MMAN_H__
 

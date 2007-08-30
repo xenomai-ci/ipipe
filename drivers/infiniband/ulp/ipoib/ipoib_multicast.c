@@ -31,7 +31,7 @@
  * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
  *
- * $Id: ipoib_multicast.c 1362 2004-12-18 15:56:29Z roland $
+ * $Id: ipoib_multicast.c 3544 2007-08-11 17:42:26Z cooloney $
  */
 
 #include <linux/skbuff.h>

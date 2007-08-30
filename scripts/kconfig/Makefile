@@ -11,6 +11,7 @@ gconfig: $(obj)/gconf
 	$< arch/$(ARCH)/Kconfig
 
 menuconfig: $(obj)/mconf
+	$(Q)$(MAKE) $(build)=scripts/kconfig/lxdialog
 	$< arch/$(ARCH)/Kconfig
 
 config: $(obj)/conf
@@ -73,29 +74,11 @@ help:
 	@echo  '  xconfig	  - Update current config utilising a QT based front-end'
 	@echo  '  gconfig	  - Update current config utilising a GTK based front-end'
 	@echo  '  oldconfig	  - Update current config utilising a provided .config as base'
-	@echo  '  silentoldconfig - Same as oldconfig, but quietly'
 	@echo  '  randconfig	  - New config with random answer to all options'
 	@echo  '  defconfig	  - New config with default answer to all options'
 	@echo  '  allmodconfig	  - New config selecting modules when possible'
 	@echo  '  allyesconfig	  - New config where all options are accepted with yes'
 	@echo  '  allnoconfig	  - New config where all options are answered with no'
-
-# lxdialog stuff
-check-lxdialog  := $(srctree)/$(src)/lxdialog/check-lxdialog.sh
-
-# Use reursively expanded variables so we do not call gcc unless
-# we really need to do so. (Do not call gcc as part of make mrproper)
-HOST_EXTRACFLAGS = $(shell $(CONFIG_SHELL) $(check-lxdialog) -ccflags)
-HOST_LOADLIBES   = $(shell $(CONFIG_SHELL) $(check-lxdialog) -ldflags $(HOSTCC))
-
-HOST_EXTRACFLAGS += -DLOCALE
-
-PHONY += $(obj)/dochecklxdialog
-$(obj)/dochecklxdialog:
-	$(Q)$(CONFIG_SHELL) $(check-lxdialog) -check $(HOSTCC) $(HOST_LOADLIBES)
-
-always := dochecklxdialog
-
 
 # ===========================================================================
 # Shared Makefile for the various kconfig executables:
@@ -108,18 +91,10 @@ always := dochecklxdialog
 #         Based on GTK which needs to be installed to compile it
 # object files used by all kconfig flavours
 
-lxdialog := lxdialog/checklist.o lxdialog/util.o lxdialog/inputbox.o
-lxdialog += lxdialog/textbox.o lxdialog/yesno.o lxdialog/menubox.o
-
+hostprogs-y	:= conf mconf qconf gconf kxgettext
 conf-objs	:= conf.o  zconf.tab.o
-mconf-objs	:= mconf.o zconf.tab.o $(lxdialog)
+mconf-objs	:= mconf.o zconf.tab.o
 kxgettext-objs	:= kxgettext.o zconf.tab.o
-
-hostprogs-y := conf qconf gconf kxgettext
-
-ifeq ($(MAKECMDGOALS),menuconfig)
-	hostprogs-y += mconf
-endif
 
 ifeq ($(MAKECMDGOALS),xconfig)
 	qconf-target := 1
@@ -140,7 +115,7 @@ endif
 
 clean-files	:= lkc_defs.h qconf.moc .tmp_qtcheck \
 		   .tmp_gtkcheck zconf.tab.c lex.zconf.c zconf.hash.c
-clean-files     += mconf qconf gconf
+subdir- += lxdialog
 
 # Needed for systems without gettext
 KBUILD_HAVE_NLS := $(shell \
@@ -184,8 +159,8 @@ $(obj)/.tmp_qtcheck:
 	  done; \
 	  if [ -z "$$dir" ]; then \
 	    echo "*"; \
-	    echo "* Unable to find the QT3 installation. Please make sure that"; \
-	    echo "* the QT3 development package is correctly installed and"; \
+	    echo "* Unable to find the QT installation. Please make sure that"; \
+	    echo "* the QT development package is correctly installed and"; \
 	    echo "* either install pkg-config or set the QTDIR environment"; \
 	    echo "* variable to the correct location."; \
 	    echo "*"; \

@@ -1,4 +1,4 @@
-/* $Id: mxcc.h,v 1.7 1997/04/20 14:11:46 ecd Exp $
+/* $Id: mxcc.h 2400 2006-11-03 05:43:27Z magicyang $
  * mxcc.h:  Definitions of the Viking MXCC registers
  *
  * Copyright (C) 1995 David S. Miller (davem@caip.rutgers.edu)

@@ -1,4 +1,4 @@
-/* $Id: gpio.c,v 1.17 2005/06/19 17:06:46 starvik Exp $
+/* $Id: gpio.c 3195 2007-05-25 05:56:06Z cooloney $
  *
  * Etrax general port I/O device
  *

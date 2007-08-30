@@ -1,4 +1,4 @@
-/* $Id: turbosparc.h,v 1.4 1998/08/16 16:02:42 ecd Exp $
+/* $Id: turbosparc.h 2400 2006-11-03 05:43:27Z magicyang $
  * turbosparc.h:  Defines specific to the TurboSparc module.
  *            This is SRMMU stuff.
  *

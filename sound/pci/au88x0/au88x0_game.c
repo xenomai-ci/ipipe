@@ -1,5 +1,5 @@
 /*
- * $Id: au88x0_game.c,v 1.9 2003/09/22 03:51:28 mjander Exp $
+ * $Id: au88x0_game.c 2382 2006-11-01 03:48:42Z magicyang $
  *
  *  Manuel Jander.
  *

@@ -29,7 +29,7 @@
  * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
  * SUCH DAMAGE.
  *
- * Version: $Id: quota.h,v 2.0 1996/11/17 16:48:14 mvw Exp mvw $
+ * Version: $Id: quota.h 3544 2007-08-11 17:42:26Z cooloney $
  */
 
 #ifndef _LINUX_QUOTA_

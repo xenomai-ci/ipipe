@@ -8,7 +8,7 @@
 #ifndef __ASM_SN_NMI_H
 #define __ASM_SN_NMI_H
 
-#ident "$Revision: 1.5 $"
+#ident "$Revision: 1331 $"
 
 #include <asm/sn/addrs.h>
 

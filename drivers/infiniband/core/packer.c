@@ -30,7 +30,7 @@
  * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
  *
- * $Id: packer.c 1349 2004-12-16 21:09:43Z roland $
+ * $Id: packer.c 2401 2006-11-03 06:02:10Z magicyang $
  */
 
 #include <linux/string.h>

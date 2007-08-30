@@ -7,7 +7,7 @@
  * it under the terms of the GNU General Public License version 2 as
  * published by the Free Software Foundation.
  *
- *  $Id: pci.c,v 1.14 2005/11/17 08:20:27 dwmw2 Exp $
+ *  $Id: pci.c 2399 2006-11-03 05:32:46Z magicyang $
  *
  * Generic PCI memory map driver.  We support the following boards:
  *  - Intel IQ80310 ATU.

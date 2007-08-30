@@ -2,8 +2,8 @@
  *
  * Name:	skge.c
  * Project:	GEnesis, PCI Gigabit Ethernet Adapter
- * Version:	$Revision: 1.45 $
- * Date:       	$Date: 2004/02/12 14:41:02 $
+ * Version:	$Revision: 3544 $
+ * Date:       	$Date: 2007-08-11 19:42:26 +0200 (Sat, 11 Aug 2007) $
  * Purpose:	The main driver source module
  *
  ******************************************************************************/

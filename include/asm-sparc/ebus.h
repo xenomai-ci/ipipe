@@ -1,4 +1,4 @@
-/* $Id: ebus.h,v 1.2 1999/09/11 23:05:55 zaitcev Exp $
+/* $Id: ebus.h 2400 2006-11-03 05:43:27Z magicyang $
  * ebus.h: PCI to Ebus pseudo driver software state.
  *
  * Copyright (C) 1997 Eddie C. Dost (ecd@skynet.be) 

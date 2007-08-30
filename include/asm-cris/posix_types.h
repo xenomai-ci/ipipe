@@ -1,4 +1,4 @@
-/* $Id: posix_types.h,v 1.1 2000/07/10 16:32:31 bjornw Exp $ */
+/* $Id: posix_types.h 2620 2007-01-10 08:32:17Z cooloney $ */
 
 /* We cheat a bit and use our C-coded bitops functions from asm/bitops.h */
 /* I guess we should write these in assembler because they are used often. */

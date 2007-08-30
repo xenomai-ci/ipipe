@@ -1,4 +1,4 @@
-/* $Id: systbl.S,v 1.11 2000/03/13 21:57:35 davem Exp $
+/* $Id: systbl.S 2395 2006-11-02 09:34:16Z magicyang $
  * systbl.S: System call entry point table for Solaris compatibility.
  *
  * Copyright (C) 1997,1998 Jakub Jelinek (jj@sunsite.mff.cuni.cz)

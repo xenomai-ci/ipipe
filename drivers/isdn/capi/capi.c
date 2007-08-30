@@ -1,4 +1,4 @@
-/* $Id: capi.c,v 1.1.2.7 2004/04/28 09:48:59 armin Exp $
+/* $Id: capi.c 3544 2007-08-11 17:42:26Z cooloney $
  *
  * CAPI 2.0 Interface for Linux
  *
@@ -44,7 +44,7 @@
 #include "capifs.h"
 #endif
 
-static char *revision = "$Revision: 1.1.2.7 $";
+static char *revision = "$Revision: 3544 $";
 
 MODULE_DESCRIPTION("CAPI4Linux: Userspace /dev/capi20 interface");
 MODULE_AUTHOR("Carsten Paeth");

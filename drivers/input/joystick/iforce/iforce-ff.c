@@ -1,5 +1,5 @@
 /*
- * $Id: iforce-ff.c,v 1.9 2002/02/02 19:28:35 jdeneux Exp $
+ * $Id: iforce-ff.c 3544 2007-08-11 17:42:26Z cooloney $
  *
  *  Copyright (c) 2000-2002 Vojtech Pavlik <vojtech@ucw.cz>
  *  Copyright (c) 2001-2002, 2007 Johann Deneux <johann.deneux@gmail.com>

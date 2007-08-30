@@ -5,7 +5,7 @@
  * (C) 2002 Hewlett-Packard Company <jamey.hicks@hp.com>
  * (C) 2003 Christian Pellegrin <chri@ascensit.com>, <chri@infis.univ.ts.it>: concatenation of multiple flashes
  *
- * $Id: ipaq-flash.c,v 1.5 2005/11/07 11:14:27 gleixner Exp $
+ * $Id: ipaq-flash.c 2399 2006-11-03 05:32:46Z magicyang $
  */
 
 #include <linux/module.h>

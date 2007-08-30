@@ -1,5 +1,5 @@
 /*
- * $Id: mtd.h,v 1.61 2005/11/07 11:14:54 gleixner Exp $
+ * $Id: mtd.h 3544 2007-08-11 17:42:26Z cooloney $
  *
  * Copyright (C) 1999-2003 David Woodhouse <dwmw2@infradead.org> et al.
  *
@@ -140,6 +140,20 @@ struct mtd_info {
 
 	/* We probably shouldn't allow XIP if the unpoint isn't a NULL */
 	void (*unpoint) (struct mtd_info *mtd, u_char * addr, loff_t from, size_t len);
+
+	/* Allow NOMMU mmap() to directly map the device (if not NULL)
+	 * - return the address to which the offset maps
+	 * - return -ENOSYS to indicate refusal to do the mapping
+	 */
+	unsigned long (*get_unmapped_area) (struct mtd_info *mtd,
+					    unsigned long len,
+					    unsigned long offset,
+					    unsigned long flags);
+
+	/* Backing device capabilities for this device
+	 * - provides mmap capabilities
+	 */
+	struct backing_dev_info *backing_dev_info;
 
 
 	int (*read) (struct mtd_info *mtd, loff_t from, size_t len, size_t *retlen, u_char *buf);

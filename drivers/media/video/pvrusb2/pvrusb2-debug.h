@@ -1,5 +1,5 @@
 /*
- *  $Id$
+ *  $Id: pvrusb2-debug.h 2398 2006-11-02 13:08:27Z magicyang $
  *
  *  Copyright (C) 2005 Mike Isely <isely@pobox.com>
  *

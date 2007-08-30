@@ -143,6 +143,9 @@
 #define PORT_KS8695	76
 
 
+/* Blackfin SPORT */
+#define PORT_BFIN_SPORT 76
+
 #ifdef __KERNEL__
 
 #include <linux/compiler.h>

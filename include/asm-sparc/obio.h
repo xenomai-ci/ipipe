@@ -1,4 +1,4 @@
-/* $Id: obio.h,v 1.4 1998/03/09 14:04:55 jj Exp $
+/* $Id: obio.h 2400 2006-11-03 05:43:27Z magicyang $
  * obio.h:  Some useful locations in 0xFXXXXXXXX PA obio space on sun4d.
  *
  * Copyright (C) 1997 Jakub Jelinek <jj@sunsite.mff.cuni.cz>

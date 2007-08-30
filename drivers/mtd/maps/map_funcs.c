@@ -1,5 +1,5 @@
 /*
- * $Id: map_funcs.c,v 1.10 2005/06/06 23:04:36 tpoynor Exp $
+ * $Id: map_funcs.c 2399 2006-11-03 05:32:46Z magicyang $
  *
  * Out-of-line map I/O functions for simple maps when CONFIG_COMPLEX_MAPPINGS
  * is enabled.

@@ -1,5 +1,5 @@
 /*
- * $Id: pmc551.c,v 1.32 2005/11/07 11:14:25 gleixner Exp $
+ * $Id: pmc551.c 3544 2007-08-11 17:42:26Z cooloney $
  *
  * PMC551 PCI Mezzanine Ram Device
  *

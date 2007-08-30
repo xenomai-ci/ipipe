@@ -1,6 +1,6 @@
 /* Header file for Special Initializers for certain USB Mass Storage devices
  *
- * $Id: initializers.h,v 1.1 2000/08/29 23:07:02 mdharm Exp $
+ * $Id: initializers.h 2620 2007-01-10 08:32:17Z cooloney $
  *
  * Current development and maintenance by:
  *   (c) 1999, 2000 Matthew Dharm (mdharm-usb@one-eyed-alien.net)

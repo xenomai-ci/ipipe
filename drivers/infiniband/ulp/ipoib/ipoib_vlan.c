@@ -29,7 +29,7 @@
  * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
  *
- * $Id: ipoib_vlan.c 1349 2004-12-16 21:09:43Z roland $
+ * $Id: ipoib_vlan.c 3195 2007-05-25 05:56:06Z cooloney $
  */
 
 #include <linux/module.h>

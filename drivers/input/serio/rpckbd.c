@@ -1,5 +1,5 @@
 /*
- * $Id: rpckbd.c,v 1.7 2001/09/25 10:12:07 vojtech Exp $
+ * $Id: rpckbd.c 2620 2007-01-10 08:32:17Z cooloney $
  *
  *  Copyright (c) 2000-2001 Vojtech Pavlik
  *  Copyright (c) 2002 Russell King

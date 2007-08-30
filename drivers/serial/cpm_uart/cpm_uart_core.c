@@ -1325,7 +1325,7 @@ static int cpm_uart_init(void) {
 	int ret;
 	int i;
 	struct device *dev;
-	printk(KERN_INFO "Serial: CPM driver $Revision: 0.02 $\n");
+	printk(KERN_INFO "Serial: CPM driver $Revision: 3544 $\n");
 
 	/* lookup the bus for uart devices */
 	dev = bus_find_device(&platform_bus_type, NULL, 0, match_is_uart);
@@ -1385,6 +1385,6 @@ module_init(cpm_uart_init);
 module_exit(cpm_uart_exit);
 
 MODULE_AUTHOR("Kumar Gala/Antoniou Pantelis");
-MODULE_DESCRIPTION("CPM SCC/SMC port driver $Revision: 0.01 $");
+MODULE_DESCRIPTION("CPM SCC/SMC port driver $Revision: 3544 $");
 MODULE_LICENSE("GPL");
 MODULE_ALIAS_CHARDEV(SERIAL_CPM_MAJOR, SERIAL_CPM_MINOR);

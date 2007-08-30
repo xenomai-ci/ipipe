@@ -1,5 +1,5 @@
 /*
- * $Id: cfi_endian.h,v 1.11 2002/01/30 23:20:48 awozniak Exp $
+ * $Id: cfi_endian.h 2397 2006-11-02 10:51:58Z magicyang $
  *
  */
 

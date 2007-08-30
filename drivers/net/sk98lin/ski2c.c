@@ -2,8 +2,8 @@
  *
  * Name:	ski2c.c
  * Project:	Gigabit Ethernet Adapters, TWSI-Module
- * Version:	$Revision: 1.59 $
- * Date:	$Date: 2003/10/20 09:07:25 $
+ * Version:	$Revision: 2399 $
+ * Date:	$Date: 2006-11-03 06:32:46 +0100 (Fri, 03 Nov 2006) $
  * Purpose:	Functions to access Voltage and Temperature Sensor
  *
  ******************************************************************************/
@@ -27,7 +27,7 @@
  */
 #if (defined(DEBUG) || ((!defined(LINT)) && (!defined(SK_SLIM))))
 static const char SysKonnectFileId[] =
-	"@(#) $Id: ski2c.c,v 1.59 2003/10/20 09:07:25 rschmidt Exp $ (C) Marvell. ";
+	"@(#) $Id: ski2c.c 2399 2006-11-03 05:32:46Z magicyang $ (C) Marvell. ";
 #endif
 
 #include "h/skdrv1st.h"		/* Driver Specific Definitions */

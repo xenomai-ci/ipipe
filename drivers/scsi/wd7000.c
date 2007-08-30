@@ -1,4 +1,4 @@
-/* $Id: $
+/* $Id: wd7000.c 2620 2007-01-10 08:32:17Z cooloney $
  *  linux/drivers/scsi/wd7000.c
  *
  *  Copyright (C) 1992  Thomas Wuensche

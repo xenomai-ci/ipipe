@@ -1,5 +1,5 @@
 /*
- * $Id: block2mtd.c,v 1.30 2005/11/29 14:48:32 gleixner Exp $
+ * $Id: block2mtd.c 3544 2007-08-11 17:42:26Z cooloney $
  *
  * block2mtd.c - create an mtd from a block device
  *
@@ -20,7 +20,7 @@
 #include <linux/mutex.h>
 #include <linux/mount.h>
 
-#define VERSION "$Revision: 1.30 $"
+#define VERSION "$Revision: 3544 $"
 
 
 #define ERROR(fmt, args...) printk(KERN_ERR "block2mtd: " fmt "\n" , ## args)

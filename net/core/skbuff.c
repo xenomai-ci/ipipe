@@ -4,7 +4,7 @@
  *	Authors:	Alan Cox <iiitac@pyr.swan.ac.uk>
  *			Florian La Roche <rzsfl@rz.uni-sb.de>
  *
- *	Version:	$Id: skbuff.c,v 1.90 2001/11/07 05:56:19 davem Exp $
+ *	Version:	$Id: skbuff.c 3544 2007-08-11 17:42:26Z cooloney $
  *
  *	Fixes:
  *		Alan Cox	:	Fixed the worst of the load

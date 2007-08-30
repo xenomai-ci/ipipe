@@ -1,5 +1,5 @@
 /* ssp.h
-     $Id$
+     $Id: ssp.h 2400 2006-11-03 05:43:27Z magicyang $
 
    written by Marc Singer
    6 Dec 2004

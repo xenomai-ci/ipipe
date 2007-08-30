@@ -1,5 +1,5 @@
 /*
- * $Id: mtd_blkdevs.c,v 1.27 2005/11/07 11:14:20 gleixner Exp $
+ * $Id: mtd_blkdevs.c 3544 2007-08-11 17:42:26Z cooloney $
  *
  * (C) 2003 David Woodhouse <dwmw2@infradead.org>
  *

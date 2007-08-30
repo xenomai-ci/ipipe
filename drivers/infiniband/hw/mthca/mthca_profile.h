@@ -30,7 +30,7 @@
  * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
  *
- * $Id: mthca_profile.h 1349 2004-12-16 21:09:43Z roland $
+ * $Id: mthca_profile.h 2401 2006-11-03 06:02:10Z magicyang $
  */
 
 #ifndef MTHCA_PROFILE_H

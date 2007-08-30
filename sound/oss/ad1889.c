@@ -24,7 +24,7 @@
 <jsm> tausq: Anyway, to set up sample rates for D to A, you just use the sample rate on the codec. For A to D, you need to set the codec always to 48K (using the split sample rate feature on the codec) and then set the resampler on the AD1889 to the sample rate you want.
 <jsm> Also, when changing the sample rate on the codec you need to power it down and re power it up for the change to take effect!
  *
- * $Id: ad1889.c,v 1.3 2002/10/19 21:31:44 grundler Exp $
+ * $Id: ad1889.c 3195 2007-05-25 05:56:06Z cooloney $
  */
 #include <linux/module.h>
 #include <linux/init.h>

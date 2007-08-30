@@ -1,4 +1,4 @@
-/* $Id: elsa.c,v 2.32.2.4 2004/01/24 20:47:21 keil Exp $
+/* $Id: elsa.c 2620 2007-01-10 08:32:17Z cooloney $
  *
  * low level stuff for Elsa isdn cards
  *
@@ -32,7 +32,7 @@
 
 extern const char *CardType[];
 
-static const char *Elsa_revision = "$Revision: 2.32.2.4 $";
+static const char *Elsa_revision = "$Revision: 2620 $";
 static const char *Elsa_Types[] =
 {"None", "PC", "PCC-8", "PCC-16", "PCF", "PCF-Pro",
  "PCMCIA", "QS 1000", "QS 3000", "Microlink PCI", "QS 3000 PCI", 

@@ -24,7 +24,7 @@
 /*
  * Bluetooth RFCOMM core.
  *
- * $Id: core.c,v 1.42 2002/10/01 23:26:25 maxk Exp $
+ * $Id: core.c 3544 2007-08-11 17:42:26Z cooloney $
  */
 
 #include <linux/module.h>

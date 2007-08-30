@@ -30,7 +30,7 @@
  * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
  *
- * $Id: ib_user_cm.h 4019 2005-11-11 00:33:09Z sean.hefty $
+ * $Id: ib_user_cm.h 2959 2007-03-30 04:02:22Z cooloney $
  */
 
 #ifndef IB_USER_CM_H

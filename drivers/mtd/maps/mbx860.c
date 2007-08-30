@@ -1,5 +1,5 @@
 /*
- * $Id: mbx860.c,v 1.9 2005/11/07 11:14:27 gleixner Exp $
+ * $Id: mbx860.c 2399 2006-11-03 05:32:46Z magicyang $
  *
  * Handle mapping of the flash on MBX860 boards
  *

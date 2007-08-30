@@ -9,7 +9,7 @@
  * implementation is based on one of the several variants of the LINUX
  * inode-subsystem with added complexity of the diskquota system.
  * 
- * Version: $Id: dquot.c,v 6.3 1996/11/17 18:35:34 mvw Exp mvw $
+ * Version: $Id: dquot.c 3544 2007-08-11 17:42:26Z cooloney $
  * 
  * Author:	Marco van Wieringen <mvw@planets.elm.net>
  *

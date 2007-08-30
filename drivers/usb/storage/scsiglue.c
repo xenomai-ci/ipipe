@@ -1,7 +1,7 @@
 /* Driver for USB Mass Storage compliant devices
  * SCSI layer glue code
  *
- * $Id: scsiglue.c,v 1.26 2002/04/22 03:39:43 mdharm Exp $
+ * $Id: scsiglue.c 3195 2007-05-25 05:56:06Z cooloney $
  *
  * Current development and maintenance by:
  *   (c) 1999-2002 Matthew Dharm (mdharm-usb@one-eyed-alien.net)

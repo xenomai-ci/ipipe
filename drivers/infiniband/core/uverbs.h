@@ -33,7 +33,7 @@
  * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
  *
- * $Id: uverbs.h 2559 2005-06-06 19:43:16Z roland $
+ * $Id: uverbs.h 3544 2007-08-11 17:42:26Z cooloney $
  */
 
 #ifndef UVERBS_H

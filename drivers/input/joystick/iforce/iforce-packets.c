@@ -1,5 +1,5 @@
 /*
- * $Id: iforce-packets.c,v 1.16 2002/07/07 10:22:50 jdeneux Exp $
+ * $Id: iforce-packets.c 3544 2007-08-11 17:42:26Z cooloney $
  *
  *  Copyright (c) 2000-2002 Vojtech Pavlik <vojtech@ucw.cz>
  *  Copyright (c) 2001-2002, 2007 Johann Deneux <johann.deneux@gmail.com>

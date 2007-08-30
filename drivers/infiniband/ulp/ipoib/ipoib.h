@@ -31,7 +31,7 @@
  * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
  *
- * $Id: ipoib.h 1358 2004-12-17 22:00:11Z roland $
+ * $Id: ipoib.h 3544 2007-08-11 17:42:26Z cooloney $
  */
 
 #ifndef _IPOIB_H

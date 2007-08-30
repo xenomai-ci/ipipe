@@ -1,4 +1,4 @@
-/* $Id: tree.c,v 1.10 1998/01/10 22:39:00 ecd Exp $
+/* $Id: tree.c 2395 2006-11-02 09:34:16Z magicyang $
  * tree.c: Basic device tree traversal/scanning for the Linux
  *         prom library.
  *

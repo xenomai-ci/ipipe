@@ -1,4 +1,4 @@
-/* $Id: pil.h,v 1.1 2002/01/23 11:27:36 davem Exp $ */
+/* $Id: pil.h 2400 2006-11-03 05:43:27Z magicyang $ */
 #ifndef _SPARC64_PIL_H
 #define _SPARC64_PIL_H
 

@@ -7,7 +7,7 @@
  *
  * This code is covered by the GPL.
  *
- * $Id: cfi_util.c,v 1.10 2005/11/07 11:14:23 gleixner Exp $
+ * $Id: cfi_util.c 3195 2007-05-25 05:56:06Z cooloney $
  *
  */
 

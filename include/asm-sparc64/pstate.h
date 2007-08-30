@@ -1,4 +1,4 @@
-/* $Id: pstate.h,v 1.6 1997/06/25 07:39:45 jj Exp $ */
+/* $Id: pstate.h 3544 2007-08-11 17:42:26Z cooloney $ */
 #ifndef _SPARC64_PSTATE_H
 #define _SPARC64_PSTATE_H
 

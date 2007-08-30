@@ -1,6 +1,5 @@
 OUTPUT_ARCH(powerpc:common)
-ENTRY(_zimage_start_opd)
-EXTERN(_zimage_start_opd)
+ENTRY(_start)
 SECTIONS
 {
   . = (5*1024*1024);

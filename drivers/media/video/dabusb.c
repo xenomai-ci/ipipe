@@ -21,7 +21,7 @@
  *
  *
  *
- *  $Id: dabusb.c,v 1.54 2000/07/24 21:39:39 deti Exp $
+ *  $Id: dabusb.c 3544 2007-08-11 17:42:26Z cooloney $
  *
  */
 

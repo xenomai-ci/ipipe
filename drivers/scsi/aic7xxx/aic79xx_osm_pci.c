@@ -36,7 +36,7 @@
  * IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGES.
  *
- * $Id: //depot/aic7xxx/linux/drivers/scsi/aic7xxx/aic79xx_osm_pci.c#25 $
+ * $Id: aic79xx_osm_pci.c 3195 2007-05-25 05:56:06Z cooloney $
  */
 
 #include "aic79xx_osm.h"

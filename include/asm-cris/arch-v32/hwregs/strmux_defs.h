@@ -8,7 +8,7 @@
  *     last modfied: Mon Apr 11 16:09:43 2005
  *
  *   by /n/asic/design/tools/rdesc/src/rdes2c --outfile strmux_defs.h ../../inst/strmux/rtl/guinness/strmux_regs.r
- *      id: $Id: strmux_defs.h,v 1.5 2005/04/24 18:30:58 starvik Exp $
+ *      id: $Id: strmux_defs.h 2387 2006-11-01 05:32:21Z magicyang $
  * Any changes here will be lost.
  *
  * -*- buffer-read-only: t -*-

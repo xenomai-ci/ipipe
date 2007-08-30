@@ -1,4 +1,4 @@
-/* $Id: checksum.S,v 1.1 2001/12/17 13:59:27 bjornw Exp $
+/* $Id: checksum.S 2386 2006-11-01 04:57:26Z magicyang $
  * A fast checksum routine using movem
  * Copyright (c) 1998-2001 Axis Communications AB
  *

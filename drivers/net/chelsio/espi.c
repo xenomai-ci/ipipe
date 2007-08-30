@@ -1,8 +1,8 @@
 /*****************************************************************************
  *                                                                           *
  * File: espi.c                                                              *
- * $Revision: 1.14 $                                                         *
- * $Date: 2005/05/14 00:59:32 $                                              *
+ * $Revision: 3195 $                                                         *
+ * $Date: 2007-05-25 07:56:06 +0200 (Fri, 25 May 2007) $                                              *
  * Description:                                                              *
  *  Ethernet SPI functionality.                                              *
  *  part of the Chelsio 10Gb Ethernet Driver.                                *

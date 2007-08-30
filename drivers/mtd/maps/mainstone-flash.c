@@ -1,5 +1,5 @@
 /*
- * $Id:  $
+ * $Id: mainstone-flash.c 2399 2006-11-03 05:32:46Z magicyang $
  *
  * Map driver for the Mainstone developer platform.
  *

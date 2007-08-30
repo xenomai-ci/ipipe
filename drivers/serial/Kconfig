@@ -1,7 +1,7 @@
 #
 # Serial device configuration
 #
-# $Id: Kconfig,v 1.11 2004/03/11 18:08:04 lethal Exp $
+# $Id: Kconfig 3602 2007-08-23 01:36:06Z cooloney $
 #
 
 menu "Serial drivers"
@@ -74,21 +74,17 @@ config SERIAL_8250_PCI
 	depends on SERIAL_8250 && PCI
 	default SERIAL_8250
 	help
-	  Say Y here if you have PCI serial ports.
-
-	  To compile this driver as a module, choose M here: the module
-	  will be called 8250_pci.
+	  This builds standard PCI serial support. You may be able to
+	  disable this feature if you only need legacy serial support.
+	  Saves about 9K.
 
 config SERIAL_8250_PNP
 	tristate "8250/16550 PNP device support" if EMBEDDED
 	depends on SERIAL_8250 && PNP
 	default SERIAL_8250
 	help
-	  Say Y here if you have serial ports described by PNPBIOS or ACPI.
-	  These are typically ports built into the system board.
-
-	  To compile this driver as a module, choose M here: the module
-	  will be called 8250_pnp.
+	  This builds standard PNP serial support. You may be able to
+	  disable this feature if you only need legacy serial support.
 
 config SERIAL_8250_HP300
 	tristate
@@ -556,7 +552,7 @@ choice
 
 config SERIAL_BFIN_DMA
 	bool "DMA mode"
-	depends on DMA_UNCACHED_1M
+	depends on DMA_UNCACHED_1M && !KGDB_UART
 	help
 	  This driver works under DMA mode. If this option is selected, the
 	  blackfin simple dma driver is also enabled.
@@ -599,7 +595,7 @@ config UART0_RTS_PIN
 
 config SERIAL_BFIN_UART1
 	bool "Enable UART1"
-	depends on SERIAL_BFIN && (BF534 || BF536 || BF537)
+	depends on SERIAL_BFIN && (BF534 || BF536 || BF537 || BF54x)
 	help
 	  Enable UART1
 
@@ -612,17 +608,57 @@ config BFIN_UART1_CTSRTS
 
 config UART1_CTS_PIN
 	int "UART1 CTS pin"
-	depends on BFIN_UART1_CTSRTS
+	depends on BFIN_UART1_CTSRTS && (BF53x || BF561)
 	default -1
 	help
 	  Refer to ./include/asm-blackfin/gpio.h to see the GPIO map.
 
 config UART1_RTS_PIN
 	int "UART1 RTS pin"
-	depends on BFIN_UART1_CTSRTS
+	depends on BFIN_UART1_CTSRTS && (BF53x || BF561)
 	default -1
 	help
 	  Refer to ./include/asm-blackfin/gpio.h to see the GPIO map.
+
+config SERIAL_BFIN_UART2
+	bool "Enable UART2"
+	depends on SERIAL_BFIN && (BF54x)
+	help
+	  Enable UART2
+
+config BFIN_UART2_CTSRTS
+	bool "Enable UART2 hardware flow control"
+	depends on SERIAL_BFIN_UART2
+	help
+	  Enable hardware flow control in the driver. Using GPIO emulate the CTS/RTS
+	  signal.
+
+config UART2_CTS_PIN
+	int "UART2 CTS pin"
+	depends on BFIN_UART2_CTSRTS
+	default -1
+	help
+	  Refer to ./include/asm-blackfin/gpio.h to see the GPIO map.
+
+config UART2_RTS_PIN
+	int "UART2 RTS pin"
+	depends on BFIN_UART2_CTSRTS
+	default -1
+	help
+	  Refer to ./include/asm-blackfin/gpio.h to see the GPIO map.
+
+config SERIAL_BFIN_UART3
+	bool "Enable UART3"
+	depends on SERIAL_BFIN && (BF54x)
+	help
+	  Enable UART3
+
+config BFIN_UART3_CTSRTS
+	bool "Enable UART3 hardware flow control"
+	depends on SERIAL_BFIN_UART3
+	help
+	  Enable hardware flow control in the driver. Using GPIO emulate the CTS/RTS
+	  signal.
 
 config SERIAL_IMX
 	bool "IMX serial port support"
@@ -1150,5 +1186,48 @@ config SERIAL_OF_PLATFORM
 	  on a platform specific bus, you should enable this option.
 	  Currently, only 8250 compatible ports are supported, but
 	  others can easily be added.
+
+config SERIAL_BFIN_SPORT
+	tristate "Blackfin SPORT emulate UART (EXPERIMENTAL)"
+	depends on BFIN && EXPERIMENTAL
+	select SERIAL_CORE
+	help
+	  Enble support SPORT emulate UART on Blackfin series.
+
+	  To compile this driver as a module, choose M here: the 
+	  module will be called bfin_sport_uart.
+
+choice
+	prompt "Baud rate for Blackfin SPORT UART"
+	depends on SERIAL_BFIN_SPORT
+	default SERIAL_SPORT_BAUD_RATE_57600
+	help
+	  Choose a baud rate for the SPORT UART, other uart settings are
+	  8 bit, 1 stop bit, no parity, no flow control.
+
+config SERIAL_SPORT_BAUD_RATE_115200
+	bool "115200"
+
+config SERIAL_SPORT_BAUD_RATE_57600
+	bool "57600"
+
+config SERIAL_SPORT_BAUD_RATE_38400
+	bool "38400"
+
+config SERIAL_SPORT_BAUD_RATE_19200
+	bool "19200"
+
+config SERIAL_SPORT_BAUD_RATE_9600
+	bool "9600"
+endchoice
+
+config SPORT_BAUD_RATE
+	int
+	depends on SERIAL_BFIN_SPORT
+	default 115200 if (SERIAL_SPORT_BAUD_RATE_115200)
+	default 57600 if (SERIAL_SPORT_BAUD_RATE_57600)
+	default 38400 if (SERIAL_SPORT_BAUD_RATE_38400)
+	default 19200 if (SERIAL_SPORT_BAUD_RATE_19200)
+	default 9600 if (SERIAL_SPORT_BAUD_RATE_9600)
 
 endmenu

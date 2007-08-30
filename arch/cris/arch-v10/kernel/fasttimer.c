@@ -1,4 +1,4 @@
-/* $Id: fasttimer.c,v 1.9 2005/03/04 08:16:16 starvik Exp $
+/* $Id: fasttimer.c 2620 2007-01-10 08:32:17Z cooloney $
  * linux/arch/cris/kernel/fasttimer.c
  *
  * Fast timers for ETRAX100/ETRAX100LX

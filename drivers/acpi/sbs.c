@@ -1,5 +1,5 @@
 /*
- *  acpi_sbs.c - ACPI Smart Battery System Driver ($Revision: 1.16 $)
+ *  acpi_sbs.c - ACPI Smart Battery System Driver ($Revision: 3544 $)
  *
  *  Copyright (c) 2005 Rich Townsend <rhdt@bartol.udel.edu>
  *

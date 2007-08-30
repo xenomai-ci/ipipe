@@ -1,17 +1,22 @@
 /*
- * File:         drivers/spi/bfin5xx_spi.c
- * Based on:     N/A
- * Author:       Luke Yang (Analog Devices Inc.)
+ * File:	drivers/spi/bfin5xx_spi.c
+ * Maintainer:
+ * 		Bryan Wu <bryan.wu@analog.com>
+ * Original Author:
+ * 		Luke Yang (Analog Devices Inc.)
  *
- * Created:      March. 10th 2006
- * Description:  SPI controller driver for Blackfin 5xx
- * Bugs:         Enter bugs at http://blackfin.uclinux.org/
+ * Created:	March. 10th 2006
+ * Description:	SPI controller driver for Blackfin BF5xx
+ * Bugs:	Enter bugs at http://blackfin.uclinux.org/
  *
  * Modified:
  *	March 10, 2006  bfin5xx_spi.c Created. (Luke Yang)
  *      August 7, 2006  added full duplex mode (Axel Weiss & Luke Yang)
+ *      July  17, 2007  add support for BF54x SPI0 controller (Bryan Wu)
+ *      July  30, 2007  add platfrom_resource interface to support multi-port
+ *                      SPI controller (Bryan Wu)
  *
- * Copyright 2004-2006 Analog Devices Inc.
+ * Copyright 2004-2007 Analog Devices Inc.
  *
  * This program is free software ;  you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -31,36 +36,41 @@
 
 #include <linux/init.h>
 #include <linux/module.h>
+#include <linux/delay.h>
 #include <linux/device.h>
+#include <linux/io.h>
 #include <linux/ioport.h>
+#include <linux/irq.h>
 #include <linux/errno.h>
 #include <linux/interrupt.h>
 #include <linux/platform_device.h>
 #include <linux/dma-mapping.h>
 #include <linux/spi/spi.h>
 #include <linux/workqueue.h>
-#include <linux/errno.h>
-#include <linux/delay.h>
 
-#include <asm/io.h>
-#include <asm/irq.h>
-#include <asm/delay.h>
 #include <asm/dma.h>
-
+#include <asm/portmux.h>
 #include <asm/bfin5xx_spi.h>
 
-MODULE_AUTHOR("Luke Yang");
-MODULE_DESCRIPTION("Blackfin 5xx SPI Contoller");
+#define DRV_NAME	"bfin-spi"
+#define DRV_AUTHOR	"Bryan Wu, Luke Yang"
+#define DRV_DESC	"Blackfin BF5xx on-chip SPI Contoller Driver"
+#define DRV_VERSION	"1.0"
+
+MODULE_AUTHOR(DRV_AUTHOR);
+MODULE_DESCRIPTION(DRV_DESC);
 MODULE_LICENSE("GPL");
 
 #define IS_DMA_ALIGNED(x) (((u32)(x)&0x07)==0)
 
+static u32 spi_dma_ch;
+static u32 spi_regs_base;
+
 #define DEFINE_SPI_REG(reg, off) \
 static inline u16 read_##reg(void) \
-            { return *(volatile unsigned short*)(SPI0_REGBASE + off); } \
+	{ return bfin_read16(spi_regs_base + off); } \
 static inline void write_##reg(u16 v) \
-            {*(volatile unsigned short*)(SPI0_REGBASE + off) = v;\
-             SSYNC();}
+	{bfin_write16(spi_regs_base + off, v); }
 
 DEFINE_SPI_REG(CTRL, 0x00)
 DEFINE_SPI_REG(FLAG, 0x04)
@@ -114,6 +124,7 @@ struct driver_data {
 	size_t rx_map_len;
 	size_t tx_map_len;
 	u8 n_bytes;
+	int cs_change;
 	void (*write) (struct driver_data *);
 	void (*read) (struct driver_data *);
 	void (*duplex) (struct driver_data *);
@@ -125,6 +136,7 @@ struct chip_data {
 	u16 flag;
 
 	u8 chip_select_num;
+	u8 chip_select_requested;
 	u8 n_bytes;
 	u8 width;		/* 0 or 1 */
 	u8 enable_dma;
@@ -142,7 +154,6 @@ static void bfin_spi_enable(struct driver_data *drv_data)
 
 	cr = read_CTRL();
 	write_CTRL(cr | BIT_CTL_ENABLE);
-	SSYNC();
 }
 
 static void bfin_spi_disable(struct driver_data *drv_data)
@@ -151,7 +162,6 @@ static void bfin_spi_disable(struct driver_data *drv_data)
 
 	cr = read_CTRL();
 	write_CTRL(cr & (~BIT_CTL_ENABLE));
-	SSYNC();
 }
 
 /* Caculate the SPI_BAUD register value based on input HZ */
@@ -179,68 +189,64 @@ static int flush(struct driver_data *drv_data)
 	return limit;
 }
 
+/* Chip select operation functions for cs_change flag */
+static void cs_active(struct chip_data *chip)
+{
+	u16 flag = read_FLAG();
+
+	flag |= chip->flag;
+	flag &= ~(chip->flag << 8);
+
+	write_FLAG(flag);
+}
+
+static void cs_deactive(struct chip_data *chip)
+{
+	u16 flag = read_FLAG();
+
+	flag |= (chip->flag << 8);
+
+	write_FLAG(flag);
+}
+
+#define MAX_SPI0_SSEL	7
+
 /* stop controller and re-config current chip*/
-static void restore_state(struct driver_data *drv_data)
+static int restore_state(struct driver_data *drv_data)
 {
 	struct chip_data *chip = drv_data->cur_chip;
+	int ret = 0;
+	u16 ssel[MAX_SPI0_SSEL] = {P_SPI0_SSEL1, P_SPI0_SSEL2, P_SPI0_SSEL3,
+					P_SPI0_SSEL4, P_SPI0_SSEL5,
+					P_SPI0_SSEL6, P_SPI0_SSEL7,};
 
 	/* Clear status and disable clock */
 	write_STAT(BIT_STAT_CLR);
 	bfin_spi_disable(drv_data);
 	dev_dbg(&drv_data->pdev->dev, "restoring spi ctl state\n");
 
-#if defined(CONFIG_BF534) || defined(CONFIG_BF536) || defined(CONFIG_BF537)
-	dev_dbg(&drv_data->pdev->dev, 
-		"chip select number is %d\n", chip->chip_select_num);
-	
-	switch (chip->chip_select_num) {
-	case 1:
-		bfin_write_PORTF_FER(bfin_read_PORTF_FER() | 0x3c00);
-		SSYNC();
-		break;
-
-	case 2:
-	case 3:
-		bfin_write_PORT_MUX(bfin_read_PORT_MUX() | PJSE_SPI);
-		SSYNC();
-		bfin_write_PORTF_FER(bfin_read_PORTF_FER() | 0x3800);
-		SSYNC();
-		break;
-
-	case 4:
-		bfin_write_PORT_MUX(bfin_read_PORT_MUX() | PFS4E_SPI);
-		SSYNC();
-		bfin_write_PORTF_FER(bfin_read_PORTF_FER() | 0x3840);
-		SSYNC();
-		break;
-
-	case 5:
-		bfin_write_PORT_MUX(bfin_read_PORT_MUX() | PFS5E_SPI);
-		SSYNC();
-		bfin_write_PORTF_FER(bfin_read_PORTF_FER() | 0x3820);
-		SSYNC();
-		break;
-
-	case 6:
-		bfin_write_PORT_MUX(bfin_read_PORT_MUX() | PFS6E_SPI);
-		SSYNC();
-		bfin_write_PORTF_FER(bfin_read_PORTF_FER() | 0x3810);
-		SSYNC();
-		break;
-
-	case 7:
-		bfin_write_PORT_MUX(bfin_read_PORT_MUX() | PJCE_SPI);
-		SSYNC();
-		bfin_write_PORTF_FER(bfin_read_PORTF_FER() | 0x3800);
-		SSYNC();
-		break;
-	}
-#endif
-
 	/* Load the registers */
 	write_CTRL(chip->ctl_reg);
 	write_BAUD(chip->baud);
-	write_FLAG(chip->flag);
+	cs_active(chip);
+
+	if (!chip->chip_select_requested) {
+		int i = chip->chip_select_num;
+
+		dev_dbg(&drv_data->pdev->dev, "chip select number is %d\n", i);
+
+		if ((i > 0) && (i <= MAX_SPI0_SSEL))
+			ret = peripheral_request(ssel[i-1], DRV_NAME);
+
+		chip->chip_select_requested = 1;
+	}
+
+	if (ret)
+		dev_dbg(&drv_data->pdev->dev,
+			": request chip select number %d failed\n",
+			chip->chip_select_num);
+
+	return ret;
 }
 
 /* used to kick off transfer in rx mode */
@@ -278,7 +284,7 @@ static void null_reader(struct driver_data *drv_data)
 
 static void u8_writer(struct driver_data *drv_data)
 {
-	dev_dbg(&drv_data->pdev->dev, 
+	dev_dbg(&drv_data->pdev->dev,
 		"cr8-s is 0x%x\n", read_STAT());
 	while (drv_data->tx < drv_data->tx_end) {
 		write_TDBR(*(u8 *) (drv_data->tx));
@@ -297,27 +303,26 @@ static void u8_cs_chg_writer(struct driver_data *drv_data)
 	struct chip_data *chip = drv_data->cur_chip;
 
 	while (drv_data->tx < drv_data->tx_end) {
-		write_FLAG(chip->flag);
-		SSYNC();
+		cs_active(chip);
 
 		write_TDBR(*(u8 *) (drv_data->tx));
 		while (read_STAT() & BIT_STAT_TXS)
 			continue;
 		while (!(read_STAT() & BIT_STAT_SPIF))
 			continue;
-		write_FLAG(0xFF00 | chip->flag);
-		SSYNC();
+		cs_deactive(chip);
+
 		if (chip->cs_chg_udelay)
 			udelay(chip->cs_chg_udelay);
 		++drv_data->tx;
 	}
-	write_FLAG(0xFF00);
-	SSYNC();
+	cs_deactive(chip);
+
 }
 
 static void u8_reader(struct driver_data *drv_data)
 {
-	dev_dbg(&drv_data->pdev->dev, 
+	dev_dbg(&drv_data->pdev->dev,
 		"cr-8 is 0x%x\n", read_STAT());
 
 	/* clear TDBR buffer before read(else it will be shifted out) */
@@ -343,8 +348,7 @@ static void u8_cs_chg_reader(struct driver_data *drv_data)
 	struct chip_data *chip = drv_data->cur_chip;
 
 	while (drv_data->rx < drv_data->rx_end) {
-		write_FLAG(chip->flag);
-		SSYNC();
+		cs_active(chip);
 
 		read_RDBR();	/* kick off */
 		while (!(read_STAT() & BIT_STAT_RXS))
@@ -352,14 +356,14 @@ static void u8_cs_chg_reader(struct driver_data *drv_data)
 		while (!(read_STAT() & BIT_STAT_SPIF))
 			continue;
 		*(u8 *) (drv_data->rx) = read_SHAW();
-		write_FLAG(0xFF00 | chip->flag);
-		SSYNC();
+		cs_deactive(chip);
+
 		if (chip->cs_chg_udelay)
 			udelay(chip->cs_chg_udelay);
 		++drv_data->rx;
 	}
-	write_FLAG(0xFF00);
-	SSYNC();
+	cs_deactive(chip);
+
 }
 
 static void u8_duplex(struct driver_data *drv_data)
@@ -382,8 +386,8 @@ static void u8_cs_chg_duplex(struct driver_data *drv_data)
 	struct chip_data *chip = drv_data->cur_chip;
 
 	while (drv_data->rx < drv_data->rx_end) {
-		write_FLAG(chip->flag);
-		SSYNC();
+		cs_active(chip);
+
 
 		write_TDBR(*(u8 *) (drv_data->tx));
 		while (!(read_STAT() & BIT_STAT_SPIF))
@@ -391,20 +395,19 @@ static void u8_cs_chg_duplex(struct driver_data *drv_data)
 		while (!(read_STAT() & BIT_STAT_RXS))
 			continue;
 		*(u8 *) (drv_data->rx) = read_RDBR();
-		write_FLAG(0xFF00 | chip->flag);
-		SSYNC();
+		cs_deactive(chip);
+
 		if (chip->cs_chg_udelay)
 			udelay(chip->cs_chg_udelay);
 		++drv_data->rx;
 		++drv_data->tx;
 	}
-	write_FLAG(0xFF00);
-	SSYNC();
+	cs_deactive(chip);
 }
 
 static void u16_writer(struct driver_data *drv_data)
 {
-	dev_dbg(&drv_data->pdev->dev, 
+	dev_dbg(&drv_data->pdev->dev,
 		"cr16 is 0x%x\n", read_STAT());
 
 	while (drv_data->tx < drv_data->tx_end) {
@@ -424,22 +427,20 @@ static void u16_cs_chg_writer(struct driver_data *drv_data)
 	struct chip_data *chip = drv_data->cur_chip;
 
 	while (drv_data->tx < drv_data->tx_end) {
-		write_FLAG(chip->flag);
-		SSYNC();
+		cs_active(chip);
 
 		write_TDBR(*(u16 *) (drv_data->tx));
 		while ((read_STAT() & BIT_STAT_TXS))
 			continue;
 		while (!(read_STAT() & BIT_STAT_SPIF))
 			continue;
-		write_FLAG(0xFF00 | chip->flag);
-		SSYNC();
+		cs_deactive(chip);
+
 		if (chip->cs_chg_udelay)
 			udelay(chip->cs_chg_udelay);
 		drv_data->tx += 2;
 	}
-	write_FLAG(0xFF00);
-	SSYNC();
+	cs_deactive(chip);
 }
 
 static void u16_reader(struct driver_data *drv_data)
@@ -466,8 +467,7 @@ static void u16_cs_chg_reader(struct driver_data *drv_data)
 	struct chip_data *chip = drv_data->cur_chip;
 
 	while (drv_data->rx < drv_data->rx_end) {
-		write_FLAG(chip->flag);
-		SSYNC();
+		cs_active(chip);
 
 		read_RDBR();	/* kick off */
 		while (!(read_STAT() & BIT_STAT_RXS))
@@ -475,14 +475,13 @@ static void u16_cs_chg_reader(struct driver_data *drv_data)
 		while (!(read_STAT() & BIT_STAT_SPIF))
 			continue;
 		*(u16 *) (drv_data->rx) = read_SHAW();
-		write_FLAG(0xFF00 | chip->flag);
-		SSYNC();
+		cs_deactive(chip);
+
 		if (chip->cs_chg_udelay)
 			udelay(chip->cs_chg_udelay);
 		drv_data->rx += 2;
 	}
-	write_FLAG(0xFF00);
-	SSYNC();
+	cs_deactive(chip);
 }
 
 static void u16_duplex(struct driver_data *drv_data)
@@ -505,8 +504,7 @@ static void u16_cs_chg_duplex(struct driver_data *drv_data)
 	struct chip_data *chip = drv_data->cur_chip;
 
 	while (drv_data->tx < drv_data->tx_end) {
-		write_FLAG(chip->flag);
-		SSYNC();
+		cs_active(chip);
 
 		write_TDBR(*(u16 *) (drv_data->tx));
 		while (!(read_STAT() & BIT_STAT_SPIF))
@@ -514,15 +512,14 @@ static void u16_cs_chg_duplex(struct driver_data *drv_data)
 		while (!(read_STAT() & BIT_STAT_RXS))
 			continue;
 		*(u16 *) (drv_data->rx) = read_RDBR();
-		write_FLAG(0xFF00 | chip->flag);
-		SSYNC();
+		cs_deactive(chip);
+
 		if (chip->cs_chg_udelay)
 			udelay(chip->cs_chg_udelay);
 		drv_data->rx += 2;
 		drv_data->tx += 2;
 	}
-	write_FLAG(0xFF00);
-	SSYNC();
+	cs_deactive(chip);
 }
 
 /* test if ther is more transfer to be done */
@@ -547,6 +544,7 @@ static void *next_transfer(struct driver_data *drv_data)
  */
 static void giveback(struct driver_data *drv_data)
 {
+	struct chip_data *chip = drv_data->cur_chip;
 	struct spi_transfer *last_transfer;
 	unsigned long flags;
 	struct spi_message *msg;
@@ -566,9 +564,12 @@ static void giveback(struct driver_data *drv_data)
 
 	/* disable chip select signal. And not stop spi in autobuffer mode */
 	if (drv_data->tx_dma != 0xFFFF) {
-		write_FLAG(0xFF00);
+		cs_deactive(chip);
 		bfin_spi_disable(drv_data);
 	}
+
+	if (!drv_data->cs_change)
+		cs_deactive(chip);
 
 	if (msg->complete)
 		msg->complete(msg->context);
@@ -578,12 +579,13 @@ static irqreturn_t dma_irq_handler(int irq, void *dev_id)
 {
 	struct driver_data *drv_data = (struct driver_data *)dev_id;
 	struct spi_message *msg = drv_data->cur_msg;
+	struct chip_data *chip = drv_data->cur_chip;
 
 	dev_dbg(&drv_data->pdev->dev, "in dma_irq_handler\n");
-	clear_dma_irqstat(CH_SPI);
+	clear_dma_irqstat(spi_dma_ch);
 
 	/* Wait for DMA to complete */
-	while (get_dma_curr_irqstat(CH_SPI) & DMA_RUN)
+	while (get_dma_curr_irqstat(spi_dma_ch) & DMA_RUN)
 		continue;
 
 	/*
@@ -593,17 +595,20 @@ static irqreturn_t dma_irq_handler(int irq, void *dev_id)
 	 * register until it goes low for 2 successive reads
 	 */
 	if (drv_data->tx != NULL) {
-		while ((bfin_read_SPI_STAT() & TXS) ||
-		       (bfin_read_SPI_STAT() & TXS))
+		while ((read_STAT() & TXS) ||
+		       (read_STAT() & TXS))
 			continue;
 	}
 
-	while (!(bfin_read_SPI_STAT() & SPIF))
+	while (!(read_STAT() & SPIF))
 		continue;
 
 	bfin_spi_disable(drv_data);
 
 	msg->actual_length += drv_data->len_in_bytes;
+
+	if (drv_data->cs_change)
+		cs_deactive(chip);
 
 	/* Move to next transfer */
 	msg->state = next_transfer(drv_data);
@@ -614,8 +619,8 @@ static irqreturn_t dma_irq_handler(int irq, void *dev_id)
 	/* free the irq handler before next transfer */
 	dev_dbg(&drv_data->pdev->dev,
 		"disable dma channel irq%d\n",
-		CH_SPI);
-	dma_disable_irq(CH_SPI);
+		spi_dma_ch);
+	dma_disable_irq(spi_dma_ch);
 
 	return IRQ_HANDLED;
 }
@@ -691,6 +696,7 @@ static void pump_transfers(unsigned long data)
 	drv_data->rx_dma = transfer->rx_dma;
 	drv_data->tx_dma = transfer->tx_dma;
 	drv_data->len_in_bytes = transfer->len;
+	drv_data->cs_change = transfer->cs_change;
 
 	width = chip->width;
 	if (width == CFG_SPI_WORDSIZE16) {
@@ -715,7 +721,7 @@ static void pump_transfers(unsigned long data)
 	} else {
 		write_BAUD(chip->baud);
 	}
-	write_FLAG(chip->flag);
+	cs_active(chip);
 
 	dev_dbg(&drv_data->pdev->dev,
 		"now pumping a transfer: width is %d, len is %d\n",
@@ -729,19 +735,19 @@ static void pump_transfers(unsigned long data)
 	if (drv_data->cur_chip->enable_dma && drv_data->len > 6) {
 
 		write_STAT(BIT_STAT_CLR);
-		disable_dma(CH_SPI);
-		clear_dma_irqstat(CH_SPI);
+		disable_dma(spi_dma_ch);
+		clear_dma_irqstat(spi_dma_ch);
 		bfin_spi_disable(drv_data);
 
 		/* config dma channel */
 		dev_dbg(&drv_data->pdev->dev, "doing dma transfer\n");
 		if (width == CFG_SPI_WORDSIZE16) {
-			set_dma_x_count(CH_SPI, drv_data->len);
-			set_dma_x_modify(CH_SPI, 2);
+			set_dma_x_count(spi_dma_ch, drv_data->len);
+			set_dma_x_modify(spi_dma_ch, 2);
 			dma_width = WDSIZE_16;
 		} else {
-			set_dma_x_count(CH_SPI, drv_data->len);
-			set_dma_x_modify(CH_SPI, 1);
+			set_dma_x_count(spi_dma_ch, drv_data->len);
+			set_dma_x_modify(spi_dma_ch, 1);
 			dma_width = WDSIZE_8;
 		}
 
@@ -756,9 +762,10 @@ static void pump_transfers(unsigned long data)
 			/* no irq in autobuffer mode */
 			dma_config =
 			    (DMAFLOW_AUTO | RESTART | dma_width | DI_EN);
-			set_dma_config(CH_SPI, dma_config);
-			set_dma_start_addr(CH_SPI, (unsigned long)drv_data->tx);
-			enable_dma(CH_SPI);
+			set_dma_config(spi_dma_ch, dma_config);
+			set_dma_start_addr(spi_dma_ch,
+					(unsigned long)drv_data->tx);
+			enable_dma(spi_dma_ch);
 			write_CTRL(cr | CFG_SPI_DMAWRITE | (width << 8) |
 				   (CFG_SPI_ENABLE << 14));
 
@@ -779,14 +786,15 @@ static void pump_transfers(unsigned long data)
 			/* clear tx reg soformer data is not shifted out */
 			write_TDBR(0xFF);
 
-			set_dma_x_count(CH_SPI, drv_data->len);
+			set_dma_x_count(spi_dma_ch, drv_data->len);
 
 			/* start dma */
-			dma_enable_irq(CH_SPI);
+			dma_enable_irq(spi_dma_ch);
 			dma_config = (WNR | RESTART | dma_width | DI_EN);
-			set_dma_config(CH_SPI, dma_config);
-			set_dma_start_addr(CH_SPI, (unsigned long)drv_data->rx);
-			enable_dma(CH_SPI);
+			set_dma_config(spi_dma_ch, dma_config);
+			set_dma_start_addr(spi_dma_ch,
+					(unsigned long)drv_data->rx);
+			enable_dma(spi_dma_ch);
 
 			cr |=
 			    CFG_SPI_DMAREAD | (width << 8) | (CFG_SPI_ENABLE <<
@@ -797,11 +805,12 @@ static void pump_transfers(unsigned long data)
 			dev_dbg(&drv_data->pdev->dev, "doing DMA out.\n");
 
 			/* start dma */
-			dma_enable_irq(CH_SPI);
+			dma_enable_irq(spi_dma_ch);
 			dma_config = (RESTART | dma_width | DI_EN);
-			set_dma_config(CH_SPI, dma_config);
-			set_dma_start_addr(CH_SPI, (unsigned long)drv_data->tx);
-			enable_dma(CH_SPI);
+			set_dma_config(spi_dma_ch, dma_config);
+			set_dma_start_addr(spi_dma_ch,
+					(unsigned long)drv_data->tx);
+			enable_dma(spi_dma_ch);
 
 			write_CTRL(cr | CFG_SPI_DMAWRITE | (width << 8) |
 				   (CFG_SPI_ENABLE << 14));
@@ -817,14 +826,13 @@ static void pump_transfers(unsigned long data)
 			/* full duplex mode */
 			BUG_ON((drv_data->tx_end - drv_data->tx) !=
 			       (drv_data->rx_end - drv_data->rx));
-			cr = (read_CTRL() & (~BIT_CTL_TIMOD));	
+			cr = (read_CTRL() & (~BIT_CTL_TIMOD));
 			cr |= CFG_SPI_WRITE | (width << 8) |
 				(CFG_SPI_ENABLE << 14);
 			dev_dbg(&drv_data->pdev->dev,
 				"IO duplex: cr is 0x%x\n", cr);
 
 			write_CTRL(cr);
-			SSYNC();
 
 			drv_data->duplex(drv_data);
 
@@ -835,11 +843,10 @@ static void pump_transfers(unsigned long data)
 			cr = (read_CTRL() & (~BIT_CTL_TIMOD));
 			cr |= CFG_SPI_WRITE | (width << 8) |
 				(CFG_SPI_ENABLE << 14);
-			dev_dbg(&drv_data->pdev->dev, 
+			dev_dbg(&drv_data->pdev->dev,
 				"IO write: cr is 0x%x\n", cr);
 
 			write_CTRL(cr);
-			SSYNC();
 
 			drv_data->write(drv_data);
 
@@ -850,11 +857,10 @@ static void pump_transfers(unsigned long data)
 			cr = (read_CTRL() & (~BIT_CTL_TIMOD));
 			cr |= CFG_SPI_READ | (width << 8) |
 				(CFG_SPI_ENABLE << 14);
-			dev_dbg(&drv_data->pdev->dev, 
+			dev_dbg(&drv_data->pdev->dev,
 				"IO read: cr is 0x%x\n", cr);
 
 			write_CTRL(cr);
-			SSYNC();
 
 			drv_data->read(drv_data);
 			if (drv_data->rx != drv_data->rx_end)
@@ -862,12 +868,15 @@ static void pump_transfers(unsigned long data)
 		}
 
 		if (!tranf_success) {
-			dev_dbg(&drv_data->pdev->dev, 
+			dev_dbg(&drv_data->pdev->dev,
 				"IO write error!\n");
 			message->state = ERROR_STATE;
 		} else {
 			/* Update total byte transfered */
 			message->actual_length += drv_data->len;
+
+			if (drv_data->cs_change)
+				cs_deactive(chip);
 
 			/* Move to next transfer of this msg */
 			message->state = next_transfer(drv_data);
@@ -903,6 +912,14 @@ static void pump_messages(struct work_struct *work)
 	/* Extract head of queue */
 	drv_data->cur_msg = list_entry(drv_data->queue.next,
 				       struct spi_message, queue);
+
+	/* Setup the SSP using the per chip configuration */
+	drv_data->cur_chip = spi_get_ctldata(drv_data->cur_msg->spi);
+	if (restore_state(drv_data)) {
+		spin_unlock_irqrestore(&drv_data->lock, flags);
+		return;
+	};
+
 	list_del_init(&drv_data->cur_msg->queue);
 
 	/* Initial message state */
@@ -910,15 +927,12 @@ static void pump_messages(struct work_struct *work)
 	drv_data->cur_transfer = list_entry(drv_data->cur_msg->transfers.next,
 					    struct spi_transfer, transfer_list);
 
-	/* Setup the SSP using the per chip configuration */
-	drv_data->cur_chip = spi_get_ctldata(drv_data->cur_msg->spi);
-	restore_state(drv_data);
 	dev_dbg(&drv_data->pdev->dev,
 		"got a message to pump, state is set to: baud %d, flag 0x%x, ctl 0x%x\n",
-   		drv_data->cur_chip->baud, drv_data->cur_chip->flag,
-   		drv_data->cur_chip->ctl_reg);
-	
-	dev_dbg(&drv_data->pdev->dev, 
+		drv_data->cur_chip->baud, drv_data->cur_chip->flag,
+		drv_data->cur_chip->ctl_reg);
+
+	dev_dbg(&drv_data->pdev->dev,
 		"the first transfer len is %d\n",
 		drv_data->cur_transfer->len);
 
@@ -1018,17 +1032,17 @@ static int setup(struct spi_device *spi)
 	 */
 	if (chip->enable_dma && !dma_requested) {
 		/* register dma irq handler */
-		if (request_dma(CH_SPI, "BF53x_SPI_DMA") < 0) {
+		if (request_dma(spi_dma_ch, "BF53x_SPI_DMA") < 0) {
 			dev_dbg(&spi->dev,
 				"Unable to request BlackFin SPI DMA channel\n");
 			return -ENODEV;
 		}
-		if (set_dma_callback(CH_SPI, (void *)dma_irq_handler, drv_data)
-		    < 0) {
+		if (set_dma_callback(spi_dma_ch, (void *)dma_irq_handler,
+			drv_data) < 0) {
 			dev_dbg(&spi->dev, "Unable to set dma callback\n");
 			return -EPERM;
 		}
-		dma_disable_irq(CH_SPI);
+		dma_disable_irq(spi_dma_ch);
 		dma_requested = 1;
 	}
 
@@ -1178,12 +1192,29 @@ static inline int destroy_queue(struct driver_data *drv_data)
 	return 0;
 }
 
+static int setup_pin_mux(int action)
+{
+
+	u16 pin_req[] = {P_SPI0_SCK, P_SPI0_MISO, P_SPI0_MOSI, 0};
+
+	if (action) {
+		if (peripheral_request_list(pin_req, DRV_NAME)) {
+			return -EFAULT;
+		}
+	} else {
+		peripheral_free_list(pin_req);
+	}
+
+	return 0;
+}
+
 static int __init bfin5xx_spi_probe(struct platform_device *pdev)
 {
 	struct device *dev = &pdev->dev;
 	struct bfin5xx_spi_master *platform_info;
 	struct spi_master *master;
 	struct driver_data *drv_data = 0;
+	struct resource *res;
 	int status = 0;
 
 	platform_info = dev->platform_data;
@@ -1194,6 +1225,12 @@ static int __init bfin5xx_spi_probe(struct platform_device *pdev)
 		dev_err(&pdev->dev, "can not alloc spi_master\n");
 		return -ENOMEM;
 	}
+
+	if (setup_pin_mux(1)) {
+		dev_err(&pdev->dev, ": Requesting Peripherals failed\n");
+		goto out_error;
+	}
+
 	drv_data = spi_master_get_devdata(master);
 	drv_data->master = master;
 	drv_data->master_info = platform_info;
@@ -1205,15 +1242,38 @@ static int __init bfin5xx_spi_probe(struct platform_device *pdev)
 	master->setup = setup;
 	master->transfer = transfer;
 
+	/* Find and map our resources */
+	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
+	if (res == NULL) {
+		dev_err(dev, "Cannot get IORESOURCE_MEM\n");
+		status = -ENOENT;
+		goto out_error_get_res;
+	}
+
+	spi_regs_base = (u32) ioremap(res->start, (res->end - res->start)+1);
+	if (!spi_regs_base) {
+		dev_err(dev, "Cannot map IO\n");
+		status = -ENXIO;
+		goto out_error_ioremap;
+	}
+
+	spi_dma_ch = platform_get_irq(pdev, 0);
+	if (spi_dma_ch < 0) {
+		dev_err(dev, "No DMA channel specified\n");
+		status = -ENOENT;
+		goto out_error_no_dma_ch;
+	}
+
 	/* Initial and start queue */
 	status = init_queue(drv_data);
 	if (status != 0) {
-		dev_err(&pdev->dev, "problem initializing queue\n");
+		dev_err(dev, "problem initializing queue\n");
 		goto out_error_queue_alloc;
 	}
+
 	status = start_queue(drv_data);
 	if (status != 0) {
-		dev_err(&pdev->dev, "problem starting queue\n");
+		dev_err(dev, "problem starting queue\n");
 		goto out_error_queue_alloc;
 	}
 
@@ -1221,15 +1281,23 @@ static int __init bfin5xx_spi_probe(struct platform_device *pdev)
 	platform_set_drvdata(pdev, drv_data);
 	status = spi_register_master(master);
 	if (status != 0) {
-		dev_err(&pdev->dev, "problem registering spi master\n");
+		dev_err(dev, "problem registering spi master\n");
 		goto out_error_queue_alloc;
 	}
-	dev_dbg(&pdev->dev, "controller probe successfully\n");
+
+	dev_info(dev, "%s, Version %s, regs_base @ 0x%08x\n",
+		DRV_DESC, DRV_VERSION, spi_regs_base);
 	return status;
 
-      out_error_queue_alloc:
+out_error_queue_alloc:
 	destroy_queue(drv_data);
+out_error_no_dma_ch:
+	iounmap((void *) spi_regs_base);
+out_error_ioremap:
+out_error_get_res:
+out_error:
 	spi_master_put(master);
+
 	return status;
 }
 
@@ -1252,12 +1320,14 @@ static int __devexit bfin5xx_spi_remove(struct platform_device *pdev)
 
 	/* Release DMA */
 	if (drv_data->master_info->enable_dma) {
-		if (dma_channel_active(CH_SPI))
-			free_dma(CH_SPI);
+		if (dma_channel_active(spi_dma_ch))
+			free_dma(spi_dma_ch);
 	}
 
 	/* Disconnect from the SPI framework */
 	spi_unregister_master(drv_data->master);
+
+	setup_pin_mux(0);
 
 	/* Prevent double remove */
 	platform_set_drvdata(pdev, NULL);
@@ -1305,7 +1375,7 @@ static int bfin5xx_spi_resume(struct platform_device *pdev)
 
 static struct platform_driver bfin5xx_spi_driver = {
 	.driver 	= {
-		.name	= "bfin-spi-master",
+		.name	= DRV_NAME,
 		.owner	= THIS_MODULE,
 	},
 	.suspend	= bfin5xx_spi_suspend,

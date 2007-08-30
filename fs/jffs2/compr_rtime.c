@@ -7,6 +7,7 @@
  *
  * For licensing information, see the file 'LICENCE' in this directory.
  *
+ * $Id: compr_rtime.c 3544 2007-08-11 17:42:26Z cooloney $
  *
  *
  * Very simple lz77-ish encoder.

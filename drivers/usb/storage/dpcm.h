@@ -1,6 +1,6 @@
 /* Driver for Microtech DPCM-USB CompactFlash/SmartMedia reader
  *
- * $Id: dpcm.h,v 1.2 2000/08/25 00:13:51 mdharm Exp $
+ * $Id: dpcm.h 2401 2006-11-03 06:02:10Z magicyang $
  *
  * DPCM driver v0.1:
  *

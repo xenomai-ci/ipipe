@@ -3800,6 +3800,7 @@ static const struct ata_blacklist_entry ata_device_blacklist [] = {
 	{ "HTS541612J9SA00",	"SBDIC7JP",	ATA_HORKAGE_NONCQ, },
 	{ "Hitachi HTS541616J9SA00", "SB4OC70P", ATA_HORKAGE_NONCQ, },
 	{ "WDC WD740ADFD-00NLR1", NULL,		ATA_HORKAGE_NONCQ, },
+	{ "FUJITSU MHV2080BH",	"00840028",	ATA_HORKAGE_NONCQ, },
 
 	/* Devices with NCQ limits */
 
@@ -6430,6 +6431,9 @@ int ata_host_activate(struct ata_host *host, int irq,
 	/* if failed, just free the IRQ and leave ports alone */
 	if (rc)
 		devm_free_irq(host->dev, irq, host);
+	/* enable irq after probe if it is asked to be disabled when request*/
+	else if (irq_flags & IRQF_DISABLED)
+		enable_irq(irq);
 
 	return rc;
 }

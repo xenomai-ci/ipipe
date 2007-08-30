@@ -2,8 +2,8 @@
  *
  * Name:	skgepnmi.c
  * Project:	GEnesis, PCI Gigabit Ethernet Adapter
- * Version:	$Revision: 1.111 $
- * Date:	$Date: 2003/09/15 13:35:35 $
+ * Version:	$Revision: 2399 $
+ * Date:	$Date: 2006-11-03 06:32:46 +0100 (Fri, 03 Nov 2006) $
  * Purpose:	Private Network Management Interface
  *
  ****************************************************************************/
@@ -25,7 +25,7 @@
 
 #ifndef _lint
 static const char SysKonnectFileId[] =
-	"@(#) $Id: skgepnmi.c,v 1.111 2003/09/15 13:35:35 tschilli Exp $ (C) Marvell.";
+	"@(#) $Id: skgepnmi.c 2399 2006-11-03 05:32:46Z magicyang $ (C) Marvell.";
 #endif /* !_lint */
 
 #include "h/skdrv1st.h"

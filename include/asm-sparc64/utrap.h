@@ -1,4 +1,4 @@
-/* $Id: utrap.h,v 1.1 1997/10/14 16:21:31 jj Exp $
+/* $Id: utrap.h 2400 2006-11-03 05:43:27Z magicyang $
  * include/asm-sparc64/utrap.h
  *
  * Copyright (C) 1997 Jakub Jelinek (jj@sunsite.mff.cuni.cz)

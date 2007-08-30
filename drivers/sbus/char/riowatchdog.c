@@ -1,4 +1,4 @@
-/* $Id: riowatchdog.c,v 1.3.2.2 2002/01/23 18:48:02 davem Exp $
+/* $Id: riowatchdog.c 3195 2007-05-25 05:56:06Z cooloney $
  * riowatchdog.c - driver for hw watchdog inside Super I/O of RIO
  *
  * Copyright (C) 2001 David S. Miller (davem@redhat.com)

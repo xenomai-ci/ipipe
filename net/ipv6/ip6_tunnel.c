@@ -6,7 +6,7 @@
  *	Ville Nuorvala		<vnuorval@tcs.hut.fi>
  *	Yasuyuki Kozakai	<kozakai@linux-ipv6.org>
  *
- *	$Id$
+ *	$Id: ip6_tunnel.c 3544 2007-08-11 17:42:26Z cooloney $
  *
  *      Based on:
  *      linux/net/ipv6/sit.c and linux/net/ipv4/ipip.c
@@ -962,8 +962,8 @@ ip4ip6_tnl_xmit(struct sk_buff *skb, struct net_device *dev)
 	dsfield = ipv4_get_dsfield(iph);
 
 	if ((t->parms.flags & IP6_TNL_F_USE_ORIG_TCLASS))
-		fl.fl6_flowlabel |= ntohl(((__u32)iph->tos << IPV6_TCLASS_SHIFT)
-					  & IPV6_TCLASS_MASK);
+		fl.fl6_flowlabel |= htonl((__u32)iph->tos << IPV6_TCLASS_SHIFT)
+					  & IPV6_TCLASS_MASK;
 
 	err = ip6_tnl_xmit2(skb, dev, dsfield, &fl, encap_limit, &mtu);
 	if (err != 0) {

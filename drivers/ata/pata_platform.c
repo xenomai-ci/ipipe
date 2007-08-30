@@ -185,6 +185,7 @@ static int __devinit pata_platform_probe(struct platform_device *pdev)
 
 	ap->ops = &pata_platform_port_ops;
 	ap->pio_mask = pio_mask;
+	ap->irq_flags = ((struct pata_platform_info *)(pdev->dev.platform_data))->irq_type;
 	ap->flags |= ATA_FLAG_SLAVE_POSS;
 
 	/*

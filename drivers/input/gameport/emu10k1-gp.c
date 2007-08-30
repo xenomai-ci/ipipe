@@ -1,5 +1,5 @@
 /*
- * $Id: emu10k1-gp.c,v 1.8 2002/01/22 20:40:46 vojtech Exp $
+ * $Id: emu10k1-gp.c 2396 2006-11-02 10:18:43Z magicyang $
  *
  *  Copyright (c) 2001 Vojtech Pavlik
  */

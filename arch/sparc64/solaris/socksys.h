@@ -1,4 +1,4 @@
-/* $Id: socksys.h,v 1.2 1998/03/26 08:46:07 jj Exp $
+/* $Id: socksys.h 2395 2006-11-02 09:34:16Z magicyang $
  * socksys.h: Definitions for STREAMS modules emulation code.
  *
  * Copyright (C) 1998 Patrik Rak (prak3264@ss1000.ms.mff.cuni.cz)

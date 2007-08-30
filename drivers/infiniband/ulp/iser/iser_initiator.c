@@ -29,7 +29,7 @@
  * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
  *
- * $Id: iser_initiator.c 6964 2006-05-07 11:11:43Z ogerlitz $
+ * $Id: iser_initiator.c 3544 2007-08-11 17:42:26Z cooloney $
  */
 #include <linux/kernel.h>
 #include <linux/slab.h>

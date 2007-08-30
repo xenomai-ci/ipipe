@@ -1,5 +1,5 @@
 /*
- * $Id: redboot.c,v 1.21 2006/03/30 18:34:37 bjd Exp $
+ * $Id: redboot.c 2959 2007-03-30 04:02:22Z cooloney $
  *
  * Parse RedBoot-style Flash Image System (FIS) tables and
  * produce a Linux partition array to match.

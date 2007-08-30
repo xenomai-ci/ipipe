@@ -32,7 +32,7 @@
  * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
  *
- * $Id: ipoib_ib.c 1386 2004-12-27 16:23:17Z roland $
+ * $Id: ipoib_ib.c 3544 2007-08-11 17:42:26Z cooloney $
  */
 
 #include <linux/delay.h>
