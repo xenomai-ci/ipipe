@@ -240,6 +240,16 @@ void ipipe_init_irq_threads(void);
 
 int ipipe_start_irq_thread(unsigned irq, struct irq_desc *desc);
 
+#define IRQ_SYSTMR		IRQ_TMR0
+
+#ifdef CONFIG_BF533
+#define IRQ_PRIOTMR		CONFIG_TIMER0
+#define PRIO_GPIODEMUX		CONFIG_PFA
+#else
+#define IRQ_PRIOTMR		CONFIG_IRQ_TMR0
+#define PRIO_GPIODEMUX		CONFIG_IRQ_PROG_INTA
+#endif
+
 #else /* !CONFIG_IPIPE */
 
 #define task_hijacked(p)		0
@@ -251,6 +261,9 @@ int ipipe_start_irq_thread(unsigned irq, struct irq_desc *desc);
 #define ipipe_init_irq_threads()		do { } while(0)
 #define ipipe_start_irq_thread(irq, desc)	0
 
-#endif /* CONFIG_IPIPE */
+#define IRQ_SYSTMR		IRQ_CORETMR
+#define IRQ_PRIOTMR		IRQ_CORETMR
+
+#endif /* !CONFIG_IPIPE */
 
 #endif	/* !__ASM_BLACKFIN_IPIPE_H */
