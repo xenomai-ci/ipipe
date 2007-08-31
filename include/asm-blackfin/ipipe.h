@@ -98,7 +98,7 @@ struct ipipe_sysinfo {
 
 #define __ipipe_check_platform()	do { } while(0)
 
-#define __ipipe_init_platform()	do { } while(0)
+#define __ipipe_init_platform()		do { } while(0)
 
 extern atomic_t __ipipe_irq_lvdepth[IVG15 + 1];
 
@@ -240,14 +240,21 @@ void ipipe_init_irq_threads(void);
 
 int ipipe_start_irq_thread(unsigned irq, struct irq_desc *desc);
 
+#if defined(CONFIG_BF533)
 #define IRQ_SYSTMR		IRQ_TMR0
-
-#ifdef CONFIG_BF533
 #define IRQ_PRIOTMR		CONFIG_TIMER0
 #define PRIO_GPIODEMUX		CONFIG_PFA
-#else
+#elif defined(CONFIG_BF537)
+#define IRQ_SYSTMR		IRQ_TMR0
 #define IRQ_PRIOTMR		CONFIG_IRQ_TMR0
 #define PRIO_GPIODEMUX		CONFIG_IRQ_PROG_INTA
+#elif defined(CONFIG_BF561)
+#define IRQ_SYSTMR		IRQ_TIMER0
+#define IRQ_PRIOTMR		CONFIG_IRQ_TIMER0
+#define PRIO_GPIODEMUX		CONFIG_IRQ_PROG0_INTA
+#define bfin_write_TIMER_DISABLE(val)	bfin_write_TMRS8_DISABLE(val)
+#define bfin_write_TIMER_ENABLE(val)	bfin_write_TMRS8_ENABLE(val)
+#define bfin_write_TIMER_STATUS(val)	bfin_write_TMRS8_STATUS(val)
 #endif
 
 #else /* !CONFIG_IPIPE */

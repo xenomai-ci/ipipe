@@ -37,6 +37,7 @@
 #include <linux/kernel_stat.h>
 #include <linux/seq_file.h>
 #include <linux/irq.h>
+#include <linux/ipipe.h>
 #ifdef CONFIG_KGDB
 #include <linux/kgdb.h>
 #endif
@@ -116,8 +117,8 @@ static void ack_noop(unsigned int irq)
 static void bf561_core_mask_irq(unsigned int irq)
 {
 	irq_flags &= ~(1 << irq);
-	if (!irqs_disabled())
-		local_irq_enable();
+	if (!irqs_disabled_hw())
+		local_irq_enable_hw();
 }
 
 static void bf561_core_unmask_irq(unsigned int irq)
@@ -132,8 +133,8 @@ static void bf561_core_unmask_irq(unsigned int irq)
 	 * local_irq_enable just does "STI irq_flags", so it's exactly
 	 * what we need.
 	 */
-	if (!irqs_disabled())
-		local_irq_enable();
+	if (!irqs_disabled_hw())
+		local_irq_enable_hw();
 	return;
 }
 
@@ -346,8 +347,12 @@ static void bf561_demux_gpio_irq(unsigned int inta_irq,
 
 			do {
 				if (mask & 1) {
+#ifdef CONFIG_IPIPE
+					__ipipe_handle_irq(irq, get_irq_regs());
+#else /* !CONFIG_IPIPE */
 					struct irq_desc *desc = irq_desc + irq;
 					desc->handle_irq(irq, desc);
+#endif /* !CONFIG_IPIPE */
 				}
 				irq++;
 				mask >>= 1;
@@ -447,6 +452,14 @@ int __init init_arch_irq(void)
 	    IMASK_IVG14 | IMASK_IVG13 | IMASK_IVG12 | IMASK_IVG11 |
 	    IMASK_IVG10 | IMASK_IVG9 | IMASK_IVG8 | IMASK_IVG7 | IMASK_IVGHW;
 
+#ifdef CONFIG_IPIPE
+       for (irq = 0; irq < NR_IRQS; irq++) {
+               struct irq_desc *desc = irq_desc + irq;
+               desc->ic_prio = __ipipe_get_irq_priority(irq);
+               desc->thr_prio = __ipipe_get_irqthread_priority(irq);
+       }
+#endif /* CONFIG_IPIPE */
+
 	return 0;
 }
 
@@ -483,3 +496,114 @@ void do_irq(int vec, struct pt_regs *fp)
 	kgdb_process_breakpoint();
 #endif
 }
+
+int __ipipe_get_irq_priority(unsigned irq)
+{
+	int ient, prio;
+
+	if (irq <= IRQ_CORETMR)
+		return irq;
+
+	for (ient = 0; ient < NR_PERI_INTS; ient++) {
+		struct ivgx *ivg = ivg_table + ient;
+		if (ivg->irqno == irq) {
+			for (prio = 0; prio <= IVG13-IVG7; prio++) {
+				if (ivg7_13[prio].ifirst <= ivg &&
+				    ivg7_13[prio].istop > ivg)
+					return IVG7 + prio;
+			}
+		}
+	}
+
+	return IVG15;
+}
+
+int __ipipe_get_irqthread_priority(unsigned irq)
+{
+	int ient, prio;
+
+	/* The returned priority value is rescaled to [0..IVG13+1]
+	 * with 0 being the lowest effective priority level. */
+
+	if (irq <= IRQ_CORETMR)
+		return IVG13 - irq + 1;
+
+	if (irq == IRQ_PROG_INTA)
+		/* The GPIO demux interrupt is given a lower priority
+		 * than the GPIO IRQs, so that its threaded handler
+		 * unmasks the interrupt line after the decoded IRQs
+		 * have been processed. */
+		return IVG13 - PRIO_GPIODEMUX;
+
+	if (irq >= IRQ_PF0)
+		/* GPIO IRQs are given the priority of the demux
+		 * interrupt. */
+		return IVG13 - PRIO_GPIODEMUX + 1;
+
+	for (ient = 0; ient < NR_PERI_INTS; ient++) {
+		struct ivgx *ivg = ivg_table + ient;
+		if (ivg->irqno == irq) {
+			for (prio = 0; prio <= IVG13-IVG7; prio++) {
+				if (ivg7_13[prio].ifirst <= ivg &&
+				    ivg7_13[prio].istop > ivg)
+					return IVG7 - prio;
+			}
+		}
+	}
+
+	return 0;
+}
+
+/* Hw interrupts are disabled on entry (check SAVE_CONTEXT). */
+
+#ifdef CONFIG_DO_IRQ_L1
+asmlinkage int __ipipe_grab_irq(int vec, struct pt_regs *regs) __attribute__((l1_text));
+#endif
+
+asmlinkage int __ipipe_grab_irq(int vec, struct pt_regs *regs)
+{
+	struct ivgx *ivg_stop = ivg7_13[vec-IVG7].istop;
+	struct ivgx *ivg = ivg7_13[vec-IVG7].ifirst;
+	unsigned long sic_status0, sic_status1;
+	int irq;
+
+	if (likely(vec == EVT_IVTMR_P)) {
+		irq = IRQ_CORETMR;
+		goto handle_irq;
+	}
+
+	__builtin_bfin_ssync();
+ 	sic_status0 = bfin_read_SICA_IMASK0() & bfin_read_SICA_ISR0();
+ 	sic_status1 = bfin_read_SICA_IMASK1() & bfin_read_SICA_ISR1();
+
+	for(;; ivg++) {
+		if (ivg >= ivg_stop)  {
+			atomic_inc(&num_spurious);
+			return 0;
+		}
+		else if ((sic_status0 & ivg->isrflag0) ||
+			 (sic_status1 & ivg->isrflag1))
+			break;
+	}
+
+	irq = ivg->irqno;
+
+	if (irq == IRQ_SYSTMR)
+		bfin_write_TIMER_STATUS(1); /* Latch TIMIL0 */
+
+	/* This is basically what we need from the register frame. */
+	__raw_get_cpu_var(__ipipe_irq_regs).ipend = regs->ipend;
+	__raw_get_cpu_var(__ipipe_irq_regs).pc = regs->pc;
+
+handle_irq:
+
+	ipipe_trace_irq_entry(irq); 
+	__ipipe_handle_irq(irq, regs);
+       ipipe_trace_irq_exit(irq);
+
+       if (ipipe_root_domain_p)
+	       return !test_bit(IPIPE_STALL_FLAG, &ipipe_this_cpudom_var(status));
+
+       return 0;
+}
+

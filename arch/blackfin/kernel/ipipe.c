@@ -29,10 +29,17 @@
 #include <linux/bitops.h>
 #include <linux/slab.h>
 #include <linux/errno.h>
+#include <linux/kthread.h>
 #include <asm/unistd.h>
 #include <asm/system.h>
 #include <asm/atomic.h>
 #include <asm/io.h>
+
+static int create_irq_threads;
+
+static DEFINE_PER_CPU(unsigned long, pending_irqthread_mask);
+
+static DEFINE_PER_CPU(int [IVG13 + 1], pending_irq_count);
 
 asmlinkage void asm_do_IRQ(unsigned int irq, struct pt_regs *regs);
 
@@ -292,6 +299,101 @@ int ipipe_trigger_irq(unsigned irq)
 	return 1;
 }
 
+/* Move Linux IRQ to threads. */
+   
+
+static int do_irqd(void * __desc)
+{
+	struct irq_desc *desc = __desc;
+	unsigned irq = desc - irq_desc;
+	int thrprio = desc->thr_prio;
+	int thrmask = 1 << thrprio;
+	int cpu = smp_processor_id();
+	cpumask_t cpumask;
+
+	sigfillset(&current->blocked);
+	current->flags |= PF_NOFREEZE;
+	cpumask = cpumask_of_cpu(cpu);
+	set_cpus_allowed(current, cpumask);
+	ipipe_setscheduler_root(current,SCHED_FIFO, 50 + thrprio);
+
+	while (!kthread_should_stop()) {
+		local_irq_disable();
+		if (!(desc->status & IRQ_SCHEDULED)) {
+			set_current_state(TASK_INTERRUPTIBLE);
+		resched:
+			local_irq_enable();
+			schedule();
+			local_irq_disable();
+		}
+		__set_current_state(TASK_RUNNING);
+		/* If higher priority interrupt servers are ready to
+		 * run, reschedule immediately. We need this for the
+		 * GPIO demux IRQ handler to unmask the interrupt line
+		 * _last_, after all GPIO IRQs have run. */
+		if (per_cpu(pending_irqthread_mask, cpu) & ~(thrmask|(thrmask-1)))
+			goto resched;
+		if (--per_cpu(pending_irq_count[thrprio], cpu) == 0)
+			per_cpu(pending_irqthread_mask, cpu) &= ~thrmask;
+		desc->status &= ~IRQ_SCHEDULED;
+		desc->thr_handler(irq, get_irq_regs());
+		local_irq_enable();
+	}
+	__set_current_state(TASK_RUNNING);
+	return 0;
+}
+
+static void kick_irqd(unsigned irq, void *cookie)
+{
+	struct irq_desc *desc = irq_desc + irq;
+	int thrprio = desc->thr_prio;
+	int thrmask = 1 << thrprio;
+	int cpu = smp_processor_id();
+
+	if (!(desc->status & IRQ_SCHEDULED)) {
+		desc->status |= IRQ_SCHEDULED;
+		per_cpu(pending_irqthread_mask, cpu) |= thrmask;
+		++per_cpu(pending_irq_count[thrprio], cpu);
+		set_irq_regs((struct pt_regs *)cookie);
+		wake_up_process(desc->thread);
+	}
+}
+
+int ipipe_start_irq_thread(unsigned irq, struct irq_desc *desc)
+{
+	if (desc->thread || !create_irq_threads)
+		return 0;
+
+	if (desc->ipipe_demux != NULL)
+		desc->thread = kthread_create(do_irqd, desc, "IRQ %d (demux)", irq);
+	else
+		desc->thread = kthread_create(do_irqd, desc, "IRQ %d", irq);
+
+	if (!desc->thread) {
+		printk(KERN_ERR "irqd: could not create IRQ thread %d!\n", irq);
+		return -ENOMEM;
+	}
+
+	wake_up_process(desc->thread);
+
+	desc->thr_handler = ipipe_root_domain->irqs[irq].handler;
+	ipipe_root_domain->irqs[irq].handler = &kick_irqd;
+
+	return 0;
+}
+
+void __init ipipe_init_irq_threads(void)
+{
+	unsigned irq;
+
+	create_irq_threads = 1;
+
+	for (irq = 0; irq < NR_IRQS; irq++) {
+		struct irq_desc *desc = irq_desc + irq;
+		if (desc->action != NULL || desc->ipipe_demux != NULL)
+		    ipipe_start_irq_thread(irq, desc);
+	}
+}
 
 EXPORT_SYMBOL(__ipipe_irq_tail_hook);
 EXPORT_SYMBOL(ipipe_critical_enter);

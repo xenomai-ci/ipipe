@@ -37,6 +37,7 @@
 #include <linux/kernel_stat.h>
 #include <linux/seq_file.h>
 #include <linux/irq.h>
+#include <linux/ipipe.h>
 #ifdef CONFIG_KGDB
 #include <linux/kgdb.h>
 #endif
@@ -104,115 +105,6 @@ static void __init search_IAR(void)
 		}
 	}
 }
-
-#ifdef CONFIG_IPIPE
-
-/* Implement a threaded interrupt model a la PREEMPT_RT on top of the
-   I-pipe, so that Linux device IRQ handlers cannot defer the
-   interrupt tail code for too long. */
-
-#include <linux/kthread.h>
-
-static int create_irq_threads;
-
-static DEFINE_PER_CPU(unsigned long, pending_irqthread_mask);
-
-static DEFINE_PER_CPU(int [IVG13 + 1], pending_irq_count);
-
-static int do_irqd(void * __desc)
-{
-	struct irq_desc *desc = __desc;
-	unsigned irq = desc - irq_desc;
-	int thrprio = desc->thr_prio;
-	int thrmask = 1 << thrprio;
-	int cpu = smp_processor_id();
-	cpumask_t cpumask;
-
-	sigfillset(&current->blocked);
-	current->flags |= PF_NOFREEZE;
-	cpumask = cpumask_of_cpu(cpu);
-	set_cpus_allowed(current, cpumask);
-	ipipe_setscheduler_root(current,SCHED_FIFO, 50 + thrprio);
-
-	while (!kthread_should_stop()) {
-		local_irq_disable();
-		if (!(desc->status & IRQ_SCHEDULED)) {
-			set_current_state(TASK_INTERRUPTIBLE);
-		resched:
-			local_irq_enable();
-			schedule();
-			local_irq_disable();
-		}
-		__set_current_state(TASK_RUNNING);
-		/* If higher priority interrupt servers are ready to
-		 * run, reschedule immediately. We need this for the
-		 * GPIO demux IRQ handler to unmask the interrupt line
-		 * _last_, after all GPIO IRQs have run. */
-		if (per_cpu(pending_irqthread_mask, cpu) & ~(thrmask|(thrmask-1)))
-			goto resched;
-		if (--per_cpu(pending_irq_count[thrprio], cpu) == 0)
-			per_cpu(pending_irqthread_mask, cpu) &= ~thrmask;
-		desc->status &= ~IRQ_SCHEDULED;
-		desc->thr_handler(irq, get_irq_regs());
-		local_irq_enable();
-	}
-	__set_current_state(TASK_RUNNING);
-	return 0;
-}
-
-static void kick_irqd(unsigned irq, void *cookie)
-{
-	struct irq_desc *desc = irq_desc + irq;
-	int thrprio = desc->thr_prio;
-	int thrmask = 1 << thrprio;
-	int cpu = smp_processor_id();
-
-	if (!(desc->status & IRQ_SCHEDULED)) {
-		desc->status |= IRQ_SCHEDULED;
-		per_cpu(pending_irqthread_mask, cpu) |= thrmask;
-		++per_cpu(pending_irq_count[thrprio], cpu);
-		set_irq_regs((struct pt_regs *)cookie);
-		wake_up_process(desc->thread);
-	}
-}
-
-int ipipe_start_irq_thread(unsigned irq, struct irq_desc *desc)
-{
-	if (desc->thread || !create_irq_threads)
-		return 0;
-
-	if (desc->ipipe_demux != NULL)
-		desc->thread = kthread_create(do_irqd, desc, "IRQ %d (demux)", irq);
-	else
-		desc->thread = kthread_create(do_irqd, desc, "IRQ %d", irq);
-
-	if (!desc->thread) {
-		printk(KERN_ERR "irqd: could not create IRQ thread %d!\n", irq);
-		return -ENOMEM;
-	}
-
-	wake_up_process(desc->thread);
-
-	desc->thr_handler = ipipe_root_domain->irqs[irq].handler;
-	ipipe_root_domain->irqs[irq].handler = &kick_irqd;
-
-	return 0;
-}
-
-void __init ipipe_init_irq_threads(void)
-{
-	unsigned irq;
-
-	create_irq_threads = 1;
-
-	for (irq = 0; irq < NR_IRQS; irq++) {
-		struct irq_desc *desc = irq_desc + irq;
-		if (desc->action != NULL || desc->ipipe_demux != NULL)
-		    ipipe_start_irq_thread(irq, desc);
-	}
-}
-
-#endif /* CONFIG_IPIPE */
 
 /*
  * This is for BF533 internal IRQs
@@ -779,14 +671,6 @@ static int bfin_gpio_irq_type(unsigned int irq, unsigned int type)
 	else
 		set_irq_handler(irq, handle_level_irq);
 
-#ifdef CONFIG_IPIPE
-       for (irq = 0; irq < NR_IRQS; irq++) {
-               struct irq_desc *desc = irq_desc + irq;
-               desc->ic_prio = __ipipe_get_irq_priority(irq);
-               desc->thr_prio = __ipipe_get_irqthread_priority(irq);
-       }
-#endif /* CONFIG_IPIPE */
-
         local_irq_restore(flags);
 	return 0;
 }
@@ -1001,6 +885,14 @@ int __init init_arch_irq(void)
 	irq_flags = irq_flags | IMASK_IVG15 |
 	    IMASK_IVG14 | IMASK_IVG13 | IMASK_IVG12 | IMASK_IVG11 |
 	    IMASK_IVG10 | IMASK_IVG9 | IMASK_IVG8 | IMASK_IVG7 | IMASK_IVGHW;
+
+#ifdef CONFIG_IPIPE
+       for (irq = 0; irq < NR_IRQS; irq++) {
+               struct irq_desc *desc = irq_desc + irq;
+               desc->ic_prio = __ipipe_get_irq_priority(irq);
+               desc->thr_prio = __ipipe_get_irqthread_priority(irq);
+       }
+#endif /* CONFIG_IPIPE */
 
 	return 0;
 }
