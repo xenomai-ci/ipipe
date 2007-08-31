@@ -22,7 +22,7 @@
 #ifndef __LINUX_IPIPE_COMPAT_H
 #define __LINUX_IPIPE_COMPAT_H
 
-#ifndef CONFIG_IPIPE_NOCOMPAT
+#ifdef CONFIG_IPIPE_COMPAT
 /*
  * OBSOLETE: defined only for backward compatibility. Will be removed
  * in future releases, please update client code accordingly.
@@ -49,6 +49,6 @@
 #define ipipe_put_cpu(flags)	do { } while(0)
 #endif /* CONFIG_SMP */
 
-#endif /* !CONFIG_IPIPE_NOCOMPAT */
+#endif /* CONFIG_IPIPE_COMPAT */
 
 #endif	/* !__LINUX_IPIPE_COMPAT_H */
