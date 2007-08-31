@@ -487,8 +487,7 @@ asmlinkage void __ipipe_unstall_iret_root(struct pt_regs regs)
 		/* Only sync virtual IRQs here, so that we don't recurse
 		   indefinitely in case of an external interrupt flood. */
 
-		if (ipipe_root_domain_p &&
-		    (ipipe_cpudom_var(ipipe_root_domain, irqpend_himask) & IPIPE_IRQMASK_VIRT) != 0)
+		if ((ipipe_cpudom_var(ipipe_root_domain, irqpend_himask) & IPIPE_IRQMASK_VIRT) != 0)
 			__ipipe_sync_pipeline(IPIPE_IRQMASK_VIRT);
 	}
 #ifdef CONFIG_IPIPE_TRACE_IRQSOFF
