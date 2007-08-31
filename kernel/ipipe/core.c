@@ -986,7 +986,7 @@ int ipipe_register_domain(struct ipipe_domain *ipd,
 	struct list_head *pos;
 	unsigned long flags;
 
-	if (ipipe_current_domain != ipipe_root_domain) {
+	if (!ipipe_root_domain_p) {
 		printk(KERN_WARNING
 		       "I-pipe: Only the root domain may register a new domain.\n");
 		return -EPERM;
@@ -1080,7 +1080,7 @@ int ipipe_unregister_domain(struct ipipe_domain *ipd)
 {
 	unsigned long flags;
 
-	if (ipipe_current_domain != ipipe_root_domain) {
+	if (!ipipe_root_domain_p) {
 		printk(KERN_WARNING
 		       "I-pipe: Only the root domain may unregister a domain.\n");
 		return -EPERM;
