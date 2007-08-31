@@ -28,6 +28,7 @@
 #include <linux/mutex.h>
 #include <linux/linkage.h>
 #include <linux/ipipe_base.h>
+#include <linux/ipipe_compat.h>
 #include <asm/ipipe.h>
 
 #ifdef CONFIG_IPIPE
@@ -130,7 +131,7 @@ struct ipipe_domain_attr {
 };
 
 #ifdef CONFIG_SMP
-/* These ops must start and complete on the current CPU: care for
+/* These ops must start and complete on the same CPU: care for
  * migration. */
 #define set_bit_safe(b, a)						\
 		({ unsigned long __flags;				\
