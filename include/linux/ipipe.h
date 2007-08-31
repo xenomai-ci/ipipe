@@ -28,6 +28,7 @@
 #include <linux/mutex.h>
 #include <linux/linkage.h>
 #include <linux/ipipe_base.h>
+#include <linux/ipipe_compat.h>
 #include <asm/ipipe.h>
 
 #ifdef CONFIG_IPIPE
