@@ -15,7 +15,7 @@ config IPIPE_DOMAINS
 config IPIPE_COMPAT
 	bool "Maintain code compatibility with older releases"
 	depends on IPIPE
-	default n
+	default y
 	---help---
 	Activate this option if you want the compatibility code to be
 	defined, so that older I-pipe clients may use obsolete
@@ -23,7 +23,3 @@ config IPIPE_COMPAT
 	deprecated in future I-pipe releases, and removed from the
 	compatibility support as time passes. Please fix I-pipe
 	clients to get rid of such uses as soon as possible.
-
-config IPIPE_NOCOMPAT
-	bool
-	default !IPIPE_COMPAT
