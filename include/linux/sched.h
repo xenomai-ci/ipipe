@@ -26,6 +26,7 @@
 #define CLONE_STOPPED		0x02000000	/* Start in stopped state */
 #define CLONE_NEWUTS		0x04000000	/* New utsname group? */
 #define CLONE_NEWIPC		0x08000000	/* New ipcs */
+#define CLONE_NEWUSER		0x10000000	/* New user namespace */
 
 /*
  * Scheduling policies
@@ -138,7 +139,7 @@ struct cfs_rq;
 extern void proc_sched_show_task(struct task_struct *p, struct seq_file *m);
 extern void proc_sched_set_task(struct task_struct *p);
 extern void
-print_cfs_rq(struct seq_file *m, int cpu, struct cfs_rq *cfs_rq, u64 now);
+print_cfs_rq(struct seq_file *m, int cpu, struct cfs_rq *cfs_rq);
 #else
 static inline void
 proc_sched_show_task(struct task_struct *p, struct seq_file *m)
@@ -148,7 +149,7 @@ static inline void proc_sched_set_task(struct task_struct *p)
 {
 }
 static inline void
-print_cfs_rq(struct seq_file *m, int cpu, struct cfs_rq *cfs_rq, u64 now)
+print_cfs_rq(struct seq_file *m, int cpu, struct cfs_rq *cfs_rq)
 {
 }
 #endif
@@ -287,6 +288,7 @@ extern signed long schedule_timeout_uninterruptible(signed long timeout);
 asmlinkage void schedule(void);
 
 struct nsproxy;
+struct user_namespace;
 
 /* Maximum number of active map areas.. This is a random (large) number */
 #define DEFAULT_MAX_MAP_COUNT	65536
@@ -342,6 +344,27 @@ typedef unsigned long mm_counter_t;
 	if ((mm)->hiwater_vm < (mm)->total_vm)		\
 		(mm)->hiwater_vm = (mm)->total_vm;	\
 } while (0)
+
+extern void set_dumpable(struct mm_struct *mm, int value);
+extern int get_dumpable(struct mm_struct *mm);
+
+/* mm flags */
+/* dumpable bits */
+#define MMF_DUMPABLE      0  /* core dump is permitted */
+#define MMF_DUMP_SECURELY 1  /* core file is readable only by root */
+#define MMF_DUMPABLE_BITS 2
+
+/* coredump filter bits */
+#define MMF_DUMP_ANON_PRIVATE	2
+#define MMF_DUMP_ANON_SHARED	3
+#define MMF_DUMP_MAPPED_PRIVATE	4
+#define MMF_DUMP_MAPPED_SHARED	5
+#define MMF_DUMP_FILTER_SHIFT	MMF_DUMPABLE_BITS
+#define MMF_DUMP_FILTER_BITS	4
+#define MMF_DUMP_FILTER_MASK \
+	(((1 << MMF_DUMP_FILTER_BITS) - 1) << MMF_DUMP_FILTER_SHIFT)
+#define MMF_DUMP_FILTER_DEFAULT \
+	((1 << MMF_DUMP_ANON_PRIVATE) |	(1 << MMF_DUMP_ANON_SHARED))
 
 struct mm_struct {
 	struct vm_area_struct * mmap;		/* list of VMAs */
@@ -400,7 +423,7 @@ struct mm_struct {
 	unsigned int token_priority;
 	unsigned int last_interval;
 
-	unsigned char dumpable:2;
+	unsigned long flags; /* Must use atomic bitops to access the bits */
 
 	/* coredumping support */
 	int core_waiters;
@@ -529,6 +552,10 @@ struct signal_struct {
 #ifdef CONFIG_TASKSTATS
 	struct taskstats *stats;
 #endif
+#ifdef CONFIG_AUDIT
+	unsigned audit_tty;
+	struct tty_audit_buf *tty_audit_buf;
+#endif
 };
 
 /* Context switch must be unlocked if interrupts are to be enabled */
@@ -654,7 +681,7 @@ enum cpu_idle_type {
 #define SCHED_LOAD_SHIFT	10
 #define SCHED_LOAD_SCALE	(1L << SCHED_LOAD_SHIFT)
 
-#define SCHED_LOAD_SCALE_FUZZ	(SCHED_LOAD_SCALE >> 5)
+#define SCHED_LOAD_SCALE_FUZZ	SCHED_LOAD_SCALE
 
 #ifdef CONFIG_SMP
 #define SD_LOAD_BALANCE		1	/* Do load balancing on this domain. */
@@ -707,7 +734,6 @@ struct sched_domain {
 	unsigned long max_interval;	/* Maximum balance interval ms */
 	unsigned int busy_factor;	/* less balancing by factor if busy */
 	unsigned int imbalance_pct;	/* No balance until over watermark */
-	unsigned long long cache_hot_time; /* Task considered cache hot (ns) */
 	unsigned int cache_nice_tries;	/* Leave cache hot tasks for # tries */
 	unsigned int busy_idx;
 	unsigned int idle_idx;
@@ -759,6 +785,22 @@ extern int partition_sched_domains(cpumask_t *partition1,
 
 #endif	/* CONFIG_SMP */
 
+/*
+ * A runqueue laden with a single nice 0 task scores a weighted_cpuload of
+ * SCHED_LOAD_SCALE. This function returns 1 if any cpu is laden with a
+ * task of nice 0 or enough lower priority tasks to bring up the
+ * weighted_cpuload
+ */
+static inline int above_background_load(void)
+{
+	unsigned long cpu;
+
+	for_each_online_cpu(cpu) {
+		if (weighted_cpuload(cpu) >= SCHED_LOAD_SCALE)
+			return 1;
+	}
+	return 0;
+}
 
 struct io_context;			/* See blkdev.h */
 struct cpuset;
@@ -813,22 +855,20 @@ struct sched_domain;
 struct sched_class {
 	struct sched_class *next;
 
-	void (*enqueue_task) (struct rq *rq, struct task_struct *p,
-			      int wakeup, u64 now);
-	void (*dequeue_task) (struct rq *rq, struct task_struct *p,
-			      int sleep, u64 now);
+	void (*enqueue_task) (struct rq *rq, struct task_struct *p, int wakeup);
+	void (*dequeue_task) (struct rq *rq, struct task_struct *p, int sleep);
 	void (*yield_task) (struct rq *rq, struct task_struct *p);
 
 	void (*check_preempt_curr) (struct rq *rq, struct task_struct *p);
 
-	struct task_struct * (*pick_next_task) (struct rq *rq, u64 now);
-	void (*put_prev_task) (struct rq *rq, struct task_struct *p, u64 now);
+	struct task_struct * (*pick_next_task) (struct rq *rq);
+	void (*put_prev_task) (struct rq *rq, struct task_struct *p);
 
-	int (*load_balance) (struct rq *this_rq, int this_cpu,
+	unsigned long (*load_balance) (struct rq *this_rq, int this_cpu,
 			struct rq *busiest,
 			unsigned long max_nr_move, unsigned long max_load_move,
 			struct sched_domain *sd, enum cpu_idle_type idle,
-			int *all_pinned, unsigned long *total_load_moved);
+			int *all_pinned, int *this_best_prio);
 
 	void (*set_curr_task) (struct rq *rq);
 	void (*task_tick) (struct rq *rq, struct task_struct *p);
@@ -862,23 +902,28 @@ struct sched_entity {
 	struct rb_node		run_node;
 	unsigned int		on_rq;
 
-	u64			wait_start_fair;
-	u64			wait_start;
 	u64			exec_start;
-	u64			sleep_start;
+	u64			sum_exec_runtime;
+	u64			wait_start_fair;
 	u64			sleep_start_fair;
-	u64			block_start;
+
+#ifdef CONFIG_SCHEDSTATS
+	u64			wait_start;
+	u64			wait_max;
+	s64			sum_wait_runtime;
+
+	u64			sleep_start;
 	u64			sleep_max;
+	s64			sum_sleep_runtime;
+
+	u64			block_start;
 	u64			block_max;
 	u64			exec_max;
-	u64			wait_max;
-	u64			last_ran;
 
-	u64			sum_exec_runtime;
-	s64			sum_wait_runtime;
-	s64			sum_sleep_runtime;
 	unsigned long		wait_runtime_overruns;
 	unsigned long		wait_runtime_underruns;
+#endif
+
 #ifdef CONFIG_FAIR_GROUP_SCHED
 	struct sched_entity	*parent;
 	/* rq on which this entity is (to be) queued: */
@@ -907,6 +952,11 @@ struct task_struct {
 	struct list_head run_list;
 	struct sched_class *sched_class;
 	struct sched_entity se;
+
+#ifdef CONFIG_PREEMPT_NOTIFIERS
+	/* list of struct preempt_notifier: */
+	struct hlist_head preempt_notifiers;
+#endif
 
 	unsigned short ioprio;
 #ifdef CONFIG_BLK_DEV_IO_TRACE
@@ -976,7 +1026,8 @@ struct task_struct {
 	unsigned int rt_priority;
 	cputime_t utime, stime;
 	unsigned long nvcsw, nivcsw; /* context switch counts */
-	struct timespec start_time;
+	struct timespec start_time; 		/* monotonic time */
+	struct timespec real_start_time;	/* boot based time */
 /* mm fault and swap info: this can arguably be seen as either mm-specific or thread-specific */
 	unsigned long min_flt, maj_flt;
 
@@ -1324,6 +1375,13 @@ static inline int set_cpus_allowed(struct task_struct *p, cpumask_t new_mask)
 #endif
 
 extern unsigned long long sched_clock(void);
+
+/*
+ * For kernel-internal use: high-speed (but slightly incorrect) per-cpu
+ * clock constructed from sched_clock():
+ */
+extern unsigned long long cpu_clock(int cpu);
+
 extern unsigned long long
 task_sched_runtime(struct task_struct *task);
 
@@ -1334,7 +1392,8 @@ extern void sched_exec(void);
 #define sched_exec()   {}
 #endif
 
-extern void sched_clock_unstable_event(void);
+extern void sched_clock_idle_sleep_event(void);
+extern void sched_clock_idle_wakeup_event(u64 delta_ns);
 
 #ifdef CONFIG_HOTPLUG_CPU
 extern void idle_task_exit(void);
@@ -1344,7 +1403,8 @@ static inline void idle_task_exit(void) {}
 
 extern void sched_idle_next(void);
 
-extern unsigned int sysctl_sched_granularity;
+extern unsigned int sysctl_sched_latency;
+extern unsigned int sysctl_sched_min_granularity;
 extern unsigned int sysctl_sched_wakeup_granularity;
 extern unsigned int sysctl_sched_batch_wakeup_granularity;
 extern unsigned int sysctl_sched_stat_granularity;
@@ -1407,7 +1467,7 @@ extern struct task_struct *find_task_by_pid_type(int type, int pid);
 extern void __set_special_pids(pid_t session, pid_t pgrp);
 
 /* per-UID process charging. */
-extern struct user_struct * alloc_uid(uid_t);
+extern struct user_struct * alloc_uid(struct user_namespace *, uid_t);
 static inline struct user_struct *get_uid(struct user_struct *u)
 {
 	atomic_inc(&u->__count);

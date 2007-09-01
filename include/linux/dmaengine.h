@@ -316,12 +316,12 @@ void dma_async_client_register(struct dma_client *client);
 void dma_async_client_unregister(struct dma_client *client);
 void dma_async_client_chan_request(struct dma_client *client);
 dma_cookie_t dma_async_memcpy_buf_to_buf(struct dma_chan *chan,
-        void *dest, void *src, size_t len);
+	void *dest, void *src, size_t len);
 dma_cookie_t dma_async_memcpy_buf_to_pg(struct dma_chan *chan,
-        struct page *page, unsigned int offset, void *kdata, size_t len);
+	struct page *page, unsigned int offset, void *kdata, size_t len);
 dma_cookie_t dma_async_memcpy_pg_to_pg(struct dma_chan *chan,
-        struct page *dest_pg, unsigned int dest_off, struct page *src_pg,
-        unsigned int src_off, size_t len);
+	struct page *dest_pg, unsigned int dest_off, struct page *src_pg,
+	unsigned int src_off, size_t len);
 void dma_async_tx_descriptor_init(struct dma_async_tx_descriptor *tx,
 	struct dma_chan *chan);
 

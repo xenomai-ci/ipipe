@@ -261,14 +261,14 @@ static inline int iop3xx_aau_xor_slot_count(size_t len, int src_cnt,
 					int *slots_per_op)
 {
 	const static int slot_count_table[] = { 0,
-					        1, 1, 1, 1, /* 01 - 04 */
-					        2, 2, 2, 2, /* 05 - 08 */
-					        4, 4, 4, 4, /* 09 - 12 */
-					        4, 4, 4, 4, /* 13 - 16 */
-					        8, 8, 8, 8, /* 17 - 20 */
-					        8, 8, 8, 8, /* 21 - 24 */
-					        8, 8, 8, 8, /* 25 - 28 */
-					        8, 8, 8, 8, /* 29 - 32 */
+						1, 1, 1, 1, /* 01 - 04 */
+						2, 2, 2, 2, /* 05 - 08 */
+						4, 4, 4, 4, /* 09 - 12 */
+						4, 4, 4, 4, /* 13 - 16 */
+						8, 8, 8, 8, /* 17 - 20 */
+						8, 8, 8, 8, /* 21 - 24 */
+						8, 8, 8, 8, /* 25 - 28 */
+						8, 8, 8, 8, /* 29 - 32 */
 					      };
 	*slots_per_op = slot_count_table[src_cnt];
 	return *slots_per_op;
@@ -370,14 +370,14 @@ static inline u32 iop_desc_get_byte_count(struct iop_adma_desc_slot *desc,
 static inline int __desc_idx(int src_idx)
 {
 	const static int desc_idx_table[] = { 0, 0, 0, 0,
-						 0, 1, 2, 3,
-						 5, 6, 7, 8,
-						 9, 10, 11, 12,
-						 14, 15, 16, 17,
-						 18, 19, 20, 21,
-						 23, 24, 25, 26,
-						 27, 28, 29, 30,
-					       };
+					      0, 1, 2, 3,
+					      5, 6, 7, 8,
+					      9, 10, 11, 12,
+					      14, 15, 16, 17,
+					      18, 19, 20, 21,
+					      23, 24, 25, 26,
+					      27, 28, 29, 30,
+					    };
 
 	return desc_idx_table[src_idx];
 }
@@ -762,7 +762,7 @@ static inline int iop_desc_get_zero_result(struct iop_adma_desc_slot *desc)
 
 static inline void iop_chan_append(struct iop_adma_chan *chan)
 {
-	u32 dma_chan_ctrl;	
+	u32 dma_chan_ctrl;
 	/* workaround dropped interrupts on 3xx */
 	mod_timer(&chan->cleanup_watchdog, jiffies + msecs_to_jiffies(3));
 

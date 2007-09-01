@@ -18,10 +18,10 @@
 #include <linux/device.h>
 #include <linux/init.h>
 #include <linux/scatterlist.h>
+#include <linux/io.h>
 
 #include <asm/dma.h>
 #include <asm/ecard.h>
-#include <asm/io.h>
 
 #define ICS_IDENT_OFFSET		0x2280
 
@@ -693,13 +693,12 @@ icside_probe(struct expansion_card *ec, const struct ecard_id *id)
 	if (ret)
 		goto out;
 
-	state = kmalloc(sizeof(struct icside_state), GFP_KERNEL);
+	state = kzalloc(sizeof(struct icside_state), GFP_KERNEL);
 	if (!state) {
 		ret = -ENOMEM;
 		goto release;
 	}
 
-	memset(state, 0, sizeof(state));
 	state->type	= ICS_TYPE_NOTYPE;
 	state->dev	= &ec->dev;
 

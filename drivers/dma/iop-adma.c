@@ -203,7 +203,7 @@ static void __iop_adma_slot_cleanup(struct iop_adma_chan *iop_chan)
 				list_for_each_entry_from(grp_iter,
 					&iop_chan->chain, chain_node) {
 					zero_sum_result |=
-						iop_desc_get_zero_result(grp_iter);
+					    iop_desc_get_zero_result(grp_iter);
 					    pr_debug("\titer%d result: %d\n",
 					    grp_iter->idx, zero_sum_result);
 					slot_cnt -= slots_per_op;
@@ -748,9 +748,9 @@ static void iop_adma_free_chan_resources(struct dma_chan *chan)
  * @cookie: ADMA transaction identifier
  */
 static enum dma_status iop_adma_is_complete(struct dma_chan *chan,
-                                            dma_cookie_t cookie,
-                                            dma_cookie_t *done,
-                                            dma_cookie_t *used)
+					dma_cookie_t cookie,
+					dma_cookie_t *done,
+					dma_cookie_t *used)
 {
 	struct iop_adma_chan *iop_chan = to_iop_adma_chan(chan);
 	dma_cookie_t last_used;
@@ -875,8 +875,8 @@ static int __devinit iop_adma_memcpy_self_test(struct iop_adma_device *device)
 
 	/* Start copy, using first DMA channel */
 	dma_chan = container_of(device->common.channels.next,
-	                        struct dma_chan,
-	                        device_node);
+				struct dma_chan,
+				device_node);
 	if (iop_adma_alloc_chan_resources(dma_chan) < 1) {
 		err = -ENODEV;
 		goto out;
@@ -973,8 +973,8 @@ iop_adma_xor_zero_sum_self_test(struct iop_adma_device *device)
 	memset(page_address(dest), 0, PAGE_SIZE);
 
 	dma_chan = container_of(device->common.channels.next,
-	                        struct dma_chan,
-	                        device_node);
+				struct dma_chan,
+				device_node);
 	if (iop_adma_alloc_chan_resources(dma_chan) < 1) {
 		err = -ENODEV;
 		goto out;

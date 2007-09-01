@@ -176,8 +176,8 @@ static void dma_client_chan_alloc(struct dma_client *client)
 			desc = chan->device->device_alloc_chan_resources(chan);
 			if (desc >= 0) {
 				ack = client->event_callback(client,
-	                                       chan,
-	                                       DMA_RESOURCE_AVAILABLE);
+						chan,
+						DMA_RESOURCE_AVAILABLE);
 
 				/* we are done once this client rejects
 				 * an available resource
@@ -314,7 +314,7 @@ void dma_async_client_unregister(struct dma_client *client)
 	list_for_each_entry(device, &dma_device_list, global_node)
 		list_for_each_entry(chan, &device->channels, device_node) {
 			ack = client->event_callback(client, chan,
-					DMA_RESOURCE_REMOVED);
+				DMA_RESOURCE_REMOVED);
 
 			if (ack == DMA_ACK) {
 				dma_chan_put(chan);
