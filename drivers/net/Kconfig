@@ -5,6 +5,7 @@
 
 menuconfig NETDEVICES
 	default y if UML
+	depends on NET
 	bool "Network device support"
 	---help---
 	  You can say N here if you don't intend to connect your Linux box to
@@ -24,6 +25,14 @@ menuconfig NETDEVICES
 # All the following symbols are dependent on NETDEVICES - do not repeat
 # that for each of the symbols.
 if NETDEVICES
+
+config NETDEVICES_MULTIQUEUE
+	bool "Netdevice multiple hardware queue support"
+	---help---
+	  Say Y here if you want to allow the network stack to use multiple
+	  hardware TX queues on an ethernet device.
+
+	  Most people will say N here.
 
 config IFB
 	tristate "Intermediate Functional Block support"
@@ -73,6 +82,16 @@ config BONDING
 
 	  To compile this driver as a module, choose M here: the module
 	  will be called bonding.
+
+config MACVLAN
+	tristate "MAC-VLAN support (EXPERIMENTAL)"
+	depends on EXPERIMENTAL
+	---help---
+	  This allows one to create virtual interfaces that map packets to
+	  or from specific MAC addresses to a particular interface.
+
+	  To compile this driver as a module, choose M here: the module
+	  will be called macvlan.
 
 config EQUALIZER
 	tristate "EQL (serial line load balancing) support"
@@ -187,7 +206,7 @@ config MII
 config MACB
 	tristate "Atmel MACB support"
 	depends on AVR32 || ARCH_AT91SAM9260 || ARCH_AT91SAM9263
-	select MII
+	select PHYLIB
 	help
 	  The Atmel MACB ethernet interface is found on many AT32 and AT91
 	  parts. Say Y to include support for the MACB chip.
@@ -203,6 +222,15 @@ config KORINA
 	help
 	IDT RC32434 has one local ethernet port. Say Y here to enable it.
 	To compile this driver as a module, choose M here.
+
+config AX88796
+	tristate "ASIX AX88796 NE2000 clone support"
+	depends on ARM || MIPS
+	select CRC32
+	select MII
+	help
+	  AX88796 driver, using platform bus to provide
+	  chip detection and resources
 
 config MACE
 	tristate "MACE (Power Mac ethernet) support"
@@ -384,22 +412,6 @@ config ATARILANCE
 	  Say Y to include support for several Atari Ethernet adapters based
 	  on the AMD Lance chipset: RieblCard (with or without battery), or
 	  PAMCard VME (also the version by Rhotron, with different addresses).
-
-config ATARI_BIONET
-	tristate "BioNet-100 support"
-	depends on ATARI && ATARI_ACSI && BROKEN
-	help
-	  Say Y to include support for BioData's BioNet-100 Ethernet adapter
-	  for the ACSI port. The driver works (has to work...) with a polled
-	  I/O scheme, so it's rather slow :-(
-
-config ATARI_PAMSNET
-	tristate "PAMsNet support"
-	depends on ATARI && ATARI_ACSI && BROKEN
-	help
-	  Say Y to include support for the PAMsNet Ethernet adapter for the
-	  ACSI port ("ACSI node"). The driver works (has to work...) with a
-	  polled I/O scheme, so it's rather slow :-(
 
 config SUN3LANCE
 	tristate "Sun3/Sun3x on-board LANCE support"
@@ -583,6 +595,12 @@ config CASSINI
 	help
 	  Support for the Sun Cassini chip, aka Sun GigaSwift Ethernet. See also
 	  <http://www.sun.com/products-n-solutions/hardware/docs/pdf/817-4341-10.pdf>
+
+config SUNVNET
+	tristate "Sun Virtual Network support"
+	depends on SUN_LDOMS
+	help
+	  Support for virtual network devices under Sun Logical Domains.
 
 config NET_VENDOR_3COM
 	bool "3COM cards"
@@ -828,6 +846,50 @@ config ULTRA32
 	  <file:Documentation/networking/net-modules.txt>. The module
 	  will be called smc-ultra32.
 
+config BFIN_MAC
+	tristate "Blackfin 536/537 on-chip mac support"
+	depends on NET_ETHERNET && (BF537 || BF536) && (!BF537_PORT_H)
+	select CRC32
+	select BFIN_MAC_USE_L1 if DMA_UNCACHED_NONE
+	help
+	  This is the driver for blackfin on-chip mac device. Say Y if you want it
+	  compiled into the kernel. This driver is also available as a module
+	  ( = code which can be inserted in and removed from the running kernel
+	  whenever you want). The module will be called bfin_mac.
+
+config BFIN_MAC_USE_L1
+	bool "Use L1 memory for rx/tx packets"
+	depends on BFIN_MAC && BF537
+	default y
+	help
+	  To get maximum network performace, you should use L1 memory as rx/tx buffers.
+	  Say N here if you want to reserve L1 memory for other uses.
+
+config BFIN_TX_DESC_NUM
+	int "Number of transmit buffer packets"
+	depends on BFIN_MAC
+	range 6 10 if BFIN_MAC_USE_L1
+	range 10 100
+	default "10"
+	help
+	  Set the number of buffer packets used in driver.
+
+config BFIN_RX_DESC_NUM
+	int "Number of receive buffer packets"
+	depends on BFIN_MAC
+	range 20 100 if BFIN_MAC_USE_L1
+	range 20 800
+	default "20"
+	help
+	  Set the number of buffer packets used in driver.
+
+config BFIN_MAC_RMII
+	bool "RMII PHY Interface (EXPERIMENTAL)"
+	depends on BFIN_MAC && EXPERIMENTAL
+	default n
+	help
+	  Use Reduced PHY MII Interface
+
 config SMC9194
 	tristate "SMC 9194 support"
 	depends on NET_VENDOR_SMC && (ISA || MAC && BROKEN)
@@ -875,7 +937,7 @@ config NET_NETX
 
 config DM9000
 	tristate "DM9000 support"
-	depends on ARM || MIPS
+	depends on ARM || BLACKFIN || MIPS
 	select CRC32
 	select MII
 	---help---
@@ -1954,6 +2016,16 @@ menuconfig NETDEV_1000
 	bool "Ethernet (1000 Mbit)"
 	depends on !UML
 	default y
+	---help---
+	  Ethernet (also called IEEE 802.3 or ISO 8802-2) is the most common
+	  type of Local Area Network (LAN) in universities and companies.
+
+	  Say Y here to get to see options for Gigabit Ethernet drivers.
+	  This option alone does not add any kernel code.
+	  Note that drivers supporting both 100 and 1000 MBit may be listed
+	  under "Ethernet (10 or 100MBit)" instead.
+
+	  If you say N, all options in this submenu will be skipped and disabled.
 
 if NETDEV_1000
 
@@ -2153,7 +2225,7 @@ config SKGE
 	  with better performance and more complete ethtool support.
 
 	  It does not support the link failover and network management 
-	  features that "portable" vendor supplied sk98lin driver does.
+	  features available in the hardware.
 
 	  This driver supports adapters based on the original Yukon chipset:
 	  Marvell 88E8001, Belkin F5D5005, CNet GigaCard, DLink DGE-530T,
@@ -2166,7 +2238,7 @@ config SKGE
 	  will be called skge.  This is recommended.
 
 config SKY2
-	tristate "SysKonnect Yukon2 support (EXPERIMENTAL)"
+	tristate "SysKonnect Yukon2 support"
 	depends on PCI
 	select CRC32
 	---help---
@@ -2181,92 +2253,15 @@ config SKY2
 	  To compile this driver as a module, choose M here: the module
 	  will be called sky2.  This is recommended.
 
-config SK98LIN
-	tristate "Marvell Yukon Chipset / SysKonnect SK-98xx Support (DEPRECATED)"
-	depends on PCI
-	---help---
-	  Say Y here if you have a Marvell Yukon or SysKonnect SK-98xx/SK-95xx
-	  compliant Gigabit Ethernet Adapter.
+config SKY2_DEBUG
+       bool "Debugging interface"
+       depends on SKY2 && DEBUG_FS
+       help
+	 This option adds the ability to dump driver state for debugging.
+	 The file debugfs/sky2/ethX displays the state of the internal
+	 transmit and receive rings.
 
-	  This driver supports the original Yukon chipset. This driver is
-	  deprecated and will be removed from the kernel in the near future,
-	  it has been replaced by the skge driver. skge is cleaner and
-	  seems to work better.
-
-	  This driver does not support the newer Yukon2 chipset. A separate
-	  driver, sky2, is provided to support Yukon2-based adapters.
-
-	  The following adapters are supported by this driver:
-	    - 3Com 3C940 Gigabit LOM Ethernet Adapter
-	    - 3Com 3C941 Gigabit LOM Ethernet Adapter
-	    - Allied Telesyn AT-2970LX Gigabit Ethernet Adapter
-	    - Allied Telesyn AT-2970LX/2SC Gigabit Ethernet Adapter
-	    - Allied Telesyn AT-2970SX Gigabit Ethernet Adapter
-	    - Allied Telesyn AT-2970SX/2SC Gigabit Ethernet Adapter
-	    - Allied Telesyn AT-2970TX Gigabit Ethernet Adapter
-	    - Allied Telesyn AT-2970TX/2TX Gigabit Ethernet Adapter
-	    - Allied Telesyn AT-2971SX Gigabit Ethernet Adapter
-	    - Allied Telesyn AT-2971T Gigabit Ethernet Adapter
-	    - Belkin Gigabit Desktop Card 10/100/1000Base-T Adapter, Copper RJ-45
-	    - EG1032 v2 Instant Gigabit Network Adapter
-	    - EG1064 v2 Instant Gigabit Network Adapter
-	    - Marvell 88E8001 Gigabit LOM Ethernet Adapter (Abit)
-	    - Marvell 88E8001 Gigabit LOM Ethernet Adapter (Albatron)
-	    - Marvell 88E8001 Gigabit LOM Ethernet Adapter (Asus)
-	    - Marvell 88E8001 Gigabit LOM Ethernet Adapter (ECS)
-	    - Marvell 88E8001 Gigabit LOM Ethernet Adapter (Epox)
-	    - Marvell 88E8001 Gigabit LOM Ethernet Adapter (Foxconn)
-	    - Marvell 88E8001 Gigabit LOM Ethernet Adapter (Gigabyte)
-	    - Marvell 88E8001 Gigabit LOM Ethernet Adapter (Iwill)
-	    - Marvell 88E8050 Gigabit LOM Ethernet Adapter (Intel)
-	    - Marvell RDK-8001 Adapter
-	    - Marvell RDK-8002 Adapter
-	    - Marvell RDK-8003 Adapter
-	    - Marvell RDK-8004 Adapter
-	    - Marvell RDK-8006 Adapter
-	    - Marvell RDK-8007 Adapter
-	    - Marvell RDK-8008 Adapter
-	    - Marvell RDK-8009 Adapter
-	    - Marvell RDK-8010 Adapter
-	    - Marvell RDK-8011 Adapter
-	    - Marvell RDK-8012 Adapter
-	    - Marvell RDK-8052 Adapter
-	    - Marvell Yukon Gigabit Ethernet 10/100/1000Base-T Adapter (32 bit)
-	    - Marvell Yukon Gigabit Ethernet 10/100/1000Base-T Adapter (64 bit)
-	    - N-Way PCI-Bus Giga-Card 1000/100/10Mbps(L)
-	    - SK-9521 10/100/1000Base-T Adapter
-	    - SK-9521 V2.0 10/100/1000Base-T Adapter
-	    - SK-9821 Gigabit Ethernet Server Adapter (SK-NET GE-T)
-	    - SK-9821 V2.0 Gigabit Ethernet 10/100/1000Base-T Adapter
-	    - SK-9822 Gigabit Ethernet Server Adapter (SK-NET GE-T dual link)
-	    - SK-9841 Gigabit Ethernet Server Adapter (SK-NET GE-LX)
-	    - SK-9841 V2.0 Gigabit Ethernet 1000Base-LX Adapter
-	    - SK-9842 Gigabit Ethernet Server Adapter (SK-NET GE-LX dual link)
-	    - SK-9843 Gigabit Ethernet Server Adapter (SK-NET GE-SX)
-	    - SK-9843 V2.0 Gigabit Ethernet 1000Base-SX Adapter
-	    - SK-9844 Gigabit Ethernet Server Adapter (SK-NET GE-SX dual link)
-	    - SK-9851 V2.0 Gigabit Ethernet 1000Base-SX Adapter
-	    - SK-9861 Gigabit Ethernet Server Adapter (SK-NET GE-SX Volition)
-	    - SK-9861 V2.0 Gigabit Ethernet 1000Base-SX Adapter
-	    - SK-9862 Gigabit Ethernet Server Adapter (SK-NET GE-SX Volition dual link)
-	    - SK-9871 Gigabit Ethernet Server Adapter (SK-NET GE-ZX)
-	    - SK-9871 V2.0 Gigabit Ethernet 1000Base-ZX Adapter
-	    - SK-9872 Gigabit Ethernet Server Adapter (SK-NET GE-ZX dual link)
-	    - SMC EZ Card 1000 (SMC9452TXV.2)
-	  
-	  The adapters support Jumbo Frames.
-	  The dual link adapters support link-failover and dual port features.
-	  Both Marvell Yukon and SysKonnect SK-98xx/SK-95xx adapters support 
-	  the scatter-gather functionality with sendfile(). Please refer to 
-	  <file:Documentation/networking/sk98lin.txt> for more information about
-	  optional driver parameters.
-	  Questions concerning this driver may be addressed to:
-	      <linux@syskonnect.de>
-	  
-	  If you want to compile this driver as a module ( = code which can be
-	  inserted in and removed from the running kernel whenever you want),
-	  say M here and read <file:Documentation/kbuild/modules.txt>. The module will
-	  be called sk98lin. This is recommended.
+	 If unsure, say N.
 
 config VIA_VELOCITY
 	tristate "VIA Velocity support"
@@ -2316,6 +2311,16 @@ config TSI108_ETH
 	     To compile this driver as a module, choose M here: the module
 	     will be called tsi108_eth.
 
+config GELIC_NET
+	tristate "PS3 Gigabit Ethernet driver"
+	depends on PPC_PS3
+	help
+	  This driver supports the network device on the PS3 game
+	  console.  This driver has built-in support for Ethernet.
+
+	  To compile this driver as a module, choose M here: the
+	  module will be called ps3_gelic.
+
 config GIANFAR
 	tristate "Gianfar Ethernet"
 	depends on 85xx || 83xx || PPC_86xx
@@ -2355,7 +2360,7 @@ config UGETH_TX_ON_DEMAND
 
 config MV643XX_ETH
 	tristate "MV-643XX Ethernet support"
-	depends on MOMENCO_OCELOT_C || MOMENCO_JAGUAR_ATX || MV64360 || MV64X60 || MOMENCO_OCELOT_3 || (PPC_MULTIPLATFORM && PPC32)
+	depends on MV64360 || MV64X60 || (PPC_MULTIPLATFORM && PPC32)
 	select MII
 	help
 	  This driver supports the gigabit Ethernet on the Marvell MV643XX
@@ -2392,6 +2397,11 @@ menuconfig NETDEV_10000
 	bool "Ethernet (10000 Mbit)"
 	depends on !UML
 	default y
+	---help---
+	  Say Y here to get to see options for 10 Gigabit Ethernet drivers.
+	  This option alone does not add any kernel code.
+
+	  If you say N, all options in this submenu will be skipped and disabled.
 
 if NETDEV_10000
 
@@ -2583,6 +2593,18 @@ source "drivers/net/wan/Kconfig"
 source "drivers/atm/Kconfig"
 
 source "drivers/s390/net/Kconfig"
+
+config XEN_NETDEV_FRONTEND
+	tristate "Xen network device frontend driver"
+	depends on XEN
+	default y
+	help
+	  The network device frontend driver allows the kernel to
+	  access network devices exported exported by a virtual
+	  machine containing a physical network device driver. The
+	  frontend driver is intended for unprivileged guest domains;
+	  if you are compiling a kernel for a Xen guest, you almost
+	  certainly want to enable this.
 
 config ISERIES_VETH
 	tristate "iSeries Virtual Ethernet driver support"
@@ -2889,6 +2911,19 @@ config PPPOATM
 	  This implementation does not yet comply with section 8 of RFC2364,
 	  which can lead to bad results if the ATM peer loses state and
 	  changes its encapsulation unilaterally.
+
+config PPPOL2TP
+	tristate "PPP over L2TP (EXPERIMENTAL)"
+	depends on EXPERIMENTAL && PPP && INET
+	help
+	  Support for PPP-over-L2TP socket family. L2TP is a protocol
+	  used by ISPs and enterprises to tunnel PPP traffic over UDP
+	  tunnels. L2TP is replacing PPTP for VPN uses.
+
+	  This kernel component handles only L2TP data packets: a
+	  userland daemon handles L2TP the control protocol (tunnel
+	  and session setup). One such daemon is OpenL2TP
+	  (http://openl2tp.sourceforge.net/).
 
 config SLIP
 	tristate "SLIP (serial line) support"

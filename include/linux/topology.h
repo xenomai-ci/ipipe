@@ -50,10 +50,10 @@
 	for_each_online_node(node)						\
 		if (nr_cpus_node(node))
 
-#ifndef node_distance
 /* Conform to ACPI 2.0 SLIT distance definitions */
 #define LOCAL_DISTANCE		10
 #define REMOTE_DISTANCE		20
+#ifndef node_distance
 #define node_distance(from,to)	((from) == (to) ? LOCAL_DISTANCE : REMOTE_DISTANCE)
 #endif
 #ifndef RECLAIM_DISTANCE
@@ -185,7 +185,6 @@
 	.max_interval		= 64*num_online_cpus(),	\
 	.busy_factor		= 128,			\
 	.imbalance_pct		= 133,			\
-	.cache_hot_time		= (10*1000000),		\
 	.cache_nice_tries	= 1,			\
 	.busy_idx		= 3,			\
 	.idle_idx		= 3,			\

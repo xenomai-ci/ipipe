@@ -26,7 +26,7 @@
 #include <linux/pci.h>
 #include <linux/pci_ids.h>
 #include <linux/slab.h>
-#include "edac_mc.h"
+#include "edac_core.h"
 
 #define MODULE_NAME "pasemi_edac"
 
@@ -68,8 +68,8 @@
 #define PASEMI_EDAC_NR_CHANS			1
 #define PASEMI_EDAC_ERROR_GRAIN			64
 
-static int last_page_in_mmc = 0;
-static int system_mmc_id = 0;
+static int last_page_in_mmc;
+static int system_mmc_id;
 
 
 static u32 pasemi_edac_get_error_info(struct mem_ctl_info *mci)
@@ -168,7 +168,8 @@ static int pasemi_edac_init_csrows(struct mem_ctl_info *mci,
 			break;
 		default:
 			edac_mc_printk(mci, KERN_ERR,
-				       "Unrecognized Rank Config\n");
+				"Unrecognized Rank Config. rankcfg=%u\n",
+				rankcfg);
 			return -EINVAL;
 		}
 
@@ -204,7 +205,8 @@ static int __devinit pasemi_edac_probe(struct pci_dev *pdev,
 		MCDEBUG_ERRCTL1_RFL_LOG_EN;
 	pci_write_config_dword(pdev, MCDEBUG_ERRCTL1, errctl1);
 
-	mci = edac_mc_alloc(0, PASEMI_EDAC_NR_CSROWS, PASEMI_EDAC_NR_CHANS);
+	mci = edac_mc_alloc(0, PASEMI_EDAC_NR_CSROWS, PASEMI_EDAC_NR_CHANS,
+				system_mmc_id++);
 
 	if (mci == NULL)
 		return -ENOMEM;
@@ -222,7 +224,8 @@ static int __devinit pasemi_edac_probe(struct pci_dev *pdev,
 		 (EDAC_FLAG_EC | EDAC_FLAG_SECDED) : EDAC_FLAG_EC) :
 		EDAC_FLAG_NONE;
 	mci->mod_name = MODULE_NAME;
-	mci->ctl_name = "PA6T1682M";
+	mci->dev_name = pci_name(pdev);
+	mci->ctl_name = "pasemi,1682m-mc";
 	mci->edac_check = pasemi_edac_check;
 	mci->ctl_page_to_phys = NULL;
 	pci_read_config_dword(pdev, MCCFG_SCRUB, &scrub);
@@ -243,9 +246,8 @@ static int __devinit pasemi_edac_probe(struct pci_dev *pdev,
 	 */
 	pasemi_edac_get_error_info(mci);
 
-	if (edac_mc_add_mc(mci, system_mmc_id++)) {
+	if (edac_mc_add_mc(mci))
 		goto fail;
-	}
 
 	/* get this far and it's successful */
 	return 0;
@@ -257,9 +259,9 @@ fail:
 
 static void __devexit pasemi_edac_remove(struct pci_dev *pdev)
 {
-	struct mem_ctl_info *mci;
+	struct mem_ctl_info *mci = edac_mc_del_mc(&pdev->dev);
 
-	if ((mci = edac_mc_del_mc(&pdev->dev)) == NULL)
+	if (!mci)
 		return;
 
 	edac_mc_free(mci);

@@ -106,9 +106,9 @@ struct iop_adma_desc_slot {
 };
 
 struct iop_adma_platform_data {
-        int hw_id;
+	int hw_id;
 	dma_cap_mask_t cap_mask;
-        size_t pool_size;
+	size_t pool_size;
 };
 
 #define to_iop_sw_desc(addr_hw_desc) \

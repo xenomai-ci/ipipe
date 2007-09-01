@@ -2,11 +2,20 @@
 # Misc strange devices
 #
 
-menu "Misc devices"
+menuconfig MISC_DEVICES
+	bool "Misc devices"
+	default y
+	---help---
+	  Say Y here to get to see options for device drivers from various
+	  different categories. This option alone does not add any kernel code.
+
+	  If you say N, all options in this submenu will be skipped and disabled.
+
+if MISC_DEVICES
 
 config IBM_ASM
 	tristate "Device driver for IBM RSA service processor"
-	depends on X86 && PCI && EXPERIMENTAL
+	depends on X86 && PCI && INPUT && EXPERIMENTAL
 	---help---
 	  This option enables device driver support for in-band access to the
 	  IBM RSA (Condor) service processor in eServer xSeries systems.
@@ -146,6 +155,7 @@ config THINKPAD_ACPI
 	depends on X86 && ACPI
 	select BACKLIGHT_CLASS_DEVICE
 	select HWMON
+	select NVRAM
 	---help---
 	  This is a driver for the IBM and Lenovo ThinkPad laptops. It adds
 	  support for Fn-Fx key combinations, Bluetooth control, video
@@ -192,4 +202,25 @@ config THINKPAD_ACPI_BAY
 
 	  If you are not sure, say Y here.
 
-endmenu
+config THINKPAD_ACPI_INPUT_ENABLED
+	bool "Enable input layer support by default"
+	depends on THINKPAD_ACPI
+	default n
+	---help---
+	  This option enables thinkpad-acpi hot key handling over the input
+	  layer at driver load time.  When it is unset, the driver does not
+	  enable hot key handling by default, and also starts up with a mostly
+	  empty keymap.
+
+	  This option should be enabled if you have a new enough HAL or other
+	  userspace support that properly handles the thinkpad-acpi event
+	  device.  It auto-tunes the hot key support to those reported by the
+	  firmware and enables it automatically.
+
+	  If unsure, say N here to retain the old behaviour of ibm-acpi, and
+	  thinkpad-acpi up to kernel 2.6.21: userspace will have to enable and
+	  set up the thinkpad-acpi hot key handling using the sysfs interace
+	  after loading the driver.
+
+
+endif # MISC_DEVICES

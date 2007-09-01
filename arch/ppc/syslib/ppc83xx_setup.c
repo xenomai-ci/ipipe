@@ -426,7 +426,7 @@ mpc834x_pcibios_fixup(void)
 	int i;
 	
 	if ((dev = pci_find_device(PCI_VENDOR_ID_FREESCALE,
-				   PCI_DEVICE_ID_FREESCALE_MPC8349E, NULL))) {
+				   PCI_DEVICE_ID_MPC8349E, NULL))) {
 		class = dev->class >> 8;
 		if (class == PCI_CLASS_BRIDGE_OTHER) {
 			/*
