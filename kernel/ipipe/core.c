@@ -173,6 +173,8 @@ unsigned long __ipipe_test_root(void)
 
 void __ipipe_unstall_root(void)
 {
+	BUG_ON(!ipipe_root_domain_p);
+
         local_irq_disable_hw();
 
         __clear_bit(IPIPE_STALL_FLAG, &ipipe_cpudom_var(ipipe_root_domain, status));
@@ -185,6 +187,8 @@ void __ipipe_unstall_root(void)
 
 void __ipipe_restore_root(unsigned long x)
 {
+	BUG_ON(!ipipe_root_domain_p);
+
 	if (x)
 		__ipipe_stall_root();
 	else
