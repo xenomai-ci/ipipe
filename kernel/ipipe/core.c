@@ -280,6 +280,8 @@ unsigned long __ipipe_test_root(void)
 
 void __ipipe_unstall_root(void)
 {
+	BUG_ON(!ipipe_root_domain_p);
+
         local_irq_disable_hw();
 
         __clear_bit(IPIPE_STALL_FLAG, &ipipe_cpudom_var(ipipe_root_domain, status));
@@ -292,6 +294,8 @@ void __ipipe_unstall_root(void)
 
 void __ipipe_restore_root(unsigned long x)
 {
+	BUG_ON(!ipipe_root_domain_p);
+
 	if (x)
 		__ipipe_stall_root();
 	else
@@ -651,7 +655,6 @@ int ipipe_virtualize_irq(struct ipipe_domain *ipd,
 	spin_lock_irqsave(&__ipipe_pipelock, flags);
 
 	if (handler != NULL) {
-
 		if (handler == IPIPE_SAME_HANDLER) {
 			handler = ipd->irqs[irq].handler;
 			cookie = ipd->irqs[irq].cookie;
@@ -696,7 +699,7 @@ int ipipe_virtualize_irq(struct ipipe_domain *ipd,
 	ipd->irqs[irq].control = modemask;
 
 	if (irq < NR_IRQS && handler != NULL && !ipipe_virtual_irq_p(irq)) {
-		__ipipe_enable_irqdesc(irq);
+		__ipipe_enable_irqdesc(ipd, irq);
 
 		if ((modemask & IPIPE_ENABLE_MASK) != 0) {
 			if (ipd != ipipe_current_domain) {
@@ -708,7 +711,6 @@ int ipipe_virtualize_irq(struct ipipe_domain *ipd,
 				err = -EPERM;
 				goto unlock_and_exit;
 			}
-
 			__ipipe_enable_irq(irq);
 		}
 	}
