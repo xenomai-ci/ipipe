@@ -798,13 +798,23 @@ int __init init_arch_irq(void)
 #ifdef CONFIG_IRQCHIP_DEMUX_GPIO
 #ifndef CONFIG_BF54x
 			case IRQ_PROG_INTA:
+#ifdef CONFIG_IPIPE
+				__set_irq_demux_handler(irq, bfin_demux_gpio_irq,
+							1, "GPIO demux");
+#else /* !CONFIG_IPIPE */
 				set_irq_chained_handler(irq,
 							bfin_demux_gpio_irq);
+#endif /* !CONFIG_IPIPE */
 				break;
 #if defined(BF537_FAMILY) && !(defined(CONFIG_BFIN_MAC) || defined(CONFIG_BFIN_MAC_MODULE))
 			case IRQ_MAC_RX:
+#ifdef CONFIG_IPIPE
+				__set_irq_demux_handler(irq, bfin_demux_gpio_irq,
+							1, "GPIO demux");
+#else /* !CONFIG_IPIPE */
 				set_irq_chained_handler(irq,
 							bfin_demux_gpio_irq);
+#endif /* !CONFIG_IPIPE */
 				break;
 #endif
 #else
