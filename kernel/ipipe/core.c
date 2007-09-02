@@ -280,6 +280,8 @@ unsigned long __ipipe_test_root(void)
 
 void __ipipe_unstall_root(void)
 {
+	BUG_ON(!ipipe_root_domain_p);
+
         local_irq_disable_hw();
 
         __clear_bit(IPIPE_STALL_FLAG, &ipipe_cpudom_var(ipipe_root_domain, status));
@@ -292,6 +294,8 @@ void __ipipe_unstall_root(void)
 
 void __ipipe_restore_root(unsigned long x)
 {
+	BUG_ON(!ipipe_root_domain_p);
+
 	if (x)
 		__ipipe_stall_root();
 	else
@@ -651,7 +655,6 @@ int ipipe_virtualize_irq(struct ipipe_domain *ipd,
 	spin_lock_irqsave(&__ipipe_pipelock, flags);
 
 	if (handler != NULL) {
-
 		if (handler == IPIPE_SAME_HANDLER) {
 			handler = ipd->irqs[irq].handler;
 			cookie = ipd->irqs[irq].cookie;
@@ -708,7 +711,6 @@ int ipipe_virtualize_irq(struct ipipe_domain *ipd,
 				err = -EPERM;
 				goto unlock_and_exit;
 			}
-
 			__ipipe_enable_irq(irq);
 		}
 	}
@@ -986,7 +988,7 @@ int ipipe_register_domain(struct ipipe_domain *ipd,
 	struct list_head *pos;
 	unsigned long flags;
 
-	if (ipipe_current_domain != ipipe_root_domain) {
+	if (!ipipe_root_domain_p) {
 		printk(KERN_WARNING
 		       "I-pipe: Only the root domain may register a new domain.\n");
 		return -EPERM;
@@ -1080,7 +1082,7 @@ int ipipe_unregister_domain(struct ipipe_domain *ipd)
 {
 	unsigned long flags;
 
-	if (ipipe_current_domain != ipipe_root_domain) {
+	if (!ipipe_root_domain_p) {
 		printk(KERN_WARNING
 		       "I-pipe: Only the root domain may unregister a domain.\n");
 		return -EPERM;
