@@ -416,10 +416,24 @@ int __init init_arch_irq(void)
 		if ((irq != IRQ_PROG0_INTA) &&
 		    (irq != IRQ_PROG1_INTA) && (irq != IRQ_PROG2_INTA)) {
 #endif
+#ifdef CONFIG_IPIPE
+			/* We want internal interrupt sources to be
+			   masked, because ISRs may trigger interrupts
+			   recursively (e.g. DMA), but interrupts are
+			   _not_ masked at CPU level. So let's handle
+			   them as level interrupts. */
+			set_irq_handler(irq, handle_level_irq);
+#else /* !CONFIG_IPIPE */
 			set_irq_handler(irq, handle_simple_irq);
+#endif /* !CONFIG_IPIPE */
 #ifdef CONFIG_IRQCHIP_DEMUX_GPIO
 		} else {
+#ifdef CONFIG_IPIPE
+			__set_irq_demux_handler(irq, bf561_demux_gpio_irq,
+						1, "GPIO demux");
+#else /* !CONFIG_IPIPE */
 			set_irq_chained_handler(irq, bf561_demux_gpio_irq);
+#endif /* !CONFIG_IPIPE */
 		}
 #endif
 
@@ -496,6 +510,8 @@ void do_irq(int vec, struct pt_regs *fp)
 	kgdb_process_breakpoint();
 #endif
 }
+
+#ifdef CONFIG_IPIPE
 
 int __ipipe_get_irq_priority(unsigned irq)
 {
@@ -607,3 +623,4 @@ handle_irq:
        return 0;
 }
 
+#endif
