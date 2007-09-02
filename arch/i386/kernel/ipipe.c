@@ -125,7 +125,7 @@ static int __ipipe_ack_irq(unsigned irq)
 	return 1;
 }
 
-void __ipipe_enable_irqdesc(unsigned irq)
+void __ipipe_enable_irqdesc(struct ipipe_domain *ipd, unsigned irq)
 {
 	irq_desc[irq].status &= ~IRQ_DISABLED;
 }

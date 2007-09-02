@@ -84,12 +84,9 @@ struct ipipe_sysinfo {
 
 /* Private interface -- Internal use only */
 
-#define __ipipe_check_platform() do { } while(0)
-
-#define __ipipe_init_platform() do { } while(0)
-
-#define __ipipe_enable_irq(irq)	irq_desc[irq].chip->enable(irq)
-
+#define __ipipe_check_platform()	do { } while(0)
+#define __ipipe_init_platform()		do { } while(0)
+#define __ipipe_enable_irq(irq)		irq_desc[irq].chip->enable(irq)
 #define __ipipe_disable_irq(irq)	irq_desc[irq].chip->disable(irq)
 
 #ifdef CONFIG_SMP
@@ -98,7 +95,9 @@ void __ipipe_hook_critical_ipi(struct ipipe_domain *ipd);
 #define __ipipe_hook_critical_ipi(ipd) do { } while(0)
 #endif
 
-void __ipipe_enable_irqdesc(unsigned irq);
+#define __ipipe_disable_irqdesc(ipd, irq)	do { } while(0)
+
+void __ipipe_enable_irqdesc(struct ipipe_domain *ipd, unsigned irq);
 
 void __ipipe_enable_pipeline(void);
 
