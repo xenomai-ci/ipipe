@@ -326,7 +326,7 @@ struct task_struct *__switch_to(struct task_struct *prev,
 	}
 #endif
 
-	local_irq_save(flags);
+	local_irq_save_hw(flags);
 
 	account_system_vtime(current);
 	account_process_vtime(current);
@@ -334,7 +334,7 @@ struct task_struct *__switch_to(struct task_struct *prev,
 
 	last = _switch(old_thread, new_thread);
 
-	local_irq_restore(flags);
+	local_irq_restore_hw(flags);
 
 	return last;
 }
