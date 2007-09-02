@@ -300,7 +300,6 @@ int ipipe_trigger_irq(unsigned irq)
 }
 
 /* Move Linux IRQ to threads. */
-   
 
 static int do_irqd(void * __desc)
 {
