@@ -204,6 +204,7 @@ static int __devinit electra_cf_probe(struct of_device *ofdev,
 	init_timer(&cf->timer);
 	cf->timer.function = electra_cf_timer;
 	cf->timer.data = (unsigned long) cf;
+	cf->irq = NO_IRQ;
 
 	cf->ofdev = ofdev;
 	cf->mem_phys = mem.start;
@@ -241,13 +242,24 @@ static int __devinit electra_cf_probe(struct of_device *ofdev,
 
 	cf->socket.pci_irq = cf->irq;
 
-	prop = get_property(np, "card-detect-gpio", NULL);
+	prop = of_get_property(np, "card-detect-gpio", NULL);
+	if (!prop)
+		goto fail1;
 	cf->gpio_detect = *prop;
-	prop = get_property(np, "card-vsense-gpio", NULL);
+
+	prop = of_get_property(np, "card-vsense-gpio", NULL);
+	if (!prop)
+		goto fail1;
 	cf->gpio_vsense = *prop;
-	prop = get_property(np, "card-3v-gpio", NULL);
+
+	prop = of_get_property(np, "card-3v-gpio", NULL);
+	if (!prop)
+		goto fail1;
 	cf->gpio_3v = *prop;
-	prop = get_property(np, "card-5v-gpio", NULL);
+
+	prop = of_get_property(np, "card-5v-gpio", NULL);
+	if (!prop)
+		goto fail1;
 	cf->gpio_5v = *prop;
 
 	cf->socket.io_offset = cf->io_base;
@@ -292,7 +304,10 @@ fail3:
 fail2:
 	release_mem_region(mem.start, mem.end + 1 - mem.start);
 fail1:
-	/* XXX No way to undo the io reservation at this time */
+	if (cf->irq != NO_IRQ)
+		free_irq(cf->irq, cf);
+
+	/* XXX No way to undo the ioremap_explicit at this time */
 	if (cf->mem_base)
 		iounmap(cf->mem_base);
 	if (cf->gpio_base)
@@ -325,27 +340,6 @@ static int __devexit electra_cf_remove(struct of_device *ofdev)
 	return 0;
 }
 
-static int bus_notify(struct notifier_block *nb, unsigned long action,
-		      void *data)
-{
-	struct device *dev = data;
-
-	printk("bus notify called\n");
-
-	/* We are only intereted in device addition */
-	if (action != BUS_NOTIFY_ADD_DEVICE)
-		return 0;
-
-	/* We use the direct ops for localbus */
-	dev->archdata.dma_ops = &dma_direct_ops;
-
-	return 0;
-}
-
-static struct notifier_block bus_notifier = {
-	.notifier_call = bus_notify,
-};
-
 static struct of_device_id electra_cf_match[] =
 {
 	{
@@ -364,14 +358,12 @@ static struct of_platform_driver electra_cf_driver =
 
 static int __init electra_cf_init(void)
 {
-	bus_register_notifier(&pcmcia_bus_type, &bus_notifier);
 	return of_register_platform_driver(&electra_cf_driver);
 }
 module_init(electra_cf_init);
 
 static void __exit electra_cf_exit(void)
 {
-	bus_unregister_notifier(&pcmcia_bus_type, &bus_notifier);
 	of_unregister_platform_driver(&electra_cf_driver);
 }
 module_exit(electra_cf_exit);
