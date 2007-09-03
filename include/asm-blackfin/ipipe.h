@@ -243,15 +243,17 @@ int ipipe_start_irq_thread(unsigned irq, struct irq_desc *desc);
 #if defined(CONFIG_BF533)
 #define IRQ_SYSTMR		IRQ_TMR0
 #define IRQ_PRIOTMR		CONFIG_TIMER0
-#define PRIO_GPIODEMUX		CONFIG_PFA
+#define PRIO_GPIODEMUX(irq)	CONFIG_PFA
 #elif defined(CONFIG_BF537)
 #define IRQ_SYSTMR		IRQ_TMR0
 #define IRQ_PRIOTMR		CONFIG_IRQ_TMR0
-#define PRIO_GPIODEMUX		CONFIG_IRQ_PROG_INTA
+#define PRIO_GPIODEMUX(irq)	CONFIG_IRQ_PROG_INTA
 #elif defined(CONFIG_BF561)
 #define IRQ_SYSTMR		IRQ_TIMER0
 #define IRQ_PRIOTMR		CONFIG_IRQ_TIMER0
-#define PRIO_GPIODEMUX		CONFIG_IRQ_PROG0_INTA
+#define PRIO_GPIODEMUX(irq)	((irq) == IRQ_PROG0_INTA ? CONFIG_IRQ_PROG0_INTA : \
+				 (irq) == IRQ_PROG1_INTA ? CONFIG_IRQ_PROG1_INTA : \
+				 CONFIG_IRQ_PROG2_INTA)
 #define bfin_write_TIMER_DISABLE(val)	bfin_write_TMRS8_DISABLE(val)
 #define bfin_write_TIMER_ENABLE(val)	bfin_write_TMRS8_ENABLE(val)
 #define bfin_write_TIMER_STATUS(val)	bfin_write_TMRS8_STATUS(val)

@@ -544,17 +544,17 @@ int __ipipe_get_irqthread_priority(unsigned irq)
 	if (irq <= IRQ_CORETMR)
 		return IVG13 - irq + 1;
 
-	if (irq == IRQ_PROG_INTA)
-		/* The GPIO demux interrupt is given a lower priority
-		 * than the GPIO IRQs, so that its threaded handler
-		 * unmasks the interrupt line after the decoded IRQs
-		 * have been processed. */
-		return IVG13 - PRIO_GPIODEMUX;
+	if (irq == IRQ_PROG0_INTA || irq == IRQ_PROG1_INTA || IRQ_PROG2_INTA)
+		/* The GPIO demux interrupts are given a lower
+		 * priority than the GPIO IRQs, so that its threaded
+		 * handler unmasks the interrupt line after the
+		 * decoded IRQs have been processed. */
+		return IVG13 - PRIO_GPIODEMUX(irq);
 
 	if (irq >= IRQ_PF0)
 		/* GPIO IRQs are given the priority of the demux
 		 * interrupt. */
-		return IVG13 - PRIO_GPIODEMUX + 1;
+		return IVG13 - PRIO_GPIODEMUX(irq) + 1;
 
 	for (ient = 0; ient < NR_PERI_INTS; ient++) {
 		struct ivgx *ivg = ivg_table + ient;
