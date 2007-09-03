@@ -28,6 +28,7 @@
 #include <linux/init.h>
 #include <linux/delay.h>
 #include <linux/interrupt.h>
+#include <linux/vmalloc.h>
 
 #include <pcmcia/ss.h>
 #include <asm/of_platform.h>
@@ -105,10 +106,8 @@ static int electra_cf_get_status(struct pcmcia_socket *s, u_int *sp)
 
 	/* NOTE CF is always 3VCARD */
 	if (electra_cf_present(cf)) {
-		struct electra_cf_socket *cf;
-
 		*sp = SS_READY | SS_DETECT | SS_POWERON | SS_3VCARD;
-		cf = container_of(s, struct electra_cf_socket, socket);
+
 		s->pci_irq = cf->irq;
 	} else
 		*sp = 0;
@@ -134,8 +133,10 @@ static int electra_cf_set_socket(struct pcmcia_socket *sock,
 	case 33:
 		gpio = (1 << cf->gpio_3v);
 		break;
+	case 5:
+		gpio = (1 << cf->gpio_5v);
+		break;
 	default:
-		/* CF is 3.3V only */
 		return -EINVAL;
 	}
 
@@ -188,6 +189,7 @@ static int __devinit electra_cf_probe(struct of_device *ofdev,
 	int status;
 	const unsigned int *prop;
 	int err;
+	struct vm_struct *area;
 
 	err = of_address_to_resource(np, 0, &mem);
 	if (err)
@@ -208,22 +210,27 @@ static int __devinit electra_cf_probe(struct of_device *ofdev,
 
 	cf->ofdev = ofdev;
 	cf->mem_phys = mem.start;
-	cf->mem_base = ioremap(mem.start, mem.end - mem.start);
+	cf->mem_size = PAGE_ALIGN(mem.end - mem.start);
+	cf->mem_base = ioremap(cf->mem_phys, cf->mem_size);
 	cf->io_size = PAGE_ALIGN(io.end - io.start);
 
-	cf->io_virt = reserve_phb_iospace(cf->io_size);
+	area = __get_vm_area(cf->io_size, 0, PHB_IO_BASE, PHB_IO_END);
+	if (area == NULL)
+		return -ENOMEM;
+
+	cf->io_virt = (void __iomem *)(area->addr);
 
 	cf->gpio_base = ioremap(0xfc103000, 0x1000);
 	dev_set_drvdata(device, cf);
 
-	if (!cf->mem_base || !cf->io_virt || !cf->gpio_base) {
+	if (!cf->mem_base || !cf->io_virt || !cf->gpio_base ||
+	    (__ioremap_at(io.start, cf->io_virt, cf->io_size,
+		_PAGE_NO_CACHE | _PAGE_GUARDED) == NULL)) {
 		dev_err(device, "can't ioremap ranges\n");
 		status = -ENOMEM;
 		goto fail1;
 	}
 
-	__ioremap_explicit(io.start, (unsigned long)cf->io_virt, cf->io_size,
-			   _PAGE_NO_CACHE | _PAGE_GUARDED);
 
 	cf->io_base = (unsigned long)cf->io_virt - VMALLOC_END;
 
@@ -265,8 +272,7 @@ static int __devinit electra_cf_probe(struct of_device *ofdev,
 	cf->socket.io_offset = cf->io_base;
 
 	/* reserve chip-select regions */
-	if (!request_mem_region(mem.start, mem.end + 1 - mem.start,
-				driver_name)) {
+	if (!request_mem_region(cf->mem_phys, cf->mem_size, driver_name)) {
 		status = -ENXIO;
 		dev_err(device, "Can't claim memory region\n");
 		goto fail1;
@@ -293,21 +299,22 @@ static int __devinit electra_cf_probe(struct of_device *ofdev,
 	}
 
 	dev_info(device, "at mem 0x%lx io 0x%lx irq %d\n",
-		 mem.start, io.start, cf->irq);
+		 cf->mem_phys, io.start, cf->irq);
 
 	cf->active = 1;
 	electra_cf_timer((unsigned long)cf);
 	return 0;
 
 fail3:
-	release_mem_region(io.start, io.end + 1 - io.start);
+	release_region(cf->io_base, cf->io_size);
 fail2:
-	release_mem_region(mem.start, mem.end + 1 - mem.start);
+	release_mem_region(cf->mem_phys, cf->mem_size);
 fail1:
 	if (cf->irq != NO_IRQ)
 		free_irq(cf->irq, cf);
 
-	/* XXX No way to undo the ioremap_explicit at this time */
+	if (cf->io_virt)
+		__iounmap_at(cf->io_virt, cf->io_size);
 	if (cf->mem_base)
 		iounmap(cf->mem_base);
 	if (cf->gpio_base)
@@ -330,6 +337,7 @@ static int __devexit electra_cf_remove(struct of_device *ofdev)
 	free_irq(cf->irq, cf);
 	del_timer_sync(&cf->timer);
 
+	__iounmap_at(cf->io_virt, cf->io_size);
 	iounmap(cf->mem_base);
 	iounmap(cf->gpio_base);
 	release_mem_region(cf->mem_phys, cf->mem_size);
