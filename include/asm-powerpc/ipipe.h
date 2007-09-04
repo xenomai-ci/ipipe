@@ -50,8 +50,8 @@
 
 #define task_hijacked(p)						\
 	( {								\
-		int x = ipipe_current_domain != ipipe_root_domain;	\
-		__clear_bit(IPIPE_SYNC_FLAG, &ipipe_cpudom_var(ipipe_root_domain, status)); \
+		int x = !ipipe_root_domain_p;				\
+		__clear_bit(IPIPE_SYNC_FLAG, &ipipe_root_cpudom_var(status)); \
 		local_irq_enable_hw(); x;				\
 	} )
 
@@ -163,9 +163,9 @@ do {									\
 			irq_exit();					\
 		}							\
 	else {								\
-		__clear_bit(IPIPE_SYNC_FLAG, &ipipe_this_cpudom_var(status)); \
+		__clear_bit(IPIPE_SYNC_FLAG, &ipipe_cpudom_var(ipd, status)); \
 		ipd->irqs[irq].handler(irq, ipd->irqs[irq].cookie);	\
-		__set_bit(IPIPE_SYNC_FLAG, &ipipe_this_cpudom_var(status)); \
+		__set_bit(IPIPE_SYNC_FLAG, &ipipe_cpudom_var(ipd, status)); \
 	}								\
 	local_irq_disable_nohead(ipd);					\
 } while(0)

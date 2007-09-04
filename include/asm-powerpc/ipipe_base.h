@@ -99,4 +99,84 @@
 #define IPIPE_LAST_EVENT		IPIPE_EVENT_CLEANUP
 #define IPIPE_NR_EVENTS			(IPIPE_LAST_EVENT + 1)
 
+#ifndef __ASSEMBLY__
+
+#ifdef CONFIG_SMP
+
+/* There is no point in inlining the root stall ops in SMP mode. */
+
+void __ipipe_stall_root(void);
+
+unsigned long __ipipe_test_and_stall_root(void);
+
+unsigned long __ipipe_test_root(void);
+
+#else /* !CONFIG_SMP */
+
+#include <asm/asm-compat.h>
+#include <asm/synch.h>
+
+#ifdef CONFIG_PPC64
+#define LOAD_ROOT_STATUS_ADDR					\
+	"ld	(%1),per_cpu__ipipe_percpu_darray@got(%%r2)\n"
+#else
+#define LOAD_ROOT_STATUS_ADDR					\
+	"lis	(%1),(per_cpu__ipipe_percpu_darray)@ha\n"	\
+	"addi	(%1),(%1),(per_cpu__ipipe_percpu_darray)@l\n"
+#endif /* !CONFIG_PPC64 */
+
+static inline void __ipipe_stall_root(void)
+{
+	unsigned long old, *p, mask = 1;
+
+	__asm__ __volatile__(
+		LOAD_ROOT_STATUS_ADDR
+		"1:"	PPC_LLARX "%0,0,%1	# set_bit\n"
+		"or	%0,%0,%2\n"
+		PPC405_ERR77(0,%1)
+		PPC_STLCX "%0,0,%1\n"
+		"bne-	1b\n"
+		: "=&r" (old), "=&r" (p)
+		: "r" (mask)
+		: "cc", "memory" );
+}
+
+static inline unsigned long __ipipe_test_and_stall_root(void)
+{
+	unsigned long old, t, *p, mask = 1;
+
+	__asm__ __volatile__(
+		LOAD_ROOT_STATUS_ADDR
+		"1:"	PPC_LLARX "%0,0,%1		# test_and_set_bit\n"
+		"or	%2,%0,%3 \n"
+		PPC405_ERR77(0,%1)
+		PPC_STLCX "%2,0,%1 \n"
+		"bne-	1b\n"
+		: "=&r" (old), "=&r" (p), "=&r" (t)
+		: "r" (mask)
+		: "cc", "memory");
+
+	return (old & 1);
+}
+
+static inline unsigned long __ipipe_test_root(void)
+{
+	unsigned long old, *p;
+
+	__asm__ __volatile__(
+		LOAD_ROOT_STATUS_ADDR
+#ifdef CONFIG_PPC64
+		"ld	%1,0(%1)"
+#else
+		"lwz	%1,0(%1)"
+#endif
+		: "=&r" (old), "=&r" (p));
+
+	return (old & 1);
+}
+
+#endif /* !CONFIG_SMP */
+
+#endif /* !__ASSEMBLY__ */
+
 #endif	/* !__ASM_POWERPC_IPIPE_BASE_H */

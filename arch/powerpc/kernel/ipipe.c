@@ -178,6 +178,21 @@ int __ipipe_send_ipi(unsigned ipi, cpumask_t cpumask)
 	return 0;
 }
 
+void __ipipe_stall_root(void)
+{
+	set_bit_safe(IPIPE_STALL_FLAG, &ipipe_root_cpudom_var(status));
+}
+
+unsigned long __ipipe_test_and_stall_root(void)
+{
+	return test_and_set_bit_safe(IPIPE_STALL_FLAG, &ipipe_root_cpudom_var(status));
+}
+
+unsigned long __ipipe_test_root(void)
+{
+	return test_bit(IPIPE_STALL_FLAG, &ipipe_root_cpudom_var(status));
+}
+
 #endif	/* CONFIG_SMP */
 
 /*
@@ -494,7 +509,7 @@ int __ipipe_grab_irq(struct pt_regs *regs)
 		if (test_and_clear_bit(TLF_NAPPING, &ti->local_flags))
 			regs->nip = regs->link;
 #endif
-		if (!test_bit(IPIPE_STALL_FLAG, &ipipe_this_cpudom_var(status)))
+		if (!test_bit(IPIPE_STALL_FLAG, &ipipe_root_cpudom_var(status)))
 			return 1;
 	}
 
@@ -598,7 +613,7 @@ int __ipipe_grab_timer(struct pt_regs *regs)
 		if (test_and_clear_bit(TLF_NAPPING, &ti->local_flags))
 			regs->nip = regs->link;
 #endif
-		if (!test_bit(IPIPE_STALL_FLAG, &ipipe_this_cpudom_var(status)))
+		if (!test_bit(IPIPE_STALL_FLAG, &ipipe_root_cpudom_var(status)))
 			return 1;
 	}
 
@@ -612,12 +627,12 @@ notrace int __ipipe_check_root(void)
 
 notrace void __ipipe_fast_stall_root(void)
 {
-	set_bit_safe(IPIPE_STALL_FLAG, &ipipe_cpudom_var(ipipe_root_domain, status));
+	set_bit_safe(IPIPE_STALL_FLAG, &ipipe_root_cpudom_var(status));
 }
 
 notrace void __ipipe_fast_unstall_root(void)
 {
-	clear_bit_safe(IPIPE_STALL_FLAG, &ipipe_cpudom_var(ipipe_root_domain, status));
+	clear_bit_safe(IPIPE_STALL_FLAG, &ipipe_root_cpudom_var(status));
 }
 
 #ifdef CONFIG_IPIPE_TRACE_IRQSOFF
@@ -662,7 +677,7 @@ int __ipipe_syscall_root(struct pt_regs *regs) /* HW interrupts off */
 			 * is tested.							     
 			 */
 			local_irq_disable_hw();
-			if ((ipipe_cpudom_var(ipipe_root_domain, irqpend_himask) & IPIPE_IRQMASK_VIRT) != 0)
+			if ((ipipe_root_cpudom_var(irqpend_himask) & IPIPE_IRQMASK_VIRT) != 0)
 				__ipipe_sync_pipeline(IPIPE_IRQMASK_VIRT);
 			local_irq_enable_hw();
 			return -1;
@@ -686,6 +701,11 @@ EXPORT_SYMBOL(ipipe_critical_enter);
 EXPORT_SYMBOL(ipipe_critical_exit);
 EXPORT_SYMBOL(ipipe_trigger_irq);
 EXPORT_SYMBOL(ipipe_get_sysinfo);
+#ifdef CONFIG_SMP
+EXPORT_SYMBOL(__ipipe_stall_root);
+EXPORT_SYMBOL(__ipipe_test_root);
+EXPORT_SYMBOL(__ipipe_test_and_stall_root);
+#endif
 
 EXPORT_SYMBOL(disarm_decr);
 EXPORT_SYMBOL_GPL(__switch_to);
