@@ -138,7 +138,7 @@ static inline unsigned long __raw_local_irq_save(void)
 #else
 
 #ifdef CONFIG_IPIPE
-#define DISABLE_INTERRUPTS(clobbers)	call __ipipe_stall_root; sti
+#define DISABLE_INTERRUPTS(clobbers)	PER_CPU(ipipe_percpu_darray, %eax); btsl $0,(%eax); sti
 #define ENABLE_INTERRUPTS(clobbers)	call __ipipe_unstall_root
 #define ENABLE_INTERRUPTS_HW_COND	sti
 #define DISABLE_INTERRUPTS_HW(clobbers)	cli

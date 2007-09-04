@@ -440,7 +440,7 @@ static inline void __fixup_if(struct pt_regs *regs)
 	 * pipeline state for the root stage upon exit.
 	 */
 
-	if (test_bit(IPIPE_STALL_FLAG, &ipipe_this_cpudom_var(status)))
+	if (test_bit(IPIPE_STALL_FLAG, &ipipe_root_cpudom_var(status)))
 		regs->eflags &= ~X86_EFLAGS_IF;
 	else
 		regs->eflags |= X86_EFLAGS_IF;
@@ -454,7 +454,7 @@ static inline void __fixup_if(struct pt_regs *regs)
 
 asmlinkage int __ipipe_kpreempt_root(struct pt_regs regs)
 {
-	if (test_bit(IPIPE_STALL_FLAG, &ipipe_this_cpudom_var(status)))
+	if (test_bit(IPIPE_STALL_FLAG, &ipipe_root_cpudom_var(status)))
 		/* Root stage is stalled: rescheduling denied. */
 		return 0;
 
@@ -475,19 +475,19 @@ asmlinkage void __ipipe_unstall_iret_root(struct pt_regs regs)
 	   emulation. */
 
 	if (!(regs.eflags & X86_EFLAGS_IF)) {
-		if (!__test_and_set_bit(IPIPE_STALL_FLAG, &ipipe_cpudom_var(ipipe_root_domain, status)))
+		if (!__test_and_set_bit(IPIPE_STALL_FLAG, &ipipe_root_cpudom_var(status)))
 			trace_hardirqs_off();
 		regs.eflags |= X86_EFLAGS_IF;
 	} else {
-		if (test_bit(IPIPE_STALL_FLAG, &ipipe_cpudom_var(ipipe_root_domain, status))) {
+		if (test_bit(IPIPE_STALL_FLAG, &ipipe_root_cpudom_var(status))) {
 			trace_hardirqs_on();
-			__clear_bit(IPIPE_STALL_FLAG, &ipipe_cpudom_var(ipipe_root_domain, status));
+			__clear_bit(IPIPE_STALL_FLAG, &ipipe_root_cpudom_var(status));
 		}
 
 		/* Only sync virtual IRQs here, so that we don't recurse
 		   indefinitely in case of an external interrupt flood. */
 
-		if ((ipipe_cpudom_var(ipipe_root_domain, irqpend_himask) & IPIPE_IRQMASK_VIRT) != 0)
+		if ((ipipe_root_cpudom_var(irqpend_himask) & IPIPE_IRQMASK_VIRT) != 0)
 			__ipipe_sync_pipeline(IPIPE_IRQMASK_VIRT);
 	}
 #ifdef CONFIG_IPIPE_TRACE_IRQSOFF
@@ -523,7 +523,7 @@ asmlinkage int __ipipe_syscall_root(struct pt_regs regs)
 		if (ipipe_root_domain_p && !in_atomic()) {
 			/* Sync pending VIRQs before _TIF_NEED_RESCHED is tested. */
 			local_irq_save_hw(flags);
-			if ((ipipe_this_cpudom_var(irqpend_himask) & IPIPE_IRQMASK_VIRT) != 0)
+			if ((ipipe_root_cpudom_var(irqpend_himask) & IPIPE_IRQMASK_VIRT) != 0)
 				__ipipe_sync_pipeline(IPIPE_IRQMASK_VIRT);
 			local_irq_restore_hw(flags);
 			return -1;
@@ -768,7 +768,7 @@ finalize:
 finalize_nosync:
 
 	if (!ipipe_root_domain_p ||
-	    test_bit(IPIPE_STALL_FLAG, &ipipe_this_cpudom_var(status)))
+	    test_bit(IPIPE_STALL_FLAG, &ipipe_root_cpudom_var(status)))
 		return 0;
 
 #ifdef CONFIG_SMP
@@ -778,7 +778,7 @@ finalize_nosync:
 	 * ret_from_intr.
 	 */
 	if ((long)regs.orig_eax < 0)
-		__set_bit(IPIPE_STALL_FLAG, &ipipe_cpudom_var(ipipe_root_domain, status));
+		__set_bit(IPIPE_STALL_FLAG, &ipipe_root_cpudom_var(status));
 #endif	/* CONFIG_SMP */
 
 	return 1;

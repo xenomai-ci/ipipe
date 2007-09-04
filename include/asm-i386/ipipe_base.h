@@ -86,4 +86,84 @@
 #define IPIPE_LAST_EVENT	IPIPE_EVENT_CLEANUP
 #define IPIPE_NR_EVENTS		(IPIPE_LAST_EVENT + 1)
 
+#ifndef __ASSEMBLY__
+
+#include <asm/alternative.h>
+
+#ifdef CONFIG_SMP
+
+#define GET_ROOT_STATUS_ADDR					\
+	"pushfl; cli;"						\
+	"movl %%fs:per_cpu__this_cpu_off, %%eax;"		\
+	"lea per_cpu__ipipe_percpu_darray(%%eax), %%eax;"
+#define PUT_ROOT_STATUS_ADDR	"popfl;"
+
+static inline void __ipipe_stall_root(void)
+{
+	__asm__ __volatile__(GET_ROOT_STATUS_ADDR
+			     LOCK_PREFIX
+			     "btsl $0,(%%eax);"
+			     PUT_ROOT_STATUS_ADDR
+			     : : : "eax");
+}
+
+static inline unsigned long __ipipe_test_and_stall_root(void)
+{
+	int oldbit;
+
+	__asm__ __volatile__(GET_ROOT_STATUS_ADDR
+			     LOCK_PREFIX
+			     "btsl $0,(%%eax);"
+			     "sbbl %0,%0;"
+			     PUT_ROOT_STATUS_ADDR
+			     :"=r" (oldbit)
+			     : : "eax", "memory");
+	return oldbit;
+}
+
+static inline unsigned long __ipipe_test_root(void)
+{
+	int oldbit;
+
+	__asm__ __volatile__(GET_ROOT_STATUS_ADDR
+			     "btl $0,(%%eax);"
+			     "sbbl %0,%0;"
+			     PUT_ROOT_STATUS_ADDR
+			     :"=r" (oldbit)
+			     : : "eax");
+	return oldbit;
+}
+
+#else /* ! CONFIG_SMP */
+
+static inline void __ipipe_stall_root(void)
+{
+	__asm__ __volatile__("btsl $0,per_cpu__ipipe_percpu_darray;");
+}
+
+static inline unsigned long __ipipe_test_and_stall_root(void)
+{
+	int oldbit;
+
+	__asm__ __volatile__("btsl $0,per_cpu__ipipe_percpu_darray;"
+			     "sbbl %0,%0;"
+			     :"=r" (oldbit)
+			     : : "memory");
+	return oldbit;
+}
+
+static inline unsigned long __ipipe_test_root(void)
+{
+	int oldbit;
+
+	__asm__ __volatile__("btl $0,per_cpu__ipipe_percpu_darray;"
+			     "sbbl %0,%0;"
+			     :"=r" (oldbit));
+	return oldbit;
+}
+
+#endif	/* CONFIG_SMP */
+
+#endif /* !__ASSEMBLY__ */
+
 #endif	/* !__I386_IPIPE_BASE_H */
