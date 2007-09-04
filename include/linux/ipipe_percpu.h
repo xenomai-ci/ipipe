@@ -22,7 +22,7 @@
 #ifndef __LINUX_IPIPE_PERCPU_H
 #define __LINUX_IPIPE_PERCPU_H
 
-#include <linux/percpu.h>
+#include <asm/percpu.h>
 #include <asm/ptrace.h>
 
 struct ipipe_domain;
@@ -36,6 +36,8 @@ struct ipipe_percpu_domain_data {
 	u64 evsync;
 };
 
+DECLARE_PER_CPU(struct ipipe_percpu_domain_data *, ipipe_percpu_daddr[CONFIG_IPIPE_DOMAINS]);
+
 DECLARE_PER_CPU(struct ipipe_percpu_domain_data, ipipe_percpu_darray[CONFIG_IPIPE_DOMAINS]);
 
 DECLARE_PER_CPU(struct ipipe_domain *, ipipe_percpu_domain);
@@ -44,18 +46,21 @@ DECLARE_PER_CPU(struct ipipe_domain *, ipipe_percpu_domain);
 DECLARE_PER_CPU(int, ipipe_percpu_context_check);
 #endif
 
-#define __ipipe_dslot(ipd)		((ipd)->slot)
-
 #define ipipe_percpu(var, cpu)		per_cpu(var, cpu)
 #define ipipe_cpu_var(var)		__raw_get_cpu_var(var)
 
+#define ipipe_percpu_domptr(ipd, cpu)	per_cpu(ipipe_percpu_daddr, cpu)[(ipd)->slot]
+
 #define ipipe_percpudom(ipd, var, cpu) \
-	per_cpu(ipipe_percpu_darray, cpu)[__ipipe_dslot(ipd)].var
+	ipipe_percpu_domptr(ipd, cpu)->var
 
 #define ipipe_cpudom_var(ipd, var)	\
-	__raw_get_cpu_var(ipipe_percpu_darray)[__ipipe_dslot(ipd)].var
+	__raw_get_cpu_var(ipipe_percpu_daddr)[(ipd)->slot]->var
+
+#define ipipe_root_cpudom_var(var)	\
+	__raw_get_cpu_var(ipipe_percpu_darray)[0].var
 
 #define ipipe_this_cpudom_var(var)	\
-	ipipe_cpudom_var(ipipe_current_domain, var) /* XX: may be optimized in keeping the domain slot apart */
+	ipipe_cpudom_var(ipipe_current_domain, var)
 
 #endif	/* !__LINUX_IPIPE_PERCPU_H */
