@@ -52,12 +52,6 @@ extern struct ipipe_domain ipipe_root;
 
 #define ipipe_root_domain (&ipipe_root)
 
-void __ipipe_stall_root(void);
-
-unsigned long __ipipe_test_root(void);
-
-unsigned long __ipipe_test_and_stall_root(void);
-
 void __ipipe_unstall_root(void);
 
 void __ipipe_restore_root(unsigned long x);
