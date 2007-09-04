@@ -104,7 +104,7 @@ static inline void __ipipe_stall_root(void)
 			     LOCK_PREFIX
 			     "btsl $0,(%%eax);"
 			     PUT_ROOT_STATUS_ADDR
-			     : : : "eax");
+			     : : : "eax", "memory");
 }
 
 static inline unsigned long __ipipe_test_and_stall_root(void)
@@ -138,7 +138,8 @@ static inline unsigned long __ipipe_test_root(void)
 
 static inline void __ipipe_stall_root(void)
 {
-	__asm__ __volatile__("btsl $0,per_cpu__ipipe_percpu_darray;");
+	__asm__ __volatile__("btsl $0,per_cpu__ipipe_percpu_darray;"
+			     : : : "memory");
 }
 
 static inline unsigned long __ipipe_test_and_stall_root(void)
