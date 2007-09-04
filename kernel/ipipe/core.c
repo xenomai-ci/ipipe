@@ -46,6 +46,8 @@ static unsigned long __ipipe_domain_slot_map;
 
 struct ipipe_domain ipipe_root;
 
+DEFINE_PER_CPU(struct ipipe_percpu_domain_data *, ipipe_percpu_daddr[CONFIG_IPIPE_DOMAINS]);
+
 DEFINE_PER_CPU(struct ipipe_percpu_domain_data, ipipe_percpu_darray[CONFIG_IPIPE_DOMAINS]) =
 { [0] = { .status = IPIPE_STALL_MASK } }; /* Root domain stalled on each CPU at startup. */
 
@@ -175,6 +177,7 @@ void ipipe_release_tickdev(int cpu)
 void ipipe_init(void)
 {
 	struct ipipe_domain *ipd = &ipipe_root;
+	int cpu;
 
 	__ipipe_check_platform();	/* Do platform dependent checks first. */
 
@@ -187,6 +190,9 @@ void ipipe_init(void)
 	/* Reserve percpu data slot #0 for the root domain. */
 	ipd->slot = 0;
 	set_bit(0, &__ipipe_domain_slot_map);
+
+	for_each_online_cpu(cpu)
+		per_cpu(ipipe_percpu_daddr, cpu)[0] = &per_cpu(ipipe_percpu_darray, cpu)[0];
 
 	ipd->name = "Linux";
 	ipd->domid = IPIPE_ROOT_ID;
@@ -249,33 +255,21 @@ void __ipipe_init_stage(struct ipipe_domain *ipd)
 
 void __ipipe_cleanup_domain(struct ipipe_domain *ipd)
 {
-	ipipe_unstall_pipeline_from(ipd);
-#ifdef CONFIG_SMP
-	{
-		int cpu;
+	int cpu;
 
-		for_each_online_cpu(cpu) {
-			while (ipipe_percpudom(ipd, irqpend_himask, cpu) != 0)
-				cpu_relax();
-		}
+	ipipe_unstall_pipeline_from(ipd);
+
+#ifdef CONFIG_SMP
+	for_each_online_cpu(cpu) {
+		while (ipipe_percpudom(ipd, irqpend_himask, cpu) != 0)
+			cpu_relax();
 	}
 #endif	/* CONFIG_SMP */
+
 	clear_bit(ipd->slot, &__ipipe_domain_slot_map);
-}
 
-void __ipipe_stall_root(void)
-{
-	set_bit_safe(IPIPE_STALL_FLAG, &ipipe_cpudom_var(ipipe_root_domain, status));
-}
-
-unsigned long __ipipe_test_and_stall_root(void)
-{
-	return test_and_set_bit_safe(IPIPE_STALL_FLAG, &ipipe_cpudom_var(ipipe_root_domain, status));
-}
-
-unsigned long __ipipe_test_root(void)
-{
-	return test_bit(IPIPE_STALL_FLAG, &ipipe_cpudom_var(ipipe_root_domain, status));
+	for_each_online_cpu(cpu)
+		per_cpu(ipipe_percpu_daddr, cpu)[ipd->slot] = NULL;
 }
 
 void __ipipe_unstall_root(void)
@@ -284,9 +278,9 @@ void __ipipe_unstall_root(void)
 
         local_irq_disable_hw();
 
-        __clear_bit(IPIPE_STALL_FLAG, &ipipe_cpudom_var(ipipe_root_domain, status));
+        __clear_bit(IPIPE_STALL_FLAG, &ipipe_root_cpudom_var(status));
 
-        if (unlikely(ipipe_cpudom_var(ipipe_root_domain, irqpend_himask) != 0))
+        if (unlikely(ipipe_root_cpudom_var(irqpend_himask) != 0))
                 __ipipe_sync_pipeline(IPIPE_IRQMASK_ANY);
 
         local_irq_enable_hw();
@@ -987,6 +981,7 @@ int ipipe_register_domain(struct ipipe_domain *ipd,
 	struct ipipe_domain *_ipd;
 	struct list_head *pos;
 	unsigned long flags;
+	int cpu;
 
 	if (!ipipe_root_domain_p) {
 		printk(KERN_WARNING
@@ -1003,7 +998,7 @@ int ipipe_register_domain(struct ipipe_domain *ipd,
 	pos = NULL;
 	ipd->slot = ffz(__ipipe_domain_slot_map);
 
-	if (__ipipe_dslot(ipd) < CONFIG_IPIPE_DOMAINS) {
+	if (ipd->slot < CONFIG_IPIPE_DOMAINS) {
 		set_bit(ipd->slot, &__ipipe_domain_slot_map);
 		list_for_each(pos, &__ipipe_pipeline) {
 			_ipd = list_entry(pos, struct ipipe_domain, p_link);
@@ -1019,6 +1014,15 @@ int ipipe_register_domain(struct ipipe_domain *ipd,
 			clear_bit(ipd->slot, &__ipipe_domain_slot_map);
 		return -EBUSY;
 	}
+
+	/*
+	 * Set up the perdomain pointers for direct access to the
+	 * percpu domain data. This saves a costly multiply each time
+	 * we need to refer to the contents of the percpu domain data
+	 * array.
+	 */
+	for_each_online_cpu(cpu)
+		per_cpu(ipipe_percpu_daddr, cpu)[ipd->slot] = &per_cpu(ipipe_percpu_darray, cpu)[ipd->slot];
 
 	ipd->name = attr->name;
 	ipd->domid = attr->domid;
@@ -1066,8 +1070,8 @@ int ipipe_register_domain(struct ipipe_domain *ipd,
 
 		local_irq_save_hw(flags);
 
-		if (ipipe_this_cpudom_var(irqpend_himask) != 0 &&
-		    !test_bit(IPIPE_STALL_FLAG, &ipipe_this_cpudom_var(status)))
+		if (ipipe_root_cpudom_var(irqpend_himask) != 0 &&
+		    !test_bit(IPIPE_STALL_FLAG, &ipipe_root_cpudom_var(status)))
 			__ipipe_sync_pipeline(IPIPE_IRQMASK_ANY);
 
 		local_irq_restore_hw(flags);
@@ -1564,9 +1568,6 @@ EXPORT_SYMBOL(ipipe_unstall_pipeline_head);
 EXPORT_SYMBOL(__ipipe_restore_pipeline_head);
 EXPORT_SYMBOL(__ipipe_unstall_root);
 EXPORT_SYMBOL(__ipipe_restore_root);
-EXPORT_SYMBOL(__ipipe_stall_root);
-EXPORT_SYMBOL(__ipipe_test_root);
-EXPORT_SYMBOL(__ipipe_test_and_stall_root);
 EXPORT_SYMBOL(__ipipe_spin_lock_irq);
 EXPORT_SYMBOL(__ipipe_spin_unlock_irq);
 EXPORT_SYMBOL(__ipipe_spin_lock_irqsave);
