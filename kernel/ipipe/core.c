@@ -1592,3 +1592,13 @@ EXPORT_SYMBOL(__ipipe_schedule_irq);
 EXPORT_SYMBOL(ipipe_request_tickdev);
 EXPORT_SYMBOL(ipipe_release_tickdev);
 #endif
+#ifndef CONFIG_SMP
+/*
+ * Create an alias to the unique root status, so that arch-dep code
+ * may get simple and easy access to this percpu variable.
+ */
+#define __rstatus_name(s)	#s
+#define _rstatus_name(s)	__rstatus_name(s)
+extern unsigned long __ipipe_root_status
+__attribute__((alias(_rstatus_name(__raw_get_cpu_var(ipipe_percpu_darray)))));
+#endif
