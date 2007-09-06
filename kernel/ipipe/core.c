@@ -878,7 +878,7 @@ int ipipe_register_domain(struct ipipe_domain *ipd,
 	unsigned long flags;
 	int cpu;
 
-	if (ipipe_current_domain != ipipe_root_domain) {
+	if (!ipipe_root_domain_p) {
 		printk(KERN_WARNING
 		       "I-pipe: Only the root domain may register a new domain.\n");
 		return -EPERM;
@@ -981,7 +981,7 @@ int ipipe_unregister_domain(struct ipipe_domain *ipd)
 {
 	unsigned long flags;
 
-	if (ipipe_current_domain != ipipe_root_domain) {
+	if (!ipipe_root_domain_p) {
 		printk(KERN_WARNING
 		       "I-pipe: Only the root domain may unregister a domain.\n");
 		return -EPERM;
@@ -1486,4 +1486,14 @@ EXPORT_SYMBOL(__ipipe_schedule_irq);
 #ifdef CONFIG_GENERIC_CLOCKEVENTS
 EXPORT_SYMBOL(ipipe_request_tickdev);
 EXPORT_SYMBOL(ipipe_release_tickdev);
+#endif
+#ifndef CONFIG_SMP
+/*
+ * Create an alias to the unique root status, so that arch-dep code
+ * may get simple and easy access to this percpu variable.
+ */
+#define __rstatus_name(s)	#s
+#define _rstatus_name(s)	__rstatus_name(s)
+extern unsigned long __ipipe_root_status
+__attribute__((alias(_rstatus_name(__raw_get_cpu_var(ipipe_percpu_darray)))));
 #endif
