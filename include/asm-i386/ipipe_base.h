@@ -136,30 +136,36 @@ static inline unsigned long __ipipe_test_root(void)
 
 #else /* ! CONFIG_SMP */
 
+extern unsigned long __ipipe_root_status;
+
 static inline void __ipipe_stall_root(void)
 {
-	__asm__ __volatile__("btsl $0,per_cpu__ipipe_percpu_darray;"
-			     : : : "memory");
+	volatile unsigned long *p = &__ipipe_root_status;
+	__asm__ __volatile__("btsl $0,%0;"
+			     :"+m" (*p) : : "memory");
 }
 
 static inline unsigned long __ipipe_test_and_stall_root(void)
 {
+	volatile unsigned long *p = &__ipipe_root_status;
 	int oldbit;
 
-	__asm__ __volatile__("btsl $0,per_cpu__ipipe_percpu_darray;"
+	__asm__ __volatile__("btsl $0,%1;"
 			     "sbbl %0,%0;"
-			     :"=r" (oldbit)
+			     :"=r" (oldbit), "+m" (*p)
 			     : : "memory");
 	return oldbit;
 }
 
 static inline unsigned long __ipipe_test_root(void)
 {
+	volatile unsigned long *p = &__ipipe_root_status;
 	int oldbit;
 
-	__asm__ __volatile__("btl $0,per_cpu__ipipe_percpu_darray;"
+	__asm__ __volatile__("btl $0,%1;"
 			     "sbbl %0,%0;"
-			     :"=r" (oldbit));
+			     :"=r" (oldbit)
+			     :"m" (*p));
 	return oldbit;
 }
 
