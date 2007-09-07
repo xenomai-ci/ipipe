@@ -46,7 +46,29 @@ static unsigned long __ipipe_domain_slot_map;
 
 struct ipipe_domain ipipe_root;
 
-DEFINE_PER_CPU(struct ipipe_percpu_domain_data *, ipipe_percpu_daddr[CONFIG_IPIPE_DOMAINS]);
+extern unsigned long __ipipe_root_status;
+
+#ifndef CONFIG_SMP
+/*
+ * Create an alias to the unique root status, so that arch-dep code
+ * may get simple and easy access to this percpu variable.
+ */
+#define __rstatus_name(s)	#s
+#define _rstatus_name(s)	__rstatus_name(s)
+extern unsigned long __ipipe_root_status
+__attribute__((alias(_rstatus_name(__raw_get_cpu_var(ipipe_percpu_darray)))));
+
+/*
+ * Create an array of pointers to the percpu domain data; this tends
+ * to produce a better code when reaching non-root domains. We make
+ * sure that the early boot code would be able to dereference the
+ * pointer to the root domain data safely by statically initializing
+ * its value (local_irq*() routines depend on this).
+ */
+DEFINE_PER_CPU(struct ipipe_percpu_domain_data *, ipipe_percpu_daddr[CONFIG_IPIPE_DOMAINS]) =
+{ [0] = (struct ipipe_percpu_domain_data *)&__ipipe_root_status };
+
+#endif
 
 DEFINE_PER_CPU(struct ipipe_percpu_domain_data, ipipe_percpu_darray[CONFIG_IPIPE_DOMAINS]) =
 { [0] = { .status = IPIPE_STALL_MASK } }; /* Root domain stalled on each CPU at startup. */
@@ -177,7 +199,6 @@ void ipipe_release_tickdev(int cpu)
 void ipipe_init(void)
 {
 	struct ipipe_domain *ipd = &ipipe_root;
-	int cpu;
 
 	__ipipe_check_platform();	/* Do platform dependent checks first. */
 
@@ -190,9 +211,6 @@ void ipipe_init(void)
 	/* Reserve percpu data slot #0 for the root domain. */
 	ipd->slot = 0;
 	set_bit(0, &__ipipe_domain_slot_map);
-
-	for_each_online_cpu(cpu)
-		per_cpu(ipipe_percpu_daddr, cpu)[0] = &per_cpu(ipipe_percpu_darray, cpu)[0];
 
 	ipd->name = "Linux";
 	ipd->domid = IPIPE_ROOT_ID;
@@ -255,21 +273,22 @@ void __ipipe_init_stage(struct ipipe_domain *ipd)
 
 void __ipipe_cleanup_domain(struct ipipe_domain *ipd)
 {
-	int cpu;
-
 	ipipe_unstall_pipeline_from(ipd);
 
 #ifdef CONFIG_SMP
-	for_each_online_cpu(cpu) {
-		while (ipipe_percpudom(ipd, irqpend_himask, cpu) != 0)
-			cpu_relax();
+	{
+		int cpu;
+
+		for_each_online_cpu(cpu) {
+			while (ipipe_percpudom(ipd, irqpend_himask, cpu) != 0)
+				cpu_relax();
+		}
 	}
-#endif	/* CONFIG_SMP */
+#else
+	__raw_get_cpu_var(ipipe_percpu_daddr)[ipd->slot] = NULL;
+#endif
 
 	clear_bit(ipd->slot, &__ipipe_domain_slot_map);
-
-	for_each_online_cpu(cpu)
-		per_cpu(ipipe_percpu_daddr, cpu)[ipd->slot] = NULL;
 }
 
 void __ipipe_unstall_root(void)
@@ -981,7 +1000,6 @@ int ipipe_register_domain(struct ipipe_domain *ipd,
 	struct ipipe_domain *_ipd;
 	struct list_head *pos;
 	unsigned long flags;
-	int cpu;
 
 	if (!ipipe_root_domain_p) {
 		printk(KERN_WARNING
@@ -1015,14 +1033,15 @@ int ipipe_register_domain(struct ipipe_domain *ipd,
 		return -EBUSY;
 	}
 
+#ifndef CONFIG_SMP
 	/*
 	 * Set up the perdomain pointers for direct access to the
 	 * percpu domain data. This saves a costly multiply each time
 	 * we need to refer to the contents of the percpu domain data
 	 * array.
 	 */
-	for_each_online_cpu(cpu)
-		per_cpu(ipipe_percpu_daddr, cpu)[ipd->slot] = &per_cpu(ipipe_percpu_darray, cpu)[ipd->slot];
+	__raw_get_cpu_var(ipipe_percpu_daddr)[ipd->slot] = &__raw_get_cpu_var(ipipe_percpu_darray)[ipd->slot];
+#endif
 
 	ipd->name = attr->name;
 	ipd->domid = attr->domid;
@@ -1576,6 +1595,9 @@ EXPORT_SYMBOL(__ipipe_pipeline);
 EXPORT_SYMBOL(__ipipe_set_irq_pending);
 EXPORT_SYMBOL(__ipipe_lock_irq);
 EXPORT_SYMBOL(__ipipe_unlock_irq);
+#ifndef CONFIG_SMP
+EXPORT_SYMBOL(__ipipe_root_status);
+#endif
 EXPORT_SYMBOL(ipipe_register_domain);
 EXPORT_SYMBOL(ipipe_unregister_domain);
 EXPORT_SYMBOL(ipipe_free_virq);
