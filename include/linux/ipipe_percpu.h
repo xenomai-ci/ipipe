@@ -38,7 +38,7 @@ struct ipipe_percpu_domain_data {
 
 #ifdef CONFIG_SMP
 #define ipipe_percpudom(ipd, var, cpu)	\
-	(&per_cpu(ipipe_percpu_darray, cpu)[(ipd)->slot].var)
+	(per_cpu(ipipe_percpu_darray, cpu)[(ipd)->slot].var)
 #define ipipe_cpudom_var(ipd, var)	\
 	(__raw_get_cpu_var(ipipe_percpu_darray)[(ipd)->slot].var)
 #else
