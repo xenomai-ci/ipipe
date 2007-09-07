@@ -44,7 +44,29 @@ static unsigned long __ipipe_domain_slot_map;
 
 struct ipipe_domain ipipe_root;
 
-DEFINE_PER_CPU(struct ipipe_percpu_domain_data *, ipipe_percpu_daddr[CONFIG_IPIPE_DOMAINS]);
+extern unsigned long __ipipe_root_status;
+
+#ifndef CONFIG_SMP
+/*
+ * Create an alias to the unique root status, so that arch-dep code
+ * may get simple and easy access to this percpu variable.
+ */
+#define __rstatus_name(s)	#s
+#define _rstatus_name(s)	__rstatus_name(s)
+extern unsigned long __ipipe_root_status
+__attribute__((alias(_rstatus_name(__raw_get_cpu_var(ipipe_percpu_darray)))));
+
+/*
+ * Create an array of pointers to the percpu domain data; this tends
+ * to produce a better code when reaching non-root domains. We make
+ * sure that the early boot code would be able to dereference the
+ * pointer to the root domain data safely by statically initializing
+ * its value (local_irq*() routines depend on this).
+ */
+DEFINE_PER_CPU(struct ipipe_percpu_domain_data *, ipipe_percpu_daddr[CONFIG_IPIPE_DOMAINS]) =
+{ [0] = (struct ipipe_percpu_domain_data *)&__ipipe_root_status };
+
+#endif
 
 DEFINE_PER_CPU(struct ipipe_percpu_domain_data, ipipe_percpu_darray[CONFIG_IPIPE_DOMAINS]) =
 { [0] = { .status = IPIPE_STALL_MASK } }; /* Root domain stalled on each CPU at startup. */
@@ -1486,14 +1508,4 @@ EXPORT_SYMBOL(__ipipe_schedule_irq);
 #ifdef CONFIG_GENERIC_CLOCKEVENTS
 EXPORT_SYMBOL(ipipe_request_tickdev);
 EXPORT_SYMBOL(ipipe_release_tickdev);
-#endif
-#ifndef CONFIG_SMP
-/*
- * Create an alias to the unique root status, so that arch-dep code
- * may get simple and easy access to this percpu variable.
- */
-#define __rstatus_name(s)	#s
-#define _rstatus_name(s)	__rstatus_name(s)
-extern unsigned long __ipipe_root_status
-__attribute__((alias(_rstatus_name(__raw_get_cpu_var(ipipe_percpu_darray)))));
 #endif
