@@ -1490,6 +1490,9 @@ EXPORT_SYMBOL(__ipipe_pipeline);
 EXPORT_SYMBOL(__ipipe_set_irq_pending);
 EXPORT_SYMBOL(__ipipe_lock_irq);
 EXPORT_SYMBOL(__ipipe_unlock_irq);
+#ifndef CONFIG_SMP
+EXPORT_SYMBOL(__ipipe_root_status);
+#endif
 EXPORT_SYMBOL(ipipe_register_domain);
 EXPORT_SYMBOL(ipipe_unregister_domain);
 EXPORT_SYMBOL(ipipe_free_virq);
