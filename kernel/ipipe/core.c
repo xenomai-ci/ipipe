@@ -92,7 +92,6 @@ int __ipipe_event_monitors[IPIPE_NR_EVENTS];
 void ipipe_init(void)
 {
 	struct ipipe_domain *ipd = &ipipe_root;
-	int cpu;
 
 	__ipipe_check_platform();	/* Do platform dependent checks first. */
 
@@ -105,9 +104,6 @@ void ipipe_init(void)
 	/* Reserve percpu data slot #0 for the root domain. */
 	ipd->slot = 0;
 	set_bit(0, &__ipipe_domain_slot_map);
-
-	for_each_online_cpu(cpu)
-		per_cpu(ipipe_percpu_daddr, cpu)[0] = &per_cpu(ipipe_percpu_darray, cpu)[0];
 
 	ipd->name = "Linux";
 	ipd->domid = IPIPE_ROOT_ID;
@@ -170,21 +166,22 @@ void __ipipe_init_stage(struct ipipe_domain *ipd)
 
 void __ipipe_cleanup_domain(struct ipipe_domain *ipd)
 {
-	int cpu;
-
 	ipipe_unstall_pipeline_from(ipd);
 
 #ifdef CONFIG_SMP
-	for_each_online_cpu(cpu) {
-		while (ipipe_percpudom(ipd, irqpend_himask, cpu) != 0)
-			cpu_relax();
+	{
+		int cpu;
+
+		for_each_online_cpu(cpu) {
+			while (ipipe_percpudom(ipd, irqpend_himask, cpu) != 0)
+				cpu_relax();
+		}
 	}
-#endif	/* CONFIG_SMP */
+#else
+	__raw_get_cpu_var(ipipe_percpu_daddr)[ipd->slot] = NULL;
+#endif
 
 	clear_bit(ipd->slot, &__ipipe_domain_slot_map);
-
-	for_each_online_cpu(cpu)
-		per_cpu(ipipe_percpu_daddr, cpu)[ipd->slot] = NULL;
 }
 
 void __ipipe_unstall_root(void)
@@ -898,7 +895,6 @@ int ipipe_register_domain(struct ipipe_domain *ipd,
 	struct ipipe_domain *_ipd;
 	struct list_head *pos;
 	unsigned long flags;
-	int cpu;
 
 	if (!ipipe_root_domain_p) {
 		printk(KERN_WARNING
@@ -932,14 +928,15 @@ int ipipe_register_domain(struct ipipe_domain *ipd,
 		return -EBUSY;
 	}
 
+#ifndef CONFIG_SMP
 	/*
 	 * Set up the perdomain pointers for direct access to the
 	 * percpu domain data. This saves a costly multiply each time
 	 * we need to refer to the contents of the percpu domain data
 	 * array.
 	 */
-	for_each_online_cpu(cpu)
-		per_cpu(ipipe_percpu_daddr, cpu)[ipd->slot] = &per_cpu(ipipe_percpu_darray, cpu)[ipd->slot];
+	__raw_get_cpu_var(ipipe_percpu_daddr)[ipd->slot] = &__raw_get_cpu_var(ipipe_percpu_darray)[ipd->slot];
+#endif
 
 	ipd->name = attr->name;
 	ipd->domid = attr->domid;
