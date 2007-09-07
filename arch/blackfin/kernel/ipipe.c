@@ -117,7 +117,7 @@ void __ipipe_handle_irq(unsigned irq, struct pt_regs *regs)
 				next_domain->irqs[irq].acknowledge(irq);
 			if (test_bit(IPIPE_ROOTLOCK_FLAG, &ipipe_root_domain->flags))
 				s = __test_and_set_bit(IPIPE_STALL_FLAG,
-						       &ipipe_cpudom_var(ipipe_root_domain, status));
+						       &ipipe_root_cpudom_var(status));
 			if (likely(__ipipe_dispatch_wired(next_domain, irq)))
 				goto finalize;
 			return;
@@ -168,14 +168,14 @@ void __ipipe_handle_irq(unsigned irq, struct pt_regs *regs)
 
 	if (test_bit(IPIPE_ROOTLOCK_FLAG, &ipipe_root_domain->flags))
 		s = __test_and_set_bit(IPIPE_STALL_FLAG,
-				       &ipipe_cpudom_var(ipipe_root_domain, status));
+				       &ipipe_root_cpudom_var(status));
 finalize:
 
 	__ipipe_walk_pipeline(head);
 
 	if (!s)
 		__clear_bit(IPIPE_STALL_FLAG,
-			    &ipipe_cpudom_var(ipipe_root_domain, status));
+			    &ipipe_root_cpudom_var(status));
 }
 
 int __ipipe_check_root(void)
@@ -194,13 +194,13 @@ void __ipipe_stall_root_raw(void)
 	__asm__ __volatile__ ("sti %0;"::"d"(__ipipe_irq_lvmask));
 
 	__set_bit(IPIPE_STALL_FLAG,
-		  &ipipe_cpudom_var(ipipe_root_domain, status));
+		  &ipipe_root_cpudom_var(status));
 }
 
 void __ipipe_unstall_root_raw(void)
 {
 	__clear_bit(IPIPE_STALL_FLAG,
-		    &ipipe_cpudom_var(ipipe_root_domain, status));
+		    &ipipe_root_cpudom_var(status));
 
 	__asm__ __volatile__ ("sti %0;"::"d"(irq_flags));
 }
@@ -237,7 +237,7 @@ int __ipipe_syscall_root(struct pt_regs *regs)
 			 * is tested.
 			 */
 			local_irq_save_hw(flags);
-			if ((ipipe_cpudom_var(ipipe_root_domain, irqpend_himask) & IPIPE_IRQMASK_VIRT) != 0)
+			if ((ipipe_root_cpudom_var(irqpend_himask) & IPIPE_IRQMASK_VIRT) != 0)
 				__ipipe_sync_pipeline(IPIPE_IRQMASK_VIRT);
 			local_irq_restore_hw(flags);
 			return -1;

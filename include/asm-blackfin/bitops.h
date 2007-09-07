@@ -89,7 +89,7 @@ static __inline__ void __change_bit(int nr, volatile unsigned long *addr)
 	*ADDR ^= mask;
 }
 
-static __inline__ int test_and_set_bit(int nr, void *addr)
+static __inline__ int test_and_set_bit(int nr, volatile void *addr)
 {
 	int mask, retval;
 	volatile unsigned int *a = (volatile unsigned int *)addr;

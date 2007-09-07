@@ -46,6 +46,32 @@
 
 #define IPIPE_TIMER_IRQ		IRQ_CORETMR
 
+#ifndef __ASSEMBLY__
+
+#include <asm/bitops.h>
+
+extern unsigned long __ipipe_root_status; /* Alias to ipipe_root_cpudom_var(status) */
+
+static __inline__ void __ipipe_stall_root(void)
+{
+	volatile unsigned long *p = &__ipipe_root_status;
+	set_bit(0, p);
+}
+
+static __inline__ unsigned long __ipipe_test_and_stall_root(void)
+{
+	volatile unsigned long *p = &__ipipe_root_status;
+	return test_and_set_bit(0, p);
+}
+
+static __inline__ unsigned long __ipipe_test_root(void)
+{
+	const unsigned long *p = &__ipipe_root_status;
+	return test_bit(0, p);
+}
+
+#endif /* !__ASSEMBLY__ */
+
 #endif /* CONFIG_IPIPE */
 
 #endif /* !__ASM_BLACKFIN_IPIPE_BASE_H */
