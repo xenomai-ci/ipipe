@@ -272,8 +272,8 @@ config AT91_CF
 	  Or choose M to compile the driver as a module named "at91_cf".
 
 config ELECTRA_CF
-	bool "Electra CompactFlash Controller"
-	depends on PCMCIA=y && PPC_PASEMI
+	tristate "Electra CompactFlash Controller"
+	depends on PCMCIA && PPC_PASEMI
 	help
 	  Say Y here to support the CompactFlash controller on the
 	  PA Semi Electra eval board.
