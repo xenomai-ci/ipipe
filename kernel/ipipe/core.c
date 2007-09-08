@@ -1577,6 +1577,7 @@ EXPORT_SYMBOL(ipipe_control_irq);
 EXPORT_SYMBOL(ipipe_suspend_domain);
 EXPORT_SYMBOL(ipipe_alloc_virq);
 EXPORT_PER_CPU_SYMBOL(ipipe_percpu_domain);
+EXPORT_PER_CPU_SYMBOL(ipipe_percpu_darray);
 EXPORT_SYMBOL(ipipe_root);
 EXPORT_SYMBOL(ipipe_stall_pipeline_from);
 EXPORT_SYMBOL(ipipe_test_and_stall_pipeline_from);
@@ -1597,6 +1598,7 @@ EXPORT_SYMBOL(__ipipe_lock_irq);
 EXPORT_SYMBOL(__ipipe_unlock_irq);
 #ifndef CONFIG_SMP
 EXPORT_SYMBOL(__ipipe_root_status);
+EXPORT_PER_CPU_SYMBOL(ipipe_percpu_daddr);
 #endif
 EXPORT_SYMBOL(ipipe_register_domain);
 EXPORT_SYMBOL(ipipe_unregister_domain);
