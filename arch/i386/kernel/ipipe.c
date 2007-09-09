@@ -789,7 +789,6 @@ EXPORT_SYMBOL(ipipe_critical_enter);
 EXPORT_SYMBOL(ipipe_critical_exit);
 EXPORT_SYMBOL(ipipe_trigger_irq);
 EXPORT_SYMBOL(ipipe_get_sysinfo);
-EXPORT_PER_CPU_SYMBOL(ipipe_percpu_darray);
 
 EXPORT_SYMBOL_GPL(irq_desc);
 EXPORT_SYMBOL_GPL(__switch_to);
