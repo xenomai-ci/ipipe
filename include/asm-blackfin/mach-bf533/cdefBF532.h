@@ -65,9 +65,9 @@ static __inline__ void bfin_write_VR_CTL(unsigned int val)
 	bfin_write16(VR_CTL, val);
 	SSYNC();
 
-	local_irq_save(flags);
+	local_irq_save_hw(flags);
 	asm("IDLE;");
-	local_irq_restore(flags);
+	local_irq_restore_hw(flags);
 	bfin_write32(SIC_IWR, iwr);
 }
 
@@ -161,10 +161,10 @@ static __inline__ void bfin_write_VR_CTL(unsigned int val)
 static __inline__ void bfin_write_FIO_FLAG_ ## name (unsigned short val)\
 {\
 	unsigned long flags;\
-	local_irq_save(flags);\
+	local_irq_save_hw(flags);\
 	bfin_write16(FIO_FLAG_ ## name,val);\
 	bfin_read_CHIPID();\
-	local_irq_restore(flags);\
+	local_irq_restore_hw(flags);\
 }
 BFIN_WRITE_FIO_FLAG(D)
 BFIN_WRITE_FIO_FLAG(C)
@@ -176,10 +176,10 @@ static __inline__ unsigned short bfin_read_FIO_FLAG_ ## name (void)\
 {\
 	unsigned long flags;\
 	unsigned short ret;\
-	local_irq_save(flags);\
+	local_irq_save_hw(flags);\
 	ret = bfin_read16(FIO_FLAG_ ## name);\
 	bfin_read_CHIPID();\
-	local_irq_restore(flags);\
+	local_irq_restore_hw(flags);\
 	return ret;\
 }
 BFIN_READ_FIO_FLAG(D)

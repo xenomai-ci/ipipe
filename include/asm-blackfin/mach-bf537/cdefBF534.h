@@ -61,9 +61,9 @@ static __inline__ void bfin_write_VR_CTL(unsigned int val)
 	bfin_write16(VR_CTL, val);
 	SSYNC();
 
-	local_irq_save(flags);
+	local_irq_save_hw(flags);
 	asm("IDLE;");
-	local_irq_restore(flags);
+	local_irq_restore_hw(flags);
 	bfin_write32(SIC_IWR, iwr);
 }
 #define bfin_read_PLL_STAT()                 bfin_read16(PLL_STAT)
