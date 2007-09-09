@@ -429,6 +429,7 @@ EXPORT_SYMBOL(ipipe_get_sysinfo);
 
 EXPORT_SYMBOL(__ipipe_core_clock);
 EXPORT_SYMBOL(__ipipe_freq_scale);
+EXPORT_SYMBOL(__ipipe_irq_lvmask);
 EXPORT_SYMBOL(show_stack);
 
 #ifdef CONFIG_IPIPE_TRACE_MCOUNT
