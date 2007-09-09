@@ -1061,7 +1061,7 @@ handle_irq:
        ipipe_trace_irq_exit(irq);
 
        if (ipipe_root_domain_p)
-	       return !test_bit(IPIPE_STALL_FLAG, &ipipe_this_cpudom_var(status));
+	       return !test_bit(IPIPE_STALL_FLAG, &ipipe_root_cpudom_var(status));
 
        return 0;
 }
