@@ -111,7 +111,7 @@ unsigned long __ipipe_test_root(void);
 
 #else /* !CONFIG_SMP */
 
-#include <asm/bitops.h>
+#include <linux/bitops.h>
 
 extern unsigned long __ipipe_root_status; /* Alias to ipipe_root_cpudom_var(status) */
 
