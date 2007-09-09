@@ -108,34 +108,13 @@ extern struct ipipe_domain ipipe_root;
 
 /* enable/disable_irqdesc _must_ be used in pairs. */
 
-static __inline__ void __ipipe_enable_irqdesc(struct ipipe_domain *ipd,
-					      unsigned irq)
-{
-	struct irq_desc *desc = irq_desc + irq;
-	int prio = desc->ic_prio;
+void __ipipe_enable_irqdesc(struct ipipe_domain *ipd,
+			    unsigned irq);
 
-	desc->depth = 0;
-	if (ipd != &ipipe_root &&
-	    atomic_inc_return(&__ipipe_irq_lvdepth[prio]) == 1) {
-		__set_bit(prio, &__ipipe_irq_lvmask);
-		barrier();
-	}
-}
+void __ipipe_disable_irqdesc(struct ipipe_domain *ipd,
+			     unsigned irq);
 
-static __inline__ void __ipipe_disable_irqdesc(struct ipipe_domain *ipd,
-					       unsigned irq)
-{
-	struct irq_desc *desc = irq_desc + irq;
-	int prio = desc->ic_prio;
-
-	if (ipd != &ipipe_root &&
-	    atomic_dec_and_test(&__ipipe_irq_lvdepth[prio])) {
-		__clear_bit(prio, &__ipipe_irq_lvmask);
-		barrier();
-	}
-}
-
-#define __ipipe_enable_irq(irq)	irq_desc[irq].chip->unmask(irq)
+#define __ipipe_enable_irq(irq)		irq_desc[irq].chip->unmask(irq)
 
 #define __ipipe_disable_irq(irq)	irq_desc[irq].chip->mask(irq)
 
@@ -222,14 +201,14 @@ static inline unsigned long __ipipe_ffnz(unsigned long ul)
 				   for domains above Linux in the pipeline. */ \
 				ipd->irqs[irq].handler(irq, &__raw_get_cpu_var(__ipipe_irq_regs)); \
 		} else {						\
-			__clear_bit(IPIPE_SYNC_FLAG, &ipipe_this_cpudom_var(status)); \
+			__clear_bit(IPIPE_SYNC_FLAG, &ipipe_cpudom_var(ipd, status)); \
 			local_irq_enable_nohead(ipd);			\
 			ipd->irqs[irq].handler(irq, ipd->irqs[irq].cookie); \
 			/* Attempt to exit the outer interrupt level before \
 			 * starting the deferred IRQ processing. */	\
 			local_irq_disable_nohead(ipd);			\
 			__ipipe_run_irqtail();				\
-			__set_bit(IPIPE_SYNC_FLAG, &ipipe_this_cpudom_var(status)); \
+			__set_bit(IPIPE_SYNC_FLAG, &ipipe_cpudom_var(ipd, status)); \
 		}							\
 	} while(0)
 

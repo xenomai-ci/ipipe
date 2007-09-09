@@ -183,6 +183,31 @@ int __ipipe_check_root(void)
 	return ipipe_root_domain_p;
 }
 
+void __ipipe_enable_irqdesc(struct ipipe_domain *ipd, unsigned irq)
+{
+	struct irq_desc *desc = irq_desc + irq;
+	int prio = desc->ic_prio;
+
+	desc->depth = 0;
+	if (ipd != &ipipe_root &&
+	    atomic_inc_return(&__ipipe_irq_lvdepth[prio]) == 1) {
+		__set_bit(prio, &__ipipe_irq_lvmask);
+		barrier();
+	}
+}
+
+void __ipipe_disable_irqdesc(struct ipipe_domain *ipd, unsigned irq)
+{
+	struct irq_desc *desc = irq_desc + irq;
+	int prio = desc->ic_prio;
+
+	if (ipd != &ipipe_root &&
+	    atomic_dec_and_test(&__ipipe_irq_lvdepth[prio])) {
+		__clear_bit(prio, &__ipipe_irq_lvmask);
+		barrier();
+	}
+}
+
 void __ipipe_stall_root_raw(void)
 {
 	/* This code is called by the ins{bwl} routines (see
@@ -395,6 +420,8 @@ void __init ipipe_init_irq_threads(void)
 }
 
 EXPORT_SYMBOL(__ipipe_irq_tail_hook);
+EXPORT_SYMBOL(__ipipe_enable_irqdesc);
+EXPORT_SYMBOL(__ipipe_disable_irqdesc);
 EXPORT_SYMBOL(ipipe_critical_enter);
 EXPORT_SYMBOL(ipipe_critical_exit);
 EXPORT_SYMBOL(ipipe_trigger_irq);
