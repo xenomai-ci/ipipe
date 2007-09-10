@@ -789,62 +789,6 @@ static inline u32 hc32_to_cpup (const struct ehci_hcd *ehci, const __hc32 *x)
 
 /*-------------------------------------------------------------------------*/
 
-/*
- * The AMCC 440EPx not only implements its EHCI registers in big-endian
- * format, but also its DMA data structures (descriptors).
- *
- * EHCI controllers accessed through PCI work normally (little-endian
- * everywhere), so we won't bother supporting a BE-only mode for now.
- */
-#ifdef CONFIG_USB_EHCI_BIG_ENDIAN_DESC
-#define ehci_big_endian_desc(e)		((e)->big_endian_desc)
-
-/* cpu to ehci */
-static inline __hc32 cpu_to_hc32 (const struct ehci_hcd *ehci, const u32 x)
-{
-	return ehci_big_endian_desc(ehci)
-		? (__force __hc32)cpu_to_be32(x)
-		: (__force __hc32)cpu_to_le32(x);
-}
-
-/* ehci to cpu */
-static inline u32 hc32_to_cpu (const struct ehci_hcd *ehci, const __hc32 x)
-{
-	return ehci_big_endian_desc(ehci)
-		? be32_to_cpu((__force __be32)x)
-		: le32_to_cpu((__force __le32)x);
-}
-
-static inline u32 hc32_to_cpup (const struct ehci_hcd *ehci, const __hc32 *x)
-{
-	return ehci_big_endian_desc(ehci)
-		? be32_to_cpup((__force __be32 *)x)
-		: le32_to_cpup((__force __le32 *)x);
-}
-
-#else
-
-/* cpu to ehci */
-static inline __hc32 cpu_to_hc32 (const struct ehci_hcd *ehci, const u32 x)
-{
-	return cpu_to_le32(x);
-}
-
-/* ehci to cpu */
-static inline u32 hc32_to_cpu (const struct ehci_hcd *ehci, const __hc32 x)
-{
-	return le32_to_cpu(x);
-}
-
-static inline u32 hc32_to_cpup (const struct ehci_hcd *ehci, const __hc32 *x)
-{
-	return le32_to_cpup(x);
-}
-
-#endif
-
-/*-------------------------------------------------------------------------*/
-
 #ifndef DEBUG
 #define STUB_DEBUG_FILES
 #endif	/* DEBUG */

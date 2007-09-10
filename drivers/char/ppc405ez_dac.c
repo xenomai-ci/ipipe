@@ -248,15 +248,10 @@ static void __exit ppc405ez_dac_cleanup_module(void)
 
 static void ppc405ez_dac_cleanup(void)
 {
-	u32 retval;
-
 	ppc405ez_dac_remove_proc_entry();
 
 	if (ppc405ez_dac_registered > 0) {
-		retval = unregister_chrdev(PPC405EZ_DAC_MAJOR, PPC405EZ_DAC_DRV_NAME);
-		if (retval < 0)
-			printk(KERN_ERR "%s: Error unregistering device (%d)!\n",
-			       __func__, retval);
+		unregister_chrdev(PPC405EZ_DAC_MAJOR, PPC405EZ_DAC_DRV_NAME);
 	}
 
 	if (ppc405ez_dac_base) {
