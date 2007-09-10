@@ -328,80 +328,6 @@ static void dwc_otg_pcd_free_request(struct usb_ep *_ep,
 }
 
 /**
- * This function allocates an I/O buffer to be used for a transfer
- * to/from the specified endpoint.
- *
- * @param _ep The endpoint to be used with with the request
- * @param _bytes The desired number of bytes for the buffer
- * @param _dma Pointer to the buffer's DMA address; must be valid
- * @param _gfp_flags the GFP_* flags to use.
- * @return address of a new buffer or null is buffer could not be allocated.
- */
-static void *dwc_otg_pcd_alloc_buffer(struct usb_ep *_ep, unsigned _bytes,
-                                      dma_addr_t *_dma, gfp_t _gfp_flags)
-{
-        void *buf;
-        dwc_otg_pcd_ep_t *ep;
-        dwc_otg_pcd_t *pcd = 0;
-
-        ep = container_of(_ep, dwc_otg_pcd_ep_t, ep);
-        pcd = ep->pcd;
-
-        DWC_DEBUGPL(DBG_PCDV,"%s(%p,%d,%p,%0x)\n", __func__, _ep, _bytes,
-                    _dma, _gfp_flags);
-
-        /* Check dword alignment */
-        if ((_bytes & 0x3UL) != 0) {
-                DWC_WARN("%s() Buffer size is not a multiple of"
-                         "DWORD size (%d)",__func__, _bytes);
-        }
-
-	if (GET_CORE_IF(pcd)->dma_enable) {
-		buf = dma_alloc_coherent (NULL, _bytes, _dma, _gfp_flags);
-	}
-	else {
-		buf = kmalloc( _bytes, _gfp_flags);
-	}
-
-        /* Check dword alignment */
-        if (((int)buf & 0x3UL) != 0) {
-                DWC_WARN("%s() Buffer is not DWORD aligned (%p)",
-                         __func__, buf);
-        }
-
-	return buf;
-}
-
-/**
- * This function frees an I/O buffer that was allocated by alloc_buffer.
- *
- * @param _ep the endpoint associated with the buffer
- * @param _buf address of the buffer
- * @param _dma The buffer's DMA address
- * @param _bytes The number of bytes of the buffer
- */
-static void dwc_otg_pcd_free_buffer(struct usb_ep *_ep, void *_buf,
-                                    dma_addr_t _dma, unsigned _bytes)
-{
-        dwc_otg_pcd_ep_t *ep;
-        dwc_otg_pcd_t *pcd = 0;
-
-        ep = container_of(_ep, dwc_otg_pcd_ep_t, ep);
-        pcd = ep->pcd;
-
-        DWC_DEBUGPL(DBG_PCDV,"%s(%p,%p,%0x,%d)\n", __func__, _ep, _buf, _dma, _bytes);
-
-	if (GET_CORE_IF(pcd)->dma_enable) {
-		dma_free_coherent (NULL, _bytes, _buf, _dma);
-	}
-	else {
-		kfree( _buf );
-	}
-
-
-}
-
-/**
  * This function is used to submit an I/O Request to an EP.
  *
  * 	- When the request completes the request's completion callback
@@ -696,9 +622,6 @@ static struct usb_ep_ops dwc_otg_pcd_ep_ops = {
 
 	.alloc_request	= dwc_otg_pcd_alloc_request,
 	.free_request	= dwc_otg_pcd_free_request,
-
-	.alloc_buffer	= dwc_otg_pcd_alloc_buffer,
-	.free_buffer	= dwc_otg_pcd_free_buffer,
 
 	.queue		= dwc_otg_pcd_ep_queue,
 	.dequeue	= dwc_otg_pcd_ep_dequeue,

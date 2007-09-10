@@ -70,10 +70,6 @@ static int musbhsfc_ep_enable(struct usb_ep *ep,
 static int musbhsfc_ep_disable(struct usb_ep *ep);
 static struct usb_request *musbhsfc_alloc_request(struct usb_ep *ep, unsigned);
 static void musbhsfc_free_request(struct usb_ep *ep, struct usb_request *);
-static void *musbhsfc_alloc_buffer(struct usb_ep *ep, unsigned, dma_addr_t *,
-				   unsigned);
-static void musbhsfc_free_buffer(struct usb_ep *ep, void *, dma_addr_t,
-				 unsigned);
 static int musbhsfc_queue(struct usb_ep *ep, struct usb_request *, unsigned);
 static int musbhsfc_dequeue(struct usb_ep *ep, struct usb_request *);
 static int musbhsfc_set_halt(struct usb_ep *ep, int);
@@ -99,9 +95,6 @@ static struct usb_ep_ops musbhsfc_ep_ops = {
 
 	.alloc_request = musbhsfc_alloc_request,
 	.free_request = musbhsfc_free_request,
-
-	.alloc_buffer = musbhsfc_alloc_buffer,
-	.free_buffer = musbhsfc_free_buffer,
 
 	.queue = musbhsfc_queue,
 	.dequeue = musbhsfc_dequeue,
@@ -1172,34 +1165,6 @@ static void musbhsfc_free_request(struct usb_ep *ep, struct usb_request *_req)
 	req = container_of(_req, struct musbhsfc_request, req);
 	WARN_ON(!list_empty(&req->queue));
 	kfree(req);
-}
-
-static void *musbhsfc_alloc_buffer(struct usb_ep *_ep, unsigned bytes,
-				  dma_addr_t * dma, unsigned gfp_flags)
-{
-	struct musbhsfc_ep *ep;
-	char * retval;
-
-	ep = container_of(_ep, struct musbhsfc_ep, ep);
-
-	DEBUG("%s (%p, %d, %d)\n", __FUNCTION__, ep, bytes, gfp_flags);
-
-	retval = kmalloc(bytes, gfp_flags & ~(__GFP_DMA | __GFP_HIGHMEM));
-	if (retval)
-		*dma = virt_to_phys(retval);
-	return retval;
-}
-
-static void musbhsfc_free_buffer(struct usb_ep *_ep, void *buf, dma_addr_t dma,
-				unsigned bytes)
-{
-	struct musbhsfc_ep *ep;
-
-	ep = container_of(_ep, struct musbhsfc_ep, ep);
-	DEBUG("%s, %p\n", __FUNCTION__, _ep);
-
-	kfree(buf);
-
 }
 
 /** Queue one request
