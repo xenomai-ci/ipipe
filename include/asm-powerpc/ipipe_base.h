@@ -113,7 +113,13 @@ unsigned long __ipipe_test_root(void);
 
 #include <linux/bitops.h>
 
-extern unsigned long __ipipe_root_status; /* Alias to ipipe_root_cpudom_var(status) */
+#if __GNUC__ >= 4
+/* Alias to ipipe_root_cpudom_var(status) */
+extern unsigned long __ipipe_root_status;
+#else
+extern unsigned long *const __ipipe_root_status_addr;
+#define __ipipe_root_status	(*__ipipe_root_status_addr)
+#endif
 
 static __inline__ void __ipipe_stall_root(void)
 {
