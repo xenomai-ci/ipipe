@@ -765,8 +765,6 @@ V* Verification: dzu@denx.de
  ***********************************************************************/
 static void lwmon_kbd_cleanup (void)
 {
-	int rc;
-
 	debugk ("%s () called\n", __func__);
 
 	if (kbd_dev.thread == 0) {
@@ -783,11 +781,7 @@ static void lwmon_kbd_cleanup (void)
 	free_irq (KBD_INTERRUPT, (void *)&kbd_dev);
 	debugk ("Freed KBD IRQ %d\n", KBD_INTERRUPT);
 
-	rc = unregister_chrdev(KBD_MAJOR, DEVICE_NAME);
-
-	if (rc < 0) {
-		printk ("lwmon_kbd_cleanup: unregister_chrdev rc=%d\n", rc);
-	}
+	unregister_chrdev(KBD_MAJOR, DEVICE_NAME);
 }
 
 /***********************************************************************
