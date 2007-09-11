@@ -1,7 +1,7 @@
 #
 # Automatically generated make config: don't edit
-# Linux kernel version: 2.6.22-rc3
-# Wed Jun 13 11:53:29 2007
+# Linux kernel version: 2.6.22
+# Tue Sep 11 12:20:17 2007
 #
 CONFIG_MMU=y
 CONFIG_GENERIC_HARDIRQS=y
@@ -55,6 +55,7 @@ CONFIG_KALLSYMS=y
 # CONFIG_KALLSYMS_EXTRA_PASS is not set
 # CONFIG_HOTPLUG is not set
 CONFIG_PRINTK=y
+# CONFIG_LOGBUFFER is not set
 CONFIG_BUG=y
 CONFIG_ELF_CORE=y
 CONFIG_BASE_FULL=y
@@ -451,9 +452,9 @@ CONFIG_BLK_DEV_RAM_BLOCKSIZE=1024
 # Misc devices
 #
 # CONFIG_PHANTOM is not set
+# CONFIG_EEPROM_93CX6 is not set
 # CONFIG_SGI_IOC4 is not set
 # CONFIG_TIFM_CORE is not set
-# CONFIG_BLINK is not set
 CONFIG_IDE=y
 CONFIG_IDE_MAX_HWIFS=4
 CONFIG_BLK_DEV_IDE=y
@@ -616,10 +617,6 @@ CONFIG_SCSI_WAIT_SCAN=m
 CONFIG_MACINTOSH_DRIVERS=y
 # CONFIG_MAC_EMUMOUSEBTN is not set
 # CONFIG_WINDFARM is not set
-
-#
-# Network device support
-#
 CONFIG_NETDEVICES=y
 # CONFIG_DUMMY is not set
 # CONFIG_BONDING is not set
@@ -627,20 +624,12 @@ CONFIG_NETDEVICES=y
 # CONFIG_TUN is not set
 # CONFIG_ARCNET is not set
 # CONFIG_PHYLIB is not set
-
-#
-# Ethernet (10 or 100Mbit)
-#
 CONFIG_NET_ETHERNET=y
 CONFIG_MII=y
 # CONFIG_HAPPYMEAL is not set
 # CONFIG_SUNGEM is not set
 # CONFIG_CASSINI is not set
 # CONFIG_NET_VENDOR_3COM is not set
-
-#
-# Tulip family network device support
-#
 # CONFIG_NET_TULIP is not set
 # CONFIG_HP100 is not set
 CONFIG_IBM_EMAC=y
@@ -752,6 +741,7 @@ CONFIG_WATCHDOG=y
 #
 # Watchdog Device Drivers
 #
+# CONFIG_WD is not set
 # CONFIG_SOFT_WATCHDOG is not set
 # CONFIG_BOOKE_WDT is not set
 
@@ -779,6 +769,7 @@ CONFIG_GEN_RTC=y
 # TPM devices
 #
 # CONFIG_TCG_TPM is not set
+CONFIG_LWMON5_KBD=y
 CONFIG_DEVPORT=y
 CONFIG_I2C=y
 CONFIG_I2C_BOARDINFO=y
@@ -1048,6 +1039,7 @@ CONFIG_USB_SERIAL_FTDI_SIO=y
 #
 # EDAC - error detection and reporting (RAS) (EXPERIMENTAL)
 #
+# CONFIG_EDAC is not set
 
 #
 # Real Time Clock
@@ -1294,6 +1286,7 @@ CONFIG_DEBUG_FS=y
 CONFIG_DEBUG_KERNEL=y
 # CONFIG_DEBUG_SHIRQ is not set
 CONFIG_DETECT_SOFTLOCKUP=y
+CONFIG_SCHED_DEBUG=y
 # CONFIG_SCHEDSTATS is not set
 # CONFIG_TIMER_STATS is not set
 # CONFIG_DEBUG_SLAB is not set
