@@ -604,6 +604,9 @@ out:
 				drive->id->dma_1word |= 0x0101; break;
 			default: break;
 		}
+		if (!drive->init_speed)
+			drive->init_speed = command;
+		drive->current_speed = command;
 	}
 	enable_irq(hwif->irq);
 	return result;
@@ -615,24 +618,25 @@ out:
 static void
 pmac_ide_tuneproc(ide_drive_t *drive, u8 pio)
 {
-	ide_pio_data_t d;
 	u32 *timings;
 	unsigned accessTicks, recTicks;
 	unsigned accessTime, recTime;
 	pmac_ide_hwif_t* pmif = (pmac_ide_hwif_t *)HWIF(drive)->hwif_data;
-	
+	unsigned int cycle_time;
+
 	if (pmif == NULL)
 		return;
 		
 	/* which drive is it ? */
 	timings = &pmif->timings[drive->select.b.unit & 0x01];
 
-	pio = ide_get_best_pio_mode(drive, pio, 4, &d);
+	pio = ide_get_best_pio_mode(drive, pio, 4);
+	cycle_time = ide_pio_cycle_time(drive, pio);
 
 	switch (pmif->kind) {
 	case controller_sh_ata6: {
 		/* 133Mhz cell */
-		u32 tr = kauai_lookup_timing(shasta_pio_timings, d.cycle_time);
+		u32 tr = kauai_lookup_timing(shasta_pio_timings, cycle_time);
 		if (tr == 0)
 			return;
 		*timings = ((*timings) & ~TR_133_PIOREG_PIO_MASK) | tr;
@@ -641,7 +645,7 @@ pmac_ide_tuneproc(ide_drive_t *drive, u8 pio)
 	case controller_un_ata6:
 	case controller_k2_ata6: {
 		/* 100Mhz cell */
-		u32 tr = kauai_lookup_timing(kauai_pio_timings, d.cycle_time);
+		u32 tr = kauai_lookup_timing(kauai_pio_timings, cycle_time);
 		if (tr == 0)
 			return;
 		*timings = ((*timings) & ~TR_100_PIOREG_PIO_MASK) | tr;
@@ -649,7 +653,7 @@ pmac_ide_tuneproc(ide_drive_t *drive, u8 pio)
 		}
 	case controller_kl_ata4:
 		/* 66Mhz cell */
-		recTime = d.cycle_time - ide_pio_timings[pio].active_time
+		recTime = cycle_time - ide_pio_timings[pio].active_time
 				- ide_pio_timings[pio].setup_time;
 		recTime = max(recTime, 150U);
 		accessTime = ide_pio_timings[pio].active_time;
@@ -665,7 +669,7 @@ pmac_ide_tuneproc(ide_drive_t *drive, u8 pio)
 	default: {
 		/* 33Mhz cell */
 		int ebit = 0;
-		recTime = d.cycle_time - ide_pio_timings[pio].active_time
+		recTime = cycle_time - ide_pio_timings[pio].active_time
 				- ide_pio_timings[pio].setup_time;
 		recTime = max(recTime, 150U);
 		accessTime = ide_pio_timings[pio].active_time;
@@ -985,7 +989,6 @@ pmac_ide_tune_chipset (ide_drive_t *drive, byte speed)
 		return ret;
 		
 	pmac_ide_do_update_timings(drive);	
-	drive->current_speed = speed;
 
 	return 0;
 }
@@ -1247,6 +1250,7 @@ pmac_ide_setup_device(pmac_ide_hwif_t *pmif, ide_hwif_t *hwif)
 	hwif->cbl = pmif->cable_80 ? ATA_CBL_PATA80 : ATA_CBL_PATA40;
 	hwif->drives[0].unmask = 1;
 	hwif->drives[1].unmask = 1;
+	hwif->pio_mask = ATA_PIO4;
 	hwif->tuneproc = pmac_ide_tuneproc;
 	if (pmif->kind == controller_un_ata6
 	    || pmif->kind == controller_k2_ata6
@@ -1735,11 +1739,6 @@ pmac_ide_mdma_enable(ide_drive_t *drive, u16 mode)
 	/* Apply timings to controller */
 	*timings = timing_local[0];
 	*timings2 = timing_local[1];
-	
-	/* Set speed info in drive */
-	drive->current_speed = mode;	
-	if (!drive->init_speed)
-		drive->init_speed = mode;
 
 	return 1;
 }
@@ -1790,11 +1789,6 @@ pmac_ide_udma_enable(ide_drive_t *drive, u16 mode)
 	/* Apply timings to controller */
 	*timings = timing_local[0];
 	*timings2 = timing_local[1];
-
-	/* Set speed info in drive */
-	drive->current_speed = mode;	
-	if (!drive->init_speed)
-		drive->init_speed = mode;
 
 	return 1;
 }

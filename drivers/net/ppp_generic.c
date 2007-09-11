@@ -1726,7 +1726,7 @@ ppp_decompress_frame(struct ppp *ppp, struct sk_buff *skb)
 		}
 		/* the decompressor still expects the A/C bytes in the hdr */
 		len = ppp->rcomp->decompress(ppp->rc_state, skb->data - 2,
-				skb->len + 2, ns->data, ppp->mru + PPP_HDRLEN);
+				skb->len + 2, ns->data, obuff_size);
 		if (len < 0) {
 			/* Pass the compressed frame to pppd as an
 			   error indication. */
@@ -2684,8 +2684,7 @@ static void __exit ppp_cleanup(void)
 	if (atomic_read(&ppp_unit_count) || atomic_read(&channel_count))
 		printk(KERN_ERR "PPP: removing module but units remain!\n");
 	cardmap_destroy(&all_ppp_units);
-	if (unregister_chrdev(PPP_MAJOR, "ppp") != 0)
-		printk(KERN_ERR "PPP: failed to unregister PPP device\n");
+	unregister_chrdev(PPP_MAJOR, "ppp");
 	device_destroy(ppp_class, MKDEV(PPP_MAJOR, 0));
 	class_destroy(ppp_class);
 }

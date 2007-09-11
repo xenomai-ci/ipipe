@@ -1,27 +1,24 @@
 /*
- * Copyright(c) 2006 Intel Corporation. All rights reserved.
+ * Copyright(c) 2006, Intel Corporation.
  *
  * This program is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the Free
- * Software Foundation; either version 2 of the License, or (at your option)
- * any later version.
+ * under the terms and conditions of the GNU General Public License,
+ * version 2, as published by the Free Software Foundation.
  *
- * This program is distributed in the hope that it will be useful, but WITHOUT
+ * This program is distributed in the hope it will be useful, but WITHOUT
  * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
  * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
  * more details.
  *
  * You should have received a copy of the GNU General Public License along with
- * this program; if not, write to the Free Software Foundation, Inc., 59
- * Temple Place - Suite 330, Boston, MA  02111-1307, USA.
+ * this program; if not, write to the Free Software Foundation, Inc.,
+ * 51 Franklin St - Fifth Floor, Boston, MA 02110-1301 USA.
  *
- * The full GNU General Public License is included in this distribution in the
- * file called COPYING.
  */
 #ifndef _ADMA_H
 #define _ADMA_H
 #include <linux/types.h>
-#include <asm/io.h>
+#include <linux/io.h>
 #include <asm/hardware.h>
 #include <asm/hardware/iop_adma.h>
 
@@ -37,8 +34,8 @@
 #define ADMA_ABCR(chan)	(chan->mmr_base + 0x30)
 #define ADMA_DLADR(chan)	(chan->mmr_base + 0x34)
 #define ADMA_DUADR(chan)	(chan->mmr_base + 0x38)
-#define ADMA_SLAR(src, chan)	(chan->mmr_base + (0x3c + (src <<3)))
-#define ADMA_SUAR(src, chan)	(chan->mmr_base + (0x40 + (src <<3)))
+#define ADMA_SLAR(src, chan)	(chan->mmr_base + (0x3c + (src << 3)))
+#define ADMA_SUAR(src, chan)	(chan->mmr_base + (0x40 + (src << 3)))
 
 struct iop13xx_adma_src {
 	u32 src_addr;
@@ -175,13 +172,15 @@ static inline char iop_chan_is_busy(struct iop_adma_chan *chan)
 		return 0;
 }
 
-static inline int iop_chan_get_desc_align(struct iop_adma_chan *chan, int num_slots)
+static inline int
+iop_chan_get_desc_align(struct iop_adma_chan *chan, int num_slots)
 {
 	return 1;
 }
 #define iop_desc_is_aligned(x, y) 1
 
-static inline int iop_chan_memcpy_slot_count(size_t len, int *slots_per_op)
+static inline int
+iop_chan_memcpy_slot_count(size_t len, int *slots_per_op)
 {
 	*slots_per_op = 1;
 	return 1;
@@ -189,13 +188,15 @@ static inline int iop_chan_memcpy_slot_count(size_t len, int *slots_per_op)
 
 #define iop_chan_interrupt_slot_count(s, c) iop_chan_memcpy_slot_count(0, s)
 
-static inline int iop_chan_memset_slot_count(size_t len, int *slots_per_op)
+static inline int
+iop_chan_memset_slot_count(size_t len, int *slots_per_op)
 {
 	*slots_per_op = 1;
 	return 1;
 }
 
-static inline int iop_chan_xor_slot_count(size_t len, int src_cnt, int *slots_per_op)
+static inline int
+iop_chan_xor_slot_count(size_t len, int src_cnt, int *slots_per_op)
 {
 	int num_slots;
 	/* slots_to_find = 1 for basic descriptor + 1 per 4 sources above 1
@@ -328,8 +329,8 @@ static inline void iop_desc_set_byte_count(struct iop_adma_desc_slot *desc,
 	hw_desc->byte_count = byte_count;
 }
 
-static inline void iop_desc_set_zero_sum_byte_count(struct iop_adma_desc_slot *desc,
-					u32 len)
+static inline void
+iop_desc_set_zero_sum_byte_count(struct iop_adma_desc_slot *desc, u32 len)
 {
 	int slots_per_op = desc->slots_per_op;
 	struct iop13xx_adma_desc_hw *hw_desc = desc->hw_desc, *iter;
@@ -436,7 +437,7 @@ static inline int iop_desc_get_zero_result(struct iop_adma_desc_slot *desc)
 
 	BUG_ON(!(byte_count.tx_complete && desc_ctrl.zero_result));
 
-	if(desc_ctrl.pq_xfer_en)
+	if (desc_ctrl.pq_xfer_en)
 		return byte_count.zero_result_err_q;
 	else
 		return byte_count.zero_result_err;
@@ -472,8 +473,6 @@ static inline void iop_chan_enable(struct iop_adma_chan *chan)
 {
 	u32 adma_chan_ctrl;
 
-	/* drain write buffer */
-	asm volatile ("mcr p15, 0, r1, c7, c10, 4" : : : "%r1");
 	adma_chan_ctrl = __raw_readl(ADMA_ACCR(chan));
 	adma_chan_ctrl |= 0x1;
 	__raw_writel(adma_chan_ctrl, ADMA_ACCR(chan));

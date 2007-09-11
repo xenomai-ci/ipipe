@@ -73,10 +73,6 @@ static int pd12_ep_enable(struct usb_ep *ep,
 static int pd12_ep_disable(struct usb_ep *ep);
 static struct usb_request *pd12_alloc_request(struct usb_ep *ep, unsigned);
 static void pd12_free_request(struct usb_ep *ep, struct usb_request *);
-static void *pd12_alloc_buffer(struct usb_ep *ep, unsigned, dma_addr_t *,
-				  unsigned);
-static void pd12_free_buffer(struct usb_ep *ep, void *, dma_addr_t,
-				unsigned);
 static int pd12_queue(struct usb_ep *ep, struct usb_request *, unsigned);
 static int pd12_dequeue(struct usb_ep *ep, struct usb_request *);
 static int pd12_set_halt(struct usb_ep *ep, int);
@@ -97,9 +93,6 @@ static struct usb_ep_ops pd12_ep_ops = {
 
 	.alloc_request = pd12_alloc_request,
 	.free_request = pd12_free_request,
-
-	.alloc_buffer = pd12_alloc_buffer,
-	.free_buffer = pd12_free_buffer,
 
 	.queue = pd12_queue,
 	.dequeue = pd12_dequeue,
@@ -884,26 +877,6 @@ static void pd12_free_request(struct usb_ep *ep, struct usb_request *_req)
 	req = container_of(_req, struct pd12_request, req);
 	WARN_ON(!list_empty(&req->queue));
 	kfree(req);
-}
-
-static void *pd12_alloc_buffer(struct usb_ep *ep, unsigned bytes,
-				  dma_addr_t * dma, unsigned gfp_flags)
-{
-	char *retval;
-
-	DEBUG_PD12("%s (%p, %d, %d)\n", __FUNCTION__, ep, bytes, gfp_flags);
-
-	retval = kmalloc(bytes, gfp_flags & ~(__GFP_DMA | __GFP_HIGHMEM));
-	if (retval)
-		*dma = virt_to_bus(retval);
-	return retval;
-}
-
-static void pd12_free_buffer(struct usb_ep *ep, void *buf, dma_addr_t dma,
-				unsigned bytes)
-{
-	DEBUG_PD12("%s, %p\n", __FUNCTION__, ep);
-	kfree(buf);
 }
 
 /** Queue one request

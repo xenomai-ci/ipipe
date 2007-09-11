@@ -48,7 +48,7 @@
 #include <asm/unaligned.h>
 #include <asm/ibm4xx.h>
 
-#include <linux/usb_ch9.h>
+#include <linux/usb/ch9.h>
 #include <linux/usb_gadget.h>
 
 #define TH_PD12_ADDR  0x50000000

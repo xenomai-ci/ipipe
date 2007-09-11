@@ -945,7 +945,7 @@ static void save_match(ide_hwif_t *hwif, ide_hwif_t *new, ide_hwif_t **match)
  */
 static int ide_init_queue(ide_drive_t *drive)
 {
-	request_queue_t *q;
+	struct request_queue *q;
 	ide_hwif_t *hwif = HWIF(drive);
 	int max_sectors = 256;
 	int max_sg_entries = PRD_ENTRIES;
@@ -1073,14 +1073,14 @@ static int init_irq (ide_hwif_t *hwif)
 		hwgroup->hwif->next = hwif;
 		spin_unlock_irq(&ide_lock);
 	} else {
-		hwgroup = kmalloc_node(sizeof(ide_hwgroup_t), GFP_KERNEL,
+		hwgroup = kmalloc_node(sizeof(ide_hwgroup_t),
+					GFP_KERNEL | __GFP_ZERO,
 					hwif_to_node(hwif->drives[0].hwif));
 		if (!hwgroup)
 	       		goto out_up;
 
 		hwif->hwgroup = hwgroup;
 
-		memset(hwgroup, 0, sizeof(ide_hwgroup_t));
 		hwgroup->hwif     = hwif->next = hwif;
 		hwgroup->rq       = NULL;
 		hwgroup->handler  = NULL;

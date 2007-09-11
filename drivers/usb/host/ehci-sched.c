@@ -44,8 +44,8 @@ static int ehci_get_frame (struct usb_hcd *hcd);
  * @tag: hardware tag for type of this record
  */
 static union ehci_shadow *
-periodic_next_shadow (struct ehci_hcd *ehci, union ehci_shadow *periodic,
-		      __hc32 tag)
+periodic_next_shadow(struct ehci_hcd *ehci, union ehci_shadow *periodic,
+		__hc32 tag)
 {
 	switch (hc32_to_cpu(ehci, tag)) {
 	case Q_TYPE_QH:
@@ -63,13 +63,14 @@ periodic_next_shadow (struct ehci_hcd *ehci, union ehci_shadow *periodic,
 /* caller must hold ehci->lock */
 static void periodic_unlink (struct ehci_hcd *ehci, unsigned frame, void *ptr)
 {
-	union ehci_shadow	*prev_p = &ehci->pshadow [frame];
-	__hc32			*hw_p = &ehci->periodic [frame];
+	union ehci_shadow	*prev_p = &ehci->pshadow[frame];
+	__hc32			*hw_p = &ehci->periodic[frame];
 	union ehci_shadow	here = *prev_p;
 
 	/* find predecessor of "ptr"; hw and shadow lists are in sync */
 	while (here.ptr && here.ptr != ptr) {
-		prev_p = periodic_next_shadow (ehci, prev_p, Q_NEXT_TYPE (*hw_p));
+		prev_p = periodic_next_shadow(ehci, prev_p,
+				Q_NEXT_TYPE(ehci, *hw_p));
 		hw_p = here.hw_next;
 		here = *prev_p;
 	}
@@ -80,7 +81,8 @@ static void periodic_unlink (struct ehci_hcd *ehci, unsigned frame, void *ptr)
 	/* update shadow and hardware lists ... the old "next" pointers
 	 * from ptr may still be in use, the caller updates them.
 	 */
-	*prev_p = *periodic_next_shadow (ehci, &here, Q_NEXT_TYPE (*hw_p));
+	*prev_p = *periodic_next_shadow(ehci, &here,
+			Q_NEXT_TYPE(ehci, *hw_p));
 	*hw_p = *here.hw_next;
 }
 
@@ -93,13 +95,14 @@ periodic_usecs (struct ehci_hcd *ehci, unsigned frame, unsigned uframe)
 	unsigned		usecs = 0;
 
 	while (q->ptr) {
-		switch (hc32_to_cpu(ehci, Q_NEXT_TYPE (*hw_p))) {
+		switch (hc32_to_cpu(ehci, Q_NEXT_TYPE(ehci, *hw_p))) {
 		case Q_TYPE_QH:
 			/* is it in the S-mask? */
-			if (q->qh->hw_info2 & cpu_to_hc32 (ehci, 1 << uframe))
+			if (q->qh->hw_info2 & cpu_to_hc32(ehci, 1 << uframe))
 				usecs += q->qh->usecs;
 			/* ... or C-mask? */
-			if (q->qh->hw_info2 & cpu_to_hc32 (ehci, 1 << (8 + uframe)))
+			if (q->qh->hw_info2 & cpu_to_hc32(ehci,
+					1 << (8 + uframe)))
 				usecs += q->qh->c_usecs;
 			hw_p = &q->qh->hw_next;
 			q = &q->qh->qh_next;
@@ -109,7 +112,7 @@ periodic_usecs (struct ehci_hcd *ehci, unsigned frame, unsigned uframe)
 			/* for "save place" FSTNs, count the relevant INTR
 			 * bandwidth from the previous frame
 			 */
-			if (q->fstn->hw_prev != EHCI_LIST_END) {
+			if (q->fstn->hw_prev != EHCI_LIST_END(ehci)) {
 				ehci_dbg (ehci, "ignoring FSTN cost ...\n");
 			}
 			hw_p = &q->fstn->hw_next;
@@ -122,9 +125,10 @@ periodic_usecs (struct ehci_hcd *ehci, unsigned frame, unsigned uframe)
 			break;
 		case Q_TYPE_SITD:
 			/* is it in the S-mask?  (count SPLIT, DATA) */
-			if (q->sitd->hw_uframe & cpu_to_hc32 (ehci, 1 << uframe)) {
+			if (q->sitd->hw_uframe & cpu_to_hc32(ehci,
+					1 << uframe)) {
 				if (q->sitd->hw_fullspeed_ep &
-						cpu_to_hc32 (ehci, 1<<31))
+						cpu_to_hc32(ehci, 1<<31))
 					usecs += q->sitd->stream->usecs;
 				else	/* worst case for OUT start-split */
 					usecs += HS_USECS_ISO (188);
@@ -132,7 +136,7 @@ periodic_usecs (struct ehci_hcd *ehci, unsigned frame, unsigned uframe)
 
 			/* ... C-mask?  (count CSPLIT, DATA) */
 			if (q->sitd->hw_uframe &
-					cpu_to_hc32 (ehci, 1 << (8 + uframe))) {
+					cpu_to_hc32(ehci, 1 << (8 + uframe))) {
 				/* worst case for IN complete-split */
 				usecs += q->sitd->stream->c_usecs;
 			}
@@ -225,7 +229,7 @@ periodic_tt_usecs (
 	memset(tt_usecs, 0, 16);
 
 	while (q->ptr) {
-		switch (hc32_to_cpu(ehci, Q_NEXT_TYPE(*hw_p))) {
+		switch (hc32_to_cpu(ehci, Q_NEXT_TYPE(ehci, *hw_p))) {
 		case Q_TYPE_ITD:
 			hw_p = &q->itd->hw_next;
 			q = &q->itd->itd_next;
@@ -248,8 +252,8 @@ periodic_tt_usecs (
 			continue;
 		// case Q_TYPE_FSTN:
 		default:
-			ehci_dbg(ehci,
-				  "ignoring periodic frame %d FSTN\n", frame);
+			ehci_dbg(ehci, "ignoring periodic frame %d FSTN\n",
+					frame);
 			hw_p = &q->fstn->hw_next;
 			q = &q->fstn->fstn_next;
 		}
@@ -372,38 +376,39 @@ static int tt_no_collision (
 		__hc32			type;
 
 		here = ehci->pshadow [frame];
-		type = Q_NEXT_TYPE (ehci->periodic [frame]);
+		type = Q_NEXT_TYPE(ehci, ehci->periodic [frame]);
 		while (here.ptr) {
 			switch (hc32_to_cpu(ehci, type)) {
 			case Q_TYPE_ITD:
-				type = Q_NEXT_TYPE (here.itd->hw_next);
+				type = Q_NEXT_TYPE(ehci, here.itd->hw_next);
 				here = here.itd->itd_next;
 				continue;
 			case Q_TYPE_QH:
 				if (same_tt (dev, here.qh->dev)) {
 					u32		mask;
 
-					mask = hc32_to_cpu (ehci, here.qh->hw_info2);
+					mask = hc32_to_cpu(ehci,
+							here.qh->hw_info2);
 					/* "knows" no gap is needed */
 					mask |= mask >> 8;
 					if (mask & uf_mask)
 						break;
 				}
-				type = Q_NEXT_TYPE (here.qh->hw_next);
+				type = Q_NEXT_TYPE(ehci, here.qh->hw_next);
 				here = here.qh->qh_next;
 				continue;
 			case Q_TYPE_SITD:
 				if (same_tt (dev, here.sitd->urb->dev)) {
 					u16		mask;
 
-					mask = hc32_to_cpu (ehci, here.sitd
+					mask = hc32_to_cpu(ehci, here.sitd
 								->hw_uframe);
 					/* FIXME assumes no gap for IN! */
 					mask |= mask >> 8;
 					if (mask & uf_mask)
 						break;
 				}
-				type = Q_NEXT_TYPE (here.sitd->hw_next);
+				type = Q_NEXT_TYPE(ehci, here.sitd->hw_next);
 				here = here.sitd->sitd_next;
 				continue;
 			// case Q_TYPE_FSTN:
@@ -488,7 +493,7 @@ static int qh_link_periodic (struct ehci_hcd *ehci, struct ehci_qh *qh)
 
 	dev_dbg (&qh->dev->dev,
 		"link qh%d-%04x/%p start %d [%d/%d us]\n",
-		period, hc32_to_cpup (ehci, &qh->hw_info2) & (QH_CMASK | QH_SMASK),
+		period, hc32_to_cpup(ehci, &qh->hw_info2) & (QH_CMASK | QH_SMASK),
 		qh, qh->start, qh->usecs, qh->c_usecs);
 
 	/* high bandwidth, or otherwise every microframe */
@@ -496,17 +501,17 @@ static int qh_link_periodic (struct ehci_hcd *ehci, struct ehci_qh *qh)
 		period = 1;
 
 	for (i = qh->start; i < ehci->periodic_size; i += period) {
-		union ehci_shadow	*prev = &ehci->pshadow [i];
-		__hc32			*hw_p = &ehci->periodic [i];
+		union ehci_shadow	*prev = &ehci->pshadow[i];
+		__hc32			*hw_p = &ehci->periodic[i];
 		union ehci_shadow	here = *prev;
 		__hc32			type = 0;
 
 		/* skip the iso nodes at list head */
 		while (here.ptr) {
-			type = Q_NEXT_TYPE (*hw_p);
+			type = Q_NEXT_TYPE(ehci, *hw_p);
 			if (type == cpu_to_hc32(ehci, Q_TYPE_QH))
 				break;
-			prev = periodic_next_shadow (ehci, prev, type);
+			prev = periodic_next_shadow(ehci, prev, type);
 			hw_p = &here.qh->hw_next;
 			here = *prev;
 		}
@@ -556,7 +561,7 @@ static void qh_unlink_periodic (struct ehci_hcd *ehci, struct ehci_qh *qh)
 	//   and this qh is active in the current uframe
 	//   (and overlay token SplitXstate is false?)
 	// THEN
-	//   qh->hw_info1 |= __constant_cpu_to_hc32 (1 << 7 /* "ignore" */);
+	//   qh->hw_info1 |= __constant_cpu_to_hc32(1 << 7 /* "ignore" */);
 
 	/* high bandwidth, or otherwise part of every microframe */
 	if ((period = qh->period) == 0)
@@ -573,7 +578,7 @@ static void qh_unlink_periodic (struct ehci_hcd *ehci, struct ehci_qh *qh)
 	dev_dbg (&qh->dev->dev,
 		"unlink qh%d-%04x/%p start %d [%d/%d us]\n",
 		qh->period,
-		hc32_to_cpup (ehci, &qh->hw_info2) & (QH_CMASK | QH_SMASK),
+		hc32_to_cpup(ehci, &qh->hw_info2) & (QH_CMASK | QH_SMASK),
 		qh, qh->start, qh->usecs, qh->c_usecs);
 
 	/* qh->qh_next still "live" to HC */
@@ -599,7 +604,7 @@ static void intr_deschedule (struct ehci_hcd *ehci, struct ehci_qh *qh)
 	 * active high speed queues may need bigger delays...
 	 */
 	if (list_empty (&qh->qtd_list)
-			|| (cpu_to_hc32 (ehci, QH_CMASK)
+			|| (cpu_to_hc32(ehci, QH_CMASK)
 					& qh->hw_info2) != 0)
 		wait = 2;
 	else
@@ -607,7 +612,7 @@ static void intr_deschedule (struct ehci_hcd *ehci, struct ehci_qh *qh)
 
 	udelay (wait);
 	qh->qh_state = QH_STATE_IDLE;
-	qh->hw_next = EHCI_LIST_END;
+	qh->hw_next = EHCI_LIST_END(ehci);
 	wmb ();
 }
 
@@ -696,7 +701,7 @@ static int check_intr_schedule (
 
 		retval = 0;
 
-		*c_maskp = cpu_to_hc32 (ehci, mask << 8);
+		*c_maskp = cpu_to_hc32(ehci, mask << 8);
 	}
 #else
 	/* Make sure this tt's buffer is also available for CSPLITs.
@@ -707,7 +712,7 @@ static int check_intr_schedule (
 	 * one smart pass...
 	 */
 	mask = 0x03 << (uframe + qh->gap_uf);
-	*c_maskp = cpu_to_hc32 (ehci, mask << 8);
+	*c_maskp = cpu_to_hc32(ehci, mask << 8);
 
 	mask |= 1 << uframe;
 	if (tt_no_collision (ehci, qh->period, qh->dev, frame, mask)) {
@@ -727,7 +732,7 @@ done:
 /* "first fit" scheduling policy used the first time through,
  * or when the previous schedule slot can't be re-used.
  */
-static int qh_schedule (struct ehci_hcd *ehci, struct ehci_qh *qh)
+static int qh_schedule(struct ehci_hcd *ehci, struct ehci_qh *qh)
 {
 	int		status;
 	unsigned	uframe;
@@ -735,12 +740,12 @@ static int qh_schedule (struct ehci_hcd *ehci, struct ehci_qh *qh)
 	unsigned	frame;		/* 0..(qh->period - 1), or NO_FRAME */
 
 	qh_refresh(ehci, qh);
-	qh->hw_next = EHCI_LIST_END;
+	qh->hw_next = EHCI_LIST_END(ehci);
 	frame = qh->start;
 
 	/* reuse the previous schedule slots, if we can */
 	if (frame < qh->period) {
-		uframe = ffs (hc32_to_cpup (ehci, &qh->hw_info2) & QH_SMASK);
+		uframe = ffs(hc32_to_cpup(ehci, &qh->hw_info2) & QH_SMASK);
 		status = check_intr_schedule (ehci, frame, --uframe,
 				qh, &c_mask);
 	} else {
@@ -778,8 +783,8 @@ static int qh_schedule (struct ehci_hcd *ehci, struct ehci_qh *qh)
 		/* reset S-frame and (maybe) C-frame masks */
 		qh->hw_info2 &= cpu_to_hc32(ehci, ~(QH_CMASK | QH_SMASK));
 		qh->hw_info2 |= qh->period
-			? cpu_to_hc32 (ehci, 1 << uframe)
-			: cpu_to_hc32 (ehci, QH_SMASK);
+			? cpu_to_hc32(ehci, 1 << uframe)
+			: cpu_to_hc32(ehci, QH_SMASK);
 		qh->hw_info2 |= c_mask;
 	} else
 		ehci_dbg (ehci, "reused qh %p schedule\n", qh);
@@ -809,7 +814,7 @@ static int intr_submit (
 	spin_lock_irqsave (&ehci->lock, flags);
 
 	if (unlikely(!test_bit(HCD_FLAG_HW_ACCESSIBLE,
-			       &ehci_to_hcd(ehci)->flags))) {
+			&ehci_to_hcd(ehci)->flags))) {
 		status = -ESHUTDOWN;
 		goto done;
 	}
@@ -899,9 +904,9 @@ iso_stream_init (
 		buf1 |= maxp;
 		maxp *= multi;
 
-		stream->buf0 = cpu_to_hc32 (ehci, (epnum << 8) | dev->devnum);
-		stream->buf1 = cpu_to_hc32 (ehci, buf1);
-		stream->buf2 = cpu_to_hc32 (ehci, multi);
+		stream->buf0 = cpu_to_hc32(ehci, (epnum << 8) | dev->devnum);
+		stream->buf1 = cpu_to_hc32(ehci, buf1);
+		stream->buf2 = cpu_to_hc32(ehci, multi);
 
 		/* usbfs wants to report the average usecs per frame tied up
 		 * when transfers on this endpoint are scheduled ...
@@ -944,7 +949,7 @@ iso_stream_init (
 		bandwidth /= 1 << (interval + 2);
 
 		/* stream->splits gets created from raw_mask later */
-		stream->address = cpu_to_hc32 (ehci, addr);
+		stream->address = cpu_to_hc32(ehci, addr);
 	}
 	stream->bandwidth = bandwidth;
 
@@ -1078,7 +1083,7 @@ iso_sched_alloc (unsigned packets, gfp_t mem_flags)
 }
 
 static inline void
-itd_sched_init (
+itd_sched_init(
 	struct ehci_hcd		*ehci,
 	struct ehci_iso_sched	*iso_sched,
 	struct ehci_iso_stream	*stream,
@@ -1109,7 +1114,7 @@ itd_sched_init (
 				&& !(urb->transfer_flags & URB_NO_INTERRUPT))
 			trans |= EHCI_ITD_IOC;
 		trans |= length << 16;
-		uframe->transaction = cpu_to_hc32 (ehci, trans);
+		uframe->transaction = cpu_to_hc32(ehci, trans);
 
 		/* might need to cross a buffer page within a uframe */
 		uframe->bufp = (buf & ~(u64)0x0fff);
@@ -1151,7 +1156,7 @@ itd_urb_transaction (
 	if (unlikely (sched == NULL))
 		return -ENOMEM;
 
-	itd_sched_init (ehci, sched, stream, urb);
+	itd_sched_init(ehci, sched, stream, urb);
 
 	if (urb->interval < 8)
 		num_itds = 1 + (sched->span + 7) / 8;
@@ -1169,7 +1174,7 @@ itd_urb_transaction (
 		/* prefer previously-allocated itds */
 		if (likely (!list_empty(&stream->free_list))) {
 			itd = list_entry (stream->free_list.prev,
-					 struct ehci_itd, itd_list);
+					struct ehci_itd, itd_list);
 			list_del (&itd->itd_list);
 			itd_dma = itd->itd_dma;
 		} else
@@ -1417,13 +1422,13 @@ ready:
 /*-------------------------------------------------------------------------*/
 
 static inline void
-itd_init (struct ehci_hcd *ehci, struct ehci_iso_stream *stream,
-	  struct ehci_itd *itd)
+itd_init(struct ehci_hcd *ehci, struct ehci_iso_stream *stream,
+		struct ehci_itd *itd)
 {
 	int i;
 
 	/* it's been recently zeroed */
-	itd->hw_next = EHCI_LIST_END;
+	itd->hw_next = EHCI_LIST_END(ehci);
 	itd->hw_bufp [0] = stream->buf0;
 	itd->hw_bufp [1] = stream->buf1;
 	itd->hw_bufp [2] = stream->buf2;
@@ -1435,7 +1440,7 @@ itd_init (struct ehci_hcd *ehci, struct ehci_iso_stream *stream,
 }
 
 static inline void
-itd_patch (
+itd_patch(
 	struct ehci_hcd		*ehci,
 	struct ehci_itd		*itd,
 	struct ehci_iso_sched	*iso_sched,
@@ -1451,17 +1456,18 @@ itd_patch (
 	uframe &= 0x07;
 	itd->index [uframe] = index;
 
-	itd->hw_transaction [uframe] = uf->transaction;
-	itd->hw_transaction [uframe] |= cpu_to_hc32 (ehci, pg << 12);
-	itd->hw_bufp [pg] |= cpu_to_hc32 (ehci, uf->bufp & ~(u32)0);
-	itd->hw_bufp_hi [pg] |= cpu_to_hc32 (ehci, (u32)(uf->bufp >> 32));
+	itd->hw_transaction[uframe] = uf->transaction;
+	itd->hw_transaction[uframe] |= cpu_to_hc32(ehci, pg << 12);
+	itd->hw_bufp[pg] |= cpu_to_hc32(ehci, uf->bufp & ~(u32)0);
+	itd->hw_bufp_hi[pg] |= cpu_to_hc32(ehci, (u32)(uf->bufp >> 32));
 
 	/* iso_frame_desc[].offset must be strictly increasing */
 	if (unlikely (uf->cross)) {
 		u64	bufp = uf->bufp + 4096;
+
 		itd->pg = ++pg;
-		itd->hw_bufp [pg] |= cpu_to_hc32 (ehci, bufp & ~(u32)0);
-		itd->hw_bufp_hi [pg] |= cpu_to_hc32 (ehci, (u32)(bufp >> 32));
+		itd->hw_bufp[pg] |= cpu_to_hc32(ehci, bufp & ~(u32)0);
+		itd->hw_bufp_hi[pg] |= cpu_to_hc32(ehci, (u32)(bufp >> 32));
 	}
 }
 
@@ -1474,7 +1480,7 @@ itd_link (struct ehci_hcd *ehci, unsigned frame, struct ehci_itd *itd)
 	ehci->pshadow [frame].itd = itd;
 	itd->frame = frame;
 	wmb ();
-	ehci->periodic [frame] = cpu_to_hc32 (ehci, itd->itd_dma | Q_TYPE_ITD);
+	ehci->periodic[frame] = cpu_to_hc32(ehci, itd->itd_dma | Q_TYPE_ITD);
 }
 
 /* fit urb's itds into the selected schedule slot; activate as needed */
@@ -1526,7 +1532,7 @@ itd_link_urb (
 		frame = next_uframe >> 3;
 
 		itd->usecs [uframe] = stream->usecs;
-		itd_patch (ehci, itd, iso_sched, packet, uframe);
+		itd_patch(ehci, itd, iso_sched, packet, uframe);
 
 		next_uframe += stream->interval;
 		stream->depth += stream->interval;
@@ -1574,7 +1580,7 @@ itd_complete (
 		urb_index = itd->index[uframe];
 		desc = &urb->iso_frame_desc [urb_index];
 
-		t = hc32_to_cpup (ehci, &itd->hw_transaction [uframe]);
+		t = hc32_to_cpup(ehci, &itd->hw_transaction [uframe]);
 		itd->hw_transaction [uframe] = 0;
 		stream->depth -= stream->interval;
 
@@ -1704,7 +1710,7 @@ done:
  */
 
 static inline void
-sitd_sched_init (
+sitd_sched_init(
 	struct ehci_hcd		*ehci,
 	struct ehci_iso_sched	*iso_sched,
 	struct ehci_iso_stream	*stream,
@@ -1734,7 +1740,7 @@ sitd_sched_init (
 				&& !(urb->transfer_flags & URB_NO_INTERRUPT))
 			trans |= SITD_IOC;
 		trans |= length << 16;
-		packet->transaction = cpu_to_hc32 (ehci, trans);
+		packet->transaction = cpu_to_hc32(ehci, trans);
 
 		/* might need to cross a buffer page within a td */
 		packet->bufp = buf;
@@ -1770,7 +1776,7 @@ sitd_urb_transaction (
 	if (iso_sched == NULL)
 		return -ENOMEM;
 
-	sitd_sched_init (ehci, iso_sched, stream, urb);
+	sitd_sched_init(ehci, iso_sched, stream, urb);
 
 	/* allocate/init sITDs */
 	spin_lock_irqsave (&ehci->lock, flags);
@@ -1822,7 +1828,7 @@ sitd_urb_transaction (
 /*-------------------------------------------------------------------------*/
 
 static inline void
-sitd_patch (
+sitd_patch(
 	struct ehci_hcd		*ehci,
 	struct ehci_iso_stream	*stream,
 	struct ehci_sitd	*sitd,
@@ -1833,20 +1839,20 @@ sitd_patch (
 	struct ehci_iso_packet	*uf = &iso_sched->packet [index];
 	u64			bufp = uf->bufp;
 
-	sitd->hw_next = EHCI_LIST_END;
+	sitd->hw_next = EHCI_LIST_END(ehci);
 	sitd->hw_fullspeed_ep = stream->address;
 	sitd->hw_uframe = stream->splits;
 	sitd->hw_results = uf->transaction;
-	sitd->hw_backpointer = EHCI_LIST_END;
+	sitd->hw_backpointer = EHCI_LIST_END(ehci);
 
 	bufp = uf->bufp;
-	sitd->hw_buf [0] = cpu_to_hc32 (ehci, bufp);
-	sitd->hw_buf_hi [0] = cpu_to_hc32 (ehci, bufp >> 32);
+	sitd->hw_buf[0] = cpu_to_hc32(ehci, bufp);
+	sitd->hw_buf_hi[0] = cpu_to_hc32(ehci, bufp >> 32);
 
-	sitd->hw_buf [1] = cpu_to_hc32 (ehci, uf->buf1);
+	sitd->hw_buf[1] = cpu_to_hc32(ehci, uf->buf1);
 	if (uf->cross)
 		bufp += 4096;
-	sitd->hw_buf_hi [1] = cpu_to_hc32 (ehci, bufp >> 32);
+	sitd->hw_buf_hi[1] = cpu_to_hc32(ehci, bufp >> 32);
 	sitd->index = index;
 }
 
@@ -1859,7 +1865,7 @@ sitd_link (struct ehci_hcd *ehci, unsigned frame, struct ehci_sitd *sitd)
 	ehci->pshadow [frame].sitd = sitd;
 	sitd->frame = frame;
 	wmb ();
-	ehci->periodic [frame] = cpu_to_hc32 (ehci, sitd->sitd_dma | Q_TYPE_SITD);
+	ehci->periodic[frame] = cpu_to_hc32(ehci, sitd->sitd_dma | Q_TYPE_SITD);
 }
 
 /* fit urb's sitds into the selected schedule slot; activate as needed */
@@ -1887,7 +1893,7 @@ sitd_link_urb (
 			urb->dev->devpath, stream->bEndpointAddress & 0x0f,
 			(stream->bEndpointAddress & USB_DIR_IN) ? "in" : "out",
 			(next_uframe >> 3) % ehci->periodic_size,
-			stream->interval, hc32_to_cpu (ehci, stream->splits));
+			stream->interval, hc32_to_cpu(ehci, stream->splits));
 		stream->start = jiffies;
 	}
 	ehci_to_hcd(ehci)->self.bandwidth_isoc_reqs++;
@@ -1908,7 +1914,7 @@ sitd_link_urb (
 		sitd->stream = iso_stream_get (stream);
 		sitd->urb = usb_get_urb (urb);
 
-		sitd_patch (ehci, stream, sitd, sched, packet);
+		sitd_patch(ehci, stream, sitd, sched, packet);
 		sitd_link (ehci, (next_uframe >> 3) % ehci->periodic_size,
 				sitd);
 
@@ -1946,7 +1952,7 @@ sitd_complete (
 
 	urb_index = sitd->index;
 	desc = &urb->iso_frame_desc [urb_index];
-	t = hc32_to_cpup (ehci, &sitd->hw_results);
+	t = hc32_to_cpup(ehci, &sitd->hw_results);
 
 	/* report transfer status */
 	if (t & SITD_ERRS) {
@@ -2119,7 +2125,7 @@ restart:
 		q_p = &ehci->pshadow [frame];
 		hw_p = &ehci->periodic [frame];
 		q.ptr = q_p->ptr;
-		type = Q_NEXT_TYPE (*hw_p);
+		type = Q_NEXT_TYPE(ehci, *hw_p);
 		modified = 0;
 
 		while (q.ptr != NULL) {
@@ -2132,7 +2138,7 @@ restart:
 			case Q_TYPE_QH:
 				/* handle any completions */
 				temp.qh = qh_get (q.qh);
-				type = Q_NEXT_TYPE (q.qh->hw_next);
+				type = Q_NEXT_TYPE(ehci, q.qh->hw_next);
 				q = q.qh->qh_next;
 				modified = qh_completions (ehci, temp.qh);
 				if (unlikely (list_empty (&temp.qh->qtd_list)))
@@ -2143,10 +2149,10 @@ restart:
 				/* for "save place" FSTNs, look at QH entries
 				 * in the previous frame for completions.
 				 */
-				if (q.fstn->hw_prev != EHCI_LIST_END) {
+				if (q.fstn->hw_prev != EHCI_LIST_END(ehci)) {
 					dbg ("ignoring completions from FSTNs");
 				}
-				type = Q_NEXT_TYPE (q.fstn->hw_next);
+				type = Q_NEXT_TYPE(ehci, q.fstn->hw_next);
 				q = q.fstn->fstn_next;
 				break;
 			case Q_TYPE_ITD:
@@ -2154,11 +2160,12 @@ restart:
 				rmb ();
 				for (uf = live ? uframes : 8; uf < 8; uf++) {
 					if (0 == (q.itd->hw_transaction [uf]
-							& ITD_ACTIVE))
+							& ITD_ACTIVE(ehci)))
 						continue;
 					q_p = &q.itd->itd_next;
 					hw_p = &q.itd->hw_next;
-					type = Q_NEXT_TYPE (q.itd->hw_next);
+					type = Q_NEXT_TYPE(ehci,
+							q.itd->hw_next);
 					q = *q_p;
 					break;
 				}
@@ -2170,23 +2177,24 @@ restart:
 				 */
 				*q_p = q.itd->itd_next;
 				*hw_p = q.itd->hw_next;
-				type = Q_NEXT_TYPE (q.itd->hw_next);
+				type = Q_NEXT_TYPE(ehci, q.itd->hw_next);
 				wmb();
 				modified = itd_complete (ehci, q.itd);
 				q = *q_p;
 				break;
 			case Q_TYPE_SITD:
-				if ((q.sitd->hw_results & SITD_ACTIVE)
+				if ((q.sitd->hw_results & SITD_ACTIVE(ehci))
 						&& live) {
 					q_p = &q.sitd->sitd_next;
 					hw_p = &q.sitd->hw_next;
-					type = Q_NEXT_TYPE (q.sitd->hw_next);
+					type = Q_NEXT_TYPE(ehci,
+							q.sitd->hw_next);
 					q = *q_p;
 					break;
 				}
 				*q_p = q.sitd->sitd_next;
 				*hw_p = q.sitd->hw_next;
-				type = Q_NEXT_TYPE (q.sitd->hw_next);
+				type = Q_NEXT_TYPE(ehci, q.sitd->hw_next);
 				wmb();
 				modified = sitd_complete (ehci, q.sitd);
 				q = *q_p;

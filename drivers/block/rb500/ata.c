@@ -30,7 +30,7 @@
 #define DEBUGP(format, args...)
 #endif
 
-#define SECS	1000000		/* unit for wait_not_busy() is 1us */
+#define SECS	1000000UL		/* unit for wait_not_busy() is 1us */
 
 unsigned cf_head = 0;
 unsigned cf_cyl = 0;

@@ -326,8 +326,6 @@ source "drivers/scsi/Kconfig"
 
 source "drivers/md/Kconfig"
 
-source "async_tx/Kconfig"
-
 if BROKEN
 	source "drivers/mtd/Kconfig"
 endif

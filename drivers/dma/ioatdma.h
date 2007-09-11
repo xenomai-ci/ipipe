@@ -102,25 +102,19 @@ struct ioat_dma_chan {
 /**
  * struct ioat_desc_sw - wrapper around hardware descriptor
  * @hw: hardware DMA descriptor
- * @async_tx:
- * @node:
- * @group_list:
- * @group_cnt:
- * @cookie:
- * @phys:
+ * @node: this descriptor will either be on the free list,
+ *     or attached to a transaction list (async_tx.tx_list)
+ * @tx_cnt: number of descriptors required to complete the transaction
+ * @async_tx: the generic software descriptor for all engines
  */
-
 struct ioat_desc_sw {
 	struct ioat_dma_descriptor *hw;
-	struct dma_async_tx_descriptor async_tx;
 	struct list_head node;
-	struct list_head group_list;
-	int group_count;
-	dma_addr_t phys;
+	int tx_cnt;
+	DECLARE_PCI_UNMAP_LEN(len)
 	DECLARE_PCI_UNMAP_ADDR(src)
-	DECLARE_PCI_UNMAP_LEN(src_len)
 	DECLARE_PCI_UNMAP_ADDR(dst)
-	DECLARE_PCI_UNMAP_LEN(dst_len)
+	struct dma_async_tx_descriptor async_tx;
 };
 
 #endif /* IOATDMA_H */

@@ -1,27 +1,24 @@
 /*
- * Copyright(c) 2006 Intel Corporation. All rights reserved.
+ * Copyright © 2006, Intel Corporation.
  *
  * This program is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the Free
- * Software Foundation; either version 2 of the License, or (at your option)
- * any later version.
+ * under the terms and conditions of the GNU General Public License,
+ * version 2, as published by the Free Software Foundation.
  *
- * This program is distributed in the hope that it will be useful, but WITHOUT
+ * This program is distributed in the hope it will be useful, but WITHOUT
  * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
  * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
  * more details.
  *
  * You should have received a copy of the GNU General Public License along with
- * this program; if not, write to the Free Software Foundation, Inc., 59
- * Temple Place - Suite 330, Boston, MA  02111-1307, USA.
+ * this program; if not, write to the Free Software Foundation, Inc.,
+ * 51 Franklin St - Fifth Floor, Boston, MA 02110-1301 USA.
  *
- * The full GNU General Public License is included in this distribution in the
- * file called COPYING.
  */
 #ifndef _ADMA_H
 #define _ADMA_H
 #include <linux/types.h>
-#include <asm/io.h>
+#include <linux/io.h>
 #include <asm/hardware.h>
 #include <asm/hardware/iop_adma.h>
 
@@ -264,14 +261,14 @@ static inline int iop3xx_aau_xor_slot_count(size_t len, int src_cnt,
 					int *slots_per_op)
 {
 	const static int slot_count_table[] = { 0,
-					        1, 1, 1, 1, /* 01 - 04 */
-					        2, 2, 2, 2, /* 05 - 08 */
-					        4, 4, 4, 4, /* 09 - 12 */
-					        4, 4, 4, 4, /* 13 - 16 */
-					        8, 8, 8, 8, /* 17 - 20 */
-					        8, 8, 8, 8, /* 21 - 24 */
-					        8, 8, 8, 8, /* 25 - 28 */
-					        8, 8, 8, 8, /* 29 - 32 */
+						1, 1, 1, 1, /* 01 - 04 */
+						2, 2, 2, 2, /* 05 - 08 */
+						4, 4, 4, 4, /* 09 - 12 */
+						4, 4, 4, 4, /* 13 - 16 */
+						8, 8, 8, 8, /* 17 - 20 */
+						8, 8, 8, 8, /* 21 - 24 */
+						8, 8, 8, 8, /* 25 - 28 */
+						8, 8, 8, 8, /* 29 - 32 */
 					      };
 	*slots_per_op = slot_count_table[src_cnt];
 	return *slots_per_op;
@@ -369,19 +366,20 @@ static inline u32 iop_desc_get_byte_count(struct iop_adma_desc_slot *desc,
 	return 0;
 }
 
-static inline int iop3xx_src_edc_idx(int src_idx)
+/* translate the src_idx to a descriptor word index */
+static inline int __desc_idx(int src_idx)
 {
-	const static int src_edc_idx_table[] = { 0, 0, 0, 0,
-						 0, 1, 2, 3,
-						 5, 6, 7, 8,
-						 9, 10, 11, 12,
-						 14, 15, 16, 17,
-						 18, 19, 20, 21,
-						 23, 24, 25, 26,
-						 27, 28, 29, 30,
-					       };
+	const static int desc_idx_table[] = { 0, 0, 0, 0,
+					      0, 1, 2, 3,
+					      5, 6, 7, 8,
+					      9, 10, 11, 12,
+					      14, 15, 16, 17,
+					      18, 19, 20, 21,
+					      23, 24, 25, 26,
+					      27, 28, 29, 30,
+					    };
 
-	return src_edc_idx_table[src_idx];
+	return desc_idx_table[src_idx];
 }
 
 static inline u32 iop_desc_get_src_addr(struct iop_adma_desc_slot *desc,
@@ -403,7 +401,7 @@ static inline u32 iop_desc_get_src_addr(struct iop_adma_desc_slot *desc,
 	if (src_idx < 4)
 		return hw_desc.aau->src[src_idx];
 	else
-		return hw_desc.aau->src_edc[iop3xx_src_edc_idx(src_idx)].src_addr;
+		return hw_desc.aau->src_edc[__desc_idx(src_idx)].src_addr;
 }
 
 static inline void iop3xx_aau_desc_set_src_addr(struct iop3xx_desc_aau *hw_desc,
@@ -412,7 +410,7 @@ static inline void iop3xx_aau_desc_set_src_addr(struct iop3xx_desc_aau *hw_desc,
 	if (src_idx < 4)
 		hw_desc->src[src_idx] = addr;
 	else
-		hw_desc->src_edc[iop3xx_src_edc_idx(src_idx)].src_addr = addr;
+		hw_desc->src_edc[__desc_idx(src_idx)].src_addr = addr;
 }
 
 static inline void
@@ -550,8 +548,10 @@ iop_desc_init_zero_sum(struct iop_adma_desc_slot *desc, int src_cnt, int int_en)
 		 * and chain them together
 		 */
 		if (i) {
-			prev_hw_desc = iop_hw_desc_slot_idx(hw_desc, i - slots_per_op);
-			prev_hw_desc->next_desc = (u32) (desc->phys + (i << 5));
+			prev_hw_desc =
+				iop_hw_desc_slot_idx(hw_desc, i - slots_per_op);
+			prev_hw_desc->next_desc =
+				(u32) (desc->async_tx.phys + (i << 5));
 		}
 	}
 
@@ -615,7 +615,8 @@ static inline void iop_desc_set_byte_count(struct iop_adma_desc_slot *desc,
 }
 
 static inline void
-iop_desc_init_interrupt(struct iop_adma_desc_slot *desc, struct iop_adma_chan *chan)
+iop_desc_init_interrupt(struct iop_adma_desc_slot *desc,
+			struct iop_adma_chan *chan)
 {
 	union iop3xx_desc hw_desc = { .ptr = desc->hw_desc, };
 
@@ -689,8 +690,9 @@ static inline void iop_desc_set_memcpy_src_addr(struct iop_adma_desc_slot *desc,
 	hw_desc->src_addr = addr;
 }
 
-static inline void iop_desc_set_zero_sum_src_addr(struct iop_adma_desc_slot *desc,
-					int src_idx, dma_addr_t addr)
+static inline void
+iop_desc_set_zero_sum_src_addr(struct iop_adma_desc_slot *desc, int src_idx,
+				dma_addr_t addr)
 {
 
 	struct iop3xx_desc_aau *hw_desc = desc->hw_desc, *iter;
@@ -760,7 +762,7 @@ static inline int iop_desc_get_zero_result(struct iop_adma_desc_slot *desc)
 
 static inline void iop_chan_append(struct iop_adma_chan *chan)
 {
-	u32 dma_chan_ctrl;	
+	u32 dma_chan_ctrl;
 	/* workaround dropped interrupts on 3xx */
 	mod_timer(&chan->cleanup_watchdog, jiffies + msecs_to_jiffies(3));
 
@@ -790,9 +792,6 @@ static inline void iop_chan_disable(struct iop_adma_chan *chan)
 static inline void iop_chan_enable(struct iop_adma_chan *chan)
 {
 	u32 dma_chan_ctrl = __raw_readl(DMA_CCR(chan));
-
-	/* drain write buffer */
-	asm volatile ("mcr p15, 0, r1, c7, c10, 4" : : : "%r1");
 
 	dma_chan_ctrl |= 1;
 	__raw_writel(dma_chan_ctrl, DMA_CCR(chan));

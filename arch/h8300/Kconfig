@@ -68,6 +68,9 @@ config TIME_LOW_RES
 config NO_IOPORT
 	def_bool y
 
+config NO_DMA
+	def_bool y
+
 config ISA
 	bool
 	default y
@@ -227,5 +230,3 @@ source "security/Kconfig"
 source "crypto/Kconfig"
 
 source "lib/Kconfig"
-
-source "async_tx/Kconfig"
