@@ -123,6 +123,8 @@
 #define I2C_DRIVERID_ARP        902    /* SMBus ARP Client              */
 #define I2C_DRIVERID_ALERT      903    /* SMBus Alert Responder Client  */
 
+#define I2C_DRIVERID_LWMON5_KBD	950	/* LWMON5 matrix keyboard	*/
+
 /* IDs --   Use DRIVERIDs 1000-1999 for sensors.
    These were originally in sensors.h in the lm_sensors package */
 #define I2C_DRIVERID_LM78 1002

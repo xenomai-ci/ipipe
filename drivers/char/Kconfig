@@ -1093,6 +1093,15 @@ config PPC405EZ_DAC
 
 	  If compiled as a module, it will be called ppc405ez_dac.
 
+config LWMON5_KBD
+	bool "Liebherr LWMON5 matrix keyboard support"
+	depends on LWMON5
+	help
+	  Give userspace access to the matrix keyboard on the
+	  Liebherr LWMON5 board.
+
+	  If compiled as a module, it will be called lwmon_kbd.
+
 config DEVPORT
 	bool
 	depends on !M68K
