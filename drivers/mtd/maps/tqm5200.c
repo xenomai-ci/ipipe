@@ -37,25 +37,29 @@ static struct mtd_partition tqm5200_partitions[] = {
 		offset:	0x00000000,
 		size:	0x000A0000,
 	}, {
-		name:	"kernel",		/* default kernel image */
+		name:	"dtb",			/* Flattened device tree blob */
 		offset:	0x000A0000,
-		size:	0x00160000,
+		size:	0x00020000,
+	}, {
+		name:	"kernel",		/* default kernel image */
+		offset:	0x000C0000,
+		size:	0x00240000,
 	}, {
 		name:	"initrd",		/* RAMdisk image */
-		offset:	0x00200000,
+		offset:	0x00300000,
 		size:	0x00200000,
 	}, {
 		name:	"small-fs",		/* Small filesystem */
-		offset:	0x00400000,
+		offset:	0x00500000,
 		size:	0x00400000,
 	}, {
 		name:	"misc",			/* Miscellanous space */
-		offset:	0x00800000,
+		offset:	0x00900000,
 		size:	0x00800000,
 	}, {
 		name:	"big-fs",		/* Big filesystem */
-		offset:	0x01000000,
-		size:	0x01000000,
+		offset:	0x01100000,
+		size:	0x00f00000,
 	},
 };
 
