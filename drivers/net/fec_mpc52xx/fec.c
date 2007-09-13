@@ -682,7 +682,7 @@ mpc52xx_fec_probe(struct device *dev)
 	ndev->irq = platform_get_irq(pdev, 0);
 #endif
 
-	if (request_irq(ndev->irq, &fec_interrupt, SA_INTERRUPT,
+	if (request_irq(ndev->irq, &fec_interrupt, IRQF_DISABLED,
 	                DRIVER_NAME "_ctrl", ndev)) {
 		printk(KERN_ERR DRIVER_NAME ": ctrl interrupt request failed\n");
 		ret = -EBUSY;
@@ -692,7 +692,7 @@ mpc52xx_fec_probe(struct device *dev)
 
 	/* RX */
 	priv->r_irq = sdma_irq(priv->rx_sdma);
-	if (request_irq(priv->r_irq, &fec_rx_interrupt, SA_INTERRUPT,
+	if (request_irq(priv->r_irq, &fec_rx_interrupt, IRQF_DISABLED,
 	                DRIVER_NAME "_rx", ndev)) {
 		printk(KERN_ERR DRIVER_NAME ": rx request_irq(0x%x) failed\n",
 		       priv->r_irq);
@@ -703,7 +703,7 @@ mpc52xx_fec_probe(struct device *dev)
 
 	/* TX */
 	priv->t_irq = sdma_irq(priv->tx_sdma);
-	if (request_irq(priv->t_irq, &fec_tx_interrupt, SA_INTERRUPT,
+	if (request_irq(priv->t_irq, &fec_tx_interrupt, IRQF_DISABLED,
 	                DRIVER_NAME "_tx", ndev)) {
 		printk(KERN_ERR DRIVER_NAME ": tx request_irq(0x%x) failed\n",
 		       priv->t_irq);
