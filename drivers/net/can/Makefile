@@ -25,5 +25,6 @@ obj-$(CONFIG_CAN_SJA1000)	+= sja1000/
 obj-$(CONFIG_CAN_I82527)	+= i82527/
 obj-$(CONFIG_CAN_MSCAN)		+= mscan/
 obj-$(CONFIG_CAN_CCAN)		+= ccan/
+obj-$(CONFIG_CAN_INICAN)	+= inican/
 
 endif
