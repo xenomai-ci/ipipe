@@ -322,7 +322,7 @@ static int ppc405ez_adc_request_interrupts(void)
 	int retval;
 
 	retval = request_irq(PPC405EZ_ADC_IRQ, ppc405ez_adc_interrupt,
-			     SA_INTERRUPT, "ADC", &dev_id);
+			     0, "ADC", &dev_id);
 
 	if (retval) {
 		printk(KERN_ERR "%s: Could not get IRQ %d!\n",
