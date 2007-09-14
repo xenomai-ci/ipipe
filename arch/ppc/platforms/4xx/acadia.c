@@ -47,6 +47,46 @@
 
 extern bd_t __res;
 
+static struct resource acadia_can_resource0[] = {
+	[0] = {
+		.start = ACADIA_CAN0_ADDR,
+		.end = ACADIA_CAN0_ADDR + ACADIA_CAN0_SIZE - 1,
+		.flags = IORESOURCE_MEM,
+	},
+	[1] = {
+		.start	= ACADIA_CAN0_IRQ,
+		.end	= ACADIA_CAN0_IRQ,
+		.flags	= IORESOURCE_IRQ,
+	},
+};
+
+static struct platform_device acadia_can_device0 = {
+	.name		= "ppc405ez_can",
+	.id		= 0,
+	.num_resources	= ARRAY_SIZE(acadia_can_resource0),
+	.resource	= acadia_can_resource0,
+};
+
+static struct resource acadia_can_resource1[] = {
+	[0] = {
+		.start = ACADIA_CAN1_ADDR,
+		.end = ACADIA_CAN1_ADDR + ACADIA_CAN1_SIZE - 1,
+		.flags = IORESOURCE_MEM,
+	},
+	[1] = {
+		.start	= ACADIA_CAN1_IRQ,
+		.end	= ACADIA_CAN1_IRQ,
+		.flags	= IORESOURCE_IRQ,
+	},
+};
+
+static struct platform_device acadia_can_device1 = {
+	.name		= "ppc405ez_can",
+	.id		= 1,
+	.num_resources	= ARRAY_SIZE(acadia_can_resource1),
+	.resource	= acadia_can_resource1,
+};
+
 /*
  * NOR FLASH configuration (using mtd physmap driver)
  */
@@ -174,8 +214,9 @@ static struct platform_device acadia_nand_device = {
 	}
 };
 
-static int acadia_setup_flash(void)
+static int acadia_setup_platform_devices(void)
 {
+	/* NOR-FLASH */
 	acadia_nor_resource.start = __res.bi_flashstart;
 	acadia_nor_resource.end = __res.bi_flashstart +
 		__res.bi_flashsize - 1;
@@ -188,12 +229,17 @@ static int acadia_setup_flash(void)
 
 	platform_device_register(&acadia_nor_device);
 
+	/* NAND-FLASH */
 	platform_device_register(&acadia_ndfc_device);
 	platform_device_register(&acadia_nand_device);
 
+	/* CAN */
+	platform_device_register(&acadia_can_device0);
+	platform_device_register(&acadia_can_device1);
+
 	return 0;
 }
-arch_initcall(acadia_setup_flash);
+arch_initcall(acadia_setup_platform_devices);
 
 /* The serial clock for the chip is an internal clock determined by
  * different clock speeds/dividers.
