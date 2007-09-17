@@ -601,7 +601,7 @@ get_active_queue(raid5_conf_t *conf, sector_t sector, int disks,
 }
 
 static void unplug_slaves(mddev_t *mddev);
-static void raid5_unplug_device(request_queue_t *q);
+static void raid5_unplug_device(struct request_queue *q);
 
 static struct stripe_head *
 get_active_stripe(raid5_conf_t *conf, struct stripe_queue *sq, int disks,
@@ -1779,7 +1779,7 @@ static int grow_stripes(raid5_conf_t *conf, int num)
 	conf->active_name = 0;
 	sc = kmem_cache_create(conf->sh_cache_name[conf->active_name],
 			       sizeof(struct stripe_head)+(devs-1)*sizeof(struct r5dev),
-			       0, 0, NULL, NULL);
+			       0, 0, NULL);
 
 	if (!sc)
 		return 1;
@@ -1794,7 +1794,7 @@ static int grow_stripes(raid5_conf_t *conf, int num)
 				sizeof(struct r5_queue_dev)) +
 				r5_io_weight_size(devs) +
 				r5_io_weight_size(devs) +
-				r5_io_weight_size(devs), 0, 0, NULL, NULL);
+				r5_io_weight_size(devs), 0, 0, NULL);
 	if (!sc)
 		return 1;
 
@@ -1849,7 +1849,7 @@ static int resize_stripes(raid5_conf_t *conf, int newsize)
 	/* Step 1 */
 	sc = kmem_cache_create(conf->sh_cache_name[1-conf->active_name],
 			       sizeof(struct stripe_head)+(newsize-1)*sizeof(struct r5dev),
-			       0, 0, NULL, NULL);
+			       0, 0, NULL);
 	if (!sc)
 		return -ENOMEM;
 
@@ -1859,7 +1859,7 @@ static int resize_stripes(raid5_conf_t *conf, int newsize)
 				r5_io_weight_size(newsize) +
 				r5_io_weight_size(newsize) +
 				r5_io_weight_size(newsize),
-				0, 0, NULL, NULL);
+				0, 0, NULL);
 
 	if (!sc_q) {
 		kmem_cache_destroy(sc);
@@ -4110,7 +4110,7 @@ static void unplug_slaves(mddev_t *mddev)
 	for (i = 0; i < mddev->raid_disks; i++) {
 		mdk_rdev_t *rdev = rcu_dereference(conf->disks[i].rdev);
 		if (rdev && !test_bit(Faulty, &rdev->flags) && atomic_read(&rdev->nr_pending)) {
-			request_queue_t *r_queue = bdev_get_queue(rdev->bdev);
+			struct request_queue *r_queue = bdev_get_queue(rdev->bdev);
 
 			atomic_inc(&rdev->nr_pending);
 			rcu_read_unlock();
@@ -4125,7 +4125,7 @@ static void unplug_slaves(mddev_t *mddev)
 	rcu_read_unlock();
 }
 
-static void raid5_unplug_device(request_queue_t *q)
+static void raid5_unplug_device(struct request_queue *q)
 {
 	mddev_t *mddev = q->queuedata;
 	raid5_conf_t *conf = mddev_to_conf(mddev);
@@ -4144,7 +4144,7 @@ static void raid5_unplug_device(request_queue_t *q)
 	unplug_slaves(mddev);
 }
 
-static int raid5_issue_flush(request_queue_t *q, struct gendisk *disk,
+static int raid5_issue_flush(struct request_queue *q, struct gendisk *disk,
 			     sector_t *error_sector)
 {
 	mddev_t *mddev = q->queuedata;
@@ -4156,7 +4156,7 @@ static int raid5_issue_flush(request_queue_t *q, struct gendisk *disk,
 		mdk_rdev_t *rdev = rcu_dereference(conf->disks[i].rdev);
 		if (rdev && !test_bit(Faulty, &rdev->flags)) {
 			struct block_device *bdev = rdev->bdev;
-			request_queue_t *r_queue = bdev_get_queue(bdev);
+			struct request_queue *r_queue = bdev_get_queue(bdev);
 
 			if (!r_queue->issue_flush_fn)
 				ret = -EOPNOTSUPP;
@@ -4195,7 +4195,7 @@ static int raid5_congested(void *data, int bits)
 /* We want read requests to align with chunks where possible,
  * but write requests don't need to.
  */
-static int raid5_mergeable_bvec(request_queue_t *q, struct bio *bio, struct bio_vec *biovec)
+static int raid5_mergeable_bvec(struct request_queue *q, struct bio *bio, struct bio_vec *biovec)
 {
 	mddev_t *mddev = q->queuedata;
 	sector_t sector = bio->bi_sector + get_start_sect(bio->bi_bdev);
@@ -4305,7 +4305,7 @@ static int raid5_align_endio(struct bio *bi, unsigned int bytes, int error)
 
 static int bio_fits_rdev(struct bio *bi)
 {
-	request_queue_t *q = bdev_get_queue(bi->bi_bdev);
+	struct request_queue *q = bdev_get_queue(bi->bi_bdev);
 
 	if ((bi->bi_size>>9) > q->max_sectors)
 		return 0;
@@ -4324,7 +4324,7 @@ static int bio_fits_rdev(struct bio *bi)
 }
 
 
-static int chunk_aligned_read(request_queue_t *q, struct bio * raid_bio)
+static int chunk_aligned_read(struct request_queue *q, struct bio * raid_bio)
 {
 	mddev_t *mddev = q->queuedata;
 	raid5_conf_t *conf = mddev_to_conf(mddev);
@@ -4394,7 +4394,7 @@ static int chunk_aligned_read(request_queue_t *q, struct bio * raid_bio)
 }
 
 
-static int make_request(request_queue_t *q, struct bio * bi)
+static int make_request(struct request_queue *q, struct bio * bi)
 {
 	mddev_t *mddev = q->queuedata;
 	raid5_conf_t *conf = mddev_to_conf(mddev);
