@@ -132,7 +132,7 @@ typedef struct {
 	u32	pecr;		/* parity error count register */
 	u32	sr;		/* status register */
 	u32	revidr;		/* revision ID register */
-} __attribute__ ((packed)) xor_regs_t;
+} xor_regs_t;
 
 /*
  * Prototypes
