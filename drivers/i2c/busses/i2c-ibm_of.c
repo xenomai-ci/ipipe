@@ -18,7 +18,7 @@
  *   	Copyright 1995-97 Simon G. Vogl
  *                1998-99 Hans Berglund
  *
- *   	With some changes from Kyösti Mälkki <kmalkki@cc.hut.fi> 
+ *   	With some changes from Kyï¿½sti Mï¿½lkki <kmalkki@cc.hut.fi>
  *	and even Frodo Looijaard <frodol@dds.nl>
  *
  * This program is free software; you can redistribute  it and/or modify it
@@ -49,6 +49,8 @@
 
 MODULE_DESCRIPTION("IBM IIC driver v" DRIVER_VERSION);
 MODULE_LICENSE("GPL");
+
+static int device_idx = -1;
 
 static int iic_force_poll;
 module_param(iic_force_poll, bool, 0);
@@ -771,10 +773,8 @@ static int __devinit iic_probe (struct of_device *ofdev,
 	adap->timeout = 1;
 	adap->retries = 1;
 
-	if (adap->dev.parent == NULL) {
-		adap->dev.parent = &platform_bus;
-	}
-	if ((ret = i2c_add_adapter(adap)) != 0){
+	adap->nr = ++device_idx;
+	if ((ret = i2c_add_numbered_adapter(adap)) < 0) {
 		printk(KERN_CRIT"ibm-iic(%s): failed to register i2c adapter\n",
 				dev->np->full_name);
 		goto fail;
