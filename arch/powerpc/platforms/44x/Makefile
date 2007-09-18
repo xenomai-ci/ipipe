@@ -6,3 +6,9 @@ obj-$(CONFIG_SEQUOIA)	+= sequoia.o
 ifeq ($(CONFIG_PCI),y)
 obj-$(CONFIG_440EPX)   += ppc4xx-pci.o
 endif
+
+ifeq ($(CONFIG_USB_SUPPORT),y)
+obj-$(CONFIG_440EPX)   += ppc4xx-usb.o
+endif
+
+

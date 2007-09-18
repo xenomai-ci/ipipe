@@ -152,6 +152,30 @@
 					/*RXDE*/  4 &UIC1 2 4>;
 			interrupt-map-mask = <ffffffff>;
 		};
+		
+		usb@e0000100, {
+			device_type = "usb";
+			compatible = "ibm,gadget-udc", "ibm,usb";
+			reg = <0 e0000100 80>;
+			interrupt-parent = <&UIC0>;
+			interrupts = <20 4>;
+		};
+		
+		usb@e0000400, {
+			device_type = "usb";
+			compatible = "ibm,usb-ohci", "ibm,usb";
+			reg = <0 e0000400 100>;
+			interrupt-parent = <&UIC0>;
+			interrupts = <21 4>;
+		};
+
+		usb@e0000300, {
+			device_type = "usb";
+			compatible = "ibm,usb-ehci", "ibm,usb";
+			reg = <0 e0000300 100>;
+			interrupt-parent = <&UIC0>;
+			interrupts = <26 4>;
+		};
 
 		POB0: opb {
 		  	compatible = "ibm,opb-440epx", "ibm,opb";
@@ -249,9 +273,10 @@
 				interrupt-parent = <&UIC0>;
 				interrupts = <7 4>;
 			};
+			
 
 			ZMII0: emac-zmii@ef600d00 {
-				device_type = "zmii-interface";
+				device_t:ype = "zmii-interface";
 				compatible = "ibm,zmii-440epx", "ibm,zmii";
 				reg = <ef600d00 c>;
 			};
