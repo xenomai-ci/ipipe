@@ -275,7 +275,7 @@ static int mmap_mem(struct file * file, struct vm_area_struct * vma)
 {
 	size_t size = vma->vm_end - vma->vm_start;
 
-#ifdef CONFIG_44x
+#if defined(CONFIG_44x) && !defined(CONFIG_PPC_MERGE)
 	/*
 	 * 2006-08-07: sr
 	 * Needed on 44x-er systems for 36bit addresses (like pci on 440gx)
