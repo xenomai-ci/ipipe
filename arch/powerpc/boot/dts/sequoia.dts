@@ -92,6 +92,37 @@
 		#size-cells = <1>;
 		ranges;
 		clock-frequency = <0>; /* Filled in by zImage */
+		
+		pci@1eec00000 {
+			/* PCI configuration space is being followed 
+			 * by BSP configuration register
+			 */
+    			reg = <1 eec00000 40 1 ef400000 40>;
+			compatible = "ibm,pci-405gp";
+			device_type = "pci";
+
+			/* irqs are routed to irq67, dependless of devsel/PIRQx */
+			interrupt-map-mask = <0 0 0 0>;
+			interrupt-map = <0 0 0 0 &UIC2 3 8>;	
+
+			interrupt-parent = <&UIC2>;
+			interrupts = <3 8>;
+	    
+			bus-range = <0 0>;
+	
+			/*
+			 * the host addresses 1_8000_0000..1_8fff_ffff 
+			 * are translated to PCI addresses 8000_0000..8fff_ffff 
+			 * io is at 0001_e800_0000
+			 */
+			ranges = <02000000 0 80000000 1 80000000 0 10000000
+				01000000 0 00000000 1 e8000000 0 00100000>;
+			
+			#address-cells = <3>;
+			#size-cells = <2>;
+			#interrupt-cells = <1>;
+
+		};
 
 		SDRAM0: sdram {
 			device_type = "memory-controller";
