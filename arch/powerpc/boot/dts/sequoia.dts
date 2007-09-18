@@ -177,6 +177,42 @@
 			interrupts = <26 4>;
 		};
 
+		ndfc@1d0000000, {
+			device_type = "nand";
+			compatible = "ibm,nand";
+			reg = <1 d0000000 2000>;
+
+			#address-cells = <1>;
+			#size-cells = <1>;
+			/* ndfc stuff, composed off ndfc_settings. */
+			/* select bank on CE[3], 4 Addr, 1 Col 3 Row 512b page */
+			ccr-settings = <3001000>;
+
+			chip@1, {
+				device_type = "nand-chip";
+				reg = <0 1>;
+				chip-nr = <1>;
+				chip-offset = <3>;
+				chip-delay = <50>;
+				chip-bank-settings = <80002222>;
+
+				/* normal NAND ECC stuff */
+				ecc-bytes = <6>;
+				ecc-pos = <0 1 2 3 6 7>;
+				/* list of tuples assumed here */
+				ecc-oobfree = <8 8>;
+
+				/* modelling mtd_partition here */
+				/*partitions = <0 0>;
+				partition-names = "content";*/
+
+				content@0, {
+					label = "content";
+					reg = <0 0>;
+				};
+			};
+		};
+
 		POB0: opb {
 		  	compatible = "ibm,opb-440epx", "ibm,opb";
 			#address-cells = <1>;

@@ -11,4 +11,6 @@ ifeq ($(CONFIG_USB_SUPPORT),y)
 obj-$(CONFIG_440EPX)   += ppc4xx-usb.o
 endif
 
-
+ifeq ($(CONFIG_MTD_NAND_NDFC),y)
+obj-y+= ppc4xx-nand.o
+endif
