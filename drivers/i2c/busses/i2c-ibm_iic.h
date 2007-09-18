@@ -23,6 +23,7 @@
 #define __I2C_IBM_IIC_H_
 
 #include <linux/i2c.h> 
+#include <linux/of.h>
 
 struct iic_regs {
 	u16 mdbuf;
@@ -50,6 +51,8 @@ struct ibm_iic_private {
 	int irq;
 	int fast_mode;
 	u8  clckdiv;
+	struct device_node *np;
+	phys_addr_t paddr;
 };
 
 /* IICx_CNTL register */

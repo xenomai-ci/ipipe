@@ -35,7 +35,6 @@
 #include <asm/page.h>
 #include <asm/mmu.h>
 #include <asm/pgtable.h>
-#include <asm/ibm4xx.h>
 #include <asm/cputable.h>
 #include <asm/thread_info.h>
 #include <asm/ppc_asm.h>
@@ -772,7 +771,7 @@ finish_tlb_load:
 	*/
 	lwz	r9, tlb_4xx_index@l(0)
 	addi	r9, r9, 1
-	andi.	r9, r9, (PPC4XX_TLB_SIZE-1)
+	andi.	r9, r9, (PPC40X_TLB_SIZE-1)
 	stw	r9, tlb_4xx_index@l(0)
 
 6:
