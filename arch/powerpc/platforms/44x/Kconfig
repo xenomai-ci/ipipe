@@ -49,13 +49,12 @@ config 440EPX
 	bool
 	select PPC_FPU
 # Disabled until the new EMAC Driver is merged.
-#	select IBM_NEW_EMAC_EMAC4
-#	select IBM_NEW_EMAC_ZMII
+	select IBM_NEW_EMAC_EMAC4
+	select IBM_NEW_EMAC_ZMII
 
 config 440GP
 	bool
-# Disabled until the new EMAC Driver is merged.
-#	select IBM_NEW_EMAC_ZMII
+	select IBM_NEW_EMAC_ZMII
 
 config 440GX
 	bool
