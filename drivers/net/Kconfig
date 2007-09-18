@@ -1257,6 +1257,14 @@ config IBMVETH
 	  <file:Documentation/networking/net-modules.txt>. The module will
 	  be called ibmveth.
 
+config IBM_EMAC
+	tristate "IBM EMAC Ethernet support"
+	depends on 4xx && !PPC_MERGE
+	help
+	  This driver supports the IBM EMAC family of Ethernet controllers
+	  typically found on 4xx embedded PowerPC chips, but also on the
+	  Axon southbridge for Cell.
+
 source "drivers/net/ibm_emac/Kconfig"
 
 config IBM_NEW_EMAC
