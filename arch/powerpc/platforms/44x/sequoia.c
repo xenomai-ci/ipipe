@@ -52,6 +52,20 @@ static int __init sequoia_probe(void)
 
 static void __init sequoia_setup_arch(void)
 {
+#ifdef CONFIG_PCI
+	struct device_node *np;
+#endif
+
+	if (ppc_md.progress)
+		ppc_md.progress("ppc44x_setup_arch()", 0);
+
+#ifdef CONFIG_PCI
+	for (np = NULL; (np = of_find_compatible_node(np,
+					"pci", "ibm,pci-405gp")) != NULL;)
+		ppc4xx_add_bridge(np);
+	ppc_md.pci_exclude_device = ppc4xx_exclude_device;
+#endif
+
 }
 
 define_machine(sequoia) {
