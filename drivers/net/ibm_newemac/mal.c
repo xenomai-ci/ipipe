@@ -21,6 +21,7 @@
  */
 
 #include <linux/delay.h>
+#include <asm/prom.h>
 
 #include "core.h"
 
@@ -484,11 +485,11 @@ static int __devinit mal_probe(struct of_device *ofdev,
 	}
 	mal->index = index;
 	mal->ofdev = ofdev;
-	mal->version = device_is_compatible(ofdev->node, "ibm,mcmal2") ? 2 : 1;
+	mal->version = of_device_is_compatible(ofdev->node, "ibm,mcmal2") ? 2 : 1;
 
 	MAL_DBG(mal, "probe" NL);
 
-	prop = get_property(ofdev->node, "num-tx-chans", NULL);
+	prop = of_get_property(ofdev->node, "num-tx-chans", NULL);
 	if (prop == NULL) {
 		printk(KERN_ERR
 		       "mal%d: can't find MAL num-tx-chans property!\n",
@@ -498,7 +499,7 @@ static int __devinit mal_probe(struct of_device *ofdev,
 	}
 	mal->num_tx_chans = prop[0];
 
-	prop = get_property(ofdev->node, "num-rx-chans", NULL);
+	prop = of_get_property(ofdev->node, "num-rx-chans", NULL);
 	if (prop == NULL) {
 		printk(KERN_ERR
 		       "mal%d: can't find MAL num-rx-chans property!\n",
@@ -556,7 +557,7 @@ static int __devinit mal_probe(struct of_device *ofdev,
 	/* Current Axon is not happy with priority being non-0, it can
 	 * deadlock, fix it up here
 	 */
-	if (device_is_compatible(ofdev->node, "ibm,mcmal-axon"))
+	if (of_device_is_compatible(ofdev->node, "ibm,mcmal-axon"))
 		cfg &= ~(MAL2_CFG_RPP_10 | MAL2_CFG_WPP_10);
 
 	/* Apply configuration */

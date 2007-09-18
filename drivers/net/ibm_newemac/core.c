@@ -2261,7 +2261,7 @@ static int __devinit emac_read_uint_prop(struct device_node *np, const char *nam
 					 u32 *val, int fatal)
 {
 	int len;
-	const u32 *prop = get_property(np, name, &len);
+	const u32 *prop = of_get_property(np, name, &len);
 	if (prop == NULL || len < sizeof(u32)) {
 		if (fatal)
 			printk(KERN_ERR "%s: missing %s property\n",
@@ -2445,7 +2445,7 @@ static int __devinit emac_init_config(struct emac_instance *dev)
 
 	/* PHY mode needs some decoding */
 	dev->phy_mode = PHY_MODE_NA;
-	pm = get_property(np, "phy-mode", &plen);
+	pm = of_get_property(np, "phy-mode", &plen);
 	if (pm != NULL) {
 		int i;
 		for (i = 0; i < ARRAY_SIZE(phy_modes); i++)
@@ -2463,13 +2463,13 @@ static int __devinit emac_init_config(struct emac_instance *dev)
 	}
 
 	/* Check EMAC version */
-	if (device_is_compatible(np, "ibm,emac4"))
+	if (of_device_is_compatible(np, "ibm,emac4"))
 		dev->features |= EMAC_FTR_EMAC4;
-	if (device_is_compatible(np, "ibm,emac-axon")
-	    || device_is_compatible(np, "ibm,emac-440epx"))
+	if (of_device_is_compatible(np, "ibm,emac-axon")
+	    || of_device_is_compatible(np, "ibm,emac-440epx"))
 		dev->features |= EMAC_FTR_HAS_AXON_STACR
 			| EMAC_FTR_STACR_OC_INVERT;
-	if (device_is_compatible(np, "ibm,emac-440spe"))
+	if (of_device_is_compatible(np, "ibm,emac-440spe"))
 		dev->features |= EMAC_FTR_STACR_OC_INVERT;
 
 	/* Fixup some feature bits based on the device tree and verify
@@ -2506,7 +2506,7 @@ static int __devinit emac_init_config(struct emac_instance *dev)
 	}
 
 	/* Read MAC-address */
-	p = get_property(np, "local-mac-address", NULL);
+	p = of_get_property(np, "local-mac-address", NULL);
 	if (p == NULL) {
 		printk(KERN_ERR "%s: Can't find local-mac-address property\n",
 		       np->full_name);
@@ -2815,9 +2815,9 @@ static void __init emac_make_bootlist(void)
 
 		if (of_match_node(emac_match, np) == NULL)
 			continue;
-		if (get_property(np, "unused", NULL))
+		if (of_get_property(np, "unused", NULL))
 			continue;
-		idx = get_property(np, "cell-index", NULL);
+		idx = of_get_property(np, "cell-index", NULL);
 		if (idx == NULL)
 			continue;
 		cell_indices[i] = *idx;
