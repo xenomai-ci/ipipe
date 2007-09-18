@@ -190,11 +190,12 @@ struct stripe_head {
 		struct bio_vec	vec;
 		struct page	*page, *dpage;	/* 'dpage' is used in the full-stripe write ops */
 		struct bio	*read, *written;
+		unsigned long flags;
 	} dev[1]; /* allocated with extra space depending of RAID geometry */
 };
 
 /* stripe_head_state - collects and tracks the dynamic state of a stripe_head
- *     for handle_stripe.  It is only valid under spin_lock(sh->lock);
+ *     for handle_stripe.  It is only valid under spin_lock(sq->lock);
  */
 struct stripe_head_state {
 	int syncing, expanding, expanded;
@@ -233,7 +234,6 @@ struct stripe_queue {
 	struct r5_queue_dev {
 		sector_t sector; /* hw starting sector for this block */
 		struct bio *toread, *towrite;
-		unsigned long flags;
 	} dev[1];
 };
 
@@ -296,7 +296,7 @@ struct stripe_queue {
 #define STRIPE_OP_MOD_REPAIR_PD 7
 #define STRIPE_OP_MOD_DMA_CHECK 8
 
-#define	STRIPE_OP_POSTPQXOR	9
+#define STRIPE_OP_POSTPQXOR	9
 #define STRIPE_OP_CHECK_PP	10
 #define STRIPE_OP_CHECK_QP	11
 #define STRIPE_OP_UPDATE_PP	12
@@ -305,14 +305,13 @@ struct stripe_queue {
 /*
  * Stripe-queue state
  */
-#define STRIPE_QUEUE_HANDLE	0
-#define STRIPE_QUEUE_OVERWRITE	1
-#define STRIPE_QUEUE_READ	2
-#define STRIPE_QUEUE_DELAYED	3
-#define STRIPE_QUEUE_WRITE	4
-#define STRIPE_QUEUE_EXPANDING	5
-#define STRIPE_QUEUE_PREREAD_ACTIVE 6
-#define STRIPE_QUEUE_BIT_DELAY	7
+#define STRIPE_QUEUE_HANDLE		0
+#define STRIPE_QUEUE_IO_HI		1
+#define STRIPE_QUEUE_IO_LO		2
+#define STRIPE_QUEUE_DELAYED		3
+#define STRIPE_QUEUE_EXPANDING		4
+#define STRIPE_QUEUE_PREREAD_ACTIVE	5
+#define STRIPE_QUEUE_BIT_DELAY		6
 
 /*
  * Plugging:
@@ -365,9 +364,8 @@ struct raid5_private_data {
 	struct list_head	delayed_q_list; /* queues that have plugged
 						 * requests
 						 */
-	struct list_head	stripe_overwrite_list; /* stripe-wide writes */
-	struct list_head	unaligned_read_list; /* dev_q->toread is set */
-	struct list_head	subwidth_write_list; /* dev_q->towrite is set */
+	struct list_head	io_hi_queue; /* reads and full stripe writes */
+	struct list_head	io_lo_queue; /* sub-stripe-width writes */
 	struct workqueue_struct *workqueue; /* attaches sq's to sh's */
 	struct work_struct	stripe_queue_work;
 	char 			workqueue_name[20];
