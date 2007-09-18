@@ -27,6 +27,7 @@
 
 #include <linux/platform_device.h>
 #include "musbhsfc_udc.h"
+#include <asm/dcr-native.h>
 
 //#define DEBUG printk
 //#define DEBUG_EP0 printk
@@ -268,6 +269,17 @@ void musbhsfc_show_regs(void)
 	printk(KERN_INFO "USB_FRAME     : 0x%x\n", usb_readw(USB_FRAME));
 }
 
+#define DCRN_SDR_USB0		0x0320
+#define DCRN_SDR_CONFIG_ADDR 	0xe
+#define DCRN_SDR_CONFIG_DATA	0xf
+
+/* SDR read/write helper macros */
+#define SDR_READ(offset) ({\
+	mtdcr(DCRN_SDR_CONFIG_ADDR, offset); \
+	mfdcr(DCRN_SDR_CONFIG_DATA);})
+#define SDR_WRITE(offset, data) ({\
+	mtdcr(DCRN_SDR_CONFIG_ADDR, offset); \
+	mtdcr(DCRN_SDR_CONFIG_DATA,data);})
 void musbhsfc_set_device(struct musbhsfc_udc *dev)
 {
 	if (SDR_READ(DCRN_SDR_USB0) & 0x2)
@@ -2136,7 +2148,13 @@ static int musbhsfc_udc_probe(struct platform_device *pdev)
 
 	DEBUG("%s: %p\n", __FUNCTION__, pdev);
 
-	device_irq = platform_get_irq_byname(pdev, "usb_device_irq");
+	if (pdev->resource[1].flags != IORESOURCE_IRQ) {
+                pr_debug("resource[1] is not IORESOURCE_IRQ");
+                retval = -ENOMEM;
+        }
+	
+	device_irq = pdev->resource[1].start;
+
 	if (!device_irq) {
 		DEBUG("%s: no device_irq\n", __FUNCTION__);
 		return -ENODEV;
