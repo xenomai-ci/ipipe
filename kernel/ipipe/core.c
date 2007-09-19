@@ -46,29 +46,33 @@ static unsigned long __ipipe_domain_slot_map;
 
 struct ipipe_domain ipipe_root;
 
-extern unsigned long __ipipe_root_status;
-
 #ifndef CONFIG_SMP
 /*
  * Create an alias to the unique root status, so that arch-dep code
- * may get simple and easy access to this percpu variable.
- */
-#define __rstatus_name(s)	#s
-#define _rstatus_name(s)	__rstatus_name(s)
-extern unsigned long __ipipe_root_status
-__attribute__((alias(_rstatus_name(__raw_get_cpu_var(ipipe_percpu_darray)))));
-
-/*
- * Create an array of pointers to the percpu domain data; this tends
+ * may get simple and easy access to this percpu variable.  We also
+ * create an array of pointers to the percpu domain data; this tends
  * to produce a better code when reaching non-root domains. We make
  * sure that the early boot code would be able to dereference the
  * pointer to the root domain data safely by statically initializing
  * its value (local_irq*() routines depend on this).
  */
-DEFINE_PER_CPU(struct ipipe_percpu_domain_data *, ipipe_percpu_daddr[CONFIG_IPIPE_DOMAINS]) =
-{ [0] = (struct ipipe_percpu_domain_data *)&__ipipe_root_status };
+#if __GNUC__ >= 4
+extern unsigned long __ipipe_root_status
+__attribute__((alias(__stringify(__raw_get_cpu_var(ipipe_percpu_darray)))));
+EXPORT_SYMBOL(__ipipe_root_status);
+#else /* __GNUC__ < 4 */
+/*
+ * Work around a GCC 3.x issue making alias symbols unusable as
+ * constant initializers.
+ */
+unsigned long *const __ipipe_root_status_addr = &__raw_get_cpu_var(ipipe_percpu_darray);
+EXPORT_SYMBOL(__ipipe_root_status_addr);
+#endif /* __GNUC__ < 4 */
 
-#endif
+DEFINE_PER_CPU(struct ipipe_percpu_domain_data *, ipipe_percpu_daddr[CONFIG_IPIPE_DOMAINS]) =
+{ [0] = (struct ipipe_percpu_domain_data *)&__raw_get_cpu_var(ipipe_percpu_darray) };
+EXPORT_PER_CPU_SYMBOL(ipipe_percpu_daddr);
+#endif /* !CONFIG_SMP */
 
 DEFINE_PER_CPU(struct ipipe_percpu_domain_data, ipipe_percpu_darray[CONFIG_IPIPE_DOMAINS]) =
 { [0] = { .status = IPIPE_STALL_MASK } }; /* Root domain stalled on each CPU at startup. */
@@ -887,6 +891,7 @@ int fastcall __ipipe_dispatch_wired(struct ipipe_domain *head_domain, unsigned i
 	old = ipipe_current_domain;
 	ipipe_current_domain = head_domain; /* Switch to the head domain. */
 
+	ipipe_cpudom_var(head_domain, irqall)[irq]++;
 	__set_bit(IPIPE_STALL_FLAG, &ipipe_cpudom_var(head_domain, status));
 	head_domain->irqs[irq].handler(irq, head_domain->irqs[irq].cookie); /* Call the ISR. */
 	__ipipe_run_irqtail();
@@ -1577,6 +1582,7 @@ EXPORT_SYMBOL(ipipe_control_irq);
 EXPORT_SYMBOL(ipipe_suspend_domain);
 EXPORT_SYMBOL(ipipe_alloc_virq);
 EXPORT_PER_CPU_SYMBOL(ipipe_percpu_domain);
+EXPORT_PER_CPU_SYMBOL(ipipe_percpu_darray);
 EXPORT_SYMBOL(ipipe_root);
 EXPORT_SYMBOL(ipipe_stall_pipeline_from);
 EXPORT_SYMBOL(ipipe_test_and_stall_pipeline_from);
@@ -1592,12 +1598,8 @@ EXPORT_SYMBOL(__ipipe_spin_unlock_irq);
 EXPORT_SYMBOL(__ipipe_spin_lock_irqsave);
 EXPORT_SYMBOL(__ipipe_spin_unlock_irqrestore);
 EXPORT_SYMBOL(__ipipe_pipeline);
-EXPORT_SYMBOL(__ipipe_set_irq_pending);
 EXPORT_SYMBOL(__ipipe_lock_irq);
 EXPORT_SYMBOL(__ipipe_unlock_irq);
-#ifndef CONFIG_SMP
-EXPORT_SYMBOL(__ipipe_root_status);
-#endif
 EXPORT_SYMBOL(ipipe_register_domain);
 EXPORT_SYMBOL(ipipe_unregister_domain);
 EXPORT_SYMBOL(ipipe_free_virq);
