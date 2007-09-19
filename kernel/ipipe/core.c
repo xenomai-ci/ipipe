@@ -1598,7 +1598,6 @@ EXPORT_SYMBOL(__ipipe_spin_unlock_irq);
 EXPORT_SYMBOL(__ipipe_spin_lock_irqsave);
 EXPORT_SYMBOL(__ipipe_spin_unlock_irqrestore);
 EXPORT_SYMBOL(__ipipe_pipeline);
-EXPORT_SYMBOL(__ipipe_set_irq_pending);
 EXPORT_SYMBOL(__ipipe_lock_irq);
 EXPORT_SYMBOL(__ipipe_unlock_irq);
 EXPORT_SYMBOL(ipipe_register_domain);
