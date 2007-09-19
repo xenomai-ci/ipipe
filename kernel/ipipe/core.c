@@ -891,6 +891,7 @@ int fastcall __ipipe_dispatch_wired(struct ipipe_domain *head_domain, unsigned i
 	old = ipipe_current_domain;
 	ipipe_current_domain = head_domain; /* Switch to the head domain. */
 
+	ipipe_cpudom_var(head_domain, irqall)[irq]++;
 	__set_bit(IPIPE_STALL_FLAG, &ipipe_cpudom_var(head_domain, status));
 	head_domain->irqs[irq].handler(irq, head_domain->irqs[irq].cookie); /* Call the ISR. */
 	__ipipe_run_irqtail();
