@@ -786,6 +786,7 @@ int fastcall __ipipe_dispatch_wired(struct ipipe_domain *head_domain, unsigned i
 	old = ipipe_current_domain;
 	ipipe_current_domain = head_domain; /* Switch to the head domain. */
 
+	ipipe_cpudom_var(head_domain, irqall)[irq]++;
 	__set_bit(IPIPE_STALL_FLAG, &ipipe_cpudom_var(head_domain, status));
 	head_domain->irqs[irq].handler(irq, head_domain->irqs[irq].cookie); /* Call the ISR. */
 	__ipipe_run_irqtail();
@@ -1492,7 +1493,6 @@ EXPORT_SYMBOL(__ipipe_spin_unlock_irq);
 EXPORT_SYMBOL(__ipipe_spin_lock_irqsave);
 EXPORT_SYMBOL(__ipipe_spin_unlock_irqrestore);
 EXPORT_SYMBOL(__ipipe_pipeline);
-EXPORT_SYMBOL(__ipipe_set_irq_pending);
 EXPORT_SYMBOL(__ipipe_lock_irq);
 EXPORT_SYMBOL(__ipipe_unlock_irq);
 EXPORT_SYMBOL(ipipe_register_domain);
