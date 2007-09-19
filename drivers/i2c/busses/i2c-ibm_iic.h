@@ -23,7 +23,9 @@
 #define __I2C_IBM_IIC_H_
 
 #include <linux/i2c.h> 
+#ifdef CONFIG_PPC_MERGE
 #include <linux/of.h>
+#endif
 
 struct iic_regs {
 	u16 mdbuf;
