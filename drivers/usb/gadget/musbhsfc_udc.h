@@ -51,6 +51,10 @@
 #include <asm/system.h>
 #include <asm/unaligned.h>
 
+#ifndef CONFIG_PPC_MERGE
+#include <asm/ibm44x.h>
+#endif
+
 #include <linux/usb/ch9.h>
 #include <linux/usb_gadget.h>
 

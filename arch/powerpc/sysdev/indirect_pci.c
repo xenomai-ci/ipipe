@@ -169,3 +169,17 @@ setup_indirect_pci(struct pci_controller* hose, u32 cfg_addr, u32 cfg_data, u32 
 	hose->ops = &indirect_pci_ops;
 	hose->indirect_type = flags;
 }
+
+/*
+ * For some reason, ioremap does not handle 2-nd way mapping well,
+ * causing system check while trying to access config space later
+ */
+void __init
+setup_indirect_pci_noremap(struct pci_controller *hose, u32 cfg_addr,
+		u32 cfg_data, u32 flags)
+{
+	hose->cfg_addr = (void *)cfg_addr;
+	hose->cfg_data = (void *)cfg_data;
+	hose->ops = &indirect_pci_ops;
+	hose->indirect_type = flags;
+}

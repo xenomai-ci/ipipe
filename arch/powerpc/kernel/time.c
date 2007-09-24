@@ -875,7 +875,7 @@ void __init generic_calibrate_decr(void)
 				"(not found)\n");
 	}
 
-#ifdef CONFIG_BOOKE
+#if defined(CONFIG_BOOKE) || defined(CONFIG_40x)
 	/* Set the time base to zero */
 	mtspr(SPRN_TBWL, 0);
 	mtspr(SPRN_TBWU, 0);

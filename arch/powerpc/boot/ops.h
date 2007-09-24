@@ -191,4 +191,17 @@ static inline void exit(void)
 	static char _bss_stack[size]; \
 	void *_platform_stack_top = _bss_stack + sizeof(_bss_stack);
 
+extern unsigned long timebase_period_ns;
+void udelay(long delay);
+
+extern char _start[];
+extern char __bss_start[];
+extern char _end[];
+extern char _vmlinux_start[];
+extern char _vmlinux_end[];
+extern char _initrd_start[];
+extern char _initrd_end[];
+extern char _dtb_start[];
+extern char _dtb_end[];
+
 #endif /* _PPC_BOOT_OPS_H_ */

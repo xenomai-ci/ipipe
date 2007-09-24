@@ -25,10 +25,8 @@
 #include "ops.h"
 #include "reg.h"
 #include "dcr.h"
+#include "4xx.h"
 #include "44x.h"
-
-extern char _dtb_start[];
-extern char _dtb_end[];
 
 static u8 *ebony_mac0, *ebony_mac1;
 
@@ -98,7 +96,7 @@ static void ebony_fixups(void)
 	unsigned long sysclk = 33000000;
 
 	ibm440gp_fixup_clocks(sysclk, 6 * 1843200);
-	ibm44x_fixup_memsize();
+	ibm4xx_fixup_memsize();
 	dt_fixup_mac_addresses(ebony_mac0, ebony_mac1);
 	ibm4xx_fixup_ebc_ranges("/plb/opb/ebc");
 }
