@@ -1013,6 +1013,7 @@ ops_run_biodrain(struct stripe_head *sh, struct dma_async_tx_descriptor *tx)
 	int disks = sh->disks;
 	struct stripe_queue *sq = sh->sq;
 	int pd_idx = sq->pd_idx, i;
+	int qd_idx = raid6_next_disk(pd_idx, disks);
 
 	/* check if prexor is active which means only process blocks
 	 * that are part of a read-modify-write (Wantprexor)
@@ -1022,54 +1023,53 @@ ops_run_biodrain(struct stripe_head *sh, struct dma_async_tx_descriptor *tx)
 	pr_debug("%s: stripe %llu\n", __FUNCTION__,
 		(unsigned long long)sh->sector);
 
-#ifdef CONFIG_MD_RAID5_SKIP_BIO_COPY
-	if (sq->raid_conf->level != 6) {
+#ifdef CONFIG_MD_RAID_SKIP_BIO_COPY
+	/* initially assume that the operation is a full-stripe write*/
+	set_bit(STRIPE_FULL_WRITE, &sh->state);
+	for (i = disks; i-- ;) {
 		struct r5dev *dev;
 
-		/* initially assume that the operation is a full-stripe write*/
-		set_bit(STRIPE_FULL_WRITE, &sh->state);
-		for (i = disks; i-- ;) {
-			if (unlikely(i == pd_idx))
-				continue;
-			dev = &sh->dev[i];
-			if ((test_bit(R5_OVERWRITE, &dev->flags)) &&
-			    !r5_next_bio(sq->dev[i].towrite, sq->dev[i].sector)) {
-				/* now verify that there is only one bio_vec within the bio
-				 * covers the sh->dev[i]
-				 */
-				struct bio *pbio = sq->dev[i].towrite;
-				struct bio_vec *bvl;
-				int bvec_page = pbio->bi_sector << 9, k;
-				int dev_page = sq->dev[i].sector << 9;
+		if (unlikely(i == pd_idx))
+			continue;
+		if ((sq->raid_conf->level == 6) && unlikely(i == qd_idx))
+			continue;
+		dev = &sh->dev[i];
+		if ((test_bit(R5_OVERWRITE, &dev->flags)) &&
+		    !r5_next_bio(sq->dev[i].towrite, sq->dev[i].sector)) {
+			/* now verify that there is only one bio_vec within the bio
+			 * covers the sh->dev[i]
+			 */
+			struct bio *pbio = sq->dev[i].towrite;
+			struct bio_vec *bvl;
+			int bvec_page = pbio->bi_sector << 9, k;
+			int dev_page = sq->dev[i].sector << 9;
 
-				/* get the bio_vec that covers dev[i].page */
-				bio_for_each_segment(bvl, pbio, k) {
-					if (bvec_page == dev_page &&
-						bio_iovec_idx(pbio,k)->bv_len == STRIPE_SIZE) {
-						/* find vector that fully covers the strip */
-						break;
-					}
-					bvec_page += bio_iovec_idx(pbio,k)->bv_len;
+			/* get the bio_vec that covers dev[i].page */
+			bio_for_each_segment(bvl, pbio, k) {
+				if (bvec_page == dev_page &&
+					bio_iovec_idx(pbio,k)->bv_len == STRIPE_SIZE) {
+					/* find vector that fully covers the strip */
+					break;
 				}
-
-				if (k != pbio->bi_vcnt + 1) {
-					/* save the direct pointer to buffer */
-					sh->dev[i].dpage = bio_iovec_idx(pbio,k)->bv_page;
-					continue;
-				}
+				bvec_page += bio_iovec_idx(pbio,k)->bv_len;
 			}
 
-			/* come here in two cases:
-			 * - the dev[i] is not covered fully with the bio
-			 * - there are more than one bios cover the dev[i]
-			 * in both cases use the intermediate copy from bio to dev[i].page
-			 */
-
-			pr_debug("%s: do intermediate copying because of disk %d\n",
-				 __FUNCTION__, i);
-			clear_bit(STRIPE_FULL_WRITE, &sh->state);
-			break;
+			if (k != pbio->bi_vcnt + 1) {
+				/* save the direct pointer to buffer */
+				sh->dev[i].dpage = bio_iovec_idx(pbio,k)->bv_page;
+				continue;
+			}
 		}
+
+		/* come here in two cases:
+		 * - the dev[i] is not covered fully with the bio
+		 * - there are more than one bios cover the dev[i]
+		 * in both cases use the intermediate copy from bio to dev[i].page
+		 */
+		pr_debug(KERN_ERR "%s: do intermediate copying because of disk %d\n",
+			 __FUNCTION__, i);
+		clear_bit(STRIPE_FULL_WRITE, &sh->state);
+		break;
 	}
 #endif
 

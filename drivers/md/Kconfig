@@ -139,7 +139,7 @@ config MD_RAID456
 
 	  If unsure, say Y.
 
-config MD_RAID5_SKIP_BIO_COPY
+config MD_RAID_SKIP_BIO_COPY
 	bool "Skip intermediate bio->cache copy"
 	depends on MD_RAID456
 	default n
