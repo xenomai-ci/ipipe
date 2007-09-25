@@ -1033,6 +1033,8 @@ ops_run_biodrain(struct stripe_head *sh, struct dma_async_tx_descriptor *tx)
 			continue;
 		if ((sq->raid_conf->level == 6) && unlikely(i == qd_idx))
 			continue;
+		if (unlikely(!sq->dev[i].towrite))
+			goto do_copy;
 		dev = &sh->dev[i];
 		if ((test_bit(R5_OVERWRITE, &dev->flags)) &&
 		    !r5_next_bio(sq->dev[i].towrite, sq->dev[i].sector)) {
@@ -1061,6 +1063,7 @@ ops_run_biodrain(struct stripe_head *sh, struct dma_async_tx_descriptor *tx)
 			}
 		}
 
+do_copy:
 		/* come here in two cases:
 		 * - the dev[i] is not covered fully with the bio
 		 * - there are more than one bios cover the dev[i]
