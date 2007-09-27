@@ -35,6 +35,10 @@
 #include <platforms/4xx/ep405.h>
 #endif
 
+#if defined(CONFIG_KILAUEA)
+#include <platforms/4xx/kilauea.h>
+#endif
+
 #if defined(CONFIG_PPChameleonEVB)
 #include <platforms/4xx/ppchameleon.h>
 #endif
