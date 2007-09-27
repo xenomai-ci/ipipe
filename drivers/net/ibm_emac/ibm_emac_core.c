@@ -473,7 +473,8 @@ static int emac_reset(struct ocp_enet_private *dev)
 		emac_tx_disable(dev);
 	}
 
-#if defined(CONFIG_440EPX) || defined(CONFIG_440GRX) || defined(CONFIG_440SPE)
+#if defined(CONFIG_440EPX) || defined(CONFIG_440GRX) || \
+    defined(CONFIG_440SPE) || defined(CONFIG_405EX)
 	/*
 	 * This sequence is needed to avoid EMAC soft reset to lock
 	 * when no external clock is available (no ethernet used in
@@ -491,7 +492,8 @@ static int emac_reset(struct ocp_enet_private *dev)
 		--n;
 	local_irq_restore(flags);
 
-#if defined(CONFIG_440EPX) || defined(CONFIG_440GRX) || defined(CONFIG_440SPE)
+#if defined(CONFIG_440EPX) || defined(CONFIG_440GRX) || \
+    defined(CONFIG_440SPE) || defined(CONFIG_405EX)
 	/* Restore Initial Config */
 	SDR_WRITE(DCRN_SDR_MFR, SDR_READ(DCRN_SDR_MFR) & ~(0x08000000 >> dev->def->index));
 	out_be32(&p->mr1, in_be32(&p->mr1) & ~EMAC_MR1_ILE);
@@ -611,7 +613,7 @@ static int emac_configure(struct ocp_enet_private *dev)
 	else
 		zmii_set_speed(dev->zmii_dev, dev->zmii_input, dev->phy.speed);
 
-#if !defined(CONFIG_40x)
+#if !defined(CONFIG_40x) || defined(CONFIG_IBM_EMAC4V4)
 	/* on 40x erratum forces us to NOT use integrated flow control,
 	 * let's hope it works on 44x ;)
 	 */
@@ -727,6 +729,7 @@ static int __emac_mdio_read(struct ocp_enet_private *dev, u8 id, u8 reg)
 
 	/* Enable proper MDIO port */
 	zmii_enable_mdio(dev->zmii_dev, dev->zmii_input);
+	rgmii_enable_mdio(dev->rgmii_dev, dev->rgmii_input);
 
 	/* Wait for management interface to become idle */
 	n = 10;
@@ -776,6 +779,7 @@ static void __emac_mdio_write(struct ocp_enet_private *dev, u8 id, u8 reg,
 
 	/* Enable proper MDIO port */
 	zmii_enable_mdio(dev->zmii_dev, dev->zmii_input);
+	rgmii_enable_mdio(dev->rgmii_dev, dev->rgmii_input);
 
 	/* Wait for management interface to be idle */
 	n = 10;
@@ -2492,7 +2496,7 @@ static int __init emac_probe(struct ocp_device *ocpdev)
 		/* Setup initial link parameters */
 		if (dev->phy.features & SUPPORTED_Autoneg) {
 			adv = dev->phy.features;
-#if !defined(CONFIG_40x)
+#if !defined(CONFIG_40x) || defined(CONFIG_IBM_EMAC4V4)
 			adv |= ADVERTISED_Pause | ADVERTISED_Asym_Pause;
 #endif
 			/* Restart autonegotiation */
