@@ -868,8 +868,7 @@ static void ops_complete_biofill(void *stripe_head_ref)
 
 	return_io(return_bi);
 
-	if (more_to_read)
-		set_bit(STRIPE_HANDLE, &sh->state);
+	set_bit(STRIPE_HANDLE, &sh->state);
 	release_stripe(sh);
 }
 
