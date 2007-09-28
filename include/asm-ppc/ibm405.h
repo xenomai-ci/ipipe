@@ -429,25 +429,6 @@
 #define ICINSTAT_ICTX1		0x20000000
 #define ICINSTAT_ICTX		0x60000000
 
-#define DCRN_SDR_CONFIG_ADDR    0x00E
-#define DCRN_SDR_CONFIG_DATA    0x00F
-
-/* SDR read/write helper macros */
-#define SDR_READ(offset) ({			\
-	mtdcr(DCRN_SDR_CONFIG_ADDR, offset);	\
-	mfdcr(DCRN_SDR_CONFIG_DATA);})
-#define SDR_WRITE(offset, data) ({		\
-	mtdcr(DCRN_SDR_CONFIG_ADDR, offset);	\
-	mtdcr(DCRN_SDR_CONFIG_DATA, data);})
-
-/* SDR read/write helper macros */
-#define CPR_READ(offset) ({			\
-	mtdcr(DCRN_CPR_CFGADDR, offset);	\
-	mfdcr(DCRN_CPR_CFGDATA);})
-#define CPR_WRITE(offset, data) ({		\
-	mtdcr(DCRN_CPR_CFGADDR, offset);	\
-	mtdcr(DCRN_CPR_CFGDATA, data);})
-
 /*
  * EMAC interrupt coalesing
  */
@@ -477,6 +458,25 @@
 #define ICTX0_EN		0x40000000
 
 #endif /* CONFIG_405EZ */
+
+#define DCRN_SDR_CONFIG_ADDR    0x00E
+#define DCRN_SDR_CONFIG_DATA    0x00F
+
+/* SDR read/write helper macros */
+#define SDR_READ(offset) ({			\
+	mtdcr(DCRN_SDR_CONFIG_ADDR, offset);	\
+	mfdcr(DCRN_SDR_CONFIG_DATA);})
+#define SDR_WRITE(offset, data) ({		\
+	mtdcr(DCRN_SDR_CONFIG_ADDR, offset);	\
+	mtdcr(DCRN_SDR_CONFIG_DATA, data);})
+
+/* SDR read/write helper macros */
+#define CPR_READ(offset) ({			\
+	mtdcr(DCRN_CPR_CFGADDR, offset);	\
+	mfdcr(DCRN_CPR_CFGDATA);})
+#define CPR_WRITE(offset, data) ({		\
+	mtdcr(DCRN_CPR_CFGADDR, offset);	\
+	mtdcr(DCRN_CPR_CFGDATA, data);})
 
 #endif				/* __ASM_IBM405_H__ */
 #endif				/* __KERNEL__ */

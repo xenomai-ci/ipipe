@@ -39,6 +39,12 @@ config EP405
 	help
 	  This option enables support for the EP405/EP405PC boards.
 
+config KILAUEA
+	bool "Kilauea"
+	select WANT_EARLY_SERIAL
+	help
+	  This option enables support for the AMCC 405EX evaluation board.
+
 config PPChameleonEVB
 	bool "PPChameleonEVB"
 	help
@@ -272,17 +278,17 @@ config BOOKE
 
 config IBM_OCP
 	bool
-	depends on ACADIA || ALPR || ASH || BAMBOO || BUBINGA || CPCI405 || EBONY || EP405 || KATMAI || LUAN || LWMON5 || OCOTEA || P3P440 || PPChameleonEVB || RAINIER || REDWOOD_5 || REDWOOD_6 || SC3 || SEQUOIA || SYCAMORE || TAIHU || TAISHAN || WALNUT || YELLOWSTONE || YOSEMITE || YUCCA
+	depends on ACADIA || ALPR || ASH || BAMBOO || BUBINGA || CPCI405 || EBONY || EP405 || KATMAI || KILAUEA || LUAN || LWMON5 || OCOTEA || P3P440 || PPChameleonEVB || RAINIER || REDWOOD_5 || REDWOOD_6 || SC3 || SEQUOIA || SYCAMORE || TAIHU || TAISHAN || WALNUT || YELLOWSTONE || YOSEMITE || YUCCA
 	default y
 
 config IBM_EMAC4
 	bool
-	depends on 440GX || 440SP || 440SPE || 440EPX || 440GRX
+	depends on 440GX || 440SP || 440SPE || 440EPX || 440GRX || 405EX
 	default y
 
 config IBM_EMAC4V4
 	bool
-	depends on 440EPX || 440GRX
+	depends on 440EPX || 440GRX || 405EX
 	default y
 
 config IBM_EMAC3V2
@@ -314,6 +320,11 @@ config 405GP
 config 405GPR
 	bool
 	depends on SC3 || SYCAMORE
+	default y
+
+config 405EX
+	bool
+	depends on KILAUEA
 	default y
 
 config 405EZ

@@ -118,7 +118,7 @@ static void __init ppc4xx_pic_impl_init(void)
 }
 
 #elif NR_UICS == 3
-#if defined(CONFIG_440EPX)|| defined(CONFIG_440GRX)
+#if defined(CONFIG_440EPX) || defined(CONFIG_440GRX) || defined(CONFIG_405EX)
 #define ACK_UIC0_PARENT
 #define ACK_UIC1_PARENT	mtdcr(DCRN_UIC_SR(UIC0), UIC0_UIC1NC);
 #define ACK_UIC2_PARENT	mtdcr(DCRN_UIC_SR(UIC0), UIC0_UIC2NC);

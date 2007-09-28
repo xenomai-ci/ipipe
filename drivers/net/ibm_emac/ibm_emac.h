@@ -24,7 +24,7 @@
 
 /* This is a simple check to prevent use of this driver on non-tested SoCs */
 #if !defined(CONFIG_405GP) && !defined(CONFIG_405GPR) && !defined(CONFIG_405EP) && \
-    !defined(CONFIG_405EZ) && \
+    !defined(CONFIG_405EZ) && !defined(CONFIG_405EX) && \
     !defined(CONFIG_440GP) && !defined(CONFIG_440GX) && !defined(CONFIG_440SP) && \
     !defined(CONFIG_440EP) && !defined(CONFIG_NP405H) && !defined(CONFIG_440SPE) && \
     !defined(CONFIG_440GR) && !defined(CONFIG_440EPX) && !defined(CONFIG_440GRX)
@@ -170,7 +170,7 @@ struct emac_regs {
 /* IBM manuals are not very clear here.
  * This is my interpretation of how things are. --ebs
  */
-#if defined(CONFIG_40x)
+#if defined(CONFIG_40x) && !defined(CONFIG_IBM_EMAC4V4)
 #define EMAC_FIFO_ENTRY_SIZE		8
 #define EMAC_MAL_BURST_SIZE		(16 * 4)
 #else
