@@ -169,14 +169,6 @@
 			interrupts = <21 4>;
 		};
 
-		usb@e0000300, {
-			device_type = "usb";
-			compatible = "ibm,usb-ehci", "ibm,usb";
-			reg = <0 e0000300 100>;
-			interrupt-parent = <&UIC0>;
-			interrupts = <26 4>;
-		};
-
 		ndfc@1d0000000, {
 			device_type = "nand";
 			compatible = "ibm,nand";
@@ -211,6 +203,14 @@
 					reg = <0 0>;
 				};
 			};
+		};
+
+		USB0: ehci@e0000300 {
+			compatible = "ibm,usb-ehci-440epx", "usb-ehci";
+			interrupt-parent = <&UIC0>;
+			interrupts = <1a 4>;
+			reg = <0 e0000300 90 0 e0000390 70>;
+			big-endian;
 		};
 
 		POB0: opb {

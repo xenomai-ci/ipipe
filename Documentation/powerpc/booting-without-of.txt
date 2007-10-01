@@ -52,6 +52,7 @@ Table of Contents
       i) Freescale QUICC Engine module (QE)
       j) CFI or JEDEC memory-mapped NOR flash
       k) Global Utilities Block
+      l) USB EHCI controllers
 
   VII - Specifying interrupt information for devices
     1) interrupts property
@@ -2003,6 +2004,33 @@ platforms are moved over to use the flattened-device-tree model.
     - revision           : as provided by the RGMII new version register if
 			   available.
 			   For Axon: 0x0000012a
+
+  l) USB EHCI controllers
+
+  Required properties:
+  - compatible : should be "usb-ehci".
+  - reg : should contain at least address and length of the standard EHCI
+    register set for the device. Optional platform-dependent registers
+    (debug-port or other) can be also specified here, but only after
+    definition of standard EHCI registers.
+  - interrupts : one EHCI interrupt should be described here.
+  If device registers are implemented in big endian mode, the device
+  node should have "big-endian-regs" property.
+  If controller implementation operates with big endian descriptors,
+  "big-endian-desc" property should be specified.
+  If both big endian registers and descriptors are used by the controller
+  implementation, "big-endian" property can be specified instead of having
+  both "big-endian-regs" and "big-endian-desc".
+
+   Example (Sequoia 440EPx):
+	ehci@e0000300 {
+		compatible = "ibm,usb-ehci-440epx", "usb-ehci";
+		interrupt-parent = <&UIC0>;
+		interrupts = <1a 4>;
+		reg = <0 e0000300 90 0 e0000390 70>;
+		big-endian;
+	};
+
 
    More devices will be defined as this spec matures.
 
