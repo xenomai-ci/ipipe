@@ -153,21 +153,7 @@
 			interrupt-map-mask = <ffffffff>;
 		};
 		
-		usb@e0000100, {
-			device_type = "usb";
-			compatible = "ibm,gadget-udc", "ibm,usb";
-			reg = <0 e0000100 80>;
-			interrupt-parent = <&UIC0>;
-			interrupts = <20 4>;
-		};
 		
-		usb@e0000400, {
-			device_type = "usb";
-			compatible = "ibm,usb-ohci", "ibm,usb";
-			reg = <0 e0000400 100>;
-			interrupt-parent = <&UIC0>;
-			interrupts = <21 4>;
-		};
 
 		ndfc@1d0000000, {
 			device_type = "nand";
@@ -211,6 +197,21 @@
 			interrupts = <1a 4>;
 			reg = <0 e0000300 90 0 e0000390 70>;
 			big-endian;
+		};
+
+		USB1: usb@e0000400, {
+			compatible = "ibm,usb-ohci-440epx", "usb-ohci", "ohci-be";
+			reg = <0 e0000400 90>;
+			interrupt-parent = <&UIC0>;
+			interrupts = <15 8>;
+		};
+
+		USB2: usb@e0000100, {
+			device_type = "usb";
+			compatible = "ibm,usb-gadget-440epx", "musbhsfc_udc";
+			reg = <0 e0000100 80>;
+			interrupt-parent = <&UIC0>;
+			interrupts = <14 2>;
 		};
 
 		POB0: opb {

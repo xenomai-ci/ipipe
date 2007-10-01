@@ -26,6 +26,7 @@ static struct of_device_id sequoia_of_bus[] = {
 	{ .compatible = "ibm,plb4", },
 	{ .compatible = "ibm,opb", },
 	{ .compatible = "ibm,ebc", },
+	{ .compatible = "ibm,usb-ehci-440epx", },
 	{},
 };
 
