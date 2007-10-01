@@ -474,7 +474,8 @@ static int emac_reset(struct ocp_enet_private *dev)
 	}
 
 #if defined(CONFIG_440EPX) || defined(CONFIG_440GRX) || \
-    defined(CONFIG_440SPE) || defined(CONFIG_405EX)
+    defined(CONFIG_440SPE) || defined(CONFIG_405EX) || \
+    defined(CONFIG_440SP)
 	/*
 	 * This sequence is needed to avoid EMAC soft reset to lock
 	 * when no external clock is available (no ethernet used in
@@ -493,7 +494,8 @@ static int emac_reset(struct ocp_enet_private *dev)
 	local_irq_restore(flags);
 
 #if defined(CONFIG_440EPX) || defined(CONFIG_440GRX) || \
-    defined(CONFIG_440SPE) || defined(CONFIG_405EX)
+    defined(CONFIG_440SPE) || defined(CONFIG_405EX) || \
+    defined(CONFIG_440SP)
 	/* Restore Initial Config */
 	SDR_WRITE(DCRN_SDR_MFR, SDR_READ(DCRN_SDR_MFR) & ~(0x08000000 >> dev->def->index));
 	out_be32(&p->mr1, in_be32(&p->mr1) & ~EMAC_MR1_ILE);
