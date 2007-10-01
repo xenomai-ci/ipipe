@@ -89,6 +89,14 @@ config USB_EHCI_BIG_ENDIAN_DESC
 	depends on USB_EHCI_HCD
 	default n
 
+config USB_EHCI_HCD_PPC_OF
+	bool "EHCI support for PPC USB controller on OF platform bus"
+	depends on USB_EHCI_HCD && PPC_OF
+	default y
+	---help---
+	  Enables support for the USB controller PowerPC present on the
+	  OpenFirmware platform bus.
+
 config USB_ISP116X_HCD
 	tristate "ISP116X HCD support"
 	depends on USB
