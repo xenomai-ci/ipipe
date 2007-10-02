@@ -295,7 +295,7 @@ static inline int emac_phy_done(u32 stacr)
  * On 440SPe the SDR0_PFC1 register has to be setup according to the
  * detected link speed.
  */
-#if defined(CONFIG_440SPE)
+#if defined(CONFIG_440SPE) || defined(CONFIG_440SP)
 #define DCRN_SDR_PFC1		0x4101
 #define SDR0_PFC1_EM_1000	0x00200000
 
