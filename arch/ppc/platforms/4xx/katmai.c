@@ -39,6 +39,7 @@
 #include <linux/mtd/nand.h>
 #include <linux/mtd/ndfc.h>
 #include <linux/mtd/physmap.h>
+#include <linux/i2c.h>
 
 #include <asm/system.h>
 #include <asm/pgtable.h>
@@ -61,6 +62,16 @@
 extern bd_t __res;
 
 static struct ibm44x_clocks clocks __initdata;
+
+/*
+ * I2C RTC
+ */
+static struct i2c_board_info __initdata katmai_i2c_devices[] = {
+	{
+		I2C_BOARD_INFO("rtc-ds1307", 0x68),
+		.type = "m41t00",
+	},
+};
 
 unsigned char ppc4xx_uic_ext_irq_cfg[] __initdata = {
 	(IRQ_SENSE_LEVEL | IRQ_POLARITY_NEGATIVE),	/* IRQ15: EXT */
@@ -181,6 +192,10 @@ static int katmai_setup_pdevs(void)
 	EBC_WRITE(DCRN_EBC0_B1CR, 0xfe01a000);
 	EBC_WRITE(DCRN_EBC0_B1AP, 0x02000080);
 	platform_device_register(&sysace_device);
+
+	/* I2C devices */
+	i2c_register_board_info(1, katmai_i2c_devices,
+				ARRAY_SIZE(katmai_i2c_devices));
 
 	return 0;
 }
