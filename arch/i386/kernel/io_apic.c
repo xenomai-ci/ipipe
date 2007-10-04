@@ -2058,6 +2058,15 @@ static void ack_ioapic_quirk_irq(unsigned int irq)
 		__unmask_and_level_IO_APIC_irq(irq);
 		spin_unlock(&ioapic_lock);
 	}
+
+#ifdef CONFIG_IPIPE
+/*
+ * Prevent low priority IRQs grabbed by high priority domains from
+ * being delayed, waiting for a high priority interrupt handler
+ * running in a low priority domain to complete.
+ */
+	__mask_IO_APIC_irq(irq);
+#endif
 }
 
 static int ioapic_retrigger_irq(unsigned int irq)
