@@ -721,6 +721,11 @@ void lapic_shutdown(void)
 	local_irq_restore_hw(flags);
 }
 
+int __ipipe_check_lapic(void)
+{
+	return tick_device_is_functional(&lapic_clockevent);
+}
+
 /*
  * This is to verify that we're looking at a real local APIC.
  * Check these against your board if the CPUs aren't getting

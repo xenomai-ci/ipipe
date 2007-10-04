@@ -192,6 +192,10 @@ do { \
 #define __ipipe_syscall_watched_p(p, sc)	\
 	(((p)->flags & PF_EVNOTIFY) || (unsigned long)sc >= NR_syscalls)
 
+int __ipipe_check_lapic(void);
+
+int __ipipe_check_tickdev(const char *devname);
+
 #else /* !CONFIG_IPIPE */
 
 #define task_hijacked(p)	0

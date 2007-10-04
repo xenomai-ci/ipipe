@@ -784,6 +784,14 @@ finalize_nosync:
 	return 1;
 }
 
+int __ipipe_check_tickdev(const char *devname)
+{
+	if (strcmp(devname, "lapic"))
+		return __ipipe_check_lapic();
+
+	return 1;
+}
+
 EXPORT_SYMBOL(__ipipe_tick_irq);
 EXPORT_SYMBOL(ipipe_critical_enter);
 EXPORT_SYMBOL(ipipe_critical_exit);
