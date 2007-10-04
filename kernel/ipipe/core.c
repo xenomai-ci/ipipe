@@ -142,8 +142,13 @@ int ipipe_request_tickdev(const char *devname,
 	slave = &per_cpu(tick_cpu_device, cpu);
 
 	if (strcmp(slave->evtdev->name, devname)) {
-		/* No conflict, bail out. */
-		status = CLOCK_EVT_MODE_UNUSED;
+		/*
+		 * No conflict so far with the current tick device,
+		 * check whether the requested device is sane and has
+		 * been blessed by the kernel.
+		 */
+		status = __ipipe_check_tickdev(devname) ?
+			CLOCK_EVT_MODE_UNUSED : CLOCK_EVT_MODE_SHUTDOWN;
 		goto out;
 	}
 
