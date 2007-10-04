@@ -2044,6 +2044,7 @@ static struct irq_chip ioapic_chip __read_mostly = {
 	.retrigger	= ioapic_retrigger_irq,
 };
 
+
 static inline void init_IO_APIC_traps(void)
 {
 	int irq;

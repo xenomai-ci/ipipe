@@ -759,7 +759,7 @@ static __kprobes void default_do_nmi(struct pt_regs * regs)
 
 fastcall __kprobes void do_nmi(struct pt_regs * regs, long error_code)
 {
-  	int cpu, cs;
+	int cpu, cs;
 
 	nmi_enter();
 

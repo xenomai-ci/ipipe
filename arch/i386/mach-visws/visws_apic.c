@@ -131,6 +131,7 @@ static struct irq_chip cobalt_irq_type = {
 	.end =		end_cobalt_irq,
 };
 
+
 /*
  * This is the PIIX4-based 8259 that is wired up indirectly to Cobalt
  * -- not the manner expected by the code in i8259.c.
