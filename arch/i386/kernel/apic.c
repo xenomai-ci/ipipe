@@ -1217,11 +1217,7 @@ inline void smp_local_timer_interrupt(void)
 {
 	profile_tick(CPU_PROFILING);
 #ifdef CONFIG_SMP
-#ifdef CONFIG_IPIPE
-	update_process_times(user_mode_vm(__ipipe_tick_regs + smp_processor_id()));
-#else
 	update_process_times(user_mode_vm(get_irq_regs()));
-#endif
 #endif
 
 	/*
