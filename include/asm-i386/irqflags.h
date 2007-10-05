@@ -116,23 +116,16 @@ static inline unsigned long __raw_local_irq_save(void)
 #else
 
 #ifdef CONFIG_IPIPE
-#ifdef CONFIG_SMP
-#define DISABLE_INTERRUPTS(clobbers)		call __ipipe_stall_root; sti
-#else /* !CONFIG_SMP */
-/*
- * Disable IRQs == set IPIPE_STALL_FLAG in ipipe_root.cpudata[0].status
- */
-#define DISABLE_INTERRUPTS(clobbers)		btsl $0,ipipe_root; sti
-#endif /* !CONFIG_SMP */
-#define ENABLE_INTERRUPTS(clobbers)		call __ipipe_unstall_root
-#define ENABLE_INTERRUPTS_HW_COND		sti
-#define DISABLE_INTERRUPTS_HW(clobbers)    	cli
+#define DISABLE_INTERRUPTS(clobbers)	PER_CPU(ipipe_percpu_darray, %eax); btsl $0,(%eax); sti
+#define ENABLE_INTERRUPTS(clobbers)	call __ipipe_unstall_root
+#define ENABLE_INTERRUPTS_HW_COND	sti
+#define DISABLE_INTERRUPTS_HW(clobbers)	cli
 #define ENABLE_INTERRUPTS_HW(clobbers)	sti
 #else /* !CONFIG_IPIPE */
-#define DISABLE_INTERRUPTS(clobbers)		cli
-#define ENABLE_INTERRUPTS(clobbers)		sti
+#define DISABLE_INTERRUPTS(clobbers)	cli
+#define ENABLE_INTERRUPTS(clobbers)	sti
 #define ENABLE_INTERRUPTS_HW_COND
-#define DISABLE_INTERRUPTS_HW(clobbers)    	DISABLE_INTERRUPTS(clobbers)
+#define DISABLE_INTERRUPTS_HW(clobbers)	DISABLE_INTERRUPTS(clobbers)
 #define ENABLE_INTERRUPTS_HW(clobbers)	ENABLE_INTERRUPTS(clobbers)
 #endif /* !CONFIG_IPIPE */
 #define ENABLE_INTERRUPTS_SYSEXIT	sti; sysexit

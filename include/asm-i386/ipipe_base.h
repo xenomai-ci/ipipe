@@ -92,10 +92,13 @@
 
 #ifdef CONFIG_SMP
 
+/* Ugly: depends on i386_pda layout and actual implementation of
+ * percpu accesses. */
 #define GET_ROOT_STATUS_ADDR					\
 	"pushfl; cli;"						\
-	"movl %%fs:per_cpu__this_cpu_off, %%eax;"		\
-	"lea per_cpu__ipipe_percpu_darray(%%eax), %%eax;"
+	"movl %%gs:4, %%eax;"					\
+	"movl __per_cpu_offset(,%%eax,4), %%eax;"		\
+	"addl $per_cpu__ipipe_percpu_darray, %%eax;"
 #define PUT_ROOT_STATUS_ADDR	"popfl;"
 
 static inline void __ipipe_stall_root(void)
