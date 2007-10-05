@@ -67,7 +67,7 @@ comment "Low-level watchdog drivers"
 
 config WD_MPC5200
 	bool "Driver for MPC5200(B) built-in watchdog"
-	select PPC_MPC5200
+	depends on PPC_MPC5200
 	default n
 	help
 	  Low level functions for MPC5200(B) watchdog driver based on GPT.
