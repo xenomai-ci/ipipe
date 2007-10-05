@@ -53,13 +53,12 @@ static int __init ppc4xx_setup_usb_node(struct device_node *dev)
 
 	of_irq_to_resource(dev, 0, &r[1]);
 
-
-	usb_dev = platform_device_register_simple(
-			"musbhsfc_udc", 1, r, 2);
+	usb_dev = platform_device_register_simple("musbhsfc_udc", 1, r, 2);
 	DBG("registered IBM gadget at %llx\n", r[0].start);
 
 	if (IS_ERR(usb_dev))
 		ret = PTR_ERR(usb_dev);
+
 err:
 	return ret;
 }
@@ -67,9 +66,11 @@ err:
 static int ppc4xx_init_usb(void)
 {
 	struct device_node *np;
+
 	for (np = NULL;
-		(np = of_find_compatible_node(np, "usb", "musbhsfc_udc")) != NULL;)
-		    ppc4xx_setup_usb_node(np);
+	     (np = of_find_compatible_node(np, "usb", "musbhsfc_udc")) != NULL;)
+		ppc4xx_setup_usb_node(np);
+
 	return 0;
 }
 arch_initcall(ppc4xx_init_usb);

@@ -85,6 +85,7 @@ static inline u32 of_get_int(struct device_node *np, const char *name)
 {
 	unsigned int size;
 	const u32 *prop = of_get_property(np, name, &size);
+
 	if ((prop == NULL) || (size != sizeof(int))) {
 		printk(KERN_WARNING"%s property missing!\n", __FUNCTION__);
 		return 0;
@@ -168,11 +169,12 @@ err:
 
 static int ppc4xx_init_nand(void)
 {
-	struct device_node *np =
-		of_find_compatible_node(NULL, "nand", "ibm,nand");
+	struct device_node *np = of_find_compatible_node(NULL, "nand",
+							 "ibm,nand");
 
 	if (np != NULL)
 		ppc4xx_setup_nand_node(np);
+
 	return 0;
 }
 arch_initcall(ppc4xx_init_nand);
