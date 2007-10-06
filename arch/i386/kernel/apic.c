@@ -723,7 +723,7 @@ void lapic_shutdown(void)
 
 int __ipipe_check_lapic(void)
 {
-	return !(lapic_clockevent.fatures & CLOCK_EVT_FEAT_DUMMY);
+	return !(lapic_clockevent.features & CLOCK_EVT_FEAT_DUMMY);
 }
 
 /*
