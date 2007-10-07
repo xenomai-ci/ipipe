@@ -262,15 +262,15 @@ static inline void ppc440spe_desc_init_pqzero_sum(ppc440spe_desc_t *desc,
 			 * of the transaction (src, dst, ...)
 			 */
 			iter->hw_next = NULL;
+			/* always enable interrupt generating since we get
+			 * the status of pqzero from the handler
+			 */
+			set_bit(PPC440SPE_DESC_INT, &iter->flags);
 		}
 		i++;
 	}
 	desc->src_cnt = src_cnt;
 	desc->dst_cnt = dst_cnt;
-	if (int_en)
-		set_bit(PPC440SPE_DESC_INT, &desc->flags);
-	else
-		clear_bit(PPC440SPE_DESC_INT, &desc->flags);
 }
 
 /**
@@ -519,6 +519,7 @@ static inline void ppc440spe_desc_set_link(ppc440spe_ch_t *chan,
 				ppc440spe_desc_t *prev_desc, ppc440spe_desc_t *next_desc)
 {
 	unsigned long flags;
+	ppc440spe_desc_t *tail = next_desc;
 
 	if (unlikely(!prev_desc || !next_desc || prev_desc->hw_next)) {
 		/* If previous next is overwritten something is wrong  */
@@ -539,7 +540,9 @@ static inline void ppc440spe_desc_set_link(ppc440spe_ch_t *chan,
 		break;
 	case PPC440SPE_XOR_ID:
 		/* bind descriptor to the chain */
-		xor_last_linked = next_desc;
+		while (tail->hw_next)
+			tail = tail->hw_next;
+		xor_last_linked = tail;
 
 		if (prev_desc == xor_last_submit)
 			/* do not link to the last submitted CB */
