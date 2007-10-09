@@ -205,7 +205,7 @@ void ipipe_release_tickdev(int cpu)
  * ipipe_init() -- Initialization routine of the IPIPE layer. Called
  * by the host kernel early during the boot procedure.
  */
-void ipipe_init(void)
+void __init ipipe_init(void)
 {
 	struct ipipe_domain *ipd = &ipipe_root;
 
