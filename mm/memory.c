@@ -2960,17 +2960,4 @@ int ipipe_disable_ondemand_mappings(struct task_struct *tsk)
 
 EXPORT_SYMBOL(ipipe_disable_ondemand_mappings);
 
-void __ipipe_pin_range_globally(unsigned long start, unsigned long end)
-{
-	struct task_struct *p;
-
-	read_lock(&tasklist_lock);
-
-	for_each_process(p)
-		if (p->mm)
-			__ipipe_pin_range_mapping(p->mm, start, end);
-
-	read_unlock(&tasklist_lock);
-}
-
 #endif
