@@ -649,16 +649,20 @@ void vmalloc_sync_all(void)
 }
 
 #ifdef CONFIG_IPIPE
-int __ipipe_pin_range_mapping(struct mm_struct *mm,
-			      unsigned long start, unsigned long end)
+void __ipipe_pin_range_globally(unsigned long start, unsigned long end)
 {
 	unsigned long next, addr = start;
 
 	do {
-		next = pgd_addr_end(addr, end);
-		vmalloc_sync_one(mm->pgd, addr);
-	} while (addr = next, addr != end);
+		unsigned long flags;
+		struct page *page;
 
-	return 0;
+		next = pgd_addr_end(addr, end);
+		spin_lock_irqsave(&pgd_lock, flags);
+		for (page = pgd_list; page; page = (struct page *)page->index)
+			vmalloc_sync_one(page_address(page), addr);
+		spin_unlock_irqrestore(&pgd_lock, flags);
+
+	} while (addr = next, addr != end);
 }
 #endif /* CONFIG_IPIPE */
