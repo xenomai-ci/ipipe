@@ -36,6 +36,18 @@ void ipipe_trace_pid(pid_t pid, short prio);
 int ipipe_trace_max_reset(void);
 int ipipe_trace_frozen_reset(void);
 
+#ifdef CONFIG_IPIPE_TRACE_IRQSOFF
+#define ipipe_trace_irq_entry(irq)	ipipe_trace_begin(irq)
+#define ipipe_trace_irq_exit(irq)	ipipe_trace_end(irq)
+#define ipipe_trace_irqsoff()		ipipe_trace_begin(0x80000000UL)
+#define ipipe_trace_irqson()		ipipe_trace_end(0x80000000UL)
+#else
+#define ipipe_trace_irq_entry(irq)	do { } while(0)
+#define ipipe_trace_irq_exit(irq)	do { } while(0)
+#define ipipe_trace_irqsoff()		do { } while(0)
+#define ipipe_trace_irqson()		do { } while(0)
+#endif
+
 #endif /* CONFIG_IPIPE */
 
 #ifdef CONFIG_IPIPE_TRACE_PANIC

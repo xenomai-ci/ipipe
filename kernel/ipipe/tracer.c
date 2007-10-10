@@ -146,19 +146,19 @@ static void __ipipe_print_symname(struct seq_file *m, unsigned long eip);
 
 
 static notrace void
-__ipipe_store_domain_states(struct ipipe_trace_point *point, int cpu_id)
+__ipipe_store_domain_states(struct ipipe_trace_point *point)
 {
+	struct ipipe_domain *ipd;
 	struct list_head *pos;
 	int i = 0;
 
 	list_for_each_prev(pos, &__ipipe_pipeline) {
-		struct ipipe_domain *ipd =
-			list_entry(pos, struct ipipe_domain, p_link);
+		ipd = list_entry(pos, struct ipipe_domain, p_link);
 
-		if (test_bit(IPIPE_STALL_FLAG, &ipd->cpudata[cpu_id].status))
+		if (test_bit(IPIPE_STALL_FLAG, &ipipe_cpudom_var(ipd, status)))
 			point->flags |= 1 << (i + IPIPE_TFLG_DOMSTATE_SHIFT);
 
-		if (ipd == per_cpu(ipipe_percpu_domain, cpu_id))
+		if (ipd == ipipe_current_domain)
 			point->flags |= i << IPIPE_TFLG_CURRDOM_SHIFT;
 
 		if (++i > IPIPE_TFLG_DOMSTATE_BITS)
@@ -330,7 +330,7 @@ __ipipe_trace(enum ipipe_trace_type type, unsigned long eip,
 	point->v = v;
 	ipipe_read_tsc(point->timestamp);
 
-	__ipipe_store_domain_states(point, cpu_id);
+	__ipipe_store_domain_states(point);
 
 	/* forward to next point buffer */
 	next_pos = WRAP_POINT_NO(pos+1);
