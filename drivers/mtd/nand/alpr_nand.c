@@ -89,6 +89,7 @@ static void pd_ndfc_hwcontrol(struct mtd_info *mtd, int cmd, unsigned int ctrl)
 		out_8(pd_ndfc->ndfcbase + PD_NDFC_ADDR_WAIT, cmd & 0xff);
 }
 
+#ifdef USE_ALPR_READY_PIN
 static int pd_ndfc_ready(struct mtd_info *mtd)
 {
 	struct pd_ndfc_controller *pd_ndfc = &pd_ndfc_ctrl;
@@ -100,6 +101,7 @@ static int pd_ndfc_ready(struct mtd_info *mtd)
 
 	return 1;
 }
+#endif
 
 static void pd_ndfc_write_byte(struct mtd_info *mtd, u_char byte)
 {
@@ -156,7 +158,11 @@ static void pd_ndfc_chip_init(struct pd_ndfc_nand_mtd *mtd, int chip_nr)
 	chip->IO_ADDR_R = pd_ndfc->ndfcbase + PD_NDFC_DATA;
 	chip->IO_ADDR_W = pd_ndfc->ndfcbase + PD_NDFC_DATA;
 	chip->cmd_ctrl = pd_ndfc_hwcontrol;
+#ifdef USE_ALPR_READY_PIN
 	chip->dev_ready = pd_ndfc_ready;
+#else
+	chip->dev_ready = NULL;
+#endif
 	chip->read_byte = pd_ndfc_read_byte;
 	chip->write_buf = pd_ndfc_write_buf;
 	chip->read_buf = pd_ndfc_read_buf;
@@ -244,7 +250,7 @@ static int pd_ndfc_nand_probe(struct platform_device *pdev)
 
 	platform_set_drvdata(pdev, pd_ndfc);
 
-	printk("PD_NDFC NAND Driver initialized.\n");
+	printk("PD_NDFC NAND Driver initialized at 0x%p.\n", pd_ndfc->ndfcbase);
 
 	return 0;
 }

@@ -526,6 +526,13 @@ static void __init alpr_setup_arch(void)
 
 	alpr_early_serial_map();
 
+	/* Turn of the PerReady input
+	 * it creates waits on the PLB
+	 * that cause the USB chip to
+	 * stop functioning...
+	 */
+	EBC_WRITE(DCRN_EBC0_B1AP, EBC_READ(DCRN_EBC0_B1AP) & ~0x100);
+
 	/* Identify the system */
 	printk("Prodrive ALPR port (DENX Software Engineering <sr@denx.de>)\n");
 }
