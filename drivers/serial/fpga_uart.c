@@ -453,7 +453,6 @@ static irqreturn_t fpga_uart_int(int irq, void *dev_id)
 	debug("ttyFPGA%d:%s int_enable=%x int_status=%x\n",
 	      port->line, __FUNCTION__, readl(data->vbar2 + IBUF_INT_ENABLE),
 	      readl(data->vbar2 + IBUF_INT_STATUS));
-	spin_lock(&port->lock);
 
 	/* While we have stuff to do, we continue */
 	int_status = readl(data->vbar2 + IBUF_INT_STATUS) & INT_MASK;
@@ -462,21 +461,27 @@ static irqreturn_t fpga_uart_int(int irq, void *dev_id)
 		      __FUNCTION__, readl(data->vbar2 + IBUF_INT_STATUS));
 		/* Do we need to receive chars ? */
 		/* For this RX interrupts must be on and some chars waiting */
-		if (int_status & INT_RX)
+		if (int_status & INT_RX) {
+			writel(INT_RX, data->vbar2 + IBUF_INT_STATUS);
 			fpga_uart_int_rx_chars(port);
+		}
 
 		/* Do we need to send chars ? */
 		/* For this, TX must be ready and TX interrupt enabled */
 		if (int_status & INT_TX) {
+			writel(INT_TX, data->vbar2 + IBUF_INT_STATUS);
 			do {
 				busy = fpga_uart_int_tx_chars(port);
 			} while(busy);
 		}
-		writel(int_status, data->vbar2 + IBUF_INT_STATUS);
+		/*
+		 * Could cause an error because rx can occur during tx,
+		 * so were ack'ing the irq's directly in the rx-/tx-path
+		 *
+		 * writel(int_status, data->vbar2 + IBUF_INT_STATUS);
+		 */
 		int_status = readl(data->vbar2 + IBUF_INT_STATUS) & INT_MASK;
 	}
-
-	spin_unlock(&port->lock);
 
 	return IRQ_HANDLED;
 }
