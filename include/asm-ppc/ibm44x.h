@@ -805,6 +805,9 @@
 #define DCRN_EBC0_B2AP		0x12
 #define DCRN_EBC0_B3AP		0x13
 
+#define EBC_READ(offset) ({\
+	mtdcr(DCRN_EBC_CONFIG_ADDR, offset); \
+	mfdcr(DCRN_EBC_CONFIG_DATA);})
 #define EBC_WRITE(offset, data) do { \
 	mtdcr(DCRN_EBC_CONFIG_ADDR, offset); \
 	mtdcr(DCRN_EBC_CONFIG_DATA, data);} while (0)
