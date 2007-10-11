@@ -24,10 +24,10 @@
 
 #ifdef CONFIG_IPIPE
 
-#define IPIPE_ARCH_STRING	"1.2-00"
+#define IPIPE_ARCH_STRING	"1.1-02"
 #define IPIPE_MAJOR_NUMBER	1
-#define IPIPE_MINOR_NUMBER	2
-#define IPIPE_PATCH_NUMBER	0
+#define IPIPE_MINOR_NUMBER	1
+#define IPIPE_PATCH_NUMBER	2
 
 #ifndef __ASSEMBLY__
 
@@ -41,8 +41,10 @@
 #include <linux/thread_info.h>
 #endif
 
-/* The logical processor id is read from the PDA, so this is always
- * safe, regardless of the underlying stack. */
+/*
+ * The logical processor id is read from the PDA, so this is always
+ * safe, regardless of the underlying stack.
+ */
 #define ipipe_processor_id()	raw_smp_processor_id()
 
 #define prepare_arch_switch(next)		\
@@ -92,7 +94,7 @@ extern unsigned cpu_khz;
 #ifdef CONFIG_SMP
 void __ipipe_hook_critical_ipi(struct ipipe_domain *ipd);
 #else
-#define __ipipe_hook_critical_ipi(ipd)	do { } while(0)
+#define __ipipe_hook_critical_ipi(ipd)		do { } while(0)
 #endif
 
 #define __ipipe_disable_irqdesc(ipd, irq)	do { } while(0)
