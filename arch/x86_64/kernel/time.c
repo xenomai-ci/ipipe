@@ -160,11 +160,7 @@ void main_timer_handler(void)
 
 	do_timer(1);
 #ifndef CONFIG_SMP
-#ifdef CONFIG_IPIPE
-	update_process_times(user_mode(__ipipe_tick_regs + smp_processor_id()));
-#else
 	update_process_times(user_mode(get_irq_regs()));
-#endif
 #endif
 
 /*

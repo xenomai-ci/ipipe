@@ -1020,11 +1020,7 @@ void smp_local_timer_interrupt(void)
 {
 	profile_tick(CPU_PROFILING);
 #ifdef CONFIG_SMP
-#ifdef CONFIG_IPIPE
-	update_process_times(user_mode(__ipipe_tick_regs + smp_processor_id()));
-#else
 	update_process_times(user_mode(get_irq_regs()));
-#endif
 #endif
 	if (apic_runs_main_timer > 1 && smp_processor_id() == boot_cpu_id)
 		main_timer_handler();
