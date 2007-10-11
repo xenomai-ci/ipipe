@@ -2,7 +2,7 @@
  * kernel/ipipe/tracer.c
  *
  * Copyright (C) 2005 Luotao Fu.
- *               2005, 2006 Jan Kiszka.
+ *               2005-2007 Jan Kiszka.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -43,7 +43,7 @@
 
 #define IPIPE_DEFAULT_PRE_TRACE     10
 #define IPIPE_DEFAULT_POST_TRACE    10
-#define IPIPE_DEFAULT_BACK_TRACE    30
+#define IPIPE_DEFAULT_BACK_TRACE    100
 
 #define IPIPE_DELAY_NOTE            1000  /* in nanoseconds */
 #define IPIPE_DELAY_WARN            10000 /* in nanoseconds */
@@ -127,8 +127,11 @@ static IPIPE_DEFINE_SPINLOCK(global_path_lock);
 static int pre_trace = IPIPE_DEFAULT_PRE_TRACE;
 static int post_trace = IPIPE_DEFAULT_POST_TRACE;
 static int back_trace = IPIPE_DEFAULT_BACK_TRACE;
-static int verbose_trace;
+static int verbose_trace = 1;
 static unsigned long trace_overhead;
+
+static unsigned long trigger_begin;
+static unsigned long trigger_end;
 
 static DEFINE_MUTEX(out_mutex);
 static struct ipipe_trace_path *print_path;
@@ -252,7 +255,7 @@ __ipipe_trace_freeze(int cpu_id, struct ipipe_trace_path *tp, int pos)
 	active = __ipipe_get_free_trace_path(active, cpu_id);
 
 	/* check if this is the first frozen path */
-	for_each_online_cpu(i) {
+	for (i = 0; i < NR_CPUS; i++) {
 		if ((i != cpu_id) &&
 		    (trace_paths[i][frozen_path[i]].end >= 0))
 			tp->end = -1;
@@ -347,7 +350,9 @@ __ipipe_trace(enum ipipe_trace_type type, unsigned long eip,
 		tp->post_trace = post_trace + 1;
 
 	/* freeze only if the slot is free and we are not already freezing */
-	if (unlikely(type == IPIPE_TRACE_FREEZE) &&
+	if ((unlikely(type == IPIPE_TRACE_FREEZE) ||
+	     (unlikely(eip >= trigger_begin && eip <= trigger_end) &&
+	     type == IPIPE_TRACE_FUNC)) &&
 	    (trace_paths[cpu_id][frozen_path[cpu_id]].begin < 0) &&
 	    !(tp->flags & IPIPE_TFLG_FREEZING)) {
 		tp->post_trace = post_trace + 1;
@@ -515,7 +520,7 @@ int ipipe_trace_max_reset(void)
 
 	flags = __ipipe_global_path_lock();
 
-	for_each_online_cpu(cpu_id) {
+	for (cpu_id = 0; cpu_id < NR_CPUS; cpu_id++) {
 		path = &trace_paths[cpu_id][max_path[cpu_id]];
 
 		if (path->dump_lock) {
@@ -831,27 +836,6 @@ static void __ipipe_print_symname(struct seq_file *m, unsigned long eip)
 	}
 }
 
-#if defined(CONFIG_XENO_OPT_DEBUG) || defined(CONFIG_DEBUG_PREEMPT)
-static void __ipipe_print_dbgwarning(struct seq_file *m)
-{
-	seq_puts(m, "\n******** WARNING ********\n"
-		"The following debugging options will increase the observed "
-		"latencies:\n"
-#ifdef CONFIG_XENO_OPT_DEBUG
-		" o CONFIG_XENO_OPT_DEBUG\n"
-#endif /* CONFIG_XENO_OPT_DEBUG */
-#ifdef CONFIG_XENO_OPT_DEBUG_QUEUES
-		" o CONFIG_XENO_OPT_DEBUG_QUEUES (very costly)\n"
-#endif /* CONFIG_XENO_OPT_DEBUG */
-#ifdef CONFIG_DEBUG_PREEMPT
-		" o CONFIG_DEBUG_PREEMPT\n"
-#endif /* CONFIG_DEBUG_PREEMPT */
-		"\n");
-}
-#else /* !WARN_ON_DEBUGGING_LATENCIES */
-# define __ipipe_print_dbgwarning(m)
-#endif /* WARN_ON_DEBUGGING_LATENCIES */
-
 static void __ipipe_print_headline(struct seq_file *m)
 {
 	seq_printf(m, "Calibrated minimum trace-point overhead: %lu.%03lu "
@@ -907,7 +891,7 @@ static void *__ipipe_max_prtrace_start(struct seq_file *m, loff_t *pos)
 	if (!n) {
 		struct ipipe_trace_path *path;
 		unsigned long length_usecs;
-		int points, i;
+		int points, cpu;
 		unsigned long flags;
 
 		/* protect against max_path/frozen_path updates while we
@@ -917,11 +901,13 @@ static void *__ipipe_max_prtrace_start(struct seq_file *m, loff_t *pos)
 
 		/* find the longest of all per-cpu paths */
 		print_path = NULL;
-		for_each_online_cpu(i) {
-			path = &trace_paths[i][max_path[i]];
+		for_each_online_cpu(cpu) {
+			path = &trace_paths[cpu][max_path[cpu]];
 			if ((print_path == NULL) ||
-			    (path->length > print_path->length))
+			    (path->length > print_path->length)) {
 				print_path = path;
+				break;
+			}
 		}
 		print_path->dump_lock = 1;
 
@@ -948,10 +934,9 @@ static void *__ipipe_max_prtrace_start(struct seq_file *m, loff_t *pos)
 		seq_printf(m, "I-pipe worst-case tracing service on %s/ipipe-%s\n"
 			"------------------------------------------------------------\n",
 			UTS_RELEASE, IPIPE_ARCH_STRING);
-		__ipipe_print_dbgwarning(m);
-		seq_printf(m, "Begin: %lld cycles, Trace Points: %d (-%d/+%d), "
-			"Length: %lu us\n",
-			print_path->point[print_path->begin].timestamp,
+		seq_printf(m, "CPU: %d, Begin: %lld cycles, Trace Points: "
+			"%d (-%d/+%d), Length: %lu us\n",
+			cpu, print_path->point[print_path->begin].timestamp,
 			points, print_pre_trace, print_post_trace, length_usecs);
 		__ipipe_print_headline(m);
 	}
@@ -1068,7 +1053,7 @@ static void *__ipipe_frozen_prtrace_start(struct seq_file *m, loff_t *pos)
 
 	if (!n) {
 		struct ipipe_trace_path *path;
-		int i;
+		int cpu;
 		unsigned long flags;
 
 		/* protect against max_path/frozen_path updates while we
@@ -1078,10 +1063,12 @@ static void *__ipipe_frozen_prtrace_start(struct seq_file *m, loff_t *pos)
 
 		/* find the first of all per-cpu frozen paths */
 		print_path = NULL;
-		for_each_online_cpu(i) {
-			path = &trace_paths[i][frozen_path[i]];
-			if (path->end >= 0)
+		for_each_online_cpu(cpu) {
+			path = &trace_paths[cpu][frozen_path[cpu]];
+			if (path->end >= 0) {
 				print_path = path;
+				break;
+			}
 		}
 		if (print_path)
 			print_path->dump_lock = 1;
@@ -1105,9 +1092,8 @@ static void *__ipipe_frozen_prtrace_start(struct seq_file *m, loff_t *pos)
 			"------------------------------------------------------"
 			"------\n",
 			UTS_RELEASE, IPIPE_ARCH_STRING);
-		__ipipe_print_dbgwarning(m);
-		seq_printf(m, "Freeze: %lld cycles, Trace Points: %d (+%d)\n",
-			print_path->point[print_path->begin].timestamp,
+		seq_printf(m, "CPU: %d, Freeze: %lld cycles, Trace Points: %d (+%d)\n",
+			cpu, print_path->point[print_path->begin].timestamp,
 			print_pre_trace+1, print_post_trace);
 		__ipipe_print_headline(m);
 	}
@@ -1212,6 +1198,61 @@ static int __ipipe_wr_proc_val(struct file *file, const char __user *buffer,
 	return count;
 }
 
+static int __ipipe_rd_trigger(char *page, char **start, off_t off, int count,
+			      int *eof, void *data)
+{
+	int len;
+
+	if (!trigger_begin)
+		return 0;
+
+	len = sprint_symbol(page, trigger_begin);
+	page[len++] = '\n';
+
+	len -= off;
+	if (len <= off + count)
+		*eof = 1;
+	*start = page + off;
+	if (len > count)
+		len = count;
+	if (len < 0)
+		len = 0;
+
+	return len;
+}
+
+static int __ipipe_wr_trigger(struct file *file, const char __user *buffer,
+			      unsigned long count, void *data)
+{
+	char buf[KSYM_SYMBOL_LEN];
+	unsigned long begin, end;
+
+	if (count > sizeof(buf) - 1)
+		count = sizeof(buf) - 1;
+	if (copy_from_user(buf, buffer, count) < 0)
+		return -EFAULT;
+	buf[count] = 0;
+	if (buf[count-1] == '\n')
+		buf[count-1] = 0;
+
+	begin = kallsyms_lookup_name(buf);
+	if (!begin || !kallsyms_lookup_size_offset(begin, &end, NULL))
+		return -ENOENT;
+	end += begin - 1;
+
+	mutex_lock(&out_mutex);
+	/* invalidate the current range before setting a new one */
+	trigger_end = 0;
+	wmb();
+	/* set new range */
+	trigger_begin = begin;
+	wmb();
+	trigger_end = end;
+	mutex_unlock(&out_mutex);
+
+	return count;
+}
+
 extern struct proc_dir_entry *ipipe_proc_root;
 
 static void __init
@@ -1280,6 +1321,13 @@ void __init __ipipe_init_tracer(void)
 	entry = create_proc_entry("frozen", 0644, trace_dir);
 	if (entry)
 		entry->proc_fops = &__ipipe_frozen_prtrace_fops;
+
+	entry = create_proc_entry("trigger", 0644, trace_dir);
+	if (entry) {
+		entry->read_proc = __ipipe_rd_trigger;
+		entry->write_proc = __ipipe_wr_trigger;
+		entry->owner = THIS_MODULE;
+	}
 
 	__ipipe_create_trace_proc_val(trace_dir, "pre_trace_points",
 	                              &pre_trace);

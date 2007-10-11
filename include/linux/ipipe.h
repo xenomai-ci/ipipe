@@ -223,11 +223,6 @@ static inline void ipipe_irq_unlock(unsigned irq)
 	__ipipe_unlock_irq(ipipe_current_domain, irq);
 }
 
-struct mm_struct;
-
-int __ipipe_pin_range_mapping(struct mm_struct *mm,
-			      unsigned long start, unsigned long end);
-
 #ifndef __ipipe_sync_pipeline
 #define __ipipe_sync_pipeline(syncmask) __ipipe_sync_stage(syncmask)
 #endif
