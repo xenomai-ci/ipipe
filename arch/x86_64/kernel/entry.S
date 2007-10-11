@@ -50,7 +50,7 @@
 #include <asm/hw_irq.h>
 #include <asm/page.h>
 #include <asm/irqflags.h>
-#include <asm/ipipe.h>
+#include <asm/ipipe_base.h>
 
 	.code64
 
