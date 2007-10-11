@@ -1371,6 +1371,7 @@ unlock:
 	irq_exit();
 }
 
+#ifndef CONFIG_IPIPE
 static void irq_complete_move(unsigned int irq)
 {
 	struct irq_cfg *cfg = irq_cfg + irq;
@@ -1390,7 +1391,8 @@ static void irq_complete_move(unsigned int irq)
 		cfg->move_in_progress = 0;
 	}
 }
-#else
+#endif
+#elif !defined(CONFIG_IPIPE)
 static inline void irq_complete_move(unsigned int irq) {}
 #endif
 
@@ -1429,6 +1431,14 @@ static void ack_apic_level(unsigned int irq)
 		unmask_IO_APIC_irq(irq);
 #else /* CONFIG_IPIPE */
 	__ack_APIC_irq();
+	/*
+	 * Prevent low priority IRQs grabbed by high priority domains
+	 * from being delayed, waiting for a high priority interrupt
+	 * handler running in a low priority domain to complete.
+	 */
+	spin_lock(&ioapic_lock);
+	__mask_IO_APIC_irq(irq);
+	spin_unlock(&ioapic_lock);
 #endif /* CONFIG_IPIPE */
 }
 
