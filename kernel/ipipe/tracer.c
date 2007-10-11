@@ -831,27 +831,6 @@ static void __ipipe_print_symname(struct seq_file *m, unsigned long eip)
 	}
 }
 
-#if defined(CONFIG_XENO_OPT_DEBUG) || defined(CONFIG_DEBUG_PREEMPT)
-static void __ipipe_print_dbgwarning(struct seq_file *m)
-{
-	seq_puts(m, "\n******** WARNING ********\n"
-		"The following debugging options will increase the observed "
-		"latencies:\n"
-#ifdef CONFIG_XENO_OPT_DEBUG
-		" o CONFIG_XENO_OPT_DEBUG\n"
-#endif /* CONFIG_XENO_OPT_DEBUG */
-#ifdef CONFIG_XENO_OPT_DEBUG_QUEUES
-		" o CONFIG_XENO_OPT_DEBUG_QUEUES (very costly)\n"
-#endif /* CONFIG_XENO_OPT_DEBUG */
-#ifdef CONFIG_DEBUG_PREEMPT
-		" o CONFIG_DEBUG_PREEMPT\n"
-#endif /* CONFIG_DEBUG_PREEMPT */
-		"\n");
-}
-#else /* !WARN_ON_DEBUGGING_LATENCIES */
-# define __ipipe_print_dbgwarning(m)
-#endif /* WARN_ON_DEBUGGING_LATENCIES */
-
 static void __ipipe_print_headline(struct seq_file *m)
 {
 	seq_printf(m, "Calibrated minimum trace-point overhead: %lu.%03lu "
@@ -907,7 +886,7 @@ static void *__ipipe_max_prtrace_start(struct seq_file *m, loff_t *pos)
 	if (!n) {
 		struct ipipe_trace_path *path;
 		unsigned long length_usecs;
-		int points, i;
+		int points, cpu;
 		unsigned long flags;
 
 		/* protect against max_path/frozen_path updates while we
@@ -917,11 +896,13 @@ static void *__ipipe_max_prtrace_start(struct seq_file *m, loff_t *pos)
 
 		/* find the longest of all per-cpu paths */
 		print_path = NULL;
-		for_each_online_cpu(i) {
-			path = &trace_paths[i][max_path[i]];
+		for_each_online_cpu(cpu) {
+			path = &trace_paths[cpu][max_path[cpu]];
 			if ((print_path == NULL) ||
-			    (path->length > print_path->length))
+			    (path->length > print_path->length)) {
 				print_path = path;
+				break;
+			}
 		}
 		print_path->dump_lock = 1;
 
@@ -948,10 +929,9 @@ static void *__ipipe_max_prtrace_start(struct seq_file *m, loff_t *pos)
 		seq_printf(m, "I-pipe worst-case tracing service on %s/ipipe-%s\n"
 			"------------------------------------------------------------\n",
 			UTS_RELEASE, IPIPE_ARCH_STRING);
-		__ipipe_print_dbgwarning(m);
-		seq_printf(m, "Begin: %lld cycles, Trace Points: %d (-%d/+%d), "
-			"Length: %lu us\n",
-			print_path->point[print_path->begin].timestamp,
+		seq_printf(m, "CPU: %d, Begin: %lld cycles, Trace Points: "
+			"%d (-%d/+%d), Length: %lu us\n",
+			cpu, print_path->point[print_path->begin].timestamp,
 			points, print_pre_trace, print_post_trace, length_usecs);
 		__ipipe_print_headline(m);
 	}
@@ -1068,7 +1048,7 @@ static void *__ipipe_frozen_prtrace_start(struct seq_file *m, loff_t *pos)
 
 	if (!n) {
 		struct ipipe_trace_path *path;
-		int i;
+		int cpu;
 		unsigned long flags;
 
 		/* protect against max_path/frozen_path updates while we
@@ -1078,10 +1058,12 @@ static void *__ipipe_frozen_prtrace_start(struct seq_file *m, loff_t *pos)
 
 		/* find the first of all per-cpu frozen paths */
 		print_path = NULL;
-		for_each_online_cpu(i) {
-			path = &trace_paths[i][frozen_path[i]];
-			if (path->end >= 0)
+		for_each_online_cpu(cpu) {
+			path = &trace_paths[cpu][frozen_path[cpu]];
+			if (path->end >= 0) {
 				print_path = path;
+				break;
+			}
 		}
 		if (print_path)
 			print_path->dump_lock = 1;
@@ -1105,9 +1087,8 @@ static void *__ipipe_frozen_prtrace_start(struct seq_file *m, loff_t *pos)
 			"------------------------------------------------------"
 			"------\n",
 			UTS_RELEASE, IPIPE_ARCH_STRING);
-		__ipipe_print_dbgwarning(m);
-		seq_printf(m, "Freeze: %lld cycles, Trace Points: %d (+%d)\n",
-			print_path->point[print_path->begin].timestamp,
+		seq_printf(m, "CPU: %d, Freeze: %lld cycles, Trace Points: %d (+%d)\n",
+			cpu, print_path->point[print_path->begin].timestamp,
 			print_pre_trace+1, print_post_trace);
 		__ipipe_print_headline(m);
 	}
