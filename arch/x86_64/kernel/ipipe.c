@@ -46,8 +46,6 @@
 
 asmlinkage void preempt_schedule_irq(void);
 
-struct pt_regs __ipipe_tick_regs[IPIPE_NR_CPUS];
-
 int __ipipe_tick_irq;		/* =0: 8254 */
 
 #ifdef CONFIG_SMP
@@ -124,7 +122,7 @@ static int __ipipe_ack_irq(unsigned irq)
 	return 1;
 }
 
-void __ipipe_enable_irqdesc(unsigned irq)
+void __ipipe_enable_irqdesc(struct ipipe_domain *ipd, unsigned irq)
 {
 	irq_desc[irq].status &= ~IRQ_DISABLED;
 }
@@ -268,7 +266,7 @@ void __init __ipipe_enable_pipeline(void)
 
 #ifdef CONFIG_SMP
 
-cpumask_t __ipipe_set_irq_affinity (unsigned irq, cpumask_t cpumask)
+cpumask_t __ipipe_set_irq_affinity(unsigned irq, cpumask_t cpumask)
 
 {
 	cpumask_t oldmask = irq_desc[irq].affinity;
@@ -289,7 +287,7 @@ cpumask_t __ipipe_set_irq_affinity (unsigned irq, cpumask_t cpumask)
 	return oldmask;
 }
 
-int asmlinkage __ipipe_send_ipi (unsigned ipi, cpumask_t cpumask)
+int asmlinkage __ipipe_send_ipi(unsigned ipi, cpumask_t cpumask)
 
 {
 	unsigned long flags;
@@ -375,8 +373,7 @@ unsigned long ipipe_critical_enter(void (*syncfn) (void))
 		ipipe_load_cpuid();
 
 		if (!cpu_test_and_set(cpuid, __ipipe_cpu_lock_map)) {
-			while (cpu_test_and_set
-			       (BITS_PER_LONG - 1, __ipipe_cpu_lock_map)) {
+			while (cpu_test_and_set(BITS_PER_LONG - 1, __ipipe_cpu_lock_map)) {
 				int n = 0;
 				do {
 					cpu_relax();
@@ -431,49 +428,37 @@ void ipipe_critical_exit(unsigned long flags)
 
 static inline void __fixup_if(struct pt_regs *regs)
 {
-	ipipe_declare_cpuid;
-	unsigned long flags;
+	if (!ipipe_root_domain_p)
+		return;
 
-	ipipe_get_cpu(flags);
+	/* Have the saved hw state look like the domain stall bit. */
 
-	if (per_cpu(ipipe_percpu_domain, cpuid) == ipipe_root_domain) {
-		/* Have the saved hw state look like the domain stall bit. */
-
-		if (test_bit
-		    (IPIPE_STALL_FLAG,
-		     &ipipe_root_domain->cpudata[cpuid].status))
-			regs->eflags &= ~X86_EFLAGS_IF;
-		else
-			regs->eflags |= X86_EFLAGS_IF;
-	}
-
-	ipipe_put_cpu(flags);
+	if (test_bit(IPIPE_STALL_FLAG, &ipipe_root_cpudom_var(status)))
+		regs->eflags &= ~X86_EFLAGS_IF;
+	else
+		regs->eflags |= X86_EFLAGS_IF;
 }
 
 #ifdef CONFIG_PREEMPT
 
-/*  Check the stall bit of the root domain to make sure the existing
-    preemption opportunity upon in-kernel resumption could be
-    exploited. In case a rescheduling could take place, the root stage
-    is stalled before the hw interrupts are re-enabled. This routine
-    must be called with hw interrupts off. */
-
+/*
+ * Check the stall bit of the root domain to make sure the existing
+ * preemption opportunity upon in-kernel resumption could be
+ * exploited. In case a rescheduling could take place, the root stage
+ * is stalled before the hw interrupts are re-enabled. This routine
+ * must be called with hw interrupts off.
+ */
 asmlinkage int __ipipe_preempt_schedule_irq(void)
 {
-	ipipe_declare_cpuid;
-
-	ipipe_load_cpuid();
-
-	if (test_bit(IPIPE_STALL_FLAG, &ipipe_root_domain->cpudata[cpuid].status))
+	if (test_bit(IPIPE_STALL_FLAG, &ipipe_root_cpudom_var(status)))
 		/* Root stage is stalled: rescheduling denied. */
 		return 0;
 
-	__set_bit(IPIPE_STALL_FLAG, &ipipe_root_domain->cpudata[cpuid].status);
+	__set_bit(IPIPE_STALL_FLAG, &ipipe_root_cpudom_var(status));
 	local_irq_enable_hw();
 	preempt_schedule_irq(); /* Ok, may reschedule now. */
 	local_irq_disable_hw();
-	ipipe_load_cpuid();	/* Care for migration. */
-	__clear_bit(IPIPE_STALL_FLAG, &ipipe_root_domain->cpudata[cpuid].status);
+	__clear_bit(IPIPE_STALL_FLAG, &ipipe_root_cpudom_var(status));
 
 	return 1;
 }
@@ -482,7 +467,6 @@ asmlinkage int __ipipe_preempt_schedule_irq(void)
 
 asmlinkage int __ipipe_syscall_root(struct pt_regs *regs)
 {
-	ipipe_declare_cpuid;
 	unsigned long flags;
 
 	__fixup_if(regs);
@@ -496,27 +480,24 @@ asmlinkage int __ipipe_syscall_root(struct pt_regs *regs)
 
 	if (__ipipe_syscall_watched_p(current, regs->orig_rax) &&
 	    __ipipe_event_monitored_p(IPIPE_EVENT_SYSCALL) &&
-	    __ipipe_dispatch_event(IPIPE_EVENT_SYSCALL,regs) > 0) {
+	    __ipipe_dispatch_event(IPIPE_EVENT_SYSCALL,&regs) > 0) {
 		/* We might enter here over a non-root domain and exit
 		 * over the root one as a result of the syscall
 		 * (i.e. by recycling the register set of the current
 		 * context across the migration), so we need to fixup
-		 * the interrupt flag upon return too. */
+		 * the interrupt flag upon return too, so that
+		 * __ipipe_unstall_iret_root() resets the correct
+		 * stall bit on exit. */
 		__fixup_if(regs);
 
-		if (ipipe_current_domain == ipipe_root_domain && !in_atomic()) {
-			/* Sync pending VIRQs before _TIF_NEED_RESCHED
-			 * is tested. */
-			ipipe_lock_cpu(flags);
-			if ((ipipe_root_domain->cpudata[cpuid].irq_pending_hi & IPIPE_IRQMASK_VIRT) != 0)
+		if (ipipe_root_domain_p && !in_atomic()) {
+			/* Sync pending VIRQs before _TIF_NEED_RESCHED is tested. */
+			local_irq_save_hw(flags);
+			if ((ipipe_root_cpudom_var(irqpend_himask) & IPIPE_IRQMASK_VIRT) != 0)
 				__ipipe_sync_pipeline(IPIPE_IRQMASK_VIRT);
-			ipipe_unlock_cpu(flags);
+			local_irq_restore_hw(flags);
 			return -1;
 		}
-		/* We need to perform the rest of the fast exit path
-		 * with IRQs off, since we are going to switch back to
-		 * the normal stack, so disable them now. */
-		local_irq_disable_hw();
 		return 1;
 	}
 
@@ -673,7 +654,6 @@ int __ipipe_handle_irq(struct pt_regs *regs)
 	struct ipipe_domain *this_domain, *next_domain;
 	unsigned vector = regs->orig_rax, irq;
 	struct list_head *head, *pos;
-	ipipe_declare_cpuid;
 	int m_ack;
 
 	if ((long)regs->orig_rax < 0) {
@@ -688,21 +668,18 @@ int __ipipe_handle_irq(struct pt_regs *regs)
 		m_ack = 1;
 	}
 
-	ipipe_load_cpuid();
-
 	head = __ipipe_pipeline.next;
 	next_domain = list_entry(head, struct ipipe_domain, p_link);
 	if (likely(test_bit(IPIPE_WIRED_FLAG, &next_domain->irqs[irq].control))) {
 		if (!m_ack && next_domain->irqs[irq].acknowledge != NULL)
 			next_domain->irqs[irq].acknowledge(irq);
 		if (likely(__ipipe_dispatch_wired(next_domain, irq))) {
-			ipipe_load_cpuid();
 			goto finalize;
 		} else
 			goto finalize_nosync;
 	}
 
-	this_domain = per_cpu(ipipe_percpu_domain, cpuid);
+	this_domain = ipipe_current_domain;
 
 	if (test_bit(IPIPE_STICKY_FLAG, &this_domain->irqs[irq].control))
 		head = &this_domain->p_link;
@@ -726,9 +703,7 @@ int __ipipe_handle_irq(struct pt_regs *regs)
 			 * _first_ in the domain's status flags before
 			 * the PIC is unlocked.
 			 */
-			next_domain->cpudata[cpuid].irq_counters[irq].total_hits++;
-			next_domain->cpudata[cpuid].irq_counters[irq].pending_hits++;
-			__ipipe_set_irq_bit(next_domain, cpuid, irq);
+			__ipipe_set_irq_pending(next_domain, irq);
 
 			if (!m_ack && next_domain->irqs[irq].acknowledge != NULL)
 				m_ack = next_domain->irqs[irq].acknowledge(irq);
@@ -745,24 +720,10 @@ int __ipipe_handle_irq(struct pt_regs *regs)
 		pos = next_domain->p_link.next;
 	}
 
-	if (irq == __ipipe_tick_irq &&
-	    __ipipe_pipeline_head_p(ipipe_root_domain) &&
-	    ipipe_root_domain->cpudata[cpuid].irq_counters[irq].pending_hits > 1)
-		/*
-		 * Emulate a loss of clock ticks if Linux is owning
-		 * the time source. The drift will be compensated by
-		 * the timer support code.
-		 */
-		ipipe_root_domain->cpudata[cpuid].irq_counters[irq].pending_hits = 1;
-
 finalize:
 
-	if (irq == __ipipe_tick_irq) {
-		__ipipe_tick_regs[cpuid].eflags = regs->eflags;
-		__ipipe_tick_regs[cpuid].rsp = regs->rsp;
-		__ipipe_tick_regs[cpuid].rip = regs->rip;
-		__ipipe_tick_regs[cpuid].cs = regs->cs;
-	}
+	if (irq == __ipipe_tick_irq)
+		set_irq_regs(regs);
 
 	/*
 	 * Now walk the pipeline, yielding control to the highest
@@ -772,9 +733,7 @@ finalize:
 	 * current domain in the pipeline.
 	 */
 
-	__ipipe_walk_pipeline(head, cpuid);
-
-	ipipe_load_cpuid();
+	__ipipe_walk_pipeline(head);
 
 finalize_nosync:
 
@@ -782,8 +741,8 @@ finalize_nosync:
 	ipipe_trace_end(irq);
 #endif /* CONFIG_IPIPE_TRACE_IRQSOFF */
 
-	if (per_cpu(ipipe_percpu_domain, cpuid) != ipipe_root_domain ||
-	    test_bit(IPIPE_STALL_FLAG, &ipipe_root_domain->cpudata[cpuid].status))
+	if (!ipipe_root_domain_p ||
+	    test_bit(IPIPE_STALL_FLAG, &ipipe_root_cpudom_var(status)))
 		return 0;
 
 	return 1;
