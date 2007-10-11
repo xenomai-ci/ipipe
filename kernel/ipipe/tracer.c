@@ -43,7 +43,7 @@
 
 #define IPIPE_DEFAULT_PRE_TRACE     10
 #define IPIPE_DEFAULT_POST_TRACE    10
-#define IPIPE_DEFAULT_BACK_TRACE    30
+#define IPIPE_DEFAULT_BACK_TRACE    100
 
 #define IPIPE_DELAY_NOTE            1000  /* in nanoseconds */
 #define IPIPE_DELAY_WARN            10000 /* in nanoseconds */
@@ -127,7 +127,7 @@ static IPIPE_DEFINE_SPINLOCK(global_path_lock);
 static int pre_trace = IPIPE_DEFAULT_PRE_TRACE;
 static int post_trace = IPIPE_DEFAULT_POST_TRACE;
 static int back_trace = IPIPE_DEFAULT_BACK_TRACE;
-static int verbose_trace;
+static int verbose_trace = 1;
 static unsigned long trace_overhead;
 
 static DEFINE_MUTEX(out_mutex);
