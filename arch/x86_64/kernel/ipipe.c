@@ -480,7 +480,7 @@ asmlinkage int __ipipe_syscall_root(struct pt_regs *regs)
 
 	if (__ipipe_syscall_watched_p(current, regs->orig_rax) &&
 	    __ipipe_event_monitored_p(IPIPE_EVENT_SYSCALL) &&
-	    __ipipe_dispatch_event(IPIPE_EVENT_SYSCALL,&regs) > 0) {
+	    __ipipe_dispatch_event(IPIPE_EVENT_SYSCALL, regs) > 0) {
 		/* We might enter here over a non-root domain and exit
 		 * over the root one as a result of the syscall
 		 * (i.e. by recycling the register set of the current
