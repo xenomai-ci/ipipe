@@ -2029,7 +2029,9 @@ static void ack_ioapic_quirk_irq(unsigned int irq)
  * being delayed, waiting for a high priority interrupt handler
  * running in a low priority domain to complete.
  */
+	spin_lock(&ioapic_lock);
 	__mask_IO_APIC_irq(irq);
+	spin_unlock(&ioapic_lock);
 #endif
 }
 
