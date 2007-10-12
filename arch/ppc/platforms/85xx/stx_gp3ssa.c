@@ -40,6 +40,7 @@
 #include <linux/fsl_devices.h>
 #include <linux/interrupt.h>
 #include <linux/rio.h>
+#include <linux/i2c.h>
 
 #include <asm/system.h>
 #include <asm/pgtable.h>
@@ -62,8 +63,17 @@
 #include <syslib/ppc85xx_common.h>
 #include <syslib/ppc85xx_rio.h>
 
-
 unsigned char __res[sizeof(bd_t)];
+
+/*
+ * I2C RTC
+ */
+static struct i2c_board_info __initdata gp3ssa_i2c_devices[] = {
+	{
+		I2C_BOARD_INFO("rtc-ds1307", 0x68),
+		.type = "ds1339",
+	},
+};
 
 #ifndef CONFIG_PCI
 unsigned long isa_io_base = 0;
@@ -114,6 +124,17 @@ static u8 gp3ssa_openpic_initsenses[] __initdata = {
 	0x0,				/* External 11: */
 #endif
 };
+
+static int gp3ssa_setup_devices(void)
+{
+	/* I2C devices */
+	i2c_register_board_info(1, gp3ssa_i2c_devices,
+				ARRAY_SIZE(gp3ssa_i2c_devices));
+
+	return 0;
+}
+arch_initcall(gp3ssa_setup_devices);
+
 
 /*
  * Setup the architecture
