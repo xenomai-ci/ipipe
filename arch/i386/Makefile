@@ -128,7 +128,7 @@ all: bzImage
 zImage zlilo zdisk: KBUILD_IMAGE := arch/i386/boot/zImage
 
 zImage bzImage: vmlinux
-	$(Q)$(MAKE) $(build)=$(boot) $(KBUILD_IMAGE)
+	$(Q)$(MAKE) $(build)=$(boot) mflags-y=$(mflags-y) $(KBUILD_IMAGE)
 
 compressed: zImage
 

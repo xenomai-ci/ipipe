@@ -185,20 +185,20 @@ voyager_timer_interrupt(void)
 		 * pointy.  */
 		__u16 val;
 
-		spin_lock(&i8253_lock);
+		spin_lock_irqsave(&i8253_lock);
 		
 		outb_p(0x00, 0x43);
 		val = inb_p(0x40);
 		val |= inb(0x40) << 8;
-		spin_unlock(&i8253_lock);
+		spin_unlock_irqrestore(&i8253_lock);
 
 		if(val > LATCH) {
 			printk("\nVOYAGER: countdown timer value too high (%d), resetting\n\n", val);
-			spin_lock(&i8253_lock);
+			spin_lock_irqsave(&i8253_lock);
 			outb(0x34,0x43);
 			outb_p(LATCH & 0xff , 0x40);	/* LSB */
 			outb(LATCH >> 8 , 0x40);	/* MSB */
-			spin_unlock(&i8253_lock);
+			spin_unlock_irqrestore(&i8253_lock);
 		}
 	}
 #ifdef CONFIG_SMP

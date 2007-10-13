@@ -79,8 +79,11 @@ static inline void switch_mm(struct mm_struct *prev,
 
 #define activate_mm(prev, next)				\
 	do {						\
+		unsigned long flags;			\
 		paravirt_activate_mm(prev, next);	\
+		local_irq_save_hw_cond(flags);		\
 		switch_mm((prev),(next),NULL);		\
+		local_irq_restore_hw_cond(flags);	\
 	} while(0);
 
 #endif
