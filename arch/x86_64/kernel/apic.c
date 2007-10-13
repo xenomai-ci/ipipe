@@ -124,7 +124,7 @@ void ack_bad_irq(unsigned int irq)
 	 * But don't ack when the APIC is disabled. -AK
 	 */
 	if (!disable_apic)
-		ack_APIC_irq();
+		__ack_APIC_irq();
 }
 
 void clear_local_APIC(void)
@@ -385,7 +385,7 @@ void __cpuinit setup_local_APIC (void)
 		value = apic_read(APIC_ISR + i*0x10);
 		for (j = 31; j >= 0; j--) {
 			if (value & (1<<j))
-				ack_APIC_irq();
+				__ack_APIC_irq();
 		}
 	}
 
@@ -509,9 +509,9 @@ static int lapic_suspend(struct sys_device *dev, pm_message_t state)
 	if (maxlvt >= 5)
 		apic_pm_state.apic_thmr = apic_read(APIC_LVTTHMR);
 #endif
-	local_irq_save(flags);
+	local_irq_save_hw(flags);
 	disable_local_APIC();
-	local_irq_restore(flags);
+	local_irq_restore_hw(flags);
 	return 0;
 }
 
@@ -526,7 +526,7 @@ static int lapic_resume(struct sys_device *dev)
 
 	maxlvt = get_maxlvt();
 
-	local_irq_save(flags);
+	local_irq_save_hw(flags);
 	rdmsr(MSR_IA32_APICBASE, l, h);
 	l &= ~MSR_IA32_APICBASE_BASE;
 	l |= MSR_IA32_APICBASE_ENABLE | mp_lapic_addr;
@@ -553,7 +553,7 @@ static int lapic_resume(struct sys_device *dev)
 	apic_write(APIC_LVTERR, apic_pm_state.apic_lvterr);
 	apic_write(APIC_ESR, 0);
 	apic_read(APIC_ESR);
-	local_irq_restore(flags);
+	local_irq_restore_hw(flags);
 	return 0;
 }
 
@@ -787,7 +787,7 @@ static void setup_APIC_timer(unsigned int clocks)
 {
 	unsigned long flags;
 
-	local_irq_save(flags);
+	local_irq_save_hw(flags);
 
 	/* wait for irq slice */
 	if (hpet_address && hpet_use_timer) {
@@ -817,7 +817,7 @@ static void setup_APIC_timer(unsigned int clocks)
 		stop_timer_interrupt();
 		apic_runs_main_timer++;
 	}
-	local_irq_restore(flags);
+	local_irq_restore_hw(flags);
 }
 
 /*
@@ -888,7 +888,11 @@ void __init setup_boot_APIC_clock (void)
 	printk(KERN_INFO "Using local APIC timer interrupts.\n");
 	using_apic_timer = 1;
 
-	local_irq_disable();
+#ifdef CONFIG_IPIPE
+	__ipipe_tick_irq = ipipe_apic_vector_irq(LOCAL_TIMER_VECTOR);
+#endif
+
+	local_irq_disable_hw();
 
 	calibration_result = calibrate_APIC_clock();
 	/*
@@ -896,13 +900,15 @@ void __init setup_boot_APIC_clock (void)
 	 */
 	setup_APIC_timer(calibration_result);
 
+	local_irq_enable_hw();
 	local_irq_enable();
 }
 
 void __cpuinit setup_secondary_APIC_clock(void)
 {
-	local_irq_disable(); /* FIXME: Do we need this? --RR */
+	local_irq_disable_hw(); /* FIXME: Do we need this? --RR */
 	setup_APIC_timer(calibration_result);
+	local_irq_enable_hw();
 	local_irq_enable();
 }
 
@@ -1125,7 +1131,7 @@ asmlinkage void smp_spurious_interrupt(void)
 	 */
 	v = apic_read(APIC_ISR + ((SPURIOUS_APIC_VECTOR & ~0x1f) >> 1));
 	if (v & (1 << (SPURIOUS_APIC_VECTOR & 0x1f)))
-		ack_APIC_irq();
+		__ack_APIC_irq();
 
 	irq_exit();
 }
