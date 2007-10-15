@@ -666,19 +666,16 @@ void mpic_unmask_irq(unsigned int irq)
 		}
 	} while(mpic_irq_read(src, MPIC_INFO(IRQ_VECTOR_PRI)) & MPIC_VECPRI_MASK);
 
+	ipipe_irq_unlock(irq);
+
 	local_irq_restore_hw_cond(flags);
 }
 
-void mpic_mask_irq(unsigned int irq)
+static inline void __mpic_mask_irq(unsigned int irq)
 {
-	unsigned int loops = 100000;
 	struct mpic *mpic = mpic_from_irq(irq);
 	unsigned int src = mpic_irq_to_hw(irq);
-	unsigned long flags;
-
-	DBG("%s: mask_irq: %d (src %d)\n", mpic->name, irq, src);
-
-	local_irq_save_hw_cond(flags);
+	unsigned int loops = 100000;
 
 	mpic_irq_write(src, MPIC_INFO(IRQ_VECTOR_PRI),
 		       mpic_irq_read(src, MPIC_INFO(IRQ_VECTOR_PRI)) |
@@ -691,7 +688,20 @@ void mpic_mask_irq(unsigned int irq)
 			break;
 		}
 	} while(!(mpic_irq_read(src, MPIC_INFO(IRQ_VECTOR_PRI)) & MPIC_VECPRI_MASK));
+}
 
+void mpic_mask_irq(unsigned int irq)
+{
+#ifdef DEBUG
+	struct mpic *mpic = mpic_from_irq(irq);
+#endif
+	unsigned long flags;
+
+	DBG("%s: mask_irq: %d (src %d)\n", mpic->name, irq, src);
+
+	local_irq_save_hw_cond(flags);
+	__mpic_mask_irq(irq);
+	ipipe_irq_lock(irq);
 	local_irq_restore_hw_cond(flags);
 }
 
@@ -707,6 +717,9 @@ void mpic_end_irq(unsigned int irq)
 	 * latched another edge interrupt coming in anyway
 	 */
 
+#ifdef CONFIG_IPIPE
+	__mpic_mask_irq(irq);
+#endif
 	mpic_eoi(mpic);
 }
 
@@ -716,11 +729,16 @@ static void mpic_unmask_ht_irq(unsigned int irq)
 {
 	struct mpic *mpic = mpic_from_irq(irq);
 	unsigned int src = mpic_irq_to_hw(irq);
+	unsigned long flags;
+
+	local_irq_save_hw_cond(flags);
 
 	mpic_unmask_irq(irq);
 
 	if (irq_desc[irq].status & IRQ_LEVEL)
 		mpic_ht_end_irq(mpic, src);
+
+	local_irq_restore_hw_cond(flags);
 }
 
 static unsigned int mpic_startup_ht_irq(unsigned int irq)
@@ -749,7 +767,11 @@ static void mpic_end_ht_irq(unsigned int irq)
 	unsigned int src = mpic_irq_to_hw(irq);
 
 #ifdef DEBUG_IRQ
-	DBG("%s: end_irq: %d\n", mpic->name, irq);
+	DBG("%s: end_ht_irq: %d\n", mpic->name, irq);
+#endif
+
+#ifdef CONFIG_IPIPE
+	__mpic_mask_irq(irq);
 #endif
 	/* We always EOI on end_irq() even for edge interrupts since that
 	 * should only lower the priority, the MPIC should have properly
@@ -768,9 +790,12 @@ static void mpic_unmask_ipi(unsigned int irq)
 {
 	struct mpic *mpic = mpic_from_ipi(irq);
 	unsigned int src = mpic_irq_to_hw(irq) - mpic->ipi_vecs[0];
+	unsigned long flags;
 
-	DBG("%s: enable_ipi: %d (ipi %d)\n", mpic->name, irq, src);
+	DBG("%s: unmask_ipi: %d (ipi %d)\n", mpic->name, irq, src);
+	local_irq_save_hw_cond(flags);
 	mpic_ipi_write(src, mpic_ipi_read(src) & ~MPIC_VECPRI_MASK);
+	local_irq_restore_hw_cond(flags);
 }
 
 static void mpic_mask_ipi(unsigned int irq)
