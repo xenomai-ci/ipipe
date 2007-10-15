@@ -293,6 +293,8 @@ static inline void ipipe_init_notify(struct task_struct *p)
 		__ipipe_dispatch_event(IPIPE_EVENT_INIT,p);
 }
 
+struct mm_struct;
+
 static inline void ipipe_cleanup_notify(struct mm_struct *mm)
 {
 	if (__ipipe_event_monitored_p(IPIPE_EVENT_CLEANUP))
