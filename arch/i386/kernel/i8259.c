@@ -178,7 +178,7 @@ static void mask_and_ack_8259A(unsigned int irq)
 	if (irq == 0) {
 	    /* Fast timer ack -- don't mask (unless supposedly
 	      spurious) */
-	    outb(0x20,PIC_MASTER_CMD);
+	    outb(0x60,PIC_MASTER_CMD);
 	    spin_unlock_irqrestore(&i8259A_lock, flags);
 	    return;
 	}
