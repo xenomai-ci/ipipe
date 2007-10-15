@@ -255,7 +255,7 @@ __ipipe_trace_freeze(int cpu_id, struct ipipe_trace_path *tp, int pos)
 	active = __ipipe_get_free_trace_path(active, cpu_id);
 
 	/* check if this is the first frozen path */
-	for (i = 0; i < NR_CPUS; i++) {
+	for (i = 0; i < NR_CPUS && trace_paths[i] != NULL; i++) {
 		if ((i != cpu_id) &&
 		    (trace_paths[i][frozen_path[i]].end >= 0))
 			tp->end = -1;
@@ -520,7 +520,7 @@ int ipipe_trace_max_reset(void)
 
 	flags = __ipipe_global_path_lock();
 
-	for (cpu_id = 0; cpu_id < NR_CPUS; cpu_id++) {
+	for (cpu_id = 0; cpu_id < NR_CPUS && trace_paths[cpu_id] != NULL; cpu_id++) {
 		path = &trace_paths[cpu_id][max_path[cpu_id]];
 
 		if (path->dump_lock) {
