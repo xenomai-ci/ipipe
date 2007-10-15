@@ -365,6 +365,7 @@ void machine_check_exception(struct pt_regs *regs)
 	if (check_io_access(regs))
 		return;
 
+#if defined(CONFIG_PPC32)
 #if defined(CONFIG_4xx) && !defined(CONFIG_440A)
 	if (reason & ESR_IMCP) {
 		printk("Instruction");
@@ -479,6 +480,7 @@ void machine_check_exception(struct pt_regs *regs)
 		printk("Unknown values in msr\n");
 	}
 #endif /* CONFIG_4xx */
+#endif /* CONFIG_PPC32 */
 
 	/*
 	 * Optional platform-provided routine to print out

@@ -217,8 +217,9 @@
 #define CPU_R14000		64
 #define CPU_LOONGSON1           65
 #define CPU_LOONGSON2           66
+#define CPU_RC32300		67
 
-#define CPU_LAST		66
+#define CPU_LAST		67
 
 /*
  * ISA Level encodings

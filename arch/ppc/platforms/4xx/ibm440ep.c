@@ -188,16 +188,41 @@ static struct resource usb_gadget_resources[] = {
 		.flags	= IORESOURCE_MEM,
 	},
 	[1] = {
+		.name	= "usb_device_irq",
 		.start	= 55,
 		.end	= 55,
 		.flags	= IORESOURCE_IRQ,
 	},
 };
 
+static struct resource ohci_usb_resources[] = {
+	[0] = {
+		.start	= 0x0EF601000,
+		.end	= 0x0EF60107F,
+		.flags	= IORESOURCE_MEM,
+	},
+	[1] = {
+		.start	= 40,
+		.end	= 40,
+		.flags	= IORESOURCE_IRQ,
+	},
+};
+
 static u64 dma_mask = 0xffffffffULL;
 
+static struct platform_device ohci_usb_device = {
+	.name		= "ppc-soc-ohci",
+	.id		= 0,
+	.num_resources	= ARRAY_SIZE(ohci_usb_resources),
+	.resource	= ohci_usb_resources,
+	.dev		= {
+		.dma_mask = &dma_mask,
+		.coherent_dma_mask = 0xffffffffULL,
+	}
+};
+
 static struct platform_device usb_gadget_device = {
-	.name		= "musbhsfc",
+	.name		= "musbhsfc_udc",
 	.id		= 0,
 	.num_resources	= ARRAY_SIZE(usb_gadget_resources),
 	.resource       = usb_gadget_resources,
@@ -208,6 +233,7 @@ static struct platform_device usb_gadget_device = {
 };
 
 static struct platform_device *ibm440ep_devs[] __initdata = {
+	&ohci_usb_device,
 	&usb_gadget_device,
 };
 

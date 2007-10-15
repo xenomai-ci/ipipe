@@ -478,3 +478,133 @@ void pci_resource_to_user(const struct pci_dev *dev, int bar,
 	*start = rsrc->start - offset;
 	*end = rsrc->end - offset;
 }
+
+void __devinit pci_process_bridge_OF_ranges(struct pci_controller *hose,
+					    struct device_node *dev, int prim)
+{
+	const unsigned int *ranges;
+	unsigned int pci_space;
+	u64 size = 0, pci_addr;
+	int rlen = 0;
+	int ranges_amnt, i, j, np;
+	int memno = 0;
+	struct resource *res;
+	int na = of_n_addr_cells(dev);
+	struct ranges_pci *ranges64 = NULL;
+	phys_addr_t cpu_phys_addr;
+
+	np = na + 5;
+
+	/* From "PCI Binding to 1275"
+	 * The ranges property is laid out as an array of elements,
+	 * each of which comprises:
+	 *   cells 0 - 2:       a PCI address
+	 *   cells 3 or 3+4:    a CPU physical address
+	 *                      (size depending on dev->n_addr_cells)
+	 *   cells 4+5 or 5+6:  the size of the range
+	 */
+	ranges = of_get_property(dev, "ranges", &rlen);
+	if (!ranges)
+		return;
+	/* Map ranges to struct according to spec. */
+	ranges64 = (void *)ranges;
+	ranges_amnt = rlen / sizeof(*ranges64);
+
+	hose->io_base_phys = 0;
+	for (i = 0; i < ranges_amnt; i++) {
+		u32 *addr_ptr;
+		res = NULL;
+
+		if (ranges64[i].pci_space == 0)
+			continue;
+
+		pci_space = ranges64[i].pci_space;
+		pci_addr = ranges64[i].pci_addr;
+		addr_ptr = (u32 *)(&ranges64[i].phys_addr);
+		cpu_phys_addr =
+			(phys_addr_t)of_translate_address(dev, addr_ptr);
+		size = ranges64[i].size;
+
+		DBG("Observed: pci %llx phys %llx size %llx\n", pci_addr,
+				cpu_phys_addr, size);
+
+		/* here we need to handle contiguous ranges */
+		for (j = i+1; j < ranges_amnt; j++) {
+			/* no need to coalesce different region types  */
+			if (ranges64[j].pci_space != pci_space)
+				break;
+			/* not contiguous. give up. */
+			if (ranges64[j].pci_addr != pci_addr + size ||
+				ranges64[j].phys_addr != cpu_phys_addr + size)
+				break;
+			size += ranges64[j].size;
+			i = j; /* skip this one next turn */
+		}
+		switch ((pci_space >> 24) & 0x3) {
+		case 1:	/* I/O space */
+#ifdef CONFIG_PPC32
+			/*
+			 * check from ppc32 pci implementation.
+			 * This seems just wrong. -vitb
+			 */
+			if (pci_addr != 0)
+				break;
+#endif
+			/* limit I/O space to 16MB */
+			if (size > 0x01000000)
+				size = 0x01000000;
+
+			hose->io_base_phys = cpu_phys_addr - pci_addr;
+			/* handle from 0 to top of I/O window */
+#ifdef CONFIG_PPC64
+			hose->pci_io_size = pci_addr + size;
+#endif
+			hose->io_base_virt = ioremap(hose->io_base_phys, size);
+#ifdef CONFIG_PPC32
+			if (prim)
+				isa_io_base = (unsigned long)hose->io_base_virt;
+#endif
+			res = &hose->io_resource;
+			res->flags = IORESOURCE_IO;
+			res->start = pci_addr;
+			DBG("phb%d: IO 0x%llx -> 0x%llx\n", hose->global_number,
+				(u64) res->start, 
+				(u64) (res->start + size - 1));
+			DBG("IO phys %llx IO virt %p\n",
+				(u64) hose->io_base_phys, hose->io_base_virt);
+			break;
+		case 2:	/* memory space */
+			memno = 0;
+#ifdef CONFIG_PPC32
+			if ((pci_addr == 0) && (size <= (16 << 20))) {
+				/* 1st 16MB, i.e. ISA memory area */
+				if (prim)
+					isa_mem_base = cpu_phys_addr;
+				memno = 1;
+			}
+#endif
+			while (memno < 3 && hose->mem_resources[memno].flags)
+				++memno;
+
+			if (memno == 0)
+				hose->pci_mem_offset = cpu_phys_addr - pci_addr;
+			if (memno < 3) {
+				res = &hose->mem_resources[memno];
+				res->flags = IORESOURCE_MEM;
+				res->start = cpu_phys_addr;
+				DBG("phb%d: MEM 0x%llx -> 0x%llx\n",
+						hose->global_number, res->start,
+						res->start + size - 1);
+			}
+			break;
+		}
+		if (res != NULL) {
+			res->name = dev->full_name;
+			res->end = res->start + size - 1;
+			res->parent = NULL;
+			res->sibling = NULL;
+			res->child = NULL;
+		}
+	}
+}
+

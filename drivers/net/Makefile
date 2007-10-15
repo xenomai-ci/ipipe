@@ -4,10 +4,12 @@
 
 obj-$(CONFIG_E1000) += e1000/
 obj-$(CONFIG_IBM_EMAC) += ibm_emac/
+obj-$(CONFIG_IBM_NEW_EMAC) += ibm_newemac/
 obj-$(CONFIG_IXGB) += ixgb/
 obj-$(CONFIG_CHELSIO_T1) += chelsio/
 obj-$(CONFIG_CHELSIO_T3) += cxgb3/
 obj-$(CONFIG_EHEA) += ehea/
+obj-$(CONFIG_CAN) += can/
 obj-$(CONFIG_BONDING) += bonding/
 obj-$(CONFIG_ATL1) += atl1/
 obj-$(CONFIG_GIANFAR) += gianfar_driver.o
@@ -25,7 +27,10 @@ ucc_geth_driver-objs := ucc_geth.o ucc_geth_mii.o ucc_geth_ethtool.o
 #
 obj-$(CONFIG_PLIP) += plip.o
 
+obj-$(CONFIG_KORINA) += korina.o
+
 obj-$(CONFIG_ROADRUNNER) += rrunner.o
+obj-$(CONFIG_FEC_MPC52xx) += fec_mpc52xx/
 
 obj-$(CONFIG_HAPPYMEAL) += sunhme.o
 obj-$(CONFIG_SUNLANCE) += sunlance.o
@@ -205,6 +210,7 @@ obj-$(CONFIG_SMC911X) += smc911x.o
 obj-$(CONFIG_BFIN_MAC) += bfin_mac.o
 obj-$(CONFIG_DM9000) += dm9000.o
 obj-$(CONFIG_FEC_8XX) += fec_8xx/
+obj-$(CONFIG_FEC_MPC52xx) += fec_mpc52xx/
 obj-$(CONFIG_PASEMI_MAC) += pasemi_mac.o
 obj-$(CONFIG_MLX4_CORE) += mlx4/
 

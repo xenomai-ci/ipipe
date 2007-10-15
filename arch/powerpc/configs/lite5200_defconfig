@@ -200,9 +200,8 @@ CONFIG_ZONE_DMA=y
 CONFIG_GENERIC_ISA_DMA=y
 # CONFIG_PPC_INDIRECT_PCI is not set
 CONFIG_FSL_SOC=y
-CONFIG_PCI=y
-CONFIG_PCI_DOMAINS=y
-CONFIG_PCI_SYSCALL=y
+# CONFIG_PCI is not set
+# CONFIG_PCI_DOMAINS is not set
 # CONFIG_PCIEPORTBUS is not set
 CONFIG_ARCH_SUPPORTS_MSI=y
 # CONFIG_PCI_MSI is not set
@@ -509,7 +508,20 @@ CONFIG_NETDEVICES=y
 # CONFIG_EQUALIZER is not set
 # CONFIG_TUN is not set
 # CONFIG_ARCNET is not set
-# CONFIG_NET_ETHERNET is not set
+
+#
+# Ethernet (10 or 100Mbit)
+#
+CONFIG_NET_ETHERNET=y
+
+#
+# MPC5200 Networking Options
+#
+CONFIG_FEC_MPC52xx=y
+CONFIG_USE_MDIO=y
+#
+# Ethernet (1000 Mbit)
+#
 CONFIG_NETDEV_1000=y
 # CONFIG_ACENIC is not set
 # CONFIG_DL2K is not set
@@ -527,7 +539,6 @@ CONFIG_NETDEV_1000=y
 # CONFIG_MV643XX_ETH is not set
 # CONFIG_QLA3XXX is not set
 # CONFIG_ATL1 is not set
-CONFIG_NETDEV_10000=y
 # CONFIG_CHELSIO_T1 is not set
 # CONFIG_CHELSIO_T3 is not set
 # CONFIG_IXGB is not set
@@ -757,7 +768,8 @@ CONFIG_RAMFS=y
 #
 # Network File Systems
 #
-# CONFIG_NFS_FS is not set
+CONFIG_NFS_FS=yes
+CONFIG_ROOT_NFS=y
 # CONFIG_NFSD is not set
 # CONFIG_SMB_FS is not set
 # CONFIG_CIFS is not set

@@ -181,6 +181,8 @@
 #define  MACH_TITAN_YOSEMITE	1	/* PMC-Sierra Yosemite		*/
 #define  MACH_TITAN_EXCITE	2	/* Basler eXcite		*/
 
+#define MACH_GROUP_MIKROTIK    24	/* Mikrotik Boards		*/
+
 /*
  * Valid machtype for group NEC EMMA2RH
  */

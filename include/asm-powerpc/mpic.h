@@ -309,6 +309,11 @@ struct mpic
 	unsigned long		*hwirq_bitmap;
 #endif
 
+#ifdef CONFIG_PPC_PASEMI_A2_WORKAROUNDS
+	u32			ipi_reg_shadow[4];
+	u32			isu_reg0_shadow[MPIC_MAX_IRQ_SOURCES];
+#endif
+
 	/* link */
 	struct mpic		*next;
 

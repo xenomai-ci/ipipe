@@ -36,10 +36,20 @@
 #include <asm/smp.h>
 #include <asm/time.h>
 #include <asm/of_platform.h>
+#include <asm/mmu-hash64.h>
+
+#include <pcmcia/ss.h>
+#include <pcmcia/cistpl.h>
+#include <pcmcia/ds.h>
 
 #include "pasemi.h"
 
 static void __iomem *reset_reg;
+void __iomem *mem_errsta0, *mem_errsta1;
+
+#ifdef CONFIG_PPC_PASEMI_A2_WORKAROUNDS
+DEFINE_SPINLOCK(lbi_lock);
+#endif
 
 static void pas_restart(char *cmd)
 {
@@ -50,26 +60,30 @@ static void pas_restart(char *cmd)
 
 #ifdef CONFIG_SMP
 static DEFINE_SPINLOCK(timebase_lock);
+static unsigned long timebase;
 
 static void __devinit pas_give_timebase(void)
 {
-	unsigned long tb;
-
 	spin_lock(&timebase_lock);
 	mtspr(SPRN_TBCTL, TBCTL_FREEZE);
-	tb = mftb();
-	mtspr(SPRN_TBCTL, TBCTL_UPDATE_LOWER | (tb & 0xffffffff));
-	mtspr(SPRN_TBCTL, TBCTL_UPDATE_UPPER | (tb >> 32));
-	mtspr(SPRN_TBCTL, TBCTL_RESTART);
+	isync();
+	timebase = get_tb();
 	spin_unlock(&timebase_lock);
-	pr_debug("pas_give_timebase: cpu %d gave tb %lx\n",
-		 smp_processor_id(), tb);
+
+	while (timebase)
+		barrier();
+	mtspr(SPRN_TBCTL, TBCTL_RESTART);
 }
 
 static void __devinit pas_take_timebase(void)
 {
-	pr_debug("pas_take_timebase: cpu %d has tb %lx\n",
-		 smp_processor_id(), mftb());
+	while (!timebase)
+		smp_rmb();
+
+	spin_lock(&timebase_lock);
+	set_tb(timebase >> 32, timebase & 0xffffffff);
+	timebase = 0;
+	spin_unlock(&timebase_lock);
 }
 
 struct smp_ops_t pas_smp_ops = {
@@ -100,6 +114,9 @@ void __init pas_setup_arch(void)
 	reset_reg = ioremap(0xfc101100, 4);
 
 	pasemi_idle_init();
+
+	mem_errsta0 = ioremap(0xe0020730, 4);
+	mem_errsta1 = ioremap(0xe0028730, 4);
 }
 
 static __init void pas_init_IRQ(void)
@@ -142,7 +159,11 @@ static __init void pas_init_IRQ(void)
 	printk(KERN_DEBUG "OpenPIC addr: %lx\n", openpic_addr);
 
 	mpic = mpic_alloc(mpic_node, openpic_addr,
+#ifdef CONFIG_PPC_PASEMI_A2_WORKAROUNDS
+			  MPIC_PRIMARY|MPIC_LARGE_VECTORS,
+#else
 			  MPIC_PRIMARY|MPIC_LARGE_VECTORS|MPIC_WANTS_RESET,
+#endif
 			  0, 0, " PAS-OPIC  ");
 	BUG_ON(!mpic);
 
@@ -162,6 +183,8 @@ static int pas_machine_check_handler(struct pt_regs *regs)
 {
 	int cpu = smp_processor_id();
 	unsigned long srr0, srr1, dsisr;
+	int dump_slb = 0, flush_slb = 0;
+	int dump_memsta = 0;
 
 	srr0 = regs->nip;
 	srr1 = regs->msr;
@@ -175,25 +198,63 @@ static int pas_machine_check_handler(struct pt_regs *regs)
 		printk(KERN_ERR "Signalled by SDC\n");
 	if (srr1 & 0x100000) {
 		printk(KERN_ERR "Load/Store detected error:\n");
-		if (dsisr & 0x8000)
+		if (dsisr & 0x8000) {
 			printk(KERN_ERR "D-cache ECC double-bit error or bus error\n");
+			dump_memsta = 1;
+		}
 		if (dsisr & 0x4000)
 			printk(KERN_ERR "LSU snoop response error\n");
-		if (dsisr & 0x2000)
+		if (dsisr & 0x2000) {
 			printk(KERN_ERR "MMU SLB multi-hit or invalid B field\n");
+			dump_slb = 1;
+			flush_slb = 1;
+		}
 		if (dsisr & 0x1000)
 			printk(KERN_ERR "Recoverable Duptags\n");
-		if (dsisr & 0x800)
+		if (dsisr & 0x800) {
 			printk(KERN_ERR "Recoverable D-cache parity error count overflow\n");
+			dump_memsta = 1;
+		}
 		if (dsisr & 0x400)
 			printk(KERN_ERR "TLB parity error count overflow\n");
 	}
 	if (srr1 & 0x80000)
 		printk(KERN_ERR "Bus Error\n");
-	if (srr1 & 0x40000)
+	if (srr1 & 0x40000) {
 		printk(KERN_ERR "I-side SLB multiple hit\n");
-	if (srr1 & 0x20000)
+		dump_slb = 1;
+		flush_slb = 1;
+	}
+	if (srr1 & 0x20000) {
 		printk(KERN_ERR "I-cache parity error hit\n");
+		dump_memsta = 1;
+	}
+
+	if (dump_memsta) {
+		unsigned int errsta;
+		errsta = in_le32(mem_errsta0);
+		printk("mc0_mcdebug_errsta: 0x%08x (MER %d SER %d)\n",
+			errsta, !!(errsta & 0x2), !!(errsta & 0x1));
+		errsta = in_le32(mem_errsta1);
+		printk("mc1_mcdebug_errsta: 0x%08x (MER %d SER %d)\n",
+			errsta, !!(errsta & 0x2), !!(errsta & 0x1));
+	}
+
+	if (dump_slb) {
+		unsigned long slb_e, slb_v;
+		int i;
+		printk("slb contents:\n");
+		for (i = 0; i < SLB_NUM_ENTRIES; i++) {
+			asm volatile("slbmfee  %0,%1" : "=r" (slb_e) : "r" (i));
+			asm volatile("slbmfev  %0,%1" : "=r" (slb_v) : "r" (i));
+
+			printk("%02d %016lx %016lx\n", i, slb_e, slb_v);
+		}
+	}
+
+	if (flush_slb)
+		/* We really can recover from this. flush, rebolt and go. */
+		slb_flush_and_rebolt();
 
 	/* SRR1[62] is from MSR[62] if recoverable, so pass that back */
 	return !!(srr1 & 0x2);
@@ -204,7 +265,57 @@ static void __init pas_init_early(void)
 	iommu_init_early_pasemi();
 }
 
+#ifdef CONFIG_PCMCIA
+static int pcmcia_notify(struct notifier_block *nb, unsigned long action,
+			 void *data)
+{
+	struct device *dev = data;
+	struct device *parent;
+	struct pcmcia_device *pdev = to_pcmcia_dev(dev);
+
+	/* We are only intereted in device addition */
+	if (action != BUS_NOTIFY_ADD_DEVICE)
+		return 0;
+
+	parent = pdev->socket->dev.parent;
+
+	/* We know electra_cf devices will always have of_node set, since
+	 * electra_cf is an of_platform driver.
+	 */
+	if (!parent->archdata.of_node)
+		return 0;
+
+	if (!of_device_is_compatible(parent->archdata.of_node, "electra-cf"))
+		return 0;
+
+	/* We use the direct ops for localbus */
+	dev->archdata.dma_ops = &dma_direct_ops;
+
+	return 0;
+}
+
+static struct notifier_block pcmcia_notifier = {
+	.notifier_call = pcmcia_notify,
+};
+
+static inline void pasemi_pcmcia_init(void)
+{
+	extern struct bus_type pcmcia_bus_type;
+
+	bus_register_notifier(&pcmcia_bus_type, &pcmcia_notifier);
+}
+
+#else
+
+static inline void pasemi_pcmcia_init(void)
+{
+}
+
+#endif
+
+
 static struct of_device_id pasemi_bus_ids[] = {
+	{ .type = "localbus", },
 	{ .type = "sdc", },
 	{},
 };
@@ -213,6 +324,8 @@ static int __init pasemi_publish_devices(void)
 {
 	if (!machine_is(pasemi))
 		return 0;
+
+	pasemi_pcmcia_init();
 
 	/* Publish OF platform devices for SDC and other non-PCI devices */
 	of_platform_bus_probe(NULL, pasemi_bus_ids, NULL);
@@ -239,6 +352,11 @@ static int __init pas_probe(void)
 	return 1;
 }
 
+#ifdef CONFIG_RTC_DRV_DS1307
+void ds1307_get_rtc_time(struct rtc_time *);
+int ds1307_set_rtc_time(struct rtc_time *);
+#endif
+
 define_machine(pasemi) {
 	.name			= "PA Semi PA6T-1682M",
 	.probe			= pas_probe,
@@ -247,6 +365,10 @@ define_machine(pasemi) {
 	.init_IRQ		= pas_init_IRQ,
 	.get_irq		= mpic_get_irq,
 	.restart		= pas_restart,
+#ifdef CONFIG_RTC_DRV_DS1307
+	.get_rtc_time		= ds1307_get_rtc_time,
+	.set_rtc_time		= ds1307_set_rtc_time,
+#endif
 	.get_boot_time		= pas_get_boot_time,
 	.calibrate_decr		= generic_calibrate_decr,
 	.progress		= pas_progress,

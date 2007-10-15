@@ -1,4 +1,5 @@
 #include <asm-generic/vmlinux.lds.h>
+#include <asm/page.h>
 
 OUTPUT_ARCH(powerpc:common)
 jiffies = jiffies_64 + 4;
@@ -64,7 +65,7 @@ SECTIONS
 	}
 
   /* Read-write section, merged into data segment: */
-  . = ALIGN(4096);
+  . = ALIGN(PAGE_SIZE);
   .data    :
   {
     DATA_DATA
@@ -76,10 +77,10 @@ SECTIONS
     CONSTRUCTORS
   }
 
-  . = ALIGN(4096);
+  . = ALIGN(PAGE_SIZE);
   __nosave_begin = .;
   .data_nosave : { *(.data.nosave) }
-  . = ALIGN(4096);
+  . = ALIGN(PAGE_SIZE);
   __nosave_end = .;
 
   . = ALIGN(32);
@@ -91,7 +92,7 @@ SECTIONS
   . = ALIGN(8192);
   .data.init_task : { *(.data.init_task) }
 
-  . = ALIGN(4096);
+  . = ALIGN(PAGE_SIZE);
   __init_begin = .;
   .init.text : {
 	_sinittext = .;
@@ -133,16 +134,16 @@ SECTIONS
   PERCPU(4096)
 
 #ifdef CONFIG_BLK_DEV_INITRD
-  . = ALIGN(4096);
+  . = ALIGN(PAGE_SIZE);
   __initramfs_start = .;
   .init.ramfs : { *(.init.ramfs) }
   __initramfs_end = .;
 #endif
 
-  . = ALIGN(4096);
+  . = ALIGN(PAGE_SIZE);
   __init_end = .;
 
-  . = ALIGN(4096);
+  . = ALIGN(PAGE_SIZE);
   _sextratext = .;
   _eextratext = .;
 

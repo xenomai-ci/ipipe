@@ -20,14 +20,12 @@
 #include <asm/mpc52xx.h>
 
 
-void __iomem *
-mpc52xx_find_and_map(const char *compatible)
+static void __iomem *
+mpc52xx_map_node(struct device_node *ofn)
 {
-	struct device_node *ofn;
 	const u32 *regaddr_p;
 	u64 regaddr64, size64;
 
-	ofn = of_find_compatible_node(NULL, NULL, compatible);
 	if (!ofn)
 		return NULL;
 
@@ -43,8 +41,23 @@ mpc52xx_find_and_map(const char *compatible)
 
 	return ioremap((u32)regaddr64, (u32)size64);
 }
+
+void __iomem *
+mpc52xx_find_and_map(const char *compatible)
+{
+	return mpc52xx_map_node(
+		of_find_compatible_node(NULL, NULL, compatible));
+}
+
 EXPORT_SYMBOL(mpc52xx_find_and_map);
 
+void __iomem *
+mpc52xx_find_and_map_path(const char *path)
+{
+	return mpc52xx_map_node(of_find_node_by_path(path));
+}
+
+EXPORT_SYMBOL(mpc52xx_find_and_map_path);
 
 /**
  * 	mpc52xx_find_ipb_freq - Find the IPB bus frequency for a device
@@ -75,12 +88,23 @@ mpc52xx_find_ipb_freq(struct device_node *node)
 }
 EXPORT_SYMBOL(mpc52xx_find_ipb_freq);
 
+/*
+ * This variable is mapped in mpc52xx_setup_cpu() by a call to
+ * mpc52xx_find_and_map(), and used in mpc52xx_restart(). This is because
+ * mpc52xx_restart() can be called from interrupt context (e.g., watchdog
+ * interrupt handler), and mpc52xx_find_and_map() (ioremap() to be exact)
+ * can't be called from interrupt context.
+ */
+volatile struct mpc52xx_gpt *mpc52xx_gpt0 = NULL;
 
 void __init
 mpc52xx_setup_cpu(void)
 {
 	struct mpc52xx_cdm  __iomem *cdm;
 	struct mpc52xx_xlb  __iomem *xlb;
+
+	/* mpc52xx_gpt0 is mapped here and used in mpc52xx_restart */
+	mpc52xx_gpt0 = mpc52xx_find_and_map("mpc5200-gpt");
 
 	/* Map zones */
 	cdm = mpc52xx_find_and_map("mpc5200-cdm");
@@ -125,3 +149,37 @@ mpc52xx_declare_of_platform_devices(void)
 			"Error while probing of_platform bus\n");
 }
 
+void
+mpc52xx_restart(char *cmd)
+{
+	local_irq_disable();
+
+	/* Turn on the watchdog and wait for it to expire. It effectively
+	  does a reset */
+	if (mpc52xx_gpt0) {
+		out_be32(&mpc52xx_gpt0->mode, 0x00000000);
+		out_be32(&mpc52xx_gpt0->count, 0x000000ff);
+		out_be32(&mpc52xx_gpt0->mode, 0x00009004);
+	} else
+		printk("mpc52xx_restart: Can't access gpt. "
+			"Restart impossible, system halted\n");
+
+	while (1);
+}
+
+void
+mpc52xx_halt(void)
+{
+	local_irq_disable();
+
+	while (1);
+}
+
+void
+mpc52xx_power_off(void)
+{
+	/* By default we don't have any way of shut down.
+	   If a specific board wants to, it can set the power down
+	   code to any hardware implementation dependent code */
+	mpc52xx_halt();
+}

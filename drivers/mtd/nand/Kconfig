@@ -81,6 +81,12 @@ config MTD_NAND_TS7250
 	help
 	  Support for NAND flash on Technologic Systems TS-7250 platform.
 
+config MTD_NAND_RB500
+	tristate "NAND Flash device on RB500 board"
+	depends on MTD_NAND
+	help
+	  Support for NAND flash on RB500 platform.
+
 config MTD_NAND_IDS
 	tristate
 
@@ -102,10 +108,10 @@ config MTD_NAND_RTC_FROM4
 	  flash interface board (FROM_BOARD4)
 
 config MTD_NAND_PPCHAMELEONEVB
-	tristate "NAND Flash device on PPChameleonEVB board"
-	depends on PPCHAMELEONEVB && BROKEN
+	tristate "NAND Flash device on DAVE PPChameleonEVB board"
+	depends on PPChameleonEVB && MTD_NAND
 	help
-	  This enables the NAND flash driver on the PPChameleon EVB Board.
+	  This enables the NAND flash driver on the DAVE PPChameleonEVB Board.
 
 config MTD_NAND_S3C2410
 	tristate "NAND Flash support for S3C2410/S3C2440 SoC"
@@ -134,10 +140,28 @@ config MTD_NAND_S3C2410_HWECC
 
 config MTD_NAND_NDFC
 	tristate "NDFC NanD Flash Controller"
-	depends on 44x
+	depends on MTD_NAND && 4xx
 	select MTD_NAND_ECC_SMC
 	help
-	 NDFC Nand Flash Controllers are integrated in EP44x SoCs
+	 NDFC Nand Flash Controllers are integrated in IBM/AMCC's 4xx SoCs
+
+config MTD_NAND_TQM8272
+	tristate "NAND Flash support on TQ TQM8272 Board."
+	depends on MTD_NAND && TQM8272
+	help
+	 This enables the NAND flash driver on the TQ TQM8272 Board.
+
+config MTD_NAND_ALPR
+	tristate "NAND flash support on Prodrive ALPR board"
+	depends on ALPR && MTD_NAND
+	help
+	  This enables the NAND flash driver on the ALPR board from Prodrive.
+
+config MTD_NAND_SC3
+	tristate "NAND Flash support on SolidCard III."
+	depends on MTD_NAND && SC3
+	help
+	 This enables the NAND flash driver on the SolidCard III Board.
 
 config MTD_NAND_S3C2410_CLKSTOP
 	bool "S3C2410 NAND IDLE clock stop"
@@ -280,5 +304,11 @@ config MTD_NAND_PLATFORM
 	  devices. You will need to provide platform-specific functions
 	  via platform_data.
 
+config MTD_NAND_PASEMI
+	tristate "NAND support for PA6T-1682M"
+	depends on MTD_NAND && PPC_PASEMI
+	help
+	  Enables support for NAND Flash interface on PA Semi PA6T-1682M
+	  processor
 
 endif # MTD_NAND

@@ -1543,6 +1543,7 @@ struct bus_type pcmcia_bus_type = {
 	.suspend = pcmcia_dev_suspend,
 	.resume = pcmcia_dev_resume,
 };
+EXPORT_SYMBOL(pcmcia_bus_type);
 
 
 static int __init init_pcmcia_bus(void)

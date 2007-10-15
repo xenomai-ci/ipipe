@@ -94,6 +94,7 @@ obj-$(CONFIG_WDT_RM9K_GPI) += rm9k_wdt.o
 # PARISC Architecture
 
 # POWERPC Architecture
+obj-$(CONFIG_WD_MPC5200) += wd_mpc5200.o
 obj-$(CONFIG_8xx_WDT) += mpc8xx_wdt.o
 obj-$(CONFIG_MPC5200_WDT) += mpc5200_wdt.o
 obj-$(CONFIG_83xx_WDT) += mpc83xx_wdt.o
@@ -117,4 +118,5 @@ obj-$(CONFIG_SH_WDT) += shwdt.o
 # XTENSA Architecture
 
 # Architecture Independant
+obj-$(CONFIG_WD) += wd.o
 obj-$(CONFIG_SOFT_WATCHDOG) += softdog.o
