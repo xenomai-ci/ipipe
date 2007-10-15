@@ -104,11 +104,13 @@ typedef struct {
 #define DEFINE_RWLOCK(x)	rwlock_t x = __RW_LOCK_UNLOCKED(x)
 
 #ifdef CONFIG_IPIPE
-# define ipipe_spinlock_t	__ipipe_spinlock_t
-# define IPIPE_DEFINE_SPINLOCK(x) ipipe_spinlock_t x = IPIPE_SPIN_LOCK_UNLOCKED
+# define ipipe_spinlock_t		__ipipe_spinlock_t
+# define IPIPE_DEFINE_SPINLOCK(x)	ipipe_spinlock_t x = IPIPE_SPIN_LOCK_UNLOCKED
+# define IPIPE_DECLARE_SPINLOCK(x)	extern ipipe_spinlock_t x
 #else
-# define ipipe_spinlock_t	spinlock_t
-# define IPIPE_DEFINE_SPINLOCK(x) DEFINE_SPINLOCK(x)
+# define ipipe_spinlock_t		spinlock_t
+# define IPIPE_DEFINE_SPINLOCK(x)	DEFINE_SPINLOCK(x)
+# define IPIPE_DECLARE_SPINLOCK(x)	extern spinlock_t x
 #endif
 
 #endif /* __LINUX_SPINLOCK_TYPES_H */
