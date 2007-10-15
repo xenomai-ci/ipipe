@@ -23,7 +23,7 @@
 #ifndef _LINUX_IPIPE_TRACE_H
 #define _LINUX_IPIPE_TRACE_H
 
-#ifdef CONFIG_IPIPE
+#ifdef CONFIG_IPIPE_TRACE
 
 #include <linux/types.h>
 
@@ -32,9 +32,28 @@ void ipipe_trace_end(unsigned long v);
 void ipipe_trace_freeze(unsigned long v);
 void ipipe_trace_special(unsigned char special_id, unsigned long v);
 void ipipe_trace_pid(pid_t pid, short prio);
-
 int ipipe_trace_max_reset(void);
 int ipipe_trace_frozen_reset(void);
+
+#else /* !CONFIG_IPIPE_TRACE */
+
+#define ipipe_trace_begin(v)		do { (void)(v); } while(0)
+#define ipipe_trace_end(v)		do { (void)(v); } while(0)
+#define ipipe_trace_freeze(v)		do { (void)(v); } while(0)
+#define ipipe_trace_special(id, v)	do { (void)(id); (void)(v); } while(0)
+#define ipipe_trace_pid(pid, prio)	do { (void)(pid); (void)(prio); } while(0)
+#define ipipe_trace_max_reset()		do { } while(0)
+#define ipipe_trace_froze_reset()	do { } while(0)
+
+#endif /* !CONFIG_IPIPE_TRACE */
+
+#ifdef CONFIG_IPIPE_TRACE_PANIC
+void ipipe_trace_panic_freeze(void);
+void ipipe_trace_panic_dump(void);
+#else
+static inline void ipipe_trace_panic_freeze(void) { }
+static inline void ipipe_trace_panic_dump(void) { }
+#endif
 
 #ifdef CONFIG_IPIPE_TRACE_IRQSOFF
 #define ipipe_trace_irq_entry(irq)	ipipe_trace_begin(irq)
@@ -48,25 +67,4 @@ int ipipe_trace_frozen_reset(void);
 #define ipipe_trace_irqson()		do { } while(0)
 #endif
 
-#else /* !CONFIG_IPIPE */
-
-#define ipipe_trace_begin(v)		do { (void)(v); } while(0)
-#define ipipe_trace_end(v)		do { (void)(v);} while(0)
-#define ipipe_trace_freeze(v)		do { (void)(v);} while(0)
-#define ipipe_trace_special(id, v)	do { (void)(id); (void)(v);} while(0)
-
-#endif /* CONFIG_IPIPE */
-
-#ifdef CONFIG_IPIPE_TRACE_PANIC
-
-void ipipe_trace_panic_freeze(void);
-void ipipe_trace_panic_dump(void);
-
-#else /* !CONFIG_IPIPE_TRACE_PANIC */
-
-static inline void ipipe_trace_panic_freeze(void) { }
-static inline void ipipe_trace_panic_dump(void) { }
-
-#endif /* !CONFIG_IPIPE_TRACE_PANIC */
-
-#endif	/* !__LINUX_IPIPE_H */
+#endif	/* !__LINUX_IPIPE_TRACE_H */
