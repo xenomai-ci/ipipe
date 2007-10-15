@@ -393,7 +393,6 @@ handle_fasteoi_irq(unsigned int irq, struct irq_desc *desc)
 out:
 #else
 out:
-#ifndef CONFIG_IPIPE
 	desc->chip->eoi(irq);
 #endif
 
