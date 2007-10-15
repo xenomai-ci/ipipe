@@ -104,7 +104,7 @@ int mmu_ci_restrictions;
 #ifdef CONFIG_DEBUG_PAGEALLOC
 static u8 *linear_map_hash_slots;
 static unsigned long linear_map_hash_count;
-static DEFINE_SPINLOCK(linear_map_hash_lock);
+static IPIPE_DEFINE_SPINLOCK(linear_map_hash_lock);
 #endif /* CONFIG_DEBUG_PAGEALLOC */
 
 /* There are definitions of page sizes arrays to be used when none
@@ -881,6 +881,10 @@ void flush_hash_range(unsigned long number, int local)
  */
 void low_hash_fault(struct pt_regs *regs, unsigned long address)
 {
+	if (ipipe_trap_notify(IPIPE_TRAP_ACCESS, regs))
+		/* Not all access faults go through do_page_fault(). */
+	    	return;
+
 	if (user_mode(regs)) {
 		siginfo_t info;
 

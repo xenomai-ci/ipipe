@@ -74,6 +74,8 @@
 #endif
 #include <asm/smp.h>
 
+unsigned long disarm_decr[NR_CPUS];
+
 /* keep track of when we need to update the rtc */
 time_t last_rtc_update;
 #ifdef CONFIG_PPC_ISERIES
@@ -642,7 +644,7 @@ void timer_interrupt(struct pt_regs * regs)
 	u64 tb_next_jiffy;
 
 #ifdef CONFIG_PPC_PASEMI_A2_WORKAROUNDS
-	extern spinlock_t native_tlbie_lock;
+	extern ipipe_spinlock_t native_tlbie_lock;
 
 	spin_lock(&native_tlbie_lock);
 	asm("ptesync");
@@ -655,7 +657,9 @@ void timer_interrupt(struct pt_regs * regs)
 #endif
 
 	old_regs = set_irq_regs(regs);
+#ifndef CONFIG_IPIPE
 	irq_enter();
+#endif
 
 	profile_tick(CPU_PROFILING);
 	calculate_steal_time();
@@ -681,7 +685,11 @@ void timer_interrupt(struct pt_regs * regs)
 		 * is the case.
 		 */
 		if (!cpu_is_offline(cpu))
+#ifdef CONFIG_IPIPE
+			account_process_time(&per_cpu(__ipipe_tick_regs, cpu));
+#else
 			account_process_time(regs);
+#endif
 
 		/*
 		 * No need to check whether cpu is offline here; boot_cpuid
@@ -704,7 +712,8 @@ void timer_interrupt(struct pt_regs * regs)
 	}
 	
 	next_dec = tb_ticks_per_jiffy - ticks;
-	set_dec(next_dec);
+	if ( !disarm_decr[cpu] )
+	    set_dec(next_dec);
 
 #ifdef CONFIG_PPC_ISERIES
 	if (firmware_has_feature(FW_FEATURE_ISERIES) && hvlpevent_is_pending())
@@ -719,7 +728,9 @@ void timer_interrupt(struct pt_regs * regs)
 	}
 #endif
 
+#ifndef CONFIG_IPIPE
 	irq_exit();
+#endif
 	set_irq_regs(old_regs);
 }
 

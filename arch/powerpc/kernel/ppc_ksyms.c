@@ -49,7 +49,7 @@
 #include <asm/commproc.h>
 #endif
 
-#ifdef CONFIG_PPC64
+#if defined(CONFIG_PPC64) && defined(CONFIG_SOFTDISABLE)
 EXPORT_SYMBOL(local_irq_restore);
 #endif
 

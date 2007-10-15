@@ -35,7 +35,30 @@
 #include <asm/thread_info.h>
 #include <asm/firmware.h>
 
+#ifdef CONFIG_SOFTDISABLE	
 #define DO_SOFT_DISABLE
+#define COPY_SOFTISTATE(mreg)			\
+	lbz	mreg,PACASOFTIRQEN(r13);	\
+	std	mreg,SOFTE(r1);
+#define TEST_SOFTISTATE(mreg, dlabel)		\
+	lbz	mreg,PACASOFTIRQEN(r13);	\
+	cmpwi	mreg,0;				\
+	beq-	dlabel;
+#else
+#ifdef CONFIG_IPIPE
+/* Do NOT alter Rc(eq) in this code;  our caller uses it. */
+#define COPY_SOFTISTATE(mreg)			\
+	ld	mreg,PACAROOTPCPU(r13);		\
+	ld	mreg,0(mreg);			\
+	nor	mreg,mreg,mreg;			\
+	clrldi	mreg,mreg,63;			\
+	std	mreg,SOFTE(r1);
+#define TEST_SOFTISTATE(mreg, dlabel)
+#else
+#define COPY_SOFTISTATE(mreg)
+#define TEST_SOFTISTATE(mreg, dlabel)
+#endif
+#endif
 
 /*
  * We layout physical memory as follows:
@@ -330,9 +353,8 @@ exception_marker:
 	std	r9,_LINK(r1);						   \
 	mfctr	r10;			/* save CTR in stackframe	*/ \
 	std	r10,_CTR(r1);						   \
-	lbz	r10,PACASOFTIRQEN(r13);				   \
+	COPY_SOFTISTATE(r10);						   \
 	mfspr	r11,SPRN_XER;		/* save XER in stackframe	*/ \
-	std	r10,SOFTE(r1);						   \
 	std	r11,_XER(r1);						   \
 	li	r9,(n)+1;						   \
 	std	r9,_TRAP(r1);		/* set trap number		*/ \
@@ -376,10 +398,8 @@ label##_pSeries:							\
 	mfspr	r13,SPRN_SPRG3;		/* get paca address into r13 */	\
 	std	r9,PACA_EXGEN+EX_R9(r13);	/* save r9, r10 */	\
 	std	r10,PACA_EXGEN+EX_R10(r13);				\
-	lbz	r10,PACASOFTIRQEN(r13);					\
 	mfcr	r9;							\
-	cmpwi	r10,0;							\
-	beq	masked_interrupt;					\
+	TEST_SOFTISTATE(r10, masked_interrupt);				\
 	mfspr	r10,SPRN_SPRG1;						\
 	std	r10,PACA_EXGEN+EX_R13(r13);				\
 	std	r11,PACA_EXGEN+EX_R11(r13);				\
@@ -410,11 +430,31 @@ label##_iSeries:							\
 	HMT_MEDIUM;							\
 	mtspr	SPRN_SPRG1,r13;		/* save r13 */			\
 	EXCEPTION_PROLOG_ISERIES_1(PACA_EXGEN);				\
-	lbz	r10,PACASOFTIRQEN(r13);					\
-	cmpwi	0,r10,0;						\
-	beq-	label##_iSeries_masked;					\
+	TEST_SOFTISTATE(r10, label##_iSeries_masked);			\
 	EXCEPTION_PROLOG_ISERIES_2;					\
-	b	label##_common;						\
+	b	label##_common;
+
+#ifdef CONFIG_IPIPE
+/* IBM legacy I-Series are not supported. */
+#define ENABLE_INTS				\
+	ld	r12,_MSR(r1);			\
+	mfmsr	r11;				\
+	rlwimi	r11,r12,0,MSR_EE;		\
+	mtmsrd	r11,1
+#define DISABLE_INTS	/* We lie, mostly... */	\
+	ld	r11,PACAROOTPCPU(r13);		\
+	ld	r10,0(r11);			\
+	ori	r10,r10,1;			\
+	std	r10,0(r11);			\
+	mfmsr	r10;				\
+	ori	r10,r10,MSR_EE;			\
+	mtmsrd	r10,1;
+#define DISABLE_INTS_REALLY			\
+	mfmsr	r11;				\
+	rldicl	r11,r11,48,1;/* clear MSR_EE */	\
+	rotldi	r11,r11,16;			\
+	mtmsrd	r11,1;
+#else /* !CONFIG_IPIPE */
 
 #ifdef CONFIG_PPC_ISERIES
 #define DISABLE_INTS				\
@@ -442,6 +482,18 @@ END_FW_FTR_SECTION_IFSET(FW_FEATURE_ISERIES)
 	mfmsr	r11;				\
 	rlwimi	r11,r12,0,MSR_EE;		\
 	mtmsrd	r11,1
+		
+#endif /* !CONFIG_IPIPE */
+
+#ifdef CONFIG_IPIPE_TRACE_IRQSOFF
+#define TRACE_DISABLE_INTS		bl	__ipipe_trace_irqson
+#define TRACE_ENABLE_INTS		bl	__ipipe_trace_irqson
+#define TRACE_DISABLE_INTS_REALLY	bl	__ipipe_trace_irqsoff
+#else	
+#define TRACE_DISABLE_INTS
+#define TRACE_ENABLE_INTS
+#define TRACE_DISABLE_INTS_REALLY
+#endif
 
 #define STD_EXCEPTION_COMMON(trap, label, hdlr)		\
 	.align	7;					\
@@ -450,6 +502,7 @@ label##_common:						\
 	EXCEPTION_PROLOG_COMMON(trap, PACA_EXGEN);	\
 	DISABLE_INTS;					\
 	bl	.save_nvgprs;				\
+	TRACE_DISABLE_INTS;				\
 	addi	r3,r1,STACK_FRAME_OVERHEAD;		\
 	bl	hdlr;					\
 	b	.ret_from_except
@@ -466,6 +519,7 @@ label##_common:						\
 	FINISH_NAP;					\
 	DISABLE_INTS;					\
 	bl	.save_nvgprs;				\
+	TRACE_DISABLE_INTS;				\
 	addi	r3,r1,STACK_FRAME_OVERHEAD;		\
 	bl	hdlr;					\
 	b	.ret_from_except
@@ -478,9 +532,23 @@ label##_common:						\
 	FINISH_NAP;					\
 	DISABLE_INTS;					\
 	bl	.ppc64_runlatch_on;			\
+	TRACE_DISABLE_INTS;				\
 	addi	r3,r1,STACK_FRAME_OVERHEAD;		\
 	bl	hdlr;					\
 	b	.ret_from_except_lite
+
+#ifdef CONFIG_IPIPE
+#define IPIPE_EXCEPTION_COMMON_LITE(trap, label, hdlr)	\
+	.align	7;					\
+	.globl label##_common;				\
+label##_common:						\
+	EXCEPTION_PROLOG_COMMON(trap, PACA_EXGEN);	\
+	DISABLE_INTS_REALLY;				\
+	TRACE_DISABLE_INTS_REALLY;			\
+	addi	r3,r1,STACK_FRAME_OVERHEAD;		\
+	bl	hdlr;					\
+	b	.__ipipe_ret_from_except_lite
+#endif /* CONFIG_IPIPE */
 
 /*
  * When the idle code in power4_idle puts the CPU into NAP mode,
@@ -641,6 +709,7 @@ system_call_pSeries:
 	/* moved from 0xf00 */
 	STD_EXCEPTION_PSERIES(., performance_monitor)
 
+#ifdef CONFIG_SOFTDISABLE
 /*
  * An interrupt came in while soft-disabled; clear EE in SRR1,
  * clear paca->hard_enabled and return.
@@ -657,6 +726,7 @@ masked_interrupt:
 	mfspr	r13,SPRN_SPRG1
 	rfid
 	b	.
+#endif	
 
 	.align	7
 do_stab_bolted_pSeries:
@@ -914,11 +984,16 @@ machine_check_common:
 	FINISH_NAP
 	DISABLE_INTS
 	bl	.save_nvgprs
+	TRACE_DISABLE_INTS
 	addi	r3,r1,STACK_FRAME_OVERHEAD
 	bl	.machine_check_exception
 	b	.ret_from_except
 
+#ifdef CONFIG_IPIPE
+	IPIPE_EXCEPTION_COMMON_LITE(0x900, decrementer, .__ipipe_grab_timer) 
+#else /* !CONFIG_IPIPE */
 	STD_EXCEPTION_COMMON_LITE(0x900, decrementer, .timer_interrupt)
+#endif /* CONFIG_IPIPE */
 	STD_EXCEPTION_COMMON(0xa00, trap_0a, .unknown_exception)
 	STD_EXCEPTION_COMMON(0xb00, trap_0b, .unknown_exception)
 	STD_EXCEPTION_COMMON(0xd00, single_step, .single_step_exception)
@@ -987,12 +1062,23 @@ bad_stack:
  * ret_from_except or ret_from_except_lite instead of this.
  */
 fast_exc_return_irq:			/* restores irq state too */
+#ifdef CONFIG_SOFTDISABLE	
 	ld	r3,SOFTE(r1)
 	ld	r12,_MSR(r1)
 	stb	r3,PACASOFTIRQEN(r13)	/* restore paca->soft_enabled */
 	rldicl	r4,r12,49,63		/* get MSR_EE to LSB */
 	stb	r4,PACAHARDIRQEN(r13)	/* restore paca->hard_enabled */
 	b	1f
+#else
+#ifdef CONFIG_IPIPE
+	ld	r3,SOFTE(r1)		/* currently hard-disabled, so this is safe */
+	nor	r3,r3,r3
+	ld	r4,PACAROOTPCPU(r13)
+	ld	r5,0(r4)
+	insrdi	r5,r3,1,63
+	std	r5,0(r4)
+#endif	/* CONFIG_IPIPE */
+#endif	/* CONFIG_SOFTDISABLE */
 
 	.globl	fast_exception_return
 fast_exception_return:
@@ -1121,7 +1207,8 @@ unrecov_user_slb:
 	EXCEPTION_PROLOG_COMMON(0x4200, PACA_EXGEN)
 	DISABLE_INTS
 	bl	.save_nvgprs
-1:	addi	r3,r1,STACK_FRAME_OVERHEAD
+1:	TRACE_DISABLE_INTS
+	addi	r3,r1,STACK_FRAME_OVERHEAD
 	bl	.unrecoverable_exception
 	b	1b
 
@@ -1185,7 +1272,8 @@ unrecov_slb:
 	EXCEPTION_PROLOG_COMMON(0x4100, PACA_EXSLB)
 	DISABLE_INTS
 	bl	.save_nvgprs
-1:	addi	r3,r1,STACK_FRAME_OVERHEAD
+1:	TRACE_DISABLE_INTS
+	addi	r3,r1,STACK_FRAME_OVERHEAD
 	bl	.unrecoverable_exception
 	b	1b
 
@@ -1194,13 +1282,21 @@ unrecov_slb:
 	.globl hardware_interrupt_entry
 hardware_interrupt_common:
 	EXCEPTION_PROLOG_COMMON(0x500, PACA_EXGEN)
-	FINISH_NAP
 hardware_interrupt_entry:
+#ifdef CONFIG_IPIPE
+	DISABLE_INTS_REALLY
+	TRACE_DISABLE_INTS_REALLY
+	addi	r3,r1,STACK_FRAME_OVERHEAD
+	bl	.__ipipe_grab_irq
+	b	.__ipipe_ret_from_except_lite
+#else /* !CONFIG_IPIPE */
 	DISABLE_INTS
+	FINISH_NAP
 	bl	.ppc64_runlatch_on
 	addi	r3,r1,STACK_FRAME_OVERHEAD
 	bl	.do_IRQ
 	b	.ret_from_except_lite
+#endif /* CONFIG_IPIPE */
 
 #ifdef CONFIG_PPC_970_NAP
 power4_fixup_nap:
@@ -1224,8 +1320,9 @@ alignment_common:
 	std	r3,_DAR(r1)
 	std	r4,_DSISR(r1)
 	bl	.save_nvgprs
-	addi	r3,r1,STACK_FRAME_OVERHEAD
 	ENABLE_INTS
+	TRACE_ENABLE_INTS
+	addi	r3,r1,STACK_FRAME_OVERHEAD
 	bl	.alignment_exception
 	b	.ret_from_except
 
@@ -1234,8 +1331,9 @@ alignment_common:
 program_check_common:
 	EXCEPTION_PROLOG_COMMON(0x700, PACA_EXGEN)
 	bl	.save_nvgprs
-	addi	r3,r1,STACK_FRAME_OVERHEAD
 	ENABLE_INTS
+	TRACE_ENABLE_INTS
+	addi	r3,r1,STACK_FRAME_OVERHEAD
 	bl	.program_check_exception
 	b	.ret_from_except
 
@@ -1245,8 +1343,9 @@ fp_unavailable_common:
 	EXCEPTION_PROLOG_COMMON(0x800, PACA_EXGEN)
 	bne	1f			/* if from user, just load it up */
 	bl	.save_nvgprs
-	addi	r3,r1,STACK_FRAME_OVERHEAD
 	ENABLE_INTS
+	TRACE_ENABLE_INTS
+	addi	r3,r1,STACK_FRAME_OVERHEAD
 	bl	.kernel_fp_unavailable_exception
 	BUG_OPCODE
 1:	b	.load_up_fpu
@@ -1261,8 +1360,9 @@ BEGIN_FTR_SECTION
 END_FTR_SECTION_IFSET(CPU_FTR_ALTIVEC)
 #endif
 	bl	.save_nvgprs
-	addi	r3,r1,STACK_FRAME_OVERHEAD
 	ENABLE_INTS
+	TRACE_ENABLE_INTS
+	addi	r3,r1,STACK_FRAME_OVERHEAD
 	bl	.altivec_unavailable_exception
 	b	.ret_from_except
 
@@ -1413,12 +1513,22 @@ END_FW_FTR_SECTION_IFCLR(FW_FEATURE_ISERIES)
 	 * to what it was before the trap.  Note that .local_irq_restore
 	 * handles any interrupts pending at this point.
 	 */
+#ifdef CONFIG_SOFTDISABLE	
 	ld	r3,SOFTE(r1)
 	bl	.local_irq_restore
+#else
+#ifdef CONFIG_IPIPE
+	ld	r3,SOFTE(r1)
+	nor	r3,r3,r3
+	andi.	r3,r3,1
+	bl	__ipipe_restore_if_root
+#endif			
+#endif
 	b	11f
 
 /* Here we have a page fault that hash_page can't handle. */
 handle_page_fault:
+	TRACE_ENABLE_INTS
 	ENABLE_INTS
 11:	ld	r4,_DAR(r1)
 	ld	r5,_DSISR(r1)
@@ -1968,8 +2078,10 @@ BEGIN_FW_FTR_SECTION
 END_FW_FTR_SECTION_IFSET(FW_FEATURE_ISERIES)
 #endif
 BEGIN_FW_FTR_SECTION
+#ifdef CONFIG_SOFTDISABLE	
 	stb	r7,PACASOFTIRQEN(r13)
 	stb	r7,PACAHARDIRQEN(r13)
+#endif	
 END_FW_FTR_SECTION_IFCLR(FW_FEATURE_ISERIES)
 
 	mtspr	SPRN_SRR0,r3
@@ -2093,8 +2205,10 @@ _INIT_STATIC(start_here_common)
 
 	/* Load up the kernel context */
 5:
+#ifdef CONFIG_SOFTDISABLE	
 	li	r5,0
 	stb	r5,PACASOFTIRQEN(r13)	/* Soft Disabled */
+#endif	
 #ifdef CONFIG_PPC_ISERIES
 BEGIN_FW_FTR_SECTION
 	mfmsr	r5
@@ -2102,9 +2216,11 @@ BEGIN_FW_FTR_SECTION
 	mtmsrd	r5
 END_FW_FTR_SECTION_IFSET(FW_FEATURE_ISERIES)
 #endif
+#ifdef CONFIG_SOFTDISABLE	
 BEGIN_FW_FTR_SECTION
 	stb	r5,PACAHARDIRQEN(r13)
 END_FW_FTR_SECTION_IFCLR(FW_FEATURE_ISERIES)
+#endif
 
 	bl .start_kernel
 

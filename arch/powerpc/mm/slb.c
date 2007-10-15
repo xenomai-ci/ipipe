@@ -97,7 +97,7 @@ void slb_flush_and_rebolt(void)
 	unsigned long linear_llp, vmalloc_llp, lflags, vflags;
 	unsigned long ksp_esid_data;
 
-	WARN_ON(!irqs_disabled());
+	WARN_ON(!irqs_disabled_hw());
 
 	linear_llp = mmu_psize_defs[mmu_linear_psize].sllp;
 	vmalloc_llp = mmu_psize_defs[mmu_vmalloc_psize].sllp;
@@ -176,6 +176,15 @@ void switch_slb(struct task_struct *tsk, struct mm_struct *mm)
 
 	get_paca()->slb_cache_ptr = 0;
 	get_paca()->context = mm->context;
+
+#ifdef CONFIG_IPIPE
+	if (!__ipipe_pipeline_head_p(ipipe_root_domain) && ipipe_root_domain_p)
+		/* Do not preload userspace segments if Linux does not
+		 * head the pipeline but is current: this might delay
+		 * higher priority domains (hw irqs are off right
+		 * now, and slb allocation is expensive time-wise). */
+		return;
+#endif
 
 	/*
 	 * preload some userspace segments into the SLB.
