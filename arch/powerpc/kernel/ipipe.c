@@ -762,6 +762,7 @@ EXPORT_SYMBOL(disarm_decr);
 EXPORT_SYMBOL_GPL(__switch_to);
 EXPORT_SYMBOL_GPL(show_stack);
 EXPORT_SYMBOL_GPL(_switch);
+EXPORT_SYMBOL_GPL(tasklist_lock);
 #ifdef CONFIG_PPC64
 EXPORT_PER_CPU_SYMBOL(ppc64_tlb_batch);
 EXPORT_SYMBOL_GPL(switch_slb);
