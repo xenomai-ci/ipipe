@@ -109,7 +109,7 @@ extern unsigned long disarm_decr[];
 #define __ipipe_enable_irq(irq)		enable_irq(irq)
 #define __ipipe_disable_irq(irq)	disable_irq(irq)
 
-void __ipipe_enable_irqdesc(unsigned irq);
+void __ipipe_enable_irqdesc(struct ipipe_domain *ipd, unsigned irq);
 
 void __ipipe_init_platform(void);
 

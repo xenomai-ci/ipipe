@@ -324,7 +324,7 @@ void __ipipe_end_irq(unsigned irq)
 	desc->ipipe_end(irq, desc);
 }
 
-void __ipipe_enable_irqdesc(unsigned irq)
+void __ipipe_enable_irqdesc(struct ipipe_domain *ipd, unsigned irq)
 {
 	irq_desc[irq].status &= ~IRQ_DISABLED;
 }
@@ -688,11 +688,9 @@ int __ipipe_syscall_root(struct pt_regs *regs) /* HW interrupts off */
 	return 0;
 }
 
-int __ipipe_pin_range_mapping(struct mm_struct *mm,
-			      unsigned long start, unsigned long end)
+void __ipipe_pin_range_globally(unsigned long start, unsigned long end)
 {
-	/* We don't support this, yet. */
-	return 0;
+	/* We don't support this. */
 }
 
 EXPORT_SYMBOL(__ipipe_decr_ticks);
