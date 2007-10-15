@@ -42,11 +42,18 @@ int ipipe_trace_frozen_reset(void);
 #define ipipe_trace_irqsoff()		ipipe_trace_begin(0x80000000UL)
 #define ipipe_trace_irqson()		ipipe_trace_end(0x80000000UL)
 #else
-#define ipipe_trace_irq_entry(irq)	do { } while(0)
-#define ipipe_trace_irq_exit(irq)	do { } while(0)
+#define ipipe_trace_irq_entry(irq)	do { (void)(irq);} while(0)
+#define ipipe_trace_irq_exit(irq)	do { (void)(irq);} while(0)
 #define ipipe_trace_irqsoff()		do { } while(0)
 #define ipipe_trace_irqson()		do { } while(0)
 #endif
+
+#else /* !CONFIG_IPIPE */
+
+#define ipipe_trace_begin(v)		do { (void)(v); } while(0)
+#define ipipe_trace_end(v)		do { (void)(v);} while(0)
+#define ipipe_trace_freeze(v)		do { (void)(v);} while(0)
+#define ipipe_trace_special(id, v)	do { (void)(id); (void)(v);} while(0)
 
 #endif /* CONFIG_IPIPE */
 
