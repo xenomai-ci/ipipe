@@ -176,16 +176,22 @@ static void mask_and_ack_8259A(unsigned int irq)
 		goto spurious_8259A_irq;
 #ifdef CONFIG_IPIPE
 	if (irq == 0) {
-	    /* Fast timer ack -- don't mask (unless supposedly
-	      spurious) */
-	    outb(0x60, PIC_MASTER_CMD);	/* Specific EOI to master. */
-	    spin_unlock_irqrestore(&i8259A_lock, flags);
-	    return;
+		/*
+		 * Fast timer ack -- don't mask (unless supposedly
+		 * spurious). We trace outb's in order to detect
+		 * broken hardware inducing large delays.
+		 */
+		ipipe_trace_special('o', irq);
+		outb(0x60, PIC_MASTER_CMD);	/* Specific EOI to master. */
+		ipipe_trace_special('x', irq);
+		spin_unlock_irqrestore(&i8259A_lock, flags);
+		return;
 	}
 #endif /* CONFIG_IPIPE */
 	cached_irq_mask |= irqmask;
 
 handle_real_irq:
+	ipipe_trace_special('o', irq);
 	if (irq & 8) {
 		inb(PIC_SLAVE_IMR);	/* DUMMY - (do we need this?) */
 		outb(cached_slave_mask, PIC_SLAVE_IMR);
@@ -196,6 +202,7 @@ handle_real_irq:
 		outb(cached_master_mask, PIC_MASTER_IMR);
 		outb(0x60+irq,PIC_MASTER_CMD);	/* 'Specific EOI to master */
 	}
+	ipipe_trace_special('x', irq);
 	spin_unlock_irqrestore(&i8259A_lock, flags);
 	return;
 
