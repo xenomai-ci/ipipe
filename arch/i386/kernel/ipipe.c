@@ -54,13 +54,13 @@ extern struct clock_event_device pit_clockevent;
 
 int __ipipe_tick_irq;
 
+DEFINE_PER_CPU(struct pt_regs, __ipipe_tick_regs);
+
 #ifdef CONFIG_SMP
 
 static cpumask_t __ipipe_cpu_sync_map;
 
 static cpumask_t __ipipe_cpu_lock_map;
-
-DEFINE_PER_CPU(struct pt_regs, __ipipe_tick_regs);
 
 static IPIPE_DEFINE_SPINLOCK(__ipipe_cpu_barrier);
 
