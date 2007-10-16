@@ -606,8 +606,8 @@ asmlinkage int __ipipe_grab_irq(int vec, struct pt_regs *regs)
 	if (irq == IRQ_SYSTMR) {
 		bfin_write_TIMER_STATUS(1); /* Latch TIMIL0 */
 		/* This is basically what we need from the register frame. */
-		__raw_get_cpu_var(__ipipe_irq_regs).ipend = regs->ipend;
-		__raw_get_cpu_var(__ipipe_irq_regs).pc = regs->pc;
+		__raw_get_cpu_var(__ipipe_tick_regs).ipend = regs->ipend;
+		__raw_get_cpu_var(__ipipe_tick_regs).pc = regs->pc;
 	}
 
 handle_irq:

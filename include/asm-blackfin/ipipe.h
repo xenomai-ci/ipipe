@@ -201,7 +201,7 @@ static inline unsigned long __ipipe_ffnz(unsigned long ul)
 				 * that no irqtail condition could be pending \
 				 * for domains above Linux in the pipeline. \
 				 */					\
-				ipd->irqs[irq].handler(irq, NULL); \
+				ipd->irqs[irq].handler(irq, &__raw_get_cpu_var(__ipipe_tick_regs)); \
 		} else {						\
 			__clear_bit(IPIPE_SYNC_FLAG, &ipipe_cpudom_var(ipd, status)); \
 			local_irq_enable_nohead(ipd);			\

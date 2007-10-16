@@ -335,7 +335,6 @@ static int do_irqd(void * __desc)
 	int thrprio = desc->thr_prio;
 	int thrmask = 1 << thrprio;
 	int cpu = smp_processor_id();
-	struct pt_regs *old_regs;
 	cpumask_t cpumask;
 
 	sigfillset(&current->blocked);
@@ -365,9 +364,7 @@ static int do_irqd(void * __desc)
 		if (--per_cpu(pending_irq_count[thrprio], cpu) == 0)
 			per_cpu(pending_irqthread_mask, cpu) &= ~thrmask;
 		desc->status &= ~IRQ_SCHEDULED;
-		old_regs = set_irq_regs(&__raw_get_cpu_var(__ipipe_tick_regs));
-		desc->thr_handler(irq, get_irq_regs());
-		set_irq_regs(old_regs);
+		desc->thr_handler(irq, &__raw_get_cpu_var(__ipipe_tick_regs));
 		local_irq_enable();
 	}
 	__set_current_state(TASK_RUNNING);
