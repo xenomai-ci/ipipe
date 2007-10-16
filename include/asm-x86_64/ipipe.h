@@ -112,6 +112,8 @@ void __ipipe_serial_debug(const char *fmt, ...);
 
 extern int __ipipe_tick_irq;
 
+DECLARE_PER_CPU(struct pt_regs, __ipipe_tick_regs);
+
 unsigned __ipipe_get_irq_vector(int irq);
 
 asmlinkage void __ipipe_root_xirq_thunk(unsigned irq,
@@ -128,15 +130,20 @@ static inline unsigned long __ipipe_ffnz(unsigned long ul)
       return ul;
 }
 
-/* When running handlers, enable hw interrupts for all domains but the
+/*
+ * When running handlers, enable hw interrupts for all domains but the
  * one heading the pipeline, so that IRQs can never be significantly
- * deferred for the latter. */
+ * deferred for the latter.
+ */
 #define __ipipe_run_isr(ipd, irq)					\
 	do {								\
 		local_irq_enable_nohead(ipd);				\
 		if (ipd == ipipe_root_domain) {				\
 			if (likely(!ipipe_virtual_irq_p(irq))) {	\
+				struct pt_regs *old_regs;		\
+				old_regs = set_irq_regs(&__get_cpu_var(__ipipe_tick_regs)); \
 				__ipipe_root_xirq_thunk(~__ipipe_get_irq_vector(irq), (ipd)->irqs[irq].handler); \
+				set_irq_regs(old_regs);			\
 			} else {					\
 				irq_enter();				\
 				__ipipe_root_virq_thunk(		\

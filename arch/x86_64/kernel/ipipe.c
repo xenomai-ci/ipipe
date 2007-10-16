@@ -48,6 +48,8 @@ asmlinkage void preempt_schedule_irq(void);
 
 int __ipipe_tick_irq;		/* =0: 8254 */
 
+DEFINE_PER_CPU(struct pt_regs, __ipipe_tick_regs);
+
 #ifdef CONFIG_SMP
 
 static cpumask_t __ipipe_cpu_sync_map;
@@ -722,8 +724,15 @@ int __ipipe_handle_irq(struct pt_regs *regs)
 
 finalize:
 
-	if (irq == __ipipe_tick_irq)
-		set_irq_regs(regs);
+	if (irq == __ipipe_tick_irq) {
+		__get_cpu_var(__ipipe_tick_regs).rip = regs->rip;
+		__get_cpu_var(__ipipe_tick_regs).cs = regs->cs;
+		__get_cpu_var(__ipipe_tick_regs).eflags = regs->eflags;
+		__get_cpu_var(__ipipe_tick_regs).rbp = regs->rbp;
+		__get_cpu_var(__ipipe_tick_regs).rsp = regs->rsp;
+		__get_cpu_var(__ipipe_tick_regs).ss = regs->ss;
+		set_irq_regs(&__get_cpu_var(__ipipe_tick_regs));
+	}
 
 	/*
 	 * Now walk the pipeline, yielding control to the highest
