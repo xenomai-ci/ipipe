@@ -731,7 +731,6 @@ finalize:
 		__raw_get_cpu_var(__ipipe_tick_regs).rbp = regs->rbp;
 		__raw_get_cpu_var(__ipipe_tick_regs).rsp = regs->rsp;
 		__raw_get_cpu_var(__ipipe_tick_regs).ss = regs->ss;
-		set_irq_regs(&__raw_get_cpu_var(__ipipe_tick_regs));
 	}
 
 	/*
