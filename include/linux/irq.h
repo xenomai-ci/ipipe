@@ -157,6 +157,10 @@ struct irq_desc {
 							struct irq_desc *desc);
 	void			fastcall (*ipipe_end)(unsigned int irq,
 						      struct irq_desc *desc);
+	struct task_struct      *thread;
+	void                    (*thr_handler)(unsigned irq, void *);
+	int                     thr_prio;
+	int                     ic_prio;
 #endif /* CONFIG_IPIPE */
 	irq_flow_handler_t	handle_irq;
 	struct irq_chip		*chip;
