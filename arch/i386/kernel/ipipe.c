@@ -60,6 +60,8 @@ static cpumask_t __ipipe_cpu_sync_map;
 
 static cpumask_t __ipipe_cpu_lock_map;
 
+DEFINE_PER_CPU(struct pt_regs, __ipipe_tick_regs);
+
 static IPIPE_DEFINE_SPINLOCK(__ipipe_cpu_barrier);
 
 static atomic_t __ipipe_critical_count = ATOMIC_INIT(0);
@@ -761,8 +763,12 @@ finalize:
 	 * that other interrupt handlers don't actually care for such
 	 * information. */
 
-	if (irq == __ipipe_tick_irq)
-		set_irq_regs(&regs);
+	if (irq == __ipipe_tick_irq) {
+		__get_cpu_var(__ipipe_tick_regs).eflags = regs.eflags;
+		__get_cpu_var(__ipipe_tick_regs).eip = regs.eip;
+		__get_cpu_var(__ipipe_tick_regs).xcs = regs.xcs;
+		__get_cpu_var(__ipipe_tick_regs).ebp = regs.ebp;
+	}
 
 	/*
 	 * Now walk the pipeline, yielding control to the highest
