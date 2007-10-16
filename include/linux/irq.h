@@ -153,6 +153,8 @@ struct irq_desc {
 #ifdef CONFIG_IPIPE
 	void			fastcall (*ipipe_ack)(unsigned int irq,
 						      struct irq_desc *desc);
+	void			fastcall (*ipipe_demux)(unsigned int irq,
+							struct irq_desc *desc);
 	void			fastcall (*ipipe_end)(unsigned int irq,
 						      struct irq_desc *desc);
 #endif /* CONFIG_IPIPE */
