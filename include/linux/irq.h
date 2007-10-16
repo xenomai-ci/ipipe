@@ -372,6 +372,14 @@ set_irq_chained_handler(unsigned int irq,
 	__set_irq_handler(irq, handle, 1, NULL);
 }
 
+#ifdef CONFIG_IPIPE
+extern void
+__set_irq_demux_handler(unsigned int irq,
+			void fastcall (*decode)(unsigned int, struct irq_desc *),
+			int is_chained,
+			const char *name);
+#endif /* CONFIG_IPIPE */
+
 /* Handle dynamic irq creation and destruction */
 extern int create_irq(void);
 extern void destroy_irq(unsigned int irq);
