@@ -764,10 +764,10 @@ finalize:
 	 * information. */
 
 	if (irq == __ipipe_tick_irq) {
-		__get_cpu_var(__ipipe_tick_regs).eflags = regs.eflags;
-		__get_cpu_var(__ipipe_tick_regs).eip = regs.eip;
-		__get_cpu_var(__ipipe_tick_regs).xcs = regs.xcs;
-		__get_cpu_var(__ipipe_tick_regs).ebp = regs.ebp;
+		__raw_get_cpu_var(__ipipe_tick_regs).eflags = regs.eflags;
+		__raw_get_cpu_var(__ipipe_tick_regs).eip = regs.eip;
+		__raw_get_cpu_var(__ipipe_tick_regs).xcs = regs.xcs;
+		__raw_get_cpu_var(__ipipe_tick_regs).ebp = regs.ebp;
 	}
 
 	/*

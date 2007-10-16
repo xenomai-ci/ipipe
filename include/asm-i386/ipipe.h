@@ -177,7 +177,7 @@ static inline unsigned long __ipipe_ffnz(unsigned long ul)
 		if (ipd == ipipe_root_domain) {				\
 			if (likely(!ipipe_virtual_irq_p(irq))) {	\
 				struct pt_regs *old_regs;		\
-				old_regs = set_irq_regs(&__get_cpu_var(__ipipe_tick_regs)); \
+				old_regs = set_irq_regs(&__raw_get_cpu_var(__ipipe_tick_regs)); \
 				__ipipe_call_root_xirq_handler(ipd,irq); \
 				set_irq_regs(old_regs);			\
 			} else {					\
