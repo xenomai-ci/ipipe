@@ -147,7 +147,7 @@ void __ipipe_unstall_root_raw(void);
 
 void __ipipe_serial_debug(const char *fmt, ...);
 
-DECLARE_PER_CPU(struct pt_regs, __ipipe_irq_regs);
+DECLARE_PER_CPU(struct pt_regs, __ipipe_tick_regs);
 
 extern unsigned long __ipipe_core_clock;
 
@@ -193,13 +193,15 @@ static inline unsigned long __ipipe_ffnz(unsigned long ul)
 				ipd->irqs[irq].handler(irq, ipd->irqs[irq].cookie); \
 				local_irq_disable_nohead(ipd);		\
 			} else						\
-				/* No need to run the irqtail here either; we \
-				   are not preemptable by hw IRQs, so	\
-				   non-Linux IRQs cannot stack over the short \
-				   thread wakeup code. Which in turn means \
-				   that no irqtail condition could be pending \
-				   for domains above Linux in the pipeline. */ \
-				ipd->irqs[irq].handler(irq, &__raw_get_cpu_var(__ipipe_irq_regs)); \
+				/*					\
+				 * No need to run the irqtail here either; \
+				 * we can't be preempted by hw IRQs, so	\
+				 * non-Linux IRQs cannot stack over the short \
+				 * thread wakeup code. Which in turn means \
+				 * that no irqtail condition could be pending \
+				 * for domains above Linux in the pipeline. \
+				 */					\
+				ipd->irqs[irq].handler(irq, NULL); \
 		} else {						\
 			__clear_bit(IPIPE_SYNC_FLAG, &ipipe_cpudom_var(ipd, status)); \
 			local_irq_enable_nohead(ipd);			\
