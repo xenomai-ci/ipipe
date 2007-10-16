@@ -210,12 +210,14 @@ void __ipipe_disable_irqdesc(struct ipipe_domain *ipd, unsigned irq)
 
 void __ipipe_stall_root_raw(void)
 {
-	/* This code is called by the ins{bwl} routines (see
-	   arch/blackfin/lib/ins.S), which are heavily used by the
-	   network stack. It masks all interrupts but those handled by
-	   non-root domains, so that we keep decent network transfer
-	   rates for Linux without inducing pathological jitter for
-	   the real-time domain. */
+	/*
+	 * This code is called by the ins{bwl} routines (see
+	 * arch/blackfin/lib/ins.S), which are heavily used by the
+	 * network stack. It masks all interrupts but those handled by
+	 * non-root domains, so that we keep decent network transfer
+	 * rates for Linux without inducing pathological jitter for
+	 * the real-time domain.
+	 */
 	__asm__ __volatile__ ("sti %0;"::"d"(__ipipe_irq_lvmask));
 
 	__set_bit(IPIPE_STALL_FLAG,

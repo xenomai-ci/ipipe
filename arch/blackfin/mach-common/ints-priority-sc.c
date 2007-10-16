@@ -1046,7 +1046,7 @@ asmlinkage int __ipipe_grab_irq(int vec, struct pt_regs *regs)
 
 	irq = ivg->irqno;
 
-	if (irq == IRQ_SYSTMR)
+	if (irq == IRQ_SYSTMR) 
 		bfin_write_TIMER_STATUS(1); /* Latch TIMIL0 */
 
 	/* This is basically what we need from the register frame. */
