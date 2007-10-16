@@ -107,6 +107,8 @@ void __ipipe_do_critical_sync(unsigned irq, void *cookie);
 
 extern int __ipipe_tick_irq;
 
+DECLARE_PER_CPU(struct pt_regs, __ipipe_tick_regs);
+
 #define __ipipe_call_root_xirq_handler(ipd,irq) \
    __asm__ __volatile__ ("pushfl\n\t" \
                          "pushl %%cs\n\t" \
@@ -164,28 +166,33 @@ static inline unsigned long __ipipe_ffnz(unsigned long ul)
 	return ul;
 }
 
-/* When running handlers, enable hw interrupts for all domains but the
+/*
+ * When running handlers, enable hw interrupts for all domains but the
  * one heading the pipeline, so that IRQs can never be significantly
- * deferred for the latter. */
-#define __ipipe_run_isr(ipd, irq) \
-do { \
-	local_irq_enable_nohead(ipd);				 \
-	if (ipd == ipipe_root_domain) {				 \
-		if (likely(!ipipe_virtual_irq_p(irq))) {	 \
-			__ipipe_call_root_xirq_handler(ipd,irq); \
-		} else {					 \
-			irq_enter();				 \
-			__ipipe_call_root_virq_handler(ipd,irq); \
-			irq_exit();				 \
-			__ipipe_finalize_root_virq_handler();	 \
-		}						\
-	} else {						\
-		__clear_bit(IPIPE_SYNC_FLAG, &ipipe_cpudom_var(ipd, status)); \
-		ipd->irqs[irq].handler(irq, ipd->irqs[irq].cookie);	\
-		__set_bit(IPIPE_SYNC_FLAG, &ipipe_cpudom_var(ipd, status)); \
-	}							\
-	local_irq_disable_nohead(ipd);				\
-} while(0)
+ * deferred for the latter.
+ */
+#define __ipipe_run_isr(ipd, irq)					\
+	do {								\
+		local_irq_enable_nohead(ipd);				\
+		if (ipd == ipipe_root_domain) {				\
+			if (likely(!ipipe_virtual_irq_p(irq))) {	\
+				struct pt_regs *old_regs;		\
+				old_regs = set_irq_regs(&__get_cpu_var(__ipipe_tick_regs)); \
+				__ipipe_call_root_xirq_handler(ipd,irq); \
+				set_irq_regs(old_regs);			\
+			} else {					\
+				irq_enter();				\
+				__ipipe_call_root_virq_handler(ipd,irq); \
+				irq_exit();				\
+				__ipipe_finalize_root_virq_handler();	\
+			}						\
+		} else {						\
+			__clear_bit(IPIPE_SYNC_FLAG, &ipipe_cpudom_var(ipd, status)); \
+			ipd->irqs[irq].handler(irq, ipd->irqs[irq].cookie); \
+			__set_bit(IPIPE_SYNC_FLAG, &ipipe_cpudom_var(ipd, status)); \
+		}							\
+		local_irq_disable_nohead(ipd);				\
+	} while(0)
 
 #endif /* __ASSEMBLY__ */
 
