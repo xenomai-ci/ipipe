@@ -91,7 +91,7 @@ config IRQ_MAC_TX
 	default 11
 config IRQ_TMR0
 	int "IRQ_TMR0"
-	default 12
+	default 8
 config IRQ_TMR1
 	int "IRQ_TMR1"
 	default 12

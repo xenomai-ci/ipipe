@@ -309,6 +309,8 @@ source "arch/blackfin/mach-bf561/Kconfig"
 source "arch/blackfin/mach-bf537/Kconfig"
 source "arch/blackfin/mach-bf548/Kconfig"
 
+source "kernel/ipipe/Kconfig"
+
 menu "Board customizations"
 
 config CMDLINE_BOOL

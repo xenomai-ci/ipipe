@@ -13,5 +13,7 @@ obj-$(CONFIG_BF53x)		     += bfin_gpio.o
 obj-$(CONFIG_BF561)		     += bfin_gpio.o
 obj-$(CONFIG_MODULES)                += module.o
 obj-$(CONFIG_BFIN_DMA_5XX)           += bfin_dma_5xx.o
+obj-$(CONFIG_IPIPE)                  += ipipe.o
+obj-$(CONFIG_IPIPE_TRACE_MCOUNT)     += mcount.o
 obj-$(CONFIG_DUAL_CORE_TEST_MODULE)  += dualcore_test.o
 obj-$(CONFIG_KGDB)                   += kgdb.o

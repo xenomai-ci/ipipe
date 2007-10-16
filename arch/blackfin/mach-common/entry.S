@@ -378,6 +378,19 @@ ENTRY(_system_call)
 	p2 = [p2];
 
 	[p2+(TASK_THREAD+THREAD_KSP)] = sp;
+#ifdef CONFIG_IPIPE
+	r0 = sp; 
+	SP += -12;
+	call ___ipipe_syscall_root; 
+	SP += 12;
+	cc = r0 == 1;
+	if cc jump .Lsyscall_really_exit;
+	cc = r0 == -1;
+	if cc jump .Lresume_userspace;
+	r3 = [sp + PT_R3]; 
+	r4 = [sp + PT_R4]; 
+	p0 = [sp + PT_ORIG_P0]; 
+#endif /* CONFIG_IPIPE */
 
 	/* Check the System Call */
 	r7 = __NR_syscall;
@@ -461,6 +474,11 @@ ENTRY(_system_call)
 	SP += 12;
 
 .Lsyscall_really_exit:
+syscall_really_exit:
+#ifdef CONFIG_IPIPE
+	[--sp] = reti;
+	r5 = [sp++];
+#endif /* CONFIG_IPIPE */
 	r5 = [sp + PT_RESERVED];
 	rets = r5;
 	rts;
@@ -546,6 +564,16 @@ _new_old_task:
 ENDPROC(_resume)
 
 ENTRY(_ret_from_exception)
+#ifdef CONFIG_IPIPE
+	[--sp] = rets;
+	SP += -12;
+	call ___ipipe_check_root
+	SP += 12
+	rets = [sp++];
+	cc = r0 == 0;
+	if cc jump 4f;                /* not on behalf of Linux, get out */
+#endif /* CONFIG_IPIPE */
+	
 	p2.l = lo(IPEND);
 	p2.h = hi(IPEND);
 

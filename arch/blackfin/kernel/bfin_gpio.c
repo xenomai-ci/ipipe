@@ -300,12 +300,12 @@ void set_gpio_ ## name(unsigned short gpio, unsigned short arg) \
 { \
 	unsigned long flags; \
 	BUG_ON(!(reserved_gpio_map[gpio_bank(gpio)] & gpio_bit(gpio))); \
-	local_irq_save(flags); \
+	local_irq_save_hw(flags); \
 	if (arg) \
 		gpio_bankb[gpio_bank(gpio)]->name |= gpio_bit(gpio); \
 	else \
 		gpio_bankb[gpio_bank(gpio)]->name &= ~gpio_bit(gpio); \
-	local_irq_restore(flags); \
+	local_irq_restore_hw(flags); \
 } \
 EXPORT_SYMBOL(set_gpio_ ## name);
 
@@ -335,13 +335,13 @@ void set_gpio_data(unsigned short gpio, unsigned short arg)
 {
 	unsigned long flags;
 	BUG_ON(!(reserved_gpio_map[gpio_bank(gpio)] & gpio_bit(gpio)));
-	local_irq_save(flags);
+	local_irq_save_hw(flags);
 	if (arg)
 		gpio_bankb[gpio_bank(gpio)]->data_set = gpio_bit(gpio);
 	else
 		gpio_bankb[gpio_bank(gpio)]->data_clear = gpio_bit(gpio);
 	bfin_read_CHIPID();
-	local_irq_restore(flags);
+	local_irq_restore_hw(flags);
 }
 EXPORT_SYMBOL(set_gpio_data);
 #else
@@ -354,10 +354,10 @@ void set_gpio_toggle(unsigned short gpio)
 {
 	unsigned long flags;
 	BUG_ON(!(reserved_gpio_map[gpio_bank(gpio)] & gpio_bit(gpio)));
-	local_irq_save(flags);
+	local_irq_save_hw(flags);
 	gpio_bankb[gpio_bank(gpio)]->toggle = gpio_bit(gpio);
 	bfin_read_CHIPID();
-	local_irq_restore(flags);
+	local_irq_restore_hw(flags);
 }
 #else
 void set_gpio_toggle(unsigned short gpio)
@@ -391,10 +391,10 @@ SET_GPIO_P(maskb)
 void set_gpiop_data(unsigned short gpio, unsigned short arg)
 {
 	unsigned long flags;
-	local_irq_save(flags);
+	local_irq_save_hw(flags);
 	gpio_bankb[gpio_bank(gpio)]->data = arg;
 	bfin_read_CHIPID();
-	local_irq_restore(flags);
+	local_irq_restore_hw(flags);
 }
 EXPORT_SYMBOL(set_gpiop_data);
 #else
@@ -427,10 +427,10 @@ unsigned short get_gpio_data(unsigned short gpio)
 	unsigned long flags;
 	unsigned short ret;
 	BUG_ON(!(reserved_gpio_map[gpio_bank(gpio)] & gpio_bit(gpio)));
-	local_irq_save(flags);
+	local_irq_save_hw(flags);
 	ret = 0x01 & (gpio_bankb[gpio_bank(gpio)]->data >> gpio_sub_n(gpio));
 	bfin_read_CHIPID();
-	local_irq_restore(flags);
+	local_irq_restore_hw(flags);
 	return ret;
 }
 EXPORT_SYMBOL(get_gpio_data);
@@ -460,10 +460,10 @@ unsigned short get_gpiop_data(unsigned short gpio)
 {
 	unsigned long flags;
 	unsigned short ret;
-	local_irq_save(flags);
+	local_irq_save_hw(flags);
 	ret = gpio_bankb[gpio_bank(gpio)]->data;
 	bfin_read_CHIPID();
-	local_irq_restore(flags);
+	local_irq_restore_hw(flags);
 	return ret;
 }
 EXPORT_SYMBOL(get_gpiop_data);
@@ -498,11 +498,11 @@ int gpio_pm_wakeup_request(unsigned short gpio, unsigned char type)
 	if ((check_gpio(gpio) < 0) || !type)
 		return -EINVAL;
 
-	local_irq_save(flags);
+	local_irq_save_hw(flags);
 
 	wakeup_map[gpio_bank(gpio)] |= gpio_bit(gpio);
 	wakeup_flags_map[gpio] = type;
-	local_irq_restore(flags);
+	local_irq_restore_hw(flags);
 
 	return 0;
 }
@@ -515,11 +515,11 @@ void gpio_pm_wakeup_free(unsigned short gpio)
 	if (check_gpio(gpio) < 0)
 		return;
 
-	local_irq_save(flags);
+	local_irq_save_hw(flags);
 
 	wakeup_map[gpio_bank(gpio)] &= ~gpio_bit(gpio);
 
-	local_irq_restore(flags);
+	local_irq_restore_hw(flags);
 }
 EXPORT_SYMBOL(gpio_pm_wakeup_free);
 
@@ -785,17 +785,17 @@ int gpio_request(unsigned short gpio, const char *label)
 	if (check_gpio(gpio) < 0)
 		return -EINVAL;
 
-	local_irq_save(flags);
+	local_irq_save_hw(flags);
 
 	if (unlikely(reserved_gpio_map[gpio_bank(gpio)] & gpio_bit(gpio))) {
+		local_irq_restore_hw(flags);
 		printk(KERN_ERR "bfin-gpio: GPIO %d is already reserved!\n", gpio);
 		dump_stack();
-		local_irq_restore(flags);
 		return -EBUSY;
 	}
 	reserved_gpio_map[gpio_bank(gpio)] |= gpio_bit(gpio);
 
-	local_irq_restore(flags);
+	local_irq_restore_hw(flags);
 
 	port_setup(gpio, GPIO_USAGE);
 
@@ -810,12 +810,12 @@ void gpio_free(unsigned short gpio)
 	if (check_gpio(gpio) < 0)
 		return;
 
-	local_irq_save(flags);
+	local_irq_save_hw(flags);
 
 	if (unlikely(!(reserved_gpio_map[gpio_bank(gpio)] & gpio_bit(gpio)))) {
+		local_irq_restore_hw(flags);
 		printk(KERN_ERR "bfin-gpio: GPIO %d wasn't reserved!\n", gpio);
 		dump_stack();
-		local_irq_restore(flags);
 		return;
 	}
 
@@ -823,7 +823,7 @@ void gpio_free(unsigned short gpio)
 
 	reserved_gpio_map[gpio_bank(gpio)] &= ~gpio_bit(gpio);
 
-	local_irq_restore(flags);
+	local_irq_restore_hw(flags);
 }
 EXPORT_SYMBOL(gpio_free);
 
@@ -833,10 +833,10 @@ void gpio_direction_input(unsigned short gpio)
 
 	BUG_ON(!(reserved_gpio_map[gpio_bank(gpio)] & gpio_bit(gpio)));
 
-	local_irq_save(flags);
+	local_irq_save_hw(flags);
 	gpio_bankb[gpio_bank(gpio)]->dir &= ~gpio_bit(gpio);
 	gpio_bankb[gpio_bank(gpio)]->inen |= gpio_bit(gpio);
-	local_irq_restore(flags);
+	local_irq_restore_hw(flags);
 }
 EXPORT_SYMBOL(gpio_direction_input);
 
@@ -846,9 +846,9 @@ void gpio_direction_output(unsigned short gpio)
 
 	BUG_ON(!(reserved_gpio_map[gpio_bank(gpio)] & gpio_bit(gpio)));
 
-	local_irq_save(flags);
+	local_irq_save_hw(flags);
 	gpio_bankb[gpio_bank(gpio)]->inen &= ~gpio_bit(gpio);
 	gpio_bankb[gpio_bank(gpio)]->dir |= gpio_bit(gpio);
-	local_irq_restore(flags);
+	local_irq_restore_hw(flags);
 }
 EXPORT_SYMBOL(gpio_direction_output);
