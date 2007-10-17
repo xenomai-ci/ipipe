@@ -117,15 +117,14 @@ static inline unsigned long __raw_local_irq_save(void)
 
 #ifdef CONFIG_IPIPE
 #ifdef CONFIG_SMP
-#define __load_cpu_number(reg)		movl %gs:4, reg
+#define __ipipe_load_cpunum(reg)	movl %gs:4, reg
 #else
-#define __load_cpu_number(reg)
+#define __ipipe_load_cpunum(reg)
 #endif
-#define DISABLE_INTERRUPTS(clobbers)	__load_cpu_number(%eax); \
+#define DISABLE_INTERRUPTS(clobbers)	__ipipe_load_cpunum(%eax); \
   					PER_CPU(ipipe_percpu_darray, %eax); \
   					btsl $0,(%eax); \
   					sti
-#undef __load_cpu_number
 #define ENABLE_INTERRUPTS(clobbers)	call __ipipe_unstall_root
 #define ENABLE_INTERRUPTS_HW_COND	sti
 #define DISABLE_INTERRUPTS_HW(clobbers)	cli
