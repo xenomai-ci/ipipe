@@ -322,6 +322,7 @@ yucca_setup_hoses(void)
 	char name[20];
 	enum yucca_hoses hs;
 	int bus_no = 0;
+	pci_assign_all_buses = 1;
 
 	for (hs = HOSE_PCIX; hs < HOSE_MAX; ++hs) {
 		if (is_pcie_hose(hs)) {
@@ -363,6 +364,7 @@ yucca_setup_hoses(void)
 				pcie_hose_num(hs) * YUCCA_PCIE_MEM_SIZE;
 			hose->mem_space.end   = hose->mem_space.start +
 				YUCCA_PCIE_MEM_SIZE - 1;
+			hose->pci_mem_offset = hose->mem_space.start;
 		}
 
 		pci_init_resource(&hose->mem_resources[0],
@@ -395,6 +397,13 @@ yucca_setup_hoses(void)
 				continue;
 			}
 		}
+
+		/*
+		 * Some cards like LSI8408E need delay before enumeration.
+		 * At this point calibrate_delay hasn't been called yet so
+		 * the mdelay value does not reflect exact millisecs value.
+		 */
+		mdelay(10000);
 
 		hose->last_busno = pciauto_bus_scan(hose, hose->first_busno);
 		bus_no = hose->last_busno + 1;

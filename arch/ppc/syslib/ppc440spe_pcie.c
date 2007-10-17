@@ -19,78 +19,155 @@
 
 #include "ppc440spe_pcie.h"
 
-static int
-pcie_read_config(struct pci_bus *bus, unsigned int devfn, int offset,
-		     int len, u32 *val)
+/* Configuration space is mapped for first 16 buses (0..15) */
+#define MAX_BUS_MAPPED		0x10
+
+/* Base address definitions */
+#define PORT0_CFG_DATA		0x00000000
+#define PORT1_CFG_DATA		0x20000000
+#define PORT2_CFG_DATA		0x40000000
+#define REMOTE_CFG_BASE		0xd00000000ULL
+#define LOCAL_CFG_BASE_0	0xd10000000ULL
+#define LOCAL_CFG_BASE_1	0xd30000000ULL
+#define LOCAL_CFG_BASE_2	0xd50000000ULL
+/* DMER mask */
+#define GPL_DMER_MASK_DISA	0x02000000
+
+static int ppc440spe_revB(void);
+
+static void pcie_dmer_disable(void)
 {
+	mtdcr(DCRN_PCIE0_BASE + 0x16, mfdcr(DCRN_PCIE0_BASE + 0x16)
+		| GPL_DMER_MASK_DISA);	/* DMER disabled */
+	mtdcr(DCRN_PCIE1_BASE + 0x16, mfdcr(DCRN_PCIE1_BASE + 0x16)
+		| GPL_DMER_MASK_DISA);	/* DMER disabled */
+	mtdcr(DCRN_PCIE2_BASE + 0x16, mfdcr(DCRN_PCIE2_BASE + 0x16)
+		| GPL_DMER_MASK_DISA);	/* DMER disabled */
+}
+static void pcie_dmer_enable(void)
+{
+	mtdcr(DCRN_PCIE0_BASE + 0x16, mfdcr(DCRN_PCIE0_BASE + 0x16)
+		& ~GPL_DMER_MASK_DISA);	/* DMER enabled */
+	mtdcr(DCRN_PCIE1_BASE + 0x16, mfdcr(DCRN_PCIE1_BASE + 0x16)
+		& ~GPL_DMER_MASK_DISA);	/* DMER enabled */
+	mtdcr(DCRN_PCIE2_BASE + 0x16, mfdcr(DCRN_PCIE2_BASE + 0x16)
+		& ~GPL_DMER_MASK_DISA);	/* DMER enabled */
+}
+
+static int pcie_validate_bdf(struct pci_bus *bus, unsigned int devfn)
+{
+
 	struct pci_controller *hose = bus->sysdata;
+	static int message = 0;
 #ifdef CONFIG_PCIE_ENDPOINT
 	/*
 	 * Endpoint can not generate upstream(remote) config cycles.
 	 */
 	return PCIBIOS_DEVICE_NOT_FOUND;
 #endif
-	if (!((PCI_SLOT(devfn) == 1) && (PCI_FUNC(devfn) == 0)))
+	/*
+	 * NOTICE: configuration space ranges are currenlty mapped only for
+	 * buses from 0 to MAX_BUS_MAPPED - 1 , so such limit must be imposed.
+	 * In case more buses are required MAX_BUS_MAPPED define needs to be
+	 * altered accordingly (one bus takes 1 MB of memory space).
+	 */
+	if (bus->number >= MAX_BUS_MAPPED) {
+		if (!message) {
+			printk (KERN_WARNING "Warning! Probing bus %u\n"
+			"Linux on 440Spe supports buses 0-%d\n"
+			"Devices on buses %d-255 won't be detected\n",
+			bus->number, MAX_BUS_MAPPED - 1, MAX_BUS_MAPPED);
+			message++;
+		}
 		return PCIBIOS_DEVICE_NOT_FOUND;
-	/*
-	 * 440SPE rev B implements only one function per port
-	 */
-	if (ppc440spe_revB())
-		devfn = 0;
-
-	offset += devfn << 12;
+	}
 
 	/*
-	 * Note: the caller has already checked that offset is
-	 * suitably aligned and that len is 1, 2 or 4.
+	 * Only single device/single function is supported for the primary and
+	 * secondary buses of the 440SPe host bridge.
 	 */
+	if (((bus->number == (hose->first_busno)) && (devfn > 0)) ||
+	    ((bus->number == (hose->first_busno + 1)) && (devfn > 0)))
+		return PCIBIOS_DEVICE_NOT_FOUND;
+	return 0;
+}
+
+static void __iomem * pcie_get_base(struct pci_bus *bus, unsigned int devfn)
+{
+	struct pci_controller *hose = bus->sysdata;
+
+	if (hose->first_busno == bus->number)
+		return (void __iomem *)(hose->cfg_addr);
+	else
+		return (void __iomem *)(hose->cfg_data +
+			(((bus->number) << 20) | (devfn << 12)));
+
+}
+static int
+pcie_read_config(struct pci_bus *bus, unsigned int devfn, int offset,
+		 int len, u32 * val)
+{
+	volatile void __iomem * addr;
+
+	if (pcie_validate_bdf(bus, devfn) != 0)
+		return PCIBIOS_DEVICE_NOT_FOUND;
+
+	addr = pcie_get_base(bus, devfn);
+
+	/*
+	 * Reading from configuration space of non-existing device can
+	 * generate transaction errors. For the read duration we suppress
+	 * assertion of machine check exceptions to avoid those.
+	 */
+	pcie_dmer_disable();
+
 	switch (len) {
 	case 1:
-		*val = in_8(hose->cfg_data + offset);
+		*val = in_8((unsigned char *)(addr + offset));
 		break;
 	case 2:
-		*val = in_le16(hose->cfg_data + offset);
+		*val = in_le16((unsigned short *)(addr + offset));
 		break;
 	default:
-		*val = in_le32(hose->cfg_data + offset);
+		*val = in_le32((unsigned int *)(addr + offset));
 		break;
 	}
+
+	pcie_dmer_enable();
+
 	return PCIBIOS_SUCCESSFUL;
 }
 
 static int
 pcie_write_config(struct pci_bus *bus, unsigned int devfn, int offset,
-		      int len, u32 val)
+		 int len, u32 val)
 {
-	struct pci_controller *hose = bus->sysdata;
-#ifdef CONFIG_PCIE_ENDPOINT
-	/*
-	 * Endpoint can not generate upstream(remote) config cycles.
-	 */
-	return PCIBIOS_DEVICE_NOT_FOUND;
-#endif
+	volatile void __iomem *addr;
 
-	if (!((PCI_SLOT(devfn) == 1) && (PCI_FUNC(devfn) == 0)))
+	if (pcie_validate_bdf(bus, devfn) != 0)
 		return PCIBIOS_DEVICE_NOT_FOUND;
-	/*
-	 * 440SPE rev B implements only one function per port
-	 */
-	if (ppc440spe_revB())
-		devfn = 0;
 
-	offset += devfn << 12;
+	addr = pcie_get_base(bus, devfn);
+
+	/*
+	 * Suppress MCK exceptions, similar to pcie_read_config()
+	 */
+	pcie_dmer_disable();
 
 	switch (len) {
 	case 1:
-		out_8(hose->cfg_data + offset, val);
+		out_8((unsigned char *)(addr + offset), val);
 		break;
 	case 2:
-		out_le16(hose->cfg_data + offset, val);
+		out_le16((unsigned short *)(addr + offset), val);
 		break;
 	default:
-		out_le32(hose->cfg_data + offset, val);
+		out_le32((unsigned int *)(addr + offset), val);
 		break;
 	}
+
+	pcie_dmer_enable();
+
 	return PCIBIOS_SUCCESSFUL;
 }
 
@@ -110,8 +187,7 @@ enum {
 	LNKW_X8			= 0x8
 };
 
-int
-ppc440spe_revB(void)
+static int ppc440spe_revB(void)
 {
 	if (mfspr(SPRN_PVR) == 0x53421891)
 		return 1;
@@ -122,8 +198,7 @@ ppc440spe_revB(void)
 /*
  * Set up UTL registers
  */
-static void
-ppc440spe_setup_utl(u32 port)
+static void ppc440spe_setup_utl(u32 port)
 {
 	void __iomem *utl_base;
 
@@ -153,7 +228,7 @@ ppc440spe_setup_utl(u32 port)
 		break;
 	}
 	utl_base = ioremap64(0xc10000000ull + 0x1000 * port, 0x100);
-	
+
 	/*
 	 * Set buffer allocations and then assert VRB and TXE.
 	 */
@@ -243,8 +318,7 @@ static int check_error(void)
 /*
  * Initialize PCI Express core as described in User Manual
  */
-static int
-ppc440spe_init_pcie(void)
+static int ppc440spe_init_pcie(void)
 {
 	int time_out = 20;
 
@@ -276,7 +350,7 @@ ppc440spe_init_pcie(void)
 		printk(KERN_INFO "PCIE: VCO output not locked\n");
 		return -1;
 	}
-	
+
 	pr_debug("PCIE initialization OK\n");
 
 	return 0;
@@ -304,12 +378,12 @@ ppc440spe_init_pcie(void)
  *  Enpoint cofiguration can be verified by connecting Yucca board to any
  *  host or another yucca board. Then try to scan the device. In case of
  *  linux use "lspci" or appripriate os command.
- *  
+ *
  *  To verify the inbound and outbound windows on yucca to yucca configuration
  *  windows already configured for memory region 0. On root point side memory
  *  map the 36 bit address value 0x4 0000 0000(SRAM) then do the read write to
  *  the memory mapped address. On endpoint board memory map the 0x4 0000 0000
- *  read the data to verify if writes happened or not.For inbound window 
+ *  read the data to verify if writes happened or not.For inbound window
  *  verificatio do the reverse way of write and read .
  */
 int ppc440spe_init_pcie_root_or_endport(u32 port)
@@ -346,7 +420,7 @@ int ppc440spe_init_pcie_root_or_endport(u32 port)
 #endif
 	switch (port) {
 	case 0:
-		SDR_WRITE(PESDR0_DLPSET, 1 << 24 | PTYPE_TYPE << 20 | LNKW_X8 << 12); 
+		SDR_WRITE(PESDR0_DLPSET, 1 << 24 | PTYPE_TYPE << 20 | LNKW_X8 << 12);
 
 		SDR_WRITE(PESDR0_UTLSET1, 0x20222222);
 		if (!ppc440spe_revB())
@@ -365,7 +439,7 @@ int ppc440spe_init_pcie_root_or_endport(u32 port)
 		break;
 
 	case 1:
-		SDR_WRITE(PESDR1_DLPSET, 1 << 24 | PTYPE_TYPE << 20 | LNKW_X4 << 12); 
+		SDR_WRITE(PESDR1_DLPSET, 1 << 24 | PTYPE_TYPE << 20 | LNKW_X4 << 12);
 
 		SDR_WRITE(PESDR1_UTLSET1, 0x20222222);
 		if (!ppc440spe_revB())
@@ -380,7 +454,7 @@ int ppc440spe_init_pcie_root_or_endport(u32 port)
 		break;
 
 	case 2:
-		SDR_WRITE(PESDR2_DLPSET, 1 << 24 | PTYPE_TYPE << 20 | LNKW_X4 << 12); 
+		SDR_WRITE(PESDR2_DLPSET, 1 << 24 | PTYPE_TYPE << 20 | LNKW_X4 << 12);
 
 		SDR_WRITE(PESDR2_UTLSET1, 0x20222222);
 		if (!ppc440spe_revB())
@@ -400,11 +474,11 @@ int ppc440spe_init_pcie_root_or_endport(u32 port)
 	case 0:
 		val = SDR_READ(PESDR0_RCSSTS);
 		break;
-		
+
 	case 1:
 		val = SDR_READ(PESDR1_RCSSTS);
 		break;
-		
+
 	case 2:
 		val = SDR_READ(PESDR2_RCSSTS);
 		break;
@@ -550,26 +624,37 @@ int ppc440spe_setup_pcie(struct pci_controller *hose, u32 port)
 
 	if (ppc440spe_revB()) {
 		/*
-		 * NOTICE: revB is very strict about PLB real addressess and
-		 * sizes to be mapped for config space; it hangs the core upon
-		 * config transaction attempt if not set to 0xd_0010_0000,
-		 * 0xd_2010_0000, 0xd_4010_0000 respectively.
+		 * Map configuration space for first MAX_BUS_MAPPED buses.
+		 * One bus takes 1 MB of memory.
 		 */
-		hose->cfg_data = ioremap64(0xd00100000ull + port * 0x20000000,
-					0x400);
+		hose->cfg_data = ioremap64(0xd00000000ull + port * 0x20000000,
+					MAX_BUS_MAPPED * 0x100000);
+		/* Map local configuration space */
+		hose->cfg_addr = ioremap64(0xd10000000ull + port * 0x20000000,						 0x400);
 
-		/* for accessing Local Config space we need to set A[35] */
-		mbase = ioremap64(0xd10000000ull + port * 0x20000000, 0x400);
+		if (!hose->cfg_addr || !hose->cfg_data) {
+			printk(KERN_INFO "ppc440spe_setup_pcie: "
+					"ioremap64 failed\n");
+			return -1;
+		}
 	} else {
-		/* revA */
-
 		/*
-		 * Map 16MB, which is enough for 4 bits of bus #
+		 * Map configuration space for first MAX_BUS_MAPPED buses.
+		 * One bus takes 1 MB of memory.
 		 */
-		hose->cfg_data = ioremap64(0xc40100000ull + port * 0x40000000,
-					0x01000000);
-		mbase = ioremap64(0xc50000000ull + port * 0x40000000, 0x1000);
+		hose->cfg_data = ioremap64(0xc40000000ull + 0x40000000 * port,
+					MAX_BUS_MAPPED * 0x100000);
+		/* Map local configuration space */
+		hose->cfg_addr = ioremap64(0xc50000000ull + port * 0x40000000,
+						0x1000);
+		if (!hose->cfg_addr || !hose->cfg_data) {
+			printk(KERN_INFO "ppc440spe_setup_pcie: "
+					"ioremap64 failed\n");
+			return -1;
+		}
 	}
+
+	mbase = (void __iomem *)hose->cfg_addr;
 
 	hose->ops = &pcie_pci_ops;
 
@@ -579,14 +664,14 @@ int ppc440spe_setup_pcie(struct pci_controller *hose, u32 port)
 	 */
 		out_8(mbase + PCI_PRIMARY_BUS, 0);
 		out_8(mbase + PCI_SECONDARY_BUS, 1);
-		out_8(mbase + PCI_SUBORDINATE_BUS, 1);
+		out_8(mbase + PCI_SUBORDINATE_BUS, 0xff);
 #endif
 	/*
 	 * Set up outbound translation to hose->mem_space from PLB
 	 * addresses at an offset of 0xd_0000_0000.  We set the low
 	 * bits of the mask to 11 to turn off splitting into 8
 	 * subregions and to enable the outbound translation.
-	 * POMs are set different for root and endpoints to 
+	 * POMs are set different for root and endpoints to
 	 * different window ranges fron inbound and out bound transactions.
 	 */
 #ifdef CONFIG_PCIE_ENDPOINT
@@ -668,6 +753,8 @@ int ppc440spe_setup_pcie(struct pci_controller *hose, u32 port)
 			out_le16(mbase + 0x200,0xaaa3);
 			out_le16(mbase + 0x202,0xbed3);
 	}
+	/* Set Class Code to PCI-PCI bridge and Revision Id to 1 */
+	out_le32(mbase + 0x208, 0x06040001);
 #else
 	switch (port) {
 	case 0:
@@ -718,8 +805,10 @@ int ppc440spe_setup_pcie(struct pci_controller *hose, u32 port)
 			out_le16(mbase + 0x202,0xfed3);
 	}
 #endif
-	printk(KERN_INFO"vendor-id 0x%x\n",in_le16(mbase+0x0));
-	printk(KERN_INFO"device-id 0x%x\n",in_le16(mbase+0x2));
+	printk(KERN_INFO "vendor-id 0x%x\n", in_le16(mbase + 0x0));
+	printk(KERN_INFO "device-id 0x%x\n", in_le16(mbase + 0x2));
+	printk(KERN_INFO "class-id and rev-id 0x%x\n", in_le32(mbase + 0x8));
+
 	/*
 	 * This code works as is with yucca plugged in another yucca board or any endpoint device 
 	 * pugged in yucca board as root point device.
@@ -745,6 +834,5 @@ int ppc440spe_setup_pcie(struct pci_controller *hose, u32 port)
      * #endif
     */
 
-	iounmap(mbase);
 	return 0;
 }
