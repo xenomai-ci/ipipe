@@ -1224,7 +1224,7 @@ static int __ipipe_rd_trigger(char *page, char **start, off_t off, int count,
 static int __ipipe_wr_trigger(struct file *file, const char __user *buffer,
 			      unsigned long count, void *data)
 {
-	char buf[KSYM_SYMBOL_LEN];
+	char buf[KSYM_NAME_LEN+1];
 	unsigned long begin, end;
 
 	if (count > sizeof(buf) - 1)
