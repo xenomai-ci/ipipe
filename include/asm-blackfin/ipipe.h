@@ -35,7 +35,7 @@
 #include <asm/atomic.h>
 #include <asm/traps.h>
 
-#define IPIPE_ARCH_STRING     "1.7-devel"
+#define IPIPE_ARCH_STRING     "1.7-00"
 #define IPIPE_MAJOR_NUMBER    1
 #define IPIPE_MINOR_NUMBER    7
 #define IPIPE_PATCH_NUMBER    0
