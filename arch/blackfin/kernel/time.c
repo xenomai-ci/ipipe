@@ -181,7 +181,6 @@ time_sched_init(irqreturn_t(*timer_routine) (int, void *))
 	/* call setup_irq instead of request_irq because request_irq calls
 	 * kmalloc which has not been initialized yet
 	 */
-	//setup_irq(IRQ_CORETMR, &bfin_timer_irq);
 	setup_irq(IRQ_SYSTMR, &bfin_timer_irq);
 }
 
