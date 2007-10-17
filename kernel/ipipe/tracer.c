@@ -1198,6 +1198,26 @@ static int __ipipe_wr_proc_val(struct file *file, const char __user *buffer,
 	return count;
 }
 
+/* Look up a kernel symbol and return it in a text buffer. */
+static int sprint_symbol(char *buffer, unsigned long address)
+{
+	char *modname;
+	const char *name;
+	unsigned long offset, size;
+	char namebuf[KSYM_NAME_LEN+1];
+
+	name = kallsyms_lookup(address, &size, &offset, &modname, namebuf);
+	if (!name)
+		return sprintf(buffer, "0x%lx", address);
+	else {
+		if (modname)
+			return sprintf(buffer, "%s+%#lx/%#lx [%s]", name, offset,
+				size, modname);
+		else
+			return sprintf(buffer, "%s+%#lx/%#lx", name, offset, size);
+	}
+}
+
 static int __ipipe_rd_trigger(char *page, char **start, off_t off, int count,
 			      int *eof, void *data)
 {
@@ -1224,7 +1244,7 @@ static int __ipipe_rd_trigger(char *page, char **start, off_t off, int count,
 static int __ipipe_wr_trigger(struct file *file, const char __user *buffer,
 			      unsigned long count, void *data)
 {
-	char buf[KSYM_SYMBOL_LEN];
+	char buf[KSYM_NAME_LEN+1];
 	unsigned long begin, end;
 
 	if (count > sizeof(buf) - 1)
