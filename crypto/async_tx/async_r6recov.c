@@ -35,6 +35,8 @@
 
 #define ASYNC_R6_MAX_SRCS	256
 
+#define DEBUG_WAIT_FOR_ASYNC
+
 /**
  * async_r6_dd_recov - attempt to calculate two data misses using dma engines.
  * @disks: number of disks in the RAID-6 array
@@ -92,6 +94,10 @@ async_r6_dd_recov (int disks, size_t bytes, int faila, int failb, struct page **
 		goto ddr_sync;
 	}
 
+#ifdef DEBUG_WAIT_FOR_ASYNC
+	dma_wait_for_async_tx (tx);
+#endif
+
 	/* The following operations will 'damage' P/Q strips;
 	 * so now we condemned to move in a asynchronous way.
 	 */
@@ -103,12 +109,20 @@ async_r6_dd_recov (int disks, size_t bytes, int faila, int failb, struct page **
 		ASYNC_TX_DEP_ACK,
 		tx, NULL, NULL);
 
+#ifdef DEBUG_WAIT_FOR_ASYNC
+	dma_wait_for_async_tx (tx);
+#endif
+
 	/* (3) Calculate P+Pxy
 	 */
 	tx=async_pqxor(ptrs[disks-2], NULL,
 		&ptrs[faila], NULL, 0, 1, bytes,
 		ASYNC_TX_DEP_ACK,
 		tx, NULL, NULL);
+
+#ifdef DEBUG_WAIT_FOR_ASYNC
+	dma_wait_for_async_tx (tx);
+#endif
 
 	/* (4) Compute (P+Pxy) * Bxy. Compute (Q+Qxy) * Cxy. XOR them and get faila.
 	 * B = (2^(y-x))*((2^(y-x) + {01})^(-1))
@@ -132,6 +146,10 @@ async_r6_dd_recov (int disks, size_t bytes, int faila, int failb, struct page **
 			NULL, NULL, NULL);
 	}
 
+#ifdef DEBUG_WAIT_FOR_ASYNC
+	dma_wait_for_async_tx (tx);
+#endif
+
 	/* (5) Compute failed Dy using recovered [failb] and P+Pnm in [p]
 	 */
 	lptrs[0] = ptrs[disks-2];
@@ -140,6 +158,10 @@ async_r6_dd_recov (int disks, size_t bytes, int faila, int failb, struct page **
 		lptrs, NULL, 0, 2, bytes,
 		ASYNC_TX_DEP_ACK | ASYNC_TX_XOR_ZERO_DST,
 		tx, NULL, NULL);
+
+#ifdef DEBUG_WAIT_FOR_ASYNC
+	dma_wait_for_async_tx (tx);
+#endif
 
 	/* (6) Restore the parities back (use Pnm and Qnm)
 	 */
@@ -157,6 +179,10 @@ async_r6_dd_recov (int disks, size_t bytes, int faila, int failb, struct page **
 		/* just return, since data has been recovered anyway */
 		return NULL;
 	}
+
+#ifdef DEBUG_WAIT_FOR_ASYNC
+	dma_wait_for_async_tx (tx);
+#endif
 
 	/* if come here then all required asynchronous operations
 	 * have been scheduled successfully
