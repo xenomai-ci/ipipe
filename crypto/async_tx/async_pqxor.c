@@ -114,6 +114,9 @@ do_sync_pqxor(struct page *pdest, struct page *qdest,
 	async_tx_sync_epilog(flags, depend_tx, callback, callback_param);
 }
 
+struct dma_chan *ppc440spe_get_best_pqchan (struct page **srcs, int src_cnt,
+	size_t len);
+
 /**
  * async_pqxor - attempt to calculate RS-syndrome and XOR in parallel using
  *	a dma engine.
@@ -137,7 +140,7 @@ async_pqxor(struct page *pdest, struct page *qdest,
 	struct dma_async_tx_descriptor *depend_tx,
 	dma_async_tx_callback callback, void *callback_param)
 {
-	struct dma_chan *chan = async_tx_find_channel(depend_tx, DMA_PQ_XOR);
+	struct dma_chan *chan = ppc440spe_get_best_pqchan(src_list, src_cnt, len);
 	struct dma_device *device = chan ? chan->device : NULL;
 	struct dma_async_tx_descriptor *tx = NULL;
 	int int_en;
