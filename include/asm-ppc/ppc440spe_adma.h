@@ -86,6 +86,16 @@ typedef struct ppc440spe_adma_chan {
 	u8 needs_unmap;
 } ppc440spe_ch_t;
 
+typedef struct ppc440spe_rxor {
+	u32 addrl;
+	u32 addrh;
+	int len;
+	int xor_count;
+	int addr_count;
+	int desc_count;
+	int state;
+} ppc440spe_rxor_cursor_t;
+
 /**
  * struct ppc440spe_adma_desc_slot - PPC440SPE-ADMA software descriptor
  * @phys: hardware address of the hardware descriptor chain
@@ -104,7 +114,10 @@ typedef struct ppc440spe_adma_chan {
  * @src_cnt: number of sources set in this descriptor
  * @dst_cnt: number of destinations set in the descriptor
  * @slots_per_op: number of slots per operation
+ * @descs_per_op: number of slot per P/Q operation see comment
+ * for ppc440spe_prep_dma_pqxor function
  * @flags: desc state/type
+ * @reverse_flags: 1 if a corresponding rxor address uses reversed address order
  * @xor_check_result: result of zero sum
  * @crc32_result: result crc calculation
  */
@@ -124,7 +137,9 @@ typedef struct ppc440spe_adma_desc_slot {
 	u8 src_cnt;
 	u8 dst_cnt;
 	u8 slots_per_op;
+	u8 descs_per_op;
 	unsigned long flags;
+	unsigned long reverse_flags[8];
 
 #define PPC440SPE_DESC_INT	0	/* generate interrupt on complete */
 #define PPC440SPE_ZERO_DST	1	/* this chain includes CDBs for zeroing dests */
@@ -137,7 +152,10 @@ typedef struct ppc440spe_adma_desc_slot {
 #define PPC440SPE_DESC_RXOR124	9	/* CDB for RXOR124 operation */
 #define PPC440SPE_DESC_RXOR125	10	/* CDB for RXOR125 operation */
 #define PPC440SPE_DESC_RXOR12	11	/* CDB for RXOR12 operation */
+#define PPC440SPE_DESC_RXOR_REV	12	/* CDB contains srcs in reversed order */
 #define PPC440SPE_DESC_RXOR_MSK	0x3
+
+	ppc440spe_rxor_cursor_t rxor_cursor;
 
 	union {
 		u32 *xor_check_result;
