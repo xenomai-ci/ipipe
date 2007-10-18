@@ -500,6 +500,11 @@ asmlinkage int __ipipe_syscall_root(struct pt_regs *regs)
 			local_irq_restore_hw(flags);
 			return -1;
 		}
+		/*
+		 * We are about to run the atomic syscall epilogue;
+		 * switch interrupts off before branching to it.
+		 */
+		local_irq_disable_hw();
 		return 1;
 	}
 
