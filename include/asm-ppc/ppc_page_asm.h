@@ -55,6 +55,19 @@
 #define PPC44x_PTE_ADD_SH	19 /*32 - PMD_SHIFT + PTE_SHIFT + 3*/
 #define PPC44x_PTE_ADD_M1	16 /*32 - 3 - PTE_SHIFT*/
 #define PPC44x_RPN_M2		15 /*31 - PAGE_SHIFT*/
+#elif (PAGE_SHIFT == 18)
+/*
+ * PAGE_SIZE  256K
+ * PAGE_SHIFT 18
+ * PTE_SHIFT  11
+ * PMD_SHIFT  29
+ */
+#define PPC44x_TLB_SIZE	PPC44x_TLB_256K
+#define PPC44x_PGD_OFF_SH	5  /*(32 - PMD_SHIFT + 2)*/
+#define PPC44x_PGD_OFF_M1	27 /*(PMD_SHIFT - 2)*/
+#define PPC44x_PTE_ADD_SH	17 /*32 - PMD_SHIFT + PTE_SHIFT + 3*/
+#define PPC44x_PTE_ADD_M1	18 /*32 - 3 - PTE_SHIFT*/
+#define PPC44x_RPN_M2		13 /*31 - PAGE_SHIFT*/
 #else
 #error "Unsupported PAGE_SIZE"
 #endif

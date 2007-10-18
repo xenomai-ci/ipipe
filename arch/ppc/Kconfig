@@ -1223,6 +1223,9 @@ config PPC_PAGE_16K
 
 config PPC_PAGE_64K
 	bool "64 KB" if 44x
+
+config PPC_PAGE_256K
+	bool "256 KB" if 44x
 endchoice
 
 endmenu
