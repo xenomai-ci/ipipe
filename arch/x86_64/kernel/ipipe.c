@@ -293,7 +293,6 @@ int asmlinkage __ipipe_send_ipi(unsigned ipi, cpumask_t cpumask)
 
 {
 	unsigned long flags;
-	ipipe_declare_cpuid;
 	int self;
 
 	if (ipi != IPIPE_SERVICE_IPI0 &&
@@ -302,18 +301,18 @@ int asmlinkage __ipipe_send_ipi(unsigned ipi, cpumask_t cpumask)
 	    ipi != IPIPE_SERVICE_IPI3)
 		return -EINVAL;
 
-	ipipe_lock_cpu(flags);
+	local_irq_save_hw(flags);
 
-	self = cpu_isset(cpuid,cpumask);
-	cpu_clear(cpuid,cpumask);
+	self = cpu_isset(ipipe_processor_id(),cpumask);
+	cpu_clear(ipipe_processor_id(), cpumask);
 
 	if (!cpus_empty(cpumask))
-		send_IPI_mask(cpumask,ipipe_apic_irq_vector(ipi));
+		send_IPI_mask(cpumask, ipipe_apic_irq_vector(ipi));
 
 	if (self)
 		ipipe_trigger_irq(ipi);
 
-	ipipe_unlock_cpu(flags);
+	local_irq_restore_hw(flags);
 
 	return 0;
 }
@@ -322,11 +321,9 @@ int asmlinkage __ipipe_send_ipi(unsigned ipi, cpumask_t cpumask)
 
 void __ipipe_do_critical_sync(unsigned irq, void *cookie)
 {
-	ipipe_declare_cpuid;
+	int cpu = ipipe_processor_id();
 
-	ipipe_load_cpuid();
-
-	cpu_set(cpuid, __ipipe_cpu_sync_map);
+	cpu_set(cpu, __ipipe_cpu_sync_map);
 
 	/* Now we are in sync with the lock requestor running on another
 	   CPU. Enter a spinning wait until he releases the global
@@ -341,7 +338,7 @@ void __ipipe_do_critical_sync(unsigned irq, void *cookie)
 
 	spin_unlock(&__ipipe_cpu_barrier);
 
-	cpu_clear(cpuid, __ipipe_cpu_sync_map);
+	cpu_clear(cpu, __ipipe_cpu_sync_map);
 }
 
 void __ipipe_hook_critical_ipi(struct ipipe_domain *ipd)
@@ -368,18 +365,19 @@ unsigned long ipipe_critical_enter(void (*syncfn) (void))
 	local_irq_save_hw(flags);
 
 #ifdef CONFIG_SMP
-	if (num_online_cpus() > 1) {	/* We might be running a SMP-kernel on a UP box... */
-		ipipe_declare_cpuid;
+	if (unlikely(num_online_cpus() == 1))	/* We might be running a SMP-kernel on a UP box... */
+		return flags;
+
+	{
+		int cpu = ipipe_processor_id();
 		cpumask_t lock_map;
 
-		ipipe_load_cpuid();
-
-		if (!cpu_test_and_set(cpuid, __ipipe_cpu_lock_map)) {
+		if (!cpu_test_and_set(cpu, __ipipe_cpu_lock_map)) {
 			while (cpu_test_and_set(BITS_PER_LONG - 1, __ipipe_cpu_lock_map)) {
 				int n = 0;
 				do {
 					cpu_relax();
-				} while (++n < cpuid);
+				} while (++n < cpu);
 			}
 
 			spin_lock(&__ipipe_cpu_barrier);
@@ -389,8 +387,7 @@ unsigned long ipipe_critical_enter(void (*syncfn) (void))
 			/* Send the sync IPI to all processors but the current one. */
 			send_IPI_allbutself(IPIPE_CRITICAL_VECTOR);
 
-			cpus_andnot(lock_map, cpu_online_map,
-				    __ipipe_cpu_lock_map);
+			cpus_andnot(lock_map, cpu_online_map, __ipipe_cpu_lock_map);
 
 			while (!cpus_equal(__ipipe_cpu_sync_map, lock_map))
 				cpu_relax();
@@ -408,21 +405,19 @@ unsigned long ipipe_critical_enter(void (*syncfn) (void))
 void ipipe_critical_exit(unsigned long flags)
 {
 #ifdef CONFIG_SMP
-	if (num_online_cpus() > 1) {	/* We might be running a SMP-kernel on a UP box... */
-		ipipe_declare_cpuid;
+	if (num_online_cpus() == 1)
+		goto out;
 
-		ipipe_load_cpuid();
+	if (atomic_dec_and_test(&__ipipe_critical_count)) {
+		spin_unlock(&__ipipe_cpu_barrier);
 
-		if (atomic_dec_and_test(&__ipipe_critical_count)) {
-			spin_unlock(&__ipipe_cpu_barrier);
+		while (!cpus_empty(__ipipe_cpu_sync_map))
+			cpu_relax();
 
-			while (!cpus_empty(__ipipe_cpu_sync_map))
-				cpu_relax();
-
-			cpu_clear(cpuid, __ipipe_cpu_lock_map);
-			cpu_clear(BITS_PER_LONG - 1, __ipipe_cpu_lock_map);
-		}
+		cpu_clear(ipipe_processor_id(), __ipipe_cpu_lock_map);
+		cpu_clear(BITS_PER_LONG - 1, __ipipe_cpu_lock_map);
 	}
+out:
 #endif	/* CONFIG_SMP */
 
 	local_irq_restore_hw(flags);
