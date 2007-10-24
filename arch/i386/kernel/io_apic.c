@@ -2044,6 +2044,7 @@ static void ack_ioapic_quirk_irq(unsigned int irq)
 		__unmask_and_level_IO_APIC_irq(irq);
 		spin_unlock(&ioapic_lock);
 	}
+#endif /* CONFIG_IPIPE */
 }
 
 static int ioapic_retrigger_irq(unsigned int irq)
