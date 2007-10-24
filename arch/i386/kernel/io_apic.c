@@ -2023,9 +2023,31 @@ static void ack_ioapic_quirk_irq(unsigned int irq)
 	unsigned long v;
 	int i;
 
-#ifndef CONFIG_IPIPE
+#ifdef CONFIG_IPIPE
+/*
+ * Prevent low priority IRQs grabbed by high priority domains from
+ * being delayed, waiting for a high priority interrupt handler
+ * running in a low priority domain to complete.
+ */
+	i = irq_vector[irq];
+
+	v = apic_read(APIC_TMR + ((i & ~0x1f) >> 1));
+
+	spin_lock(&ioapic_lock);
+
+	if (unlikely(!(v & (1 << (i & 0x1f))))) {
+		atomic_inc(&irq_mis_count);
+		__mask_and_edge_IO_APIC_irq(irq);
+		__unmask_and_level_IO_APIC_irq(irq);
+	}
+
+	__mask_IO_APIC_irq(irq);
+
+	spin_unlock(&ioapic_lock);
+
+	__ack_APIC_irq();
+#else /* !CONFIG_IPIPE */
 	move_native_irq(irq);
-#endif /* CONFIG_IPIPE */
 /*
  * It appears there is an erratum which affects at least version 0x11
  * of I/O APIC (that's the 82093AA and cores integrated into various
@@ -2058,17 +2080,7 @@ static void ack_ioapic_quirk_irq(unsigned int irq)
 		__unmask_and_level_IO_APIC_irq(irq);
 		spin_unlock(&ioapic_lock);
 	}
-
-#ifdef CONFIG_IPIPE
-/*
- * Prevent low priority IRQs grabbed by high priority domains from
- * being delayed, waiting for a high priority interrupt handler
- * running in a low priority domain to complete.
- */
-	spin_lock(&ioapic_lock);
-	__mask_IO_APIC_irq(irq);
-	spin_unlock(&ioapic_lock);
-#endif
+#endif /* CONFIG_IPIPE */
 }
 
 static int ioapic_retrigger_irq(unsigned int irq)
