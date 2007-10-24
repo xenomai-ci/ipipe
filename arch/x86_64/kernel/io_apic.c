@@ -1430,7 +1430,6 @@ static void ack_apic_level(unsigned int irq)
 	if (unlikely(do_unmask_irq))
 		unmask_IO_APIC_irq(irq);
 #else /* CONFIG_IPIPE */
-	__ack_APIC_irq();
 	/*
 	 * Prevent low priority IRQs grabbed by high priority domains
 	 * from being delayed, waiting for a high priority interrupt
@@ -1439,6 +1438,7 @@ static void ack_apic_level(unsigned int irq)
 	spin_lock(&ioapic_lock);
 	__mask_IO_APIC_irq(irq);
 	spin_unlock(&ioapic_lock);
+	__ack_APIC_irq();
 #endif /* CONFIG_IPIPE */
 }
 
