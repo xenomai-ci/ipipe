@@ -415,9 +415,6 @@ katmai_setup_hoses(void)
 			is_pcie_hose(hs) ?  pcie_hose_num(hs) : 0
 			);
 
-		pci_init_resource(&hose->io_resource,
-				  KATMAI_PCIX_LOWER_IO, KATMAI_PCIX_UPPER_IO,
-				  IORESOURCE_IO, name);
 
 		if (is_pcix_hose(hs)) {
 			hose->mem_space.start = KATMAI_PCIX_LOWER_MEM;
@@ -436,17 +433,26 @@ katmai_setup_hoses(void)
 				  IORESOURCE_MEM,
 				  name);
 
+		if (is_pcix_hose(hs)) {
+			isa_io_base = (unsigned long) ioremap64(PCIX0_IO_BASE,
+							PCIX_IO_SIZE);
+		}
+
+		hose->io_base_virt = (void *)isa_io_base;
+
+
+		hose->io_space.start = KATMAI_PCI_LOWER_IO +
+			((unsigned int)hs * KATMAI_PCI_HOST_SIZE_IO);
+		hose->io_space.end = hose->io_space.start +
+			KATMAI_PCI_HOST_SIZE_IO - 1;
+
+		pci_init_resource(&hose->io_resource,
+				hose->io_space.start,
+				hose->io_space.end,
+				IORESOURCE_IO, name);
 
 		if (is_pcix_hose(hs)) {
-			hose->io_space.start = KATMAI_PCIX_LOWER_IO;
-			hose->io_space.end = KATMAI_PCIX_UPPER_IO;
-			isa_io_base =
-				(unsigned long)
-				ioremap64(PCIX0_IO_BASE, PCIX_IO_SIZE);
-			hose->io_base_virt = (void *)isa_io_base;
-
 			ppc440spe_setup_pcix(hose);
-
 			setup_indirect_pci(hose, PCIX0_CFGA, PCIX0_CFGD);
 			hose->set_cfg_type = 1;
 		} else {
