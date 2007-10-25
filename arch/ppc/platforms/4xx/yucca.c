@@ -322,7 +322,6 @@ yucca_setup_hoses(void)
 	char name[20];
 	enum yucca_hoses hs;
 	int bus_no = 0;
-	pci_assign_all_buses = 1;
 
 	for (hs = HOSE_PCIX; hs < HOSE_MAX; ++hs) {
 		if (is_pcie_hose(hs)) {
@@ -364,7 +363,6 @@ yucca_setup_hoses(void)
 				pcie_hose_num(hs) * YUCCA_PCIE_MEM_SIZE;
 			hose->mem_space.end   = hose->mem_space.start +
 				YUCCA_PCIE_MEM_SIZE - 1;
-			hose->pci_mem_offset = hose->mem_space.start;
 		}
 
 		pci_init_resource(&hose->mem_resources[0],
@@ -372,10 +370,6 @@ yucca_setup_hoses(void)
 				  hose->mem_space.end,
 				  IORESOURCE_MEM,
 				  name);
-
-		hose->first_busno = bus_no;
-		hose->last_busno  = 0xFF;
-		hose_type[hose->index] = hs;
 
 		if (is_pcix_hose(hs)) {
 			hose->io_space.start = YUCCA_PCIX_LOWER_IO;
@@ -396,6 +390,20 @@ yucca_setup_hoses(void)
 						pcie_hose_num(hs));
 				continue;
 			}
+		}
+
+		hose->first_busno = bus_no;
+		hose->last_busno  = 0xFF;
+		hose_type[hose->index] = hs;
+
+		if (!is_pcix_hose(hs))
+		{
+			unsigned char* addr;
+			addr = (unsigned char*)((void __iomem*)hose->cfg_addr);
+
+			out_8(addr + PCI_PRIMARY_BUS, hose->first_busno);
+			out_8(addr + PCI_SECONDARY_BUS, ++hose->first_busno);
+			out_8(addr + PCI_SUBORDINATE_BUS, 0xff);
 		}
 
 		/*

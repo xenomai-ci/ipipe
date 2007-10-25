@@ -65,9 +65,10 @@ static int pcie_validate_bdf(struct pci_bus *bus, unsigned int devfn)
 	 */
 	return PCIBIOS_DEVICE_NOT_FOUND;
 #endif
+
 	/*
-	 * NOTICE: configuration space ranges are currenlty mapped only for
-	 * buses from 0 to MAX_BUS_MAPPED - 1 , so such limit must be imposed.
+	 * NOTICE: configuration space ranges are currently mapped only for
+	 * buses from 0 to MAX_BUS_MAPPED - 1, so such limit must be imposed.
 	 * In case more buses are required MAX_BUS_MAPPED define needs to be
 	 * altered accordingly (one bus takes 1 MB of memory space).
 	 */
@@ -83,12 +84,12 @@ static int pcie_validate_bdf(struct pci_bus *bus, unsigned int devfn)
 	}
 
 	/*
-	 * Only single device/single function is supported for the primary and
-	 * secondary buses of the 440SPe host bridge.
+	 * Only single device is expected on the secondary bus of 440SPe
+	 * host bridge.
 	 */
-	if (((bus->number == (hose->first_busno)) && (devfn > 0)) ||
-	    ((bus->number == (hose->first_busno + 1)) && (devfn > 0)))
+	if (bus->number == hose->first_busno && PCI_SLOT(devfn) != 1)
 		return PCIBIOS_DEVICE_NOT_FOUND;
+
 	return 0;
 }
 
@@ -96,13 +97,10 @@ static void __iomem * pcie_get_base(struct pci_bus *bus, unsigned int devfn)
 {
 	struct pci_controller *hose = bus->sysdata;
 
-	if (hose->first_busno == bus->number)
-		return (void __iomem *)(hose->cfg_addr);
-	else
-		return (void __iomem *)(hose->cfg_data +
-			(((bus->number) << 20) | (devfn << 12)));
-
+	return (void __iomem *)(hose->cfg_data +
+		(((bus->number) << 20) | (devfn << 12)));
 }
+
 static int
 pcie_read_config(struct pci_bus *bus, unsigned int devfn, int offset,
 		 int len, u32 * val)
