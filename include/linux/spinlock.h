@@ -108,20 +108,16 @@ do {								\
 	do { *(lock) = SPIN_LOCK_UNLOCKED; } while (0)
 #endif
 
-#ifdef CONFIG_IPIPE
 # define spin_lock_init(lock)						\
 	do {								\
 		if (TYPE_EQUAL((lock), __ipipe_spinlock_t))		\
 			do {						\
 				IPIPE_DEFINE_SPINLOCK(__lock__);	\
-				*((__ipipe_spinlock_t *)lock) = __lock__; \
+				*((ipipe_spinlock_t *)lock) = __lock__; \
 			} while(0);					\
 		else							\
 			_spin_lock_init((spinlock_t *)lock);		\
 	} while(0)
-#else
-# define spin_lock_init(lock)	_spin_lock_init(lock)
-#endif
 
 #ifdef CONFIG_DEBUG_SPINLOCK
   extern void __rwlock_init(rwlock_t *lock, const char *name,
