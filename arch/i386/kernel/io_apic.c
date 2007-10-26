@@ -59,6 +59,10 @@ static struct { int pin, apic; } ioapic_i8259 = { -1, -1 };
 static IPIPE_DEFINE_SPINLOCK(ioapic_lock);
 static IPIPE_DEFINE_SPINLOCK(vector_lock);
 
+#ifdef CONFIG_IPIPE
+volatile unsigned long bugous_edge_irq_triggers[(NR_IRQS + BITS_PER_LONG - 1) / BITS_PER_LONG];
+#endif
+
 int timer_over_8254 __initdata = 1;
 
 /*
@@ -288,6 +292,11 @@ static void unmask_IO_APIC_irq (unsigned int irq)
 	unsigned long flags;
 
 	spin_lock_irqsave(&ioapic_lock, flags);
+#ifdef CONFIG_IPIPE
+	if (test_and_clear_bit(irq, &bugous_edge_irq_triggers[0]))
+		__unmask_and_level_IO_APIC_irq(irq);
+	else
+#endif
 	__unmask_IO_APIC_irq(irq);
 	ipipe_irq_unlock(irq);
 	spin_unlock_irqrestore(&ioapic_lock, flags);
@@ -2000,12 +2009,12 @@ static void ack_ioapic_quirk_irq(unsigned int irq)
 	spin_lock(&ioapic_lock);
 
 	if (unlikely(!(v & (1 << (i & 0x1f))))) {
+		/* IO-APIC erratum: see comment below. */
 		atomic_inc(&irq_mis_count);
 		__mask_and_edge_IO_APIC_irq(irq);
-		__unmask_and_level_IO_APIC_irq(irq);
-	}
-
-	__mask_IO_APIC_irq(irq);
+		set_bit(irq, &bugous_edge_irq_triggers[0]);
+	} else
+		__mask_IO_APIC_irq(irq);
 
 	spin_unlock(&ioapic_lock);
 
