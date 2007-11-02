@@ -802,7 +802,7 @@ finalize_nosync:
 int __ipipe_check_tickdev(const char *devname)
 {
 #ifdef CONFIG_X86_LOCAL_APIC
-	if (strcmp(devname, "lapic"))
+	if (!strcmp(devname, "lapic"))
 		return __ipipe_check_lapic();
 #endif
 
