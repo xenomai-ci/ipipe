@@ -647,11 +647,12 @@ fastcall int __ipipe_handle_exception(struct pt_regs *regs, long error_code, int
 #ifdef CONFIG_IPIPE_DEBUG
 		if (!ipipe_root_domain_p) {
 			/* Fix up domain so that Linux can handle this. */
+			struct ipipe_domain *ipd = ipipe_current_domain;
 			ipipe_current_domain = ipipe_root_domain;
 			ipipe_trace_panic_freeze();
 			printk(KERN_ERR "BUG: Unhandled exception over domain"
 					" %s - switching to ROOT\n",
-					ipipe_current_domain->name);
+					ipd->name);
 		}
 #endif /* CONFIG_IPIPE_DEBUG */
 		__ipipe_std_extable[vector](regs, error_code);
