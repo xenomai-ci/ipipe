@@ -653,6 +653,7 @@ fastcall int __ipipe_handle_exception(struct pt_regs *regs, long error_code, int
 			printk(KERN_ERR "BUG: Unhandled exception over domain"
 					" %s - switching to ROOT\n",
 					ipd->name);
+			dump_stack();
 #else
 			ipipe_current_domain = ipipe_root_domain;
 #endif /* CONFIG_IPIPE_DEBUG */
