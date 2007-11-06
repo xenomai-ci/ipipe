@@ -50,22 +50,22 @@ static struct mtd_partition motionpro_static_flash_partitions[] = {
 	{
 		.name		= "env",
 		.offset		= 0x00f40000,
-		.size		= 0x00010000,
+		.size		= 0x00020000,
 	},
 	{
 		.name		= "redund_env",
-		.offset		= 0x00f50000,
-		.size		= 0x00010000,
+		.offset		= 0x00f60000,
+		.size		= 0x00020000,
 	},
 	{
 		.name		= "dtb",
-		.offset		= 0x00f60000,
-		.size		= 0x00010000,
+		.offset		= 0x00f80000,
+		.size		= 0x00020000,
 	},
 	{
 		.name		= "user_data",
-		.offset		= 0x00f70000,
-		.size		= 0x00090000,
+		.offset		= 0x00fa0000,
+		.size		= 0x00060000,
 	}
 };
 
