@@ -152,6 +152,7 @@ static inline void io_apic_modify(unsigned int apic, unsigned int value)
 	writel(value, &io_apic->data);
 }
 
+#ifndef CONFIG_IPIPE
 static int io_apic_level_ack_pending(unsigned int irq)
 {
 	struct irq_pin_list *entry;
@@ -177,6 +178,7 @@ static int io_apic_level_ack_pending(unsigned int irq)
 	spin_unlock_irqrestore(&ioapic_lock, flags);
 	return pending;
 }
+#endif /* !CONFIG_IPIPE */
 
 /*
  * Synchronize the IO-APIC and the CPU by doing
