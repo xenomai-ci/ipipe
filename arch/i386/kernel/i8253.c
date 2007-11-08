@@ -16,7 +16,7 @@
 #include <asm/io.h>
 #include <asm/timer.h>
 
-IPIPE_DEFINE_SPINLOCK(i8253_lock);
+DEFINE_SPINLOCK(i8253_lock);
 EXPORT_SYMBOL(i8253_lock);
 
 /*
