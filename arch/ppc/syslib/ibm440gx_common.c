@@ -12,6 +12,8 @@
  */
 #include <linux/kernel.h>
 #include <linux/interrupt.h>
+#include <asm/machdep.h>
+#include <asm/cacheflush.h>
 #include <asm/ibm44x.h>
 #include <asm/mmu.h>
 #include <asm/processor.h>
@@ -201,6 +203,7 @@ void __init ibm440gx_l2c_enable(void){
 
 	asm volatile ("sync; isync" ::: "memory");
 	local_irq_restore(flags);
+	ppc_md.l2cache_inv_range = invalidate_l2cache_range;
 }
 
 /* Disable L2 cache */

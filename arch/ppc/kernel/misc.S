@@ -25,6 +25,10 @@
 #include <asm/thread_info.h>
 #include <asm/asm-offsets.h>
 
+#ifdef CONFIG_44x
+#include <asm/ibm44x.h>
+#endif
+
 #ifdef CONFIG_8xx
 #define ISYNC_8xx isync
 #else
@@ -386,6 +390,35 @@ END_FTR_SECTION_IFSET(CPU_FTR_COHERENT_ICACHE)
 	sync				/* additional sync needed on g4 */
 	isync
 	blr
+
+#if defined(CONFIG_44x)
+/*
+ * Invalidate the Level-2 cache lines corresponded to the address
+ * range.
+ *
+ * invalidate_l2cache_range(unsigned long start, unsigned long stop)
+ */
+_GLOBAL(invalidate_l2cache_range)
+	li	r5,PPC44X_L2_CACHE_BYTES-1	/* align on L2-cache line */
+	andc	r3,r3,r5
+	subf	r4,r3,r4
+	add	r4,r4,r5
+	srwi.	r4,r4,PPC44X_L2_CACHE_SHIFT
+	mtctr	r4
+
+	lis	r4, L2C_CMD_INV>>16
+1:	mtdcr	DCRN_L2C0_ADDR,r3	/* write address to invalidate */
+	mtdcr	DCRN_L2C0_CMD,r4	/* issue the Invalidate cmd */
+
+2:	mfdcr	r5,DCRN_L2C0_SR		/* wait for complete */
+	andis.	r5,r5,L2C_CMD_CLR>>16
+	beq	2b
+
+	addi	r3,r3,PPC44X_L2_CACHE_BYTES	/* next address to invalidate */
+	bdnz	1b
+	blr
+#endif
+
 /*
  * Write any modified data cache blocks out to memory.
  * Does not invalidate the corresponding cache lines (especially for
