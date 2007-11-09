@@ -93,6 +93,7 @@ yucca_show_cpuinfo(struct seq_file *m)
 {
 	seq_printf(m, "vendor\t\t: AMCC\n");
 	seq_printf(m, "machine\t\t: PPC440SPe EVB (Yucca)\n");
+	ibm440gx_show_cpuinfo(m);
 
 	return 0;
 }
@@ -376,7 +377,7 @@ yucca_setup_hoses(void)
 			((unsigned int)hs * YUCCA_PCI_HOST_SIZE_IO);
 		hose->io_space.end = hose->io_space.start +
 			YUCCA_PCI_HOST_SIZE_IO - 1;
-		
+
 		pci_init_resource(&hose->io_resource,
 				hose->io_space.start,
 				hose->io_space.end,
@@ -512,6 +513,11 @@ yucca_setup_arch(void)
 	printk("Yucca port (Roland Dreier <rolandd@cisco.com>)\n");
 }
 
+static void __init yucca_init(void)
+{
+	ibm440gx_l2c_setup(&clocks);
+}
+
 void __init platform_init(unsigned long r3, unsigned long r4,
 		unsigned long r5, unsigned long r6, unsigned long r7)
 {
@@ -526,4 +532,5 @@ void __init platform_init(unsigned long r3, unsigned long r4,
 #ifdef CONFIG_KGDB
 	ppc_md.early_serial_map = yucca_early_serial_map;
 #endif
+	ppc_md.init = yucca_init;
 }
