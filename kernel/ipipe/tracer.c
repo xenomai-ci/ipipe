@@ -1229,7 +1229,7 @@ static int __ipipe_wr_trigger(struct file *file, const char __user *buffer,
 
 	if (count > sizeof(buf) - 1)
 		count = sizeof(buf) - 1;
-	if (copy_from_user(buf, buffer, count) < 0)
+	if (copy_from_user(buf, buffer, count))
 		return -EFAULT;
 	buf[count] = 0;
 	if (buf[count-1] == '\n')
