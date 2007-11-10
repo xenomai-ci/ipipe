@@ -666,7 +666,7 @@ fastcall int __ipipe_handle_exception(struct pt_regs *regs, long error_code, int
 			struct ipipe_domain *ipd = ipipe_current_domain;
 			ipipe_current_domain = ipipe_root_domain;
 			ipipe_trace_panic_freeze();
-			printk(KERN_ERR "BUG: Unhandled exception over domain"
+			printk(KERN_ERR "DOMAIN FAULT: Unhandled exception over domain"
 			       " %s - switching to ROOT\n", ipd->name);
 			dump_stack();
 		}
