@@ -1575,7 +1575,7 @@ void ipipe_check_context(struct ipipe_domain *border_ipd)
 	       KERN_ERR "        into a service reserved for domain '%s' and "
 			"below.\n",
 	       ipipe_current_domain->name, border_ipd->name);
-	show_stack(NULL, NULL);
+	dump_stack();
 	ipipe_trace_panic_dump();
 }
 
