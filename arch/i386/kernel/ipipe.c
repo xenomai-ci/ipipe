@@ -616,6 +616,12 @@ static int __ipipe_xlate_signo[] = {
 };
 #endif /* CONFIG_KGDB */
 
+#ifdef CONFIG_IPIPE_DEBUG
+#define ipipe_may_dump_nonroot_fault(regs)	1
+#else
+#define ipipe_may_dump_nonroot_fault(regs)	(!search_exception_tables((regs)->eip))
+#endif
+
 fastcall int __ipipe_handle_exception(struct pt_regs *regs, long error_code, int vector)
 {
 	unsigned long flags;
@@ -643,30 +649,37 @@ fastcall int __ipipe_handle_exception(struct pt_regs *regs, long error_code, int
 	}
 #endif /* CONFIG_KGDB */
 
-	if (!ipipe_trap_notify(vector, regs)) {
-		if (!ipipe_root_domain_p) {
-			/* Fix up domain so that Linux can handle this. */
-#ifdef CONFIG_IPIPE_DEBUG
+	if (unlikely(ipipe_trap_notify(vector, regs))) {
+		local_irq_restore(flags);
+		return 1;
+	}
+
+	/*
+	 * Detect unhandled faults from kernel space over non-root domains.
+	 */
+	if (unlikely(!ipipe_root_domain_p && !(error_code & 4))) {
+		/*
+		 * Always warn about such faults when running in debug
+		 * mode, otherwise avoid reporting the fixable ones.
+		 */
+		if (ipipe_may_dump_nonroot_fault(regs)) {
 			struct ipipe_domain *ipd = ipipe_current_domain;
 			ipipe_current_domain = ipipe_root_domain;
 			ipipe_trace_panic_freeze();
 			printk(KERN_ERR "BUG: Unhandled exception over domain"
-					" %s - switching to ROOT\n",
-					ipd->name);
+			       " %s - switching to ROOT\n", ipd->name);
 			dump_stack();
-#else
-			ipipe_current_domain = ipipe_root_domain;
-#endif /* CONFIG_IPIPE_DEBUG */
 		}
-		__ipipe_std_extable[vector](regs, error_code);
-		local_irq_restore(flags);
-		__fixup_if(regs);
-		return 0;
 	}
 
-	local_irq_restore(flags);
+	/* Always switch to root so that Linux can handle it cleanly. */
+	ipipe_current_domain = ipipe_root_domain;
 
-	return 1;
+	__ipipe_std_extable[vector](regs, error_code);
+	local_irq_restore(flags);
+	__fixup_if(regs);
+
+	return 0;
 }
 
 fastcall int __ipipe_divert_exception(struct pt_regs *regs, int vector)
