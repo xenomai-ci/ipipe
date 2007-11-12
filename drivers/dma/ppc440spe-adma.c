@@ -1187,14 +1187,15 @@ static inline void ppc440spe_chan_append(ppc440spe_ch_t *chan)
 		break;
 	case PPC440SPE_XOR_ID:
 
-		/* update h/w links and refetch */
-		if (!xor_last_submit->hw_next)
-			break;
-
-		xor_reg = (xor_regs_t *)chan->device->pdev->resource[0].start;
-
 		local_irq_save(flags);
 
+		/* update h/w links and refetch */
+		if (!xor_last_submit->hw_next) {
+			local_irq_restore(flags);
+			break;
+		}
+
+		xor_reg = (xor_regs_t *)chan->device->pdev->resource[0].start;
 		/* the last linked CDB has to generate an interrupt
 		 * that we'd be able to append the next lists to h/w
 		 * regardless of the XOR engine state at the moment of
