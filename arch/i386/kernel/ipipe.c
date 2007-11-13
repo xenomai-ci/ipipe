@@ -644,23 +644,24 @@ fastcall int __ipipe_handle_exception(struct pt_regs *regs, long error_code, int
 	/*
 	 * Detect unhandled faults from kernel space over non-root domains.
 	 */
-	if (unlikely(!ipipe_root_domain_p && !(error_code & 4))) {
-		/*
-		 * Always warn about such faults when running in debug
-		 * mode, otherwise avoid reporting the fixable ones.
-		 */
-		if (ipipe_may_dump_nonroot_fault(regs)) {
-			struct ipipe_domain *ipd = ipipe_current_domain;
-			ipipe_current_domain = ipipe_root_domain;
-			ipipe_trace_panic_freeze();
-			printk(KERN_ERR "DOMAIN FAULT: Unhandled exception over domain"
-			       " %s - switching to ROOT\n", ipd->name);
-			dump_stack();
+	if (unlikely(!ipipe_root_domain_p)) {
+		if (unlikely(!(error_code & 4))) {
+			/*
+			 * Always warn about such faults when running in debug
+			 * mode, otherwise avoid reporting the fixable ones.
+			 */
+			if (ipipe_may_dump_nonroot_fault(regs)) {
+				struct ipipe_domain *ipd = ipipe_current_domain;
+				ipipe_current_domain = ipipe_root_domain;
+				ipipe_trace_panic_freeze();
+				printk(KERN_ERR "DOMAIN FAULT: Unhandled exception over domain"
+				       " %s at 0x%lx - switching to ROOT\n", ipd->name, regs->eip);
+				dump_stack();
+			}
 		}
+		/* Switch to root so that Linux can handle the fault cleanly. */
+		ipipe_current_domain = ipipe_root_domain;
 	}
-
-	/* Always switch to root so that Linux can handle it cleanly. */
-	ipipe_current_domain = ipipe_root_domain;
 
 	__ipipe_std_extable[vector](regs, error_code);
 	local_irq_restore(flags);
