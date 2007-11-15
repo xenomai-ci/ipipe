@@ -684,7 +684,7 @@ static inline void __mpic_mask_irq(unsigned int irq)
 	/* make sure mask gets to controller before we return to user */
 	do {
 		if (!loops--) {
-			printk(KERN_ERR "mpic_mask_irq timeout\n");
+			printk(KERN_ERR "mpic_mask_irq timeout, irq %u\n", irq);
 			break;
 		}
 	} while(!(mpic_irq_read(src, MPIC_INFO(IRQ_VECTOR_PRI)) & MPIC_VECPRI_MASK));
@@ -697,7 +697,7 @@ void mpic_mask_irq(unsigned int irq)
 #endif
 	unsigned long flags;
 
-	DBG("%s: mask_irq: %d (src %d)\n", mpic->name, irq, src);
+	DBG("%s: mask_irq: irq %u (src %d)\n", mpic->name, irq, mpic_irq_to_hw(irq));
 
 	local_irq_save_hw_cond(flags);
 	__mpic_mask_irq(irq);
