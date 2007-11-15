@@ -2138,7 +2138,6 @@ static ppc440spe_desc_t *ppc440spe_dma2rxor_prep_pqxor (
 		int int_en)
 {
 	int slot_cnt, descs_per_op;
-	ppc440spe_desc_t *p = NULL;
 	ppc440spe_desc_t *sw_desc = NULL, *iter;
 	unsigned long op = 0;
 
@@ -2169,18 +2168,23 @@ static ppc440spe_desc_t *ppc440spe_dma2rxor_prep_pqxor (
 			ppc440spe_init_rxor_cursor(&(iter->rxor_cursor));
 			iter->rxor_cursor.len = len;
 			iter->descs_per_op = descs_per_op;
-
-			if (p)
-				ppc440spe_desc_set_link(ppc440spe_chan,
-					p, iter);
-			p = iter;
 		}
 		op = 0;
 		list_for_each_entry(iter, &sw_desc->group_list, chain_node) {
+			op++;
 			if (op % descs_per_op == 0)
 				ppc440spe_adma_init_dma2rxor_slot (
 					iter, sas, src_cnt);
-			op++;
+			if (likely(!list_is_last(&iter->chain_node,
+					&sw_desc->group_list))) {
+				/* set 'next' pointer */
+				iter->hw_next = list_entry(iter->chain_node.next,
+					ppc440spe_desc_t, chain_node);
+				ppc440spe_xor_set_link (iter, iter->hw_next);
+			} else {
+				/* this is the last descriptor. */
+				iter->hw_next = NULL;
+			}
 		}
 
 		/* fixup head descriptor */
