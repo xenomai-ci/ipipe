@@ -26,6 +26,8 @@
 #define UART1_INT		1
 #define UART2_INT		2
 
+#define L2CACHE_INT		43
+
 /* Clock and Power Management */
 #define IBM_CPM_IIC0		0x80000000	/* IIC interface */
 #define IBM_CPM_IIC1		0x40000000	/* IIC interface */
