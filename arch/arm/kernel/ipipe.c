@@ -506,6 +506,7 @@ EXPORT_SYMBOL_GPL(show_stack);
 #ifndef MULTI_CPU
 EXPORT_SYMBOL_GPL(cpu_do_switch_mm);
 #endif
+EXPORT_SYMBOL_GPL(__check_kvm_seq);
 
 #ifdef CONFIG_IPIPE_TRACE_MCOUNT
 void notrace mcount(void);
