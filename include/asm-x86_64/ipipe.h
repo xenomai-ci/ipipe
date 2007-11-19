@@ -122,13 +122,18 @@ asmlinkage void __ipipe_root_xirq_thunk(unsigned irq,
 asmlinkage void __ipipe_root_virq_thunk(unsigned irq,
 					void *cookie,
 					void (*handler)(unsigned irq, void *cookie));
-
 static inline unsigned long __ipipe_ffnz(unsigned long ul)
 {
       __asm__("bsrq %1, %0":"=r"(ul)
 	      :	"rm"(ul));
       return ul;
 }
+
+struct irq_desc;
+
+void __ipipe_ack_edge_irq(unsigned irq, struct irq_desc *desc);
+
+void __ipipe_end_edge_irq(unsigned irq, struct irq_desc *desc);
 
 /*
  * When running handlers, enable hw interrupts for all domains but the

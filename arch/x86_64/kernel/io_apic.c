@@ -1752,6 +1752,10 @@ static inline void check_timer(void)
 
 	disable_8259A_irq(0);
 	irq_desc[0].chip = &lapic_irq_type;
+#ifdef CONFIG_IPIPE
+	irq_desc[0].ipipe_ack = __ipipe_ack_edge_irq;
+	irq_desc[0].ipipe_end = __ipipe_end_edge_irq;
+#endif
 	apic_write(APIC_LVT0, APIC_DM_FIXED | cfg->vector);	/* Fixed mode */
 	enable_8259A_irq(0);
 
