@@ -617,26 +617,31 @@ asmlinkage int __ipipe_handle_exception(struct pt_regs *regs, long error_code, i
 		return 1;
 	}
 
-	/*
-	 * Detect unhandled faults from kernel space over non-root domains.
-	 */
-	if (unlikely(!ipipe_root_domain_p && !(error_code & 4))) {
-		/*
-		 * Always warn about such faults when running in debug
-		 * mode, otherwise avoid reporting the fixable ones.
-		 */
-		if (ipipe_may_dump_nonroot_fault(regs)) {
-			struct ipipe_domain *ipd = ipipe_current_domain;
-			ipipe_current_domain = ipipe_root_domain;
-			ipipe_trace_panic_freeze();
-			printk(KERN_ERR "DOMAIN FAULT: Unhandled exception over domain"
-			       " %s - switching to ROOT\n", ipd->name);
-			dump_stack();
-		}
-	}
+	/* Detect unhandled faults over non-root domains. */
 
-	/* Always switch to root so that Linux can handle it cleanly. */
-	ipipe_current_domain = ipipe_root_domain;
+	if (unlikely(!ipipe_root_domain_p)) {
+		struct ipipe_domain *ipd = ipipe_current_domain;
+
+		/* Switch to root so that Linux can handle the fault cleanly. */
+		ipipe_current_domain = ipipe_root_domain;
+
+		ipipe_trace_panic_freeze();
+
+		/* Always warn about user land and unfixable faults. */
+		if ((error_code & 4) || !search_exception_tables(regs->rip))
+			printk(KERN_ERR "BUG: Unhandled exception over domain"
+			       " %s at 0x%lx - switching to ROOT\n",
+			       ipd->name, regs->rip);
+#ifdef CONFIG_IPIPE_DEBUG
+		/* Also report fixable ones when debugging is enabled. */
+		else
+			printk(KERN_WARNING "WARNING: Fixable exception over "
+			       "domain %s at 0x%lx - switching to ROOT\n",
+			       ipd->name, regs->rip);
+#endif /* CONFIG_IPIPE_DEBUG */
+
+		dump_stack();
+	}
 
 	__ipipe_std_extable[vector](regs, error_code);
 	local_irq_restore(flags);
