@@ -98,16 +98,15 @@ switch_mm(struct mm_struct *prev, struct mm_struct *next,
 	if (prev != next) {
 		cpu_set(cpu, next->cpu_vm_mask);
 		check_context(next);
-#ifdef CONFIG_IPIPE
+#if defined(CONFIG_IPIPE)
 		if (ipipe_current_domain == ipipe_root_domain) {
-		  retry:
-			per_cpu(ipipe_active_mm, cpu) = NULL; /* mm state is undefined. */
-			barrier();
-			cpu_switch_mm(next->pgd, next);
-			barrier();
-			per_cpu(ipipe_active_mm, cpu) = next;
-			if (test_and_clear_thread_flag(TIF_MMSWITCH_INT))
-				goto retry;
+			do {
+				per_cpu(ipipe_active_mm, cpu) = NULL; /* mm state is undefined. */
+				barrier();
+				cpu_switch_mm(next->pgd, next);
+				barrier();
+				per_cpu(ipipe_active_mm, cpu) = next;
+			} while (test_and_clear_thread_flag(TIF_MMSWITCH_INT));
 		} else
 #endif /* CONFIG_IPIPE */
 			cpu_switch_mm(next->pgd, next);

@@ -57,13 +57,20 @@ work_pending:
 	bne	work_resched
 	tst	r1, #_TIF_NOTIFY_RESUME | _TIF_SIGPENDING
 	beq	no_work_pending
+#ifdef CONFIG_IPIPE
+	enable_irq
+#endif /* CONFIG_IPIPE */
 	mov	r0, sp				@ 'regs'
 	mov	r2, why				@ 'syscall'
 	bl	do_notify_resume
 	b	ret_slow_syscall		@ Check work again
 
 work_resched:
+#ifdef CONFIG_IPIPE
+	enable_irq
+#endif /* CONFIG_IPIPE */
 	bl	schedule
+
 /*
  * "slow" syscall return path.  "why" tells us if this was a real syscall.
  */

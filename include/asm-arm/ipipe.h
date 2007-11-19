@@ -25,16 +25,12 @@
 
 #ifdef CONFIG_IPIPE
 
-#include <asm/irq.h>
-#include <asm/percpu.h>
+#include <linux/ipipe_percpu.h>
 
 #define IPIPE_ARCH_STRING	"1.7-06"
 #define IPIPE_MAJOR_NUMBER	1
 #define IPIPE_MINOR_NUMBER	7
 #define IPIPE_PATCH_NUMBER	6
-
-#define IPIPE_NR_XIRQS		NR_IRQS
-#define IPIPE_IRQ_ISHIFT	5	/* 25 for 32bits arch. */
 
 #ifdef CONFIG_SMP
 #error "I-pipe/arm: SMP not yet implemented"
@@ -45,41 +41,11 @@
 
 #define smp_processor_id_hw() ipipe_processor_id()
 
-#define prepare_arch_switch(next)				\
-do {								\
-	ipipe_schedule_notify(current, next);			\
-} while(0)
+#define prepare_arch_switch(next) ipipe_schedule_notify(current, next)
 
-#define task_hijacked(p)						\
-	({								\
-		int __x__ = ipipe_current_domain != ipipe_root_domain;	\
-		/* We would need to clear the SYNC flag for the root domain */ \
-		/* over the current processor in SMP mode. */		\
-		 __x__;				\
-	})
-
-/* ARM traps */
-#define IPIPE_TRAP_ACCESS	 0	/* Data or instruction access exception */
-#define IPIPE_TRAP_SECTION	 1	/* Section fault */
-#define IPIPE_TRAP_DABT		 2	/* Generic data abort */
-#define IPIPE_TRAP_UNKNOWN	 3	/* Unknown exception */
-#define IPIPE_TRAP_BREAK	 4	/* Instruction breakpoint */
-#define IPIPE_TRAP_FPU		 5	/* Floating point exception */
-#define IPIPE_TRAP_VFP		 6	/* VFP floating point exception */
-#define IPIPE_TRAP_UNDEFINSTR	 7	/* Undefined instruction */
-#define IPIPE_NR_FAULTS		 8
-
-/* Pseudo-vectors used for kernel events */
-#define IPIPE_FIRST_EVENT	IPIPE_NR_FAULTS
-#define IPIPE_EVENT_SYSCALL	(IPIPE_FIRST_EVENT)
-#define IPIPE_EVENT_SCHEDULE	(IPIPE_FIRST_EVENT + 1)
-#define IPIPE_EVENT_SIGWAKE	(IPIPE_FIRST_EVENT + 2)
-#define IPIPE_EVENT_SETSCHED	(IPIPE_FIRST_EVENT + 3)
-#define IPIPE_EVENT_INIT	(IPIPE_FIRST_EVENT + 4)
-#define IPIPE_EVENT_EXIT	(IPIPE_FIRST_EVENT + 5)
-#define IPIPE_EVENT_CLEANUP	(IPIPE_FIRST_EVENT + 6)
-#define IPIPE_LAST_EVENT	IPIPE_EVENT_CLEANUP
-#define IPIPE_NR_EVENTS		(IPIPE_LAST_EVENT + 1)
+/* We would need to clear the SYNC flag for the root domain */
+/* over the current processor in SMP mode. */
+#define task_hijacked(p) !ipipe_root_domain_p
 
 extern unsigned long arm_return_addr(int level);
 
@@ -169,15 +135,9 @@ void __ipipe_init_platform(void);
 
 #define __ipipe_hook_critical_ipi(ipd) do { } while(0)
 
-void __ipipe_enable_irqdesc(unsigned irq);
+void __ipipe_enable_irqdesc(struct ipipe_domain *ipd, unsigned irq);
 
 void __ipipe_enable_pipeline(void);
-
-void __ipipe_do_IRQ(int irq,
-		    struct pt_regs *regs);
-
-void __ipipe_do_timer(int irq,
-		      struct pt_regs *regs);
 
 void __ipipe_do_critical_sync(unsigned irq,
 			      void *cookie);
@@ -186,12 +146,12 @@ extern unsigned long __ipipe_decr_ticks;
 
 extern unsigned long long __ipipe_decr_next[];
 
-extern struct pt_regs __ipipe_tick_regs[];
+DECLARE_PER_CPU(struct pt_regs, __ipipe_tick_regs);
 
-void __ipipe_handle_irq(int irq,
-			struct pt_regs *regs);
+int __ipipe_handle_irq(int irq,
+                       struct pt_regs *regs);
 
-#define __ipipe_tick_irq	ipipe_timerint
+#define __ipipe_tick_irq	__ipipe_mach_timerint
 
 static inline unsigned long __ipipe_ffnz(unsigned long ul)
 {
@@ -201,28 +161,28 @@ static inline unsigned long __ipipe_ffnz(unsigned long ul)
 /* When running handlers, enable hw interrupts for all domains but the
  * one heading the pipeline, so that IRQs can never be significantly
  * deferred for the latter. */
-#define __ipipe_run_isr(ipd, irq, cpuid)                                \
+#define __ipipe_run_isr(ipd, irq)                                       \
 do {                                                                    \
 	local_irq_enable_nohead(ipd);                                   \
 	if (ipd == ipipe_root_domain) {                                 \
                 if (likely(!ipipe_virtual_irq_p(irq)))                  \
                         ((void (*)(unsigned, struct pt_regs *))         \
                          ipd->irqs[irq].handler) (irq,                  \
-                                                  __ipipe_tick_regs + cpuid); \
+                                                  &__raw_get_cpu_var(__ipipe_tick_regs)); \
                 else {                                                  \
                         irq_enter();                                    \
                         ipd->irqs[irq].handler(irq,ipd->irqs[irq].cookie); \
                         irq_exit();                                     \
                 }                                                       \
 	} else {							\
-		__clear_bit(IPIPE_SYNC_FLAG, &cpudata->status);		\
+		__clear_bit(IPIPE_SYNC_FLAG, &ipipe_cpudom_var(ipd, status)); \
 		ipd->irqs[irq].handler(irq,ipd->irqs[irq].cookie);	\
-		__set_bit(IPIPE_SYNC_FLAG, &cpudata->status);		\
+		__set_bit(IPIPE_SYNC_FLAG, &ipipe_cpudom_var(ipd, status)); \
 	}								\
-	local_irq_disable_nohead(ipd);					\
+	local_irq_disable_hw();                                         \
 } while(0)
 
-#define __ipipe_syscall_watched_p(p, sc)	\
+#define __ipipe_syscall_watched_p(p, sc)                                \
 	(((p)->flags & PF_EVNOTIFY) || (unsigned long)sc >= __ARM_NR_BASE + 64)
 
 #else /* !CONFIG_IPIPE */
