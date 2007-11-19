@@ -1264,6 +1264,8 @@ static int __ipipe_wr_trigger(struct file *file, const char __user *buffer,
 	/* invalidate the current range before setting a new one */
 	trigger_end = 0;
 	wmb();
+	ipipe_trace_frozen_reset();
+
 	/* set new range */
 	trigger_begin = begin;
 	wmb();
