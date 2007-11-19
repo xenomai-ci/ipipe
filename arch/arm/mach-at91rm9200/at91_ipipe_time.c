@@ -132,16 +132,12 @@ static irqreturn_t at91_timer_interrupt(int irq, void *dev_id)
 
 	write_seqlock(&xtime_lock);
 
-	if (__ipipe_mach_timerstolen) {
+	while (((read_CV() - last_CV) & AT91_TC_REG_MASK) >= LATCH) {
 		timer_tick();
 		last_CV = (last_CV + LATCH) & AT91_TC_REG_MASK;
-	} else {
-		while (((read_CV() - last_CV) & AT91_TC_REG_MASK) >= LATCH) {
-			timer_tick();
-			last_CV = (last_CV + LATCH) & AT91_TC_REG_MASK;
-		}
-		write_RC((last_CV + LATCH) & AT91_TC_REG_MASK);
 	}
+	if (!__ipipe_mach_timerstolen)
+		write_RC((last_CV + LATCH) & AT91_TC_REG_MASK);
 
 	write_sequnlock(&xtime_lock);
 

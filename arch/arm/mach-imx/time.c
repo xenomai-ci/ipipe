@@ -93,12 +93,15 @@ static irqreturn_t imx_timer_interrupt(int irq, void *dev_id)
 	 * - if some other domain has taken over the timer, then do nothing
 	 *   (ipipe has acked it, and the other domain has reprogramed it)
 	 */
-	if (__ipipe_mach_timerstolen) {
-		write_seqlock(&xtime_lock);
-		timer_tick();
-		write_sequnlock(&xtime_lock);
-		last_jiffy_time += LATCH;
-	} else
+	if (__ipipe_mach_timerstolen)
+		do {
+			write_seqlock(&xtime_lock);
+			timer_tick();
+			write_sequnlock(&xtime_lock);
+			last_jiffy_time += LATCH;
+		} while (unlikely((int32_t) (last_jiffy_time + LATCH
+					     - IMX_TCN(TIMER_BASE)) < 0));
+	else
 #else				/* !CONFIG_IPIPE */
 	/* clear the interrupt */
 	tstat = IMX_TSTAT(TIMER_BASE);

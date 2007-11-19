@@ -309,26 +309,22 @@ static unsigned volatile last_jiffy_time;
 static irqreturn_t ixp4xx_timer_interrupt(int irq, void *dev_id)
 {
 	write_seqlock(&xtime_lock);
-	if (__ipipe_mach_timerstolen) {
-		/* If some other domain has taken over the timer, then
-		 * do nothing (ipipe has acked it, and the other
-		 * domain has reprogramed it)
-		 */
+
+	while ((signed long)(*IXP4XX_OSTS - last_jiffy_time) >= LATCH) {
+		/* Catch up with the real idea of time */
 		timer_tick();
 		last_jiffy_time += LATCH;
-	} else {
-		/* If Linux is running under ipipe, but it still has
-		 * the control over the timer (no Xenomai for
-		 * example), then reprogram the timer (ipipe has
-		 * already acked it)
-		 */
-		while ((signed long)(*IXP4XX_OSTS - last_jiffy_time) >= LATCH) {
-			/* Catch up with the real idea of time */
-			timer_tick();
-			last_jiffy_time += LATCH;
-		}
-		*IXP4XX_OSRT1 = (last_jiffy_time + LATCH - *IXP4XX_OSTS) | ONE_SHOT_ENABLE;
 	}
+
+        /* If Linux is running under ipipe, but it still has
+	 * the control over the timer (no Xenomai for
+	 * example), then reprogram the timer (ipipe has
+	 * already acked it) else do nothing (ipipe has acked it, and
+	 * the other domain has reprogramed it)
+	 */
+	if (!__ipipe_mach_timerstolen)
+		*IXP4XX_OSRT1 = (last_jiffy_time + LATCH - *IXP4XX_OSTS) | ONE_SHOT_ENABLE;
+
 	write_sequnlock(&xtime_lock);
 	return IRQ_HANDLED;
 }

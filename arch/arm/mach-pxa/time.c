@@ -137,7 +137,6 @@ pxa_timer_interrupt(int irq, void *dev_id)
 	 * affect things only when the timer IRQ has been delayed by nearly
 	 * exactly one tick period which should be a pretty rare event.
 	 */
-#ifdef CONFIG_IPIPE
 	/*
 	 * - if Linux is running natively (no ipipe), ack and reprogram the timer
 	 * - if Linux is running under ipipe, but it still has the control over
@@ -146,18 +145,16 @@ pxa_timer_interrupt(int irq, void *dev_id)
 	 * - if some other domain has taken over the timer, then do nothing
 	 *   (ipipe has acked it, and the other domain has reprogramed it)
 	 */
-	if (__ipipe_mach_timerstolen) {
-		timer_tick();
-		last_jiffy_time += LATCH;
-	} else
-#endif /* CONFIG_IPIPE */
 	do {
 		timer_tick();
-#ifdef CONFIG_IPIPE
-		last_jiffy_time += LATCH;
-#else /* !CONFIG_IPIPE */
+#ifndef CONFIG_IPIPE
 		OSSR = OSSR_M0;  /* Clear match on timer 0 */
-#endif /* !CONFIG_IPIPE */
+#else /* CONFIG_IPIPE */
+		last_jiffy_time += LATCH;
+		if (__ipipe_mach_timerstolen)
+			next_match = last_jiffy_time + LATCH;
+		else
+#endif /* CONFIG_IPIPE */
 		next_match = (OSMR0 += LATCH);
 	} while( (signed long)(next_match - OSCR) <= 8 );
 
