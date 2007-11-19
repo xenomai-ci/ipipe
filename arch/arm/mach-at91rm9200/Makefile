@@ -10,19 +10,9 @@ obj-		:=
 obj-$(CONFIG_PM)		+= pm.o
 
 # CPU-specific support
-obj-$(CONFIG_ARCH_AT91RM9200)   += at91rm9200.o at91rm9200_devices.o
-obj-$(CONFIG_ARCH_AT91SAM9260)  += at91sam9260.o at91sam9260_devices.o
-obj-$(CONFIG_ARCH_AT91SAM9261)  += at91sam9261.o at91sam9261_devices.o
-
-ifeq ($(CONFIG_IPIPE),y)
-obj-$(CONFIG_ARCH_AT91RM9200)   += at91_ipipe_time.o
-obj-$(CONFIG_ARCH_AT91SAM9260)  += at91_ipipe_time.o
-obj-$(CONFIG_ARCH_AT91SAM9261)  += at91_ipipe_time.o
-else
-obj-$(CONFIG_ARCH_AT91RM9200)   += at91rm9200_time.o
-obj-$(CONFIG_ARCH_AT91SAM9260)  += at91sam926x_time.o
-obj-$(CONFIG_ARCH_AT91SAM9261)  += at91sam926x_time.o
-endif
+obj-$(CONFIG_ARCH_AT91RM9200)	+= at91rm9200.o at91rm9200_time.o at91rm9200_devices.o
+obj-$(CONFIG_ARCH_AT91SAM9260)	+= at91sam9260.o at91sam926x_time.o at91sam9260_devices.o
+obj-$(CONFIG_ARCH_AT91SAM9261)	+= at91sam9261.o at91sam926x_time.o at91sam9261_devices.o
 
 # AT91RM9200 board-specific support
 obj-$(CONFIG_MACH_ONEARM)	+= board-1arm.o
@@ -56,4 +46,11 @@ obj-$(CONFIG_LEDS) += $(led-y)
 
 ifeq ($(CONFIG_PM_DEBUG),y)
 CFLAGS_pm.o += -DDEBUG
+endif
+
+ifeq ($(CONFIG_IPIPE),y)
+obj-y := $(filter-out at91rm9200_time.o at91sam926x_time.o, $(obj-y))
+obj-$(CONFIG_ARCH_AT91RM9200)   += at91_ipipe_time.o
+obj-$(CONFIG_ARCH_AT91SAM9260)  += at91_ipipe_time.o
+obj-$(CONFIG_ARCH_AT91SAM9261)  += at91_ipipe_time.o
 endif
