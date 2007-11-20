@@ -45,7 +45,9 @@
 #include <asm/bootinfo.h>
 #include <asm/ppc4xx_pic.h>
 #include <asm/ppcboot.h>
+#include <asm/tlbflush.h>
 
+#include <syslib/gen550.h>
 #include <syslib/ibm44x_common.h>
 #include <syslib/ibm440gx_common.h>
 #include <syslib/ibm440sp_common.h>
@@ -314,6 +316,14 @@ luan_early_serial_map(void)
 	if (early_serial_setup(&port) != 0) {
 		printk("Early serial init of port 0 failed\n");
 	}
+
+#if defined(CONFIG_SERIAL_TEXT_DEBUG) || defined(CONFIG_KGDB)
+	/* Configure debug serial access */
+	gen550_init(0, &port);
+
+	/* Purge TLB entry added in head_44x.S for early serial access */
+	_tlbie(UART0_IO_BASE);
+#endif
 
 	port.membase = ioremap64(PPC440SP_UART1_ADDR, 8);
 	port.irq = UART1_INT;
