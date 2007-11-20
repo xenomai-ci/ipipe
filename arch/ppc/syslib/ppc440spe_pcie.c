@@ -33,6 +33,41 @@
 /* DMER mask */
 #define GPL_DMER_MASK_DISA	0x02000000
 
+/*
+ * Enable for early debug output on PCIe config cycles which
+ * is very helpful for debugging problems when Linux hangs upon
+ * bootup in the PCI configuration scan.
+ *
+ * Note: Don't forget to enable CONFIG_SERIAL_TEXT_DEBUG!
+ */
+#undef DEBUG_PCIE_CONFIG_ACCESS
+
+#if defined DEBUG_PCIE_CONFIG_ACCESS
+#include <asm/machdep.h>
+
+#ifndef CONFIG_SERIAL_TEXT_DEBUG
+#warning "Enable CONFIG_SERIAL_TEXT_DEBUG for early PCIe config cycle output!"
+#endif
+
+static void inline print_pcie_cfg(struct pci_bus *bus, unsigned int devfn,
+				  int offset, int len, volatile void __iomem *addr,
+				  char *read_write)
+{
+	char str[80];
+
+	sprintf(str, "pcie-config-%s: bus=%3d devfn=0x%04x offset=0x%04x len=%d"
+		" addr=%p", read_write, bus->number, devfn, offset, len, addr);
+	if (ppc_md.progress)
+		ppc_md.progress(str, 0x200);
+}
+#else
+static void inline print_pcie_cfg(struct pci_bus *bus, unsigned int devfn,
+				  int offset, int len, volatile void __iomem *addr,
+				  char *read_write)
+{
+}
+#endif
+
 static int ppc440spe_revB(void);
 
 static void pcie_dmer_disable(void)
@@ -119,6 +154,7 @@ pcie_read_config(struct pci_bus *bus, unsigned int devfn, int offset,
 	 */
 	pcie_dmer_disable();
 
+	print_pcie_cfg(bus, devfn, offset, len, addr, "read1");
 	switch (len) {
 	case 1:
 		*val = in_8((unsigned char *)(addr + offset));
@@ -132,6 +168,7 @@ pcie_read_config(struct pci_bus *bus, unsigned int devfn, int offset,
 	}
 
 	pcie_dmer_enable();
+	print_pcie_cfg(bus, devfn, offset, len, addr, "read2");
 
 	return PCIBIOS_SUCCESSFUL;
 }
@@ -152,6 +189,7 @@ pcie_write_config(struct pci_bus *bus, unsigned int devfn, int offset,
 	 */
 	pcie_dmer_disable();
 
+	print_pcie_cfg(bus, devfn, offset, len, addr, "write");
 	switch (len) {
 	case 1:
 		out_8((unsigned char *)(addr + offset), val);
@@ -808,26 +846,26 @@ int ppc440spe_setup_pcie(struct pci_controller *hose, u32 port)
 	printk(KERN_INFO "class-id and rev-id 0x%x\n", in_le32(mbase + 0x8));
 
 	/*
-	 * This code works as is with yucca plugged in another yucca board or any endpoint device 
+	 * This code works as is with yucca plugged in another yucca board or any endpoint device
 	 * pugged in yucca board as root point device.
 	 * If you want to change configuration according to your configuration . Here are few gotch's.
 	 * There could be hangs due to different reasons
 	 * 1 -- It could be that endpoint is not initialyzed. So always initialize the endpoint first.
 	 * 2 -- May be your POM and BARs are not set properly
 	 * 3 -- careful with masks which decide window sizes
-	 * Here is the test code which used for testing sram read . This test dumps remote and local sram 
+	 * Here is the test code which used for testing sram read . This test dumps remote and local sram
 	 * locations which help in comparing visually.
 	 * u32 *rsram,*lsram;
 	 * int i=0;
-	 * lsram = ioremap64(0x400000000 ,0x200); 
+	 * lsram = ioremap64(0x400000000 ,0x200);
      * #ifndef CONFIG_PCIE_ENDPOINT
 	 *    rsram = ioremap64(0xd00000000 + hose->mem_space.start,0x200);
 	 *	 if(port == 1)
-	 *		 for(i=0;i<20;i+=4) 
+	 *		 for(i=0;i<20;i+=4)
 	 *			 printk(KERN_INFO"endp sram 0x%x root sram 0x%x\n",*(rsram+i),*(lsram+i));
      *#else
 	 *    rsram = ioremap64(0xd00000000 + hose->mem_space.start,0x200);
-	 *    for(i=0;i<20;i+=4) 
+	 *    for(i=0;i<20;i+=4)
 	 *		 printk(KERN_INFO"rootp sram 0x%x endp sram 0x%x\n",*(rsram+i),*(lsram+i));
      * #endif
     */
