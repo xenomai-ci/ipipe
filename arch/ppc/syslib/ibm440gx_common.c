@@ -114,6 +114,7 @@ bypass:
 #endif
 }
 
+#if defined(CONFIG_440GX) || defined(CONFIG_440SP) || defined(CONFIG_440SPE)
 /* Issue L2C diagnostic command */
 static inline u32 l2c_diag(u32 addr)
 {
@@ -246,6 +247,7 @@ void __init ibm440gx_l2c_setup(struct ibm44x_clocks* p)
 	else
 		ibm440gx_l2c_enable();
 }
+#endif /* defined(CONFIG_440GX) ... */
 
 int __init ibm440gx_get_eth_grp(void)
 {
