@@ -31,22 +31,25 @@ struct tick_device;
 struct ipipe_tick_device {
 
 	void (*emul_set_mode)(enum clock_event_mode,
-			      struct ipipe_tick_device *tdev);
+			      struct clock_event_device *cdev);
 	int (*emul_set_tick)(unsigned long delta,
-			     struct ipipe_tick_device *tdev);
+			     struct clock_event_device *cdev);
 	void (*real_set_mode)(enum clock_event_mode mode,
 			      struct clock_event_device *cdev);
 	int (*real_set_tick)(unsigned long delta,
 			     struct clock_event_device *cdev);
 	struct tick_device *slave;
+	unsigned long real_max_delta_ns;
+	unsigned long real_mult;
+	int real_shift;
 };
 
 int ipipe_request_tickdev(const char *devname,
 			  void (*emumode)(enum clock_event_mode mode,
-					  struct ipipe_tick_device *tdev),
+					  struct clock_event_device *cdev),
 			  int (*emutick)(unsigned long evt,
-					 struct ipipe_tick_device *tdev),
-			  int cpu);
+					 struct clock_event_device *cdev),
+			  int cpu, unsigned long *tmfreq);
 
 void ipipe_release_tickdev(int cpu);
 
