@@ -65,6 +65,12 @@ void ipipe_check_context(struct ipipe_domain *border_ipd);
 static inline void ipipe_check_context(struct ipipe_domain *border_ipd) { }
 #endif /* !CONFIG_IPIPE_DEBUG_CONTEXT */
 
+/* Generic features */
+
+#ifdef CONFIG_GENERIC_CLOCKEVENTS
+#define __IPIPE_FEATURE_REQUEST_TICKDEV  1
+#endif
+
 #else /* !CONFIG_IPIPE */
 #define ipipe_preempt_disable(flags)	do { \
 						preempt_disable(); \
