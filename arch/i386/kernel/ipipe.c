@@ -127,6 +127,8 @@ void __ipipe_enable_irqdesc(struct ipipe_domain *ipd, unsigned irq)
 
 #ifdef CONFIG_X86_LOCAL_APIC
 
+unsigned long __ipipe_apic_timer_freq;
+
 static int __ipipe_noack_apic(unsigned irq)
 {
 	return 1;

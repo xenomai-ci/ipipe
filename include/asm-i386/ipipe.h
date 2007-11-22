@@ -24,10 +24,10 @@
 
 #ifdef CONFIG_IPIPE
 
-#define IPIPE_ARCH_STRING	"1.10-12"
+#define IPIPE_ARCH_STRING	"1.11-00"
 #define IPIPE_MAJOR_NUMBER	1
-#define IPIPE_MINOR_NUMBER	10
-#define IPIPE_PATCH_NUMBER	12
+#define IPIPE_MINOR_NUMBER	11
+#define IPIPE_PATCH_NUMBER	0
 
 #ifndef __ASSEMBLY__
 
@@ -106,6 +106,10 @@ int __ipipe_handle_irq(struct pt_regs regs);
 void __ipipe_do_critical_sync(unsigned irq, void *cookie);
 
 extern int __ipipe_tick_irq;
+
+#ifdef CONFIG_X86_LOCAL_APIC
+extern unsigned long __ipipe_apic_timer_freq;
+#endif
 
 #define __ipipe_call_root_xirq_handler(ipd,irq) \
    __asm__ __volatile__ ("pushfl\n\t" \
