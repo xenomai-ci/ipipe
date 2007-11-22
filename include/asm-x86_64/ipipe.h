@@ -84,6 +84,13 @@ extern unsigned cpu_khz;
 #define ipipe_tsc2ns(t)	(((t) * 1000UL) / (ipipe_cpu_freq() / 1000000UL))
 #define ipipe_tsc2us(t)	((t) / (ipipe_cpu_freq() / 1000000UL))
 
+/*
+ * The following interface will be deprecated once generic clockevents
+ * are supported by this architecture, at which point
+ * ipipe_request_tickdev() should be used instead.
+ */
+extern unsigned long __ipipe_apic_timer_freq;
+
 /* Private interface -- Internal use only */
 
 #define __ipipe_check_platform()	do { } while(0)

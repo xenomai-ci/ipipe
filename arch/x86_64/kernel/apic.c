@@ -872,6 +872,9 @@ static int __init calibrate_APIC_clock(void)
 
 	printk(KERN_INFO "Detected %d.%03d MHz APIC timer.\n",
 		result / 1000 / 1000, result / 1000 % 1000);
+#ifdef CONFIG_IPIPE
+	__ipipe_apic_timer_freq = result;
+#endif
 
 	return result * APIC_DIVISOR / HZ;
 }
