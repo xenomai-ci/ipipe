@@ -37,7 +37,8 @@
 #define IPIPE_TRAP_FPU		 5	/* Floating point exception */
 #define IPIPE_TRAP_VFP		 6	/* VFP floating point exception */
 #define IPIPE_TRAP_UNDEFINSTR	 7	/* Undefined instruction */
-#define IPIPE_NR_FAULTS		 8
+#define IPIPE_TRAP_ALIGNMENT	 8	/* Unaligned access exception */
+#define IPIPE_NR_FAULTS		 9
 
 /* Pseudo-vectors used for kernel events */
 #define IPIPE_FIRST_EVENT	IPIPE_NR_FAULTS
