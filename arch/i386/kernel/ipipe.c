@@ -127,6 +127,8 @@ void __ipipe_enable_irqdesc(struct ipipe_domain *ipd, unsigned irq)
 
 #ifdef CONFIG_X86_LOCAL_APIC
 
+unsigned long __ipipe_apic_timer_freq;
+
 static int __ipipe_noack_apic(unsigned irq)
 {
 	return 1;
@@ -636,30 +638,42 @@ fastcall int __ipipe_handle_exception(struct pt_regs *regs, long error_code, int
 	}
 #endif /* CONFIG_KGDB */
 
-	if (!ipipe_trap_notify(vector, regs)) {
-		if (!ipipe_root_domain_p) {
-			/* Fix up domain so that Linux can handle this. */
-#ifdef CONFIG_IPIPE_DEBUG
-			struct ipipe_domain *ipd = ipipe_current_domain;
-			ipipe_current_domain = ipipe_root_domain;
-			ipipe_trace_panic_freeze();
-			printk(KERN_ERR "BUG: Unhandled exception over domain"
-					" %s - switching to ROOT\n",
-					ipd->name);
-#else
-			ipipe_current_domain = ipipe_root_domain;
-#endif /* CONFIG_IPIPE_DEBUG */
-		}
-		__ipipe_exptr handler = __ipipe_std_extable[vector];
-		handler(regs,error_code);
+	if (unlikely(ipipe_trap_notify(vector, regs))) {
 		local_irq_restore(flags);
-		__fixup_if(regs);
-		return 0;
+		return 1;
 	}
 
-	local_irq_restore(flags);
+	/* Detect unhandled faults over non-root domains. */
 
-	return 1;
+	if (unlikely(!ipipe_root_domain_p)) {
+		struct ipipe_domain *ipd = ipipe_current_domain;
+
+		/* Switch to root so that Linux can handle the fault cleanly. */
+		ipipe_current_domain = ipipe_root_domain;
+
+		ipipe_trace_panic_freeze();
+
+		/* Always warn about user land and unfixable faults. */
+		if ((error_code & 4) || !search_exception_tables(regs->eip))
+			printk(KERN_ERR "BUG: Unhandled exception over domain"
+			       " %s at 0x%lx - switching to ROOT\n",
+			       ipd->name, regs->eip);
+#ifdef CONFIG_IPIPE_DEBUG
+		/* Also report fixable ones when debugging is enabled. */
+		else
+			printk(KERN_WARNING "WARNING: Fixable exception over "
+			       "domain %s at 0x%lx - switching to ROOT\n",
+			       ipd->name, regs->eip);
+#endif /* CONFIG_IPIPE_DEBUG */
+
+		dump_stack();
+	}
+
+	__ipipe_std_extable[vector](regs, error_code);
+	local_irq_restore(flags);
+	__fixup_if(regs);
+
+	return 0;
 }
 
 fastcall int __ipipe_divert_exception(struct pt_regs *regs, int vector)

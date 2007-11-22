@@ -1114,6 +1114,10 @@ static int __init calibrate_APIC_clock(void)
 		result/(1000000/HZ),
 		result%(1000000/HZ));
 
+#ifdef CONFIG_IPIPE
+	__ipipe_apic_timer_freq = result;
+#endif
+
 	return result;
 }
 
