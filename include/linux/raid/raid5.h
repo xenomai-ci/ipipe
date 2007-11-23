@@ -187,7 +187,8 @@ struct stripe_head {
 	struct r5dev {
 		struct bio	req;
 		struct bio_vec	vec;
-		struct page	*page, *dpage;	/* 'dpage' is used in the full-stripe write ops */
+		struct page	*page;
+		struct page	*dpage;	/* direct ptr to a bio buffer */
 		unsigned long flags;
 	} dev[1]; /* allocated with extra space depending of RAID geometry */
 };
@@ -280,7 +281,6 @@ struct stripe_queue {
 #define	STRIPE_DEGRADED		7
 #define	STRIPE_EXPAND_SOURCE	10
 #define	STRIPE_EXPAND_READY	11
-#define	STRIPE_FULL_WRITE	12
 
 /*
  * Operations flags (in issue order)

@@ -1003,7 +1003,10 @@ ops_run_biodrain(struct stripe_head *sh, struct dma_async_tx_descriptor *tx,
 	struct stripe_queue *sq = sh->sq;
 	int disks = sq->disks;
 	int pd_idx = sq->pd_idx;
+#ifdef CONFIG_MD_RAID_SKIP_BIO_COPY
 	int qd_idx = raid6_next_disk(pd_idx, disks);
+	int fswrite = 1;
+#endif
 	int i;
 
 	/* check if prexor is active which means only process blocks
@@ -1016,7 +1019,6 @@ ops_run_biodrain(struct stripe_head *sh, struct dma_async_tx_descriptor *tx,
 
 #ifdef CONFIG_MD_RAID_SKIP_BIO_COPY
 	/* initially assume that the operation is a full-stripe write*/
-	set_bit(STRIPE_FULL_WRITE, &sh->state);
 	for (i = disks; i-- ;) {
 		struct r5dev *dev;
 
@@ -1024,46 +1026,60 @@ ops_run_biodrain(struct stripe_head *sh, struct dma_async_tx_descriptor *tx,
 			continue;
 		if ((sq->raid_conf->level == 6) && unlikely(i == qd_idx))
 			continue;
-		if (unlikely(!sq->dev[i].towrite))
+		if (unlikely(!sq->dev[i].towrite || prexor))
 			goto do_copy;
 		dev = &sh->dev[i];
 		if ((test_bit(R5_OVERWRITE, &dev->flags)) &&
 		    !r5_next_bio(sq->dev[i].towrite, sq->dev[i].sector)) {
-			/* now verify that there is only one bio_vec within the bio
-			 * covers the sh->dev[i]
+			/* now check if there is only one bio_vec within
+			 * the bio covers the sh->dev[i]
 			 */
 			struct bio *pbio = sq->dev[i].towrite;
 			struct bio_vec *bvl;
+			int found = 0;
 			int bvec_page = pbio->bi_sector << 9, k;
 			int dev_page = sq->dev[i].sector << 9;
 
-			/* get the bio_vec that covers dev[i].page */
+			/* search for the bio_vec that covers dev[i].page */
 			bio_for_each_segment(bvl, pbio, k) {
 				if (bvec_page == dev_page &&
-					bio_iovec_idx(pbio,k)->bv_len == STRIPE_SIZE) {
-					/* find vector that fully covers the strip */
+				    bio_iovec_idx(pbio,k)->bv_len ==
+				      STRIPE_SIZE) {
+					/* found the vector which covers the
+					 * strip fully
+					 */
+					found = 1;
 					break;
 				}
 				bvec_page += bio_iovec_idx(pbio,k)->bv_len;
 			}
 
-			if (k != pbio->bi_vcnt + 1) {
+			if (found) {
 				/* save the direct pointer to buffer */
-				sh->dev[i].dpage = bio_iovec_idx(pbio,k)->bv_page;
+				BUG_ON(dev->dpage);
+				dev->dpage = bio_iovec_idx(pbio,k)->bv_page;
 				continue;
 			}
 		}
 
 do_copy:
 		/* come here in two cases:
-		 * - the dev[i] is not covered fully with the bio
-		 * - there are more than one bios cover the dev[i]
-		 * in both cases use the intermediate copy from bio to dev[i].page
+		 * - the dev[i] is not covered fully with the bio;
+		 * - there are more than one bios cover the dev[i].
+		 * in both cases do copy from bio to dev[i].page
 		 */
-		pr_debug(KERN_ERR "%s: do intermediate copying because of disk %d\n",
-			 __FUNCTION__, i);
-		clear_bit(STRIPE_FULL_WRITE, &sh->state);
+		pr_debug("%s: do copy because of disk %d\n", __FUNCTION__, i);
+		do {
+			/* restore dpages set */
+			sh->dev[i].dpage = NULL;
+		} while (i++ != disks);
+		fswrite = 0;
 		break;
+	}
+
+	if (fswrite) {
+		/* won't add new txs right now, so run ops currently pending */
+		async_tx_issue_pending_all();
 	}
 #endif
 
@@ -1100,14 +1116,19 @@ do_copy:
 			wbi = dev_q->written = chosen;
 			spin_unlock(&sq->lock);
 
-			if (!test_bit(STRIPE_FULL_WRITE, &sh->state)) {
-				/* do intermediate copy */
-				while (wbi && wbi->bi_sector <
-					dev_q->sector + STRIPE_SECTORS) {
-					tx = async_copy_data(1, wbi, dev->page,
-						dev_q->sector, tx);
-					wbi = r5_next_bio(wbi, dev_q->sector);
-				}
+#ifdef CONFIG_MD_RAID_SKIP_BIO_COPY
+			if (fswrite) {
+				/* just update dev bio vec pointer */
+				dev->vec.bv_page = dev->dpage;
+				continue;
+			}
+#endif
+			/* schedule the copy op(s) */
+			while (wbi && wbi->bi_sector <
+				dev_q->sector + STRIPE_SECTORS) {
+				tx = async_copy_data(1, wbi, dev->page,
+					dev_q->sector, tx);
+				wbi = r5_next_bio(wbi, dev_q->sector);
 			}
 		}
 	}
@@ -1186,7 +1207,7 @@ ops_run_postxor(struct stripe_head *sh, struct dma_async_tx_descriptor *tx,
 			struct r5_queue_dev *dev_q = &sq->dev[i];
 
 			if (dev_q->written)
-				xor_srcs[count++] = test_bit(STRIPE_FULL_WRITE, &sh->state) ?
+				xor_srcs[count++] = dev->dpage ?
 					dev->dpage : dev->page;
 		}
 	} else {
@@ -1194,7 +1215,7 @@ ops_run_postxor(struct stripe_head *sh, struct dma_async_tx_descriptor *tx,
 		for (i = disks; i--; ) {
 			struct r5dev *dev = &sh->dev[i];
 			if (i != pd_idx)
-				xor_srcs[count++] = test_bit(STRIPE_FULL_WRITE, &sh->state) ?
+				xor_srcs[count++] = dev->dpage ?
 					dev->dpage : dev->page;
 		}
 	}
@@ -1568,7 +1589,7 @@ ops_run_postpqxor(struct stripe_head *sh, struct dma_async_tx_descriptor *tx,
 	for (i = disks; i--;) {
 		struct r5dev *dev = &sh->dev[i];
 		if (i != pd_idx && i != qd_idx)
-			srcs[count++] = dev->page;
+			srcs[count++] = dev->dpage ? dev->dpage : dev->page;
 	}
 
 	/* check whether this postpqxor is part of a write */
@@ -2200,7 +2221,7 @@ static void raid5_build_block (struct stripe_head *sh, int i)
 	dev->req.bi_io_vec = &dev->vec;
 	dev->req.bi_vcnt++;
 	dev->req.bi_max_vecs++;
-	dev->vec.bv_page = test_bit(STRIPE_FULL_WRITE, &sh->state) ? dev->dpage : dev->page;
+	dev->vec.bv_page = dev->page;
 	dev->vec.bv_len = STRIPE_SIZE;
 	dev->vec.bv_offset = 0;
 
@@ -3003,6 +3024,16 @@ static void handle_completed_write_requests(raid5_conf_t *conf,
 				spin_lock_irq(&conf->device_lock);
 				wbi = dev_q->written;
 				dev_q->written = NULL;
+
+				if (dev->dpage) {
+					/* with full-stripe write disk-cache
+					 * actually is not UPTODATE
+					 */
+					clear_bit(R5_UPTODATE, &dev->flags);
+					dev->vec.bv_page = dev->page;
+					dev->dpage = NULL;
+				}
+
 				while (wbi && wbi->bi_sector <
 					dev_q->sector + STRIPE_SECTORS) {
 					wbi2 = r5_next_bio(wbi, dev_q->sector);
