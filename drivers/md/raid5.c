@@ -3976,7 +3976,7 @@ static void handle_stripe6(struct stripe_head *sh)
 	 * new writes while a check is in flight
 	 * 3/ Write operations do not stack
 	 */
-	if (s.to_write && !test_bit(STRIPE_OP_POSTXOR, &sh->ops.pending) &&
+	if (s.to_write && !test_bit(STRIPE_OP_POSTPQXOR, &sh->ops.pending) &&
 	    !test_bit(STRIPE_OP_CHECK, &sh->ops.pending))
 		handle_issuing_new_write_requests6(conf, sh, &s, &r6s, disks);
 
