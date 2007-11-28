@@ -52,6 +52,12 @@ MODULE_AUTHOR("megaraidlinux@lsi.com");
 MODULE_DESCRIPTION("LSI Logic MegaRAID SAS Driver");
 
 /*
+ * Setting this to non-zero will abort unknown (and uncorrected for lsb/msb
+ * issue) ioctl requests
+ */
+#define FAIL_UNKNOWN_CMD_ERROR		(0)
+
+/*
  * PCI ID table for all supported controllers
  */
 static struct pci_device_id megasas_pci_table[] = {
@@ -308,6 +314,650 @@ static struct megasas_instance_template megasas_instance_template_ppc = {
 */
 
 /**
+ *  These are the functions to convert frames passed between driver and
+ * FW to LSB
+ */
+
+/**
+ * megasas_init_queue_to_lsb -	Convert multibyte fields in init_queue to lsb
+ * @initq:			pointer to frame
+ */
+static void
+megasas_init_queue_to_lsb(struct megasas_init_queue_info * initq)
+{
+	initq->init_flags = cpu_to_le32(initq->init_flags);
+	initq->reply_queue_entries = cpu_to_le32(initq->reply_queue_entries);
+	initq->reply_queue_start_phys_addr_lo =
+		cpu_to_le32(initq->reply_queue_start_phys_addr_lo);
+	initq->reply_queue_start_phys_addr_hi =
+		cpu_to_le32(initq->reply_queue_start_phys_addr_hi);
+	initq->producer_index_phys_addr_lo =
+		cpu_to_le32(initq->producer_index_phys_addr_lo);
+	initq->producer_index_phys_addr_hi =
+		cpu_to_le32(initq->producer_index_phys_addr_hi);
+	initq->consumer_index_phys_addr_lo =
+		cpu_to_le32(initq->consumer_index_phys_addr_lo);
+	initq->consumer_index_phys_addr_hi =
+		cpu_to_le32(initq->consumer_index_phys_addr_hi);
+}
+
+/**
+ * megasas_init_frame_to_lsb -	Convert multibyte field in init frame to lsb
+ * @initf:			pointer to frame
+ */
+static void
+megasas_init_frame_to_lsb(struct megasas_init_frame * initf)
+{
+	initf->data_xfer_len = cpu_to_le32(initf->data_xfer_len);
+	initf->flags = cpu_to_le16(initf->flags);
+	initf->queue_info_new_phys_addr_lo =
+		cpu_to_le32(initf->queue_info_new_phys_addr_lo);
+	initf->queue_info_new_phys_addr_hi =
+		cpu_to_le32(initf->queue_info_new_phys_addr_hi);
+	initf->queue_info_old_phys_addr_lo =
+		cpu_to_le32(initf->queue_info_old_phys_addr_lo);
+	initf->queue_info_old_phys_addr_hi =
+		cpu_to_le32(initf->queue_info_old_phys_addr_hi);
+	megasas_init_queue_to_lsb((struct megasas_init_queue_info *)
+			 ((void *)initf + MEGAMFI_FRAME_SIZE));
+};
+
+/**
+ * megasas_sgl32_to_lsb -	Convert multibyte fields in sgl32 to lsb
+ * @sge:			pointer to start of sge32
+ * @count:			number of sge to process
+ */
+static void
+megasas_sgl32_to_lsb(struct megasas_sge32 * sge, u8 count)
+{
+	u8 i;
+	for (i = 0; i < count; i++) {
+		sge[i].phys_addr = cpu_to_le32(sge[i].phys_addr);
+		sge[i].length = cpu_to_le32(sge[i].length);
+	}
+}
+
+/**
+ * megasas_sgl64_to_lsb -	Convert multibyte fields in sgl64 to lsb
+ * @sge:			pointer to start of sge64
+ * @count:			number of sge to process
+ */
+static void
+megasas_sgl64_to_lsb(struct megasas_sge64 * sge, u8 count)
+{
+	u8 i;
+	for (i = 0; i < count; i++) {
+		sge[i].phys_addr = cpu_to_le64(sge[i].phys_addr);
+		sge[i].length = cpu_to_le32(sge[i].length);
+	}
+}
+
+/**
+ * megasas_io_frame_to_lsb -	Convert multibyte fields in io_frame to lsb
+ * @iof:			pointer to frame
+ */
+static void
+megasas_io_frame_to_lsb(struct megasas_io_frame * iof)
+{
+	int is64 = (iof->flags & MFI_FRAME_SGL64) ? 1 : 0;
+
+	iof->flags = cpu_to_le16(iof->flags);
+	iof->timeout = cpu_to_le16(iof->timeout);
+	iof->lba_count = cpu_to_le32(iof->lba_count);
+	iof->sense_buf_phys_addr_lo = cpu_to_le32(iof->sense_buf_phys_addr_lo);
+	iof->sense_buf_phys_addr_hi = cpu_to_le32(iof->sense_buf_phys_addr_hi);
+	iof->start_lba_lo = cpu_to_le32(iof->start_lba_lo);
+	iof->start_lba_hi = cpu_to_le32(iof->start_lba_hi);
+
+	if (is64)
+		megasas_sgl64_to_lsb(iof->sgl.sge64, iof->sge_count);
+	else
+		megasas_sgl32_to_lsb(iof->sgl.sge32, iof->sge_count);
+}
+
+/**
+ * megasas_pthru_frame_to_lsb -	Convert multibyte fields in pthru_frame to lsb
+ * @pf:				pointer to frame
+ */
+static void
+megasas_pthru_frame_to_lsb(struct megasas_pthru_frame * pf)
+{
+	int is64 = (pf->flags & MFI_FRAME_SGL64) ? 1 : 0;
+
+	pf->flags = cpu_to_le16(pf->flags);
+	pf->timeout = cpu_to_le16(pf->timeout);
+	pf->data_xfer_len = cpu_to_le32(pf->data_xfer_len);
+	pf->sense_buf_phys_addr_lo = cpu_to_le32(pf->sense_buf_phys_addr_lo);
+	pf->sense_buf_phys_addr_hi = cpu_to_le32(pf->sense_buf_phys_addr_hi);
+
+	if (is64)
+		megasas_sgl64_to_lsb(pf->sgl.sge64, pf->sge_count);
+	else
+		megasas_sgl32_to_lsb(pf->sgl.sge32, pf->sge_count);
+}
+
+/**
+ * megasas_dcmd_frame_to_lsb -	Convert multibyte fields in dcmd_frame to lsb
+ * @dcmdf:			pointer to frame
+ */
+static int
+megasas_dcmd_frame_to_lsb(struct megasas_dcmd_frame * dcmdf)
+{
+	int is64 = (dcmdf->flags & MFI_FRAME_SGL64) ? 1 : 0;
+	int sge_cnt = dcmdf->sge_count;
+	u32 opcode = dcmdf->opcode;
+
+	dcmdf->flags = cpu_to_le16(dcmdf->flags);
+	dcmdf->timeout = cpu_to_le16(dcmdf->timeout);
+	dcmdf->data_xfer_len = cpu_to_le32(dcmdf->data_xfer_len);
+	dcmdf->opcode = cpu_to_le32(dcmdf->opcode);
+
+	if (is64)
+		megasas_sgl64_to_lsb(dcmdf->sgl.sge64, sge_cnt);
+	else
+		megasas_sgl32_to_lsb(dcmdf->sgl.sge32, sge_cnt);
+
+	switch (opcode) {
+	/* Known write subcommands */
+
+	/* Known read subcommands */
+	case MR_DCMD_CTRL_EVENT_WAIT:
+		dcmdf->mbox.w[0] = cpu_to_le32(dcmdf->mbox.w[0]);
+		dcmdf->mbox.w[1] = cpu_to_le32(dcmdf->mbox.w[1]);
+		return 0;
+
+	case MR_DCMD_MEGACTL_GET_PHYSICAL_DISK_INFO:
+		/* mbox.b[0] --- target */
+
+	case MR_DCMD_CTRL_GET_INFO:
+	case MR_DCMD_CTRL_EVENT_GET_INFO:
+	case MR_DCMD_MEGACTL_GET_DEVICE_LIST:
+	case MR_DCMD_MEGACTL_GET_ARRAY_CONFIG:
+	case MR_DCMD_MEGACTL_GET_BATTERY_STATE:
+	case MR_DCMD_MEGACTL_GET_BATTERY_CAPACITY:
+	case MR_DCMD_MEGACTL_GET_BATTERY_DESIGN:
+	case MR_DCMD_MEGACTL_GET_BATTERY_PROPERTIES:
+
+	case MR_DCMD_MEGACTL_PING:/* dangerous, no data description */
+
+	/* Known no data subcommands */
+	case MR_DCMD_CTRL_CACHE_FLUSH:
+	case MR_DCMD_CTRL_SHUTDOWN:
+		return 0;
+	}
+	printk(KERN_WARNING "megasas: unknown DCMD subcommand %08X\n", opcode);
+	return FAIL_UNKNOWN_CMD_ERROR;
+}
+
+/**
+ * megasas_abort_frame_to_lsb -	Convert multibyte fields in abort_frame to lsb
+ * @af:				pointer to frame
+ */
+static void
+megasas_abort_frame_to_lsb(struct megasas_abort_frame * af)
+{
+	af->flags = cpu_to_le16(af->flags);
+	af->abort_mfi_phys_addr_lo = cpu_to_le32(af->abort_mfi_phys_addr_lo);
+	af->abort_mfi_phys_addr_hi = cpu_to_le32(af->abort_mfi_phys_addr_hi);
+}
+
+/**
+ * megasas_smp_frame_to_lsb -	Convert multibyte fields in smp_frame to lsb
+ * @smpf:			pointer to frame
+ */
+static int
+megasas_smp_frame_to_lsb(struct megasas_smp_frame * smpf)
+{
+	int is64 = (smpf->flags & MFI_FRAME_SGL64) ? 1 : 0;
+
+	smpf->flags = cpu_to_le16(smpf->flags);
+	smpf->timeout = cpu_to_le16(smpf->timeout);
+	smpf->data_xfer_len = cpu_to_le32(smpf->data_xfer_len);
+	smpf->sas_addr = cpu_to_le64(smpf->sas_addr);
+
+	if (is64)
+		megasas_sgl64_to_lsb(smpf->sgl.sge64, smpf->sge_count);
+	else
+		megasas_sgl32_to_lsb(smpf->sgl.sge32, smpf->sge_count);
+
+	printk(KERN_WARNING "megasas: SMP request not fully converted\n");
+	return FAIL_UNKNOWN_CMD_ERROR;
+}
+
+/**
+ * megasas_stp_frame_to_lsb -	Convert multibyte fields in stp_frame to lsb
+ * @stpf:			pointer to frame
+ */
+static int
+megasas_stp_frame_to_lsb(struct megasas_stp_frame * stpf)
+{
+	int is64 = (stpf->flags & MFI_FRAME_SGL64) ? 1 : 0;
+	int i;
+
+	stpf->flags = cpu_to_le16(stpf->flags);
+	stpf->timeout = cpu_to_le16(stpf->timeout);
+	stpf->data_xfer_len = cpu_to_le32(stpf->data_xfer_len);
+	for (i = 0; i < 10; i++) {
+		stpf->fis[i] = cpu_to_le16(stpf->fis[i]);
+	}
+	stpf->stp_flags = cpu_to_le32(stpf->stp_flags);
+
+	if (is64)
+		megasas_sgl64_to_lsb(stpf->sgl.sge64, stpf->sge_count);
+	else
+		megasas_sgl32_to_lsb(stpf->sgl.sge32, stpf->sge_count);
+
+	printk(KERN_WARNING "megasas: STP request not fully converted\n");
+	return FAIL_UNKNOWN_CMD_ERROR;
+}
+
+/**
+ * megasas_frame_to_lsb	- Convert frame for hardware
+ * @frame:		frame data pointer
+ */
+static int
+megasas_frame_to_lsb(union megasas_frame * frame)
+{
+	int error = 0;
+
+	switch (frame->hdr.cmd) {
+	case MFI_CMD_INIT:
+		megasas_init_frame_to_lsb(&frame->init);
+		break;
+	case MFI_CMD_PD_SCSI_IO:
+	case MFI_CMD_LD_SCSI_IO:
+		megasas_pthru_frame_to_lsb(&frame->pthru);
+		break;
+
+	case MFI_CMD_LD_READ:
+	case MFI_CMD_LD_WRITE:
+		megasas_io_frame_to_lsb(&frame->io);
+		break;
+
+	case MFI_CMD_SMP:
+		error =	megasas_smp_frame_to_lsb(&frame->smp);
+		break;
+
+	case MFI_CMD_STP:
+		error = megasas_stp_frame_to_lsb(&frame->stp);
+		break;
+
+	case MFI_CMD_DCMD:
+		error = megasas_dcmd_frame_to_lsb(&frame->dcmd);
+		break;
+	case MFI_CMD_ABORT:
+		megasas_abort_frame_to_lsb(&frame->abort);
+		break;
+	default:
+		printk(KERN_WARNING "megasas: unknown frame %d\n",
+			frame->hdr.cmd);
+		error = FAIL_UNKNOWN_CMD_ERROR;
+		break;
+	}
+
+	return error;
+}
+/**
+ * megasas_ctrl_info_from_lsb -	Convert multibyte fields in ctrl_info from lsb
+ * @ci:				pointer to ctrl_info
+ */
+static void
+megasas_ctrl_info_from_lsb(struct megasas_ctrl_info * ci)
+{
+	int i;
+
+	/* convert returned buffer from lsb !!! */
+	ci->pci.vendor_id = le16_to_cpu(ci->pci.vendor_id);
+	ci->pci.device_id = le16_to_cpu(ci->pci.device_id);
+	ci->pci.sub_vendor_id = le16_to_cpu(ci->pci.sub_vendor_id);
+	ci->pci.sub_device_id = le16_to_cpu(ci->pci.sub_device_id);
+	for (i = 0; i < 8; i++)
+		ci->host_interface.port_addr[i] =
+			le64_to_cpu(ci->host_interface.port_addr[i]);
+	for (i = 0; i < 8; i++)
+		ci->device_interface.port_addr[i] =
+			le64_to_cpu(ci->device_interface.port_addr[i]);
+	ci->image_check_word = le32_to_cpu(ci->image_check_word);
+	ci->image_component_count = le32_to_cpu(ci->image_component_count);
+	ci->pending_image_component_count =
+		le32_to_cpu(ci->pending_image_component_count);
+
+	ci->current_fw_time = le32_to_cpu(ci->current_fw_time);
+
+	ci->max_concurrent_cmds = le16_to_cpu(ci->max_concurrent_cmds);
+	ci->max_sge_count = le16_to_cpu(ci->max_sge_count);
+	ci->max_request_size = le32_to_cpu(ci->max_request_size);
+
+	ci->ld_present_count = le16_to_cpu(ci->ld_present_count);
+	ci->ld_degraded_count = le16_to_cpu(ci->ld_degraded_count);
+	ci->ld_offline_count = le16_to_cpu(ci->ld_offline_count);
+
+	ci->pd_present_count = le16_to_cpu(ci->pd_present_count);
+	ci->pd_disk_present_count = le16_to_cpu(ci->pd_disk_present_count);
+	ci->pd_disk_pred_failure_count =
+		le16_to_cpu(ci->pd_disk_pred_failure_count);
+	ci->pd_disk_failed_count = le16_to_cpu(ci->pd_disk_failed_count);
+
+	ci->nvram_size = le16_to_cpu(ci->nvram_size);
+	ci->memory_size = le16_to_cpu(ci->memory_size);
+	ci->flash_size = le16_to_cpu(ci->flash_size);
+
+	ci->mem_correctable_error_count =
+		le16_to_cpu(ci->mem_correctable_error_count);
+	ci->mem_uncorrectable_error_count =
+		le16_to_cpu(ci->mem_uncorrectable_error_count);
+
+	ci->max_strips_per_io = le16_to_cpu(ci->max_strips_per_io);
+
+	ci->properties.seq_num = le16_to_cpu(ci->properties.seq_num);
+	ci->properties.pred_fail_poll_interval =
+		le16_to_cpu(ci->properties.pred_fail_poll_interval);
+	ci->properties.intr_throttle_count =
+		le16_to_cpu(ci->properties.intr_throttle_count);
+	ci->properties.intr_throttle_timeouts =
+		le16_to_cpu(ci->properties.intr_throttle_timeouts);
+	ci->properties.ecc_bucket_leak_rate =
+		le16_to_cpu(ci->properties.ecc_bucket_leak_rate);
+}
+
+/**
+ * megasas_evt_log_info_from_lsb -	converts evt_log_info from lsb
+ * @eli:				pointer to data
+ */
+static void
+megasas_evt_log_info_from_lsb(struct megasas_evt_log_info * eli)
+{
+	eli->newest_seq_num = le32_to_cpu(eli->newest_seq_num);
+	eli->oldest_seq_num = le32_to_cpu(eli->oldest_seq_num);
+	eli->clear_seq_num = le32_to_cpu(eli->clear_seq_num);
+	eli->shutdown_seq_num = le32_to_cpu(eli->shutdown_seq_num);
+	eli->boot_seq_num = le32_to_cpu(eli->boot_seq_num);
+}
+
+/**
+ * megasas_device_list_from_lsb -	converts device_list
+ * @dl:				pointer to data
+ */
+static void
+megasas_device_list_from_lsb(struct megasas_device_list * dl)
+{
+	int i;
+
+	dl->length = le32_to_cpu(dl->length);
+	dl->num_devices = le16_to_cpu(dl->num_devices);
+	dl->rsvd0 = le16_to_cpu(dl->rsvd0);
+	for (i = 0; i < dl->num_devices; i++) {
+		dl->device[i].device_id = le16_to_cpu(dl->device[i].device_id);
+		dl->device[i].enclosure = le16_to_cpu(dl->device[i].enclosure);
+		dl->device[i].sas_address[0] =
+			le64_to_cpu(dl->device[i].sas_address[0]);
+		dl->device[i].sas_address[1] =
+			le64_to_cpu(dl->device[i].sas_address[1]);
+
+	}
+}
+
+static void
+megasas_array_config_from_lsb(struct megasas_array_header * ah, size_t len)
+{
+	struct megasas_array_span_def * sd;
+	struct megasas_array_disk_def * dd;
+	struct megasas_array_hotspare_def * hd;
+	int i, j;
+
+	ah->length = le32_to_cpu(ah->length);
+	ah->num_span_defs = le16_to_cpu(ah->num_span_defs);
+	ah->span_def_size = le16_to_cpu(ah->span_def_size);
+	ah->num_disk_defs = le16_to_cpu(ah->num_disk_defs);
+	ah->disk_def_size = le16_to_cpu(ah->disk_def_size);
+	ah->num_hot_spares = le16_to_cpu(ah->num_hot_spares);
+	ah->value_0028 = le16_to_cpu(ah->value_0028);
+	if (len < (sizeof(*ah) + (u32)ah->span_def_size * ah->num_span_defs))
+		return;
+	sd = (struct megasas_array_span_def *) (ah + 1);
+	for (j = 0; j < ah->num_span_defs; j++) {
+		sd[j].sectors_per_disk = le64_to_cpu(sd[j].sectors_per_disk);
+		sd[j].span_size = le16_to_cpu(sd[j].span_size);
+		sd[j].span_index = le16_to_cpu(sd[j].span_index);
+		sd[j].value_1 = le32_to_cpu(sd[j].value_1);
+		for (i = 0; i < (ah->span_def_size -
+			offsetof(struct megasas_array_span_def, disk))
+			/sizeof(struct megasas_array_span_disk); i++) {
+
+			sd[j].disk[i].device_id =
+				le16_to_cpu(sd[j].disk[i].device_id);
+			sd[j].disk[i].sequence =
+				le16_to_cpu(sd[j].disk[i].sequence);
+		}
+	}
+	if (len < (sizeof(*ah) + (u32)ah->span_def_size * ah->num_span_defs
+		    + (u32)ah->disk_def_size * ah->num_disk_defs))
+		return;
+	dd = (struct megasas_array_disk_def *) (sd + ah->num_span_defs);
+	for (i = 0; i < ah->num_disk_defs; i++) {
+		dd[i].disk_index = le16_to_cpu(dd[i].disk_index);
+		dd[i].sequence = le16_to_cpu(dd[i].sequence);
+		dd[i].flags = le32_to_cpu(dd[i].flags);
+		dd[i].state = le16_to_cpu(dd[i].state);
+		dd[i].value4 = le16_to_cpu(dd[i].value4);
+		for (j = 0; j < (ah->disk_def_size -
+			offsetof(struct megasas_array_disk_def, span))
+			/sizeof(struct megasas_array_disk_entry); j++) {
+
+			dd[i].span[j].offset =
+				le64_to_cpu(dd[i].span[j].offset);
+			dd[i].span[j].sectors_per_disk =
+				le64_to_cpu(dd[i].span[j].sectors_per_disk);
+			dd[i].span[j].span_index =
+				le16_to_cpu(dd[i].span[j].span_index);
+		}
+	}
+	if (len < ah->length)
+		return;
+
+	hd = (struct megasas_array_hotspare_def *)(dd + ah->num_disk_defs);
+	for (i = 0; i < ah->num_hot_spares; i++) {
+		hd[i].device_id = le16_to_cpu(hd[i].device_id);
+		hd[i].sequence = le16_to_cpu(hd[i].sequence);
+		hd[i].flags = le32_to_cpu(hd[i].flags);
+		hd[i].array = le32_to_cpu(hd[i].array);
+	}
+}
+
+static void
+megasas_physical_disk_info_from_lsb(struct megasas_physical_disk_info * pdi)
+{
+	int i;
+
+	pdi->device_id = le16_to_cpu(pdi->device_id);
+	pdi->sequence = le16_to_cpu(pdi->sequence);
+	pdi->value_x = le16_to_cpu(pdi->value_x);
+	pdi->value_y = le16_to_cpu(pdi->value_y);
+	pdi->value_0 = le16_to_cpu(pdi->value_0);
+	pdi->media_errors = le32_to_cpu(pdi->media_errors);
+	pdi->other_errors = le32_to_cpu(pdi->other_errors);
+	pdi->predictive_failures = le32_to_cpu(pdi->predictive_failures);
+	pdi->predictive_failure_event_sequence =
+		le32_to_cpu(pdi->predictive_failure_event_sequence);
+	pdi->value_4 = le16_to_cpu(pdi->value_4);
+	pdi->value_5 = le32_to_cpu(pdi->value_5);
+	pdi->sas_address_count = le32_to_cpu(pdi->sas_address_count);
+	for (i = 0; i < 4; i++)
+		pdi->sas_address[i] = le64_to_cpu(pdi->sas_address[i]);
+	pdi->raw_size = le64_to_cpu(pdi->raw_size);
+	pdi->noncoerced_size = le64_to_cpu(pdi->noncoerced_size);
+	pdi->coerced_size = le64_to_cpu(pdi->coerced_size);
+	pdi->enclosure = le16_to_cpu(pdi->enclosure);
+}
+
+static void
+megasas_battery_state_from_lsb(struct megasas_battery_state * bs)
+{
+	bs->voltage = le16_to_cpu(bs->voltage);
+	bs->current = le16_to_cpu(bs->current);
+	bs->temperature = le16_to_cpu(bs->temperature);
+	bs->firmware_status = le32_to_cpu(bs->firmware_status);
+	bs->charge = le16_to_cpu(bs->charge);
+	bs->charger_status = le16_to_cpu(bs->charger_status);
+	bs->capacity_remaining = le16_to_cpu(bs->capacity_remaining);
+	bs->capacity_full = le16_to_cpu(bs->capacity_full);
+	bs->health = le16_to_cpu(bs->health);
+}
+
+static void
+megasas_battery_capacity_from_lsb(struct megasas_battery_capacity * bc)
+{
+	bc->charge_relative = le16_to_cpu(bc->charge_relative);
+	bc->charge_absolute = le16_to_cpu(bc->charge_absolute);
+	bc->capacity_remaining = le16_to_cpu(bc->capacity_remaining);
+	bc->capacity_full = le16_to_cpu(bc->capacity_full);
+	bc->time_empty_run = le16_to_cpu(bc->time_empty_run);
+	bc->time_empty_average = le16_to_cpu(bc->time_empty_average);
+	bc->time_full_average = le16_to_cpu(bc->time_full_average);
+	bc->cycles = le16_to_cpu(bc->cycles);
+	bc->error_max = le16_to_cpu(bc->error_max);
+	bc->alarm_capacity = le16_to_cpu(bc->alarm_capacity);
+	bc->alarm_time = le16_to_cpu(bc->alarm_time);
+}
+
+static void
+megasas_battery_design_from_lsb(struct megasas_battery_design * bd)
+{
+	bd->manufacture_date = le32_to_cpu(bd->manufacture_date);
+	bd->design_capacity = le16_to_cpu(bd->design_capacity);
+	bd->design_voltage = le16_to_cpu(bd->design_voltage);
+	bd->specification_info = le16_to_cpu(bd->specification_info);
+	bd->serial_number = le16_to_cpu(bd->serial_number);
+	bd->pack_stat_configuration = le16_to_cpu(bd->pack_stat_configuration);
+}
+
+static void
+megasas_battery_properties_from_lsb(struct megasas_battery_properties * bp)
+{
+	bp->device_learn_period = le32_to_cpu(bp->device_learn_period);
+	bp->next_learn_time = le32_to_cpu(bp->next_learn_time);
+	bp->learn_delay_interval = le32_to_cpu(bp->learn_delay_interval);
+	bp->auto_learn_mode = le32_to_cpu(bp->auto_learn_mode);
+}
+
+/*
+ * megasas_cmd_answer_from_lsb -	convert cmd answer from lsb
+ * @instance:				controller sw state
+ * @cmd:				command to operate upon
+ * @kern_buff:				kernel sge addresses
+ */
+static int
+megasas_cmd_answer_from_lsb(struct megasas_instance * instance,
+			  struct megasas_cmd * cmd,
+			  void * kern_buff[MAX_IOCTL_SGE])
+{
+	u32 len;
+
+	switch(cmd->frame->hdr.cmd) {
+	case MFI_CMD_DCMD:
+		if (le16_to_cpu(cmd->frame->dcmd.flags) && MFI_FRAME_SGL64)
+			len = le32_to_cpu(cmd->frame->dcmd.sgl.sge64[0].length);
+		else
+			len = le32_to_cpu(cmd->frame->dcmd.sgl.sge32[0].length);
+		/* Depend on subcommand */
+		switch (le32_to_cpu(cmd->frame->dcmd.opcode)) {
+		/* Known write subcommands */
+
+		/* Known read subcommands */
+		case MR_DCMD_CTRL_EVENT_WAIT:
+			/* FIXME: no info about format of the cmd available */
+			printk(KERN_WARNING "megasas: evt_detail is passed"
+				" unconverted\n");
+			return 0;
+
+		case MR_DCMD_CTRL_GET_INFO:
+			megasas_ctrl_info_from_lsb(
+				(struct megasas_ctrl_info *) kern_buff[0]);
+			return 0;
+		case MR_DCMD_CTRL_EVENT_GET_INFO:
+			megasas_evt_log_info_from_lsb(
+				(struct megasas_evt_log_info *) kern_buff[0]);
+			return 0;
+
+		case MR_DCMD_MEGACTL_GET_DEVICE_LIST:
+			megasas_device_list_from_lsb(
+				(struct megasas_device_list *) kern_buff[0]);
+			return 0;
+
+		case MR_DCMD_MEGACTL_GET_ARRAY_CONFIG:
+			megasas_array_config_from_lsb(
+				(struct megasas_array_header *) kern_buff[0],
+				len);
+			return 0;
+
+		case MR_DCMD_MEGACTL_GET_PHYSICAL_DISK_INFO:
+			megasas_physical_disk_info_from_lsb(
+				(struct megasas_physical_disk_info *)
+				kern_buff[0]);
+			return 0;
+
+		case MR_DCMD_MEGACTL_GET_BATTERY_STATE:
+			megasas_battery_state_from_lsb(
+				(struct megasas_battery_state *) kern_buff[0]);
+			return 0;
+
+		case MR_DCMD_MEGACTL_GET_BATTERY_CAPACITY:
+			megasas_battery_capacity_from_lsb(
+				(struct megasas_battery_capacity *)
+				kern_buff[0]);
+			return 0;
+
+		case MR_DCMD_MEGACTL_GET_BATTERY_DESIGN:
+			megasas_battery_design_from_lsb(
+				(struct megasas_battery_design *) kern_buff[0]);
+			return 0;
+
+		case MR_DCMD_MEGACTL_GET_BATTERY_PROPERTIES:
+			megasas_battery_properties_from_lsb(
+				(struct megasas_battery_properties *)
+				kern_buff[0]);
+			return 0;
+
+		case MR_DCMD_MEGACTL_PING:
+			/* FIXME: no info about format of the cmd available */
+			printk(KERN_WARNING "megasas: megactl_ping is passed"
+				" unconverted\n");
+			return 0;
+
+		/* Known no data subcommands */
+		case MR_DCMD_CTRL_CACHE_FLUSH:
+		case MR_DCMD_CTRL_SHUTDOWN:
+			return 0;
+		default:
+			printk(KERN_WARNING "megasas: unknown DCMD subcomand "
+				"%08X in answer parse\n",
+				le32_to_cpu(cmd->frame->dcmd.opcode));
+			return FAIL_UNKNOWN_CMD_ERROR;
+		}
+		return FAIL_UNKNOWN_CMD_ERROR;
+
+	case MFI_CMD_INIT:
+	case MFI_CMD_LD_READ:
+	case MFI_CMD_LD_WRITE:
+	case MFI_CMD_LD_SCSI_IO:
+	case MFI_CMD_PD_SCSI_IO:
+	case MFI_CMD_ABORT:
+		/* Nothing */
+		return 0;
+
+	case MFI_CMD_SMP:
+	case MFI_CMD_STP:
+		/* FIXME: no info about format of the cmds available */
+		printk(KERN_WARNING "megasas: unconverted aqnswer for SMP/STP "
+			"returned\n");
+		return 0;
+	}
+	printk(KERN_WARNING "megasas: Unknown command %d in answer parse\n",
+		cmd->frame->hdr.cmd);
+	return FAIL_UNKNOWN_CMD_ERROR;
+}
+
+/**
  * megasas_issue_polled -	Issues a polling command
  * @instance:			Adapter soft state
  * @cmd:			Command packet to be issued 
@@ -325,6 +975,8 @@ megasas_issue_polled(struct megasas_instance *instance, struct megasas_cmd *cmd)
 	frame_hdr->cmd_status = 0xFF;
 	frame_hdr->flags |= MFI_FRAME_DONT_POST_IN_REPLY_QUEUE;
 
+	if (megasas_frame_to_lsb(cmd->frame))
+		return -ENODATA;
 	/*
 	 * Issue the frame using inbound queue port
 	 */
@@ -340,6 +992,12 @@ megasas_issue_polled(struct megasas_instance *instance, struct megasas_cmd *cmd)
 
 	if (frame_hdr->cmd_status == 0xff)
 		return -ETIME;
+
+	if (frame_hdr->cmd_status != MFI_STAT_OK) {
+		printk(KERN_WARNING "megasas: polled cmd status is %02X\n",
+			 frame_hdr->cmd_status);
+		return -ENODATA;
+	}
 
 	return 0;
 }
@@ -359,10 +1017,21 @@ megasas_issue_blocked_cmd(struct megasas_instance *instance,
 {
 	cmd->cmd_status = ENODATA;
 
+	if (megasas_frame_to_lsb(cmd->frame))
+		return -ENOMEM;
+
 	instance->instancet->fire_cmd(cmd->frame_phys_addr ,0,instance->reg_set);
 
 	wait_event_timeout(instance->int_cmd_wait_q, (cmd->cmd_status != ENODATA),
 		MEGASAS_INTERNAL_CMD_WAIT_TIME*HZ);
+
+	if (cmd->cmd_status != MFI_STAT_OK)
+		printk(KERN_DEBUG "megasas: blocked cmd 0x%02X.0x%08x "
+			"return status is 0x%02X\n",
+			cmd->frame->hdr.cmd,
+			cmd->frame->hdr.cmd == MFI_CMD_DCMD ?
+			le32_to_cpu(cmd->frame->dcmd.opcode) : 0,
+			cmd->cmd_status);
 
 	return 0;
 }
@@ -404,6 +1073,9 @@ megasas_issue_blocked_abort_cmd(struct megasas_instance *instance,
 	cmd->sync_cmd = 1;
 	cmd->cmd_status = 0xFF;
 
+	if (megasas_frame_to_lsb(cmd->frame))
+		goto return_cmd;
+
 	instance->instancet->fire_cmd(cmd->frame_phys_addr ,0,instance->reg_set);
 
 	/*
@@ -411,8 +1083,14 @@ megasas_issue_blocked_abort_cmd(struct megasas_instance *instance,
 	 */
 	wait_event_timeout(instance->abort_cmd_wait_q, (cmd->cmd_status != 0xFF),
 		MEGASAS_INTERNAL_CMD_WAIT_TIME*HZ);
-
+return_cmd:
 	megasas_return_cmd(instance, cmd);
+
+	if (cmd->cmd_status != MFI_STAT_OK) {
+		printk(KERN_WARNING"megasas: blocked abort cmd "
+			"status is %02X\n", cmd->cmd_status);
+		return -ENODATA;
+	}
 	return 0;
 }
 
@@ -761,20 +1439,43 @@ megasas_dump_pending_frames(struct megasas_instance *instance)
 			ldio = (struct megasas_io_frame *)cmd->frame;
 			mfi_sgl = &ldio->sgl;
 			sgcount = ldio->sge_count;
-			printk(KERN_ERR "megasas[%d]: frame count : 0x%x, Cmd : 0x%x, Tgt id : 0x%x, lba lo : 0x%x, lba_hi : 0x%x, sense_buf addr : 0x%x,sge count : 0x%x\n",instance->host->host_no, cmd->frame_count,ldio->cmd,ldio->target_id, ldio->start_lba_lo,ldio->start_lba_hi,ldio->sense_buf_phys_addr_lo,sgcount);
+			printk(KERN_ERR "megasas[%d]: frame count : 0x%x, "
+				"Cmd : 0x%x, Tgt id : 0x%x, lba lo : 0x%x, "
+				"lba_hi : 0x%x, sense_buf addr : 0x%x,"
+				"sge count : 0x%x\n", instance->host->host_no,
+				cmd->frame_count,ldio->cmd, ldio->target_id,
+				le32_to_cpu(ldio->start_lba_lo),
+				le32_to_cpu(ldio->start_lba_hi),
+				le32_to_cpu(ldio->sense_buf_phys_addr_lo),
+				sgcount);
 		}
 		else {
 			pthru = (struct megasas_pthru_frame *) cmd->frame;
 			mfi_sgl = &pthru->sgl;
 			sgcount = pthru->sge_count;
-			printk(KERN_ERR "megasas[%d]: frame count : 0x%x, Cmd : 0x%x, Tgt id : 0x%x, lun : 0x%x, cdb_len : 0x%x, data xfer len : 0x%x, sense_buf addr : 0x%x,sge count : 0x%x\n",instance->host->host_no,cmd->frame_count,pthru->cmd,pthru->target_id,pthru->lun,pthru->cdb_len , pthru->data_xfer_len,pthru->sense_buf_phys_addr_lo,sgcount);
+			printk(KERN_ERR "megasas[%d]: frame count : 0x%x, "
+				"Cmd : 0x%x, Tgt id : 0x%x, lun : 0x%x, "
+				"cdb_len : 0x%x, data xfer len : 0x%x, "
+				"sense_buf addr : 0x%x,sge count : 0x%x\n",
+				instance->host->host_no, cmd->frame_count,
+				pthru->cmd, pthru->target_id, pthru->lun,
+				pthru->cdb_len,
+				le32_to_cpu(pthru->data_xfer_len),
+				le32_to_cpu(pthru->sense_buf_phys_addr_lo),
+				sgcount);
 		}
 	if(megasas_dbg_lvl & MEGASAS_DBG_LVL){
 		for (n = 0; n < sgcount; n++){
 			if (IS_DMA64)
-				printk(KERN_ERR "megasas: sgl len : 0x%x, sgl addr : 0x%08lx ",mfi_sgl->sge64[n].length , (unsigned long)mfi_sgl->sge64[n].phys_addr) ;
+				printk(KERN_ERR "megasas: sgl len : 0x%x, "
+				    "sgl addr : 0x%016llx ",
+				    le32_to_cpu(mfi_sgl->sge64[n].length),
+				    le64_to_cpu(mfi_sgl->sge64[n].phys_addr));
 			else
-				printk(KERN_ERR "megasas: sgl len : 0x%x, sgl addr : 0x%x ",mfi_sgl->sge32[n].length , mfi_sgl->sge32[n].phys_addr) ;
+				printk(KERN_ERR "megasas: sgl len : 0x%x, "
+				    "sgl addr : 0x%x ",
+				    le32_to_cpu(mfi_sgl->sge32[n].length),
+				    le32_to_cpu(mfi_sgl->sge32[n].phys_addr));
 			}
 		}
 		printk(KERN_ERR "\n");
@@ -852,6 +1553,10 @@ megasas_queue_command(struct scsi_cmnd *scmd, void (*done) (struct scsi_cmnd *))
 	/*
 	 * Issue the command to the FW
 	 */
+
+	if (megasas_frame_to_lsb(cmd->frame))
+		goto out_return_cmd;
+
 	atomic_inc(&instance->fw_outstanding);
 
 	instance->instancet->fire_cmd(cmd->frame_phys_addr ,cmd->frame_count-1,instance->reg_set);
@@ -1264,7 +1969,8 @@ megasas_complete_cmd(struct megasas_instance *instance, struct megasas_cmd *cmd,
 		/*
 		 * See if got an event notification
 		 */
-		if (cmd->frame->dcmd.opcode == MR_DCMD_CTRL_EVENT_WAIT)
+		if (cmd->frame->dcmd.opcode ==
+		    cpu_to_le32(MR_DCMD_CTRL_EVENT_WAIT))
 			megasas_service_aen(instance, cmd);
 		else
 			megasas_complete_int_cmd(instance, cmd);
@@ -1736,6 +2442,7 @@ megasas_get_ctrl_info(struct megasas_instance *instance,
 	if (!megasas_issue_polled(instance, cmd)) {
 		ret = 0;
 		memcpy(ctrl_info, ci, sizeof(struct megasas_ctrl_info));
+		megasas_ctrl_info_from_lsb(ctrl_info);
 	} else {
 		ret = -1;
 	}
@@ -1766,11 +2473,28 @@ static void megasas_complete_cmd_dpc(unsigned long instance_addr)
 	if (instance->hw_crit_error)
 		return;
 
-	producer = *instance->producer;
-	consumer = *instance->consumer;
+	producer = le32_to_cpu(*instance->producer);
+	consumer = le32_to_cpu(*instance->consumer);
+
+	if(unlikely(producer > instance->max_fw_cmds)) {
+		printk(KERN_ERR "megasas[%d] error: producer 0x%08X, "
+			"consumer 0x%08X, reply size 0x%08X\n",
+			instance->host->host_no, producer,
+			consumer, instance->max_fw_cmds);
+		BUG();
+	}
 
 	while (consumer != producer) {
 		context = instance->reply_queue[consumer];
+
+		if (unlikely(context > instance->max_fw_cmds)) {
+			printk(KERN_ERR "megasas[%d] error: context 0x%08X > "
+				"max_fw_cmds 0x%08X [p 0x%08X, c 0x%08X]\n",
+				instance->host->host_no, context,
+				instance->max_fw_cmds,
+				producer, consumer);
+			BUG();
+		}
 
 		cmd = instance->cmd_list[context];
 
@@ -1782,7 +2506,7 @@ static void megasas_complete_cmd_dpc(unsigned long instance_addr)
 		}
 	}
 
-	*instance->consumer = producer;
+	*instance->consumer = cpu_to_le32(producer);
 
 	/*
 	 * Check if we can restore can_queue
@@ -2035,7 +2759,9 @@ megasas_get_seq_num(struct megasas_instance *instance,
 	struct megasas_dcmd_frame *dcmd;
 	struct megasas_evt_log_info *el_info;
 	dma_addr_t el_info_h = 0;
+	int error;
 
+	error = 0;
 	cmd = megasas_get_cmd(instance);
 
 	if (!cmd) {
@@ -2065,19 +2791,20 @@ megasas_get_seq_num(struct megasas_instance *instance,
 	dcmd->sgl.sge32[0].phys_addr = el_info_h;
 	dcmd->sgl.sge32[0].length = sizeof(struct megasas_evt_log_info);
 
-	megasas_issue_blocked_cmd(instance, cmd);
-
+	if (megasas_issue_blocked_cmd(instance, cmd))
+		error = -ENODATA;
 	/*
 	 * Copy the data back into callers buffer
 	 */
 	memcpy(eli, el_info, sizeof(struct megasas_evt_log_info));
+	megasas_evt_log_info_from_lsb(eli);
 
 	pci_free_consistent(instance->pdev, sizeof(struct megasas_evt_log_info),
 			    el_info, el_info_h);
 
 	megasas_return_cmd(instance, cmd);
 
-	return 0;
+	return error;
 }
 
 /**
@@ -2116,7 +2843,8 @@ megasas_register_aen(struct megasas_instance *instance, u32 seq_num,
 
 	if (instance->aen_cmd) {
 
-		prev_aen.word = instance->aen_cmd->frame->dcmd.mbox.w[1];
+		prev_aen.word =
+			le32_to_cpu(instance->aen_cmd->frame->dcmd.mbox.w[1]);
 
 		/*
 		 * A class whose enum value is smaller is inclusive of all
@@ -2188,6 +2916,10 @@ megasas_register_aen(struct megasas_instance *instance, u32 seq_num,
 	 */
 	instance->aen_cmd = cmd;
 
+	if (megasas_frame_to_lsb(cmd->frame)) {
+		megasas_return_cmd(instance, cmd);
+		return -ENOMEM;
+	}
 	/*
 	 * Issue the aen registration frame
 	 */
@@ -2479,8 +3211,10 @@ static void megasas_flush_cache(struct megasas_instance *instance)
 	dcmd->opcode = MR_DCMD_CTRL_CACHE_FLUSH;
 	dcmd->mbox.b[0] = MR_FLUSH_CTRL_CACHE | MR_FLUSH_DISK_CACHE;
 
-	megasas_issue_blocked_cmd(instance, cmd);
-
+	if (megasas_issue_blocked_cmd(instance, cmd)) {
+		printk(KERN_WARNING "megasas[%d]: flush command failed in FW\n",
+			instance->host->host_no);
+	}
 	megasas_return_cmd(instance, cmd);
 
 	return;
@@ -2654,7 +3388,7 @@ megasas_mgmt_fw_ioctl(struct megasas_instance *instance,
 	struct megasas_sge32 *kern_sge32;
 	struct megasas_cmd *cmd;
 	void *kbuff_arr[MAX_IOCTL_SGE];
-	dma_addr_t buf_handle = 0;
+	dma_addr_t dma_handle[MAX_IOCTL_SGE];
 	int error = 0, i;
 	void *sense = NULL;
 	dma_addr_t sense_handle;
@@ -2698,9 +3432,10 @@ megasas_mgmt_fw_ioctl(struct megasas_instance *instance,
 	 * For each user buffer, create a mirror buffer and copy in
 	 */
 	for (i = 0; i < ioc->sge_count; i++) {
+		dma_handle[i] = 0;
 		kbuff_arr[i] = dma_alloc_coherent(&instance->pdev->dev,
 						    ioc->sgl[i].iov_len,
-						    &buf_handle, GFP_KERNEL);
+						    &dma_handle[i], GFP_KERNEL);
 		if (!kbuff_arr[i]) {
 			printk(KERN_DEBUG "megasas: Failed to alloc "
 			       "kernel SGL buffer for IOCTL \n");
@@ -2712,7 +3447,7 @@ megasas_mgmt_fw_ioctl(struct megasas_instance *instance,
 		 * We don't change the dma_coherent_mask, so
 		 * pci_alloc_consistent only returns 32bit addresses
 		 */
-		kern_sge32[i].phys_addr = (u32) buf_handle;
+		kern_sge32[i].phys_addr = (u32) dma_handle[i];
 		kern_sge32[i].length = ioc->sgl[i].iov_len;
 
 		/*
@@ -2744,8 +3479,19 @@ megasas_mgmt_fw_ioctl(struct megasas_instance *instance,
 	 * cmd to the SCSI mid-layer
 	 */
 	cmd->sync_cmd = 1;
-	megasas_issue_blocked_cmd(instance, cmd);
+
+	if (megasas_issue_blocked_cmd(instance, cmd)) {
+		cmd->sync_cmd = 0;
+		error = -ENODATA;
+		goto out;
+	}
 	cmd->sync_cmd = 0;
+
+	/* now: try to convert returned data back! */
+	if (megasas_cmd_answer_from_lsb(instance, cmd, kbuff_arr)) {
+		error = -ENODATA;
+		goto out;
+	}
 
 	/*
 	 * copy out the kernel buffers to user buffers
@@ -2793,8 +3539,8 @@ megasas_mgmt_fw_ioctl(struct megasas_instance *instance,
 
 	for (i = 0; i < ioc->sge_count && kbuff_arr[i]; i++) {
 		dma_free_coherent(&instance->pdev->dev,
-				    kern_sge32[i].length,
-				    kbuff_arr[i], kern_sge32[i].phys_addr);
+				    ioc->sgl[i].iov_len,
+				    kbuff_arr[i], dma_handle[i]);
 	}
 
 	megasas_return_cmd(instance, cmd);
