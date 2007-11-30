@@ -3205,9 +3205,41 @@ static void handle_issuing_new_write_requests6(raid5_conf_t *conf,
 	 * is not the case then new writes need to be held off until the compute
 	 * completes.
 	 */
-	if ((s->req_compute || !test_bit(STRIPE_OP_COMPUTE_BLK, &sh->ops.pending)) &&
-	    (s->locked == 0 && rcw == 0))
-		s->locked += handle_write_operations(sh, 1, 0);
+	if (s->locked == 0 && rcw == 0) {
+		if (must_compute > 0) {
+			/* We have failed blocks and need to compute them */
+			switch (s->failed) {
+			case 0:
+				BUG();
+			case 1:
+				set_bit(STRIPE_OP_COMPUTE_BLK, &sh->ops.pending);
+				set_bit(R5_Wantcompute,
+					&sh->dev[r6s->failed_num[0]].flags);
+				sh->ops.target = r6s->failed_num[0];
+				sh->ops.target2 = -1; /* no second target */
+				s->req_compute = 1;
+				sh->ops.count++;
+				break;
+			case 2:
+				set_bit(STRIPE_OP_COMPUTE_BLK, &sh->ops.pending);
+				set_bit(R5_Wantcompute,
+					&sh->dev[r6s->failed_num[0]].flags);
+				set_bit(R5_Wantcompute,
+					&sh->dev[r6s->failed_num[1]].flags);
+				sh->ops.target = r6s->failed_num[0];
+				sh->ops.target2 = r6s->failed_num[1];
+				s->req_compute = 1;
+				sh->ops.count++;
+				break;
+			default:
+				BUG();
+			}
+		}
+
+		if (s->req_compute ||
+		    !test_bit(STRIPE_OP_COMPUTE_BLK, &sh->ops.pending))
+			s->locked += handle_write_operations(sh, 1, 0);
+	}
 }
 
 static void handle_parity_checks5(raid5_conf_t *conf, struct stripe_head *sh,
