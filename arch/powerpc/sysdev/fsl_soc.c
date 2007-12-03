@@ -319,6 +319,7 @@ static struct i2c_driver_device i2c_devices[] __initdata = {
 	{"ricoh,rs5c372b", "rtc-rs5c372", "rs5c372b",},
 	{"ricoh,rv5c386",  "rtc-rs5c372", "rv5c386",},
 	{"ricoh,rv5c387a", "rtc-rs5c372", "rv5c387a",},
+	{"dallas,ds1339",  "rtc-ds1307",  "ds1339",},
 };
 
 static int __init of_find_i2c_driver(struct device_node *node, struct i2c_board_info *info)

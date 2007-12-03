@@ -329,10 +329,17 @@
 			device_type = "i2c";
 			compatible = "mpc5200b-i2c\0mpc5200-i2c\0fsl-i2c";
 			cell-index = <1>;
+			#size-cells = <0>;
 			reg = <3d40 40>;
 			interrupts = <2 10 0>;
 			interrupt-parent = <&mpc5200_pic>;
 			fsl5200-clocking;
+
+			rtc@68 {
+				device_type = "rtc";
+				compatible = "dallas,ds1339";
+				reg = <68>;
+			};
 		};
 		sram@8000 {
 			device_type = "sram";
