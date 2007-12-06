@@ -40,8 +40,6 @@
 #include <linux/proc_fs.h>
 #include <asm/ppc440spe_adma.h>
 
-static struct dma_chan *ppc440spe_adma_channels[3];
-
 /* This flag is set when want to refetch the xor chain in the interrupt
  *	handler
  */
@@ -1304,14 +1302,16 @@ static void ppc440spe_adma_pqzero_sum_set_src_mult (unsigned char mult,
 		struct dma_async_tx_descriptor *tx,
 		int index);
 
-struct dma_chan *ppc440spe_get_best_pqchan (struct page **srcs, int src_cnt,
-		size_t len)
+/**
+ * ppc440spe_can_rxor - check if the operands may be processed with RXOR
+ */
+static int ppc440spe_can_rxor (struct page **srcs, int src_cnt, size_t len)
 {
-	struct dma_chan *chan;
-	int i;
+	int i, order = 0, state = 0;
 
-	int order = 0;
-	int state = 0;
+	if (unlikely(!(src_cnt > 1)))
+		return 0;
+
 	for (i=1; i<src_cnt; i++) {
 		char *cur_addr = page_address (srcs[i]);
 		char *old_addr = page_address (srcs[i-1]);
@@ -1321,24 +1321,23 @@ struct dma_chan *ppc440spe_get_best_pqchan (struct page **srcs, int src_cnt,
 				/* direct RXOR */
 				order = 1;
 				state = 1;
-			} else if (old_addr == cur_addr + len) {
+			} else
+			if (old_addr == cur_addr + len) {
 				/* reverse RXOR */
 				order = -1;
 				state = 1;
-			} else {
-				state = 3;
-			}
+			} else
+				goto out;
 			break;
 		case 1:
-			if (i == src_cnt-2 || (order == -1
-				&& cur_addr != old_addr - len)) {
+			if ((i == src_cnt-2) ||
+			    (order == -1 && cur_addr != old_addr - len)) {
 				order = 0;
 				state = 0;
-			} else if (cur_addr == old_addr + len*order) {
-				state = 2;
-			} else if (cur_addr == old_addr + 2*len) {
-				state = 2;
-			} else if (cur_addr == old_addr + 3*len) {
+			} else
+			if ((cur_addr == old_addr + len*order) ||
+			    (cur_addr == old_addr + 2*len) ||
+			    (cur_addr == old_addr + 3*len)) {
 				state = 2;
 			} else {
 				order = 0;
@@ -1350,16 +1349,52 @@ struct dma_chan *ppc440spe_get_best_pqchan (struct page **srcs, int src_cnt,
 			state = 0;
 			break;
 		}
-		if (state == 3) break;
 	}
 
-	if (src_cnt > 1 && (state == 1 || state == 2)) {
-		chan = ppc440spe_adma_channels[PPC440SPE_XOR_ID];
-	} else {
-		chan = ppc440spe_adma_channels[PPC440SPE_DMA0_ID];
+out:
+	if (state == 1 || state == 2)
+		return 1;
+
+	return 0;
+}
+
+/**
+ * ppc440spe_adma_device_estimate - estimate the efficiency of processing
+ *	the operation given on this channel. It's assumed that 'chan' is
+ *	capable to process 'cap' type of operation.
+ * @chan: channel to use
+ * @cap: type of transaction
+ * @src_lst: array of source pointers
+ * @src_cnt: number of source operands
+ * @src_sz: size of each source operand
+ */
+static int ppc440spe_adma_estimate (struct dma_chan *chan,
+	enum dma_transaction_type cap, struct page **src_lst,
+	int src_cnt, size_t src_sz)
+{
+	int ef = 1;
+
+	/*  in the current implementation of ppc440spe ADMA driver it
+	 * makes sense to pick out only pqxor case, because it may be
+	 * processed:
+	 * (1) either using Biskup method on DMA2;
+	 * (2) or on DMA0/1.
+	 *  Thus we give a favour to (1) if the sources are suitable;
+	 * else let it be processed on one of the DMA0/1 engines.
+	 */
+	if (cap == DMA_PQ_XOR && chan->chan_id == PPC440SPE_XOR_ID) {
+		if (ppc440spe_can_rxor(src_lst, src_cnt, src_sz))
+			ef = 3; /* override (dma0/1 + idle) */
+		else
+			ef = 0; /* can't process on DMA2 if !rxor */
 	}
 
-	return chan;
+	/* channel idleness increases the priority */
+	if (likely(ef) &&
+	    !ppc440spe_chan_is_busy(to_ppc440spe_adma_chan(chan)))
+		ef++;
+
+	return ef;
 }
 
 /**
@@ -3284,6 +3319,7 @@ static int __devinit ppc440spe_adma_probe(struct platform_device *pdev)
 	adev->common.device_is_tx_complete = ppc440spe_adma_is_complete;
 	adev->common.device_issue_pending = ppc440spe_adma_issue_pending;
 	adev->common.device_dependency_added = ppc440spe_adma_dependency_added;
+	adev->common.device_estimate = ppc440spe_adma_estimate;
 	adev->common.dev = &pdev->dev;
 
 	/* set prep routines based on capability */
@@ -3357,9 +3393,6 @@ static int __devinit ppc440spe_adma_probe(struct platform_device *pdev)
 	INIT_RCU_HEAD(&chan->common.rcu);
 	chan->common.device = &adev->common;
 	list_add_tail(&chan->common.device_node, &adev->common.channels);
-
-	BUG_ON(ppc440spe_adma_channels[chan->device->id]);
-	ppc440spe_adma_channels[chan->device->id] = &chan->common;
 
 	dev_dbg(&pdev->dev,  "AMCC(R) PPC440SP(E) ADMA Engine found [%d]: "
 	  "( %s%s%s%s%s%s%s%s%s%s)\n",
