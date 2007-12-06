@@ -178,7 +178,7 @@ struct stripe_head {
 		unsigned long	   ack;
 		unsigned long	   complete;
 		int		   target;
-		int                target2;  /* second target for STRIPE_OP_COMPUTE_BLK2 */
+		int                target2;  /* second target for RAID-6 */
 		int		   count;
 		u32                zero_sum_result;     /* P-parity check */
 		u32                zero_qsum_result;    /* Q-parity check */
@@ -300,11 +300,10 @@ struct stripe_queue {
 #define STRIPE_OP_MOD_REPAIR_PD 7
 #define STRIPE_OP_MOD_DMA_CHECK 8
 
-#define STRIPE_OP_POSTPQXOR	9
-#define STRIPE_OP_CHECK_PP	10
-#define STRIPE_OP_CHECK_QP	11
-#define STRIPE_OP_UPDATE_PP	12
-#define STRIPE_OP_UPDATE_QP	13
+#define STRIPE_OP_CHECK_PP	9
+#define STRIPE_OP_CHECK_QP	10
+#define STRIPE_OP_UPDATE_PP	11
+#define STRIPE_OP_UPDATE_QP	12
 
 /*
  * Stripe-queue state
@@ -395,8 +394,6 @@ struct raid5_private_data {
 					    * (fresh device added).
 					    * Cleared when a sync completes.
 					    */
-
-	struct page 		*spare_page; /* Used when checking P/Q in raid6 */
 
 	/*
 	 * Free queue pool
