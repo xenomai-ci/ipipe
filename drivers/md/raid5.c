@@ -3859,15 +3859,16 @@ static void handle_stripe6(struct stripe_head *sh)
 				if (!test_bit(R5_ReWrite, &dev->flags)) {
 					set_bit(R5_Wantwrite, &dev->flags);
 					set_bit(R5_ReWrite, &dev->flags);
-					set_bit(R5_LOCKED, &dev->flags);
 				} else {
 					/* let's read it back */
 					set_bit(R5_Wantread, &dev->flags);
-					set_bit(R5_LOCKED, &dev->flags);
 				}
 				if (!test_and_set_bit(STRIPE_OP_IO,
 							&sh->ops.pending))
 					sh->ops.count++;
+
+				set_bit(R5_LOCKED, &dev->flags);
+				s.locked++;
 			}
 		}
 
