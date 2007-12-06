@@ -34,6 +34,13 @@
 #include "../drivers/md/raid6.h"
 
 /**
+ *  The following static variables are used in cases of synchronous
+ * zero sum to save the values to check.
+ */
+static spinlock_t spare_lock;
+struct page *spare_pages[2];
+
+/**
  * do_async_pqxor - asynchronously calculate P and/or Q
  */
 static void
@@ -202,17 +209,6 @@ qxor_sync:
 }
 EXPORT_SYMBOL_GPL(async_pqxor);
 
-static int page_is_zero(struct page *p, size_t len)
-{
-	char *a;
-
-	BUG_ON(!p);
-	a = page_address(p);
-	return ((*(u32*)a) == 0 &&
-		memcmp(a, a+4, len-4)==0);
-}
-
-
 /**
  * async_xor_zero_sum - attempt a PQ parities check with a dma engine.
  * @pdest: P-parity destination to check
@@ -285,29 +281,24 @@ async_pqxor_zero_sum(struct page *pdest, struct page *qdest,
 	} else {
 		unsigned long lflags = flags;
 
-		lflags &= ~ASYNC_TX_ACK;
-		lflags |= ASYNC_TX_XOR_ZERO_DST;
+		/* TBD: support for lengths size of more than PAGE_SIZE */
 
-		tx = async_pqxor(pdest, qdest,
-			src_list, scoef_list,
-			offset, src_cnt, len, lflags,
+		lflags &= ~ASYNC_TX_ACK;
+		spin_lock(&spare_lock);
+		do_sync_pqxor(spare_pages[0], spare_pages[1],
+			src_list, offset,
+			src_cnt, len, lflags,
 			depend_tx, NULL, NULL);
 
-		if (tx) {
-			if (dma_wait_for_async_tx(tx) == DMA_ERROR)
-				panic("%s: DMA_ERROR waiting for tx\n",
-					__FUNCTION__);
-			async_tx_ack(tx);
-		}
-
 		if (presult && pdest)
-			*presult = page_is_zero(pdest, len) ? 0 : 1;
+			*presult = memcmp(page_address(pdest),
+					   page_address(spare_pages[0]),
+					   len) == 0 ? 0 : 1;
 		if (qresult && qdest)
-			*qresult = page_is_zero (qdest, len) ? 0 : 1;
-
-		tx = NULL;
-
-		async_tx_sync_epilog(flags, depend_tx, callback, callback_param);
+			*qresult = memcmp(page_address(qdest),
+					   page_address(spare_pages[1]),
+					   len) == 0 ? 0 : 1;
+		spin_unlock(&spare_lock);
 	}
 
 	return tx;
@@ -316,12 +307,27 @@ EXPORT_SYMBOL_GPL(async_pqxor_zero_sum);
 
 static int __init async_pqxor_init(void)
 {
+	spin_lock_init(&spare_lock);
+
+	spare_pages[0] = alloc_page(GFP_KERNEL);
+	if (!spare_pages[0])
+		goto abort;
+	spare_pages[1] = alloc_page(GFP_KERNEL);
+	if (!spare_pages[1])
+		goto abort;
+	spare_pages[1] = alloc_page(GFP_KERNEL);
+
 	return 0;
+abort:
+	safe_put_page(spare_pages[0]);
+	printk(KERN_ERR "%s: cannot allocate spare!\n", __FUNCTION__);
+	return -ENOMEM;
 }
 
 static void __exit async_pqxor_exit(void)
 {
-	do { } while (0);
+	safe_put_page(spare_pages[0]);
+	safe_put_page(spare_pages[1]);
 }
 
 module_init(async_pqxor_init);
