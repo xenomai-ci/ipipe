@@ -91,8 +91,7 @@ dma_wait_for_async_tx(struct dma_async_tx_descriptor *tx)
 }
 
 static inline void
-async_tx_run_dependencies(struct dma_async_tx_descriptor *tx,
-	struct dma_chan *host_chan)
+async_tx_run_dependencies(struct dma_async_tx_descriptor *tx)
 {
 	do { } while (0);
 }
