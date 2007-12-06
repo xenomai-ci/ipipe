@@ -76,7 +76,8 @@ enum dma_status dma_wait_for_async_tx(struct dma_async_tx_descriptor *tx);
 void async_tx_run_dependencies(struct dma_async_tx_descriptor *tx);
 struct dma_chan *
 async_tx_find_channel(struct dma_async_tx_descriptor *depend_tx,
-	enum dma_transaction_type tx_type);
+	enum dma_transaction_type tx_type,struct page **src_lst,
+	int src_cnt, size_t src_sz);
 #else
 static inline void async_tx_issue_pending_all(void)
 {
@@ -98,7 +99,8 @@ async_tx_run_dependencies(struct dma_async_tx_descriptor *tx,
 
 static inline struct dma_chan *
 async_tx_find_channel(struct dma_async_tx_descriptor *depend_tx,
-	enum dma_transaction_type tx_type)
+	enum dma_transaction_type tx_type, struct page **src_lst,
+	int src_cnt, size_t src_sz)
 {
 	return NULL;
 }

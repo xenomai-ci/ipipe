@@ -264,6 +264,8 @@ struct dma_async_tx_descriptor {
  * @device_prep_dma_interrupt: prepares an end of chain interrupt operation
  * @device_dependency_added: async_tx notifies the channel about new deps
  * @device_issue_pending: push pending transactions to hardware
+ * @device_estimate: estimate the efficiency of processing the transaction
+ *	by this device
  */
 struct dma_device {
 
@@ -308,6 +310,9 @@ struct dma_device {
 			dma_cookie_t cookie, dma_cookie_t *last,
 			dma_cookie_t *used);
 	void (*device_issue_pending)(struct dma_chan *chan);
+	int (*device_estimate) (struct dma_chan *chan,
+			enum dma_transaction_type cap, struct page **src_lst,
+			int src_cnt, size_t src_sz);
 };
 
 /* --- public DMA engine API --- */
