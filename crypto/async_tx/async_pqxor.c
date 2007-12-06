@@ -233,7 +233,8 @@ async_pqxor_zero_sum(struct page *pdest, struct page *qdest,
 	struct dma_async_tx_descriptor *depend_tx,
 	dma_async_tx_callback callback, void *callback_param)
 {
-	struct dma_chan *chan = async_tx_find_channel(depend_tx, DMA_PQ_ZERO_SUM);
+	struct dma_chan *chan = async_tx_find_channel(depend_tx,
+						      DMA_PQ_ZERO_SUM);
 	struct dma_device *device = chan ? chan->device : NULL;
 	struct page *dest;
 	int int_en = callback ? 1 : 0;
@@ -261,14 +262,15 @@ async_pqxor_zero_sum(struct page *pdest, struct page *qdest,
 
 		if (qdest && pdest) {
 			/* Both parities has to be checked */
-			dma_addr = dma_map_page(device->dev, pdest, offset, len, dir);
+			dma_addr = dma_map_page(device->dev, pdest, offset,
+						len, dir);
 			tx->tx_set_dest(dma_addr, tx, 1);
 		}
 
 		dir = (flags & ASYNC_TX_ASSUME_COHERENT) ?
 			DMA_NONE : DMA_TO_DEVICE;
 
-		/* Set location of sources and coefficient form these parities */
+		/* Set location of srcs and coefs */
 		for (i = 0; i < src_cnt; i++) {
 			dma_addr = dma_map_page(device->dev, src_list[i],
 				offset, len, dir);
