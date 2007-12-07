@@ -108,9 +108,8 @@
 	/* COMING FROM USER MODE */					     \
 	mfspr	r11,SPRN_SPRG3;		/* if from user, start at top of   */\
 	lwz	r11,THREAD_INFO-THREAD(r11); /* this thread's kernel stack */\
-	lis     r11,THREAD_SIZE@h;					     \
-	ori     r11,r11,THREAD_SIZE@l;					     \
-	add     r1,r1,r11;						     \
+	addis   r11,r11,THREAD_SIZE@ha;					     \
+	addi    r11,r11,THREAD_SIZE@l;					     \
 1:	subi	r11,r11,INT_FRAME_SIZE;	/* Allocate an exception frame     */\
 	stw	r10,_CCR(r11);          /* save various registers	   */\
 	stw	r12,GPR12(r11);						     \
