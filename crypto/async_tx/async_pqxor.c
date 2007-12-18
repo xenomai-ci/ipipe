@@ -34,6 +34,13 @@
 #include "../drivers/md/raid6.h"
 
 /**
+ *  The following static variables are used in cases of synchronous
+ * zero sum to save the values to check.
+ */
+static spinlock_t spare_lock;
+struct page *spare_pages[2];
+
+/**
  * do_async_pqxor - asynchronously calculate P and/or Q
  */
 static void
@@ -114,11 +121,6 @@ do_sync_pqxor(struct page *pdest, struct page *qdest,
 	async_tx_sync_epilog(flags, depend_tx, callback, callback_param);
 }
 
-#if defined(CONFIG_440SPE) || defined(CONFIG_440SP)
-struct dma_chan *ppc440spe_get_best_pqchan (struct page **srcs, int src_cnt,
-	size_t len);
-#endif
-
 /**
  * async_pqxor - attempt to calculate RS-syndrome and XOR in parallel using
  *	a dma engine.
@@ -142,11 +144,8 @@ async_pqxor(struct page *pdest, struct page *qdest,
 	struct dma_async_tx_descriptor *depend_tx,
 	dma_async_tx_callback callback, void *callback_param)
 {
-#if defined(CONFIG_440SPE) || defined(CONFIG_440SP)
-	struct dma_chan *chan = ppc440spe_get_best_pqchan(src_list, src_cnt, len);
-#else
-	struct dma_chan *chan = async_tx_find_channel(depend_tx, DMA_PQ_XOR);
-#endif
+	struct dma_chan *chan = async_tx_find_channel(depend_tx, DMA_PQ_XOR,
+		src_list, src_cnt, len);
 	struct dma_device *device = chan ? chan->device : NULL;
 	struct dma_async_tx_descriptor *tx = NULL;
 	int int_en;
@@ -202,17 +201,6 @@ qxor_sync:
 }
 EXPORT_SYMBOL_GPL(async_pqxor);
 
-static int page_is_zero(struct page *p, size_t len)
-{
-	char *a;
-
-	BUG_ON(!p);
-	a = page_address(p);
-	return ((*(u32*)a) == 0 &&
-		memcmp(a, a+4, len-4)==0);
-}
-
-
 /**
  * async_xor_zero_sum - attempt a PQ parities check with a dma engine.
  * @pdest: P-parity destination to check
@@ -237,7 +225,8 @@ async_pqxor_zero_sum(struct page *pdest, struct page *qdest,
 	struct dma_async_tx_descriptor *depend_tx,
 	dma_async_tx_callback callback, void *callback_param)
 {
-	struct dma_chan *chan = async_tx_find_channel(depend_tx, DMA_PQ_ZERO_SUM);
+	struct dma_chan *chan = async_tx_find_channel(depend_tx,
+		DMA_PQ_ZERO_SUM, src_list, src_cnt, len);
 	struct dma_device *device = chan ? chan->device : NULL;
 	struct page *dest;
 	int int_en = callback ? 1 : 0;
@@ -265,14 +254,15 @@ async_pqxor_zero_sum(struct page *pdest, struct page *qdest,
 
 		if (qdest && pdest) {
 			/* Both parities has to be checked */
-			dma_addr = dma_map_page(device->dev, pdest, offset, len, dir);
+			dma_addr = dma_map_page(device->dev, pdest, offset,
+						len, dir);
 			tx->tx_set_dest(dma_addr, tx, 1);
 		}
 
 		dir = (flags & ASYNC_TX_ASSUME_COHERENT) ?
 			DMA_NONE : DMA_TO_DEVICE;
 
-		/* Set location of sources and coefficient form these parities */
+		/* Set location of srcs and coefs */
 		for (i = 0; i < src_cnt; i++) {
 			dma_addr = dma_map_page(device->dev, src_list[i],
 				offset, len, dir);
@@ -285,29 +275,24 @@ async_pqxor_zero_sum(struct page *pdest, struct page *qdest,
 	} else {
 		unsigned long lflags = flags;
 
-		lflags &= ~ASYNC_TX_ACK;
-		lflags |= ASYNC_TX_XOR_ZERO_DST;
+		/* TBD: support for lengths size of more than PAGE_SIZE */
 
-		tx = async_pqxor(pdest, qdest,
-			src_list, scoef_list,
-			offset, src_cnt, len, lflags,
+		lflags &= ~ASYNC_TX_ACK;
+		spin_lock(&spare_lock);
+		do_sync_pqxor(spare_pages[0], spare_pages[1],
+			src_list, offset,
+			src_cnt, len, lflags,
 			depend_tx, NULL, NULL);
 
-		if (tx) {
-			if (dma_wait_for_async_tx(tx) == DMA_ERROR)
-				panic("%s: DMA_ERROR waiting for tx\n",
-					__FUNCTION__);
-			async_tx_ack(tx);
-		}
-
 		if (presult && pdest)
-			*presult = page_is_zero(pdest, len) ? 0 : 1;
+			*presult = memcmp(page_address(pdest),
+					   page_address(spare_pages[0]),
+					   len) == 0 ? 0 : 1;
 		if (qresult && qdest)
-			*qresult = page_is_zero (qdest, len) ? 0 : 1;
-
-		tx = NULL;
-
-		async_tx_sync_epilog(flags, depend_tx, callback, callback_param);
+			*qresult = memcmp(page_address(qdest),
+					   page_address(spare_pages[1]),
+					   len) == 0 ? 0 : 1;
+		spin_unlock(&spare_lock);
 	}
 
 	return tx;
@@ -316,12 +301,27 @@ EXPORT_SYMBOL_GPL(async_pqxor_zero_sum);
 
 static int __init async_pqxor_init(void)
 {
+	spin_lock_init(&spare_lock);
+
+	spare_pages[0] = alloc_page(GFP_KERNEL);
+	if (!spare_pages[0])
+		goto abort;
+	spare_pages[1] = alloc_page(GFP_KERNEL);
+	if (!spare_pages[1])
+		goto abort;
+	spare_pages[1] = alloc_page(GFP_KERNEL);
+
 	return 0;
+abort:
+	safe_put_page(spare_pages[0]);
+	printk(KERN_ERR "%s: cannot allocate spare!\n", __FUNCTION__);
+	return -ENOMEM;
 }
 
 static void __exit async_pqxor_exit(void)
 {
-	do { } while (0);
+	safe_put_page(spare_pages[0]);
+	safe_put_page(spare_pages[1]);
 }
 
 module_init(async_pqxor_init);

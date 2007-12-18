@@ -363,26 +363,75 @@ static void __exit async_tx_exit(void)
 }
 
 /**
+ * async_tx_find_best_channel - find a channel with the maximum rank for the
+ * 	transaction type given (the rank of the operation is the value
+ *	returned by the device_estimate method).
+ * @cap: transaction type
+ * @src_lst: array of pointers to sources for the transaction
+ * @src_cnt: number of arguments (size of the srcs array)
+ * @src_sz: length of the each argument pointed by srcs
+ */
+static struct dma_chan *
+async_tx_find_best_channel (enum dma_transaction_type cap,
+	struct page **src_lst, int src_cnt, size_t src_sz)
+{
+	struct dma_chan *best_chan = NULL;
+	struct dma_chan_ref *ref;
+	int best_rank = -1;
+
+	rcu_read_lock();
+	list_for_each_entry_rcu(ref, &async_tx_master_list, node)
+		if (dma_has_cap(cap, ref->chan->device->cap_mask)) {
+			int rank;
+
+			BUG_ON (!ref->chan->device->device_estimate);
+			rank = ref->chan->device->device_estimate (ref->chan,
+				cap, src_lst, src_cnt, src_sz);
+			if (rank > best_rank) {
+				best_rank = rank;
+				best_chan = ref->chan;
+			}
+		}
+	rcu_read_unlock();
+
+	BUG_ON(best_rank == -1);
+	return best_chan;
+}
+
+/**
  * async_tx_find_channel - find a channel to carry out the operation or let
  *	the transaction execute synchronously
  * @depend_tx: transaction dependency
  * @tx_type: transaction type
+ * @src_lst: array of pointers to sources for the transaction
+ * @src_cnt: number of arguments (size of the srcs array)
+ * @src_sz: length of the each argument pointed by srcs
  */
 struct dma_chan *
 async_tx_find_channel(struct dma_async_tx_descriptor *depend_tx,
-	enum dma_transaction_type tx_type)
+	enum dma_transaction_type tx_type, struct page **src_lst,
+	int src_cnt, size_t src_sz)
 {
+	struct dma_chan_ref *ref = NULL;
+	int cpu;
+
+	cpu = get_cpu();
+	if (likely(channel_table_initialized))
+		ref = per_cpu_ptr(channel_table[tx_type], cpu)->ref;
+	put_cpu();
+
+	/* see if adma devices can estimate efficiency of ops processing */
+	if (!depend_tx && ref && ref->chan->device->device_estimate)
+		return async_tx_find_best_channel (tx_type,
+			src_lst, src_cnt, src_sz);
+
 	/* see if we can keep the chain on one channel */
 	if (depend_tx &&
 		dma_has_cap(tx_type, depend_tx->chan->device->cap_mask))
 		return depend_tx->chan;
-	else if (likely(channel_table_initialized)) {
-		struct dma_chan_ref *ref;
-		int cpu = get_cpu();
-		ref = per_cpu_ptr(channel_table[tx_type], cpu)->ref;
-		put_cpu();
-		return ref ? ref->chan : NULL;
-	} else
+	else if (likely(ref))
+		return ref->chan;
+	else
 		return NULL;
 }
 EXPORT_SYMBOL_GPL(async_tx_find_channel);

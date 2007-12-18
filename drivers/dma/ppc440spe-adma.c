@@ -25,7 +25,7 @@
  *  This driver supports the asynchrounous DMA copy and RAID engines available
  * on the AMCC PPC440SPe Processors.
  *  Based on the Intel Xscale(R) family of I/O Processors (IOP 32x, 33x, 134x)
- * ADMA driver.
+ * ADMA driver written by D.Williams.
  */
 
 #include <linux/init.h>
@@ -40,9 +40,9 @@
 #include <linux/proc_fs.h>
 #include <asm/ppc440spe_adma.h>
 
-static struct dma_chan *ppc440spe_adma_channels[3];
-
-/* This flag is set when want to refetch the xor chain in the interrupt handler */
+/* This flag is set when want to refetch the xor chain in the interrupt
+ *	handler
+ */
 static u32 do_xor_refetch = 0;
 
 /* Pointers to last submitted to DMA0, DMA1 CDBs */
@@ -59,8 +59,8 @@ static char ppc440spe_qword[16];
 /* Since RXOR operations use the common register (MQ0_CF2H) for setting-up
  * the block size in transactions, then we do not allow to activate more than
  * only one RXOR transactions simultaneously. So use this var to store
- * the information about is RXOR currently active (PPC440SPE_RXOR_RUN bit is set)
- * or not (PPC440SPE_RXOR_RUN is clear).
+ * the information about is RXOR currently active (PPC440SPE_RXOR_RUN bit is
+ * set) or not (PPC440SPE_RXOR_RUN is clear).
  */
 static unsigned long ppc440spe_rxor_state;
 
@@ -98,7 +98,7 @@ static void ppc440spe_adma_dma2rxor_set_mult (ppc440spe_desc_t *desc,
  * pseudo operation
  */
 static inline void ppc440spe_desc_init_interrupt (ppc440spe_desc_t *desc,
-								ppc440spe_ch_t *chan)
+							ppc440spe_ch_t *chan)
 {
 	xor_cb_t *p;
 
@@ -106,14 +106,14 @@ static inline void ppc440spe_desc_init_interrupt (ppc440spe_desc_t *desc,
 	case PPC440SPE_XOR_ID:
 		p = desc->hw_desc;
 		memset (desc->hw_desc, 0, sizeof(xor_cb_t));
-		p->cbc = XOR_CBCR_CBCE_BIT; /* NOP with Command Block
-					       Complete Enable */
+		/* NOP with Command Block Complete Enable */
+		p->cbc = XOR_CBCR_CBCE_BIT;
 		break;
 	case PPC440SPE_DMA0_ID:
 	case PPC440SPE_DMA1_ID:
 		memset (desc->hw_desc, 0, sizeof(dma_cdb_t));
-		set_bit(PPC440SPE_DESC_INT, &desc->flags); /* NOP with
-							      interrupt */
+		/* NOP with interrupt */
+		set_bit(PPC440SPE_DESC_INT, &desc->flags);
 		break;
 	default:
 		printk(KERN_ERR "Unsupported id %d in %s\n", chan->device->id,
@@ -137,7 +137,8 @@ static inline void ppc440spe_desc_init_null_xor(ppc440spe_desc_t *desc)
 /**
  * ppc440spe_desc_init_xor - initialize the descriptor for XOR operation
  */
-static inline void ppc440spe_desc_init_xor(ppc440spe_desc_t *desc, int src_cnt, int int_en)
+static inline void ppc440spe_desc_init_xor(ppc440spe_desc_t *desc, int src_cnt,
+		int int_en)
 {
 	xor_cb_t *hw_desc = desc->hw_desc;
 
@@ -148,16 +149,16 @@ static inline void ppc440spe_desc_init_xor(ppc440spe_desc_t *desc, int src_cnt, 
 
 	hw_desc->cbc = XOR_CBCR_TGT_BIT | src_cnt;
 	if (int_en)
-		hw_desc->cbc |= XOR_CBCR_CBCE_BIT; /* Enable interrupt
-						      on complete */
+		/* Enable interrupt on complete */
+		hw_desc->cbc |= XOR_CBCR_CBCE_BIT;
 }
 
 /**
- * ppc440spe_desc_init_pqxor_xor - initialize the descriptor for PQ_XOR operation
- * in DMA2 controller
+ * ppc440spe_desc_init_pqxor_xor - initialize the descriptor for PQ_XOR
+ * operation in DMA2 controller
  */
-static inline void ppc440spe_desc_init_dma2rxor(ppc440spe_desc_t *desc, int dst_cnt,
-		int src_cnt, int int_en)
+static inline void ppc440spe_desc_init_dma2rxor(ppc440spe_desc_t *desc,
+		int dst_cnt, int src_cnt, int int_en)
 {
 	xor_cb_t *hw_desc = desc->hw_desc;
 
@@ -170,15 +171,15 @@ static inline void ppc440spe_desc_init_dma2rxor(ppc440spe_desc_t *desc, int dst_
 
 	hw_desc->cbc = XOR_CBCR_TGT_BIT;
 	if (int_en)
-		hw_desc->cbc |= XOR_CBCR_CBCE_BIT; /* Enable interrupt
-						      on complete */
+		/* Enable interrupt on complete */
+		hw_desc->cbc |= XOR_CBCR_CBCE_BIT;
 }
 
 /**
  * ppc440spe_desc_init_pqxor - initialize the descriptor for PQ_XOR operation
  */
-static inline void ppc440spe_desc_init_pqxor(ppc440spe_desc_t *desc, int dst_cnt, 
-		int src_cnt, int int_en, unsigned long op)
+static inline void ppc440spe_desc_init_pqxor(ppc440spe_desc_t *desc,
+		int dst_cnt, int src_cnt, int int_en, unsigned long op)
 {
 	dma_cdb_t *hw_desc;
 	ppc440spe_desc_t *iter;
@@ -217,13 +218,13 @@ static inline void ppc440spe_desc_init_pqxor(ppc440spe_desc_t *desc, int dst_cnt
 	if (!test_bit(PPC440SPE_DESC_RXOR, &desc->flags)) {
 		/* This is a WXOR only chain:
 		 * - first <dst_cnt> descriptors are for zeroing destinations
-		 *     if PPC440SPE_ZERO_DST is set;
+		 *	if PPC440SPE_ZERO_DST is set;
 		 * - descriptors remained are for GF-XOR operations.
 		 */
 		list_for_each_entry(iter, &desc->group_list, chain_node) {
 			hw_desc = iter->hw_desc;
 			if (dst_cnt && test_bit(PPC440SPE_ZERO_DST,
-				    &desc->flags)) {
+					&desc->flags)) {
 				/* MV_SG1_SG2 to zero P or Q if this is
 				 * just PQ_XOR operation and MV_SG1_SG2
 				 * if only Q has to be calculated
@@ -255,7 +256,8 @@ static inline void ppc440spe_desc_init_pqxor(ppc440spe_desc_t *desc, int dst_cnt
 }
 
 /**
- * ppc440spe_desc_init_pqzero_sum - initialize the descriptor for PQ_ZERO_SUM operation
+ * ppc440spe_desc_init_pqzero_sum - initialize the descriptor for PQ_ZERO_SUM
+ *	operation
  */
 static inline void ppc440spe_desc_init_pqzero_sum(ppc440spe_desc_t *desc,
 		int dst_cnt, int src_cnt, int int_en)
@@ -388,7 +390,7 @@ static inline void ppc440spe_desc_set_src_addr( ppc440spe_desc_t *desc,
 /**
  * ppc440spe_desc_set_src_mult - set source address mult into the descriptor
  */
-static inline void ppc440spe_desc_set_src_mult( ppc440spe_desc_t *desc, 
+static inline void ppc440spe_desc_set_src_mult( ppc440spe_desc_t *desc,
 			ppc440spe_ch_t *chan, u32 mult_index, int sg_index,
 			unsigned char mult_value)
 {
@@ -481,7 +483,7 @@ static inline void ppc440spe_desc_set_dest_addr(ppc440spe_desc_t *desc,
  * into the operation
  */
 static inline void ppc440spe_desc_set_byte_count(ppc440spe_desc_t *desc,
-						ppc440spe_ch_t *chan, u32 byte_count)
+					ppc440spe_ch_t *chan, u32 byte_count)
 {
 	dma_cdb_t *dma_hw_desc;
 	xor_cb_t *xor_hw_desc;
@@ -537,12 +539,14 @@ static inline void ppc440spe_desc_set_dcheck(ppc440spe_desc_t *desc,
  * ppc440spe_xor_set_link - set link address in xor CB
  */
 static inline void ppc440spe_xor_set_link (ppc440spe_desc_t *prev_desc,
-							ppc440spe_desc_t *next_desc) {
+						ppc440spe_desc_t *next_desc)
+{
 	xor_cb_t *xor_hw_desc = prev_desc->hw_desc;
 
 	if (unlikely(!next_desc || !(next_desc->phys))) {
 		printk(KERN_ERR "%s: next_desc=0x%p; next_desc->phys=0x%x\n",
-			__FUNCTION__, next_desc, next_desc ? next_desc->phys : 0);
+			__FUNCTION__, next_desc,
+			next_desc ? next_desc->phys : 0);
 		BUG();
 	}
 
@@ -557,20 +561,20 @@ static inline void ppc440spe_xor_set_link (ppc440spe_desc_t *prev_desc,
  * descriptor in chain
  */
 static inline void ppc440spe_desc_set_link(ppc440spe_ch_t *chan,
-				ppc440spe_desc_t *prev_desc, ppc440spe_desc_t *next_desc)
+		ppc440spe_desc_t *prev_desc, ppc440spe_desc_t *next_desc)
 {
 	unsigned long flags;
 	ppc440spe_desc_t *tail = next_desc;
 
 	if (unlikely(!prev_desc || !next_desc ||
-	    (prev_desc->hw_next && prev_desc->hw_next != next_desc))) {
+		(prev_desc->hw_next && prev_desc->hw_next != next_desc))) {
 		/* If previous next is overwritten something is wrong.
 		 * though we may refetch from append to initiate list
 		 * processing; in this case - it's ok.
 		 */
 		printk(KERN_ERR "%s: prev_desc=0x%p; next_desc=0x%p; "
-		    "prev->hw_next=0x%p\n", __FUNCTION__, prev_desc,
-		    next_desc, prev_desc ? prev_desc->hw_next : 0);
+			"prev->hw_next=0x%p\n", __FUNCTION__, prev_desc,
+			next_desc, prev_desc ? prev_desc->hw_next : 0);
 		BUG();
 	}
 
@@ -603,7 +607,7 @@ static inline void ppc440spe_desc_set_link(ppc440spe_ch_t *chan,
  * ppc440spe_desc_get_src_addr - extract the source address from the descriptor
  */
 static inline u32 ppc440spe_desc_get_src_addr(ppc440spe_desc_t *desc,
-						ppc440spe_ch_t *chan, int src_idx)
+					ppc440spe_ch_t *chan, int src_idx)
 {
 	dma_cdb_t *dma_hw_desc;
 	xor_cb_t *xor_hw_desc;
@@ -660,14 +664,16 @@ static inline u32 ppc440spe_desc_get_src_addr(ppc440spe_desc_t *desc,
 						    dma_hw_desc->sg1l) +
 							(desc->unmap_len << 2);
 					default:
-						printk (KERN_ERR "%s: try to"
+						printk (KERN_ERR
+						    "%s: try to"
 						    " get src3 for region %02x"
-							"PPC440SPE_DESC_RXOR12?\n",
-							__FUNCTION__, region);
+						    "PPC440SPE_DESC_RXOR12?\n",
+						    __FUNCTION__, region);
 						BUG();
 					}
 				} else {
-					printk(KERN_ERR "%s: try to get %d"
+					printk(KERN_ERR
+						"%s: try to get %d"
 						" source for non-cued descr\n",
 						__FUNCTION__, src_idx);
 					BUG();
@@ -874,8 +880,8 @@ static inline int ppc440spe_chan_xor_slot_count(size_t len, int src_cnt,
 
 /**
  */
-static inline int ppc440spe_chan_pqxor_slot_count (struct page **srcs, int src_cnt,
-		size_t len)
+static inline int ppc440spe_chan_pqxor_slot_count (struct page **srcs,
+		int src_cnt, size_t len)
 {
 	int order = 0;
 	int state = 0;
@@ -940,7 +946,7 @@ static inline int ppc440spe_chan_pqxor_slot_count (struct page **srcs, int src_c
 		if (state == 3) break;
 	}
 	if (src_cnt <= 1 || (state != 1 && state != 2)) {
-		/* FIXME. return 0 here and check for this whan called. */
+		/* FIXME. return 0 here and check for this when called. */
 		BUG ();
 	}
 
@@ -983,24 +989,24 @@ static inline void ppc440spe_adma_device_clear_eot_status (ppc440spe_ch_t *chan)
 
 			if (test_bit(PPC440SPE_RXOR_RUN,
 			    &ppc440spe_rxor_state)) {
-			/* probably this is a completed RXOR op,
-			 * get pointer to CDB using the fact that
-			 * physical and virtual addresses of CDB
-			 * in pools have the same offsets
-			 */
+				/* probably this is a completed RXOR op,
+				 * get pointer to CDB using the fact that
+				 * physical and virtual addresses of CDB
+				 * in pools have the same offsets
+				 */
 				if (le32_to_cpu(cdb->sg1u) &
 				    DMA_CUED_XOR_BASE) {
 				/* this is a RXOR */
 					clear_bit(PPC440SPE_RXOR_RUN,
 					    &ppc440spe_rxor_state);
+				}
 			}
-		}
 
-		if (rv & DMA_CDB_STATUS_MSK) {
-			/* ZeroSum check failed
-			 */
-			ppc440spe_desc_t *iter;
-			dma_addr_t phys = rv & ~DMA_CDB_MSK;
+			if (rv & DMA_CDB_STATUS_MSK) {
+				/* ZeroSum check failed
+				 */
+				ppc440spe_desc_t *iter;
+				dma_addr_t phys = rv & ~DMA_CDB_MSK;
 
 				/*
 				 * Update the status of corresponding
@@ -1008,16 +1014,16 @@ static inline void ppc440spe_adma_device_clear_eot_status (ppc440spe_ch_t *chan)
 				 */
 				list_for_each_entry(iter, &chan->chain,
 				    chain_node) {
-				if (iter->phys == phys)
-					break;
-			}
+					if (iter->phys == phys)
+						break;
+				}
 				/*
 				 * if cannot find the corresponding
 				 * slot it's a bug
 				 */
-			BUG_ON (&iter->chain_node == &chan->chain);
+				BUG_ON (&iter->chain_node == &chan->chain);
 
-			if (iter->xor_check_result)
+				if (iter->xor_check_result)
 					*iter->xor_check_result |=
 					    rv & DMA_CDB_STATUS_MSK;
 			}
@@ -1102,7 +1108,7 @@ static inline int ppc440spe_chan_is_busy(ppc440spe_ch_t *chan)
  * ppc440spe_chan_set_first_xor_descriptor -  initi XORcore chain
  */
 static inline void ppc440spe_chan_set_first_xor_descriptor(ppc440spe_ch_t *chan,
-								ppc440spe_desc_t *next_desc)
+						ppc440spe_desc_t *next_desc)
 {
 	volatile xor_regs_t *xor_reg;
 
@@ -1222,7 +1228,7 @@ static inline void ppc440spe_chan_append(ppc440spe_ch_t *chan)
 
 	/* update watch-dog timer */
 	mod_timer(&chan->cleanup_watchdog, jiffies +
-					msecs_to_jiffies(PPC440SPE_ADMA_WATCHDOG_MSEC));
+			msecs_to_jiffies(PPC440SPE_ADMA_WATCHDOG_MSEC));
 }
 
 /**
@@ -1296,14 +1302,16 @@ static void ppc440spe_adma_pqzero_sum_set_src_mult (unsigned char mult,
 		struct dma_async_tx_descriptor *tx,
 		int index);
 
-struct dma_chan *ppc440spe_get_best_pqchan (struct page **srcs, int src_cnt,
-		size_t len)
+/**
+ * ppc440spe_can_rxor - check if the operands may be processed with RXOR
+ */
+static int ppc440spe_can_rxor (struct page **srcs, int src_cnt, size_t len)
 {
-	struct dma_chan *chan;
-	int i;
+	int i, order = 0, state = 0;
 
-	int order = 0;
-	int state = 0;
+	if (unlikely(!(src_cnt > 1)))
+		return 0;
+
 	for (i=1; i<src_cnt; i++) {
 		char *cur_addr = page_address (srcs[i]);
 		char *old_addr = page_address (srcs[i-1]);
@@ -1313,24 +1321,23 @@ struct dma_chan *ppc440spe_get_best_pqchan (struct page **srcs, int src_cnt,
 				/* direct RXOR */
 				order = 1;
 				state = 1;
-			} else if (old_addr == cur_addr + len) {
+			} else
+			if (old_addr == cur_addr + len) {
 				/* reverse RXOR */
 				order = -1;
 				state = 1;
-			} else {
-				state = 3;
-			}
+			} else
+				goto out;
 			break;
 		case 1:
-			if (i == src_cnt-2 || (order == -1
-				&& cur_addr != old_addr - len)) {
+			if ((i == src_cnt-2) ||
+			    (order == -1 && cur_addr != old_addr - len)) {
 				order = 0;
 				state = 0;
-			} else if (cur_addr == old_addr + len*order) {
-				state = 2;
-			} else if (cur_addr == old_addr + 2*len) {
-				state = 2;
-			} else if (cur_addr == old_addr + 3*len) {
+			} else
+			if ((cur_addr == old_addr + len*order) ||
+			    (cur_addr == old_addr + 2*len) ||
+			    (cur_addr == old_addr + 3*len)) {
 				state = 2;
 			} else {
 				order = 0;
@@ -1342,16 +1349,52 @@ struct dma_chan *ppc440spe_get_best_pqchan (struct page **srcs, int src_cnt,
 			state = 0;
 			break;
 		}
-		if (state == 3) break;
 	}
 
-	if (/* 0 && */ src_cnt > 1 && (state == 1 || state == 2)) {
-		chan = ppc440spe_adma_channels[PPC440SPE_XOR_ID];
-	} else {
-		chan = ppc440spe_adma_channels[PPC440SPE_DMA0_ID];
+out:
+	if (state == 1 || state == 2)
+		return 1;
+
+	return 0;
+}
+
+/**
+ * ppc440spe_adma_device_estimate - estimate the efficiency of processing
+ *	the operation given on this channel. It's assumed that 'chan' is
+ *	capable to process 'cap' type of operation.
+ * @chan: channel to use
+ * @cap: type of transaction
+ * @src_lst: array of source pointers
+ * @src_cnt: number of source operands
+ * @src_sz: size of each source operand
+ */
+static int ppc440spe_adma_estimate (struct dma_chan *chan,
+	enum dma_transaction_type cap, struct page **src_lst,
+	int src_cnt, size_t src_sz)
+{
+	int ef = 1;
+
+	/*  in the current implementation of ppc440spe ADMA driver it
+	 * makes sense to pick out only pqxor case, because it may be
+	 * processed:
+	 * (1) either using Biskup method on DMA2;
+	 * (2) or on DMA0/1.
+	 *  Thus we give a favour to (1) if the sources are suitable;
+	 * else let it be processed on one of the DMA0/1 engines.
+	 */
+	if (cap == DMA_PQ_XOR && chan->chan_id == PPC440SPE_XOR_ID) {
+		if (ppc440spe_can_rxor(src_lst, src_cnt, src_sz))
+			ef = 3; /* override (dma0/1 + idle) */
+		else
+			ef = 0; /* can't process on DMA2 if !rxor */
 	}
 
-	return chan;
+	/* channel idleness increases the priority */
+	if (likely(ef) &&
+	    !ppc440spe_chan_is_busy(to_ppc440spe_adma_chan(chan)))
+		ef++;
+
+	return ef;
 }
 
 /**
@@ -1700,28 +1743,8 @@ retry:
 			/* give up after finding the first busy slot
 			 * on the second pass through the list
 			 */
-			if (retry) {
-#if 0
-				/* ATTENTION:
-				 * leave this BUG() for debugging purposes only.
-				 * currently I cannot create a situation when *all*
-				 * descriptors are busy, so if we come up here then
-				 * something is wrong with the code that uses ppc440spe
-				 * ADMA (e.g.some ACK is missed somewhere).
-				 *
-				 *  In general, it's a legal situation when there are
-				 * no free slots, so will remove this BUG() later.
-				 *
-				 *  Actually during build process of a RAID-6 array on
-				 * >4K PAGE_SIZEd kernel the DMA engine does not keeps pace
-				 * CPU so part of operations are being performed synchronously.
-				 */
-				printk("%s[%d]: no free slots\n", __FUNCTION__,
-					chan->device->id);
-				BUG();
-#endif
+			if (retry)
 				break;
-			}
 
 			slots_found = 0;
 			continue;
@@ -1898,8 +1921,7 @@ static void ppc440spe_rxor_set_mult (ppc440spe_desc_t *desc,
 {
 	xor_cb_t *xcb = desc->hw_desc;
 
-	xcb->ops [xor_arg_no].h |= mult <<
-		(DMA_CUED_MULT1_OFF + idx * 8);
+	xcb->ops [xor_arg_no].h |= mult << (DMA_CUED_MULT1_OFF + idx * 8);
 }
 
 /**
@@ -2110,7 +2132,8 @@ static struct dma_async_tx_descriptor *ppc440spe_adma_prep_dma_xor(
 	return sw_desc ? &sw_desc->async_tx : NULL;
 }
 
-static inline void ppc440spe_desc_set_xor_src_cnt (ppc440spe_desc_t *desc, int src_cnt);
+static inline void ppc440spe_desc_set_xor_src_cnt (ppc440spe_desc_t *desc,
+		int src_cnt);
 static void ppc440spe_init_rxor_cursor (ppc440spe_rxor_cursor_t *cursor);
 
 /**
@@ -2156,12 +2179,14 @@ static ppc440spe_desc_t *ppc440spe_dma2rxor_prep_pqxor (
 		list_for_each_entry(iter, &sw_desc->group_list, chain_node) {
 			ppc440spe_desc_init_dma2rxor(iter, dst_cnt, src_cnt,
 				--op ? 0 : int_en);
-			ppc440spe_desc_set_byte_count(iter, ppc440spe_chan, len);
+			ppc440spe_desc_set_byte_count(iter, ppc440spe_chan,
+				len);
 
 			iter->unmap_len = len;
 			iter->async_tx.tx_set_src =
 				ppc440spe_adma_pqxor_set_src;
-			iter->async_tx.tx_set_dest = ppc440spe_adma_dma2rxor_set_dest;
+			iter->async_tx.tx_set_dest =
+				ppc440spe_adma_dma2rxor_set_dest;
 			iter->async_tx.tx_set_src_mult =
 				ppc440spe_adma_pqxor_set_src_mult;
 
@@ -2231,7 +2256,8 @@ static struct dma_async_tx_descriptor *ppc440spe_adma_prep_dma_pqxor(
 		 * of destinations (RXOR support only Q-parity calculations)
 		 */
 		set_bit(PPC440SPE_DESC_WXOR, &op);
-		if (!test_and_set_bit(PPC440SPE_RXOR_RUN, &ppc440spe_rxor_state)) {
+		if (!test_and_set_bit(PPC440SPE_RXOR_RUN,
+				&ppc440spe_rxor_state)) {
 			/* no active RXOR;
 			 * do RXOR if:
 			 * - destination os only one,
@@ -2241,7 +2267,8 @@ static struct dma_async_tx_descriptor *ppc440spe_adma_prep_dma_pqxor(
 			 */
 			if (dst_cnt == 1 && src_cnt > 1 &&
 			    !(len & ~MQ0_CF2H_RXOR_BS_MASK) &&
-			    (page_to_bus(sas[0]) + len) == page_to_bus(sas[1])) {
+			    (page_to_bus(sas[0]) + len) ==
+						page_to_bus(sas[1])) {
 				/* may do RXOR R1 R2 */
 				set_bit(PPC440SPE_DESC_RXOR, &op);
 				if (src_cnt != 2) {
@@ -2249,20 +2276,24 @@ static struct dma_async_tx_descriptor *ppc440spe_adma_prep_dma_pqxor(
 					if ((page_to_bus(sas[1]) + len) ==
 					    page_to_bus(sas[2])) {
 						/* do RXOR R1 R2 R3 */
-						set_bit(PPC440SPE_DESC_RXOR123, &op);
+						set_bit(PPC440SPE_DESC_RXOR123,
+							&op);
 					} else
 					if ((page_to_bus(sas[1]) + len * 2) ==
 					    page_to_bus(sas[2])) {
 						/* do RXOR R1 R2 R4 */
-						set_bit(PPC440SPE_DESC_RXOR124, &op);
+						set_bit(PPC440SPE_DESC_RXOR124,
+							&op);
 					} else
 					if ((page_to_bus(sas[1]) + len * 3) ==
 					    page_to_bus(sas[2])) {
 						/* do RXOR R1 R2 R5 */
-						set_bit(PPC440SPE_DESC_RXOR125, &op);
+						set_bit(PPC440SPE_DESC_RXOR125,
+							&op);
 					} else {
 						/* do RXOR R1 R2 */
-						set_bit(PPC440SPE_DESC_RXOR12, &op);
+						set_bit(PPC440SPE_DESC_RXOR12,
+							&op);
 					}
 				} else {
 					/* do RXOR R1 R2 */
@@ -2272,18 +2303,20 @@ static struct dma_async_tx_descriptor *ppc440spe_adma_prep_dma_pqxor(
 
 			if (!test_bit(PPC440SPE_DESC_RXOR, &op)) {
 				/* can not do this operation with RXOR */
-				clear_bit(PPC440SPE_RXOR_RUN, &ppc440spe_rxor_state);
+				clear_bit(PPC440SPE_RXOR_RUN,
+					&ppc440spe_rxor_state);
 			} else {
 				/* can do; set block size right now */
 				ppc440spe_desc_set_rxor_block_size(len);
 			}
 		}
 
-		/* Number of necessary slots depends on operation type selected */
+		/* Number of necessary slots depends on operation type
+				selected */
 		if (!test_bit(PPC440SPE_DESC_RXOR, &op)) {
-			/*  This is a WXOR only chain. Need descriptors for each source
-			 * to GF-XOR them with WXOR, and need descriptors for each
-			 * destination to zero them with WXOR
+			/*  This is a WXOR only chain. Need descriptors for each
+			 * source to GF-XOR them with WXOR, and need descriptors
+			 * for each destination to zero them with WXOR
 			 */
 			slot_cnt = src_cnt;
 
@@ -2293,11 +2326,12 @@ static struct dma_async_tx_descriptor *ppc440spe_adma_prep_dma_pqxor(
 			}
 		} else {
 			/*  Need 1 descriptor for RXOR operation, and
-			 * need (src_cnt - (2 or 3)) for WXOR of sources remained
-			 * (if any)
-			 *  Thus we have 1 CDB for RXOR, let the set_dst function
-			 * think that this is just a zeroing descriptor and skip
-			 * it when walking through the chain. So set PPC440SPE_ZERO_DST.
+			 * need (src_cnt - (2 or 3)) for WXOR of sources
+			 * remained (if any)
+			 *  Thus we have 1 CDB for RXOR, let the set_dst
+			 * function think that this is just a zeroing descriptor
+			 * and skip it when walking through the chain.
+			 * So set PPC440SPE_ZERO_DST.
 			*/
 			set_bit(PPC440SPE_ZERO_DST, &op);
 
@@ -2321,17 +2355,18 @@ static struct dma_async_tx_descriptor *ppc440spe_adma_prep_dma_pqxor(
 		sw_desc = ppc440spe_adma_alloc_slots(ppc440spe_chan, slot_cnt,
 		    slots_per_op);
 		if (sw_desc) {
-			ppc440spe_desc_init_pqxor(sw_desc, dst_cnt, src_cnt, int_en,
-			    op);
+			ppc440spe_desc_init_pqxor(sw_desc, dst_cnt, src_cnt,
+					int_en, op);
 
 			/* Setup PQ_XOR type foreach slot just allocated */
-			list_for_each_entry(iter, &sw_desc->group_list, chain_node) {
+			list_for_each_entry(iter, &sw_desc->group_list,
+					chain_node) {
 				iter->async_tx.tx_set_src =
 				    ppc440spe_adma_pqxor_set_src;
 				iter->async_tx.tx_set_dest =
 				    ppc440spe_adma_pqxor_set_dest;
-				ppc440spe_desc_set_byte_count(iter, ppc440spe_chan,
-				    len);
+				ppc440spe_desc_set_byte_count(iter,
+					ppc440spe_chan, len);
 				iter->unmap_len = len;
 				iter->async_tx.tx_set_src_mult =
 				    ppc440spe_adma_pqxor_set_src_mult;
@@ -2437,10 +2472,10 @@ static void ppc440spe_adma_set_dest(dma_addr_t addr,
 	switch (chan->device->id) {
 	case PPC440SPE_DMA0_ID:
 	case PPC440SPE_DMA1_ID:
-		/* to do: support transfers lengths > 
+		/* to do: support transfers lengths >
 		 * PPC440SPE_ADMA_DMA/XOR_MAX_BYTE_COUNT
 		 */
-		ppc440spe_desc_set_dest_addr(sw_desc->group_head, 
+		ppc440spe_desc_set_dest_addr(sw_desc->group_head,
 			chan, 0, addr, index);
 		break;
 	case PPC440SPE_XOR_ID:
@@ -2506,10 +2541,12 @@ static void ppc440spe_adma_pqxor_set_dest(dma_addr_t addr,
 			if (!test_bit(PPC440SPE_ZERO_DST, &sw_desc->flags))
 				iter = ppc440spe_get_group_entry(sw_desc, 0);
 			else
-				iter = ppc440spe_get_group_entry(sw_desc, sw_desc->dst_cnt);
-			list_for_each_entry_from(iter, &sw_desc->group_list, chain_node) {
-				ppc440spe_desc_set_dest_addr(iter, chan, DMA_CUED_XOR_BASE,
-					addr, index);
+				iter = ppc440spe_get_group_entry(sw_desc,
+						sw_desc->dst_cnt);
+			list_for_each_entry_from(iter, &sw_desc->group_list,
+					chain_node) {
+				ppc440spe_desc_set_dest_addr(iter, chan,
+					DMA_CUED_XOR_BASE, addr, index);
 			}
 			if (!test_bit(PPC440SPE_DESC_RXOR, &sw_desc->flags) &&
 			     test_bit(PPC440SPE_ZERO_DST, &sw_desc->flags)) {
@@ -2519,17 +2556,19 @@ static void ppc440spe_adma_pqxor_set_dest(dma_addr_t addr,
 				 * zeroing P/Q dest:
 				 * WXOR (Q, 1*Q) -> 0.
 				 *
-				 *  To do this (clear) update the descriptor (P or Q
-				 * depending on index) as follows:
+				 *  To do this (clear) update the descriptor
+				 * (P or Q depending on index) as follows:
 				 * addr is destination (0 corresponds to SG2):
 				 */
-				iter = ppc440spe_get_group_entry (sw_desc, index);
+				iter = ppc440spe_get_group_entry (sw_desc,
+					index);
 			ppc440spe_desc_set_dest_addr(iter, chan,
 			    DMA_CUED_XOR_BASE, addr, 0);
 				/* ... and the addr is source: */
 			ppc440spe_desc_set_src_addr(iter, chan, 0,
 			    DMA_CUED_XOR_HB, addr);
-				/* addr is always SG2 then the mult is always DST1 */
+				/* addr is always SG2 then the mult is always
+					DST1 */
 			ppc440spe_desc_set_src_mult(iter, chan,
 			    DMA_CUED_MULT1_OFF, DMA_CDB_SG_DST1, 1);
 			}
@@ -2572,22 +2611,23 @@ static void ppc440spe_adma_pqzero_sum_set_dest	(dma_addr_t addr,
 			if (unlikely(iter == end))
 				break;
 		ppc440spe_desc_set_dest_addr(iter, chan, DMA_CUED_XOR_BASE,
-		    addr, index);
+				 addr, index);
 		}
 		/*  The descriptors remain are DATACHECK. These have no need in
 		 * destination. Actually, these destination are used there
 		 * as a sources for check operation. So, set addr ass source.
 		 */
-		end = ppc440spe_get_group_entry(sw_desc, sw_desc->src_cnt + index);
+		end = ppc440spe_get_group_entry(sw_desc, sw_desc->src_cnt
+				+ index);
 		BUG_ON(!end);
 		ppc440spe_desc_set_src_addr(end, chan, 0, 0, addr);
 }
 
-
 /**
  * ppc440spe_desc_set_xor_src_cnt (ppc440spe_desc_t *desc, int src_cnt)
  */
-static inline void ppc440spe_desc_set_xor_src_cnt (ppc440spe_desc_t *desc, int src_cnt)
+static inline void ppc440spe_desc_set_xor_src_cnt (ppc440spe_desc_t *desc,
+		int src_cnt)
 {
 	xor_cb_t *hw_desc = desc->hw_desc;
 	hw_desc->cbc &= ~XOR_CDCR_OAC_MSK;
@@ -2613,23 +2653,29 @@ static void ppc440spe_adma_pqxor_set_src(dma_addr_t addr,
 		 */
 		if (test_bit(PPC440SPE_DESC_RXOR, &sw_desc->flags)) {
 			/* RXOR-only or RXOR/WXOR operation */
-			int iskip = test_bit(PPC440SPE_DESC_RXOR12, &sw_desc->flags) ?
-				2 : 3;
+			int iskip = test_bit(PPC440SPE_DESC_RXOR12,
+				&sw_desc->flags) ?  2 : 3;
 
 			if (index == 0) {
 				/* 1st slot (RXOR) */
-				/* setup sources region (R1-2-3, R1-2-4, or R1-2-5)*/
-				if (test_bit(PPC440SPE_DESC_RXOR12, &sw_desc->flags))
-					haddr = DMA_RXOR12 << DMA_CUED_REGION_OFF;
+				/* setup sources region (R1-2-3, R1-2-4,
+					or R1-2-5)*/
+				if (test_bit(PPC440SPE_DESC_RXOR12,
+						&sw_desc->flags))
+					haddr = DMA_RXOR12 <<
+						DMA_CUED_REGION_OFF;
 			else if (test_bit(PPC440SPE_DESC_RXOR123,
 			    &sw_desc->flags))
-					haddr = DMA_RXOR123 << DMA_CUED_REGION_OFF;
+					haddr = DMA_RXOR123 <<
+						DMA_CUED_REGION_OFF;
 			else if (test_bit(PPC440SPE_DESC_RXOR124,
 			    &sw_desc->flags))
-					haddr = DMA_RXOR124 << DMA_CUED_REGION_OFF;
+					haddr = DMA_RXOR124 <<
+						DMA_CUED_REGION_OFF;
 			else if (test_bit(PPC440SPE_DESC_RXOR125,
 			    &sw_desc->flags))
-					haddr = DMA_RXOR125 << DMA_CUED_REGION_OFF;
+					haddr = DMA_RXOR125 <<
+						DMA_CUED_REGION_OFF;
 				else
 					BUG();
 				haddr |= DMA_CUED_XOR_BASE;
@@ -2654,14 +2700,16 @@ static void ppc440spe_adma_pqxor_set_src(dma_addr_t addr,
 			 */
 			haddr = DMA_CUED_XOR_HB;
 			if (!test_bit(PPC440SPE_ZERO_DST, &sw_desc->flags))
-				sw_desc = ppc440spe_get_group_entry(sw_desc, index);
+				sw_desc = ppc440spe_get_group_entry(sw_desc,
+					index);
 			else
 				sw_desc = ppc440spe_get_group_entry(sw_desc,
 					sw_desc->dst_cnt + index);
 		}
 
 		if (likely(sw_desc))
-			ppc440spe_desc_set_src_addr(sw_desc, chan, index, haddr, addr);
+			ppc440spe_desc_set_src_addr(sw_desc, chan, index, haddr,
+					addr);
 		break;
 	case PPC440SPE_XOR_ID:
 		/* DMA2 may do Biskup
@@ -2740,6 +2788,7 @@ static void ppc440spe_adma_dma2rxor_inc_addr (ppc440spe_desc_t *desc,
 		cursor->desc_count++;
 	}
 }
+
 /**
  * ppc440spe_adma_dma2rxor_prep_src - setup RXOR types in DMA2 CDB
  */
@@ -2754,7 +2803,8 @@ static int ppc440spe_adma_dma2rxor_prep_src (ppc440spe_desc_t *hdesc,
 	int i;
 
 	for (i=0;i<cursor->desc_count;i++) {
-		desc = list_entry (hdesc->chain_node.next, ppc440spe_desc_t, chain_node);
+		desc = list_entry (hdesc->chain_node.next, ppc440spe_desc_t,
+			chain_node);
 	}
 
 	switch (cursor->state) {
@@ -2765,8 +2815,9 @@ static int ppc440spe_adma_dma2rxor_prep_src (ppc440spe_desc_t *hdesc,
 				cursor->xor_count++;
 				if (index == src_cnt-1) {
 					ppc440spe_rxor_set_region (desc,
-							cursor->addr_count,
-							DMA_RXOR12 << DMA_CUED_REGION_OFF);
+						cursor->addr_count,
+						DMA_RXOR12 <<
+							DMA_CUED_REGION_OFF);
 					ppc440spe_adma_dma2rxor_inc_addr (
 						desc, cursor, index, src_cnt);
 				}
@@ -2774,36 +2825,42 @@ static int ppc440spe_adma_dma2rxor_prep_src (ppc440spe_desc_t *hdesc,
 				/* reverse RXOR */
 				cursor->state = 1;
 				cursor->xor_count++;
-				set_bit (cursor->addr_count, &desc->reverse_flags[0]);
+				set_bit (cursor->addr_count,
+						&desc->reverse_flags[0]);
 				if (index == src_cnt-1) {
 					ppc440spe_rxor_set_region (desc,
-							cursor->addr_count,
-							DMA_RXOR12 << DMA_CUED_REGION_OFF);
+						cursor->addr_count,
+						DMA_RXOR12 <<
+							DMA_CUED_REGION_OFF);
 					ppc440spe_adma_dma2rxor_inc_addr (
 						desc, cursor, index, src_cnt);
 				}
 			} else {
-				printk (KERN_ERR "Cannot build DMA2 RXOR command block.\n");
+				printk (KERN_ERR "Cannot build "
+					"DMA2 RXOR command block.\n");
 				BUG ();
 			}
 			break;
 		case 1:
-			sign = test_bit (cursor->addr_count, desc->reverse_flags)
+			sign = test_bit (cursor->addr_count,
+					desc->reverse_flags)
 				? -1 : 1;
 			if (index == src_cnt-2 || (sign == -1
 				&& addr != cursor->addrl - 2*cursor->len)) {
 				cursor->state = 0;
 				cursor->xor_count = 1;
 				cursor->addrl = addr;
-				ppc440spe_rxor_set_region (desc, cursor->addr_count,
-						DMA_RXOR12 << DMA_CUED_REGION_OFF);
+				ppc440spe_rxor_set_region (desc,
+					cursor->addr_count,
+					DMA_RXOR12 << DMA_CUED_REGION_OFF);
 				ppc440spe_adma_dma2rxor_inc_addr (
 					desc, cursor, index, src_cnt);
 			} else if (addr == cursor->addrl + 2*sign*cursor->len) {
 				cursor->state = 2;
 				cursor->xor_count = 0;
-				ppc440spe_rxor_set_region (desc, cursor->addr_count,
-						DMA_RXOR123 << DMA_CUED_REGION_OFF);
+				ppc440spe_rxor_set_region (desc,
+					cursor->addr_count,
+					DMA_RXOR123 << DMA_CUED_REGION_OFF);
 				if (index == src_cnt-1) {
 					ppc440spe_adma_dma2rxor_inc_addr (
 						desc, cursor, index, src_cnt);
@@ -2811,8 +2868,9 @@ static int ppc440spe_adma_dma2rxor_prep_src (ppc440spe_desc_t *hdesc,
 			} else if (addr == cursor->addrl + 3*cursor->len) {
 				cursor->state = 2;
 				cursor->xor_count = 0;
-				ppc440spe_rxor_set_region (desc, cursor->addr_count,
-						DMA_RXOR124 << DMA_CUED_REGION_OFF);
+				ppc440spe_rxor_set_region (desc,
+					cursor->addr_count,
+					DMA_RXOR124 << DMA_CUED_REGION_OFF);
 				if (index == src_cnt-1) {
 					ppc440spe_adma_dma2rxor_inc_addr (
 						desc, cursor, index, src_cnt);
@@ -2820,8 +2878,9 @@ static int ppc440spe_adma_dma2rxor_prep_src (ppc440spe_desc_t *hdesc,
 			} else if (addr == cursor->addrl + 4*cursor->len) {
 				cursor->state = 2;
 				cursor->xor_count = 0;
-				ppc440spe_rxor_set_region (desc, cursor->addr_count,
-						DMA_RXOR125 << DMA_CUED_REGION_OFF);
+				ppc440spe_rxor_set_region (desc,
+					cursor->addr_count,
+					DMA_RXOR125 << DMA_CUED_REGION_OFF);
 				if (index == src_cnt-1) {
 					ppc440spe_adma_dma2rxor_inc_addr (
 						desc, cursor, index, src_cnt);
@@ -2830,8 +2889,9 @@ static int ppc440spe_adma_dma2rxor_prep_src (ppc440spe_desc_t *hdesc,
 				cursor->state = 0;
 				cursor->xor_count = 1;
 				cursor->addrl = addr;
-				ppc440spe_rxor_set_region (desc, cursor->addr_count,
-						DMA_RXOR12 << DMA_CUED_REGION_OFF);
+				ppc440spe_rxor_set_region (desc,
+					cursor->addr_count,
+					DMA_RXOR12 << DMA_CUED_REGION_OFF);
 				ppc440spe_adma_dma2rxor_inc_addr (
 					desc, cursor, index, src_cnt);
 			}
@@ -2950,8 +3010,8 @@ static void ppc440spe_adma_pqxor_set_src_mult (unsigned char mult,
 	case PPC440SPE_DMA0_ID:
 	case PPC440SPE_DMA1_ID:
 		if (test_bit(PPC440SPE_DESC_RXOR, &sw_desc->flags)) {
-			int region = test_bit(PPC440SPE_DESC_RXOR12, &sw_desc->flags) ?
-				2 : 3;
+			int region = test_bit(PPC440SPE_DESC_RXOR12,
+					&sw_desc->flags) ? 2 : 3;
 
 			if (index < region) {
 				/* RXOR multipliers */
@@ -2967,10 +3027,12 @@ static void ppc440spe_adma_pqxor_set_src_mult (unsigned char mult,
 			}
 		} else {
 			/* WXOR-only;
-			 * skip first slots with destinations (if ZERO_DST has a place)
+			 * skip first slots with destinations (if ZERO_DST has
+			 * place)
 			 */
 			if (!test_bit(PPC440SPE_ZERO_DST, &sw_desc->flags))
-				sw_desc = ppc440spe_get_group_entry(sw_desc, index);
+				sw_desc = ppc440spe_get_group_entry(sw_desc,
+					index);
 			else
 				sw_desc = ppc440spe_get_group_entry(sw_desc,
 					sw_desc->dst_cnt + index);
@@ -2979,8 +3041,8 @@ static void ppc440spe_adma_pqxor_set_src_mult (unsigned char mult,
 		}
 
 		if (likely(sw_desc))
-			ppc440spe_desc_set_src_mult(sw_desc, chan, mult_idx, mult_dst,
-			    mult);
+			ppc440spe_desc_set_src_mult(sw_desc, chan,
+				mult_idx, mult_dst, mult);
 		break;
 	case PPC440SPE_XOR_ID:
 		/* both P & Q calculations required; set Q mult here */
@@ -3013,14 +3075,14 @@ static void ppc440spe_adma_pqzero_sum_set_src_mult (unsigned char mult,
 	ppc440spe_desc_t *sw_desc = tx_to_ppc440spe_adma_slot(tx);
 	u32 mult_idx, mult_dst;
 
-		/* get pointed slot */
-		sw_desc = ppc440spe_get_group_entry(sw_desc, index);
+	/* get pointed slot */
+	sw_desc = ppc440spe_get_group_entry(sw_desc, index);
 
-		/* set mult for sources only */
-		BUG_ON(index >= tx_to_ppc440spe_adma_slot(tx)->src_cnt);
+	/* set mult for sources only */
+	BUG_ON(index >= tx_to_ppc440spe_adma_slot(tx)->src_cnt);
 
-		mult_idx = DMA_CUED_MULT1_OFF;
-		mult_dst = DMA_CDB_SG_DST1;
+	mult_idx = DMA_CUED_MULT1_OFF;
+	mult_dst = DMA_CDB_SG_DST1;
 
 	if (likely(sw_desc))
 		ppc440spe_desc_set_src_mult(sw_desc, chan, mult_idx, mult_dst,
@@ -3079,9 +3141,7 @@ static void ppc440spe_adma_free_chan_resources(struct dma_chan *chan)
  * @cookie: ADMA transaction identifier
  */
 static enum dma_status ppc440spe_adma_is_complete(struct dma_chan *chan,
-					    dma_cookie_t cookie,
-					    dma_cookie_t *done,
-					    dma_cookie_t *used)
+	dma_cookie_t cookie, dma_cookie_t *done, dma_cookie_t *used)
 {
 	ppc440spe_ch_t *ppc440spe_chan = to_ppc440spe_adma_chan(chan);
 	dma_cookie_t last_used;
@@ -3239,9 +3299,7 @@ static int __devinit ppc440spe_adma_probe(struct platform_device *pdev)
 	 * requires that we explicitly drain the write buffer
 	 */
 	if ((adev->dma_desc_pool_virt = dma_alloc_coherent(&pdev->dev,
-					plat_data->pool_size,
-					&adev->dma_desc_pool,
-					GFP_KERNEL)) == NULL) {
+	     plat_data->pool_size, &adev->dma_desc_pool, GFP_KERNEL)) == NULL) {
 		ret = -ENOMEM;
 		goto err_dma_alloc;
 	}
@@ -3265,6 +3323,7 @@ static int __devinit ppc440spe_adma_probe(struct platform_device *pdev)
 	adev->common.device_is_tx_complete = ppc440spe_adma_is_complete;
 	adev->common.device_issue_pending = ppc440spe_adma_issue_pending;
 	adev->common.device_dependency_added = ppc440spe_adma_dependency_added;
+	adev->common.device_estimate = ppc440spe_adma_estimate;
 	adev->common.dev = &pdev->dev;
 
 	/* set prep routines based on capability */
@@ -3338,9 +3397,6 @@ static int __devinit ppc440spe_adma_probe(struct platform_device *pdev)
 	INIT_RCU_HEAD(&chan->common.rcu);
 	chan->common.device = &adev->common;
 	list_add_tail(&chan->common.device_node, &adev->common.channels);
-
-	BUG_ON(ppc440spe_adma_channels[chan->device->id]);
-	ppc440spe_adma_channels[chan->device->id] = &chan->common;
 
 	dev_dbg(&pdev->dev,  "AMCC(R) PPC440SP(E) ADMA Engine found [%d]: "
 	  "( %s%s%s%s%s%s%s%s%s%s)\n",

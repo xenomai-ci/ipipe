@@ -166,7 +166,6 @@ struct stripe_head {
 	sector_t		sector;			/* sector of this row */
 	unsigned long		state;			/* state flags */
 	atomic_t		count;			/* nr of active thread/requests */
-	int			disks;			/* disks in stripe */
 	/* stripe_operations
 	 * @pending - pending ops flags (set for request->issue->complete)
 	 * @ack - submitted ops flags (set for issue->complete)
@@ -179,7 +178,7 @@ struct stripe_head {
 		unsigned long	   ack;
 		unsigned long	   complete;
 		int		   target;
-		int                target2;  /* second target for STRIPE_OP_COMPUTE_BLK2 */
+		int                target2;  /* second target for RAID-6 */
 		int		   count;
 		u32                zero_sum_result;     /* P-parity check */
 		u32                zero_qsum_result;    /* Q-parity check */
@@ -188,8 +187,8 @@ struct stripe_head {
 	struct r5dev {
 		struct bio	req;
 		struct bio_vec	vec;
-		struct page	*page, *dpage;	/* 'dpage' is used in the full-stripe write ops */
-		struct bio	*read, *written;
+		struct page	*page;
+		struct page	*dpage;	/* direct ptr to a bio buffer */
 		unsigned long flags;
 	} dev[1]; /* allocated with extra space depending of RAID geometry */
 };
@@ -220,20 +219,27 @@ struct r6_state {
 struct stripe_queue {
 	struct rb_node rb_node;
 	sector_t sector;
-	int pd_idx; /* parity disk index */
-	int bm_seq; /* sequence number for bitmap flushes */
-	spinlock_t lock;
-	struct raid5_private_data *raid_conf;
-	unsigned long state;
-	struct stripe_head *sh;
-	struct list_head list_node;
+
+	/* stripe queues are allocated with extra space to hold the following
+	 * four bitmaps.  One bit for each block in the stripe_head.  These
+	 * bitmaps enable use of hweight to count the number of blocks
+	 * undergoing read, write, overwrite.
+	 */
 	unsigned long *to_read;
 	unsigned long *to_write;
 	unsigned long *overwrite;
+	unsigned long *overlap; /* There is a pending overlapping request */
+	spinlock_t lock; /* protect bio lists and stripe_head state */
+	struct raid5_private_data *raid_conf;
+	unsigned long state;
+	struct list_head list_node;
+	int bm_seq; /* sequence number for bitmap flushes */
+	int pd_idx; /* parity disk index */
+	int disks; /* disks in stripe */
 	atomic_t count;
 	struct r5_queue_dev {
 		sector_t sector; /* hw starting sector for this block */
-		struct bio *toread, *towrite;
+		struct bio *toread, *read, *towrite, *written;
 	} dev[1];
 };
 
@@ -245,7 +251,6 @@ struct stripe_queue {
 #define	R5_Insync	3	/* rdev && rdev->in_sync at start */
 #define	R5_Wantread	4	/* want to schedule a read */
 #define	R5_Wantwrite	5
-#define	R5_Overlap	7	/* There is a pending overlapping request on this block */
 #define	R5_ReadError	8	/* seen a read error here recently */
 #define	R5_ReWrite	9	/* have tried to over-write the readerror */
 
@@ -276,7 +281,6 @@ struct stripe_queue {
 #define	STRIPE_DEGRADED		7
 #define	STRIPE_EXPAND_SOURCE	10
 #define	STRIPE_EXPAND_READY	11
-#define	STRIPE_FULL_WRITE	12
 
 /*
  * Operations flags (in issue order)
@@ -296,22 +300,17 @@ struct stripe_queue {
 #define STRIPE_OP_MOD_REPAIR_PD 7
 #define STRIPE_OP_MOD_DMA_CHECK 8
 
-#define STRIPE_OP_POSTPQXOR	9
-#define STRIPE_OP_CHECK_PP	10
-#define STRIPE_OP_CHECK_QP	11
-#define STRIPE_OP_UPDATE_PP	12
-#define STRIPE_OP_UPDATE_QP	13
+#define STRIPE_OP_CHECK_PP	9
+#define STRIPE_OP_CHECK_QP	10
+#define STRIPE_OP_UPDATE_PP	11
+#define STRIPE_OP_UPDATE_QP	12
 
 /*
  * Stripe-queue state
  */
-#define STRIPE_QUEUE_HANDLE		0
-#define STRIPE_QUEUE_IO_HI		1
-#define STRIPE_QUEUE_IO_LO		2
-#define STRIPE_QUEUE_DELAYED		3
-#define STRIPE_QUEUE_EXPANDING		4
-#define STRIPE_QUEUE_PREREAD_ACTIVE	5
-#define STRIPE_QUEUE_BIT_DELAY		6
+#define STRIPE_QUEUE_BIT_DELAY 0
+#define STRIPE_QUEUE_EXPANDING 1
+#define STRIPE_QUEUE_PREREAD_ACTIVE 2
 
 /*
  * Plugging:
@@ -360,12 +359,13 @@ struct raid5_private_data {
 	int			previous_raid_disks;
 
 	struct list_head	handle_list; /* stripes needing handling */
-	struct list_head	bitmap_list; /* stripes delaying awaiting bitmap update */
+	struct list_head	bitmap_q_list; /* queues delaying awaiting
+						  bitmap update */
 	struct list_head	delayed_q_list; /* queues that have plugged
 						 * requests
 						 */
-	struct list_head	io_hi_queue; /* reads and full stripe writes */
-	struct list_head	io_lo_queue; /* sub-stripe-width writes */
+	struct list_head	io_hi_q_list; /* reads and full stripe writes */
+	struct list_head	io_lo_q_list; /* sub-stripe-width writes */
 	struct workqueue_struct *workqueue; /* attaches sq's to sh's */
 	struct work_struct	stripe_queue_work;
 	char 			workqueue_name[20];
@@ -383,7 +383,7 @@ struct raid5_private_data {
 	 */
 	int			active_name;
 	char			sh_cache_name[2][20];
-	char                    sq_cache_name[2][20];
+	char			sq_cache_name[2][20];
 	struct kmem_cache	*sh_slab_cache;
 	struct kmem_cache	*sq_slab_cache;
 
@@ -395,13 +395,11 @@ struct raid5_private_data {
 					    * Cleared when a sync completes.
 					    */
 
-	struct page 		*spare_page; /* Used when checking P/Q in raid6 */
-
 	/*
 	 * Free queue pool
 	 */
 	atomic_t		active_queues;
-	struct list_head	inactive_queue_list;
+	struct list_head	inactive_q_list;
 	wait_queue_head_t	wait_for_queue;
 	wait_queue_head_t	wait_for_overlap;
 	int			inactive_queue_blocked;
