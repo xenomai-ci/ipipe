@@ -291,6 +291,8 @@ sysret_fastexit:
 	/* Handle reschedules */
 	/* edx:	work, edi: workmask */	
 sysret_careful:
+	testl $(_TIF_SYSCALL_TRACE|_TIF_SYSCALL_AUDIT|_TIF_SECCOMP),%edx
+	jnz ret_from_sys_call_trace
 	bt $TIF_NEED_RESCHED,%edx
 	jnc sysret_signal
 	TRACE_IRQS_ON
@@ -301,6 +303,16 @@ sysret_careful:
 	popq  %rdi
 	CFI_ADJUST_CFA_OFFSET -8
 	jmp sysret_check
+
+ret_from_sys_call_trace:
+	TRACE_IRQS_ON
+	sti
+	SAVE_REST
+	FIXUP_TOP_OF_STACK %rdi
+	movq %rsp,%rdi
+	LOAD_ARGS ARGOFFSET  /* reload args from stack in case ptrace changed it */
+	RESTORE_REST
+	jmp int_ret_from_sys_call
 
 	/* Handle a signal */ 
 sysret_signal:
