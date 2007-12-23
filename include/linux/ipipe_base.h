@@ -32,13 +32,6 @@
 #define IPIPE_NR_VIRQS		BITS_PER_LONG
 /* First virtual IRQ # */
 #define IPIPE_VIRQ_BASE		(((IPIPE_NR_XIRQS + BITS_PER_LONG - 1) / BITS_PER_LONG) * BITS_PER_LONG)
-/*
- * Sanity check: IPIPE_VIRQ_BASE depends on CONFIG_NR_CPUS, and if the
- * latter gets too large, we fail to map the virtual interrupts.
- */
-#if IPIPE_VIRQ_BASE / BITS_PER_LONG > BITS_PER_LONG
-#error "CONFIG_NR_CPUS is too large, please lower it."
-#endif
 /* Total number of IRQ slots */
 #define IPIPE_NR_IRQS		(IPIPE_VIRQ_BASE + IPIPE_NR_VIRQS)
 /* Number of indirect words needed to map the whole IRQ space. */
