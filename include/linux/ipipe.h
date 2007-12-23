@@ -33,6 +33,14 @@
 
 #ifdef CONFIG_IPIPE
 
+/*
+ * Sanity check: IPIPE_VIRQ_BASE depends on CONFIG_NR_CPUS, and if the
+ * latter gets too large, we fail to map the virtual interrupts.
+ */
+#if IPIPE_VIRQ_BASE / BITS_PER_LONG > BITS_PER_LONG
+#error "CONFIG_NR_CPUS is too large, please lower it."
+#endif
+
 #define IPIPE_VERSION_STRING	IPIPE_ARCH_STRING
 #define IPIPE_RELEASE_NUMBER	((IPIPE_MAJOR_NUMBER << 16) | \
 				 (IPIPE_MINOR_NUMBER <<  8) | \
