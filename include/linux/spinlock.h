@@ -217,10 +217,10 @@ do {									\
 		__raw_spin_lock(&((spinlock_t *)(lock))->raw_lock);	\
 } while (0)
 
-#define PICK_SPINUNLOCK_IRQ_RAW(lock)				\
+#define PICK_SPINUNLOCK_IRQ_RAW(lock)					\
 do {									\
 	if (TYPE_EQUAL((lock), __ipipe_spinlock_t)) {			\
-		__ipipe_spin_lock_irq(&((__ipipe_spinlock_t *)(lock))->__raw_lock); \
+		__ipipe_spin_unlock_irq(&((__ipipe_spinlock_t *)(lock))->__raw_lock); \
 	} else if (TYPE_EQUAL(lock, spinlock_t))			\
 		__raw_spin_unlock(&((spinlock_t *)(lock))->raw_lock);	\
 		local_irq_enable();					\
