@@ -771,28 +771,12 @@ finalize:
 
 finalize_nosync:
 
-#ifdef CONFIG_IPIPE_TRACE_IRQSOFF
-	ipipe_trace_end(irq);
-#endif /* CONFIG_IPIPE_TRACE_IRQSOFF */
-
 	if (!ipipe_root_domain_p ||
 	    test_bit(IPIPE_STALL_FLAG, &ipipe_root_cpudom_var(status)))
 		return 0;
 
 	return 1;
 }
-
-#ifdef CONFIG_IPIPE_TRACE_IRQSOFF
-void notrace __ipipe_trace_irqs_off(void)
-{
-	ipipe_trace_begin(0x80000000);
-}
-
-void notrace __ipipe_trace_irqs_on(void)
-{
-	ipipe_trace_end(0x80000000);
-}
-#endif /* CONFIG_IPIPE_TRACE_IRQSOFF */
 
 EXPORT_SYMBOL(__ipipe_tick_irq);
 EXPORT_SYMBOL(ipipe_critical_enter);

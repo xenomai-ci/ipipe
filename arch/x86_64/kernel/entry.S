@@ -542,16 +542,28 @@ END(stub_rt_sigreturn)
 	 */
 	TRACE_IRQS_OFF
 #ifdef CONFIG_IPIPE_TRACE_IRQSOFF
-        leaq RIP-8(%rdi), %rbp
-        pushq %rdi
-        movq ORIG_RAX(%rdi), %rdi
-	notq %rdi
-        call ipipe_trace_begin_thunk
-        popq %rdi
+	leaq RIP-8(%rdi), %rbp	# make interrupted address show up in trace
+	pushq %rdi
+	movq ORIG_RAX(%rdi), %rdi	# IRQ number
+	notq %rdi			# ...is inverted, fix up
+	call ipipe_trace_begin
+	popq %rdi
 	popq %rbp
 	pushq %rbp
-#endif
+
 	call \func
+
+	popq %rbp
+	pushq %rbp
+	movq 8-ARGOFFSET+ORIG_RAX(%rbp), %rdi
+	leaq 8-ARGOFFSET+RIP-8(%rbp), %rbp
+	notq %rdi
+	call ipipe_trace_end
+	popq %rbp
+	pushq %rbp
+#else
+	call \func
+#endif
 	.endm
 
 #ifdef CONFIG_IPIPE
@@ -602,7 +614,6 @@ ENTRY(common_interrupt)
 	jnz ret_from_intr
 	decl %gs:pda_irqcount
 	leaveq
-	IPIPE_TRACE_IRQS_ON
 	CFI_DEF_CFA_REGISTER	rsp
 	CFI_ADJUST_CFA_OFFSET	-8
 	testl $3,CS-ARGOFFSET(%rsp)
@@ -734,7 +745,6 @@ END(common_interrupt)
 	jnz ret_from_intr
 	decl %gs:pda_irqcount
 	leaveq
-	IPIPE_TRACE_IRQS_ON
 	CFI_DEF_CFA_REGISTER	rsp
 	CFI_ADJUST_CFA_OFFSET	-8
 	testl $3,CS-ARGOFFSET(%rsp)

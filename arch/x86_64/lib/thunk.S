@@ -56,11 +56,6 @@
 	thunk_retrax __ipipe_preempt_schedule_irq_thunk,__ipipe_preempt_schedule_irq
 #endif	
 	thunk_retrax __ipipe_syscall_root_thunk,__ipipe_syscall_root
-#ifdef CONFIG_IPIPE_TRACE_IRQSOFF
-	thunk __ipipe_trace_irqs_on_thunk,__ipipe_trace_irqs_on
-	thunk __ipipe_trace_irqs_off_thunk,__ipipe_trace_irqs_off
-	thunk ipipe_trace_begin_thunk,ipipe_trace_begin
-#endif	
 #endif
 	
 	/* SAVE_ARGS below is used only for the .cfi directives it contains. */
