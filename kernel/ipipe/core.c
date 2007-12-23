@@ -147,6 +147,11 @@ int ipipe_request_tickdev(const char *devname,
 	 */
 
 	evtdev = slave->evtdev;
+	status = evtdev->mode;
+
+        if (status == CLOCK_EVT_MODE_SHUTDOWN)
+                goto out;
+
 	itd->slave = slave;
 	itd->emul_set_mode = emumode;
 	itd->emul_set_tick = emutick;
@@ -162,7 +167,6 @@ int ipipe_request_tickdev(const char *devname,
 	evtdev->max_delta_ns = ULONG_MAX;
 	evtdev->mult = 1;
 	evtdev->shift = 0;
-	status = evtdev->mode;
 out:
 	ipipe_critical_exit(flags);
 
