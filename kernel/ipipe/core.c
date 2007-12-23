@@ -63,7 +63,7 @@ EXPORT_SYMBOL(__ipipe_root_status);
  * Work around a GCC 3.x issue making alias symbols unusable as
  * constant initializers.
  */
-unsigned long *const __ipipe_root_status_addr = &__raw_get_cpu_var(ipipe_percpu_darray);
+unsigned long *const __ipipe_root_status_addr = &__raw_get_cpu_var(ipipe_percpu_darray)[0].status;
 EXPORT_SYMBOL(__ipipe_root_status_addr);
 #endif /* __GNUC__ < 4 */
 
