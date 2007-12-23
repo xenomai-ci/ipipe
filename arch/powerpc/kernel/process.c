@@ -325,7 +325,7 @@ struct task_struct *__switch_to(struct task_struct *prev,
 	}
 #endif
 
-	local_irq_save(flags);
+	local_irq_save_hw(flags);
 
 	account_system_vtime(current);
 	account_process_vtime(current);
@@ -344,7 +344,7 @@ struct task_struct *__switch_to(struct task_struct *prev,
 	}
 #endif
 
-	local_irq_restore(flags);
+	local_irq_restore_hw(flags);
 
 	return last;
 }
@@ -984,7 +984,7 @@ void dump_stack(void)
 }
 EXPORT_SYMBOL(dump_stack);
 
-#ifdef CONFIG_PPC64
+#ifdef CONFIG_RUNLATCH
 void ppc64_runlatch_on(void)
 {
 	unsigned long ctrl;

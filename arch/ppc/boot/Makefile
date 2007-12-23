@@ -16,6 +16,14 @@
 CFLAGS	 	+= -fno-builtin -D__BOOTER__ -Iarch/$(ARCH)/boot/include
 HOSTCFLAGS	+= -Iarch/$(ARCH)/boot/include
 
+ifdef CONFIG_IPIPE_TRACE
+# do not trace the boot loader
+nullstring :=
+space      := $(nullstring) # end of the line
+pg_flag     = $(nullstring) -pg # end of the line
+CFLAGS     := $(subst ${pg_flag},${space},${CFLAGS})
+endif
+
 BOOT_TARGETS	= zImage zImage.initrd znetboot znetboot.initrd
 
 bootdir-y			:= simple

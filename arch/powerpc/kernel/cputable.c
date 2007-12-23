@@ -1387,7 +1387,7 @@ static struct cpu_spec cpu_specs[] = {
 #endif /* CONFIG_PPC32 */
 };
 
-struct cpu_spec *identify_cpu(unsigned long offset, unsigned int pvr)
+notrace struct cpu_spec *identify_cpu(unsigned long offset, unsigned int pvr)
 {
 	struct cpu_spec *s = cpu_specs;
 	struct cpu_spec **cur = &cur_cpu_spec;
@@ -1416,7 +1416,7 @@ struct cpu_spec *identify_cpu(unsigned long offset, unsigned int pvr)
 	return NULL;
 }
 
-void do_feature_fixups(unsigned long value, void *fixup_start, void *fixup_end)
+notrace void do_feature_fixups(unsigned long value, void *fixup_start, void *fixup_end)
 {
 	struct fixup_entry {
 		unsigned long	mask;

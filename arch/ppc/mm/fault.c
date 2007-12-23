@@ -102,6 +102,9 @@ int do_page_fault(struct pt_regs *regs, unsigned long address,
 #else
 	int is_write = 0;
 
+ 	if (ipipe_trap_notify(IPIPE_TRAP_ACCESS,regs))
+ 	    	return 0;
+ 
 	/*
 	 * Fortunately the bit assignments in SRR1 for an instruction
 	 * fault and DSISR for a data fault are mostly the same for the

@@ -91,6 +91,7 @@ struct clock_event_device {
 	struct list_head	list;
 	enum clock_event_mode	mode;
 	ktime_t			next_event;
+	int64_t			delta;
 };
 
 /*

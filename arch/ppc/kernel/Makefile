@@ -17,6 +17,8 @@ obj-$(CONFIG_RAPIDIO)		+= rio.o
 obj-$(CONFIG_KGDB)		+= ppc-stub.o
 obj-$(CONFIG_SMP)		+= smp.o smp-tbsync.o
 obj-$(CONFIG_KEXEC)		+= machine_kexec.o relocate_kernel.o
+obj-$(CONFIG_IPIPE)		+= ipipe.o
+obj-$(CONFIG_IPIPE_TRACE_MCOUNT)	+= mcount_32.o
 
 ifndef CONFIG_MATH_EMULATION
 obj-$(CONFIG_8xx)		+= softemu8xx.o
