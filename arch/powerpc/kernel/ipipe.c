@@ -585,6 +585,7 @@ int __ipipe_grab_timer(struct pt_regs *regs)
 #endif
 
 	__raw_get_cpu_var(__ipipe_tick_regs).msr = regs->msr; /* for timer_interrupt() */
+	__raw_get_cpu_var(__ipipe_tick_regs).nip = regs->nip;
 
 	__ipipe_handle_irq(IPIPE_TIMER_VIRQ, NULL);
 
