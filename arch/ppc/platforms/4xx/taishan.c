@@ -41,6 +41,7 @@
 #include <asm/ocp.h>
 #include <asm/bootinfo.h>
 #include <asm/ppcboot.h>
+#include <asm/tlbflush.h>
 
 #include <syslib/gen550.h>
 #include <syslib/ibm440gx_common.h>

@@ -78,7 +78,7 @@
  */
 typedef struct {
 	/*
-	 * Basic 32-bit format XOR CB (Table 19-1, p.463, 440spe_um_1_22.pdf)
+	 * Basic 64-bit format XOR CB (Table 19-1, p.463, 440spe_um_1_22.pdf)
 	 */
 	u32	cbc;		/* control */
 	u32	cbbc;		/* byte count */
@@ -86,9 +86,12 @@ typedef struct {
 	u8	pad0[4];	/* reserved */
 	u32	cbtah;		/* target address high */
 	u32	cbtal;		/* target address low */
-	u8	pad1[4];	/* reserved */
+	u32	cblah;		/* link address high */
 	u32	cblal;		/* link address low */
-	u32	ops[16];	/* operands addresses */
+	struct {
+		u32 h;
+		u32 l;
+	} __attribute__ ((packed)) ops [16];
 } __attribute__ ((packed)) xor_cb_t;
 
 typedef struct {

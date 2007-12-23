@@ -46,7 +46,9 @@
 #include <asm/bootinfo.h>
 #include <asm/ppc4xx_pic.h>
 #include <asm/ppcboot.h>
+#include <asm/tlbflush.h>
 
+#include <syslib/gen550.h>
 #include <syslib/ibm44x_common.h>
 #include <syslib/ibm440gx_common.h>
 #include <syslib/ibm440sp_common.h>
@@ -93,6 +95,7 @@ yucca_show_cpuinfo(struct seq_file *m)
 {
 	seq_printf(m, "vendor\t\t: AMCC\n");
 	seq_printf(m, "machine\t\t: PPC440SPe EVB (Yucca)\n");
+	ibm440gx_show_cpuinfo(m);
 
 	return 0;
 }
@@ -347,12 +350,6 @@ yucca_setup_hoses(void)
 				is_pcie_hose(hs) ?  pcie_hose_num(hs) : 0
 				);
 
-		pci_init_resource(&hose->io_resource,
-				  YUCCA_PCIX_LOWER_IO,
-				  YUCCA_PCIX_UPPER_IO,
-				  IORESOURCE_IO,
-				  name);
-
 		if (is_pcix_hose(hs)) {
 			hose->mem_space.start = YUCCA_PCIX_LOWER_MEM;
 			hose->mem_space.end   = hose->mem_space.start +
@@ -371,20 +368,26 @@ yucca_setup_hoses(void)
 				  IORESOURCE_MEM,
 				  name);
 
-		hose->first_busno = bus_no;
-		hose->last_busno  = 0xFF;
-		hose_type[hose->index] = hs;
+		if (is_pcix_hose(hs)) {
+			isa_io_base = (unsigned long) ioremap64(PCIX0_IO_BASE,
+								PCIX_IO_SIZE);
+		}
+
+		hose->io_base_virt = (void *)isa_io_base;
+
+		hose->io_space.start = YUCCA_PCI_LOWER_IO +
+			((unsigned int)hs * YUCCA_PCI_HOST_SIZE_IO);
+		hose->io_space.end = hose->io_space.start +
+			YUCCA_PCI_HOST_SIZE_IO - 1;
+
+		pci_init_resource(&hose->io_resource,
+				hose->io_space.start,
+				hose->io_space.end,
+				IORESOURCE_IO,
+				name);
 
 		if (is_pcix_hose(hs)) {
-			hose->io_space.start = YUCCA_PCIX_LOWER_IO;
-			hose->io_space.end = YUCCA_PCIX_UPPER_IO;
-			isa_io_base =
-				(unsigned long)
-					ioremap64(PCIX0_IO_BASE, PCIX_IO_SIZE);
-			hose->io_base_virt = (void *)isa_io_base;
-
 			ppc440spe_setup_pcix(hose);
-
 			setup_indirect_pci(hose, PCIX0_CFGA, PCIX0_CFGD);
 			hose->set_cfg_type = 1;
 		} else {
@@ -395,6 +398,27 @@ yucca_setup_hoses(void)
 				continue;
 			}
 		}
+
+		hose->first_busno = bus_no;
+		hose->last_busno  = 0xFF;
+		hose_type[hose->index] = hs;
+
+		if (!is_pcix_hose(hs))
+		{
+			unsigned char* addr;
+			addr = (unsigned char*)((void __iomem*)hose->cfg_addr);
+
+			out_8(addr + PCI_PRIMARY_BUS, hose->first_busno);
+			out_8(addr + PCI_SECONDARY_BUS, ++hose->first_busno);
+			out_8(addr + PCI_SUBORDINATE_BUS, 0xff);
+		}
+
+		/*
+		 * Some cards like LSI8408E need delay before enumeration.
+		 * At this point calibrate_delay hasn't been called yet so
+		 * the mdelay value does not reflect exact millisecs value.
+		 */
+		mdelay(10000);
 
 		hose->last_busno = pciauto_bus_scan(hose, hose->first_busno);
 		bus_no = hose->last_busno + 1;
@@ -425,6 +449,14 @@ yucca_early_serial_map(void)
 	if (early_serial_setup(&port) != 0) {
 		printk("Early serial init of port 0 failed\n");
 	}
+
+#if defined(CONFIG_SERIAL_TEXT_DEBUG) || defined(CONFIG_KGDB)
+	/* Configure debug serial access */
+	gen550_init(0, &port);
+
+	/* Purge TLB entry added in head_44x.S for early serial access */
+	_tlbie(UART0_IO_BASE);
+#endif
 
 	port.membase = ioremap64(PPC440SPE_UART1_ADDR, 8);
 	port.irq = UART1_INT;
@@ -491,6 +523,11 @@ yucca_setup_arch(void)
 	printk("Yucca port (Roland Dreier <rolandd@cisco.com>)\n");
 }
 
+static void __init yucca_init(void)
+{
+	ibm440gx_l2c_setup(&clocks);
+}
+
 void __init platform_init(unsigned long r3, unsigned long r4,
 		unsigned long r5, unsigned long r6, unsigned long r7)
 {
@@ -505,4 +542,5 @@ void __init platform_init(unsigned long r3, unsigned long r4,
 #ifdef CONFIG_KGDB
 	ppc_md.early_serial_map = yucca_early_serial_map;
 #endif
+	ppc_md.init = yucca_init;
 }

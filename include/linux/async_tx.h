@@ -67,6 +67,7 @@ enum async_tx_flags {
 	ASYNC_TX_KMAP_SRC	 = (1 << 5),
 	ASYNC_TX_KMAP_DST	 = (1 << 6),
 	ASYNC_TX_ASYNC_ONLY	 = (1 << 7),
+	ASYNC_TX_INT		 = (1 << 8),
 };
 
 #ifdef CONFIG_DMA_ENGINE

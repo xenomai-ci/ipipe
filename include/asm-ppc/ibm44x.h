@@ -138,7 +138,6 @@
  * The "residual" board information structure the boot loader passes
  * into the kernel.
  */
-#ifndef __ASSEMBLY__
 
 /*
  * DCRN definitions
@@ -596,6 +595,9 @@
 #define  SRAM_DPC_ENABLE	0x80000000
 
 /* L2 Cache Controller 440GX/440SP/440SPe */
+#define PPC44X_L2_CACHE_SHIFT	5
+#define PPC44X_L2_CACHE_BYTES	(1 << PPC44X_L2_CACHE_SHIFT)
+
 #define DCRN_L2C0_CFG		0x030
 #define  L2C_CFG_L2M		0x80000000
 #define  L2C_CFG_ICU		0x40000000
@@ -814,6 +816,5 @@
 
 #include <asm/ibm4xx.h>
 
-#endif /* __ASSEMBLY__ */
 #endif /* __ASM_IBM44x_H__ */
 #endif /* __KERNEL__ */

@@ -12,6 +12,8 @@
  */
 #include <linux/kernel.h>
 #include <linux/interrupt.h>
+#include <asm/machdep.h>
+#include <asm/cacheflush.h>
 #include <asm/ibm44x.h>
 #include <asm/mmu.h>
 #include <asm/processor.h>
@@ -112,6 +114,7 @@ bypass:
 #endif
 }
 
+#if defined(CONFIG_440GX) || defined(CONFIG_440SP) || defined(CONFIG_440SPE)
 /* Issue L2C diagnostic command */
 static inline u32 l2c_diag(u32 addr)
 {
@@ -151,7 +154,7 @@ void __init ibm440gx_l2c_enable(void){
 	unsigned long flags;
 
 	/* Install error handler */
-	if (request_irq(87, l2c_error_handler, IRQF_DISABLED, "L2C", 0) < 0){
+	if (request_irq(L2CACHE_INT, l2c_error_handler, IRQF_DISABLED, "L2C", 0) < 0) {
 		printk(KERN_ERR "Cannot install L2C error handler, cache is not enabled\n");
 		return;
 	}
@@ -201,6 +204,7 @@ void __init ibm440gx_l2c_enable(void){
 
 	asm volatile ("sync; isync" ::: "memory");
 	local_irq_restore(flags);
+	ppc_md.l2cache_inv_range = invalidate_l2cache_range;
 }
 
 /* Disable L2 cache */
@@ -243,6 +247,7 @@ void __init ibm440gx_l2c_setup(struct ibm44x_clocks* p)
 	else
 		ibm440gx_l2c_enable();
 }
+#endif /* defined(CONFIG_440GX) ... */
 
 int __init ibm440gx_get_eth_grp(void)
 {

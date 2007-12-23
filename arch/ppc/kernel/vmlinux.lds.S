@@ -3,6 +3,11 @@
 
 OUTPUT_ARCH(powerpc:common)
 jiffies = jiffies_64 + 4;
+PHDRS
+{
+ text PT_LOAD FILEHDR PHDRS FLAGS (7);
+ data PT_LOAD FLAGS (7);
+}
 SECTIONS
 {
   /* Read-only sections, merged into text segment: */
@@ -30,6 +35,7 @@ SECTIONS
   .rela.plt      : { *(.rela.plt)		}
 /*  .init          : { *(.init)	} =0*/
   .plt : { *(.plt) }
+  . = ALIGN(PAGE_SIZE);
   .text      :
   {
     _text = .;
@@ -41,7 +47,7 @@ SECTIONS
     __got2_start = .;
     *(.got2)
     __got2_end = .;
-  }
+  } :text
   _etext = .;
   PROVIDE (etext = .);
 
@@ -75,7 +81,7 @@ SECTIONS
     *(.got.plt) *(.got)
     *(.dynamic)
     CONSTRUCTORS
-  }
+  } :data
 
   . = ALIGN(PAGE_SIZE);
   __nosave_begin = .;
@@ -89,7 +95,7 @@ SECTIONS
   _edata  =  .;
   PROVIDE (edata = .);
 
-  . = ALIGN(8192);
+  . = ALIGN(PAGE_SIZE << 1);
   .data.init_task : { *(.data.init_task) }
 
   . = ALIGN(PAGE_SIZE);

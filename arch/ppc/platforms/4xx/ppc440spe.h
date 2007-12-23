@@ -32,6 +32,8 @@
 #define GPIO0_OR_OFFS		0x0
 #define GPIO0_IR_OFFS		0x1C
 
+#define L2CACHE_INT		43
+
 /* Clock and Power Management */
 #define IBM_CPM_IIC0		0x80000000	/* IIC interface */
 #define IBM_CPM_IIC1		0x40000000	/* IIC interface */

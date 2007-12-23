@@ -205,12 +205,13 @@
 			probe-type = "CFI";
 			bank-width = <4>;
 			partitions = <00000000 000a0000
-				      000a0000 00160000
-				      00200000 00200000
-				      00400000 00400000
-				      00800000 00800000
-				      01000000 01000000>;
-			partition-names = "firmware\0kernel\0initrd\0small-fs\0misc\0big-fs";
+				      000a0000 00020000
+				      000c0000 00240000
+				      00300000 00200000
+				      00500000 00400000
+				      00900000 00800000
+				      01100000 00f00000>;
+			partition-names = "firmware\0dtb\0kernel\0initrd\0small-fs\0misc\0big-fs";
 		};
 	};
 };
