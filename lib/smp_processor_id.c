@@ -19,7 +19,7 @@ unsigned int debug_smp_processor_id(void)
 	if (likely(preempt_count))
 		goto out;
 
-	if (irqs_disabled())
+	if (irqs_disabled() || irqs_disabled_hw())
 		goto out;
 
 	/*
