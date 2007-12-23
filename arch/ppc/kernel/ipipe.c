@@ -120,9 +120,9 @@ static void __ipipe_ipi_demux(int irq)
 
 	kstat_cpu(cpu).irqs[irq]++;
 
-	while (per_cpu(ipipe_ipi_message.value, cpu) & IPIPE_MSG_IPI_MASK) {
+	while (per_cpu(ipipe_ipi_message, cpu).value & IPIPE_MSG_IPI_MASK) {
 		for (ipi = IPIPE_MSG_CRITICAL_IPI; ipi <= IPIPE_MSG_SERVICE_IPI4; ++ipi) {
-			if (test_and_clear_bit(ipi, &per_cpu(ipipe_ipi_message.value, cpu))) {
+			if (test_and_clear_bit(ipi, &per_cpu(ipipe_ipi_message, cpu).value)) {
 				mb();
 				__ipipe_handle_irq(ipi + IPIPE_MSG_IPI_OFFSET, NULL);
 			}
@@ -163,7 +163,7 @@ int __ipipe_send_ipi(unsigned ipi, cpumask_t cpumask)
 	ipi -= IPIPE_MSG_IPI_OFFSET;
 	for_each_online_cpu(cpu) {
 		if (cpu_isset(cpu, cpumask))
-			set_bit(ipi, &per_cpu(ipipe_ipi_message.value, cpu));
+			set_bit(ipi, &per_cpu(ipipe_ipi_message, cpu).value);
 	}
 	mb();	 
 	
