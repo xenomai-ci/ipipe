@@ -1,11 +1,11 @@
 /*
  * TQM85xx (40/41/55/60) board specific routines
  *
- * Copyright (c) 2005 DENX Software Engineering
+ * Copyright (c) 2005-2006 DENX Software Engineering
  * Stefan Roese <sr@denx.de>
  *
  * Based on original work by
- * 	Kumar Gala <galak@kernel.crashing.org>
+ * 	Kumar Gala <kumar.gala@freescale.com>
  *      Copyright 2004 Freescale Semiconductor Inc.
  *
  * This program is free software; you can redistribute  it and/or modify it
@@ -32,6 +32,7 @@
 #include <linux/initrd.h>
 #include <linux/module.h>
 #include <linux/fsl_devices.h>
+#include <linux/i2c.h>
 
 #include <asm/system.h>
 #include <asm/pgtable.h>
@@ -66,6 +67,16 @@ extern unsigned long total_memory;	/* in mm/init */
 
 unsigned char __res[sizeof (bd_t)];
 
+/*
+ * I2C RTC
+ */
+static struct i2c_board_info __initdata tqm85xx_i2c_devices[] = {
+	{
+		I2C_BOARD_INFO("rtc-ds1307", 0x68),
+		.type = "ds1337",
+	},
+};
+
 /* Internal interrupts are all Level Sensitive, and Positive Polarity */
 static u_char tqm85xx_openpic_initsenses[] __initdata = {
 	MPC85XX_INTERNAL_IRQ_SENSES,
@@ -88,6 +99,16 @@ static u_char tqm85xx_openpic_initsenses[] __initdata = {
 	0x0,				/* External 11: */
 };
 
+static int tqm85xx_setup_devices(void)
+{
+	/* I2C devices */
+	i2c_register_board_info(0, tqm85xx_i2c_devices,
+				ARRAY_SIZE(tqm85xx_i2c_devices));
+
+	return 0;
+}
+arch_initcall(tqm85xx_setup_devices);
+
 /* ************************************************************************
  *
  * Setup the architecture
@@ -101,7 +122,7 @@ tqm85xx_setup_arch(void)
 	struct gianfar_platform_data *pdata;
 	struct gianfar_mdio_data *mdata;
 
-#ifdef CONFIG_MPC8560
+#ifdef CONFIG_CPM2
 	cpm2_reset();
 #endif
 
@@ -194,7 +215,7 @@ static struct irqaction cpm2_irqaction = {
 	.mask = CPU_MASK_NONE,
 	.name = "cpm2_cascade",
 };
-#endif /* CONFIG_MPC8560 */
+#endif /* CONFIG_CPM2 */
 
 void __init
 tqm85xx_init_IRQ(void)
@@ -224,7 +245,7 @@ tqm85xx_init_IRQ(void)
         cpm2_init_IRQ();
 
 	setup_irq(MPC85xx_IRQ_CPM, &cpm2_irqaction);
-#endif /* CONFIG_MPC8560 */
+#endif /* CONFIG_CPM2 */
 
 	return;
 }
@@ -257,27 +278,6 @@ int tqm85xx_show_cpuinfo(struct seq_file *m)
 
 	return 0;
 }
-
-#if defined(CONFIG_I2C) && defined(CONFIG_SENSORS_DS1337)
-extern ulong ds1337_get_rtc_time(void);
-extern int ds1337_set_rtc_time(unsigned long nowtime);
-
-static int __init
-tqm85xx_rtc_hookup(void)
-{
-	struct timespec	tv;
-
-        ppc_md.set_rtc_time = ds1337_set_rtc_time;
-        ppc_md.get_rtc_time = ds1337_get_rtc_time;
-
-	tv.tv_nsec = 0;
-	tv.tv_sec = (ppc_md.get_rtc_time)();
-	do_settimeofday(&tv);
-
-	return 0;
-}
-late_initcall(tqm85xx_rtc_hookup);
-#endif
 
 #ifdef CONFIG_PCI
 /*
@@ -343,14 +343,14 @@ platform_init(unsigned long r3, unsigned long r4, unsigned long r5,
 			  binfo->bi_immr_base, MPC85xx_CCSRBAR_SIZE, _PAGE_IO, 0);
 
 		memset(&p, 0, sizeof (p));
-		p.iotype = UPIO_MEM;
+		p.iotype = SERIAL_IO_MEM;
 		p.membase = (void *) binfo->bi_immr_base + MPC85xx_UART0_OFFSET;
 		p.uartclk = binfo->bi_busfreq;
 
 		gen550_init(0, &p);
 
 		memset(&p, 0, sizeof (p));
-		p.iotype = UPIO_MEM;
+		p.iotype = SERIAL_IO_MEM;
 		p.membase = (void *) binfo->bi_immr_base + MPC85xx_UART1_OFFSET;
 		p.uartclk = binfo->bi_busfreq;
 
@@ -391,9 +391,6 @@ platform_init(unsigned long r3, unsigned long r4, unsigned long r5,
 
 	ppc_md.find_end_of_memory = mpc85xx_find_end_of_memory;
 
-	ppc_md.time_init = NULL;
-	ppc_md.set_rtc_time = NULL;
-	ppc_md.get_rtc_time = NULL;
 	ppc_md.calibrate_decr = mpc85xx_calibrate_decr;
 
 #ifndef CONFIG_MPC8560

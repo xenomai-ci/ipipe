@@ -129,18 +129,19 @@ struct ocp_def core_ocp[] = {
 struct ppc4xx_uic_settings ppc4xx_core_uic_cfg[] __initdata = {
 	{ .polarity     = 0xffffffff,
 	  .triggering   = 0x010f0004,
-	  .ext_irq_mask = 0x00000000,
+	  .ext_irq_mask = 0x00402000,	/* IRQ15, IRQ14 */
 	},
 	{ .polarity     = 0xffffffff,
 	  .triggering   = 0x001f8040,
-	  .ext_irq_mask = 0x00007c30,   /* IRQ6 - IRQ7, IRQ8 - IRQ12 */
+	  .ext_irq_mask = 0x80007c30,   /* IRQ13, IRQ12 - IRQ8, IRQ7 - IRQ6 */
 	},
 	{ .polarity     = 0xffffffff,
 	  .triggering   = 0x00000000,
-	  .ext_irq_mask = 0x000000fc,   /* IRQ0 - IRQ5 */
+	  .ext_irq_mask = 0x000000fc,   /* IRQ5 - IRQ0 */
 	},
 	{ .polarity     = 0xffffffff,
 	  .triggering   = 0x00000000,
 	  .ext_irq_mask = 0x00000000,
 	},
 };
+

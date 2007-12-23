@@ -534,6 +534,20 @@
 #define SPRN_PA6T_PMC4  791
 #define SPRN_PA6T_PMC5  792
 
+#define SPRN_PA6T_IER 0x3d5	/* Icache Error Register */
+#define SPRN_PA6T_DER 0x3d6	/* Dcache Error Register */
+#define SPRN_PA6T_BAR 0x35e	/* BIU Error Address Register */
+#define SPRN_PA6T_MER 0x351	/* MMU Error Register */
+
+#define SPRN_PA6T_PCCR  1019
+#define SPRN_PA6T_RPCCR 1021
+#define SPRN_PA6T_IMAAT 979
+#define SPRN_PA6T_IMA0  880
+#define SPRN_PA6T_IMA1  881
+#define SPRN_PA6T_IMA2  882
+#define SPRN_PA6T_BTCR  978
+
+
 #else /* 32-bit */
 #define SPRN_MMCR0	952	/* Monitor Mode Control Register 0 */
 #define   MMCR0_FC	0x80000000UL /* freeze counters */

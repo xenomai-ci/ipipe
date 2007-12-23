@@ -633,13 +633,16 @@ static irqreturn_t ohci_irq (struct usb_hcd *hcd)
 
 	/* we can eliminate a (slow) ohci_readl()
 	   if _only_ WDH caused this irq */
+#if !(defined(CONFIG_USB_OHCI_HCD_PPC_SOC) && defined(CONFIG_4xx))
 	if ((ohci->hcca->done_head != 0)
 			&& ! (hc32_to_cpup (ohci, &ohci->hcca->done_head)
 				& 0x01)) {
 		ints =  OHCI_INTR_WDH;
 
 	/* cardbus/... hardware gone before remove() */
-	} else if ((ints = ohci_readl (ohci, &regs->intrstatus)) == ~(u32)0) {
+	} else 
+#endif
+	if ((ints = ohci_readl (ohci, &regs->intrstatus)) == ~(u32)0) {
 		disable (ohci);
 		ohci_dbg (ohci, "device removed!\n");
 		return IRQ_HANDLED;

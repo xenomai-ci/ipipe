@@ -18,12 +18,28 @@ config PPC_PASEMI_IOMMU
 	help
 	  IOMMU support for PA6T-1682M
 
+config PPC_PASEMI_L2RAM
+	depends on PPC_PASEMI
+	bool "PA Semi L2 as RAM support"
+	default y
+	help
+	  L2 as RAM support for PA6T-1682M
+
 config PPC_PASEMI_MDIO
 	depends on PHYLIB
 	tristate "MDIO support via GPIO"
 	default y
 	help
 	  Driver for MDIO via GPIO on PWRficient platforms
+
+config PPC_PASEMI_A2_WORKAROUNDS
+	bool "Workarounds for bugs in version A2 of PA6T-1682M processor."
+	depends on PPC_PASEMI
+	default n
+	help
+	  A2 is an early version of PA Semi PA6T-1682M processor. It has some 
+	  bugs that will be likely fixed in future versions of the chip. This
+	  option enables workarounds for these bugs.
 
 config ELECTRA_IDE
       tristate "Electra IDE driver"

@@ -982,6 +982,10 @@ struct task_struct {
 
 	struct mm_struct *mm, *active_mm;
 
+#ifdef CONFIG_PPC_PASEMI_A2_WORKAROUNDS
+	real_pte_t zero_pte;
+#endif
+
 /* task state */
 	struct linux_binfmt *binfmt;
 	int exit_state;
@@ -1022,6 +1026,7 @@ struct task_struct {
 
 	unsigned int rt_priority;
 	cputime_t utime, stime;
+	cputime_t prev_utime, prev_stime;
 	unsigned long nvcsw, nivcsw; /* context switch counts */
 	struct timespec start_time; 		/* monotonic time */
 	struct timespec real_start_time;	/* boot based time */

@@ -398,6 +398,10 @@ BEGIN_FTR_SECTION
 	slbie	r6
 	slbie	r6		/* Workaround POWER5 < DD2.1 issue */
 	slbmte	r7,r0
+#ifdef CONFIG_PPC_PASEMI_A2_WORKAROUNDS
+	mfmsr	r7		/* PA6T Ax workaround */
+	mtmsrd	r7
+#endif
 	isync
 
 2:

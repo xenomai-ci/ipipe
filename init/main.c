@@ -55,6 +55,7 @@
 #include <linux/pid_namespace.h>
 #include <linux/device.h>
 #include <linux/kthread.h>
+#include <linux/logbuff.h>
 
 #include <asm/io.h>
 #include <asm/bugs.h>
@@ -532,6 +533,9 @@ asmlinkage void __init start_kernel(void)
  * Interrupts are still disabled. Do necessary setups, then
  * enable them
  */
+#ifdef CONFIG_LOGBUFFER
+	setup_ext_logbuff();
+#endif
 	lock_kernel();
 	tick_init();
 	boot_cpu_init();

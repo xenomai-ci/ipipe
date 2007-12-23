@@ -24,7 +24,14 @@
 #include <linux/platform_device.h>
 
 #include <asm/io.h>
+
+#ifndef CONFIG_PPC_MERGE
+#ifdef CONFIG_40x
+#include <asm/ibm405.h>
+#else
 #include <asm/ibm44x.h>
+#endif
+#endif
 
 struct ndfc_nand_mtd {
 	struct mtd_info			mtd;
@@ -230,7 +237,11 @@ static int ndfc_nand_probe(struct platform_device *pdev)
 	struct ndfc_controller *ndfc = &ndfc_ctrl;
 	unsigned long long phys = settings->ndfc_erpn | res->start;
 
+#if !defined(CONFIG_PHYS_64BIT) || defined(CONFIG_PPC_MERGE)
+	ndfc->ndfcbase = ioremap((phys_addr_t)phys, res->end - res->start + 1);
+#else
 	ndfc->ndfcbase = ioremap64(phys, res->end - res->start + 1);
+#endif
 	if (!ndfc->ndfcbase) {
 		printk(KERN_ERR "NDFC: ioremap failed\n");
 		return -EIO;

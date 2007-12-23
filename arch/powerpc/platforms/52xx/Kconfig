@@ -18,6 +18,11 @@ config PPC_MPC5200_BUGFIX
 
 	  It is safe to say 'Y' here
 
+config PPC_BESTCOMM
+	bool
+	depends on PPC_MPC52xx
+	default y
+
 config PPC_EFIKA
 	bool "bPlan Efika 5k2. MPC5200B based computer"
 	depends on PPC_MULTIPLATFORM && PPC32
@@ -33,4 +38,20 @@ config PPC_LITE5200
 	select PPC_MPC5200
 	default n
 
+config PPC_MOTIONPRO
+	bool "Promess Motion-PRO Board"
+	depends on PPC_MULTIPLATFORM && PPC32
+	select PPC_MPC5200
+	default n
 
+config PPC_TQM5200
+	bool "TQM5200 Board"
+ 	depends on PPC_MULTIPLATFORM && PPC32
+ 	select PPC_MPC5200
+ 	default n
+
+config PPC_CM5200
+	bool "Schindler CM5200 Boards"
+	depends on PPC_MULTIPLATFORM && PPC32
+	select PPC_MPC5200
+	default n

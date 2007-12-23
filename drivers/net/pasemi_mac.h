@@ -31,7 +31,7 @@ struct pasemi_mac_txring {
 	struct pas_dma_xct_descr	*desc;
 	dma_addr_t	 dma;
 	unsigned int	 size;
-	unsigned int	 next_to_use;
+	unsigned int	 next_to_fill;
 	unsigned int	 next_to_clean;
 	struct pasemi_mac_buffer *desc_info;
 	char		 irq_name[10];  /* "eth%d tx" */
@@ -52,6 +52,9 @@ struct pasemi_mac_rxring {
 
 struct pasemi_mac {
 	struct net_device *netdev;
+	void __iomem *regs;
+	void __iomem *dma_regs;
+	void __iomem *iob_regs;
 	struct pci_dev *pdev;
 	struct pci_dev *dma_pdev;
 	struct pci_dev *iob_pdev;
@@ -215,6 +218,14 @@ enum {
 #define    PAS_DMA_RXINT_RCMDSTA_ACT	0x00010000
 #define    PAS_DMA_RXINT_RCMDSTA_DROPS_M	0xfffe0000
 #define    PAS_DMA_RXINT_RCMDSTA_DROPS_S	17
+#define PAS_DMA_RXINT_CFG(i)		(0x204+(i)*_PAS_DMA_RXINT_STRIDE)
+#define    PAS_DMA_RXINT_CFG_DHL_M	0x07000000
+#define    PAS_DMA_RXINT_CFG_DHL_S	24
+#define    PAS_DMA_RXINT_CFG_DHL(x)	(((x) << PAS_DMA_RXINT_CFG_DHL_S) & \
+					 PAS_DMA_RXINT_CFG_DHL_M)
+#define    PAS_DMA_RXINT_CFG_WIF	0x00000002
+#define    PAS_DMA_RXINT_CFG_WIL	0x00000001
+
 #define PAS_DMA_RXINT_INCR(i)		(0x210+(i)*_PAS_DMA_RXINT_STRIDE)
 #define    PAS_DMA_RXINT_INCR_INCR_M	0x0000ffff
 #define    PAS_DMA_RXINT_INCR_INCR_S	0

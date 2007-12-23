@@ -431,6 +431,11 @@ config PRINTK
 	  very difficult to diagnose system problems, saying N here is
 	  strongly discouraged.
 
+config LOGBUFFER
+	bool "External logbuffer" if PRINTK
+	default n
+	depends on PPC
+
 config BUG
 	bool "BUG() support" if EMBEDDED
 	default y

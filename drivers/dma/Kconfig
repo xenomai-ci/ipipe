@@ -32,6 +32,14 @@ config INTEL_IOATDMA
 	---help---
 	  Enable support for the Intel(R) I/OAT DMA engine.
 
+config AMCC_PPC440SPE_ADMA
+	tristate "AMCC PPC440SPe ADMA support"
+	depends on DMA_ENGINE && (440SPE || 440SP)
+	select ASYNC_CORE
+	default y
+	---help---
+	  Enable support for the AMCC PPC440SPe RAID engines.
+
 config INTEL_IOP_ADMA
         tristate "Intel IOP ADMA support"
         depends on DMA_ENGINE && (ARCH_IOP32X || ARCH_IOP33X || ARCH_IOP13XX)

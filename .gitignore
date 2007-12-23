@@ -7,7 +7,6 @@
 #
 .*
 *.o
-*.o.*
 *.a
 *.s
 *.ko
@@ -16,6 +15,9 @@
 *.i
 *.lst
 *.symtypes
+*~
+*.orig
+*.rej
 
 #
 # Top-level generic files
@@ -23,7 +25,6 @@
 tags
 TAGS
 vmlinux*
-!vmlinux.lds.S
 System.map
 Module.symvers
 
@@ -47,6 +48,3 @@ series
 
 # cscope files
 cscope.*
-
-*.orig
-*.rej

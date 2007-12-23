@@ -124,6 +124,8 @@
 #define I2C_DRIVERID_ARP        902    /* SMBus ARP Client              */
 #define I2C_DRIVERID_ALERT      903    /* SMBus Alert Responder Client  */
 
+#define I2C_DRIVERID_LWMON5_KBD	950	/* LWMON5 matrix keyboard	*/
+
 /* IDs --   Use DRIVERIDs 1000-1999 for sensors.
    These were originally in sensors.h in the lm_sensors package */
 #define I2C_DRIVERID_LM78 1002
@@ -196,6 +198,7 @@
 #define I2C_HW_B_EM28XX		0x01001f /* em28xx video capture cards */
 #define I2C_HW_B_CX2341X	0x010020 /* Conexant CX2341X MPEG encoder cards */
 #define I2C_HW_B_INTELFB	0x010021 /* intel framebuffer driver */
+#define I2C_HW_B_MPC		0x010022 /* MPC systems */
 
 /* --- PCF 8584 based algorithms					*/
 #define I2C_HW_P_LP		0x020000 /* Parallel port interface */
@@ -216,6 +219,9 @@
 
 /* --- PowerPC on-chip adapters						*/
 #define I2C_HW_OCP		0x120000 /* IBM on-chip I2C adapter */
+
+/* --- MPC8260 PowerPC adapters                                         */
+#define I2C_HW_MPC8260    	0x100002 /* MPC8260 I2C adapter */
 
 /* --- Broadcom SiByte adapters						*/
 #define I2C_HW_SIBYTE		0x150000

@@ -39,7 +39,7 @@
  * The idx field must be equal to the PSC index ( e.g. 0 for PSC1, 1 for PSC2,
  * and so on). So the PSC1 is mapped to /dev/ttyPSC0, PSC2 to /dev/ttyPSC1 and
  * so on. But be warned, it's an ABSOLUTE REQUIREMENT ! This is needed mainly
- * fpr the console code : without this 1:1 mapping, at early boot time, when we
+ * for the console code : without this 1:1 mapping, at early boot time, when we
  * are parsing the kernel args console=ttyPSC?, we wouldn't know which PSC it
  * will be mapped to.
  */
@@ -1001,6 +1001,9 @@ mpc52xx_uart_of_remove(struct of_device *op)
 		irq_dispose_mapping(port->irq);
 	}
 
+	if (port->irq != NO_IRQ)
+		irq_dispose_mapping(port->irq);
+
 	return 0;
 }
 
@@ -1051,7 +1054,7 @@ mpc52xx_uart_of_assign(struct device_node *np, int idx)
 	/* If the slot is already occupied, then swap slots */
 	if (mpc52xx_uart_nodes[idx] && (free_idx != -1))
 		mpc52xx_uart_nodes[free_idx] = mpc52xx_uart_nodes[idx];
-	mpc52xx_uart_nodes[i] = np;
+	mpc52xx_uart_nodes[idx] = np;
 }
 
 static void

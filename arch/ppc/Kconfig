@@ -706,6 +706,11 @@ config TQM8260
 	  End of Life: not yet :-)
 	  URL: <http://www.denx.de/PDF/TQM82xx_SPEC_Rev005.pdf>
 
+config PM82X
+	bool "PM82X"
+	help
+	  This option enables support for the MicroSys PM82x evaluation boards.
+
 config ADS8272
 	bool "ADS8272"
 
@@ -746,6 +751,28 @@ config EV64360
 	help
 	  Select EV64360 if configuring a Marvell EV64360BP Evaluation
 	  platform.
+
+config P3M750
+	bool "Prodrive P3M750"
+	help
+	  Select P3M750 if configuring a Prodrive P3M750 platform
+
+config P3M7448
+	bool "Prodrive P3M7448"
+	help
+	  Select P3M7448 if configuring a Prodrive P3M7448 platform
+
+config TQM834x
+	bool "TQM834x"
+	help
+	  This option enables support for the TQM834x boards from TQ
+	  Components.
+
+config TQM8272
+	bool "TQM8272"
+	help
+	  This option enables support for the TQM8272 boards from TQ.
+
 endchoice
 
 config PQ2ADS
@@ -766,10 +793,15 @@ config EMBEDDEDBOOT
 config PPC_MPC52xx
 	bool
 
+config PPC_BESTCOMM
+	bool
+	depends on PPC_MPC52xx
+	default y
+
 config 8260
 	bool "CPM2 Support" if WILLOW
 	depends on 6xx
-	default y if TQM8260 || RPX8260 || EST8260 || SBS8260 || SBC82xx || PQ2FADS
+	default y if TQM8260 || RPX8260 || EST8260 || SBS8260 || SBC82xx || PQ2FADS || PM82X
 	help
 	  The MPC8260 is a typical embedded CPU made by Motorola.  Selecting
 	  this option means that you wish to build a kernel for a machine with
@@ -778,7 +810,7 @@ config 8260
 config 8272
 	bool
 	depends on 6xx
-	default y if ADS8272
+	default y if ADS8272 || TQM8272
 	select 8260
 	help
 	  The MPC8272 CPM has a different internal dpram setup than other CPM2
@@ -786,11 +818,11 @@ config 8272
 
 config 83xx
 	bool
-	default y if MPC834x_SYS
+	default y if MPC834x_SYS || TQM834x
 
 config MPC834x
 	bool
-	default y if MPC834x_SYS
+	default y if MPC834x_SYS || TQM834x
 
 config PPC_83xx
 	bool
@@ -836,23 +868,23 @@ config GT64260
 
 config MV64360		# Really MV64360 & MV64460
 	bool
-	depends on CHESTNUT || KATANA || RADSTONE_PPC7D || HDPU || EV64360
+	depends on CHESTNUT || KATANA || RADSTONE_PPC7D || HDPU || EV64360 || P3M750 || P3M7448
 	default y
 
 config MV64X60
 	bool
-	depends on (GT64260 || MV64360)
+	depends on (GT64260 || MV64360 || P3M750)
 	select PPC_INDIRECT_PCI
 	default y
 
 config MV643XX_ETH_0
 	bool
-	depends on MV643XX_ETH && (KATANA || RADSTONE_PPC7D || EV64360 || HDPU)
+	depends on MV643XX_ETH && (KATANA || RADSTONE_PPC7D || EV64360 || HDPU || P3M750 || P3M7448)
 	default y
 
 config MV643XX_ETH_1
 	bool
-	depends on MV643XX_ETH && (KATANA || RADSTONE_PPC7D || EV64360)
+	depends on MV643XX_ETH && (KATANA || RADSTONE_PPC7D || EV64360 || P3M7448)
 	default y
 
 config MV643XX_ETH_2
@@ -999,7 +1031,7 @@ config PREP_RESIDUAL
 	  Some PReP systems have residual data passed to the kernel by the
 	  firmware.  This allows detection of memory size, devices present and
 	  other useful pieces of information.  Sometimes this information is
-	  not present or incorrect, in which case it could lead to the machine 
+	  not present or incorrect, in which case it could lead to the machine
 	  behaving incorrectly.  If this happens, either disable PREP_RESIDUAL
 	  or pass the 'noresidual' option to the kernel.
 
@@ -1174,6 +1206,28 @@ config SECCOMP
 
 	  If unsure, say Y. Only embedded should say N here.
 
+choice
+	prompt "Page size"
+	default PPC_PAGE_4K
+	---help---
+	  The PAGE_SIZE definition. Increasing the page size may
+	  improve the system performance in some dedicated cases.
+
+	  If unsure, set it to 4 KB.
+
+config PPC_PAGE_4K
+	bool "4 KB"
+
+config PPC_PAGE_16K
+	bool "16 KB" if 44x
+
+config PPC_PAGE_64K
+	bool "64 KB" if 44x
+
+config PPC_PAGE_256K
+	bool "256 KB" if 44x
+endchoice
+
 endmenu
 
 config ISA_DMA_API
@@ -1245,6 +1299,7 @@ config PCI_SYSCALL
 config MPC83xx_PCI2
 	bool "Support for 2nd PCI host controller"
 	depends on PCI && MPC834x
+	depends on !TQM834x
 	default y if MPC834x_SYS
 
 config PCI_QSPAN
@@ -1291,6 +1346,18 @@ config PCI_PERMEDIA
 source "drivers/pci/Kconfig"
 
 source "drivers/pcmcia/Kconfig"
+
+menu "PCI Express support"
+
+config PCIE_ENDPOINT
+	bool "PCI Express endpoint support"
+	depends on 440SPE
+	default n
+	help
+	  Say Y here if you want PCI Express configured as an endpoint. Else
+	  PCI Express will be configured as a rootpoint.
+
+endmenu
 
 config RAPIDIO
 	bool "RapidIO support" if MPC8540 || MPC8560
