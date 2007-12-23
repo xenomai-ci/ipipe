@@ -89,10 +89,14 @@ extern int __lockfunc generic__raw_read_trylock(raw_rwlock_t *lock);
 # include <linux/spinlock_up.h>
 #endif
 
+#undef TYPE_EQUAL
+#define TYPE_EQUAL(lock, type) \
+	__builtin_types_compatible_p(typeof(lock), type *)
+
 #ifdef CONFIG_DEBUG_SPINLOCK
   extern void __spin_lock_init(spinlock_t *lock, const char *name,
 			       struct lock_class_key *key);
-# define spin_lock_init(lock)					\
+# define _spin_lock_init(lock)				\
 do {								\
 	static struct lock_class_key __key;			\
 								\
@@ -100,9 +104,20 @@ do {								\
 } while (0)
 
 #else
-# define spin_lock_init(lock)					\
+# define _spin_lock_init(lock)				\
 	do { *(lock) = SPIN_LOCK_UNLOCKED; } while (0)
 #endif
+
+# define spin_lock_init(lock)						\
+	do {								\
+		if (TYPE_EQUAL((lock), __ipipe_spinlock_t))		\
+			do {						\
+				IPIPE_DEFINE_SPINLOCK(__lock__);	\
+				*((ipipe_spinlock_t *)lock) = __lock__; \
+			} while(0);					\
+		else							\
+			_spin_lock_init((spinlock_t *)lock);		\
+	} while(0)
 
 #ifdef CONFIG_DEBUG_SPINLOCK
   extern void __rwlock_init(rwlock_t *lock, const char *name,
@@ -171,10 +186,6 @@ do {								\
 #define spin_trylock(lock)		__cond_lock(lock, _spin_trylock(lock))
 #define read_trylock(lock)		__cond_lock(lock, _read_trylock(lock))
 #define write_trylock(lock)		__cond_lock(lock, _write_trylock(lock))
-
-#undef TYPE_EQUAL
-#define TYPE_EQUAL(lock, type) \
-	__builtin_types_compatible_p(typeof(lock), type *)
 
 #define PICK_SPINOP(op, lock)						\
 do {									\

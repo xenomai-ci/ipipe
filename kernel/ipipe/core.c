@@ -65,7 +65,7 @@ EXPORT_SYMBOL(__ipipe_root_status);
  * Work around a GCC 3.x issue making alias symbols unusable as
  * constant initializers.
  */
-unsigned long *const __ipipe_root_status_addr = &__raw_get_cpu_var(ipipe_percpu_darray);
+unsigned long *const __ipipe_root_status_addr = &__raw_get_cpu_var(ipipe_percpu_darray)[0].status;
 EXPORT_SYMBOL(__ipipe_root_status_addr);
 #endif /* __GNUC__ < 4 */
 
@@ -97,36 +97,17 @@ DECLARE_PER_CPU(struct tick_device, tick_cpu_device);
 
 static DEFINE_PER_CPU(struct ipipe_tick_device, ipipe_tick_cpu_device);
 
-static void __ipipe_set_tick_mode(enum clock_event_mode mode,
-				  struct clock_event_device *cdev)
-{
-	struct ipipe_tick_device *itd;
-	itd = &per_cpu(ipipe_tick_cpu_device, smp_processor_id());
-	itd->emul_set_mode(mode, itd);
-}
-
-static int __ipipe_set_next_tick(unsigned long evt,
-				 struct clock_event_device *cdev)
-{
-	uint64_t delta_ns = (uint64_t)cdev->delta;
-	struct ipipe_tick_device *itd;
-
-	if (delta_ns > ULONG_MAX)
-		delta_ns = ULONG_MAX;
-
-	itd = &per_cpu(ipipe_tick_cpu_device, smp_processor_id());
-	return itd->emul_set_tick((unsigned long)delta_ns, itd);
-}
-
 int ipipe_request_tickdev(const char *devname,
 			  void (*emumode)(enum clock_event_mode mode,
-					  struct ipipe_tick_device *tdev),
+					  struct clock_event_device *cdev),
 			  int (*emutick)(unsigned long delta,
-					 struct ipipe_tick_device *tdev),
-			  int cpu)
+					 struct clock_event_device *cdev),
+			  int cpu, unsigned long *tmfreq)
 {
 	struct ipipe_tick_device *itd;
 	struct tick_device *slave;
+	struct clock_event_device *evtdev;
+	unsigned long long freq;
 	unsigned long flags;
 	int status;
 
@@ -165,14 +146,27 @@ int ipipe_request_tickdev(const char *devname,
 	 * to oneshot dynamically (highres/no_hz tick mode).
 	 */
 
+	evtdev = slave->evtdev;
+	status = evtdev->mode;
+
+        if (status == CLOCK_EVT_MODE_SHUTDOWN)
+                goto out;
+
 	itd->slave = slave;
 	itd->emul_set_mode = emumode;
 	itd->emul_set_tick = emutick;
-	itd->real_set_mode = slave->evtdev->set_mode;
-	itd->real_set_tick = slave->evtdev->set_next_event;
-	slave->evtdev->set_mode = __ipipe_set_tick_mode;
-	slave->evtdev->set_next_event = __ipipe_set_next_tick;
-	status = slave->evtdev->mode;
+	itd->real_set_mode = evtdev->set_mode;
+	itd->real_set_tick = evtdev->set_next_event;
+	itd->real_max_delta_ns = evtdev->max_delta_ns;
+	itd->real_mult = evtdev->mult;
+	itd->real_shift = evtdev->shift;
+	freq = (1000000000ULL * evtdev->mult) >> evtdev->shift;
+	*tmfreq = (unsigned long)freq;
+	evtdev->set_mode = emumode;
+	evtdev->set_next_event = emutick;
+	evtdev->max_delta_ns = ULONG_MAX;
+	evtdev->mult = 1;
+	evtdev->shift = 0;
 out:
 	ipipe_critical_exit(flags);
 
@@ -183,6 +177,7 @@ void ipipe_release_tickdev(int cpu)
 {
 	struct ipipe_tick_device *itd;
 	struct tick_device *slave;
+	struct clock_event_device *evtdev;
 	unsigned long flags;
 
 	flags = ipipe_critical_enter(NULL);
@@ -191,8 +186,12 @@ void ipipe_release_tickdev(int cpu)
 
 	if (itd->slave != NULL) {
 		slave = &per_cpu(tick_cpu_device, cpu);
-		slave->evtdev->set_mode = itd->real_set_mode;
-		slave->evtdev->set_next_event = itd->real_set_tick;
+		evtdev = slave->evtdev;
+		evtdev->set_mode = itd->real_set_mode;
+		evtdev->set_next_event = itd->real_set_tick;
+		evtdev->max_delta_ns = itd->real_max_delta_ns;
+		evtdev->mult = itd->real_mult;
+		evtdev->shift = itd->real_shift;
 		itd->slave = NULL;
 	}
 
@@ -1575,7 +1574,7 @@ void ipipe_check_context(struct ipipe_domain *border_ipd)
 	       KERN_ERR "        into a service reserved for domain '%s' and "
 			"below.\n",
 	       ipipe_current_domain->name, border_ipd->name);
-	show_stack(NULL, NULL);
+	dump_stack();
 	ipipe_trace_panic_dump();
 }
 

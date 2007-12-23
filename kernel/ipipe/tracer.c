@@ -1229,7 +1229,7 @@ static int __ipipe_wr_trigger(struct file *file, const char __user *buffer,
 
 	if (count > sizeof(buf) - 1)
 		count = sizeof(buf) - 1;
-	if (copy_from_user(buf, buffer, count) < 0)
+	if (copy_from_user(buf, buffer, count))
 		return -EFAULT;
 	buf[count] = 0;
 	if (buf[count-1] == '\n')
@@ -1244,6 +1244,8 @@ static int __ipipe_wr_trigger(struct file *file, const char __user *buffer,
 	/* invalidate the current range before setting a new one */
 	trigger_end = 0;
 	wmb();
+	ipipe_trace_frozen_reset();
+
 	/* set new range */
 	trigger_begin = begin;
 	wmb();
