@@ -190,7 +190,9 @@ void __ipipe_cleanup_domain(struct ipipe_domain *ipd)
 
 void __ipipe_unstall_root(void)
 {
+#ifndef CONFIG_IPIPE_DEBUG_CONTEXT
 	BUG_ON(!ipipe_root_domain_p);
+#endif
 
         local_irq_disable_hw();
 
@@ -204,7 +206,9 @@ void __ipipe_unstall_root(void)
 
 void __ipipe_restore_root(unsigned long x)
 {
+#ifndef CONFIG_IPIPE_DEBUG_CONTEXT
 	BUG_ON(!ipipe_root_domain_p);
+#endif
 
 	if (x)
 		__ipipe_stall_root();
