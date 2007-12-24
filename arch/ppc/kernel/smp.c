@@ -337,9 +337,6 @@ int __devinit start_secondary(void *unused)
 {
 	int cpu;
 
-#ifdef CONFIG_IPIPE
-	get_paca()->root_percpu = (u64)&ipipe_percpudom(&ipipe_root, status, cpu);
-#endif
 	atomic_inc(&init_mm.mm_count);
 	current->active_mm = &init_mm;
 
