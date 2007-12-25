@@ -154,6 +154,7 @@ int create_image(int platform_mode)
 		return error;
 
 	local_irq_disable();
+ 	local_irq_disable_hw_cond();
 	/* At this point, device_suspend() has been called, but *not*
 	 * device_power_down(). We *must* call device_power_down() now.
 	 * Otherwise, drivers for some devices (e.g. interrupt controllers)
@@ -180,6 +181,7 @@ int create_image(int platform_mode)
 	 */
 	device_power_up();
  Enable_irqs:
+ 	local_irq_enable_hw_cond();
 	local_irq_enable();
 	return error;
 }
