@@ -67,8 +67,12 @@ static inline void switch_mm(struct mm_struct *prev, struct mm_struct *next,
 	asm volatile("movl %0,%%fs"::"r"(0));  \
 } while(0)
 
-#define activate_mm(prev, next) \
-	switch_mm((prev),(next),NULL)
-
+#define activate_mm(prev, next)		   \
+	do {					   \
+		unsigned long flags;		   \
+		local_irq_save_hw_cond(flags);	   \
+		switch_mm((prev),(next),NULL);	   \
+		local_irq_restore_hw_cond(flags);  \
+	} while(0)
 
 #endif

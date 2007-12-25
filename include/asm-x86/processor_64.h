@@ -223,6 +223,7 @@ struct thread_struct {
 	unsigned long	fs;
 	unsigned long	gs;
 	unsigned short	es, ds, fsindex, gsindex;	
+	unsigned long	rip;
 /* Hardware debugging registers */
 	unsigned long	debugreg0;  
 	unsigned long	debugreg1;  

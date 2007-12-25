@@ -238,9 +238,9 @@ static noinline void pgtable_bad(unsigned long address, struct pt_regs *regs,
  *
  * This assumes no large pages in there.
  */
-static int vmalloc_fault(unsigned long address)
+static int vmalloc_sync_one(pgd_t *pgd, unsigned long address)
 {
-	pgd_t *pgd, *pgd_ref;
+	pgd_t *pgd_ref;
 	pud_t *pud, *pud_ref;
 	pmd_t *pmd, *pmd_ref;
 	pte_t *pte, *pte_ref;
@@ -249,7 +249,6 @@ static int vmalloc_fault(unsigned long address)
 	   happen within a race in page table update. In the later
 	   case just flush. */
 
-	pgd = pgd_offset(current->mm ?: &init_mm, address);
 	pgd_ref = pgd_offset_k(address);
 	if (pgd_none(*pgd_ref))
 		return -1;
@@ -285,6 +284,36 @@ static int vmalloc_fault(unsigned long address)
 	return 0;
 }
 
+static int vmalloc_fault(unsigned long address)
+{
+	pgd_t *pgd = pgd_offset(current->mm ?: &init_mm, address);
+	return vmalloc_sync_one(pgd, address);
+}
+
+#ifdef CONFIG_IPIPE
+void __ipipe_pin_range_globally(unsigned long start, unsigned long end)
+{
+	unsigned long next, addr = start;
+	int ret = 0;
+
+	do {
+		struct page *page;
+
+		next = pgd_addr_end(addr, end);
+		spin_lock(&pgd_lock);
+		list_for_each_entry(page, &pgd_list, lru) {
+			pgd_t *pgd;
+			pgd = (pgd_t *)page_address(page) + pgd_index(addr);
+			ret = vmalloc_sync_one(pgd, addr);
+			if (ret)
+				break;
+		}
+		spin_unlock(&pgd_lock);
+		addr = next;
+	} while (!ret && addr != end);
+}
+#endif /* CONFIG_IPIPE */
+
 int show_unhandled_signals = 1;
 
 /*
@@ -315,6 +344,8 @@ asmlinkage void __kprobes do_page_fault(struct pt_regs *regs,
 
 	/* get the address */
 	address = read_cr2();
+
+	local_irq_enable_hw_cond();
 
 	info.si_code = SEGV_MAPERR;
 

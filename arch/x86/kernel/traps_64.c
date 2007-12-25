@@ -423,6 +423,11 @@ void show_registers(struct pt_regs *regs)
 	rsp = regs->rsp;
 	printk("CPU %d ", cpu);
 	__show_regs(regs);
+#ifdef CONFIG_IPIPE
+	if (ipipe_current_domain != ipipe_root_domain)
+		printk("I-pipe domain %s\n",ipipe_current_domain->name);
+	else
+#endif /* CONFIG_IPIPE */
 	printk("Process %s (pid: %d, threadinfo %p, task %p)\n",
 		cur->comm, cur->pid, task_thread_info(cur), cur);
 
@@ -566,6 +571,8 @@ void __kprobes die_nmi(char *str, struct pt_regs *regs, int do_panic)
 	local_irq_enable();
 	do_exit(SIGSEGV);
 }
+
+EXPORT_SYMBOL(die_nmi);
 
 static void __kprobes do_trap(int trapnr, int signr, char *str,
 			      struct pt_regs * regs, long error_code,
@@ -1080,6 +1087,9 @@ asmlinkage void __attribute__((weak)) mce_threshold_interrupt(void)
 asmlinkage void math_state_restore(void)
 {
 	struct task_struct *me = current;
+	unsigned long flags;
+ 
+	local_irq_save_hw_cond(flags);
 	clts();			/* Allow maths ops (or we recurse) */
 
 	if (!used_math())
@@ -1087,6 +1097,7 @@ asmlinkage void math_state_restore(void)
 	restore_fpu_checking(&me->thread.i387.fxsave);
 	task_thread_info(me)->status |= TS_USEDFPU;
 	me->fpu_counter++;
+	local_irq_restore_hw_cond(flags);
 }
 
 void __init trap_init(void)

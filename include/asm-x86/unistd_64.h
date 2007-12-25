@@ -636,6 +636,8 @@ __SYSCALL(__NR_eventfd, sys_eventfd)
 #define __NR_fallocate				285
 __SYSCALL(__NR_fallocate, sys_fallocate)
 
+#define __NR_syscalls		286
+
 #ifndef __NO_STUBS
 #define __ARCH_WANT_OLD_READDIR
 #define __ARCH_WANT_OLD_STAT

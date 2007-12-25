@@ -1,5 +1,5 @@
 /*
- *  linux/arch/x86/mcount.S
+ *  linux/arch/x86/mcount_32.S
  *
  *  Copyright (C) 2005, 2007 Jan Kiszka
  */

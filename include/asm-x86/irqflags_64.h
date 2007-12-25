@@ -16,10 +16,16 @@
  * Interrupt control:
  */
 
+#include <linux/ipipe_base.h>
+#include <linux/ipipe_trace.h>
+
 static inline unsigned long __raw_local_save_flags(void)
 {
 	unsigned long flags;
 
+#ifdef CONFIG_IPIPE
+	flags = (!__ipipe_test_root()) << 9;
+#else
 	__asm__ __volatile__(
 		"# __raw_save_flags\n\t"
 		"pushfq ; popq %q0"
@@ -27,6 +33,7 @@ static inline unsigned long __raw_local_save_flags(void)
 		: /* no input */
 		: "memory"
 	);
+#endif
 
 	return flags;
 }
@@ -36,12 +43,16 @@ static inline unsigned long __raw_local_save_flags(void)
 
 static inline void raw_local_irq_restore(unsigned long flags)
 {
+#ifdef CONFIG_IPIPE
+	__ipipe_restore_root(!(flags & 0x200));
+#else
 	__asm__ __volatile__(
 		"pushq %0 ; popfq"
 		: /* no output */
 		:"g" (flags)
 		:"memory", "cc"
 	);
+#endif
 }
 
 #ifdef CONFIG_X86_VSMP
@@ -73,12 +84,21 @@ static inline int raw_irqs_disabled_flags(unsigned long flags)
 
 static inline void raw_local_irq_disable(void)
 {
+#ifdef CONFIG_IPIPE
+	ipipe_check_context(ipipe_root_domain);
+	__ipipe_stall_root();
+#else
 	__asm__ __volatile__("cli" : : : "memory");
+#endif
 }
 
 static inline void raw_local_irq_enable(void)
 {
+#ifdef CONFIG_IPIPE
+	__ipipe_unstall_root();
+#else
 	__asm__ __volatile__("sti" : : : "memory");
+#endif
 }
 
 static inline int raw_irqs_disabled_flags(unsigned long flags)
@@ -101,8 +121,10 @@ static inline unsigned long __raw_local_irq_save(void)
 	return flags;
 }
 
-#define raw_local_irq_save(flags) \
-		do { (flags) = __raw_local_irq_save(); } while (0)
+#define raw_local_irq_save(flags) do {			\
+		ipipe_check_context(ipipe_root_domain);	\
+		(flags) = __raw_local_irq_save();	\
+	} while (0)
 
 static inline int raw_irqs_disabled(void)
 {
@@ -137,6 +159,12 @@ static inline void trace_hardirqs_fixup(void)
  */
 static inline void raw_safe_halt(void)
 {
+#ifdef CONFIG_IPIPE
+	__ipipe_unstall_root();
+#ifdef CONFIG_IPIPE_TRACE_IRQSOFF
+	ipipe_trace_end(0x8000000E);
+#endif
+#endif
 	__asm__ __volatile__("sti; hlt" : : : "memory");
 }
 
@@ -148,6 +176,89 @@ static inline void halt(void)
 {
 	__asm__ __volatile__("hlt": : :"memory");
 }
+
+static inline unsigned long raw_mangle_irq_bits(int virt, unsigned long real)
+{
+	/* Merge virtual and real interrupt mask bits into a single
+	   64bit word. */
+	return (real & ~(1L << 31)) | ((virt != 0) << 31);
+}
+
+static inline int raw_demangle_irq_bits(unsigned long *x)
+{
+	int virt = (*x & (1L << 31)) != 0;
+	*x &= ~(1L << 31);
+	return virt;
+}
+
+#define local_irq_save_hw_notrace(x) \
+	__asm__ __volatile__("pushfq ; popq %q0 ; cli":"=g" (x): /* no input */ :"memory")
+#define local_irq_restore_hw_notrace(x) \
+	__asm__ __volatile__("pushq %0 ; popfq": /* no output */ :"g" (x):"memory", "cc")
+
+#define local_save_flags_hw(x)	__asm__ __volatile__("pushfq ; popq %q0":"=g" (x): /* no input */)
+
+#ifdef CONFIG_X86_VSMP
+static inline void local_irq_disable_hw_notrace(void)
+{
+	unsigned long flags;
+
+	local_save_flags_hw(flags);
+	local_irq_restore_hw_notrace((flags & ~(1 << 9)) | (1 << 18));
+}
+	
+static inline void local_irq_enable_hw_notrace(void)
+{
+	unsigned long flags;
+
+	local_save_flags_hw(flags);
+	local_irq_restore_hw_notrace((flags | (1 << 9)) & ~(1 << 18));
+}
+#else /* !CONFIG_X86_VSMP */
+#define local_irq_disable_hw_notrace() \
+	__asm__ __volatile__("cli": : :"memory")
+#define local_irq_enable_hw_notrace() \
+	__asm__ __volatile__("sti": : :"memory")
+#endif /* CONFIG_X86_VSMP */
+
+#define irqs_disabled_hw()		\
+    ({					\
+	unsigned long x;		\
+	local_save_flags_hw(x);		\
+	!((x) & (1 << 9));		\
+    })
+
+#ifdef CONFIG_IPIPE_TRACE_IRQSOFF
+#define local_irq_disable_hw() do {			\
+		if (!irqs_disabled_hw()) {		\
+			local_irq_disable_hw_notrace();	\
+			ipipe_trace_begin(0x80000000);	\
+		}					\
+	} while (0)
+#define local_irq_enable_hw() do {			\
+		if (irqs_disabled_hw()) {		\
+			ipipe_trace_end(0x80000000);	\
+			local_irq_enable_hw_notrace();	\
+		}					\
+	} while (0)
+#define local_irq_save_hw(x) do {			\
+		local_save_flags_hw(x);			\
+		if ((x) & (1 << 9)) {			\
+			local_irq_disable_hw_notrace();	\
+			ipipe_trace_begin(0x80000001);	\
+		}					\
+	} while (0)
+#define local_irq_restore_hw(x) do {			\
+		if ((x) & (1 << 9))			\
+			ipipe_trace_end(0x80000001);	\
+		local_irq_restore_hw_notrace(x);	\
+	} while (0)
+#else /* !CONFIG_IPIPE_TRACE_IRQSOFF */
+#define local_irq_save_hw(x)		local_irq_save_hw_notrace(x)
+#define local_irq_restore_hw(x)	local_irq_restore_hw_notrace(x)
+#define local_irq_enable_hw()		local_irq_enable_hw_notrace()
+#define local_irq_disable_hw()	local_irq_disable_hw_notrace()
+#endif /* CONFIG_IPIPE_TRACE_IRQSOFF */
 
 #else /* __ASSEMBLY__: */
 # ifdef CONFIG_TRACE_IRQFLAGS

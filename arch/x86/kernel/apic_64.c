@@ -95,7 +95,7 @@ static void lapic_timer_setup(enum clock_event_mode mode,
 	if (evt->features & CLOCK_EVT_FEAT_DUMMY)
 		return;
 
-	local_irq_save(flags);
+	local_irq_save_hw(flags);
 
 	switch (mode) {
 	case CLOCK_EVT_MODE_PERIODIC:
@@ -114,7 +114,7 @@ static void lapic_timer_setup(enum clock_event_mode mode,
 		break;
 	}
 
-	local_irq_restore(flags);
+	local_irq_restore_hw(flags);
 }
 
 /*
@@ -186,7 +186,7 @@ void ack_bad_irq(unsigned int irq)
 	 * But don't ack when the APIC is disabled. -AK
 	 */
 	if (!disable_apic)
-		ack_APIC_irq();
+		__ack_APIC_irq();
 }
 
 void clear_local_APIC(void)
@@ -294,11 +294,16 @@ void lapic_shutdown(void)
 	if (!cpu_has_apic)
 		return;
 
-	local_irq_save(flags);
+	local_irq_save_hw(flags);
 
 	disable_local_APIC();
 
-	local_irq_restore(flags);
+	local_irq_restore_hw(flags);
+}
+
+int __ipipe_check_lapic(void)
+{
+	return !(lapic_clockevent.features & CLOCK_EVT_FEAT_DUMMY);
 }
 
 /*
@@ -464,7 +469,7 @@ void __cpuinit setup_local_APIC (void)
 		value = apic_read(APIC_ISR + i*0x10);
 		for (j = 31; j >= 0; j--) {
 			if (value & (1<<j))
-				ack_APIC_irq();
+				__ack_APIC_irq();
 		}
 	}
 
@@ -590,9 +595,9 @@ static int lapic_suspend(struct sys_device *dev, pm_message_t state)
 	if (maxlvt >= 5)
 		apic_pm_state.apic_thmr = apic_read(APIC_LVTTHMR);
 #endif
-	local_irq_save(flags);
+	local_irq_save_hw(flags);
 	disable_local_APIC();
-	local_irq_restore(flags);
+	local_irq_restore_hw(flags);
 	return 0;
 }
 
@@ -607,7 +612,7 @@ static int lapic_resume(struct sys_device *dev)
 
 	maxlvt = get_maxlvt();
 
-	local_irq_save(flags);
+	local_irq_save_hw(flags);
 	rdmsr(MSR_IA32_APICBASE, l, h);
 	l &= ~MSR_IA32_APICBASE_BASE;
 	l |= MSR_IA32_APICBASE_ENABLE | mp_lapic_addr;
@@ -634,7 +639,7 @@ static int lapic_resume(struct sys_device *dev)
 	apic_write(APIC_LVTERR, apic_pm_state.apic_lvterr);
 	apic_write(APIC_ESR, 0);
 	apic_read(APIC_ESR);
-	local_irq_restore(flags);
+	local_irq_restore_hw(flags);
 	return 0;
 }
 
@@ -934,6 +939,9 @@ static void __init calibrate_APIC_clock(void)
 
 	printk(KERN_INFO "Detected %d.%03d MHz APIC timer.\n",
 		result / 1000 / 1000, result / 1000 % 1000);
+#ifdef CONFIG_IPIPE
+	__ipipe_apic_timer_freq = result;
+#endif
 
 	/* Calculate the scaled math multiplication factor */
 	lapic_clockevent.mult = div_sc(result, NSEC_PER_SEC, 32);
@@ -962,6 +970,9 @@ void __init setup_boot_APIC_clock (void)
 	}
 
 	printk(KERN_INFO "Using local APIC timer interrupts.\n");
+#ifdef CONFIG_IPIPE
+	__ipipe_tick_irq = ipipe_apic_vector_irq(LOCAL_TIMER_VECTOR);
+#endif
 	calibrate_APIC_clock();
 
 	/*
@@ -1152,7 +1163,7 @@ asmlinkage void smp_spurious_interrupt(void)
 	 */
 	v = apic_read(APIC_ISR + ((SPURIOUS_APIC_VECTOR & ~0x1f) >> 1));
 	if (v & (1 << (SPURIOUS_APIC_VECTOR & 0x1f)))
-		ack_APIC_irq();
+		__ack_APIC_irq();
 
 	add_pda(irq_spurious_count, 1);
 	irq_exit();
