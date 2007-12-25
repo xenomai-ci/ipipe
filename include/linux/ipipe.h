@@ -494,6 +494,18 @@ int ipipe_disable_ondemand_mappings(struct task_struct *tsk);
 			local_irq_disable_hw();		\
 	} while(0)
 
+#define local_irq_save_full(vflags, rflags)		\
+	do {						\
+		local_irq_save(vflags);			\
+		local_irq_save_hw(rflags);		\
+	} while(0)
+
+#define local_irq_restore_full(vflags, rflags)		\
+	do {						\
+		local_irq_restore_hw(rflags);		\
+		local_irq_restore(vflags);		\
+	} while(0)
+
 #define ipipe_root_domain_p		(ipipe_current_domain == ipipe_root_domain)
 
 #else	/* !CONFIG_IPIPE */
