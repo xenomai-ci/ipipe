@@ -1518,7 +1518,7 @@ static int try_to_wake_up(struct task_struct *p, unsigned int state, int sync)
 
 	rq = task_rq_lock(p, &flags);
 	old_state = p->state;
-	if (!(old_state & state))
+	if (!(old_state & state) || (old_state & TASK_NOWAKEUP))
 		goto out;
 
 	if (p->se.on_rq)
@@ -1920,13 +1920,15 @@ asmlinkage void schedule_tail(struct task_struct *prev)
 #endif
 	if (current->set_child_tid)
 		put_user(task_pid_vnr(current), current->set_child_tid);
+
+ 	ipipe_init_notify(current);
 }
 
 /*
  * context_switch - switch to the new MM and the new
  * thread's register state.
  */
-static inline void
+static inline int
 context_switch(struct rq *rq, struct task_struct *prev,
 	       struct task_struct *next)
 {
@@ -1967,12 +1969,17 @@ context_switch(struct rq *rq, struct task_struct *prev,
 	switch_to(prev, next, prev);
 
 	barrier();
+
+	if (task_hijacked(prev))
+		return 1;
 	/*
 	 * this_rq must be evaluated again because prev may have moved
 	 * CPUs since it called schedule(), thus the 'rq' on its stack
 	 * frame will be invalid.
 	 */
 	finish_task_switch(this_rq(), prev);
+
+	return 0;
 }
 
 /*
@@ -3623,6 +3630,8 @@ asmlinkage void __sched schedule(void)
 	struct rq *rq;
 	int cpu;
 
+	ipipe_check_context(ipipe_root_domain);
+
 need_resched:
 	preempt_disable();
 	cpu = smp_processor_id();
@@ -3630,6 +3639,11 @@ need_resched:
 	rcu_qsctr_inc(cpu);
 	prev = rq->curr;
 	switch_count = &prev->nivcsw;
+ 	if (unlikely(prev->state & TASK_ATOMICSWITCH)) {
+ 		prev->state &= ~TASK_ATOMICSWITCH;
+		/* Pop one disable level -- one still remains. */
+		preempt_enable();
+ 	}
 
 	release_kernel_lock(prev);
 need_resched_nonpreemptible:
@@ -3667,7 +3681,8 @@ need_resched_nonpreemptible:
 		rq->curr = next;
 		++*switch_count;
 
-		context_switch(rq, prev, next); /* unlocks the rq */
+		if (context_switch(rq, prev, next)) /* unlocks the rq unless hijacked */
+			return;
 	} else
 		spin_unlock_irq(&rq->lock);
 
@@ -3695,6 +3710,7 @@ asmlinkage void __sched preempt_schedule(void)
 	struct task_struct *task = current;
 	int saved_lock_depth;
 #endif
+	ipipe_check_context(ipipe_root_domain);
 	/*
 	 * If there is a non-zero preempt_count or interrupts are disabled,
 	 * we do not want to preempt the current task. Just return..
@@ -4347,6 +4363,7 @@ recheck:
 
 	oldprio = p->prio;
 	__setscheduler(rq, p, policy, param->sched_priority);
+ 	ipipe_setsched_notify(p);
 
 	if (on_rq) {
 		if (running)
@@ -7402,3 +7419,66 @@ struct cgroup_subsys cpuacct_subsys = {
 	.subsys_id = cpuacct_subsys_id,
 };
 #endif	/* CONFIG_CGROUP_CPUACCT */
+
+#ifdef CONFIG_IPIPE
+
+int ipipe_setscheduler_root (struct task_struct *p, int policy, int prio)
+{
+	int oldprio, on_rq, running;
+	unsigned long flags;
+	struct rq *rq;
+
+	spin_lock_irqsave(&p->pi_lock, flags);
+	rq = __task_rq_lock(p);
+	update_rq_clock(rq);
+	on_rq = p->se.on_rq;
+	running = task_running(rq, p);
+
+	if (on_rq) {
+		deactivate_task(rq, p, 0);
+		if (running)
+			p->sched_class->put_prev_task(rq, p);
+	}
+
+	oldprio = p->prio;
+	__setscheduler(rq, p, policy, prio);
+	ipipe_setsched_notify(p);
+
+	if (on_rq) {
+		if (running)
+			p->sched_class->set_curr_task(rq);
+		activate_task(rq, p, 0);
+
+		if (running) {
+			if (p->prio > oldprio)
+				resched_task(rq->curr);
+		} else {
+			check_preempt_curr(rq, p);
+		}
+	}
+	__task_rq_unlock(rq);
+	spin_unlock_irqrestore(&p->pi_lock, flags);
+
+	rt_mutex_adjust_pi(p);
+
+	return 0;
+}
+
+EXPORT_SYMBOL(ipipe_setscheduler_root);
+
+int ipipe_reenter_root (struct task_struct *prev, int policy, int prio)
+{
+	finish_task_switch(this_rq(), prev);
+
+	(void)reacquire_kernel_lock(current);
+	preempt_enable_no_resched();
+
+	if (current->policy != policy || current->rt_priority != prio)
+		return ipipe_setscheduler_root(current, policy, prio);
+
+	return 0;
+}
+
+EXPORT_SYMBOL(ipipe_reenter_root);
+
+#endif /* CONFIG_IPIPE */
