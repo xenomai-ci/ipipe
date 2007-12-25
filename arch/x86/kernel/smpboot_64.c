@@ -923,7 +923,7 @@ void __init smp_prepare_boot_cpu(void)
 int __cpuinit __cpu_up(unsigned int cpu)
 {
 	int apicid = cpu_present_to_apicid(cpu);
-	unsigned long flags;
+	unsigned long flags, _flags;
 	int err;
 
 	WARN_ON(irqs_disabled());
@@ -964,9 +964,9 @@ int __cpuinit __cpu_up(unsigned int cpu)
 	/*
   	 * Make sure and check TSC sync:
  	 */
-	local_irq_save_hw(flags);
+	local_irq_save_full(flags, _flags);
 	check_tsc_sync_source(cpu);
-	local_irq_restore_hw(flags);
+	local_irq_restore_full(flags, _flags);
 
 	while (!cpu_isset(cpu, cpu_online_map))
 		cpu_relax();
