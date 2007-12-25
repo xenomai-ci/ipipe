@@ -14,19 +14,19 @@
  * option) any later version.
  */
 #include <linux/init.h>
+#include <linux/of_platform.h>
+
 #include <asm/machdep.h>
 #include <asm/prom.h>
 #include <asm/udbg.h>
 #include <asm/time.h>
 #include <asm/uic.h>
-#include <asm/of_platform.h>
 #include "44x.h"
 
 static struct of_device_id sequoia_of_bus[] = {
 	{ .compatible = "ibm,plb4", },
 	{ .compatible = "ibm,opb", },
 	{ .compatible = "ibm,ebc", },
-	{ .compatible = "ibm,usb-ehci-440epx", },
 	{},
 };
 
@@ -51,28 +51,9 @@ static int __init sequoia_probe(void)
 	return 1;
 }
 
-static void __init sequoia_setup_arch(void)
-{
-#ifdef CONFIG_PCI
-	struct device_node *np;
-#endif
-
-	if (ppc_md.progress)
-		ppc_md.progress("ppc44x_setup_arch()", 0);
-
-#ifdef CONFIG_PCI
-	for (np = NULL; (np = of_find_compatible_node(np,
-					"pci", "ibm,pci-405gp")) != NULL;)
-		ppc4xx_add_bridge(np);
-	ppc_md.pci_exclude_device = ppc4xx_exclude_device;
-#endif
-
-}
-
 define_machine(sequoia) {
 	.name 				= "Sequoia",
 	.probe 				= sequoia_probe,
-	.setup_arch			= sequoia_setup_arch,
 	.progress 			= udbg_progress,
 	.init_IRQ 			= uic_init_tree,
 	.get_irq 			= uic_get_irq,

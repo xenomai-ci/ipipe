@@ -39,7 +39,6 @@
 			timebase-frequency = <0>;	// from bootloader
 			bus-frequency = <0>;		// from bootloader
 			clock-frequency = <0>;		// from bootloader
-			32-bit;
 		};
 	};
 
@@ -52,7 +51,6 @@
 		model = "fsl,mpc5200b";
 		compatible = "mpc5200";
 		revision = "";			// from bootloader
-		#interrupt-cells = <3>;
 		device_type = "soc";
 		ranges = <0 f0000000 f0010000>;
 		reg = <f0000000 00010000>;
@@ -71,17 +69,15 @@
 			device_type = "interrupt-controller";
 			compatible = "mpc5200b-pic\0mpc5200-pic";
 			reg = <500 80>;
-			built-in;
 		};
 
 		gpt@600 {	// General Purpose Timer
-			compatible = "mpc5200b-gpt\0mpc5200-gpt";
-			device_type = "gpt";
+			compatible = "fsl,mpc5200b-gpt\0fsl,mpc5200-gpt";
 			cell-index = <0>;
 			reg = <600 10>;
 			interrupts = <1 9 0>;
 			interrupt-parent = <&mpc5200_pic>;
-			has-wdt;
+			fsl,has-wdt;
 		};
 
 		gpt@610 {	// General Purpose Timer
@@ -244,9 +240,25 @@
 		ethernet@3000 {
 			device_type = "network";
 			compatible = "mpc5200b-fec\0mpc5200-fec";
-			reg = <3000 800>;
+			reg = <3000 400>;
 			interrupts = <2 5 0>;
 			interrupt-parent = <&mpc5200_pic>;
+			phy-handle = <&phy0>;
+		};
+
+		mdio@3000 {
+			#address-cells = <1>;
+			#size-cells = <0>;
+			device_type = "mdio";
+			compatible = "mpc5200b-fec-phy";
+			reg = <3000 400>;	// fec range, since we need to setup fec interrupts
+			interrupts = <2 5 0>;	// these are for "mii command finished", not link changes & co.
+			interrupt-parent = <&mpc5200_pic>;
+
+			phy0:ethernet-phy@0 {
+				device_type = "ethernet-phy";
+				reg = <0>;
+			};
 		};
 
 		i2c@3d40 {

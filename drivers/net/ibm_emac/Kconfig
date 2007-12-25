@@ -1,3 +1,10 @@
+config IBM_EMAC
+	tristate "PowerPC 4xx on-chip Ethernet support"
+	depends on 4xx && !PPC_MERGE
+	help
+	  This driver supports the PowerPC 4xx EMAC family of on-chip
+          Ethernet controllers.
+
 config IBM_EMAC_RXB
 	int "Number of receive buffers"
 	depends on IBM_EMAC

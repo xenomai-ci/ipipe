@@ -16,35 +16,12 @@
 
 #undef DEBUG
 
-#include <linux/stddef.h>
-#include <linux/kernel.h>
-#include <linux/init.h>
-#include <linux/errno.h>
-#include <linux/reboot.h>
-#include <linux/pci.h>
-#include <linux/kdev_t.h>
-#include <linux/major.h>
-#include <linux/console.h>
-#include <linux/delay.h>
-#include <linux/seq_file.h>
-#include <linux/root_dev.h>
-#include <linux/initrd.h>
+#include <linux/of.h>
 #include <linux/wd.h>
 #include <linux/wd_hw.h>
-
-#include <asm/system.h>
-#include <asm/atomic.h>
 #include <asm/time.h>
-#include <asm/io.h>
 #include <asm/machdep.h>
-#include <asm/ipic.h>
-#include <asm/bootinfo.h>
-#include <asm/irq.h>
 #include <asm/prom.h>
-#include <asm/udbg.h>
-#include <sysdev/fsl_soc.h>
-#include <asm/of_platform.h>
-
 #include <asm/mpc52xx.h>
 
 /* ************************************************************************
@@ -54,9 +31,6 @@
  */
 static void __init cm5200_setup_cpu(void)
 {
-	struct mpc52xx_gpio __iomem *gpio;
-	u32 port_config;
-
 #if defined(CONFIG_WD) && defined(CONFIG_WD_MPC5200)
 	/* Init watchdog functions structure */
 	wd_hw_functions.wd_init = wd_mpc5200_init;
@@ -64,84 +38,18 @@ static void __init cm5200_setup_cpu(void)
 	wd_hw_functions.wd_delete = wd_mpc5200_delete;
 	wd_hw_functions.wd_machine_restart = wd_mpc5200_machine_restart;
 #endif /* CONFIG_WD && CONFIG_WD_MPC5200 */
-
-	/* Map zones */
-	gpio = mpc52xx_find_and_map("mpc5200-gpio");
-	if (!gpio) {
-		printk(KERN_ERR __FILE__ ": "
-			"Error while mapping GPIO register for port config. "
-			"Expect some abnormal behavior\n");
-		goto error;
-	}
-
-	/* Set port config */
-	port_config = in_be32(&gpio->port_config);
-
-	port_config &= ~0x00800000;	/* 48Mhz internal, pin is GPIO	*/
-
-	port_config &= ~0x00007000;	/* USB port : Differential mode	*/
-	port_config |=  0x00001000;	/*            USB 1 only	*/
-
-	pr_debug("port_config: old:%x new:%x\n",
-			in_be32(&gpio->port_config), port_config);
-
-	out_be32(&gpio->port_config, port_config);
-
-	/* Unmap zone */
-error:
-	iounmap(gpio);
 }
 
 static void __init cm5200_setup_arch(void)
 {
-	struct device_node *np;
+	/* Platorm specific */
+	cm5200_setup_cpu();
 
-	np = of_find_node_by_type(NULL, "cpu");
-	if (np) {
-		unsigned int *fp =
-		    (int *)get_property(np, "clock-frequency", NULL);
-		if (fp != 0)
-			loops_per_jiffy = *fp / HZ;
-		else
-			loops_per_jiffy = 50000000 / HZ;
-		of_node_put(np);
-	}
+	/* Some mpc5200 & mpc5200b related configuration */
+	mpc5200_setup_xlb_arbiter();
 
-	/* CPU & Port mux setup */
-	mpc52xx_setup_cpu();	/* Generic */
-	cm5200_setup_cpu();	/* Platorm specific */
-
-#ifdef CONFIG_BLK_DEV_INITRD
-	if (initrd_start)
-		/*
-		 * We want the proper initrd behavior, i.e., launching of
-		 * /linuxrc from the initial root file system, and not only
-		 * mounting it as the normal root file system.
-		 */
-		ROOT_DEV = 0x0;
-	else
-#endif
-
-#ifdef  CONFIG_ROOT_NFS
-		ROOT_DEV = Root_NFS;
-#else
-		ROOT_DEV = Root_HDA1;
-#endif
-
-}
-
-void cm5200_show_cpuinfo(struct seq_file *m)
-{
-	struct device_node* np = of_find_all_nodes(NULL);
-	const char *model = NULL;
-
-	if (np)
-		model = get_property(np, "model", NULL);
-
-	seq_printf(m, "vendor\t\t:	Freescale Semiconductor\n");
-	seq_printf(m, "machine\t\t:	%s\n", model ? model : "unknown");
-
-	of_node_put(np);
+	/* Map wdt for mpc52xx_restart() */
+	mpc52xx_map_wdt();
 }
 
 /*
@@ -166,9 +74,6 @@ define_machine(cm5200) {
 	.init		= mpc52xx_declare_of_platform_devices,
 	.init_IRQ	= mpc52xx_init_irq,
 	.get_irq	= mpc52xx_get_irq,
-	.show_cpuinfo	= cm5200_show_cpuinfo,
 	.calibrate_decr	= generic_calibrate_decr,
 	.restart	= mpc52xx_restart,
-	.halt		= mpc52xx_halt,
-	.power_off	= mpc52xx_power_off,
 };
