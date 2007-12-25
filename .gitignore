@@ -7,16 +7,17 @@
 #
 .*
 *.o
-*.o.*
 *.a
 *.s
 *.ko
 *.so
-*.so.dbg
 *.mod.c
 *.i
 *.lst
 *.symtypes
+*~
+*.orig
+*.rej
 
 #
 # Top-level generic files
@@ -24,10 +25,8 @@
 tags
 TAGS
 vmlinux*
-!vmlinux.lds.S
 System.map
 Module.symvers
-!.gitignore
 
 #
 # Generated include files
@@ -49,6 +48,3 @@ series
 
 # cscope files
 cscope.*
-
-*.orig
-*.rej
