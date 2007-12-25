@@ -47,6 +47,10 @@ static unsigned int nmi_hz = HZ;
 
 static DEFINE_PER_CPU(short, wd_enabled);
 
+static int default_nmi_watchdog_tick(struct pt_regs * regs, unsigned reason);
+int (*nmi_watchdog_tick) (struct pt_regs * regs, unsigned reason) = &default_nmi_watchdog_tick;
+EXPORT_SYMBOL(nmi_watchdog_tick);
+
 /* local prototypes */
 static int unknown_nmi_panic_callback(struct pt_regs *regs, int cpu);
 
@@ -321,9 +325,7 @@ void touch_nmi_watchdog(void)
 }
 EXPORT_SYMBOL(touch_nmi_watchdog);
 
-extern void die_nmi(struct pt_regs *, const char *msg);
-
-__kprobes int nmi_watchdog_tick(struct pt_regs * regs, unsigned reason)
+static __kprobes int default_nmi_watchdog_tick (struct pt_regs * regs, unsigned reason)
 {
 
 	/*

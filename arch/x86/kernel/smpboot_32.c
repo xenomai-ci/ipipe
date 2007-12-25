@@ -1323,6 +1323,11 @@ void __init smp_intr_init(void)
 
 	/* IPI for generic function call */
 	set_intr_gate(CALL_FUNCTION_VECTOR, call_function_interrupt);
+
+#ifdef CONFIG_IPIPE
+	/* IPI for critical lock */
+	set_intr_gate(IPIPE_CRITICAL_VECTOR, ipipe_ipiX);
+#endif
 }
 
 /*

@@ -195,6 +195,7 @@ void cpu_idle(void)
 				play_dead();
 
 			__get_cpu_var(irq_stat).idle_timestamp = jiffies;
+ 			ipipe_suspend_domain();
 			idle();
 		}
 		tick_nohz_restart_sched_tick();

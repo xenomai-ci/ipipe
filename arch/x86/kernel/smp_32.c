@@ -142,6 +142,9 @@ void __send_IPI_shortcut(unsigned int shortcut, int vector)
 	 * to the APIC.
 	 */
 	unsigned int cfg;
+	unsigned long flags;
+
+	local_irq_save_hw_cond(flags);
 
 	/*
 	 * Wait for idle.
@@ -157,6 +160,8 @@ void __send_IPI_shortcut(unsigned int shortcut, int vector)
 	 * Send the IPI. The write to APIC_ICR fires this off.
 	 */
 	apic_write_around(APIC_ICR, cfg);
+
+	local_irq_restore_hw_cond(flags);
 }
 
 void fastcall send_IPI_self(int vector)
@@ -205,10 +210,10 @@ void send_IPI_mask_bitmask(cpumask_t cpumask, int vector)
 	unsigned long mask = cpus_addr(cpumask)[0];
 	unsigned long flags;
 
-	local_irq_save(flags);
+	local_irq_save_hw(flags);
 	WARN_ON(mask & ~cpus_addr(cpu_online_map)[0]);
 	__send_IPI_dest_field(mask, vector);
-	local_irq_restore(flags);
+	local_irq_restore_hw(flags);
 }
 
 void send_IPI_mask_sequence(cpumask_t mask, int vector)
@@ -222,14 +227,14 @@ void send_IPI_mask_sequence(cpumask_t mask, int vector)
 	 * should be modified to do 1 message per cluster ID - mbligh
 	 */ 
 
-	local_irq_save(flags);
+	local_irq_save_hw(flags);
 	for (query_cpu = 0; query_cpu < NR_CPUS; ++query_cpu) {
 		if (cpu_isset(query_cpu, mask)) {
 			__send_IPI_dest_field(cpu_to_logical_apicid(query_cpu),
 					      vector);
 		}
 	}
-	local_irq_restore(flags);
+	local_irq_restore_hw(flags);
 }
 
 #include <mach_ipi.h> /* must come after the send_IPI functions above for inlining */
@@ -312,7 +317,9 @@ void leave_mm(unsigned long cpu)
 
 fastcall void smp_invalidate_interrupt(struct pt_regs *regs)
 {
-	unsigned long cpu;
+	unsigned long cpu, flags;
+
+  	local_irq_save_hw_cond(flags);
 
 	cpu = get_cpu();
 
@@ -342,6 +349,7 @@ fastcall void smp_invalidate_interrupt(struct pt_regs *regs)
 	smp_mb__after_clear_bit();
 out:
 	put_cpu_no_resched();
+   	local_irq_restore_hw_cond(flags);
 	__get_cpu_var(irq_stat).irq_tlb_count++;
 }
 
@@ -396,14 +404,17 @@ void flush_tlb_current_task(void)
 {
 	struct mm_struct *mm = current->mm;
 	cpumask_t cpu_mask;
+ 	unsigned long flags;
 
 	preempt_disable();
+	local_irq_save_hw_cond(flags);
 	cpu_mask = mm->cpu_vm_mask;
 	cpu_clear(smp_processor_id(), cpu_mask);
 
 	local_flush_tlb();
 	if (!cpus_empty(cpu_mask))
 		flush_tlb_others(cpu_mask, mm, TLB_FLUSH_ALL);
+ 	local_irq_restore_hw_cond(flags);
 	preempt_enable();
 }
 
@@ -431,8 +442,11 @@ void flush_tlb_page(struct vm_area_struct * vma, unsigned long va)
 {
 	struct mm_struct *mm = vma->vm_mm;
 	cpumask_t cpu_mask;
+	unsigned long flags;
 
 	preempt_disable();
+	local_irq_save_hw_cond(flags);
+
 	cpu_mask = mm->cpu_vm_mask;
 	cpu_clear(smp_processor_id(), cpu_mask);
 
@@ -442,6 +456,8 @@ void flush_tlb_page(struct vm_area_struct * vma, unsigned long va)
 		 else
 		 	leave_mm(smp_processor_id());
 	}
+
+	local_irq_restore_hw_cond(flags);
 
 	if (!cpus_empty(cpu_mask))
 		flush_tlb_others(cpu_mask, mm, va);
@@ -604,7 +620,7 @@ native_smp_call_function_mask(cpumask_t mask,
 
 static void stop_this_cpu (void * dummy)
 {
-	local_irq_disable();
+	local_irq_disable_hw();
 	/*
 	 * Remove this CPU:
 	 */

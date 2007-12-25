@@ -302,6 +302,9 @@ void show_registers(struct pt_regs *regs)
 	printk(KERN_EMERG "Process %.*s (pid: %d, ti=%p task=%p task.ti=%p)",
 		TASK_COMM_LEN, current->comm, task_pid_nr(current),
 		current_thread_info(), current, task_thread_info(current));
+#ifdef CONFIG_IPIPE
+	printk(KERN_EMERG "\nI-pipe domain %s", ipipe_current_domain->name);
+#endif /* CONFIG_IPIPE */
 	/*
 	 * When in-kernel, we also print out the stack and code at the
 	 * time of the fault..
@@ -722,6 +725,8 @@ void __kprobes die_nmi(struct pt_regs *regs, const char *msg)
 	do_exit(SIGSEGV);
 }
 
+EXPORT_SYMBOL(die_nmi);
+
 static __kprobes void default_do_nmi(struct pt_regs * regs)
 {
 	unsigned char reason = 0;
@@ -764,17 +769,21 @@ static int ignore_nmis;
 
 fastcall __kprobes void do_nmi(struct pt_regs * regs, long error_code)
 {
-	int cpu;
+	int cpu, cs;
 
 	nmi_enter();
 
 	cpu = smp_processor_id();
 
+	cs = ipipe_disable_context_check(cpu);
+ 
 	++nmi_count(cpu);
 
 	if (!ignore_nmis)
 		default_do_nmi(regs);
 
+ 	ipipe_restore_context_check(cpu, cs);
+ 
 	nmi_exit();
 }
 
@@ -1072,13 +1081,16 @@ asmlinkage void math_state_restore(void)
 {
 	struct thread_info *thread = current_thread_info();
 	struct task_struct *tsk = thread->task;
-
+ 	unsigned long flags;
+  
+ 	local_irq_save_hw_cond(flags);
 	clts();		/* Allow maths ops (or we recurse) */
 	if (!tsk_used_math(tsk))
 		init_fpu(tsk);
 	restore_fpu(tsk);
 	thread->status |= TS_USEDFPU;	/* So we fnsave on switch_to() */
 	tsk->fpu_counter++;
+ 	local_irq_restore_hw_cond(flags);
 }
 EXPORT_SYMBOL_GPL(math_state_restore);
 

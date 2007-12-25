@@ -311,6 +311,8 @@ fastcall void __kprobes do_page_fault(struct pt_regs *regs,
 	/* get the address */
         address = read_cr2();
 
+	local_irq_enable_hw_cond();
+
 	tsk = current;
 
 	si_code = SEGV_MAPERR;
@@ -657,3 +659,22 @@ void vmalloc_sync_all(void)
 			start = address + PGDIR_SIZE;
 	}
 }
+
+#ifdef CONFIG_IPIPE
+void __ipipe_pin_range_globally(unsigned long start, unsigned long end)
+{
+	unsigned long next, addr = start;
+
+	do {
+		unsigned long flags;
+		struct page *page;
+
+		next = pgd_addr_end(addr, end);
+		spin_lock_irqsave(&pgd_lock, flags);
+		for (page = pgd_list; page; page = (struct page *)page->index)
+			vmalloc_sync_one(page_address(page), addr);
+		spin_unlock_irqrestore(&pgd_lock, flags);
+
+	} while (addr = next, addr != end);
+}
+#endif /* CONFIG_IPIPE */
