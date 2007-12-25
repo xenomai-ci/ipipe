@@ -275,6 +275,7 @@ int swsusp_resume(void)
 	int error;
 
 	local_irq_disable();
+	local_irq_disable_hw_cond();
 	/* NOTE:  device_power_down() is just a suspend() with irqs off;
 	 * it has no special "power things down" semantics
 	 */
@@ -301,6 +302,7 @@ int swsusp_resume(void)
 	restore_processor_state();
 	touch_softlockup_watchdog();
 	device_power_up();
+	local_irq_enable_hw_cond();
 	local_irq_enable();
 	return error;
 }
