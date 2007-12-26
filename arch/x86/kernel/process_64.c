@@ -116,14 +116,13 @@ static void default_idle(void)
 	 * test NEED_RESCHED:
 	 */
 	smp_mb();
-	local_irq_disable();
 	local_irq_disable_hw();
 	if (!need_resched()) {
 		/* Enables interrupts one instruction before HLT.
 		   x86 special cases this so there is no race. */
 		safe_halt();
 	} else
-		local_irq_enable();
+		local_irq_enable_hw();
 	current_thread_info()->status |= TS_POLLING;
 }
 
