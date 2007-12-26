@@ -389,17 +389,15 @@ static void post_set(void) __releases(set_atomicity_lock)
 
 static void generic_set_all(void)
 {
-	unsigned long mask, count;
-	unsigned long flags, _flags;
+	unsigned long mask, count, flags;
 
-	local_irq_save_full(flags, _flags);
+	local_irq_save_hw(flags);
 	prepare_set();
 
 	/* Actually set the state */
 	mask = set_mtrr_state();
 
 	post_set();
-	local_irq_restore_full(flags, _flags);
 
 	/*  Use the atomic bitops to update the global mask  */
 	for (count = 0; count < sizeof mask * 8; ++count) {
@@ -407,7 +405,7 @@ static void generic_set_all(void)
 			set_bit(count, &smp_changes_mask);
 		mask >>= 1;
 	}
-	
+	local_irq_restore_hw(flags);
 }
 
 static void generic_set_mtrr(unsigned int reg, unsigned long base,

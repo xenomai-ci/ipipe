@@ -175,6 +175,7 @@ static void cyrix_set_arr(unsigned int reg, unsigned long base,
 			  unsigned long size, mtrr_type type)
 {
 	unsigned char arr, arr_type, arr_size;
+	unsigned long flags;
 
 	arr = CX86_ARR_BASE + (reg << 1) + reg;	/* avoid multiplication by 3 */
 
@@ -217,6 +218,8 @@ static void cyrix_set_arr(unsigned int reg, unsigned long base,
 		}
 	}
 
+	local_irq_save_hw(flags);
+
 	prepare_set();
 
 	base <<= PAGE_SHIFT;
@@ -226,6 +229,8 @@ static void cyrix_set_arr(unsigned int reg, unsigned long base,
 	setCx86(CX86_RCR_BASE + reg, arr_type);
 
 	post_set();
+
+	local_irq_restore_hw(flags);
 }
 
 typedef struct {
@@ -243,8 +248,10 @@ static unsigned char ccr_state[7] = { 0, 0, 0, 0, 0, 0, 0 };
 
 static void cyrix_set_all(void)
 {
+	unsigned long flags;
 	int i;
 
+	local_irq_save_hw(flags);
 	prepare_set();
 
 	/* the CCRs are not contiguous */
@@ -257,6 +264,7 @@ static void cyrix_set_all(void)
 			      arr_state[i].size, arr_state[i].type);
 
 	post_set();
+	local_irq_restore_hw(flags);
 }
 
 #if 0
