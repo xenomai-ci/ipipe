@@ -113,6 +113,7 @@ void default_idle(void)
 		smp_mb();
 
 		local_irq_disable();
+		local_irq_disable_hw();
 		if (!need_resched())
 			safe_halt();	/* enables interrupts racelessly */
 		else

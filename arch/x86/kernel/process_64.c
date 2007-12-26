@@ -117,6 +117,7 @@ static void default_idle(void)
 	 */
 	smp_mb();
 	local_irq_disable();
+	local_irq_disable_hw();
 	if (!need_resched()) {
 		/* Enables interrupts one instruction before HLT.
 		   x86 special cases this so there is no race. */
