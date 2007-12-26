@@ -266,21 +266,21 @@ static void mwait_idle(void)
 
 void __devinit select_idle_routine(const struct cpuinfo_x86 *c)
 {
+#ifdef CONFIG_IPIPE
+#define default_to_mwait force_mwait
+#else
+#define default_to_mwait 1
+#endif
 	if (cpu_has(c, X86_FEATURE_MWAIT)) {
 		printk("monitor/mwait feature present.\n");
-#ifdef CONFIG_IPIPE
-		printk("monitor/mwait not selected as default idle code due\n");
-		printk("to high latencies incurred -- force with idle=mwait.\n");
-#else
 		/*
 		 * Skip, if setup has overridden idle.
 		 * One CPU supports mwait => All CPUs supports mwait
 		 */
-		if (!pm_idle) {
+		if (!pm_idle && default_to_mwait) {
 			printk("using mwait in idle threads.\n");
 			pm_idle = mwait_idle;
 		}
-#endif
 	}
 }
 
