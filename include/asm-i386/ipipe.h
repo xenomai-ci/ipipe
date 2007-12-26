@@ -107,6 +107,20 @@ void __ipipe_do_critical_sync(unsigned irq, void *cookie);
 
 extern int __ipipe_tick_irq;
 
+#ifdef CONFIG_X86_LOCAL_APIC
+#define ipipe_update_tick_evtdev(evtdev)				\
+	do {								\
+		if (strcmp((evtdev)->name, "lapic") == 0)		\
+			__ipipe_tick_irq =				\
+				ipipe_apic_vector_irq(LOCAL_TIMER_VECTOR); \
+		else							\
+			__ipipe_tick_irq = TIMER_IRQ;			\
+	} while (0)
+#else
+#define ipipe_update_tick_evtdev(evtdev)				\
+	__ipipe_tick_irq = TIMER_IRQ
+#endif
+
 DECLARE_PER_CPU(struct pt_regs, __ipipe_tick_regs);
 
 #define __ipipe_call_root_xirq_handler(ipd,irq) \
@@ -205,7 +219,8 @@ int __ipipe_check_tickdev(const char *devname);
 
 #else /* !CONFIG_IPIPE */
 
-#define task_hijacked(p)	0
+#define ipipe_update_tick_evtdev(evtdev)	do { } while (0)
+#define task_hijacked(p)			0
 
 #endif /* CONFIG_IPIPE */
 

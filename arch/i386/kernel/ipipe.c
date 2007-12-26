@@ -50,9 +50,7 @@
 
 extern struct clock_event_device *global_clock_event;
 
-extern struct clock_event_device pit_clockevent;
-
-int __ipipe_tick_irq;
+int __ipipe_tick_irq = TIMER_IRQ;
 
 DEFINE_PER_CPU(struct pt_regs, __ipipe_tick_regs);
 
@@ -219,13 +217,6 @@ void __init __ipipe_enable_pipeline(void)
 			     &__ipipe_ack_apic,
 			     IPIPE_STDROOT_MASK);
 #endif /* CONFIG_X86_MCE_P4THERMAL */
-
-	__ipipe_tick_irq = global_clock_event == &pit_clockevent ? 0
-		: ipipe_apic_vector_irq(LOCAL_TIMER_VECTOR);
-
-#else	/* !CONFIG_X86_LOCAL_APIC */
-
-	__ipipe_tick_irq = 0;
 
 #endif	/* CONFIG_X86_LOCAL_APIC */
 
