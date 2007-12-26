@@ -4,6 +4,7 @@
 #include <linux/slab.h>
 #include <linux/mm.h>
 #include <linux/module.h>
+#include <linux/ipipe.h>
 #include <asm/io.h>
 #include <asm/mtrr.h>
 #include <asm/msr.h>
