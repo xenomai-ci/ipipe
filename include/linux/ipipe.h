@@ -534,6 +534,9 @@ int ipipe_disable_ondemand_mappings(struct task_struct *tsk);
 
 #define local_irq_disable_head()	local_irq_disable()
 
+#define local_irq_save_full(vflags, rflags)	do { (void)(vflags); local_irq_save(rflags); } while(0)
+#define local_irq_restore_full(vflags, rflags)	do { (void)(vflags); local_irq_restore(rflags); } while(0)
+
 #endif	/* CONFIG_IPIPE */
 
 #ifdef CONFIG_IPIPE_DEBUG_CONTEXT
