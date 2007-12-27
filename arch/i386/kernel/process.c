@@ -62,6 +62,8 @@ asmlinkage void ret_from_fork(void) __asm__("ret_from_fork");
 
 static int hlt_counter;
 
+static int force_mwait;
+
 unsigned long boot_option_idle_override = 0;
 EXPORT_SYMBOL(boot_option_idle_override);
 
@@ -108,11 +110,11 @@ void default_idle(void)
 		 */
 		smp_mb();
 
-		local_irq_disable();
+		local_irq_disable_hw();
 		if (!need_resched())
 			safe_halt();	/* enables interrupts racelessly */
 		else
-			local_irq_enable();
+			local_irq_enable_hw();
 		current_thread_info()->status |= TS_POLLING;
 	} else {
 		/* loop is done by the caller */
@@ -257,13 +259,18 @@ static void mwait_idle(void)
 
 void __devinit select_idle_routine(const struct cpuinfo_x86 *c)
 {
+#ifdef CONFIG_IPIPE
+#define default_to_mwait force_mwait
+#else
+#define default_to_mwait 1
+#endif
 	if (cpu_has(c, X86_FEATURE_MWAIT)) {
 		printk("monitor/mwait feature present.\n");
 		/*
 		 * Skip, if setup has overridden idle.
 		 * One CPU supports mwait => All CPUs supports mwait
 		 */
-		if (!pm_idle) {
+		if (!pm_idle && default_to_mwait) {
 			printk("using mwait in idle threads.\n");
 			pm_idle = mwait_idle;
 		}
@@ -282,7 +289,8 @@ static int __init idle_setup (char *str)
 	} else if (!strncmp(str, "halt", 4)) {
 		printk("using halt in idle threads.\n");
 		pm_idle = default_idle;
-	}
+	} else if (!strncmp(str, "mwait", 5))
+		  force_mwait = 1;
 
 	boot_option_idle_override = 1;
 	return 1;
