@@ -147,7 +147,6 @@ static void ipi_handler(void *info)
 */
 {
 	struct set_mtrr_data *data = info;
-	unsigned long flags;
 
 	atomic_dec(&data->count);
 	while(!atomic_read(&data->gate))
@@ -219,7 +218,6 @@ static void set_mtrr(unsigned int reg, unsigned long base,
 		     unsigned long size, mtrr_type type)
 {
 	struct set_mtrr_data data;
-	unsigned long flags;
 
 	data.smp_reg = reg;
 	data.smp_base = base;
@@ -707,8 +705,6 @@ void __init mtrr_bp_init(void)
 
 void mtrr_ap_init(void)
 {
-	unsigned long flags;
-
 	if (!mtrr_if || !use_intel())
 		return;
 	/*
