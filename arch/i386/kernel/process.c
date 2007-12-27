@@ -108,11 +108,11 @@ void default_idle(void)
 		 */
 		smp_mb();
 
-		local_irq_disable();
+		local_irq_disable_hw();
 		if (!need_resched())
 			safe_halt();	/* enables interrupts racelessly */
 		else
-			local_irq_enable();
+			local_irq_enable_hw();
 		current_thread_info()->status |= TS_POLLING;
 	} else {
 		/* loop is done by the caller */
