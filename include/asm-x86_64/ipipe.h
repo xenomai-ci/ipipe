@@ -124,11 +124,13 @@ DECLARE_PER_CPU(struct pt_regs, __ipipe_tick_regs);
 unsigned __ipipe_get_irq_vector(int irq);
 
 asmlinkage void __ipipe_root_xirq_thunk(unsigned irq,
-					void (*handler)(unsigned irq, void *cookie));
+					void (*handler)(unsigned irq, void *cookie),
+					struct pt_regs *regs);
 
 asmlinkage void __ipipe_root_virq_thunk(unsigned irq,
 					void *cookie,
 					void (*handler)(unsigned irq, void *cookie));
+
 static inline unsigned long __ipipe_ffnz(unsigned long ul)
 {
       __asm__("bsrq %1, %0":"=r"(ul)
@@ -151,17 +153,14 @@ void __ipipe_end_edge_irq(unsigned irq, struct irq_desc *desc);
 	do {								\
 		local_irq_enable_nohead(ipd);				\
 		if (ipd == ipipe_root_domain) {				\
-			if (likely(!ipipe_virtual_irq_p(irq))) {	\
-				struct pt_regs *old_regs;		\
-				old_regs = set_irq_regs(&__raw_get_cpu_var(__ipipe_tick_regs)); \
-				__ipipe_root_xirq_thunk(~__ipipe_get_irq_vector(irq), (ipd)->irqs[irq].handler); \
-				set_irq_regs(old_regs);			\
-			} else {					\
-				irq_enter();				\
-				__ipipe_root_virq_thunk(		\
-					irq, (ipd)->irqs[irq].cookie, (ipd)->irqs[irq].handler); \
-				irq_exit();				\
-			}						\
+			if (likely(!ipipe_virtual_irq_p(irq)))		\
+				__ipipe_root_xirq_thunk(~__ipipe_get_irq_vector(irq),	\
+							(ipd)->irqs[irq].handler,	\
+							&__raw_get_cpu_var(__ipipe_tick_regs)); \
+			else						\
+				__ipipe_root_virq_thunk(irq, \
+							(ipd)->irqs[irq].cookie, \
+							(ipd)->irqs[irq].handler); \
 		} else {						\
 			__clear_bit(IPIPE_SYNC_FLAG, &ipipe_cpudom_var(ipd, status)); \
 			ipd->irqs[irq].handler(irq, ipd->irqs[irq].cookie); \
