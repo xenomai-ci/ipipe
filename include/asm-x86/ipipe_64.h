@@ -179,4 +179,6 @@ int __ipipe_check_tickdev(const char *devname);
 
 #endif /* CONFIG_IPIPE */
 
+#define ipipe_update_tick_evtdev(evtdev)	do { } while (0)
+
 #endif	/* !__X86_IPIPE_64_H */
