@@ -46,7 +46,7 @@
 
 asmlinkage void preempt_schedule_irq(void);
 
-int __ipipe_tick_irq;		/* =0: 8254 */
+int __ipipe_tick_irq;
 unsigned long __ipipe_apic_timer_freq;
 
 DEFINE_PER_CPU(struct pt_regs, __ipipe_tick_regs);
