@@ -134,7 +134,7 @@ static inline void __ipipe_call_root_xirq_handler(unsigned irq,
 			     "pushl %%cs\n\t"
 			     "pushl $__xirq_end\n\t"
 			     "pushl %%eax\n\t"
-			     "pushl %%fs\n\t"
+			     "pushl %%gs\n\t"
 			     "pushl %%es\n\t"
 			     "pushl %%ds\n\t"
 			     "pushl %%eax\n\t"
@@ -152,19 +152,17 @@ static inline void __ipipe_call_root_xirq_handler(unsigned irq,
 			     : "a" (~irq), "rm" (handler), "rm" (regs));
 }
 
-void irq_enter(void);
 void irq_exit(void);
 
 static inline void __ipipe_call_root_virq_handler(unsigned irq,
 						  __ipipe_irq_handler *handler,
 						  void *cookie)
 {
-	irq_enter();
 	__asm__ __volatile__("pushfl\n\t"
 			     "pushl %%cs\n\t"
 			     "pushl $__virq_end\n\t"
 			     "pushl $-1\n\t"
-			     "pushl %%fs\n\t"
+			     "pushl %%gs\n\t"
 			     "pushl %%es\n\t"
 			     "pushl %%ds\n\t"
 			     "pushl %%eax\n\t"
@@ -198,8 +196,10 @@ do {									\
 	if (ipd == ipipe_root_domain) {					\
 		if (likely(!ipipe_virtual_irq_p(irq)))			\
 			__ipipe_call_root_xirq_handler(irq, ipd->irqs[irq].handler); \
-		else							\
+		else {							\
+			irq_enter();					\
 			__ipipe_call_root_virq_handler(irq, ipd->irqs[irq].handler, ipd->irqs[irq].cookie); \
+		}							\
 	} else {							\
 		__clear_bit(IPIPE_SYNC_FLAG, &ipipe_cpudom_var(ipd, status)); \
 		ipd->irqs[irq].handler(irq, ipd->irqs[irq].cookie);	\
