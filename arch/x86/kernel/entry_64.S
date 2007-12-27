@@ -584,7 +584,7 @@ END(stub_rt_sigreturn)
 
 #ifdef CONFIG_IPIPE
 
-	/* %rdi=negated _vector_ number, %rsi=handler */
+	/* %rdi=negated _vector_ number, %rsi=handler, %rdx=regs */
 ENTRY(__ipipe_root_xirq_thunk)
 	movq %rsp, %rax
 	pushq $0
@@ -595,7 +595,8 @@ ENTRY(__ipipe_root_xirq_thunk)
 	pushq %rdi
 	XCPT_FRAME
 	SAVE_ARGS
-	leaq -ARGOFFSET(%rsp),%rdi      # regs for handler
+	movq %rdi, ORIG_RAX(%rdx)	# regs->orig_eax = ~irq_vector
+	movq %rdx, %rdi		     	# regs for handler
 	call *%rsi
 	jmp exit_intr
 	CFI_ENDPROC
@@ -615,7 +616,12 @@ ENTRY(__ipipe_root_virq_thunk)
 	pushq $-1
 	XCPT_FRAME
 	SAVE_ARGS
+	call irq_enter
+	movq RDI-ARGOFFSET(%rsp), %rdi
+	movq RSI-ARGOFFSET(%rsp), %rsi
+	movq RDX-ARGOFFSET(%rsp), %rdx
 	call *%rdx
+	call irq_exit
 	jmp exit_intr
 	CFI_ENDPROC
 1:
