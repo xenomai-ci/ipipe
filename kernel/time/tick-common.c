@@ -163,6 +163,10 @@ static void tick_setup_device(struct tick_device *td,
 
 	td->evtdev = newdev;
 
+	/* I-pipe: derive global tick IRQ from CPU 0 */
+	if (cpu == 0)
+		ipipe_update_tick_evtdev(newdev);
+
 	/*
 	 * When the device is not per cpu, pin the interrupt to the
 	 * current cpu:
