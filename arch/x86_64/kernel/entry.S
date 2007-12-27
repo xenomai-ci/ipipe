@@ -567,10 +567,12 @@ END(stub_rt_sigreturn)
 
 	popq %rbp
 	pushq %rbp
+	pushq %rax
 	movq 8-ARGOFFSET+ORIG_RAX(%rbp), %rdi
 	leaq 8-ARGOFFSET+RIP-8(%rbp), %rbp
 	notq %rdi
 	call ipipe_trace_end
+	popq %rax
 	popq %rbp
 	pushq %rbp
 #else
