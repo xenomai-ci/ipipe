@@ -121,63 +121,80 @@ extern int __ipipe_tick_irq;
 	__ipipe_tick_irq = TIMER_IRQ
 #endif
 
-DECLARE_PER_CPU(struct pt_regs, __ipipe_tick_regs);
-
-#define __ipipe_call_root_xirq_handler(ipd,irq) \
-   __asm__ __volatile__ ("pushfl\n\t" \
-                         "pushl %%cs\n\t" \
-                         "pushl $1f\n\t" \
-	                 "pushl %%eax\n\t" \
-                         "pushl %%fs\n\t" \
-	                 "pushl %%es\n\t" \
-	                 "pushl %%ds\n\t" \
-	                 "pushl %%eax\n\t" \
-	                 "pushl %%ebp\n\t" \
-	                 "pushl %%edi\n\t" \
-	                 "pushl %%esi\n\t" \
-	                 "pushl %%edx\n\t" \
-	                 "pushl %%ecx\n\t" \
-	                 "pushl %%ebx\n\t" \
-                         "movl  %%esp,%%eax\n\t" \
-                         "call *%1\n\t" \
-	                 "jmp ret_from_intr\n\t" \
-	                 "1: cli\n" \
-			 : /* no output */ \
-			 : "a" (~irq), "m" ((ipd)->irqs[irq].handler))
-
-#define __ipipe_call_root_virq_handler(ipd,irq) \
-   __asm__ __volatile__ ("pushfl\n\t" \
-                         "pushl %%cs\n\t" \
-                         "pushl $__virq_end\n\t" \
-	                 "pushl $-1\n\t" \
-                         "pushl %%fs\n\t" \
-	                 "pushl %%es\n\t" \
-	                 "pushl %%ds\n\t" \
-	                 "pushl %%eax\n\t" \
-	                 "pushl %%ebp\n\t" \
-	                 "pushl %%edi\n\t" \
-	                 "pushl %%esi\n\t" \
-	                 "pushl %%edx\n\t" \
-	                 "pushl %%ecx\n\t" \
-	                 "pushl %%ebx\n\t" \
-			 "pushl %2\n\t" \
-                         "pushl %%eax\n\t" \
-                         "call *%1\n\t" \
-			 "addl $8,%%esp\n\t" \
-			 : /* no output */ \
-			 : "a" (irq), "m" ((ipd)->irqs[irq].handler), "r" ((ipd)->irqs[irq].cookie))
-
-#define __ipipe_finalize_root_virq_handler() \
-   __asm__ __volatile__ ("jmp ret_from_intr\n\t" \
-	                 "__virq_end: cli\n" \
-			 : /* no output */ \
-			 : /* no input */)
-
 static inline unsigned long __ipipe_ffnz(unsigned long ul)
 {
       __asm__("bsrl %1, %0":"=r"(ul)
       :	"r"(ul));
 	return ul;
+}
+
+DECLARE_PER_CPU(struct pt_regs, __ipipe_tick_regs);
+
+typedef void (__ipipe_irq_handler)(unsigned irq,
+				   void *cookie);
+
+static inline void __ipipe_call_root_xirq_handler(unsigned irq,
+						  __ipipe_irq_handler *handler)
+{
+	struct pt_regs *regs = &__raw_get_cpu_var(__ipipe_tick_regs);
+
+	regs->orig_eax = ~irq;
+
+	__asm__ __volatile__("pushfl\n\t"
+			     "pushl %%cs\n\t"
+			     "pushl $__xirq_end\n\t"
+			     "pushl %%eax\n\t"
+			     "pushl %%fs\n\t"
+			     "pushl %%es\n\t"
+			     "pushl %%ds\n\t"
+			     "pushl %%eax\n\t"
+			     "pushl %%ebp\n\t"
+			     "pushl %%edi\n\t"
+			     "pushl %%esi\n\t"
+			     "pushl %%edx\n\t"
+			     "pushl %%ecx\n\t"
+			     "pushl %%ebx\n\t"
+			     "movl  %2,%%eax\n\t"
+			     "call *%1\n\t"
+			     "jmp ret_from_intr\n\t"
+			     "__xirq_end: cli\n"
+			     : /* no output */
+			     : "a" (~irq), "rm" (handler), "rm" (regs));
+}
+
+void irq_enter(void);
+void irq_exit(void);
+
+static inline void __ipipe_call_root_virq_handler(unsigned irq,
+						  __ipipe_irq_handler *handler,
+						  void *cookie)
+{
+	irq_enter();
+	__asm__ __volatile__("pushfl\n\t"
+			     "pushl %%cs\n\t"
+			     "pushl $__virq_end\n\t"
+			     "pushl $-1\n\t"
+			     "pushl %%fs\n\t"
+			     "pushl %%es\n\t"
+			     "pushl %%ds\n\t"
+			     "pushl %%eax\n\t"
+			     "pushl %%ebp\n\t"
+			     "pushl %%edi\n\t"
+			     "pushl %%esi\n\t"
+			     "pushl %%edx\n\t"
+			     "pushl %%ecx\n\t"
+			     "pushl %%ebx\n\t"
+			     "pushl %2\n\t"
+			     "pushl %%eax\n\t"
+			     "call *%1\n\t"
+			     "addl $8,%%esp\n"
+			     : /* no output */
+			     : "a" (irq), "rm" (handler), "d" (cookie));
+	irq_exit();
+	__asm__ __volatile__("jmp ret_from_intr\n\t"
+			     "__virq_end: cli\n"
+			     : /* no output */
+			     : /* no input */);
 }
 
 /*
@@ -186,27 +203,20 @@ static inline unsigned long __ipipe_ffnz(unsigned long ul)
  * deferred for the latter.
  */
 #define __ipipe_run_isr(ipd, irq)					\
-	do {								\
-		local_irq_enable_nohead(ipd);				\
-		if (ipd == ipipe_root_domain) {				\
-			if (likely(!ipipe_virtual_irq_p(irq))) {	\
-				struct pt_regs *old_regs;		\
-				old_regs = set_irq_regs(&__raw_get_cpu_var(__ipipe_tick_regs)); \
-				__ipipe_call_root_xirq_handler(ipd,irq); \
-				set_irq_regs(old_regs);			\
-			} else {					\
-				irq_enter();				\
-				__ipipe_call_root_virq_handler(ipd,irq); \
-				irq_exit();				\
-				__ipipe_finalize_root_virq_handler();	\
-			}						\
-		} else {						\
-			__clear_bit(IPIPE_SYNC_FLAG, &ipipe_cpudom_var(ipd, status)); \
-			ipd->irqs[irq].handler(irq, ipd->irqs[irq].cookie); \
-			__set_bit(IPIPE_SYNC_FLAG, &ipipe_cpudom_var(ipd, status)); \
-		}							\
-		local_irq_disable_nohead(ipd);				\
-	} while(0)
+do {									\
+	local_irq_enable_nohead(ipd);					\
+	if (ipd == ipipe_root_domain) {					\
+		if (likely(!ipipe_virtual_irq_p(irq)))			\
+			__ipipe_call_root_xirq_handler(irq, ipd->irqs[irq].handler); \
+		else							\
+			__ipipe_call_root_virq_handler(irq, ipd->irqs[irq].handler, ipd->irqs[irq].cookie); \
+	} else {							\
+		__clear_bit(IPIPE_SYNC_FLAG, &ipipe_cpudom_var(ipd, status)); \
+		ipd->irqs[irq].handler(irq, ipd->irqs[irq].cookie);	\
+		__set_bit(IPIPE_SYNC_FLAG, &ipipe_cpudom_var(ipd, status)); \
+	}								\
+	local_irq_disable_nohead(ipd);					\
+} while(0)
 
 #endif /* __ASSEMBLY__ */
 
