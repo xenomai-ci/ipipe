@@ -139,11 +139,8 @@ static inline int raw_irqs_disabled(void)
  */
 static inline void raw_safe_halt(void)
 {
-#ifdef CONFIG_IPIPE
-	__ipipe_unstall_root();
 #ifdef CONFIG_IPIPE_TRACE_IRQSOFF
 	ipipe_trace_end(0x8000000E);
-#endif
 #endif
 	__asm__ __volatile__("sti; hlt" : : : "memory");
 }
