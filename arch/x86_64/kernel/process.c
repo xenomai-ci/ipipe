@@ -274,13 +274,18 @@ static void mwait_idle(void)
 
 void __cpuinit select_idle_routine(const struct cpuinfo_x86 *c)
 {
+#ifdef CONFIG_IPIPE
+#define default_to_mwait force_mwait
+#else
+#define default_to_mwait 1
+#endif
 	static int printed;
 	if (cpu_has(c, X86_FEATURE_MWAIT)) {
 		/*
 		 * Skip, if setup has overridden idle.
 		 * One CPU supports mwait => All CPUs supports mwait
 		 */
-		if (!pm_idle) {
+		if (!pm_idle && default_to_mwait) {
 			if (!printed) {
 				printk(KERN_INFO "using mwait in idle threads.\n");
 				printed = 1;
