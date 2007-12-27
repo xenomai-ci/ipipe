@@ -1,6 +1,6 @@
 #if defined(CONFIG_IPIPE) && !defined(IPIPE_ARCH_STRING)
-#define IPIPE_ARCH_STRING	"x86_32/64 merge"
-#define IPIPE_MAJOR_NUMBER	0
+#define IPIPE_ARCH_STRING	"2.0-00"
+#define IPIPE_MAJOR_NUMBER	2
 #define IPIPE_MINOR_NUMBER	0
 #define IPIPE_PATCH_NUMBER	0
 #endif
