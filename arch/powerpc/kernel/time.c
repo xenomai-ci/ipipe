@@ -685,11 +685,7 @@ void timer_interrupt(struct pt_regs * regs)
 		 * is the case.
 		 */
 		if (!cpu_is_offline(cpu))
-#ifdef CONFIG_IPIPE
-			account_process_time(&per_cpu(__ipipe_tick_regs, cpu));
-#else
 			account_process_time(regs);
-#endif
 
 		/*
 		 * No need to check whether cpu is offline here; boot_cpuid
