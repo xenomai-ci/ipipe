@@ -150,11 +150,7 @@ void timer_interrupt(struct pt_regs * regs)
 		jiffy_stamp += tb_ticks_per_jiffy;
 		
 		profile_tick(CPU_PROFILING);
-#ifdef CONFIG_IPIPE
-		update_process_times(user_mode(&per_cpu(__ipipe_tick_regs, cpu)));
-#else
 		update_process_times(user_mode(regs));
-#endif
 
 	  	if (smp_processor_id())
 			continue;
