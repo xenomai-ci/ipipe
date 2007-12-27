@@ -107,6 +107,8 @@ void __ipipe_do_critical_sync(unsigned irq, void *cookie);
 
 extern int __ipipe_tick_irq;
 
+DECLARE_PER_CPU(struct pt_regs, __ipipe_tick_regs);
+
 #ifdef CONFIG_X86_LOCAL_APIC
 extern unsigned long __ipipe_apic_timer_freq;
 #endif

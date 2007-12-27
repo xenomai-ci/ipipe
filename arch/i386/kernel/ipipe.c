@@ -49,6 +49,8 @@
 
 int __ipipe_tick_irq;
 
+DEFINE_PER_CPU(struct pt_regs, __ipipe_tick_regs);
+
 #ifdef CONFIG_SMP
 
 static cpumask_t __ipipe_cpu_sync_map;
@@ -774,8 +776,12 @@ finalize:
 	 * that other interrupt handlers don't actually care for such
 	 * information. */
 
-	if (irq == __ipipe_tick_irq)
-		set_irq_regs(&regs);
+	if (irq == __ipipe_tick_irq) {
+		__raw_get_cpu_var(__ipipe_tick_regs).eflags = regs.eflags;
+		__raw_get_cpu_var(__ipipe_tick_regs).eip = regs.eip;
+		__raw_get_cpu_var(__ipipe_tick_regs).xcs = regs.xcs;
+		__raw_get_cpu_var(__ipipe_tick_regs).ebp = regs.ebp;
+	}
 
 	/*
 	 * Now walk the pipeline, yielding control to the highest
