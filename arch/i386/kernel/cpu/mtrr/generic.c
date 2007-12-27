@@ -380,12 +380,12 @@ static void generic_set_mtrr(unsigned int reg, unsigned long base,
     [RETURNS] Nothing.
 */
 {
-	unsigned long flags;
+	unsigned long flags, _flags;
 	struct mtrr_var_range *vr;
 
 	vr = &mtrr_state.var_ranges[reg];
 
-	local_irq_save(flags);
+	local_irq_save_full(flags, _flags);
 	prepare_set();
 
 	if (size == 0) {
@@ -404,7 +404,7 @@ static void generic_set_mtrr(unsigned int reg, unsigned long base,
 	}
 
 	post_set();
-	local_irq_restore(flags);
+	local_irq_restore_full(flags, _flags);
 }
 
 int generic_validate_add_page(unsigned long base, unsigned long size, unsigned int type)
