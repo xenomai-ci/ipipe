@@ -149,6 +149,8 @@ static void ipi_handler(void *info)
 	struct set_mtrr_data *data = info;
 	unsigned long flags;
 
+	local_irq_save(flags);
+
 	atomic_dec(&data->count);
 	while(!atomic_read(&data->gate))
 		cpu_relax();
@@ -165,6 +167,7 @@ static void ipi_handler(void *info)
 		cpu_relax();
 
 	atomic_dec(&data->count);
+	local_irq_restore(flags);
 }
 
 #endif
@@ -234,6 +237,8 @@ static void set_mtrr(unsigned int reg, unsigned long base,
 	if (smp_call_function(ipi_handler, &data, 1, 0) != 0)
 		panic("mtrr: timed out waiting for other CPUs\n");
 
+	local_irq_save(flags);
+
 	while(atomic_read(&data.count))
 		cpu_relax();
 
@@ -267,6 +272,8 @@ static void set_mtrr(unsigned int reg, unsigned long base,
 	 */
 	while(atomic_read(&data.count))
 		cpu_relax();
+
+	local_irq_restore(flags);
 }
 
 /**
@@ -719,8 +726,11 @@ void mtrr_ap_init(void)
 	 * 2.cpu hotadd time. We let mtrr_add/del_page hold cpuhotplug lock to
 	 * prevent mtrr entry changes
 	 */
+	local_irq_save(flags);
 
 	mtrr_if->set_all();
+
+	local_irq_restore(flags);
 }
 
 /**
