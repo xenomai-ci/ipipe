@@ -180,7 +180,7 @@ static inline void remove_metapage(struct page *page, struct metapage *mp)
 
 #endif
 
-static void init_once(void *foo, struct kmem_cache *cachep, unsigned long flags)
+static void init_once(struct kmem_cache *cachep, void *foo)
 {
 	struct metapage *mp = (struct metapage *)foo;
 
@@ -291,8 +291,6 @@ static void metapage_read_end_io(struct bio *bio, int err)
 
 	dec_io(page, last_read_complete);
 	bio_put(bio);
-
-	return 0;
 }
 
 static void remove_from_logsync(struct metapage *mp)
@@ -349,7 +347,6 @@ static void metapage_write_end_io(struct bio *bio, int err)
 	}
 	dec_io(page, last_write_complete);
 	bio_put(bio);
-	return 0;
 }
 
 static int metapage_writepage(struct page *page, struct writeback_control *wbc)

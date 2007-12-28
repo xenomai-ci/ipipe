@@ -3,6 +3,11 @@
  *
  * Driver for PowerPC 4xx on-chip ethernet controller.
  *
+ * Copyright 2007 Benjamin Herrenschmidt, IBM Corp.
+ *                <benh@kernel.crashing.org>
+ *
+ * Based on the arch/ppc version of the driver:
+ *
  * Copyright (c) 2004, 2005 Zultys Technologies.
  * Eugene Surovegin <eugene.surovegin@zultys.com> or <ebs@ebshome.net>
  *
@@ -349,7 +354,7 @@ static void emac_hash_mc(struct emac_instance *dev)
 
 static inline u32 emac_iff2rmr(struct net_device *ndev)
 {
-	struct emac_instance *dev = ndev->priv;
+	struct emac_instance *dev = netdev_priv(ndev);
 	u32 r;
 
 	r = EMAC_RMR_SP | EMAC_RMR_SFCS | EMAC_RMR_IAE | EMAC_RMR_BAE;
@@ -402,7 +407,7 @@ static u32 __emac_calc_base_mr1(struct emac_instance *dev, int tx_size, int rx_s
 static u32 __emac4_calc_base_mr1(struct emac_instance *dev, int tx_size, int rx_size)
 {
 	u32 ret = EMAC_MR1_VLE | EMAC_MR1_IST | EMAC4_MR1_TR |
-		EMAC4_MR1_OBCI(dev->opb_bus_freq);
+		EMAC4_MR1_OBCI(dev->opb_bus_freq / 1000000);
 
 	DBG2(dev, "__emac4_calc_base_mr1" NL);
 
@@ -464,26 +469,34 @@ static int emac_configure(struct emac_instance *dev)
 {
 	struct emac_regs __iomem *p = dev->emacp;
 	struct net_device *ndev = dev->ndev;
-	int tx_size, rx_size;
+	int tx_size, rx_size, link = netif_carrier_ok(dev->ndev);
 	u32 r, mr1 = 0;
 
 	DBG(dev, "configure" NL);
 
-	if (emac_reset(dev) < 0)
+	if (!link) {
+		out_be32(&p->mr1, in_be32(&p->mr1)
+			 | EMAC_MR1_FDE | EMAC_MR1_ILE);
+		udelay(100);
+	} else if (emac_reset(dev) < 0)
 		return -ETIMEDOUT;
 
 	if (emac_has_feature(dev, EMAC_FTR_HAS_TAH))
 		tah_reset(dev->tah_dev);
 
-	DBG(dev, " duplex = %d, pause = %d, asym_pause = %d\n",
-	    dev->phy.duplex, dev->phy.pause, dev->phy.asym_pause);
+	DBG(dev, " link = %d duplex = %d, pause = %d, asym_pause = %d\n",
+	    link, dev->phy.duplex, dev->phy.pause, dev->phy.asym_pause);
 
 	/* Default fifo sizes */
 	tx_size = dev->tx_fifo_size;
 	rx_size = dev->rx_fifo_size;
 
+	/* No link, force loopback */
+	if (!link)
+		mr1 = EMAC_MR1_FDE | EMAC_MR1_ILE;
+
 	/* Check for full duplex */
-	if (dev->phy.duplex == DUPLEX_FULL)
+	else if (dev->phy.duplex == DUPLEX_FULL)
 		mr1 |= EMAC_MR1_FDE | EMAC_MR1_MWSW_001;
 
 	/* Adjust fifo sizes, mr1 and timeouts based on link speed */
@@ -642,15 +655,17 @@ static void emac_reset_work(struct work_struct *work)
 	DBG(dev, "reset_work" NL);
 
 	mutex_lock(&dev->link_lock);
-	emac_netif_stop(dev);
-	emac_full_tx_reset(dev);
-	emac_netif_start(dev);
+	if (dev->opened) {
+		emac_netif_stop(dev);
+		emac_full_tx_reset(dev);
+		emac_netif_start(dev);
+	}
 	mutex_unlock(&dev->link_lock);
 }
 
 static void emac_tx_timeout(struct net_device *ndev)
 {
-	struct emac_instance *dev = ndev->priv;
+	struct emac_instance *dev = netdev_priv(ndev);
 
 	DBG(dev, "tx_timeout" NL);
 
@@ -701,7 +716,7 @@ static int __emac_mdio_read(struct emac_instance *dev, u8 id, u8 reg)
 		r = EMAC_STACR_BASE(dev->opb_bus_freq);
 	if (emac_has_feature(dev, EMAC_FTR_STACR_OC_INVERT))
 		r |= EMAC_STACR_OC;
-	if (emac_has_feature(dev, EMAC_FTR_HAS_AXON_STACR))
+	if (emac_has_feature(dev, EMAC_FTR_HAS_NEW_STACR))
 		r |= EMACX_STACR_STAC_READ;
 	else
 		r |= EMAC_STACR_STAC_READ;
@@ -773,7 +788,7 @@ static void __emac_mdio_write(struct emac_instance *dev, u8 id, u8 reg,
 		r = EMAC_STACR_BASE(dev->opb_bus_freq);
 	if (emac_has_feature(dev, EMAC_FTR_STACR_OC_INVERT))
 		r |= EMAC_STACR_OC;
-	if (emac_has_feature(dev, EMAC_FTR_HAS_AXON_STACR))
+	if (emac_has_feature(dev, EMAC_FTR_HAS_NEW_STACR))
 		r |= EMACX_STACR_STAC_WRITE;
 	else
 		r |= EMAC_STACR_STAC_WRITE;
@@ -802,7 +817,7 @@ static void __emac_mdio_write(struct emac_instance *dev, u8 id, u8 reg,
 
 static int emac_mdio_read(struct net_device *ndev, int id, int reg)
 {
-	struct emac_instance *dev = ndev->priv;
+	struct emac_instance *dev = netdev_priv(ndev);
 	int res;
 
 	res = __emac_mdio_read(dev->mdio_instance ? dev->mdio_instance : dev,
@@ -812,7 +827,7 @@ static int emac_mdio_read(struct net_device *ndev, int id, int reg)
 
 static void emac_mdio_write(struct net_device *ndev, int id, int reg, int val)
 {
-	struct emac_instance *dev = ndev->priv;
+	struct emac_instance *dev = netdev_priv(ndev);
 
 	__emac_mdio_write(dev->mdio_instance ? dev->mdio_instance : dev,
 			  (u8) id, (u8) reg, (u16) val);
@@ -854,7 +869,7 @@ static void __emac_set_multicast_list(struct emac_instance *dev)
 /* Tx lock BH */
 static void emac_set_multicast_list(struct net_device *ndev)
 {
-	struct emac_instance *dev = ndev->priv;
+	struct emac_instance *dev = netdev_priv(ndev);
 
 	DBG(dev, "multicast" NL);
 
@@ -944,7 +959,7 @@ static int emac_resize_rx_ring(struct emac_instance *dev, int new_mtu)
 /* Process ctx, rtnl_lock semaphore */
 static int emac_change_mtu(struct net_device *ndev, int new_mtu)
 {
-	struct emac_instance *dev = ndev->priv;
+	struct emac_instance *dev = netdev_priv(ndev);
 	int ret = 0;
 
 	if (new_mtu < EMAC_MIN_MTU || new_mtu > dev->max_mtu)
@@ -1037,7 +1052,7 @@ static void emac_print_link_status(struct emac_instance *dev)
 /* Process ctx, rtnl_lock semaphore */
 static int emac_open(struct net_device *ndev)
 {
-	struct emac_instance *dev = ndev->priv;
+	struct emac_instance *dev = netdev_priv(ndev);
 	int err, i;
 
 	DBG(dev, "open" NL);
@@ -1063,10 +1078,9 @@ static int emac_open(struct net_device *ndev)
 	dev->rx_sg_skb = NULL;
 
 	mutex_lock(&dev->link_lock);
+	dev->opened = 1;
 
-	/* XXX Start PHY polling now. Shouldn't wr do like sungem instead and
-	 * always poll the PHY even when the iface is down ? That would allow
-	 * things like laptop-net to work. --BenH
+	/* Start PHY polling now.
 	 */
 	if (dev->phy.address >= 0) {
 		int link_poll_interval;
@@ -1145,8 +1159,10 @@ static void emac_link_timer(struct work_struct *work)
 	int link_poll_interval;
 
 	mutex_lock(&dev->link_lock);
-
 	DBG2(dev, "link timer" NL);
+
+	if (!dev->opened)
+		goto bail;
 
 	if (dev->phy.def->ops->poll_link(&dev->phy)) {
 		if (!netif_carrier_ok(dev->ndev)) {
@@ -1162,21 +1178,22 @@ static void emac_link_timer(struct work_struct *work)
 		link_poll_interval = PHY_POLL_LINK_ON;
 	} else {
 		if (netif_carrier_ok(dev->ndev)) {
-			emac_reinitialize(dev);
 			netif_carrier_off(dev->ndev);
 			netif_tx_disable(dev->ndev);
+			emac_reinitialize(dev);
 			emac_print_link_status(dev);
 		}
 		link_poll_interval = PHY_POLL_LINK_OFF;
 	}
 	schedule_delayed_work(&dev->link_work, link_poll_interval);
-
+ bail:
 	mutex_unlock(&dev->link_lock);
 }
 
 static void emac_force_link_update(struct emac_instance *dev)
 {
 	netif_carrier_off(dev->ndev);
+	smp_rmb();
 	if (dev->link_polling) {
 		cancel_rearming_delayed_work(&dev->link_work);
 		if (dev->link_polling)
@@ -1187,15 +1204,18 @@ static void emac_force_link_update(struct emac_instance *dev)
 /* Process ctx, rtnl_lock semaphore */
 static int emac_close(struct net_device *ndev)
 {
-	struct emac_instance *dev = ndev->priv;
+	struct emac_instance *dev = netdev_priv(ndev);
 
 	DBG(dev, "close" NL);
 
-	if (dev->phy.address >= 0)
+	if (dev->phy.address >= 0) {
+		dev->link_polling = 0;
 		cancel_rearming_delayed_work(&dev->link_work);
-
+	}
+	mutex_lock(&dev->link_lock);
 	emac_netif_stop(dev);
-	flush_scheduled_work();
+	dev->opened = 0;
+	mutex_unlock(&dev->link_lock);
 
 	emac_rx_disable(dev);
 	emac_tx_disable(dev);
@@ -1232,9 +1252,9 @@ static inline int emac_xmit_finish(struct emac_instance *dev, int len)
 	 * instead
 	 */
 	if (emac_has_feature(dev, EMAC_FTR_EMAC4))
-		out_be32(&p->tmr0, EMAC_TMR0_XMIT);
-	else
 		out_be32(&p->tmr0, EMAC4_TMR0_XMIT);
+	else
+		out_be32(&p->tmr0, EMAC_TMR0_XMIT);
 
 	if (unlikely(++dev->tx_cnt == NUM_TX_BUFF)) {
 		netif_stop_queue(ndev);
@@ -1251,7 +1271,7 @@ static inline int emac_xmit_finish(struct emac_instance *dev, int len)
 /* Tx lock BH */
 static int emac_start_xmit(struct sk_buff *skb, struct net_device *ndev)
 {
-	struct emac_instance *dev = ndev->priv;
+	struct emac_instance *dev = netdev_priv(ndev);
 	unsigned int len = skb->len;
 	int slot;
 
@@ -1310,7 +1330,7 @@ static inline int emac_xmit_split(struct emac_instance *dev, int slot,
 /* Tx lock BH disabled (SG version for TAH equipped EMACs) */
 static int emac_start_xmit_sg(struct sk_buff *skb, struct net_device *ndev)
 {
-	struct emac_instance *dev = ndev->priv;
+	struct emac_instance *dev = netdev_priv(ndev);
 	int nr_frags = skb_shinfo(skb)->nr_frags;
 	int len = skb->len, chunk;
 	int slot, i;
@@ -1534,7 +1554,7 @@ static inline int emac_rx_sg_append(struct emac_instance *dev, int slot)
 			dev_kfree_skb(dev->rx_sg_skb);
 			dev->rx_sg_skb = NULL;
 		} else {
-			cacheable_memcpy(dev->rx_sg_skb->tail,
+			cacheable_memcpy(skb_tail_pointer(dev->rx_sg_skb),
 					 dev->rx_skb[slot]->data, len);
 			skb_put(dev->rx_sg_skb, len);
 			emac_recycle_rx_skb(dev, slot, len);
@@ -1762,7 +1782,7 @@ static irqreturn_t emac_irq(int irq, void *dev_instance)
 
 static struct net_device_stats *emac_stats(struct net_device *ndev)
 {
-	struct emac_instance *dev = ndev->priv;
+	struct emac_instance *dev = netdev_priv(ndev);
 	struct emac_stats *st = &dev->stats;
 	struct emac_error_stats *est = &dev->estats;
 	struct net_device_stats *nst = &dev->nstats;
@@ -1831,7 +1851,7 @@ static struct mal_commac_ops emac_commac_sg_ops = {
 static int emac_ethtool_get_settings(struct net_device *ndev,
 				     struct ethtool_cmd *cmd)
 {
-	struct emac_instance *dev = ndev->priv;
+	struct emac_instance *dev = netdev_priv(ndev);
 
 	cmd->supported = dev->phy.features;
 	cmd->port = PORT_MII;
@@ -1852,7 +1872,7 @@ static int emac_ethtool_get_settings(struct net_device *ndev,
 static int emac_ethtool_set_settings(struct net_device *ndev,
 				     struct ethtool_cmd *cmd)
 {
-	struct emac_instance *dev = ndev->priv;
+	struct emac_instance *dev = netdev_priv(ndev);
 	u32 f = dev->phy.features;
 
 	DBG(dev, "set_settings(%d, %d, %d, 0x%08x)" NL,
@@ -1930,7 +1950,7 @@ static void emac_ethtool_get_ringparam(struct net_device *ndev,
 static void emac_ethtool_get_pauseparam(struct net_device *ndev,
 					struct ethtool_pauseparam *pp)
 {
-	struct emac_instance *dev = ndev->priv;
+	struct emac_instance *dev = netdev_priv(ndev);
 
 	mutex_lock(&dev->link_lock);
 	if ((dev->phy.features & SUPPORTED_Autoneg) &&
@@ -1948,9 +1968,9 @@ static void emac_ethtool_get_pauseparam(struct net_device *ndev,
 
 static u32 emac_ethtool_get_rx_csum(struct net_device *ndev)
 {
-	struct emac_instance *dev = ndev->priv;
+	struct emac_instance *dev = netdev_priv(ndev);
 
-	return dev->tah_dev != 0;
+	return dev->tah_dev != NULL;
 }
 
 static int emac_get_regs_len(struct emac_instance *dev)
@@ -1965,7 +1985,7 @@ static int emac_get_regs_len(struct emac_instance *dev)
 
 static int emac_ethtool_get_regs_len(struct net_device *ndev)
 {
-	struct emac_instance *dev = ndev->priv;
+	struct emac_instance *dev = netdev_priv(ndev);
 	int size;
 
 	size = sizeof(struct emac_ethtool_regs_hdr) +
@@ -1999,7 +2019,7 @@ static void *emac_dump_regs(struct emac_instance *dev, void *buf)
 static void emac_ethtool_get_regs(struct net_device *ndev,
 				  struct ethtool_regs *regs, void *buf)
 {
-	struct emac_instance *dev = ndev->priv;
+	struct emac_instance *dev = netdev_priv(ndev);
 	struct emac_ethtool_regs_hdr *hdr = buf;
 
 	hdr->components = 0;
@@ -2023,7 +2043,7 @@ static void emac_ethtool_get_regs(struct net_device *ndev,
 
 static int emac_ethtool_nway_reset(struct net_device *ndev)
 {
-	struct emac_instance *dev = ndev->priv;
+	struct emac_instance *dev = netdev_priv(ndev);
 	int res = 0;
 
 	DBG(dev, "nway_reset" NL);
@@ -2060,7 +2080,7 @@ static void emac_ethtool_get_ethtool_stats(struct net_device *ndev,
 					   struct ethtool_stats *estats,
 					   u64 * tmp_stats)
 {
-	struct emac_instance *dev = ndev->priv;
+	struct emac_instance *dev = netdev_priv(ndev);
 
 	memcpy(tmp_stats, &dev->stats, sizeof(dev->stats));
 	tmp_stats += sizeof(dev->stats) / sizeof(u64);
@@ -2070,7 +2090,7 @@ static void emac_ethtool_get_ethtool_stats(struct net_device *ndev,
 static void emac_ethtool_get_drvinfo(struct net_device *ndev,
 				     struct ethtool_drvinfo *info)
 {
-	struct emac_instance *dev = ndev->priv;
+	struct emac_instance *dev = netdev_priv(ndev);
 
 	strcpy(info->driver, "ibm_emac");
 	strcpy(info->version, DRV_VERSION);
@@ -2107,7 +2127,7 @@ static const struct ethtool_ops emac_ethtool_ops = {
 
 static int emac_ioctl(struct net_device *ndev, struct ifreq *rq, int cmd)
 {
-	struct emac_instance *dev = ndev->priv;
+	struct emac_instance *dev = netdev_priv(ndev);
 	uint16_t *data = (uint16_t *) & rq->ifr_ifru;
 
 	DBG(dev, "ioctl %08x" NL, cmd);
@@ -2427,7 +2447,7 @@ static int __devinit emac_init_config(struct emac_instance *dev)
 	if (emac_read_uint_prop(np, "tah-device", &dev->tah_ph, 0))
 		dev->tah_ph = 0;
 	if (emac_read_uint_prop(np, "tah-channel", &dev->tah_port, 0))
-		dev->tah_ph = 0;
+		dev->tah_port = 0;
 	if (emac_read_uint_prop(np, "mdio-device", &dev->mdio_ph, 0))
 		dev->mdio_ph = 0;
 	if (emac_read_uint_prop(np, "zmii-device", &dev->zmii_ph, 0))
@@ -2465,16 +2485,19 @@ static int __devinit emac_init_config(struct emac_instance *dev)
 	/* Check EMAC version */
 	if (of_device_is_compatible(np, "ibm,emac4"))
 		dev->features |= EMAC_FTR_EMAC4;
-	if (of_device_is_compatible(np, "ibm,emac-axon")
-	    || of_device_is_compatible(np, "ibm,emac-440epx"))
-		dev->features |= EMAC_FTR_HAS_AXON_STACR
-			| EMAC_FTR_STACR_OC_INVERT;
-	if (of_device_is_compatible(np, "ibm,emac-440spe"))
-		dev->features |= EMAC_FTR_STACR_OC_INVERT;
 
-	/* Fixup some feature bits based on the device tree and verify
-	 * we have support for them compiled in
-	 */
+	/* Fixup some feature bits based on the device tree */
+	if (of_get_property(np, "has-inverted-stacr-oc", NULL))
+		dev->features |= EMAC_FTR_STACR_OC_INVERT;
+	if (of_get_property(np, "has-new-stacr-staopc", NULL))
+		dev->features |= EMAC_FTR_HAS_NEW_STACR;
+
+	/* CAB lacks the appropriate properties */
+	if (of_device_is_compatible(np, "ibm,emac-axon"))
+		dev->features |= EMAC_FTR_HAS_NEW_STACR |
+			EMAC_FTR_STACR_OC_INVERT;
+
+	/* Enable TAH/ZMII/RGMII features as found */
 	if (dev->tah_ph != 0) {
 #ifdef CONFIG_IBM_NEW_EMAC_TAH
 		dev->features |= EMAC_FTR_HAS_TAH;
@@ -2532,6 +2555,10 @@ static int __devinit emac_probe(struct of_device *ofdev,
 	struct device_node **blist = NULL;
 	int err, i;
 
+	/* Skip unused/unwired EMACS */
+	if (of_get_property(np, "unused", NULL))
+		return -ENODEV;
+
 	/* Find ourselves in the bootlist if we are there */
 	for (i = 0; i < EMAC_BOOT_LIST_SIZE; i++)
 		if (emac_boot_list[i] == np)
@@ -2545,11 +2572,10 @@ static int __devinit emac_probe(struct of_device *ofdev,
 		       np->full_name);
 		goto err_gone;
 	}
-	dev = ndev->priv;
+	dev = netdev_priv(ndev);
 	dev->ndev = ndev;
 	dev->ofdev = ofdev;
 	dev->blist = blist;
-	SET_MODULE_OWNER(ndev);
 	SET_NETDEV_DEV(ndev, &ofdev->dev);
 
 	/* Initialize some embedded data structures */
@@ -2588,7 +2614,6 @@ static int __devinit emac_probe(struct of_device *ofdev,
 	}
 
 	/* Wait for dependent devices */
-	err = -ENODEV;
 	err = emac_wait_deps(dev);
 	if (err) {
 		printk(KERN_ERR
@@ -2757,6 +2782,8 @@ static int __devexit emac_remove(struct of_device *ofdev)
 	dev_set_drvdata(&ofdev->dev, NULL);
 
 	unregister_netdev(dev->ndev);
+
+	flush_scheduled_work();
 
 	if (emac_has_feature(dev, EMAC_FTR_HAS_TAH))
 		tah_detach(dev->tah_dev, dev->tah_port);

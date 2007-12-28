@@ -71,8 +71,8 @@ m8260_setup_arch(void)
 		ROOT_DEV = Root_RAM0;
 #endif
 
-	identify_ppc_sys_by_name_and_id(BOARD_CHIP_NAME, 
-			in_be32((const volatile unsigned __iomem *)(CPM_MAP_ADDR + CPM_IMMR_OFFSET)));
+	identify_ppc_sys_by_name_and_id(BOARD_CHIP_NAME,
+			in_be32((void *)CPM_MAP_ADDR + CPM_IMMR_OFFSET));
 
 	m82xx_board_setup();
 }
@@ -158,15 +158,15 @@ m8260_show_cpuinfo(struct seq_file *m)
 	seq_printf(m, "vendor\t\t: %s\n"
 		   "machine\t\t: %s\n"
 		   "\n"
-		   "mem size\t\t: 0x%08x\n"
-		   "console baud\t\t: %d\n"
+		   "mem size\t\t: 0x%08lx\n"
+		   "console baud\t\t: %ld\n"
 		   "\n"
-		   "core clock\t: %u MHz\n"
-		   "CPM  clock\t: %u MHz\n"
-		   "bus  clock\t: %u MHz\n",
-		   CPUINFO_VENDOR, CPUINFO_MACHINE, (unsigned int) bp->bi_memsize,
-		   (int) bp->bi_baudrate, (unsigned int) bp->bi_intfreq / 1000000,
-		   (unsigned int) bp->bi_cpmfreq / 1000000, (unsigned int) bp->bi_busfreq / 1000000);
+		   "core clock\t: %lu MHz\n"
+		   "CPM  clock\t: %lu MHz\n"
+		   "bus  clock\t: %lu MHz\n",
+		   CPUINFO_VENDOR, CPUINFO_MACHINE, bp->bi_memsize,
+		   bp->bi_baudrate, bp->bi_intfreq / 1000000,
+		   bp->bi_cpmfreq / 1000000, bp->bi_busfreq / 1000000);
 	return 0;
 }
 

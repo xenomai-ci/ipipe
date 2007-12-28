@@ -33,7 +33,6 @@
 #include "ppcboot.h"
 
 static bd_t bd;
-extern char _dtb_start[];
 
 static void sequoia_fixups(void)
 {

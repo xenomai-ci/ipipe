@@ -52,9 +52,9 @@
  *
  * This is all going to change RSN when we add bi_recs.......  -- Dan
  */
-	.text
-_GLOBAL(_stext)
-_GLOBAL(_start)
+	.section	.text.head, "ax"
+_ENTRY(_stext);
+_ENTRY(_start);
 
 	/* Save parameters we are passed.
 	*/
@@ -89,9 +89,9 @@ turn_on_mmu:
  */
 	. = 0xc0
 crit_save:
-_GLOBAL(crit_r10)
+_ENTRY(crit_r10)
 	.space	4
-_GLOBAL(crit_r11)
+_ENTRY(crit_r11)
 	.space	4
 
 /*
@@ -289,7 +289,7 @@ label:
 	/* If we are faulting a kernel address, we have to use the
 	 * kernel page tables.
 	 */
-	lis	r11, TASK_SIZE@h
+	lis	r11, PAGE_OFFSET@h
 	cmplw	r10, r11
 	blt+	3f
 	lis	r11, swapper_pg_dir@h
@@ -481,7 +481,7 @@ label:
 	/* If we are faulting a kernel address, we have to use the
 	 * kernel page tables.
 	 */
-	lis	r11, TASK_SIZE@h
+	lis	r11, PAGE_OFFSET@h
 	cmplw	r10, r11
 	blt+	3f
 	lis	r11, swapper_pg_dir@h
@@ -581,7 +581,7 @@ label:
 	/* If we are faulting a kernel address, we have to use the
 	 * kernel page tables.
 	 */
-	lis	r11, TASK_SIZE@h
+	lis	r11, PAGE_OFFSET@h
 	cmplw	r10, r11
 	blt+	3f
 	lis	r11, swapper_pg_dir@h
@@ -814,7 +814,7 @@ finish_tlb_load:
  * The PowerPC 4xx family of processors do not have an FPU, so this just
  * returns.
  */
-_GLOBAL(giveup_fpu)
+_ENTRY(giveup_fpu)
 	blr
 
 /* This is where the main kernel code starts.
@@ -994,7 +994,7 @@ empty_zero_page:
 	.space	4096
 	.globl	swapper_pg_dir
 swapper_pg_dir:
-	.space	4096
+	.space	PGD_TABLE_SIZE
 
 
 /* Stack for handling critical exceptions from kernel mode */
@@ -1005,13 +1005,6 @@ exception_stack_bottom:
 critical_stack_top:
 	.globl	exception_stack_top
 exception_stack_top:
-
-/* This space gets a copy of optional info passed to us by the bootstrap
- * which is used to pass parameters into the kernel like root=/dev/sda1, etc.
- */
-	.globl	cmd_line
-cmd_line:
-	.space	512
 
 /* Room for two PTE pointers, usually the kernel and current user pointers
  * to their respective root page table.

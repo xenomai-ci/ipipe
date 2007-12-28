@@ -10,9 +10,9 @@
     (at your option) any later version.
 */
 
-#define DRV_NAME	"D-Link DL2000-based linux driver"
-#define DRV_VERSION	"v1.18"
-#define DRV_RELDATE	"2006/06/27"
+#define DRV_NAME	"DL2000/TC902x-based linux driver"
+#define DRV_VERSION	"v1.19"
+#define DRV_RELDATE	"2007/08/12"
 #include "dl2k.h"
 #include <linux/dma-mapping.h>
 
@@ -97,6 +97,7 @@ rio_probe1 (struct pci_dev *pdev, const struct pci_device_id *ent)
 	static int version_printed;
 	void *ring_space;
 	dma_addr_t ring_dma;
+	DECLARE_MAC_BUF(mac);
 
 	if (!version_printed++)
 		printk ("%s", version);
@@ -116,7 +117,6 @@ rio_probe1 (struct pci_dev *pdev, const struct pci_device_id *ent)
 		err = -ENOMEM;
 		goto err_out_res;
 	}
-	SET_MODULE_OWNER (dev);
 	SET_NETDEV_DEV(dev, &pdev->dev);
 
 #ifdef MEM_MAPPING
@@ -257,10 +257,8 @@ rio_probe1 (struct pci_dev *pdev, const struct pci_device_id *ent)
 
 	card_idx++;
 
-	printk (KERN_INFO "%s: %s, %02x:%02x:%02x:%02x:%02x:%02x, IRQ %d\n",
-		dev->name, np->name,
-		dev->dev_addr[0], dev->dev_addr[1], dev->dev_addr[2],
-		dev->dev_addr[3], dev->dev_addr[4], dev->dev_addr[5], irq);
+	printk (KERN_INFO "%s: %s, %s, IRQ %d\n",
+		dev->name, np->name, print_mac(mac, dev->dev_addr), irq);
 	if (tx_coalesce > 1)
 		printk(KERN_INFO "tx_coalesce:\t%d packets\n",
 				tx_coalesce);
@@ -292,7 +290,7 @@ rio_probe1 (struct pci_dev *pdev, const struct pci_device_id *ent)
 	return err;
 }
 
-int
+static int
 find_miiphy (struct net_device *dev)
 {
 	int i, phy_found = 0;
@@ -316,7 +314,7 @@ find_miiphy (struct net_device *dev)
 	return 0;
 }
 
-int
+static int
 parse_eeprom (struct net_device *dev)
 {
 	int i, j;
@@ -334,21 +332,28 @@ parse_eeprom (struct net_device *dev)
 #endif
 	/* Read eeprom */
 	for (i = 0; i < 128; i++) {
-		((u16 *) sromdata)[i] = le16_to_cpu (read_eeprom (ioaddr, i));
+		((__le16 *) sromdata)[i] = cpu_to_le16(read_eeprom (ioaddr, i));
 	}
 #ifdef	MEM_MAPPING
 	ioaddr = dev->base_addr;
 #endif
-	/* Check CRC */
-	crc = ~ether_crc_le (256 - 4, sromdata);
-	if (psrom->crc != crc) {
-		printk (KERN_ERR "%s: EEPROM data CRC error.\n", dev->name);
-		return -1;
+	if (np->pdev->vendor == PCI_VENDOR_ID_DLINK) {	/* D-Link Only */
+		/* Check CRC */
+		crc = ~ether_crc_le (256 - 4, sromdata);
+		if (psrom->crc != crc) {
+			printk (KERN_ERR "%s: EEPROM data CRC error.\n",
+					dev->name);
+			return -1;
+		}
 	}
 
 	/* Set MAC address */
 	for (i = 0; i < 6; i++)
 		dev->dev_addr[i] = psrom->mac_addr[i];
+
+	if (np->pdev->vendor != PCI_VENDOR_ID_DLINK) {
+		return 0;
+	}
 
 	/* Parse Software Information Block */
 	i = 0x30;
@@ -511,7 +516,7 @@ rio_timer (unsigned long data)
 					  PCI_DMA_FROMDEVICE));
 			}
 			np->rx_ring[entry].fraginfo |=
-			    cpu_to_le64 (np->rx_buf_sz) << 48;
+			    cpu_to_le64((u64)np->rx_buf_sz << 48);
 			np->rx_ring[entry].status = 0;
 		} /* end for */
 	} /* end if */
@@ -579,11 +584,11 @@ alloc_list (struct net_device *dev)
 		    cpu_to_le64 ( pci_map_single (
 			 	  np->pdev, skb->data, np->rx_buf_sz,
 				  PCI_DMA_FROMDEVICE));
-		np->rx_ring[i].fraginfo |= cpu_to_le64 (np->rx_buf_sz) << 48;
+		np->rx_ring[i].fraginfo |= cpu_to_le64((u64)np->rx_buf_sz << 48);
 	}
 
 	/* Set RFDListPtr */
-	writel (cpu_to_le32 (np->rx_ring_dma), dev->base_addr + RFDListPtr0);
+	writel (np->rx_ring_dma, dev->base_addr + RFDListPtr0);
 	writel (0, dev->base_addr + RFDListPtr1);
 
 	return;
@@ -615,15 +620,14 @@ start_xmit (struct sk_buff *skb, struct net_device *dev)
 	}
 #endif
 	if (np->vlan) {
-		tfc_vlan_tag =
-		    cpu_to_le64 (VLANTagInsert) |
-		    (cpu_to_le64 (np->vlan) << 32) |
-		    (cpu_to_le64 (skb->priority) << 45);
+		tfc_vlan_tag = VLANTagInsert |
+		    ((u64)np->vlan << 32) |
+		    ((u64)skb->priority << 45);
 	}
 	txdesc->fraginfo = cpu_to_le64 (pci_map_single (np->pdev, skb->data,
 							skb->len,
 							PCI_DMA_TODEVICE));
-	txdesc->fraginfo |= cpu_to_le64 (skb->len) << 48;
+	txdesc->fraginfo |= cpu_to_le64((u64)skb->len << 48);
 
 	/* DL2K bug: DMA fails to get next descriptor ptr in 10Mbps mode
 	 * Work around: Always use 1 descriptor in 10Mbps mode */
@@ -703,6 +707,11 @@ rio_interrupt (int irq, void *dev_instance)
 	return IRQ_RETVAL(handled);
 }
 
+static inline dma_addr_t desc_to_dma(struct netdev_desc *desc)
+{
+	return le64_to_cpu(desc->fraginfo) & DMA_48BIT_MASK;
+}
+
 static void
 rio_free_tx (struct net_device *dev, int irq)
 {
@@ -720,11 +729,11 @@ rio_free_tx (struct net_device *dev, int irq)
 	while (entry != np->cur_tx) {
 		struct sk_buff *skb;
 
-		if (!(np->tx_ring[entry].status & TFDDone))
+		if (!(np->tx_ring[entry].status & cpu_to_le64(TFDDone)))
 			break;
 		skb = np->tx_skbuff[entry];
 		pci_unmap_single (np->pdev,
-				  np->tx_ring[entry].fraginfo & DMA_48BIT_MASK,
+				  desc_to_dma(&np->tx_ring[entry]),
 				  skb->len, PCI_DMA_TODEVICE);
 		if (irq)
 			dev_kfree_skb_irq (skb);
@@ -826,13 +835,14 @@ receive_packet (struct net_device *dev)
 		int pkt_len;
 		u64 frame_status;
 
-		if (!(desc->status & RFDDone) ||
-		    !(desc->status & FrameStart) || !(desc->status & FrameEnd))
+		if (!(desc->status & cpu_to_le64(RFDDone)) ||
+		    !(desc->status & cpu_to_le64(FrameStart)) ||
+		    !(desc->status & cpu_to_le64(FrameEnd)))
 			break;
 
 		/* Chip omits the CRC. */
-		pkt_len = le64_to_cpu (desc->status & 0xffff);
-		frame_status = le64_to_cpu (desc->status);
+		frame_status = le64_to_cpu(desc->status);
+		pkt_len = frame_status & 0xffff;
 		if (--cnt < 0)
 			break;
 		/* Update rx error statistics, drop packet. */
@@ -852,15 +862,14 @@ receive_packet (struct net_device *dev)
 			/* Small skbuffs for short packets */
 			if (pkt_len > copy_thresh) {
 				pci_unmap_single (np->pdev,
-						  desc->fraginfo & DMA_48BIT_MASK,
+						  desc_to_dma(desc),
 						  np->rx_buf_sz,
 						  PCI_DMA_FROMDEVICE);
 				skb_put (skb = np->rx_skbuff[entry], pkt_len);
 				np->rx_skbuff[entry] = NULL;
 			} else if ((skb = dev_alloc_skb (pkt_len + 2)) != NULL) {
 				pci_dma_sync_single_for_cpu(np->pdev,
-				  			    desc->fraginfo &
-							    	DMA_48BIT_MASK,
+							    desc_to_dma(desc),
 							    np->rx_buf_sz,
 							    PCI_DMA_FROMDEVICE);
 				/* 16 byte align the IP header */
@@ -870,8 +879,7 @@ receive_packet (struct net_device *dev)
 						  pkt_len);
 				skb_put (skb, pkt_len);
 				pci_dma_sync_single_for_device(np->pdev,
-				  			       desc->fraginfo &
-							       	 DMA_48BIT_MASK,
+							       desc_to_dma(desc),
 							       np->rx_buf_sz,
 							       PCI_DMA_FROMDEVICE);
 			}
@@ -914,7 +922,7 @@ receive_packet (struct net_device *dev)
 					  PCI_DMA_FROMDEVICE));
 		}
 		np->rx_ring[entry].fraginfo |=
-		    cpu_to_le64 (np->rx_buf_sz) << 48;
+		    cpu_to_le64((u64)np->rx_buf_sz << 48);
 		np->rx_ring[entry].status = 0;
 		entry = (entry + 1) % RX_RING_SIZE;
 	}
@@ -1091,7 +1099,7 @@ clear_stats (struct net_device *dev)
 }
 
 
-int
+static int
 change_mtu (struct net_device *dev, int new_mtu)
 {
 	struct netdev_private *np = netdev_priv(dev);
@@ -1116,7 +1124,7 @@ set_multicast (struct net_device *dev)
 
 	hash_table[0] = hash_table[1] = 0;
 	/* RxFlowcontrol DA: 01-80-C2-00-00-01. Hash index=0x39 */
-	hash_table[1] |= cpu_to_le32(0x02000000);
+	hash_table[1] |= 0x02000000;
 	if (dev->flags & IFF_PROMISC) {
 		/* Receive all frames promiscuously. */
 		rx_mode = ReceiveAllFrames;
@@ -1326,7 +1334,7 @@ rio_ioctl (struct net_device *dev, struct ifreq *rq, int cmd)
 #define EEP_BUSY 0x8000
 /* Read the EEPROM word */
 /* We use I/O instruction to read/write eeprom to avoid fail on some machines */
-int
+static int
 read_eeprom (long ioaddr, int eep_addr)
 {
 	int i = 1000;
@@ -1757,7 +1765,7 @@ rio_close (struct net_device *dev)
 		skb = np->rx_skbuff[i];
 		if (skb) {
 			pci_unmap_single(np->pdev,
-					 np->rx_ring[i].fraginfo & DMA_48BIT_MASK,
+					 desc_to_dma(&np->rx_ring[i]),
 					 skb->len, PCI_DMA_FROMDEVICE);
 			dev_kfree_skb (skb);
 			np->rx_skbuff[i] = NULL;
@@ -1767,7 +1775,7 @@ rio_close (struct net_device *dev)
 		skb = np->tx_skbuff[i];
 		if (skb) {
 			pci_unmap_single(np->pdev,
-					 np->tx_ring[i].fraginfo & DMA_48BIT_MASK,
+					 desc_to_dma(&np->tx_ring[i]),
 					 skb->len, PCI_DMA_TODEVICE);
 			dev_kfree_skb (skb);
 			np->tx_skbuff[i] = NULL;

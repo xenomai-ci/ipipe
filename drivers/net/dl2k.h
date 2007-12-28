@@ -633,9 +633,9 @@ struct mii_data {
 
 /* The Rx and Tx buffer descriptors. */
 struct netdev_desc {
-	u64 next_desc;
-	u64 status;
-	u64 fraginfo;
+	__le64 next_desc;
+	__le64 status;
+	__le64 fraginfo;
 };
 
 #define PRIV_ALIGN	15	/* Required alignment mask */
@@ -692,6 +692,7 @@ struct netdev_private {
 
 static const struct pci_device_id rio_pci_tbl[] = {
 	{0x1186, 0x4000, PCI_ANY_ID, PCI_ANY_ID, },
+	{0x13f0, 0x1021, PCI_ANY_ID, PCI_ANY_ID, },
 	{ }
 };
 MODULE_DEVICE_TABLE (pci, rio_pci_tbl);

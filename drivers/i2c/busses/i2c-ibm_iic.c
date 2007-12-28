@@ -18,7 +18,7 @@
  *   	Copyright 1995-97 Simon G. Vogl
  *                1998-99 Hans Berglund
  *
- *   	With some changes from Kyösti Mälkki <kmalkki@cc.hut.fi> 
+ *   	With some changes from KyÃ¶sti MÃ¤lkki <kmalkki@cc.hut.fi>
  *	and even Frodo Looijaard <frodol@dds.nl>
  *
  * This program is free software; you can redistribute  it and/or modify it
@@ -35,7 +35,6 @@
 #include <linux/slab.h>
 #include <linux/init.h>
 #include <linux/interrupt.h>
-#include <linux/platform_device.h>
 #include <asm/irq.h>
 #include <asm/io.h>
 #include <linux/i2c.h>
@@ -738,10 +737,6 @@ static int __devinit iic_probe(struct ocp_device *ocp){
 	adap->client_unregister = NULL;
 	adap->timeout = 1;
 	adap->retries = 1;
-
-	if (adap->dev.parent == NULL) {
-		adap->dev.parent = &platform_bus;
-	}
 
 	/*
 	 * If "dev->idx" is negative we consider it as zero.

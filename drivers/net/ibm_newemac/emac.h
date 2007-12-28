@@ -3,6 +3,11 @@
  *
  * Register definitions for PowerPC 4xx on-chip ethernet contoller
  *
+ * Copyright 2007 Benjamin Herrenschmidt, IBM Corp.
+ *                <benh@kernel.crashing.org>
+ *
+ * Based on the arch/ppc version of the driver:
+ *
  * Copyright (c) 2004, 2005 Zultys Technologies.
  * Eugene Surovegin <eugene.surovegin@zultys.com> or <ebs@ebshome.net>
  *
@@ -124,7 +129,7 @@ struct emac_regs {
 					 (freq) <= 66  ? EMAC4_MR1_OBCI_66 : \
 					 (freq) <= 83  ? EMAC4_MR1_OBCI_83 : \
 					 (freq) <= 100 ? EMAC4_MR1_OBCI_100 : \
- 						EMAC4_MR1_OBCI_100P)
+						EMAC4_MR1_OBCI_100P)
 
 /* EMACx_TMR0 */
 #define EMAC_TMR0_GNP			0x80000000

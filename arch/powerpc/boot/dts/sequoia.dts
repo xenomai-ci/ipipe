@@ -92,37 +92,6 @@
 		#size-cells = <1>;
 		ranges;
 		clock-frequency = <0>; /* Filled in by zImage */
-		
-		pci@1eec00000 {
-			/* PCI configuration space is being followed 
-			 * by BSP configuration register
-			 */
-    			reg = <1 eec00000 40 1 ef400000 40>;
-			compatible = "ibm,pci-405gp";
-			device_type = "pci";
-
-			/* irqs are routed to irq67, dependless of devsel/PIRQx */
-			interrupt-map-mask = <0 0 0 0>;
-			interrupt-map = <0 0 0 0 &UIC2 3 8>;	
-
-			interrupt-parent = <&UIC2>;
-			interrupts = <3 8>;
-	    
-			bus-range = <0 0>;
-	
-			/*
-			 * the host addresses 1_8000_0000..1_8fff_ffff 
-			 * are translated to PCI addresses 8000_0000..8fff_ffff 
-			 * io is at 0001_e800_0000
-			 */
-			ranges = <02000000 0 80000000 1 80000000 0 10000000
-				01000000 0 00000000 1 e8000000 0 00100000>;
-			
-			#address-cells = <3>;
-			#size-cells = <2>;
-			#interrupt-cells = <1>;
-
-		};
 
 		SDRAM0: sdram {
 			device_type = "memory-controller";
@@ -138,8 +107,8 @@
 		MAL0: mcmal {
 			compatible = "ibm,mcmal-440epx", "ibm,mcmal2";
 			dcr-reg = <180 62>;
-			num-tx-chans = <4>;
-			num-rx-chans = <4>;
+			num-tx-chans = <2>;
+			num-rx-chans = <2>;
 			interrupt-parent = <&MAL0>;
 			interrupts = <0 1 2 3 4>;
 			#interrupt-cells = <1>;
@@ -152,8 +121,6 @@
 					/*RXDE*/  4 &UIC1 2 4>;
 			interrupt-map-mask = <ffffffff>;
 		};
-		
-		
 
 		ndfc@1d0000000, {
 			device_type = "nand";
@@ -234,19 +201,35 @@
 				interrupt-parent = <&UIC1>;
 
 				nor_flash@0,0 {
-					device_type = "rom";
-					compatible = "direct-mapped";
-					probe-type = "CFI";
+					compatible = "amd,s29gl256n", "cfi-flash";
 					bank-width = <2>;
-					partitions = <	0	180000
-							180000	200000
-							380000	3aa0000
-							3e20000	140000
-							3f60000	40000
-							3fa0000	60000>;
-					partition-names = "Kernel", "ramdisk", "file system",
-								"kozio", "env", "u-boot";
 					reg = <0 000000 4000000>;
+					#address-cells = <1>;
+					#size-cells = <1>;
+					partition@0 {
+						label = "Kernel";
+						reg = <0 180000>;
+					};
+					partition@180000 {
+						label = "ramdisk";
+						reg = <180000 200000>;
+					};
+					partition@380000 {
+						label = "file system";
+						reg = <380000 3aa0000>;
+					};
+					partition@3e20000 {
+						label = "kozio";
+						reg = <3e20000 140000>;
+					};
+					partition@3f60000 {
+						label = "env";
+						reg = <3f60000 40000>;
+					};
+					partition@3fa0000 {
+						label = "u-boot";
+						reg = <3fa0000 60000>;
+					};
 				};
 
 			};
@@ -310,12 +293,18 @@
 				interrupt-parent = <&UIC0>;
 				interrupts = <7 4>;
 			};
-			
 
 			ZMII0: emac-zmii@ef600d00 {
-				device_t:ype = "zmii-interface";
+				device_type = "zmii-interface";
 				compatible = "ibm,zmii-440epx", "ibm,zmii";
 				reg = <ef600d00 c>;
+			};
+
+			RGMII0: emac-rgmii@ef601000 {
+				device_type = "rgmii-interface";
+				compatible = "ibm,rgmii-440epx", "ibm,rgmii";
+				reg = <ef601000 8>;
+				has-mdio;
 			};
 
 			EMAC0: ethernet@ef600e00 {
@@ -332,16 +321,20 @@
 				reg = <ef600e00 70>;
 				local-mac-address = [000000000000];
 				mal-device = <&MAL0>;
-				mal-tx-channel = <0 1>;
+				mal-tx-channel = <0>;
 				mal-rx-channel = <0>;
 				cell-index = <0>;
 				max-frame-size = <5dc>;
 				rx-fifo-size = <1000>;
 				tx-fifo-size = <800>;
-				phy-mode = "rmii";
+				phy-mode = "rgmii";
 				phy-map = <00000000>;
 				zmii-device = <&ZMII0>;
 				zmii-channel = <0>;
+				rgmii-device = <&RGMII0>;
+				rgmii-channel = <0>;
+				has-inverted-stacr-oc;
+				has-new-stacr-staopc;
 			};
 
 			EMAC1: ethernet@ef600f00 {
@@ -358,16 +351,20 @@
 				reg = <ef600f00 70>;
 				local-mac-address = [000000000000];
 				mal-device = <&MAL0>;
-				mal-tx-channel = <2 3>;
+				mal-tx-channel = <1>;
 				mal-rx-channel = <1>;
 				cell-index = <1>;
 				max-frame-size = <5dc>;
 				rx-fifo-size = <1000>;
 				tx-fifo-size = <800>;
-				phy-mode = "rmii";
+				phy-mode = "rgmii";
 				phy-map = <00000000>;
 				zmii-device = <&ZMII0>;
 				zmii-channel = <1>;
+				rgmii-device = <&RGMII0>;
+				rgmii-channel = <1>;
+				has-inverted-stacr-oc;
+				has-new-stacr-staopc;
 			};
 		};
 	};

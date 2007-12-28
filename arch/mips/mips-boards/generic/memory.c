@@ -125,7 +125,7 @@ struct prom_pmemblock * __init prom_getmdesc(void)
 	return &mdesc[0];
 }
 
-static int __init prom_memtype_classify (unsigned int type)
+static int __init prom_memtype_classify(unsigned int type)
 {
 	switch (type) {
 	case yamon_free:
@@ -158,7 +158,7 @@ void __init prom_meminit(void)
 		long type;
 		unsigned long base, size;
 
-		type = prom_memtype_classify (p->type);
+		type = prom_memtype_classify(p->type);
 		base = p->base;
 		size = p->size;
 
@@ -169,6 +169,7 @@ void __init prom_meminit(void)
 
 void __init prom_free_prom_memory(void)
 {
+#if 0 /* for now ...  */
 	unsigned long addr;
 	int i;
 
@@ -180,4 +181,5 @@ void __init prom_free_prom_memory(void)
 		free_init_pages("prom memory",
 				addr, addr + boot_mem_map.map[i].size);
 	}
+#endif
 }

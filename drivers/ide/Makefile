@@ -40,7 +40,7 @@ ide-core-$(CONFIG_BLK_DEV_IDE_PMAC)	+= ppc/pmac.o
 ide-core-$(CONFIG_BLK_DEV_IDE_SC3)	+= ppc/sc3ide.o
 
 # built-in only drivers from h8300/
-ide-core-$(CONFIG_H8300)		+= h8300/ide-h8300.o
+ide-core-$(CONFIG_IDE_H8300)		+= h8300/ide-h8300.o
 
 obj-$(CONFIG_BLK_DEV_IDE)		+= ide-core.o
 obj-$(CONFIG_IDE_GENERIC)		+= ide-generic.o

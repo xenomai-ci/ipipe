@@ -120,7 +120,7 @@
  *                       Reformat to match kernel tabbing style.
  *                       Add CDROM_GET_UPC ioctl.
  * 3.10  Apr 10, 1996 -- Fix compilation error with STANDARD_ATAPI.
- * 3.11  Apr 29, 1996 -- Patch from Heiko Eissfeldt <heiko@colossus.escape.de>
+ * 3.11  Apr 29, 1996 -- Patch from Heiko Eißfeldt <heiko@colossus.escape.de>
  *                       to remove redundant verify_area calls.
  * 3.12  May  7, 1996 -- Rudimentary changer support.  Based on patches
  *                        from Gerhard Zuber <zuber@berlin.snafu.de>.
@@ -256,7 +256,7 @@
  *			- Minimize the TOC reading - only do it when we
  *			  know a media change has occurred.
  *			- Moved all the CDROMREADx ioctls to the Uniform layer.
- *			- Heiko Eissfeldt <heiko@colossus.escape.de> supplied
+ *			- Heiko Eißfeldt <heiko@colossus.escape.de> supplied
  *			  some fixes for CDI.
  *			- CD-ROM leaving door locked fix from Andries
  *			  Brouwer <Andries.Brouwer@cwi.nl>
@@ -1650,31 +1650,6 @@ static int cdrom_write_check_ireason(ide_drive_t *drive, int len, int ireason)
 	return 1;
 }
 
-static void post_transform_command(struct request *req)
-{
-	u8 *c = req->cmd;
-	char *ibuf;
-
-	if (!blk_pc_request(req))
-		return;
-
-	if (req->bio)
-		ibuf = bio_data(req->bio);
-	else
-		ibuf = req->data;
-
-	if (!ibuf)
-		return;
-
-	/*
-	 * set ansi-revision and response data as atapi
-	 */
-	if (c[0] == GPCMD_INQUIRY) {
-		ibuf[2] |= 2;
-		ibuf[3] = (ibuf[3] & 0xf0) | 2;
-	}
-}
-
 typedef void (xfer_func_t)(ide_drive_t *, void *, u32);
 
 /*
@@ -1810,9 +1785,6 @@ static ide_startstop_t cdrom_newpc_intr(ide_drive_t *drive)
 	return ide_started;
 
 end_request:
-	if (!rq->data_len)
-		post_transform_command(rq);
-
 	spin_lock_irqsave(&ide_lock, flags);
 	blkdev_dequeue_request(rq);
 	end_that_request_last(rq, 1);
@@ -2341,7 +2313,7 @@ static int cdrom_read_toc(ide_drive_t *drive, struct request_sense *sense)
 		   If we get an error for the regular case, we assume
 		   a CDI without additional audio tracks. In this case
 		   the readable TOC is empty (CDI tracks are not included)
-		   and only holds the Leadout entry. Heiko Ei�feldt */
+		   and only holds the Leadout entry. Heiko Eißfeldt */
 		ntracks = 0;
 		stat = cdrom_read_tocentry(drive, CDROM_LEADOUT, 1, 0,
 					   (char *)&toc->hdr,
@@ -3049,12 +3021,7 @@ int ide_cdrom_probe_capabilities (ide_drive_t *drive)
         else 	
         	printk(" drive");
 
-	printk(", %dkB Cache", be16_to_cpu(cap.buffer_size));
-
-	if (drive->using_dma)
-		ide_dma_verbose(drive);
-
-	printk("\n");
+	printk(KERN_CONT ", %dkB Cache\n", be16_to_cpu(cap.buffer_size));
 
 	return nslots;
 }

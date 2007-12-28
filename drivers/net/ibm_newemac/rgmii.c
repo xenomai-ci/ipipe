@@ -3,6 +3,11 @@
  *
  * Driver for PowerPC 4xx on-chip ethernet controller, RGMII bridge support.
  *
+ * Copyright 2007 Benjamin Herrenschmidt, IBM Corp.
+ *                <benh@kernel.crashing.org>
+ *
+ * Based on the arch/ppc version of the driver:
+ *
  * Copyright (c) 2004, 2005 Zultys Technologies.
  * Eugene Surovegin <eugene.surovegin@zultys.com> or <ebs@ebshome.net>
  *
@@ -84,7 +89,7 @@ static inline u32 rgmii_mode_mask(int mode, int input)
 int __devinit rgmii_attach(struct of_device *ofdev, int input, int mode)
 {
 	struct rgmii_instance *dev = dev_get_drvdata(&ofdev->dev);
-	struct rgmii_regs *p = dev->base;
+	struct rgmii_regs __iomem *p = dev->base;
 
 	RGMII_DBG(dev, "attach(%d)" NL, input);
 
@@ -113,7 +118,7 @@ int __devinit rgmii_attach(struct of_device *ofdev, int input, int mode)
 void rgmii_set_speed(struct of_device *ofdev, int input, int speed)
 {
 	struct rgmii_instance *dev = dev_get_drvdata(&ofdev->dev);
-	struct rgmii_regs *p = dev->base;
+	struct rgmii_regs __iomem *p = dev->base;
 	u32 ssr;
 
 	mutex_lock(&dev->lock);
@@ -135,12 +140,12 @@ void rgmii_set_speed(struct of_device *ofdev, int input, int speed)
 void rgmii_get_mdio(struct of_device *ofdev, int input)
 {
 	struct rgmii_instance *dev = dev_get_drvdata(&ofdev->dev);
-	struct rgmii_regs *p = dev->base;
+	struct rgmii_regs __iomem *p = dev->base;
 	u32 fer;
 
 	RGMII_DBG2(dev, "get_mdio(%d)" NL, input);
 
-	if (dev->type != RGMII_AXON)
+	if (!(dev->flags & EMAC_RGMII_FLAG_HAS_MDIO))
 		return;
 
 	mutex_lock(&dev->lock);
@@ -156,12 +161,12 @@ void rgmii_get_mdio(struct of_device *ofdev, int input)
 void rgmii_put_mdio(struct of_device *ofdev, int input)
 {
 	struct rgmii_instance *dev = dev_get_drvdata(&ofdev->dev);
-	struct rgmii_regs *p = dev->base;
+	struct rgmii_regs __iomem *p = dev->base;
 	u32 fer;
 
 	RGMII_DBG2(dev, "put_mdio(%d)" NL, input);
 
-	if (dev->type != RGMII_AXON)
+	if (!(dev->flags & EMAC_RGMII_FLAG_HAS_MDIO))
 		return;
 
 	fer = in_be32(&p->fer);
@@ -177,7 +182,7 @@ void rgmii_put_mdio(struct of_device *ofdev, int input)
 void __devexit rgmii_detach(struct of_device *ofdev, int input)
 {
 	struct rgmii_instance *dev = dev_get_drvdata(&ofdev->dev);
-	struct rgmii_regs *p = dev->base;
+	struct rgmii_regs __iomem *p = dev->base;
 
 	mutex_lock(&dev->lock);
 
@@ -242,7 +247,7 @@ static int __devinit rgmii_probe(struct of_device *ofdev,
 	}
 
 	rc = -ENOMEM;
-	dev->base = (struct rgmii_regs *)ioremap(regs.start,
+	dev->base = (struct rgmii_regs __iomem *)ioremap(regs.start,
 						 sizeof(struct rgmii_regs));
 	if (dev->base == NULL) {
 		printk(KERN_ERR "%s: Can't map device registers!\n",
@@ -250,11 +255,13 @@ static int __devinit rgmii_probe(struct of_device *ofdev,
 		goto err_free;
 	}
 
-	/* Check for RGMII type */
-	if (device_is_compatible(ofdev->node, "ibm,rgmii-axon"))
-		dev->type = RGMII_AXON;
-	else
-		dev->type = RGMII_STANDARD;
+	/* Check for RGMII flags */
+	if (of_get_property(ofdev->node, "has-mdio", NULL))
+		dev->flags |= EMAC_RGMII_FLAG_HAS_MDIO;
+
+	/* CAB lacks the right properties, fix this up */
+	if (of_device_is_compatible(ofdev->node, "ibm,rgmii-axon"))
+		dev->flags |= EMAC_RGMII_FLAG_HAS_MDIO;
 
 	DBG2(dev, " Boot FER = 0x%08x, SSR = 0x%08x\n",
 	     in_be32(&dev->base->fer), in_be32(&dev->base->ssr));
@@ -263,9 +270,9 @@ static int __devinit rgmii_probe(struct of_device *ofdev,
 	out_be32(&dev->base->fer, 0);
 
 	printk(KERN_INFO
-	       "RGMII %s %s initialized\n",
-	       dev->type == RGMII_STANDARD ? "standard" : "axon",
-	       ofdev->node->full_name);
+	       "RGMII %s initialized with%s MDIO support\n",
+	       ofdev->node->full_name,
+	       (dev->flags & EMAC_RGMII_FLAG_HAS_MDIO) ? "" : "out");
 
 	wmb();
 	dev_set_drvdata(&ofdev->dev, dev);

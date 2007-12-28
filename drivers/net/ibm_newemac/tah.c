@@ -3,6 +3,11 @@
  *
  * Driver for PowerPC 4xx on-chip ethernet controller, TAH support.
  *
+ * Copyright 2007 Benjamin Herrenschmidt, IBM Corp.
+ *                <benh@kernel.crashing.org>
+ *
+ * Based on the arch/ppc version of the driver:
+ *
  * Copyright 2004 MontaVista Software, Inc.
  * Matt Porter <mporter@kernel.crashing.org>
  *
@@ -42,7 +47,7 @@ void __devexit tah_detach(struct of_device *ofdev, int channel)
 void tah_reset(struct of_device *ofdev)
 {
 	struct tah_instance *dev = dev_get_drvdata(&ofdev->dev);
-	struct tah_regs *p = dev->base;
+	struct tah_regs __iomem *p = dev->base;
 	int n;
 
 	/* Reset TAH */
@@ -108,7 +113,7 @@ static int __devinit tah_probe(struct of_device *ofdev,
 	}
 
 	rc = -ENOMEM;
-	dev->base = (struct tah_regs *)ioremap(regs.start,
+	dev->base = (struct tah_regs __iomem *)ioremap(regs.start,
 					       sizeof(struct tah_regs));
 	if (dev->base == NULL) {
 		printk(KERN_ERR "%s: Can't map device registers!\n",
@@ -116,13 +121,14 @@ static int __devinit tah_probe(struct of_device *ofdev,
 		goto err_free;
 	}
 
+	dev_set_drvdata(&ofdev->dev, dev);
+
 	/* Initialize TAH and enable IPv4 checksum verification, no TSO yet */
 	tah_reset(ofdev);
 
 	printk(KERN_INFO
 	       "TAH %s initialized\n", ofdev->node->full_name);
 	wmb();
-	dev_set_drvdata(&ofdev->dev, dev);
 
 	return 0;
 
