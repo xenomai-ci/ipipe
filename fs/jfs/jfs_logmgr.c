@@ -2162,7 +2162,7 @@ static void lbmStartIO(struct lbuf * bp)
 	/* check if journaling to disk has been disabled */
 	if (log->no_integrity) {
 		bio->bi_size = 0;
-		lbmIODone(bio, 0, 0);
+		lbmIODone(bio, 0);
 	} else {
 		submit_bio(WRITE_SYNC, bio);
 		INCREMENT(lmStat.submitted);
@@ -2235,7 +2235,7 @@ static void lbmIODone(struct bio *bio, int error)
 		/* wakeup I/O initiator */
 		LCACHE_WAKEUP(&bp->l_ioevent);
 
-		return 0;
+		return;
 	}
 
 	/*
@@ -2260,7 +2260,7 @@ static void lbmIODone(struct bio *bio, int error)
 	if (bp->l_flag & lbmDIRECT) {
 		LCACHE_WAKEUP(&bp->l_ioevent);
 		LCACHE_UNLOCK(flags);
-		return 0;
+		return;
 	}
 
 	tail = log->wqueue;
@@ -2339,8 +2339,6 @@ static void lbmIODone(struct bio *bio, int error)
 
 		LCACHE_UNLOCK(flags);	/* unlock+enable */
 	}
-
-	return 0;
 }
 
 int jfsIOWait(void *arg)

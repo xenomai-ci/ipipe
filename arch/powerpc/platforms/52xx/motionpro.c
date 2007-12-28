@@ -16,33 +16,10 @@
 
 #undef DEBUG
 
-#include <linux/stddef.h>
-#include <linux/kernel.h>
-#include <linux/init.h>
-#include <linux/errno.h>
-#include <linux/reboot.h>
-#include <linux/pci.h>
-#include <linux/kdev_t.h>
-#include <linux/major.h>
-#include <linux/console.h>
-#include <linux/delay.h>
-#include <linux/seq_file.h>
-#include <linux/root_dev.h>
-#include <linux/initrd.h>
-
-#include <asm/system.h>
-#include <asm/atomic.h>
+#include <linux/of.h>
 #include <asm/time.h>
-#include <asm/io.h>
 #include <asm/machdep.h>
-#include <asm/ipic.h>
-#include <asm/bootinfo.h>
-#include <asm/irq.h>
 #include <asm/prom.h>
-#include <asm/udbg.h>
-#include <sysdev/fsl_soc.h>
-#include <asm/of_platform.h>
-
 #include <asm/mpc52xx.h>
 
 /* ************************************************************************
@@ -50,42 +27,6 @@
  * Setup the architecture
  *
  */
-
-static void __init
-motionpro_setup_cpu(void)
-{
-	struct mpc52xx_gpio __iomem *gpio;
-	u32 port_config;
-
-	/* Map zones */
-	gpio = mpc52xx_find_and_map("mpc5200-gpio");
-	if (!gpio) {
-		printk(KERN_ERR __FILE__ ": "
-			"Error while mapping GPIO register for port config. "
-			"Expect some abnormal behavior\n");
-		goto error;
-	}
-
-	/* Set port config */
-	port_config = in_be32(&gpio->port_config);
-
-	port_config &= ~0x00800000;	/* 48Mhz internal, pin is GPIO	*/
-
-	port_config &= ~0x00007000;	/* USB port : Differential mode	*/
-	port_config |=  0x00001000;	/*            USB 1 only	*/
-
-	port_config &= ~0x03000000;	/* ATA CS is on csb_4/5		*/
-	port_config |=  0x01000000;
-
-	pr_debug("port_config: old:%x new:%x\n",
-	         in_be32(&gpio->port_config), port_config);
-	out_be32(&gpio->port_config, port_config);
-
-	/* Unmap zone */
-error:
-	iounmap(gpio);
-}
-
 
 #ifdef CONFIG_LEDS_MOTIONPRO
 
@@ -122,8 +63,6 @@ static void motionpro_setup_leds(void)
 
 static void __init motionpro_setup_arch(void)
 {
-	struct device_node *np;
-
 #ifdef CONFIG_LEDS_MOTIONPRO
 	motionpro_setup_leds();
 #endif
@@ -131,20 +70,11 @@ static void __init motionpro_setup_arch(void)
 	if (ppc_md.progress)
 		ppc_md.progress("motionpro_setup_arch()", 0);
 
-	np = of_find_node_by_type(NULL, "cpu");
-	if (np) {
-		unsigned int *fp =
-		    (int *)get_property(np, "clock-frequency", NULL);
-		if (fp != 0)
-			loops_per_jiffy = *fp / HZ;
-		else
-			loops_per_jiffy = 50000000 / HZ;
-		of_node_put(np);
-	}
+	/* Some mpc5200 & mpc5200b related configuration */
+	mpc5200_setup_xlb_arbiter();
 
-	/* CPU & Port mux setup */
-	mpc52xx_setup_cpu();	/* Generic */
-	motionpro_setup_cpu();	/* Platorm specific */
+	/* Map wdt for mpc52xx_restart() */
+	mpc52xx_map_wdt();
 
 #ifdef CONFIG_PCI
 	np = of_find_node_by_type(NULL, "pci");
@@ -153,37 +83,6 @@ static void __init motionpro_setup_arch(void)
 		of_node_put(np);
 	}
 #endif
-
-#ifdef CONFIG_BLK_DEV_INITRD
-	if (initrd_start)
-		/*
-		 * We want the proper initrd behavior, i.e., launching of
-		 * /linuxrc from the initial root file system, and not only
-		 * mounting it as the normal root file system.
-		 */
-		ROOT_DEV = 0x0;
-	else
-#endif
-#ifdef  CONFIG_ROOT_NFS
-		ROOT_DEV = Root_NFS;
-#else
-		ROOT_DEV = Root_HDA1;
-#endif
-
-}
-
-void motionpro_show_cpuinfo(struct seq_file *m)
-{
-	struct device_node* np = of_find_all_nodes(NULL);
-	const char *model = NULL;
-
-	if (np)
-		model = get_property(np, "model", NULL);
-
-	seq_printf(m, "vendor\t\t:	Freescale Semiconductor\n");
-	seq_printf(m, "machine\t\t:	%s\n", model ? model : "unknown");
-
-	of_node_put(np);
 }
 
 /*
@@ -213,13 +112,10 @@ define_machine(motionpro) {
 	.init		= mpc52xx_declare_of_platform_devices,
 	.init_IRQ	= mpc52xx_init_irq,
 	.get_irq	= mpc52xx_get_irq,
-	.show_cpuinfo	= motionpro_show_cpuinfo,
 #ifdef CONFIG_RTC_DRV_DS1307
 	.get_rtc_time	= ds1307_get_rtc_time,
 	.set_rtc_time	= ds1307_set_rtc_time,
 #endif
 	.calibrate_decr	= generic_calibrate_decr,
 	.restart	= mpc52xx_restart,
-	.halt		= mpc52xx_halt,
-	.power_off	= mpc52xx_power_off,
 };

@@ -17,12 +17,13 @@
  */
 
 #include <linux/init.h>
+#include <linux/of_platform.h>
+
 #include <asm/machdep.h>
 #include <asm/prom.h>
 #include <asm/udbg.h>
 #include <asm/time.h>
 #include <asm/uic.h>
-#include <asm/of_platform.h>
 
 static struct of_device_id walnut_of_bus[] = {
 	{ .compatible = "ibm,plb3", },
@@ -53,14 +54,9 @@ static int __init walnut_probe(void)
 	return 1;
 }
 
-static void __init walnut_setup_arch(void)
-{
-}
-
 define_machine(walnut) {
 	.name			= "Walnut",
 	.probe			= walnut_probe,
-	.setup_arch		= walnut_setup_arch,
 	.progress		= udbg_progress,
 	.init_IRQ		= uic_init_tree,
 	.get_irq		= uic_get_irq,

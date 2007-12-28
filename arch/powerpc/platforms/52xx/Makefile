@@ -4,10 +4,6 @@
 ifeq ($(CONFIG_PPC_MERGE),y)
 obj-y				+= mpc52xx_pic.o mpc52xx_common.o
 obj-$(CONFIG_PCI)		+= mpc52xx_pci.o
-obj-$(CONFIG_PPC_BESTCOMM) 	+= bestcomm.o
-obj-$(CONFIG_FEC_MPC52xx)	+= sdma_fec_rx_task.o sdma_fec_tx_task.o fec.o
-obj-$(CONFIG_MPC52xx_AIC26)	+= sdma_gen_bd_rx_task.o \
-				   sdma_gen_bd_tx_task.o gen_bd.o
 endif
 
 obj-$(CONFIG_PPC_EFIKA)		+= efika.o
@@ -17,3 +13,6 @@ obj-$(CONFIG_PPC_TQM5200)	+= tqm5200.o
 obj-$(CONFIG_PPC_CM5200)	+= cm5200.o
 
 obj-$(CONFIG_PM)		+= mpc52xx_sleep.o mpc52xx_pm.o
+ifeq ($(CONFIG_PPC_LITE5200),y)
+	obj-$(CONFIG_PM)	+= lite5200_sleep.o lite5200_pm.o
+endif

@@ -98,6 +98,8 @@ SECTIONS
   . = ALIGN(PAGE_SIZE << 1);
   .data.init_task : { *(.data.init_task) }
 
+  NOTES
+
   . = ALIGN(PAGE_SIZE);
   __init_begin = .;
   .init.text : {
