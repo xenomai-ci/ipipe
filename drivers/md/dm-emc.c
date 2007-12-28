@@ -54,8 +54,6 @@ static void emc_endio(struct bio *bio, int error)
 
 	/* request is freed in block layer */
 	free_bio(bio);
-
-	return 0;
 }
 
 static struct bio *get_failover_bio(struct dm_path *path, unsigned data_size)
@@ -83,7 +81,7 @@ static struct bio *get_failover_bio(struct dm_path *path, unsigned data_size)
 	}
 
 	if (bio_add_page(bio, page, data_size, 0) != data_size) {
-		DMERR("get_failover_bio: alloc_page() failed.");
+		DMERR("get_failover_bio: bio_add_page() failed.");
 		__free_page(page);
 		bio_put(bio);
 		return NULL;
@@ -106,15 +104,7 @@ static struct request *get_failover_req(struct emc_handler *h,
 		return NULL;
 	}
 
-	rq->bio = rq->biotail = bio;
-	blk_rq_bio_prep(q, rq, bio);
-
-	rq->rq_disk = bdev->bd_contains->bd_disk;
-
-	/* bio backed don't set data */
-	rq->buffer = rq->data = NULL;
-	/* rq data_len used for pc cmd's request_bufflen */
-	rq->data_len = bio->bi_size;
+	blk_rq_append_bio(q, rq, bio);
 
 	rq->sense = h->sense;
 	memset(rq->sense, 0, SCSI_SENSE_BUFFERSIZE);
@@ -221,12 +211,10 @@ fail_path:
 
 static struct emc_handler *alloc_emc_handler(void)
 {
-	struct emc_handler *h = kmalloc(sizeof(*h), GFP_KERNEL);
+	struct emc_handler *h = kzalloc(sizeof(*h), GFP_KERNEL);
 
-	if (h) {
-		memset(h, 0, sizeof(*h));
+	if (h)
 		spin_lock_init(&h->lock);
-	}
 
 	return h;
 }

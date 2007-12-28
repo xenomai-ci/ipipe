@@ -124,7 +124,7 @@ struct emac_regs {
 					 (freq) <= 66  ? EMAC4_MR1_OBCI_66 : \
 					 (freq) <= 83  ? EMAC4_MR1_OBCI_83 : \
 					 (freq) <= 100 ? EMAC4_MR1_OBCI_100 : \
- 						EMAC4_MR1_OBCI_100P)
+						EMAC4_MR1_OBCI_100P)
 
 /* EMACx_TMR0 */
 #define EMAC_TMR0_GNP			0x80000000

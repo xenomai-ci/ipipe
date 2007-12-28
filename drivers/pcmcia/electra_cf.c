@@ -203,9 +203,7 @@ static int __devinit electra_cf_probe(struct of_device *ofdev,
 	if (!cf)
 		return -ENOMEM;
 
-	init_timer(&cf->timer);
-	cf->timer.function = electra_cf_timer;
-	cf->timer.data = (unsigned long) cf;
+	setup_timer(&cf->timer, electra_cf_timer, (unsigned long)cf);
 	cf->irq = NO_IRQ;
 
 	cf->ofdev = ofdev;
@@ -348,16 +346,14 @@ static int __devexit electra_cf_remove(struct of_device *ofdev)
 	return 0;
 }
 
-static struct of_device_id electra_cf_match[] =
-{
+static struct of_device_id electra_cf_match[] = {
 	{
 		.compatible   = "electra-cf",
 	},
 	{},
 };
 
-static struct of_platform_driver electra_cf_driver =
-{
+static struct of_platform_driver electra_cf_driver = {
 	.name	   = (char *)driver_name,
 	.match_table    = electra_cf_match,
 	.probe	  = electra_cf_probe,
@@ -379,4 +375,3 @@ module_exit(electra_cf_exit);
 MODULE_LICENSE("GPL");
 MODULE_AUTHOR ("Olof Johansson <olof@lixom.net>");
 MODULE_DESCRIPTION("PA Semi Electra CF driver");
-
