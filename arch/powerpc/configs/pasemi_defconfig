@@ -1,7 +1,7 @@
 #
 # Automatically generated make config: don't edit
 # Linux kernel version: 2.6.24-rc4
-# Fri Dec 21 18:55:52 2007
+# Thu Dec  6 16:49:03 2007
 #
 CONFIG_PPC64=y
 

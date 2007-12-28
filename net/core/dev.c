@@ -2819,7 +2819,7 @@ void dev_set_allmulti(struct net_device *dev, int inc)
 /*
  *	Upload unicast and multicast address lists to device and
  *	configure RX filtering. When the device doesn't support unicast
- *	filtering it is put in promiscous mode while unicast addresses
+ *	filtering it is put in promiscuous mode while unicast addresses
  *	are present.
  */
 void __dev_set_rx_mode(struct net_device *dev)
@@ -3972,8 +3972,7 @@ void synchronize_net(void)
  *	@dev: device
  *
  *	This function shuts down a device interface and removes it
- *	from the kernel tables. On success 0 is returned, on a failure
- *	a negative errno code is returned.
+ *	from the kernel tables.
  *
  *	Callers must hold the rtnl semaphore.  You may want
  *	unregister_netdev() instead of this.
@@ -3991,8 +3990,7 @@ void unregister_netdevice(struct net_device *dev)
  *	@dev: device
  *
  *	This function shuts down a device interface and removes it
- *	from the kernel tables. On success 0 is returned, on a failure
- *	a negative errno code is returned.
+ *	from the kernel tables.
  *
  *	This is just a wrapper for unregister_netdevice that takes
  *	the rtnl semaphore.  In general you want to use this and not

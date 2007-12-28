@@ -511,8 +511,7 @@ place_entity(struct cfs_rq *cfs_rq, struct sched_entity *se, int initial)
 
 	if (!initial) {
 		/* sleeps upto a single latency don't count. */
-		if (sched_feat(NEW_FAIR_SLEEPERS) && entity_is_task(se) &&
-				task_of(se)->policy != SCHED_BATCH)
+		if (sched_feat(NEW_FAIR_SLEEPERS) && entity_is_task(se))
 			vruntime -= sysctl_sched_latency;
 
 		/* ensure we never gain time by being placed backwards. */
@@ -799,8 +798,9 @@ static void dequeue_task_fair(struct rq *rq, struct task_struct *p, int sleep)
  */
 static void yield_task_fair(struct rq *rq)
 {
-	struct cfs_rq *cfs_rq = task_cfs_rq(rq->curr);
-	struct sched_entity *rightmost, *se = &rq->curr->se;
+	struct task_struct *curr = rq->curr;
+	struct cfs_rq *cfs_rq = task_cfs_rq(curr);
+	struct sched_entity *rightmost, *se = &curr->se;
 
 	/*
 	 * Are we the only task in the tree?
@@ -808,7 +808,7 @@ static void yield_task_fair(struct rq *rq)
 	if (unlikely(cfs_rq->nr_running == 1))
 		return;
 
-	if (likely(!sysctl_sched_compat_yield)) {
+	if (likely(!sysctl_sched_compat_yield) && curr->policy != SCHED_BATCH) {
 		__update_rq_clock(rq);
 		/*
 		 * Update run-time statistics of the 'current'.

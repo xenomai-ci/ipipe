@@ -84,7 +84,7 @@
 #include "s2io.h"
 #include "s2io-regs.h"
 
-#define DRV_VERSION "2.0.26.6"
+#define DRV_VERSION "2.0.26.10"
 
 /* S2io Driver name & version. */
 static char s2io_driver_name[] = "Neterion";
@@ -1099,6 +1099,20 @@ static int init_nic(struct s2io_nic *nic)
 	writeq(val64, &bar0->sw_reset);
 	msleep(500);
 	val64 = readq(&bar0->sw_reset);
+
+	/* Ensure that it's safe to access registers by checking
+	 * RIC_RUNNING bit is reset. Check is valid only for XframeII.
+	 */
+	if (nic->device_type == XFRAME_II_DEVICE) {
+		for (i = 0; i < 50; i++) {
+			val64 = readq(&bar0->adapter_status);
+			if (!(val64 & ADAPTER_STATUS_RIC_RUNNING))
+				break;
+			msleep(10);
+		}
+		if (i == 50)
+			return -ENODEV;
+	}
 
 	/*  Enable Receiving broadcasts */
 	add = &bar0->mac_cfg;
@@ -3723,7 +3737,7 @@ static int s2io_enable_msi_x(struct s2io_nic *nic)
 }
 
 /* Handle software interrupt used during MSI(X) test */
-static irqreturn_t __devinit s2io_test_intr(int irq, void *dev_id)
+static irqreturn_t s2io_test_intr(int irq, void *dev_id)
 {
 	struct s2io_nic *sp = dev_id;
 
@@ -3734,7 +3748,7 @@ static irqreturn_t __devinit s2io_test_intr(int irq, void *dev_id)
 }
 
 /* Test interrupt path by forcing a a software IRQ */
-static int __devinit s2io_test_msi(struct s2io_nic *sp)
+static int s2io_test_msi(struct s2io_nic *sp)
 {
 	struct pci_dev *pdev = sp->pdev;
 	struct XENA_dev_config __iomem *bar0 = sp->bar0;
