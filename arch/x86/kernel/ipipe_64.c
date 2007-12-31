@@ -751,12 +751,13 @@ int __ipipe_handle_irq(struct pt_regs *regs)
 finalize:
 
 	if (irq == __ipipe_tick_irq) {
-		__raw_get_cpu_var(__ipipe_tick_regs).rip = regs->rip;
-		__raw_get_cpu_var(__ipipe_tick_regs).cs = regs->cs;
-		__raw_get_cpu_var(__ipipe_tick_regs).eflags = regs->eflags;
-		__raw_get_cpu_var(__ipipe_tick_regs).rbp = regs->rbp;
-		__raw_get_cpu_var(__ipipe_tick_regs).rsp = regs->rsp;
-		__raw_get_cpu_var(__ipipe_tick_regs).ss = regs->ss;
+		struct pt_regs *tick_regs = &__raw_get_cpu_var(__ipipe_tick_regs);
+		tick_regs->ss = regs->ss;
+		tick_regs->rsp = regs->rsp;
+		tick_regs->eflags = regs->eflags;
+		tick_regs->cs = regs->cs;
+		tick_regs->rip = regs->rip;
+		tick_regs->rbp = regs->rbp;
 	}
 
 	/*

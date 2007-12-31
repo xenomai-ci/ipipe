@@ -771,10 +771,11 @@ finalize:
 	 * information. */
 
 	if (irq == __ipipe_tick_irq) {
-		__raw_get_cpu_var(__ipipe_tick_regs).eflags = regs.eflags;
-		__raw_get_cpu_var(__ipipe_tick_regs).eip = regs.eip;
-		__raw_get_cpu_var(__ipipe_tick_regs).xcs = regs.xcs;
-		__raw_get_cpu_var(__ipipe_tick_regs).ebp = regs.ebp;
+		struct pt_regs *tick_regs = &__raw_get_cpu_var(__ipipe_tick_regs);
+		tick_regs->eflags = regs.eflags;
+		tick_regs->xcs = regs.xcs;
+		tick_regs->eip = regs.eip;
+		tick_regs->ebp = regs.ebp;
 	}
 
 	/*
