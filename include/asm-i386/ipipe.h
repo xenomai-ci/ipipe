@@ -130,11 +130,8 @@ static inline unsigned long __ipipe_ffnz(unsigned long ul)
 
 DECLARE_PER_CPU(struct pt_regs, __ipipe_tick_regs);
 
-typedef void (__ipipe_irq_handler)(unsigned irq,
-				   void *cookie);
-
 static inline void __ipipe_call_root_xirq_handler(unsigned irq,
-						  __ipipe_irq_handler *handler)
+						  ipipe_irq_handler_t *handler)
 {
 	struct pt_regs *regs = &__raw_get_cpu_var(__ipipe_tick_regs);
 
@@ -166,7 +163,7 @@ void irq_enter(void);
 void irq_exit(void);
 
 static inline void __ipipe_call_root_virq_handler(unsigned irq,
-						  __ipipe_irq_handler *handler,
+						  ipipe_irq_handler_t *handler,
 						  void *cookie)
 {
 	irq_enter();
