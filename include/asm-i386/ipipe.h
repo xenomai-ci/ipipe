@@ -121,7 +121,7 @@ static inline unsigned long __ipipe_ffnz(unsigned long ul)
 }
 
 static inline void __ipipe_call_root_xirq_handler(unsigned irq,
-						  ipipe_irq_handler_t *handler)
+						  ipipe_irq_handler_t handler)
 {
 	struct pt_regs *regs = &__raw_get_cpu_var(__ipipe_tick_regs);
 
@@ -152,7 +152,7 @@ static inline void __ipipe_call_root_xirq_handler(unsigned irq,
 void irq_exit(void);
 
 static inline void __ipipe_call_root_virq_handler(unsigned irq,
-						  ipipe_irq_handler_t *handler,
+						  ipipe_irq_handler_t handler,
 						  void *cookie)
 {
 	__asm__ __volatile__("pushfl\n\t"
