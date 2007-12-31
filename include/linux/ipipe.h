@@ -94,9 +94,6 @@
 #define ipipe_virtual_irq_p(irq)	((irq) >= IPIPE_VIRQ_BASE && \
 					 (irq) < IPIPE_NR_IRQS)
 
-typedef void (*ipipe_irq_handler_t)(unsigned irq,
-				    void *cookie);
-
 #define IPIPE_SAME_HANDLER	((ipipe_irq_handler_t)(-1))
 
 typedef int (*ipipe_irq_ackfn_t)(unsigned irq);
