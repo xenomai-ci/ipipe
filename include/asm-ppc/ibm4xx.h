@@ -39,6 +39,10 @@
 #include <platforms/4xx/kilauea.h>
 #endif
 
+#if defined(CONFIG_MAKALU)
+#include <platforms/4xx/makalu.h>
+#endif
+
 #if defined(CONFIG_PPChameleonEVB)
 #include <platforms/4xx/ppchameleon.h>
 #endif
