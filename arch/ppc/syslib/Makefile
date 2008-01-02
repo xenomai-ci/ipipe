@@ -36,7 +36,11 @@ obj-$(CONFIG_40x)		+= ppc4xx_setup.o
 obj-$(CONFIG_PPC4xx_DMA)	+= ppc4xx_dma.o
 obj-$(CONFIG_PPC4xx_EDMA)	+= ppc4xx_sgdma.o
 ifeq ($(CONFIG_40x),y)
+ifeq ($(CONFIG_405EX),y)
+obj-$(CONFIG_PCI)		+= pci_auto.o ppc4xx_pcie.o
+else
 obj-$(CONFIG_PCI)		+= pci_auto.o ppc405_pci.o
+endif
 endif
 endif
 obj-$(CONFIG_8xx)		+= m8xx_setup.o ppc8xx_pic.o $(wdt-mpc8xx-y) \

@@ -37,5 +37,26 @@
 
 #define PPC4xx_MACHINE_NAME	"AMCC Kilauea"
 
+/* PCIe support */
+#define KILAUEA_PCIE_LOWER_MEM	0x90000000
+#define KILAUEA_PCIE_MEM_SIZE	0x08000000
+#define BOARD_PCIE_MEM_SIZE	KILAUEA_PCIE_MEM_SIZE	/* used in syslib/ppc4xx_pcie.c */
+
+#define KILAUEA_PCIE_LOWER_IO	0xe0000000
+#define KILAUEA_PCIE_IO_SIZE	0x00010000
+#define BOARD_PCIE_IO_SIZE	KILAUEA_PCIE_IO_SIZE	/* used in syslib/ppc4xx_pcie.c */
+
+#define BOARD_PCIE_INBOUND_BASE	0x0000000000000000ULL
+
+/*
+ * Some cards like LSI8408E need delay before enumeration.
+ * At this point calibrate_delay hasn't been called yet so
+ * the mdelay value does not reflect exact millisecs value.
+ *
+ * This value varies from board to board, so let's define a value
+ * here in the board config file.
+ */
+#define BOARD_PCIE_SCAN_DELAY	250
+
 #endif /* __ASM_KILAUEA_H__ */
 #endif /* __KERNEL__ */

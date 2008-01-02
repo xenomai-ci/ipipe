@@ -1,5 +1,5 @@
 /*
- * Kilauea board specific routines
+ * Kilauea (405EX) & Haleakala (405EXr) board specific routines
  *
  * Copyright 2007 DENX Software Engineering, Stefan Roese <sr@denx.de>
  *
@@ -15,6 +15,7 @@
 #include <linux/param.h>
 #include <linux/string.h>
 #include <linux/blkdev.h>
+#include <linux/delay.h>
 #include <linux/pci.h>
 #include <linux/rtc.h>
 #include <linux/tty.h>
@@ -42,6 +43,7 @@
 #include <asm/ibm_ocp_pci.h>
 
 #include <platforms/4xx/ppc405ex.h>
+#include <syslib/ppc4xx_pcie.h>
 
 extern bd_t __res;
 
@@ -182,7 +184,7 @@ static struct platform_device kilauea_nand_device = {
 	}
 };
 
-static int kilauea_setup_platform_devices(void)
+static int __init kilauea_setup_platform_devices(void)
 {
 	/* NOR-FLASH */
 	kilauea_nor_resource.start = __res.bi_flashstart;
@@ -208,6 +210,130 @@ static int kilauea_setup_platform_devices(void)
 	return 0;
 }
 arch_initcall(kilauea_setup_platform_devices);
+
+#ifdef CONFIG_PCI
+/*
+ * Some IRQs unique to Kilauea
+ */
+int __init kilauea_map_irq(struct pci_dev *dev, unsigned char idsel,
+			   unsigned char pin)
+{
+	struct pci_controller *hose = pci_bus_to_hose(dev->bus->number);
+
+	if (hose->index == 0) {
+		static char pci_irq_table[][4] =
+			/*
+			 *  PCI IDSEL/INTPIN->INTLINE
+			 *    A   B   C   D
+			 */
+			{
+				{ 64, 65, 66, 67 },
+			};
+		const long min_idsel = 1, max_idsel = 1, irqs_per_slot = 4;
+		return PCI_IRQ_TABLE_LOOKUP;
+	} else if (hose->index == 1) {
+		static char pci_irq_table[][4] =
+			/*
+			 *  PCI IDSEL/INTPIN->INTLINE
+			 *    A   B   C   D
+			 */
+			{
+				{ 75, 76, 77, 78 },
+			};
+		const long min_idsel = 1, max_idsel = 1, irqs_per_slot = 4;
+		return PCI_IRQ_TABLE_LOOKUP;
+	}
+
+	return -1;
+}
+
+static int __init kilauea_pcie_card_present(int port)
+{
+	/*
+	 * Kilauea can't detect a PCIe board, so we always report it
+	 * as present
+	 */
+	return 1;
+}
+
+static void __init kilauea_setup_hoses(void)
+{
+	struct pci_controller *hose;
+	char name[20];
+	int hs;
+	int bus_no = 0;
+	int hose_max = 2;
+
+	/*
+	 * Haleakala (405EXr) only supports one PCIe interface
+	 */
+	if ((mfspr(SPRN_PVR) & 0x00000004) == 0x00000000)
+		hose_max--;
+
+	for (hs = 0; hs < hose_max; ++hs) {
+		if (!kilauea_pcie_card_present(hs))
+			continue;
+
+		pr_debug(KERN_INFO "PCIE%d: card present\n", hs);
+
+		if (ppc4xx_init_pcie_root_or_endport(hs)) {
+			printk(KERN_ERR "PCIE%d: initialization "
+			       "failed\n", hs);
+			continue;
+		}
+
+		hose = pcibios_alloc_controller();
+		if (!hose)
+			return;
+
+		sprintf(name, "PCIE%d host bridge", hs);
+
+		hose->io_space.start = KILAUEA_PCIE_LOWER_IO +
+			hs * KILAUEA_PCIE_IO_SIZE;
+		hose->io_space.end = hose->io_space.start +
+			KILAUEA_PCIE_IO_SIZE - 1;
+
+		pci_init_resource(&hose->io_resource,
+				  hose->io_space.start,
+				  hose->io_space.end,
+				  IORESOURCE_IO,
+				  name);
+
+		hose->mem_space.start = KILAUEA_PCIE_LOWER_MEM +
+			hs * KILAUEA_PCIE_MEM_SIZE;
+		hose->mem_space.end = hose->mem_space.start +
+			KILAUEA_PCIE_MEM_SIZE - 1;
+
+		pci_init_resource(&hose->mem_resources[0],
+				  hose->mem_space.start,
+				  hose->mem_space.end,
+				  IORESOURCE_MEM,
+				  name);
+
+		hose->first_busno = bus_no;
+		hose->last_busno = 0xff;
+
+		if (ppc4xx_setup_pcie(hose, hs) != 0) {
+			printk(KERN_ERR "PCIE setup failed for hose no %d\n", hs);
+			continue;
+		}
+
+		/*
+		 * Some cards like LSI8408E need delay before enumeration.
+		 * At this point calibrate_delay hasn't been called yet so
+		 * the mdelay value does not reflect exact millisecs value.
+		 */
+		mdelay(500);
+
+		hose->last_busno = pciauto_bus_scan(hose, hose->first_busno);
+		bus_no = hose->last_busno + 1;
+		pr_debug("%s: resources allocated\n", name);
+	}
+
+	ppc_md.pci_swizzle = common_swizzle;
+	ppc_md.pci_map_irq = kilauea_map_irq;
+}
+#endif
 
 /* The serial clock for the chip is an internal clock determined by
  * different clock speeds/dividers.
@@ -251,11 +377,18 @@ static void __init kilauea_set_emacdata(void)
 	emacdata->phy_mode = PHY_MODE_RGMII;
 	emacdata->phy_feat_exc = SUPPORTED_Autoneg;
 
+	/*
+	 * Haleakala (405EXr) only supports one PCIe interface
+	 */
 	def = ocp_get_one_device(OCP_VENDOR_IBM, OCP_FUNC_EMAC, 1);
-	emacdata = def->additions;
-	memcpy(emacdata->mac_addr, __res.bi_enet1addr, 6);
-	emacdata->phy_mode = PHY_MODE_RGMII;
-	emacdata->phy_feat_exc = SUPPORTED_Autoneg;
+	if ((mfspr(SPRN_PVR) & 0x00000004) == 0x00000000) {
+		def->additions = 0;
+	} else {
+		emacdata = def->additions;
+		memcpy(emacdata->mac_addr, __res.bi_enet1addr, 6);
+		emacdata->phy_mode = PHY_MODE_RGMII;
+		emacdata->phy_feat_exc = SUPPORTED_Autoneg;
+	}
 }
 
 void __init kilauea_setup_arch(void)
@@ -270,8 +403,15 @@ void __init kilauea_setup_arch(void)
 
         kilauea_early_serial_map();
 
+#ifdef CONFIG_PCI
+	kilauea_setup_hoses();
+#endif
+
 	/* Identify the system */
-	printk("AMCC PowerPC 405EX Kilauea Platform\n");
+	if ((mfspr(SPRN_PVR) & 0x00000004) == 0x00000000)
+		printk("AMCC PowerPC 405EXr Haleakala Platform\n");
+	else
+		printk("AMCC PowerPC 405EX Kilauea Platform\n");
 }
 
 void __init kilauea_map_io(void)
