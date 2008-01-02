@@ -52,19 +52,34 @@
 	STD_UART_OP(2)
 
 /* PCI support */
-#define KATMAI_PCI_LOWER_IO	0x00000000
-#define KATMAI_PCI_UPPER_IO	0x0000ffff
-#define KATMAI_PCI_HOST_SIZE_IO	0x00004000
-
+#define KATMAI_PCIX_LOWER_IO	0x00000000
+#define KATMAI_PCIX_UPPER_IO	0x0000ffff
 #define KATMAI_PCIX_LOWER_MEM	0x80000000
 #define KATMAI_PCIX_UPPER_MEM	0x8fffffff
 #define KATMAI_PCIX_MEM_SIZE	0x10000000
 #define KATMAI_PCIX_MEM_OFFSET	0x00000000
 
 #define KATMAI_PCIE_LOWER_MEM	0x90000000
-#define KATMAI_PCIE_MEM_SIZE	0x10000000
-#define BOARD_PCIE_MEM_SIZE	KATMAI_PCIE_MEM_SIZE	/* used in syslib/ppc440spe_pcie.c */
-#define KATMAI_PCIE_MEM_OFFSET	0x00000000
+#define KATMAI_PCIE_MEM_SIZE	0x08000000
+#define BOARD_PCIE_MEM_SIZE	KATMAI_PCIE_MEM_SIZE	/* used in syslib/ppc4xx_pcie.c */
+
+#define KATMAI_PCIE_LOWER_IO	0xb0000000
+#define KATMAI_PCIE_IO_SIZE	0x00010000
+#define BOARD_PCIE_IO_SIZE	KATMAI_PCIE_IO_SIZE	/* used in syslib/ppc4xx_pcie.c */
+
+#define KATMAI_PCI_HOST_SIZE_IO	0x00004000
+
+#define BOARD_PCIE_INBOUND_BASE	0x0000000000000000ULL
+
+/*
+ * Some cards like LSI8408E need delay before enumeration.
+ * At this point calibrate_delay hasn't been called yet so
+ * the mdelay value does not reflect exact millisecs value.
+ *
+ * This value varies from board to board, so let's define a value
+ * here in the board config file.
+ */
+#define BOARD_PCIE_SCAN_DELAY	1000
 
 #endif				/* __ASM_KATMAI_H__ */
 #endif				/* __KERNEL__ */

@@ -52,7 +52,7 @@
 #include <syslib/ibm44x_common.h>
 #include <syslib/ibm440gx_common.h>
 #include <syslib/ibm440sp_common.h>
-#include <syslib/ppc440spe_pcie.h>
+#include <syslib/ppc4xx_pcie.h>
 
 extern bd_t __res;
 
@@ -290,7 +290,6 @@ static void __init yucca_setup_pcie_fpga_root_or_endpoint(int port)
 		break;
 
 	default:
-		iounmap(pcie_reg_fpga_base);
 		return;
 	}
 
@@ -335,9 +334,9 @@ yucca_setup_hoses(void)
 			pr_debug("PCIE%d: card present\n", pcie_hose_num(hs));
 
 			yucca_setup_pcie_fpga_root_or_endpoint(pcie_hose_num(hs));
-			if (ppc440spe_init_pcie_root_or_endport(pcie_hose_num(hs))) {
+			if (ppc4xx_init_pcie_root_or_endport(pcie_hose_num(hs))) {
 				printk(KERN_ERR "PCIE%d: initialization "
-						"failed\n", pcie_hose_num(hs));
+				       "failed\n", pcie_hose_num(hs));
 				continue;
 			}
 		}
@@ -347,19 +346,17 @@ yucca_setup_hoses(void)
 			return;
 
 		sprintf(name, "PCI%s%d host bridge",
-				is_pcix_hose(hs) ? "X" : "E",
-				is_pcie_hose(hs) ?  pcie_hose_num(hs) : 0
-				);
+			is_pcix_hose(hs) ? "X" : "E",
+			is_pcie_hose(hs) ? pcie_hose_num(hs) : 0);
 
 		if (is_pcix_hose(hs)) {
 			hose->mem_space.start = YUCCA_PCIX_LOWER_MEM;
-			hose->mem_space.end   = hose->mem_space.start +
+			hose->mem_space.end = hose->mem_space.start +
 				YUCCA_PCIX_MEM_SIZE - 1;
-
 		} else {
 			hose->mem_space.start = YUCCA_PCIE_LOWER_MEM +
 				pcie_hose_num(hs) * YUCCA_PCIE_MEM_SIZE;
-			hose->mem_space.end   = hose->mem_space.start +
+			hose->mem_space.end = hose->mem_space.start +
 				YUCCA_PCIE_MEM_SIZE - 1;
 		}
 
@@ -369,49 +366,37 @@ yucca_setup_hoses(void)
 				  IORESOURCE_MEM,
 				  name);
 
-		if (is_pcix_hose(hs)) {
+		if (is_pcix_hose(hs))
 			isa_io_base = (unsigned long) ioremap64(PCIX0_IO_BASE,
 								PCIX_IO_SIZE);
-		}
 
 		hose->io_base_virt = (void *)isa_io_base;
-
-		hose->io_space.start = YUCCA_PCI_LOWER_IO +
+		hose->io_space.start = YUCCA_PCIX_LOWER_IO +
 			((unsigned int)hs * YUCCA_PCI_HOST_SIZE_IO);
 		hose->io_space.end = hose->io_space.start +
 			YUCCA_PCI_HOST_SIZE_IO - 1;
 
 		pci_init_resource(&hose->io_resource,
-				hose->io_space.start,
-				hose->io_space.end,
-				IORESOURCE_IO,
-				name);
+				  hose->io_space.start,
+				  hose->io_space.end,
+				  IORESOURCE_IO,
+				  name);
+
+		hose->first_busno = bus_no;
+		hose->last_busno = 0xFF;
+		hose_type[hose->index] = hs;
 
 		if (is_pcix_hose(hs)) {
 			ppc440spe_setup_pcix(hose);
 			setup_indirect_pci(hose, PCIX0_CFGA, PCIX0_CFGD);
 			hose->set_cfg_type = 1;
 		} else {
-			if(ppc440spe_setup_pcie(hose, pcie_hose_num(hs)) != 0)
-			{
-				printk(KERN_WARNING"PCIE setup failed for hose no %d\n",
-						pcie_hose_num(hs));
+			if (ppc4xx_setup_pcie(hose, pcie_hose_num(hs)) != 0) {
+				printk(KERN_WARNING
+				       "PCIE setup failed for hose no %d\n",
+				       pcie_hose_num(hs));
 				continue;
 			}
-		}
-
-		hose->first_busno = bus_no;
-		hose->last_busno  = 0xFF;
-		hose_type[hose->index] = hs;
-
-		if (!is_pcix_hose(hs))
-		{
-			unsigned char* addr;
-			addr = (unsigned char*)((void __iomem*)hose->cfg_addr);
-
-			out_8(addr + PCI_PRIMARY_BUS, hose->first_busno);
-			out_8(addr + PCI_SECONDARY_BUS, ++hose->first_busno);
-			out_8(addr + PCI_SUBORDINATE_BUS, 0xff);
 		}
 
 		/*
