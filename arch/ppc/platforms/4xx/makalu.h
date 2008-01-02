@@ -1,5 +1,5 @@
 /*
- * Kilauea board definitions
+ * Makalu board definitions
  *
  * Copyright 2007 DENX Software Engineering, Stefan Roese <sr@denx.de>
  *
@@ -11,21 +11,16 @@
  */
 
 #ifdef __KERNEL__
-#ifndef __ASM_KILAUEA_H__
-#define __ASM_KILAUEA_H__
+#ifndef __ASM_MAKALU_H__
+#define __ASM_MAKALU_H__
 
 #include <platforms/4xx/ppc405ex.h>
 #include <asm/ppcboot.h>
 
-/* Kilauea Boards with different revisions may have different SysClk
+/* Makalu Boards with different revisions may have different SysClk
  * input frequencies
  */
-#define BOARD_SYSCLK		33333000
-
-#define CS_NAND_0		1	/* use chip select 1 for NAND device 0 */
-
-#define KILAUEA_NAND_FLASH_ADDR	0xF8000000ULL
-#define KILAUEA_NAND_FLASH_SIZE	0x2000
+#define BOARD_SYSCLK		33330000
 
 /* The UART clock is based off an internal clock -
  * define BASE_BAUD based on the internal clock and divider(s).
@@ -35,16 +30,16 @@
  */
 #define BASE_BAUD		0
 
-#define PPC4xx_MACHINE_NAME	"AMCC Kilauea"
+#define PPC4xx_MACHINE_NAME	"AMCC Makalu"
 
 /* PCIe support */
-#define KILAUEA_PCIE_LOWER_MEM	0x90000000
-#define KILAUEA_PCIE_MEM_SIZE	0x08000000
-#define BOARD_PCIE_MEM_SIZE	KILAUEA_PCIE_MEM_SIZE	/* used in syslib/ppc4xx_pcie.c */
+#define MAKALU_PCIE_LOWER_MEM	0x90000000
+#define MAKALU_PCIE_MEM_SIZE	0x08000000
+#define BOARD_PCIE_MEM_SIZE	MAKALU_PCIE_MEM_SIZE	/* used in syslib/ppc4xx_pcie.c */
 
-#define KILAUEA_PCIE_LOWER_IO	0xe0000000
-#define KILAUEA_PCIE_IO_SIZE	0x00010000
-#define BOARD_PCIE_IO_SIZE	KILAUEA_PCIE_IO_SIZE	/* used in syslib/ppc4xx_pcie.c */
+#define MAKALU_PCIE_LOWER_IO	0xe0000000
+#define MAKALU_PCIE_IO_SIZE	0x00010000
+#define BOARD_PCIE_IO_SIZE	MAKALU_PCIE_IO_SIZE	/* used in syslib/ppc4xx_pcie.c */
 
 #define BOARD_PCIE_INBOUND_BASE	0x0000000000000000ULL
 
@@ -58,5 +53,5 @@
  */
 #define BOARD_PCIE_SCAN_DELAY	250
 
-#endif /* __ASM_KILAUEA_H__ */
+#endif /* __ASM_MAKALU_H__ */
 #endif /* __KERNEL__ */

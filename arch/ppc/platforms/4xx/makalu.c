@@ -1,5 +1,5 @@
 /*
- * Kilauea (405EX) & Haleakala (405EXr) board specific routines
+ * Makalu board specific routines
  *
  * Copyright 2007 DENX Software Engineering, Stefan Roese <sr@denx.de>
  *
@@ -24,8 +24,6 @@
 #include <linux/serial_8250.h>
 #include <linux/platform_device.h>
 #include <linux/mtd/partitions.h>
-#include <linux/mtd/nand.h>
-#include <linux/mtd/ndfc.h>
 #include <linux/mtd/physmap.h>
 #include <linux/ethtool.h>
 #include <linux/i2c.h>
@@ -48,21 +46,11 @@
 extern bd_t __res;
 
 /*
- * I2C RTC
- */
-static struct i2c_board_info __initdata kilauea_i2c_devices[] = {
-	{
-		I2C_BOARD_INFO("rtc-ds1307", 0x68),
-		.type = "ds1338",
-	},
-};
-
-/*
  * NOR FLASH configuration (using mtd physmap driver)
  */
 
 /* start will be added dynamically, end is always fixed */
-static struct resource kilauea_nor_resource = {
+static struct resource makalu_nor_resource = {
 	.flags = IORESOURCE_MEM,
 };
 
@@ -73,7 +61,7 @@ static struct resource kilauea_nor_resource = {
 #define RW_PART3_SZ	0x40000
 #define RW_PART4_SZ	0x60000
 
-static struct mtd_partition kilauea_nor_parts[] = {
+static struct mtd_partition makalu_nor_parts[] = {
 	{
 		.name = "kernel",
 		.offset = 0,
@@ -100,123 +88,47 @@ static struct mtd_partition kilauea_nor_parts[] = {
 	}
 };
 
-static struct physmap_flash_data kilauea_nor_data = {
+static struct physmap_flash_data makalu_nor_data = {
 	.width		= 2,
-	.parts		= kilauea_nor_parts,
-	.nr_parts	= ARRAY_SIZE(kilauea_nor_parts),
+	.parts		= makalu_nor_parts,
+	.nr_parts	= ARRAY_SIZE(makalu_nor_parts),
 };
 
-static struct platform_device kilauea_nor_device = {
+static struct platform_device makalu_nor_device = {
 	.name		= "physmap-flash",
 	.id		= 0,
 	.dev = {
-		.platform_data = &kilauea_nor_data,
+		.platform_data = &makalu_nor_data,
 	},
 	.num_resources	= 1,
-	.resource	= &kilauea_nor_resource,
+	.resource	= &makalu_nor_resource,
 };
 
-/*
- * NAND FLASH configuration (NDFC)
- */
-static struct resource kilauea_ndfc = {
-	.start = (u32)KILAUEA_NAND_FLASH_ADDR,
-	.end = (u32)KILAUEA_NAND_FLASH_ADDR + KILAUEA_NAND_FLASH_SIZE - 1,
-	.flags = IORESOURCE_MEM,
-};
-
-static struct mtd_partition kilauea_nand_parts[] = {
-        {
-                .name   = "content",
-                .offset = 0,
-                .size   = MTDPART_SIZ_FULL,
-        }
-};
-
-struct ndfc_controller_settings kilauea_ndfc_settings = {
-	.ccr_settings = (NDFC_CCR_BS(CS_NAND_0) | NDFC_CCR_ARAC1),
-	.ndfc_erpn = (KILAUEA_NAND_FLASH_ADDR) >> 32,
-};
-
-struct platform_nand_ctrl kilauea_nand_ctrl = {
-	.priv = &kilauea_ndfc_settings,
-};
-
-static struct platform_device kilauea_ndfc_device = {
-	.name = "ndfc-nand",
-	.id = 0,
-	.dev = {
-		.platform_data = &kilauea_nand_ctrl,
-	},
-	.num_resources = 1,
-	.resource = &kilauea_ndfc,
-};
-
-static struct ndfc_chip_settings kilauea_chip0_settings = {
-	.bank_settings = 0x80002222,
-};
-
-static struct nand_ecclayout nand_oob_16 = {
-	.eccbytes = 6,
-	.eccpos = {0, 1, 2, 3, 6, 7},
-	.oobfree = {
-		 {.offset = 8,
-		  .length = 8}}
-};
-
-static struct platform_nand_chip kilauea_nand_chip0 = {
-	.nr_chips = 1,
-	.chip_offset = CS_NAND_0,
-	.nr_partitions = ARRAY_SIZE(kilauea_nand_parts),
-	.partitions = kilauea_nand_parts,
-	.chip_delay = 50,
-	.ecclayout = &nand_oob_16,
-	.priv = &kilauea_chip0_settings,
-};
-
-static struct platform_device kilauea_nand_device = {
-	.name = "ndfc-chip",
-	.id = 0,
-	.num_resources = 0,
-	.dev = {
-		.platform_data = &kilauea_nand_chip0,
-		.parent = &kilauea_ndfc_device.dev,
-	}
-};
-
-static int __init kilauea_setup_platform_devices(void)
+static int __init makalu_setup_platform_devices(void)
 {
 	/* NOR-FLASH */
-	kilauea_nor_resource.start = __res.bi_flashstart;
-	kilauea_nor_resource.end = __res.bi_flashstart +
+	makalu_nor_resource.start = __res.bi_flashstart;
+	makalu_nor_resource.end = __res.bi_flashstart +
 		__res.bi_flashsize - 1;
 
 	/*
 	 * Adjust partition 2 to flash size
 	 */
-	kilauea_nor_parts[2].size = __res.bi_flashsize -
+	makalu_nor_parts[2].size = __res.bi_flashsize -
 		RW_PART0_SZ - RW_PART1_SZ - RW_PART3_SZ - RW_PART4_SZ;
 
-	platform_device_register(&kilauea_nor_device);
-
-	/* NAND-FLASH */
-	platform_device_register(&kilauea_ndfc_device);
-	platform_device_register(&kilauea_nand_device);
-
-	/* I2C devices */
-	i2c_register_board_info(0, kilauea_i2c_devices,
-				ARRAY_SIZE(kilauea_i2c_devices));
+	platform_device_register(&makalu_nor_device);
 
 	return 0;
 }
-arch_initcall(kilauea_setup_platform_devices);
+arch_initcall(makalu_setup_platform_devices);
 
 #ifdef CONFIG_PCI
 /*
- * Some IRQs unique to Kilauea
+ * Some IRQs unique to Makalu
  */
-int __init kilauea_map_irq(struct pci_dev *dev, unsigned char idsel,
-			   unsigned char pin)
+int __init makalu_map_irq(struct pci_dev *dev, unsigned char idsel,
+			  unsigned char pin)
 {
 	struct pci_controller *hose = pci_bus_to_hose(dev->bus->number);
 
@@ -247,31 +159,24 @@ int __init kilauea_map_irq(struct pci_dev *dev, unsigned char idsel,
 	return -1;
 }
 
-static int __init kilauea_pcie_card_present(int port)
+static int __init makalu_pcie_card_present(int port)
 {
 	/*
-	 * Kilauea can't detect a PCIe board, so we always report it
+	 * Makalu can't detect a PCIe board, so we always report it
 	 * as present
 	 */
 	return 1;
 }
 
-static void __init kilauea_setup_hoses(void)
+static void __init makalu_setup_hoses(void)
 {
 	struct pci_controller *hose;
 	char name[20];
 	int hs;
 	int bus_no = 0;
-	int hose_max = 2;
 
-	/*
-	 * Haleakala (405EXr) only supports one PCIe interface
-	 */
-	if ((mfspr(SPRN_PVR) & 0x00000004) == 0x00000000)
-		hose_max--;
-
-	for (hs = 0; hs < hose_max; ++hs) {
-		if (!kilauea_pcie_card_present(hs))
+	for (hs = 0; hs < 2; ++hs) {
+		if (!makalu_pcie_card_present(hs))
 			continue;
 
 		pr_debug(KERN_INFO "PCIE%d: card present\n", hs);
@@ -288,10 +193,10 @@ static void __init kilauea_setup_hoses(void)
 
 		sprintf(name, "PCIE%d host bridge", hs);
 
-		hose->io_space.start = KILAUEA_PCIE_LOWER_IO +
-			hs * KILAUEA_PCIE_IO_SIZE;
+		hose->io_space.start = MAKALU_PCIE_LOWER_IO +
+			hs * MAKALU_PCIE_IO_SIZE;
 		hose->io_space.end = hose->io_space.start +
-			KILAUEA_PCIE_IO_SIZE - 1;
+			MAKALU_PCIE_IO_SIZE - 1;
 
 		pci_init_resource(&hose->io_resource,
 				  hose->io_space.start,
@@ -299,10 +204,10 @@ static void __init kilauea_setup_hoses(void)
 				  IORESOURCE_IO,
 				  name);
 
-		hose->mem_space.start = KILAUEA_PCIE_LOWER_MEM +
-			hs * KILAUEA_PCIE_MEM_SIZE;
+		hose->mem_space.start = MAKALU_PCIE_LOWER_MEM +
+			hs * MAKALU_PCIE_MEM_SIZE;
 		hose->mem_space.end = hose->mem_space.start +
-			KILAUEA_PCIE_MEM_SIZE - 1;
+			MAKALU_PCIE_MEM_SIZE - 1;
 
 		pci_init_resource(&hose->mem_resources[0],
 				  hose->mem_space.start,
@@ -331,7 +236,7 @@ static void __init kilauea_setup_hoses(void)
 	}
 
 	ppc_md.pci_swizzle = common_swizzle;
-	ppc_md.pci_map_irq = kilauea_map_irq;
+	ppc_md.pci_map_irq = makalu_map_irq;
 }
 #endif
 
@@ -339,15 +244,34 @@ static void __init kilauea_setup_hoses(void)
  * different clock speeds/dividers.
  * Calculate the proper input baud rate and setup the serial driver.
  */
-static void __init kilauea_early_serial_map(void)
+
+static u32 get_uart_clock(int port)
+{
+	u32 sdr_uart;
+	u32 uart_div;
+
+	sdr_uart = SDR_READ(DCRN_SDR_UART0 + port);
+	if (sdr_uart & SDR_UART_U0EC) {
+		/* External serial clock used */
+		return 11059200;
+	} else {
+		/* Serial clock generated internally */
+		uart_div = sdr_uart & 0xff;
+		if (uart_div == 0)
+			uart_div = 256;
+		return (__res.bi_plb_busfreq / uart_div);
+	}
+}
+
+static void __init makalu_early_serial_map(void)
 {
 	struct uart_port port;
 
 	/* Setup serial port access */
 	memset(&port, 0, sizeof(port));
-	port.membase = (void*)UART0_IO_BASE;
+	port.membase = (void *)UART0_IO_BASE;
 	port.irq = UART0_INT;
-	port.uartclk = 11059200;
+	port.uartclk = get_uart_clock(0);
 	port.regshift = 0;
 	port.iotype = UPIO_MEM;
 	port.flags = UPF_BOOT_AUTOCONF | UPF_SKIP_TEST;
@@ -356,15 +280,16 @@ static void __init kilauea_early_serial_map(void)
 	if (early_serial_setup(&port) != 0)
 		printk("Early serial init of port 0 failed\n");
 
-	port.membase = (void*)UART1_IO_BASE;
+	port.membase = (void *)UART1_IO_BASE;
 	port.irq = UART1_INT;
 	port.line = 1;
+	port.uartclk = get_uart_clock(1);
 
 	if (early_serial_setup(&port) != 0)
 		printk("Early serial init of port 1 failed\n");
 }
 
-static void __init kilauea_set_emacdata(void)
+static void __init makalu_set_emacdata(void)
 {
 	struct ocp_def *def;
 	struct ocp_func_emac_data *emacdata;
@@ -374,26 +299,21 @@ static void __init kilauea_set_emacdata(void)
 	def = ocp_get_one_device(OCP_VENDOR_IBM, OCP_FUNC_EMAC, 0);
 	emacdata = def->additions;
 	memcpy(emacdata->mac_addr, __res.bi_enetaddr, 6);
+	emacdata->phy_map = 0x0000003f;	/* Start at 6 */
 	emacdata->phy_mode = PHY_MODE_RGMII;
 	emacdata->phy_feat_exc = SUPPORTED_Autoneg;
 
-	/*
-	 * Haleakala (405EXr) only supports one PCIe interface
-	 */
 	def = ocp_get_one_device(OCP_VENDOR_IBM, OCP_FUNC_EMAC, 1);
-	if ((mfspr(SPRN_PVR) & 0x00000004) == 0x00000000) {
-		def->additions = 0;
-	} else {
-		emacdata = def->additions;
-		memcpy(emacdata->mac_addr, __res.bi_enet1addr, 6);
-		emacdata->phy_mode = PHY_MODE_RGMII;
-		emacdata->phy_feat_exc = SUPPORTED_Autoneg;
-	}
+	emacdata = def->additions;
+	memcpy(emacdata->mac_addr, __res.bi_enet1addr, 6);
+	emacdata->phy_map = 0x00000000;	/* Start at 0 */
+	emacdata->phy_mode = PHY_MODE_RGMII;
+	emacdata->phy_feat_exc = SUPPORTED_Autoneg;
 }
 
-void __init kilauea_setup_arch(void)
+void __init makalu_setup_arch(void)
 {
-	kilauea_set_emacdata();
+	makalu_set_emacdata();
 
 	ppc4xx_setup_arch();
 
@@ -401,20 +321,17 @@ void __init kilauea_setup_arch(void)
 
 	ocp_sys_info.plb_bus_freq = __res.bi_busfreq;
 
-        kilauea_early_serial_map();
+        makalu_early_serial_map();
 
 #ifdef CONFIG_PCI
-	kilauea_setup_hoses();
+	makalu_setup_hoses();
 #endif
 
 	/* Identify the system */
-	if ((mfspr(SPRN_PVR) & 0x00000004) == 0x00000000)
-		printk("AMCC PowerPC 405EXr Haleakala Platform\n");
-	else
-		printk("AMCC PowerPC 405EX Kilauea Platform\n");
+	printk("AMCC PowerPC 405EX Makalu Platform\n");
 }
 
-void __init kilauea_map_io(void)
+void __init makalu_map_io(void)
 {
 	ppc4xx_map_io();
 }
@@ -424,6 +341,6 @@ void __init platform_init(unsigned long r3, unsigned long r4, unsigned long r5,
 {
 	ppc4xx_init(r3, r4, r5, r6, r7);
 
-	ppc_md.setup_arch = kilauea_setup_arch;
-	ppc_md.setup_io_mappings = kilauea_map_io;
+	ppc_md.setup_arch = makalu_setup_arch;
+	ppc_md.setup_io_mappings = makalu_map_io;
 }

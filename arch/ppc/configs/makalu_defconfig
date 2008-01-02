@@ -1,7 +1,7 @@
 #
 # Automatically generated make config: don't edit
 # Linux kernel version: 2.6.24-rc6
-# Wed Jan  2 08:54:26 2008
+# Wed Jan  2 09:01:07 2008
 #
 CONFIG_WORD_SIZE=32
 CONFIG_MMU=y
@@ -120,8 +120,8 @@ CONFIG_WANT_EARLY_SERIAL=y
 # CONFIG_BUBINGA is not set
 # CONFIG_CPCI405 is not set
 # CONFIG_EP405 is not set
-CONFIG_KILAUEA=y
-# CONFIG_MAKALU is not set
+# CONFIG_KILAUEA is not set
+CONFIG_MAKALU=y
 # CONFIG_PPChameleonEVB is not set
 # CONFIG_REDWOOD_5 is not set
 # CONFIG_REDWOOD_6 is not set
@@ -814,13 +814,13 @@ CONFIG_RTC_INTF_DEV_UIE_EMUL=y
 #
 # I2C RTC drivers
 #
-CONFIG_RTC_DRV_DS1307=y
+# CONFIG_RTC_DRV_DS1307 is not set
 # CONFIG_RTC_DRV_DS1374 is not set
 # CONFIG_RTC_DRV_DS1672 is not set
 # CONFIG_RTC_DRV_MAX6900 is not set
 # CONFIG_RTC_DRV_RS5C372 is not set
 # CONFIG_RTC_DRV_ISL1208 is not set
-# CONFIG_RTC_DRV_X1205 is not set
+CONFIG_RTC_DRV_X1205=y
 # CONFIG_RTC_DRV_PCF8563 is not set
 # CONFIG_RTC_DRV_PCF8583 is not set
 # CONFIG_RTC_DRV_M41T80 is not set

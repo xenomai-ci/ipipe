@@ -45,6 +45,12 @@ config KILAUEA
 	help
 	  This option enables support for the AMCC 405EX evaluation board.
 
+config MAKALU
+	bool "Makalu"
+	select WANT_EARLY_SERIAL
+	help
+	  This option enables support for the AMCC 405EX evaluation board.
+
 config PPChameleonEVB
 	bool "PPChameleonEVB"
 	help
@@ -278,7 +284,7 @@ config BOOKE
 
 config IBM_OCP
 	bool
-	depends on ACADIA || ALPR || ASH || BAMBOO || BUBINGA || CPCI405 || EBONY || EP405 || KATMAI || KILAUEA || LUAN || LWMON5 || OCOTEA || P3P440 || PPChameleonEVB || RAINIER || REDWOOD_5 || REDWOOD_6 || SC3 || SEQUOIA || SYCAMORE || TAIHU || TAISHAN || WALNUT || YELLOWSTONE || YOSEMITE || YUCCA
+	depends on ACADIA || ALPR || ASH || BAMBOO || BUBINGA || CPCI405 || EBONY || EP405 || KATMAI || KILAUEA || LUAN || LWMON5 || MAKALU || OCOTEA || P3P440 || PPChameleonEVB || RAINIER || REDWOOD_5 || REDWOOD_6 || SC3 || SEQUOIA || SYCAMORE || TAIHU || TAISHAN || WALNUT || YELLOWSTONE || YOSEMITE || YUCCA
 	default y
 
 config IBM_EMAC4
@@ -324,7 +330,7 @@ config 405GPR
 
 config 405EX
 	bool
-	depends on KILAUEA
+	depends on KILAUEA || MAKALU
 	default y
 
 config 405EZ
