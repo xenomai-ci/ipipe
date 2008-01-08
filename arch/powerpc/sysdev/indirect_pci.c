@@ -177,8 +177,9 @@ setup_indirect_pci(struct pci_controller* hose,
  * causing system check while trying to access config space later
  */
 void __init
-setup_indirect_pci_noremap(struct pci_controller *hose, u32 cfg_addr,
-		u32 cfg_data, u32 flags)
+setup_indirect_pci_noremap(struct pci_controller *hose,
+			   resource_size_t cfg_addr,
+			   resource_size_t cfg_data, u32 flags)
 {
 	hose->cfg_addr = (void *)cfg_addr;
 	hose->cfg_data = (void *)cfg_data;
