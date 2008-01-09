@@ -3679,10 +3679,6 @@ static int __init ppc440spe_adma_init (void)
 	int rval;
 	struct proc_dir_entry *p;
 
-	/* it's currently unsafe to unload this module */
-	/* if forced, worst case is that rmmod hangs */
-	__unsafe(THIS_MODULE);
-
 	rval = platform_driver_register(&ppc440spe_adma_driver);
 
 	if (rval == 0) {
@@ -3712,14 +3708,16 @@ static int __init ppc440spe_adma_init (void)
 	return rval;
 }
 
+#if 0
 static void __exit ppc440spe_adma_exit (void)
 {
 	platform_driver_unregister(&ppc440spe_adma_driver);
 	return;
 }
+module_exit(ppc440spe_adma_exit);
+#endif
 
 module_init(ppc440spe_adma_init);
-module_exit(ppc440spe_adma_exit);
 
 MODULE_AUTHOR("Yuri Tikhonov <yur@emcraft.com>");
 MODULE_DESCRIPTION("PPC440SPE ADMA Engine Driver");
