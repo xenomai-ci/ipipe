@@ -40,6 +40,10 @@
 #include <linux/proc_fs.h>
 #include <asm/ppc440spe_adma.h>
 
+/* The list of channels exported by ppc440spe ADMA */
+struct list_head
+ppc_adma_chan_list = LIST_HEAD_INIT(ppc_adma_chan_list);
+
 /* This flag is set when want to refetch the xor chain in the interrupt
  *	handler
  */
@@ -1372,7 +1376,7 @@ out:
  * @src_cnt: number of source operands
  * @src_sz: size of each source operand
  */
-static int ppc440spe_adma_estimate (struct dma_chan *chan,
+int ppc440spe_adma_estimate (struct dma_chan *chan,
 	enum dma_transaction_type cap, struct page **src_lst,
 	int src_cnt, size_t src_sz)
 {
@@ -3265,6 +3269,7 @@ static int __devexit ppc440spe_adma_remove(struct platform_device *dev)
 {
 	ppc440spe_dev_t *device = platform_get_drvdata(dev);
 	struct dma_chan *chan, *_chan;
+	struct ppc_dma_chan_ref *ref, *_ref;
 	ppc440spe_ch_t *ppc440spe_chan;
 	int i;
 	ppc440spe_aplat_t *plat_data = dev->dev.platform_data;
@@ -3292,6 +3297,12 @@ static int __devexit ppc440spe_adma_remove(struct platform_device *dev)
 		list_del(&chan->device_node);
 		kfree(ppc440spe_chan);
 	}
+
+	list_for_each_entry_safe(ref, _ref, &ppc_adma_chan_list, node) {
+		list_del(&ref->node);
+		kfree(ref);
+	}
+
 	kfree(device);
 
 	return 0;
@@ -3306,7 +3317,8 @@ static int __devinit ppc440spe_adma_probe(struct platform_device *pdev)
 	int ret=0, irq;
 	ppc440spe_dev_t *adev;
 	ppc440spe_ch_t *chan;
-	ppc440spe_aplat_t *plat_data;;
+	ppc440spe_aplat_t *plat_data;
+	struct ppc_dma_chan_ref *ref;
 
 	dev_dbg(&pdev->dev, "%s: %i\n",__FUNCTION__,__LINE__);
 	plat_data = pdev->dev.platform_data;
@@ -3352,7 +3364,6 @@ static int __devinit ppc440spe_adma_probe(struct platform_device *pdev)
 	adev->common.device_is_tx_complete = ppc440spe_adma_is_complete;
 	adev->common.device_issue_pending = ppc440spe_adma_issue_pending;
 	adev->common.device_dependency_added = ppc440spe_adma_dependency_added;
-	adev->common.device_estimate = ppc440spe_adma_estimate;
 	adev->common.dev = &pdev->dev;
 
 	/* set prep routines based on capability */
@@ -3445,6 +3456,14 @@ static int __devinit ppc440spe_adma_probe(struct platform_device *pdev)
 	  dma_has_cap(DMA_INTERRUPT, adev->common.cap_mask) ? "int " : "");
 
 	dma_async_device_register(&adev->common);
+	ref = kmalloc(sizeof(*ref), GFP_KERNEL);
+	if (ref) {
+		ref->chan = &chan->common;
+		INIT_LIST_HEAD(&ref->node);
+		list_add_tail(&ref->node, &ppc_adma_chan_list);
+	} else
+		printk(KERN_WARNING "%s: failed to allocate channel reference!\n",
+		       __FUNCTION__);
 	goto out;
 
 err_irq:
