@@ -54,30 +54,25 @@ do_async_pqxor(struct dma_async_tx_descriptor *tx, struct dma_device *device,
 {
 	struct page *dest;
 	dma_addr_t dma_addr;
-	enum dma_data_direction dir;
 	int i;
 
 	/*  One parity (P or Q) calculation is initiated always;
 	 * first always try Q
 	 */
-	dir = (flags & ASYNC_TX_ASSUME_COHERENT) ?
-		DMA_NONE : DMA_FROM_DEVICE;
 	dest = qdest ? qdest : pdest;
-	dma_addr = dma_map_page(device->dev, dest, offset, len, dir);
+	dma_addr = dma_map_page(device->dev, dest, offset, len, DMA_FROM_DEVICE);
 	tx->tx_set_dest(dma_addr, tx, 0);
 
 	/* Switch to the next destination */
 	if (qdest && pdest) {
 		/* Both destinations are set, thus here we deal with P */
-		dma_addr = dma_map_page(device->dev, pdest, offset, len, dir);
+		dma_addr = dma_map_page(device->dev, pdest, offset, len, DMA_FROM_DEVICE);
 		tx->tx_set_dest(dma_addr, tx, 1);
 	}
 
-	dir = (flags & ASYNC_TX_ASSUME_COHERENT) ?
-		DMA_NONE : DMA_TO_DEVICE;
 	for (i = 0; i < src_cnt; i++) {
 		dma_addr = dma_map_page(device->dev, src_list[i],
-			offset, len, dir);
+			offset, len, DMA_TO_DEVICE);
 		tx->tx_set_src(dma_addr, tx, i);
 		if (!qdest)
 			/* P-only calculation */
@@ -240,32 +235,25 @@ async_pqxor_zero_sum(struct page *pdest, struct page *qdest,
 
 	if (tx) {
 		dma_addr_t dma_addr;
-		enum dma_data_direction dir;
-
-		dir = (flags & ASYNC_TX_ASSUME_COHERENT) ?
-			DMA_NONE : DMA_TO_DEVICE;
 
 		/* Set location of first parity to check;
 		 * first try Q
 		 */
 		dest = qdest ? qdest : pdest;
-		dma_addr = dma_map_page(device->dev, dest, offset, len, dir);
+		dma_addr = dma_map_page(device->dev, dest, offset, len, DMA_TO_DEVICE);
 		tx->tx_set_dest(dma_addr, tx, 0);
 
 		if (qdest && pdest) {
 			/* Both parities has to be checked */
 			dma_addr = dma_map_page(device->dev, pdest, offset,
-						len, dir);
+						len, DMA_TO_DEVICE);
 			tx->tx_set_dest(dma_addr, tx, 1);
 		}
-
-		dir = (flags & ASYNC_TX_ASSUME_COHERENT) ?
-			DMA_NONE : DMA_TO_DEVICE;
 
 		/* Set location of srcs and coefs */
 		for (i = 0; i < src_cnt; i++) {
 			dma_addr = dma_map_page(device->dev, src_list[i],
-				offset, len, dir);
+				offset, len, DMA_TO_DEVICE);
 			tx->tx_set_src(dma_addr, tx, i);
 			tx->tx_set_src_mult(scoef_list[i], tx, i);
 		}
