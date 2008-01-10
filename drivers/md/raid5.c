@@ -1470,7 +1470,7 @@ static void ops_run_check6(struct stripe_head *sh)
 	/* kernel stack size limits the total number of disks */
 	struct stripe_queue *sq = sh->sq;
 	int disks = sq->disks;
-	struct page *srcs[disks - 2];
+	struct page *srcs[disks];
 	struct dma_async_tx_descriptor *tx;
 
 	int count = 0;
@@ -1478,8 +1478,8 @@ static void ops_run_check6(struct stripe_head *sh)
 	int qd_idx = raid6_next_disk(pd_idx, disks);
 	int i;
 
-	struct page *pxor_dest = sh->dev[pd_idx].page;
-	struct page *qxor_dest = sh->dev[qd_idx].page;
+	struct page *qxor_dest = srcs[count++] = sh->dev[qd_idx].page;
+	struct page *pxor_dest = srcs[count++] = sh->dev[pd_idx].page;
 
 	pr_debug("%s: stripe %llu\n", __FUNCTION__,
 		(unsigned long long)sh->sector);
@@ -1500,6 +1500,7 @@ static void ops_run_check6(struct stripe_head *sh)
 			0, NULL, NULL, NULL);
 	} else if (test_bit(STRIPE_OP_CHECK_QP, &sh->ops.pending)) {
 		/* check Q only */
+		srcs[1] = NULL;
 		pr_debug("%s: check Q\n", __FUNCTION__);
 		tx = async_pqxor_zero_sum(NULL, qxor_dest,
 			srcs, (char *)raid6_gfexp,
@@ -1508,8 +1509,9 @@ static void ops_run_check6(struct stripe_head *sh)
 			0, NULL, NULL, NULL);
 	} else {
 		/* check P only */
+		srcs[0] = NULL;
 		tx = async_xor_zero_sum(pxor_dest,
-			srcs, 0, count, STRIPE_SIZE,
+			&srcs[1], 0, count-1, STRIPE_SIZE,
 			&sh->ops.zero_sum_result,
 			0, NULL, NULL, NULL);
 	}
