@@ -1,0 +1,157 @@
+/*
+ * Device Tree for the MGCOGE Board from kexmile.
+ *
+ * Copyright 2007 Heiko Schocher <hs@denx.de>
+ *
+ * This program is free software; you can redistribute  it and/or modify it
+ * under  the terms of  the GNU General  Public License as published by the
+ * Free Software Foundation;  either version 2 of the  License, or (at your
+ * option) any later version.
+ */
+
+/ {
+	model = "mgcoge";
+	compatible = "fsl,mgcoge";
+	#address-cells = <1>;
+	#size-cells = <1>;
+
+	cpus {
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		PowerPC,8247@0 {
+			device_type = "cpu";
+			reg = <0>;
+			d-cache-line-size = <d#32>;
+			i-cache-line-size = <d#32>;
+			d-cache-size = <d#16384>;
+			i-cache-size = <d#16384>;
+			bus-frequency = <0>;
+			timebase-frequency = <0>;
+			clock-frequency = <0>;
+		};
+	};
+
+	localbus {
+		compatible = "fsl,mgcoge-localbus",
+		             "fsl,mpc8247-localbus",
+		             "fsl,pq2-localbus";
+		#address-cells = <2>;
+		#size-cells = <1>;
+		reg = <f0010100 40>;
+
+		ranges = <0 0 fe000000 00400000>;
+
+		flash@0,0 {
+			compatible = "cfi-flash";
+			reg = <0 0 400000>;
+			#address-cells = <1>;
+			#size-cells = <1>;
+			bank-width = <1>;
+			device-width = <1>;
+			partition@0 {
+				label = "u-boot";
+				reg = <0 40000>;
+			};
+			partition@40000 {
+				label = "env";
+				reg = <40000 20000>;
+			};
+			partition@60000 {
+				label = "user";
+				reg = <60000 3a0000>;
+			};
+		};
+	};
+
+	mdio@0 {
+		device_type = "mdio";
+		compatible = "fsl,mpc8272ads-mdio-bitbang",
+		             "fsl,mpc8272-mdio-bitbang",
+		             "fsl,cpm2-mdio-bitbang";
+		reg = <4 14>;
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		PHY0: fixed-phy@0 {
+			reg = <1>;
+		};
+	};
+
+	memory {
+		device_type = "memory";
+		reg = <0 0>;
+	};
+
+	soc@f0000000 {
+		#address-cells = <1>;
+		#size-cells = <1>;
+		device_type = "soc";
+		compatible = "fsl,mpc8247", "fsl,pq2-soc";
+		ranges = <00000000 f0000000 00053000>;
+		reg = <f0000000 00053000>;
+
+		cpm@119c0 {
+			#address-cells = <1>;
+			#size-cells = <1>;
+			#interrupt-cells = <2>;
+			compatible = "fsl,mpc8247-cpm", "fsl,cpm2";
+			reg = <119c0 30>;
+			ranges;
+
+			muram {
+				#address-cells = <1>;
+				#size-cells = <1>;
+				ranges = <0 0 10000>;
+
+				data@0 {
+					compatible = "fsl,cpm-muram-data";
+					reg = <0 1100 1100 40 8300 100 88fc 4>;
+				};
+			};
+
+			brg@119f0 {
+				compatible = "fsl,mpc8272-brg",
+				             "fsl,cpm2-brg",
+				             "fsl,cpm-brg";
+				reg = <119f0 10 115f0 10>;
+			};
+
+			serial@11a90 {
+				device_type = "serial";
+				compatible = "fsl,mpc8247-smc-uart",
+				             "cpm_uart",
+				             "fsl,cpm2-smc-uart";
+				model = "SMC";
+				device-id = <2>;
+				reg = <11a90 20 1100 40 88fc 4>;
+				interrupts = <5 8>;
+				interrupt-parent = <&PIC>;
+				fsl,cpm-brg = <2>;
+				fsl,cpm-command = <21200000>;
+				current-speed = <1c200>;
+			};
+
+			ethernet@11a60 {
+				device_type = "network";
+				compatible = "fsl,mpc8272-scc-enet",
+				             "fsl,cpm2-scc-enet";
+				device-id = <4>;
+				reg = <11A60 20 8300 100>;
+				mac-address = [ 00 00 00 00 00 00 ];
+				interrupts = <2b 8>;
+				interrupt-parent = <&PIC>;
+				linux,network-index = <0>;
+				fsl,cpm-command = <ce00000>;
+				phy-handle = <&PHY0>;
+			};
+		};
+
+		PIC: interrupt-controller@10c00 {
+			#interrupt-cells = <2>;
+			interrupt-controller;
+			reg = <10c00 80>;
+			compatible = "fsl,mpc8247-pic", "fsl,pq2-pic";
+		};
+	};
+};
