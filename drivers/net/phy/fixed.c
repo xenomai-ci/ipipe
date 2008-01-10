@@ -77,7 +77,9 @@ EXPORT_SYMBOL(fixed_mdio_get_phydev);
 /*-----------------------------------------------------------------------------
  *  This is used for updating internal mii regs from the status
  *-----------------------------------------------------------------------------*/
-#if defined(CONFIG_FIXED_MII_100_FDX) || defined(CONFIG_FIXED_MII_10_FDX) || defined(CONFIG_FIXED_MII_1000_FDX)
+#if defined(CONFIG_FIXED_MII_100_FDX) || defined(CONFIG_FIXED_MII_10_FDX) || defined(CONFIG_FIXED_MII_1000_FDX) \
+      || defined(CONFIG_FIXED_MII_10_HDX) \
+      || defined(CONFIG_FIXED_MII_100_HDX)
 static int fixed_mdio_update_regs(struct fixed_info *fixed)
 {
 	u16 *regs = fixed->regs;
@@ -206,7 +208,10 @@ static void fixed_mdio_release(struct device *dev)
  * bus_id = number
  * phy_id = speed+duplex.
  *-----------------------------------------------------------------------------*/
-#if defined(CONFIG_FIXED_MII_100_FDX) || defined(CONFIG_FIXED_MII_10_FDX) || defined(CONFIG_FIXED_MII_1000_FDX)
+#if defined(CONFIG_FIXED_MII_100_FDX) || defined(CONFIG_FIXED_MII_10_FDX) \
+	|| defined(CONFIG_FIXED_MII_1000_FDX) \
+	|| defined(CONFIG_FIXED_MII_10_HDX) \
+	|| defined(CONFIG_FIXED_MII_100_HDX)
 struct fixed_info *fixed_mdio_register_device(
 	int bus_id, int speed, int duplex, u8 phy_id)
 {
@@ -288,7 +293,10 @@ struct fixed_info *fixed_mdio_register_device(
 		       phydev->dev.bus_id);
 		goto err_out;
 	}
-	//phydev->state = PHY_RUNNING; /* make phy go up quick, but in 10Mbit/HDX
+
+#if defined(CONFIG_FIXED_MII_10_HDX)
+	phydev->state = PHY_RUNNING; /* make phy go up quick, but in 10Mbit/HDX */
+#endif
 	return fixed;
 
 err_out:
@@ -342,6 +350,12 @@ static int __init fixed_init(void)
 #endif
 #ifdef CONFIG_FIXED_MII_10_FDX
 		fixed_phy_ptrs[cnt++] = fixed_mdio_register_device(2, 10, 1, i);
+#endif
+#ifdef CONFIG_FIXED_MII_100_HDX
+		fixed_phy_ptrs[cnt++] = fixed_mdio_register_device(3, 100, 0, i);
+#endif
+#ifdef CONFIG_FIXED_MII_10_HDX
+		fixed_phy_ptrs[cnt++] = fixed_mdio_register_device(4, 10, 0, i);
 #endif
 	}
 
