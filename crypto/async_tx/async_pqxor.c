@@ -157,8 +157,10 @@ async_pqxor(struct page *pdest, struct page *qdest,
 	struct dma_async_tx_descriptor *depend_tx,
 	dma_async_tx_callback callback, void *callback_param)
 {
+	struct page *dest[] = {pdest, qdest};
 	struct dma_chan *chan = async_tx_find_channel(depend_tx, DMA_PQ_XOR,
-		src_list, src_cnt, len);
+						      dest, 2, src_list,
+						      src_cnt, len);
 	struct dma_device *device = chan ? chan->device : NULL;
 	struct dma_async_tx_descriptor *tx = NULL;
 
@@ -219,7 +221,9 @@ async_pqxor_zero_sum(struct page *pdest, struct page *qdest,
 	dma_async_tx_callback cb_fn, void *cb_param)
 {
 	struct dma_chan *chan = async_tx_find_channel(depend_tx,
-		DMA_PQ_ZERO_SUM, src_list, src_cnt, len);
+						      DMA_PQ_ZERO_SUM,
+						      src_list, 2, &src_list[2],
+						      src_cnt, len);
 	struct dma_device *device = chan ? chan->device : NULL;
 	struct dma_async_tx_descriptor *tx = NULL;
 
