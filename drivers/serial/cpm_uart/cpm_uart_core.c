@@ -978,9 +978,24 @@ static int cpm_uart_init_port(struct device_node *np,
 		pinfo->sccup = pram;
 	} else if (of_device_is_compatible(np, "fsl,cpm1-smc-uart") ||
 	           of_device_is_compatible(np, "fsl,cpm2-smc-uart")) {
+		u16 __iomem *pram_base;
+		struct resource res;
+
 		pinfo->flags |= FLAG_SMC;
 		pinfo->smcp = mem;
 		pinfo->smcup = pram;
+
+		if (of_address_to_resource(np, 1, &res)) {
+			ret = -ENOMEM;
+			goto out_pram;
+		}
+		pram_base = of_iomap(np, 2);
+		if (!pram_base) {
+			ret = -ENOMEM;
+			goto out_pram;
+		}
+		*pram_base = res.start;
+		iounmap (pram_base);
 	} else {
 		ret = -ENODEV;
 		goto out_pram;
