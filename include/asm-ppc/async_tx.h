@@ -67,7 +67,6 @@ ppc_async_tx_find_best_channel (enum dma_transaction_type cap,
 			}
 		}
 
-	BUG_ON(best_rank == -1);
 	return best_chan;
 }
 

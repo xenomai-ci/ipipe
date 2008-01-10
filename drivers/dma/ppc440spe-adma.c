@@ -1382,6 +1382,13 @@ int ppc440spe_adma_estimate (struct dma_chan *chan,
 {
 	int ef = 1;
 
+	if (cap == DMA_PQ_XOR || cap == DMA_PQ_ZERO_SUM) {
+		/* If RAID-6 capabilities were not activated don't try
+		 * to use them
+		 */
+		if (unlikely(!ppc440spe_r6_enabled))
+			return -1;
+	}
 	/*  in the current implementation of ppc440spe ADMA driver it
 	 * makes sense to pick out only pqxor case, because it may be
 	 * processed:
@@ -2375,14 +2382,7 @@ static struct dma_async_tx_descriptor *ppc440spe_adma_prep_dma_pqxor(
 	ppc440spe_ch_t *ppc440spe_chan = to_ppc440spe_adma_chan(chan);
 	ppc440spe_desc_t *sw_desc = NULL;
 
-	/* If RAID-6 capabilities were not activated there's no sense
-	 * in trying to use them
-	 */
-	if (unlikely(!ppc440spe_r6_enabled))
-		return NULL;
-	if (unlikely(!len))
-		return NULL;
-
+	BUG_ON(!len);
 	BUG_ON(unlikely(len > PPC440SPE_ADMA_XOR_MAX_BYTE_COUNT));
 	BUG_ON(!src_cnt || !dst_cnt || dst_cnt > DMA_DEST_MAX_NUM);
 
@@ -2421,12 +2421,6 @@ static struct dma_async_tx_descriptor *ppc440spe_adma_prep_dma_pqzero_sum(
 	ppc440spe_ch_t *ppc440spe_chan = to_ppc440spe_adma_chan(chan);
 	ppc440spe_desc_t *sw_desc, *iter;
 	int slot_cnt, slots_per_op, idst, dst_cnt;
-
-	/* If RAID-6 capabilities were not activated there's no sense
-	 * in trying to use them
-	 */
-	if (unlikely(!ppc440spe_r6_enabled))
-		return NULL;
 
 	BUG_ON(src_cnt < 3 || !src[0]);
 
