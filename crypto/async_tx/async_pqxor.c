@@ -58,6 +58,10 @@ do_async_pqxor(struct dma_device *device,
 	unsigned char *scf = qdest ? scoef_list : NULL;
 	struct dma_async_tx_descriptor *tx;
 	int i, dst_cnt = 0, zdst = flags & ASYNC_TX_XOR_ZERO_DST ? 1 : 0;
+	unsigned long dma_prep_flags = cb_fn ? DMA_PREP_INTERRUPT : 0;
+
+	if (flags & ASYNC_TX_XOR_ZERO_DST)
+		dma_prep_flags |= DMA_PREP_ZERO_DST;
 
 	/*  One parity (P or Q) calculation is initiated always;
 	 * first always try Q
@@ -81,8 +85,8 @@ do_async_pqxor(struct dma_device *device,
 	 * to doing this asynchronously.  Drivers force forward progress
 	 * in case they can not provide a descriptor
 	 */
-	tx = device->device_prep_dma_pqxor(chan, dma_dest, dst_cnt, dma_src, src_cnt,
-					   scf, len, zdst, cb_fn != NULL);
+	tx = device->device_prep_dma_pqxor(chan, dma_dest, dst_cnt, dma_src,
+					   src_cnt, scf, len, dma_prep_flags);
 	if (!tx) {
 		if (depend_tx)
 			dma_wait_for_async_tx(depend_tx);
@@ -91,8 +95,8 @@ do_async_pqxor(struct dma_device *device,
 			tx = device->device_prep_dma_pqxor(chan,
 							   dma_dest, dst_cnt,
 							   dma_src, src_cnt,
-							   scf, len, zdst,
-							   cb_fn != NULL);
+							   scf, len,
+							   dma_prep_flags);
 	}
 
 	async_tx_submit(chan, tx, flags, depend_tx, cb_fn, cb_param);
@@ -224,6 +228,7 @@ async_pqxor_zero_sum(struct page *pdest, struct page *qdest,
 
 	if (device) {
 		dma_addr_t *dma_src = (dma_addr_t *)src_list;
+		unsigned long dma_prep_flags = cb_fn ? DMA_PREP_INTERRUPT : 0;
 		int i;
 
 		for (i = 0; i < src_cnt; i++)
@@ -233,7 +238,7 @@ async_pqxor_zero_sum(struct page *pdest, struct page *qdest,
 		tx = device->device_prep_dma_pqzero_sum(chan, dma_src, src_cnt,
 						      scf, len,
 						      presult, qresult,
-						      cb_fn != NULL);
+						      dma_prep_flags);
 
 		if (!tx) {
 			if (depend_tx)
@@ -243,7 +248,7 @@ async_pqxor_zero_sum(struct page *pdest, struct page *qdest,
 				tx = device->device_prep_dma_pqzero_sum(chan,
 						dma_src, src_cnt, scf, len,
 						presult, qresult,
-						cb_fn != NULL);
+						dma_prep_flags);
 		}
 
 		async_tx_submit(chan, tx, flags, depend_tx, cb_fn, cb_param);
