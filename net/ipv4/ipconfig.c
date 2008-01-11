@@ -1449,7 +1449,9 @@ static int __init ip_auto_config_setup(char *addrs)
 		return 1;
 
 	/* If no static IP is given, turn off autoconfig and bail.  */
-	if (*addrs == 0 || strcmp(addrs, "off") == 0 || strcmp(addrs, "none") == 0) {
+	if (*addrs == 0 ||
+	    strcmp(addrs, "off") == 0 ||
+	    strcmp(addrs, "none") == 0) {
 		ic_enable = 0;
 		return 1;
 	}
@@ -1492,7 +1494,8 @@ static int __init ip_auto_config_setup(char *addrs)
 				strlcpy(user_dev_name, ip, sizeof(user_dev_name));
 				break;
 			case 6:
-				if (ic_proto_name(ip) == 0 && ic_myaddr == NONE) {
+				if (ic_proto_name(ip) == 0 &&
+				    ic_myaddr == NONE) {
 					ic_enable = 0;
 				}
 				break;
