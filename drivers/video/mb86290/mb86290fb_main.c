@@ -97,6 +97,7 @@ static void Wait(int ms)
 		schedule_timeout(ms * 1000 / onejit);
 }
 
+#if !defined(CONFIG_FB_PRE_INIT_FB)
 static void set_disp_clock(GDC_ULONG mode)
 {
 	GDC_ULONG newmode;
@@ -147,6 +148,7 @@ static void set_disp_timing(unsigned long htp, unsigned long hsp,
 	PDEBUG("VTR: 0x%08lx\n", MB86290FB_READ_DISP_REGISTER(GDC_DISP_REG_V_TOTAL) );
 	PDEBUG("VDP-P: 0x%08lx\n", MB86290FB_READ_DISP_REGISTER(GDC_DISP_REG_V_PERIOD_POS) );
 }
+#endif
 
 static void init_disp_param(void)
 {
@@ -166,6 +168,7 @@ static void init_disp_param(void)
 		win_size = ((mb86290fb_pInfo->initparam.disp.vdp - 1) << 16) |
 			    (mb86290fb_pInfo->initparam.disp.hdp);
 
+#if !defined(CONFIG_FB_PRE_INIT_FB)
 		/* for MB86293 later */
 		/* Set default display mode */
 		MB86290FB_WRITE_DISP_REGISTER(GDC_DISP_REG_L0_EXT_MODE, 0);
@@ -210,9 +213,11 @@ static void init_disp_param(void)
 		MB86290FB_WRITE_DISP_REGISTER(GDC_DISP_REG_L3_TRANS, 0);
 		MB86290FB_WRITE_DISP_REGISTER(GDC_DISP_REG_L4_TRANS, 0);
 		MB86290FB_WRITE_DISP_REGISTER(GDC_DISP_REG_L5_TRANS, 0);
+#endif
 	}
 }
 
+#if !defined(CONFIG_FB_PRE_INIT_FB)
 static void enable_backlight(void)
 {
 	unsigned long fpga1_phy_base = 0xc4000000;
@@ -227,6 +232,7 @@ static void enable_backlight(void)
 		*(unsigned long*)(fpga1_base + 0x24) = 0x64;
 	iounmap((void*)fpga1_base);
 }
+#endif
 
 int initialize_gdc(int init_flag)
 {
@@ -300,7 +306,7 @@ int initialize_gdc(int init_flag)
 			break;
 		}
 	} /* init_flag */
-#if 1
+#if !defined(CONFIG_FB_PRE_INIT_FB)
 	/* Video signal output is turned off */
 	if (mb86290fb_pInfo->initparam.gdctype >= GDC_TYPE_MB86293) {
 		/* for MB86293 later */
@@ -452,7 +458,7 @@ int initialize_gdc(int init_flag)
 		/* Write G_Init command to FIFO */
 		MB86290FB_WRITE_GEO_REGISTER(GDC_GEO_REG_INPUT_FIFO<<2, GEO_HEADER_INIT);
 	}
-
+#if !defined(CONFIG_FB_PRE_INIT_FB)
 	/* Initializes display parameter */
 	set_disp_clock(mb86290fb_pInfo->initparam.disp.mode);
 
@@ -465,7 +471,7 @@ int initialize_gdc(int init_flag)
 			mb86290fb_pInfo->initparam.disp.vsp,
 			mb86290fb_pInfo->initparam.disp.vsw,
 			mb86290fb_pInfo->initparam.disp.vdp);
-
+#endif
 	/* Set CBM(Caputure Buffer Mode) register */
 	MB86290FB_WRITE_CAP_REGISTER(GDC_CAP_REG_BUFFER_MODE, 0);
 
@@ -760,7 +766,7 @@ int mb86290fb_initialize_gdc(void)
 	MB86290FB_WRITE_HOST_REGISTER(GDC_HOST_REG_IOM, 0x00001280);
 	MB86290FB_WRITE_HOST_REGISTER(GDC_HOST_REG_GD, 0x00000005 | 0x00250000);
 #endif
-#if defined(CONFIG_LWMON5)
+#if defined(CONFIG_LWMON5) && !defined(CONFIG_FB_PRE_INIT_FB)
 	enable_backlight();
 #endif
 	printk(KERN_INFO "Fujitsu MB8629x driver init complete\n");

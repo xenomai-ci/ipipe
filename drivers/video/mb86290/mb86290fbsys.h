@@ -16,7 +16,7 @@
 /* User definition parameter */
 /*---------------------------*/
 /* common */
-#if !defined(CONFIG_FB_MB86290_LIME_USE_HOST_INTERFACE)
+#if !defined(CONFIG_FB_MB86290_LIME)
 #define	MB86290FB_USE_PCI		1
 #endif
 #define	MB86290FB_USE_EEPROM		0

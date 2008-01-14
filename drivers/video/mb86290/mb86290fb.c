@@ -460,6 +460,7 @@ int mb86290fb_blank(int blank, struct fb_info *info)
 /* mb86290fb_initdispparam_console */
 void mb86290fb_initdispparam_console(void)
 {
+#if !defined(CONFIG_FB_PRE_INIT_FB)
 	unsigned long reg;
 
 	MB86290FB_WRITE_DISP_REGISTER(GDC_DISP_REG_L0_EXT_MODE, 0);
@@ -485,7 +486,7 @@ void mb86290fb_initdispparam_console(void)
 	/* DispOn */
 	reg = MB86290FB_READ_DISP_REGISTER(GDC_DISP_REG_EXT_MODE);
 	MB86290FB_WRITE_DISP_REGISTER(GDC_DISP_REG_EXT_MODE, reg | 0x80010000);
-#if 1
+#endif
 	PDEBUG("mb86290fb_initdispparam_console\n");
 	PDEBUG("HTP: 0x%08lx\n", MB86290FB_READ_DISP_REGISTER(GDC_DISP_REG_H_TOTAL) );
 	PDEBUG("HDP: 0x%08lx\n", MB86290FB_READ_DISP_REGISTER(GDC_DISP_REG_H_PERIOD) );
@@ -504,7 +505,6 @@ void mb86290fb_initdispparam_console(void)
 	PDEBUG("o 118 0x%08lx\n", MB86290FB_READ_DISP_REGISTER(GDC_DISP_REG_L0_WIN_SIZE) );
 	PDEBUG("MMR 0x%08lx\n", MB86290FB_READ_HOST_REGISTER((GDC_HOST_REG_MEMORY_MODE << 2)) );
 	PDEBUG("CCF 0x%08lx\n",	MB86290FB_READ_HOST_REGISTER(GDC_HOST_REG_INTERNAL_CLOCK << 2));
-#endif
 }
 
 /* mb86290fb_setdmamemory */
