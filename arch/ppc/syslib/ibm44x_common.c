@@ -66,6 +66,10 @@ phys_addr_t fixup_bigphys_addr(phys_addr_t addr, phys_addr_t size)
 		addr &= PPC44x_PCI_CFG_MSK;
 		addr |= PPC44x_PCI2CFG_MSK;
 #endif
+#ifdef CONFIG_LWMON5 /* fix for Lime IO and framebuffer mapping */
+	} else if ((addr >= 0xC0000000) && (addr <= 0xC2000000)) {
+		page_4gb = PPC44x_PCIMEM_PAGE;
+#endif
 	} else if ((addr >= PPC44x_PCIMEM_LO) && (addr <= PPC44x_PCIMEM_HI))
 		page_4gb = PPC44x_PCIMEM_PAGE;
 
