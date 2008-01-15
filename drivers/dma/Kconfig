@@ -4,7 +4,7 @@
 
 menuconfig DMADEVICES
 	bool "DMA Engine support"
-	depends on (PCI && X86) || ARCH_IOP32X || ARCH_IOP33X || ARCH_IOP13XX
+	depends on (PCI && X86) || ARCH_IOP32X || ARCH_IOP33X || ARCH_IOP13XX || 440SPE || 440
 	help
 	  DMA engines can do asynchronous data transfers without
 	  involving the host CPU.  Currently, this framework can be
@@ -41,9 +41,13 @@ config AMCC_PPC440SPE_ADMA
 	depends on 440SPE || 440SP
 	select ASYNC_CORE
 	select DMA_ENGINE
+	select ARCH_HAS_ASYNC_TX_FIND_CHANNEL
 	default y
 	---help---
 	  Enable support for the AMCC PPC440SPe RAID engines.
+
+config ARCH_HAS_ASYNC_TX_FIND_CHANNEL
+	bool
 
 config DMA_ENGINE
 	bool

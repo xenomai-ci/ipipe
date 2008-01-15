@@ -13,7 +13,7 @@
 #include <linux/init.h>
 #include <linux/module.h>
 
-#include <syslib/ppc440spe_pcie.h>
+#include <syslib/ppc4xx_pcie.h>
 #include <linux/async_tx.h>
 #include <linux/platform_device.h>
 #include <asm/ppc440spe_adma.h>
