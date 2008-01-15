@@ -3124,6 +3124,7 @@ static void handle_parity_checks5(raid5_conf_t *conf, struct stripe_head *sh,
 					set_bit(R5_Wantcompute,
 						&sh->dev[sq->pd_idx].flags);
 					sh->ops.target = sq->pd_idx;
+					sh->ops.target2 = -1; /* no second target */
 					sh->ops.count++;
 					s->uptodate++;
 				}
