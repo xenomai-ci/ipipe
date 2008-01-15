@@ -206,7 +206,12 @@ static void __init sa1100_timer_init(void)
 	setup_irq(IRQ_OST0, &sa1100_timer_irq);
 	local_irq_save(flags);
 	OIER = OIER_E0;		/* enable match on timer 0 to cause interrupts */
+#ifndef CONFIG_IPIPE
 	OSMR0 = OSCR + LATCH;	/* set initial match */
+#else /* CONFIG_IPIPE */
+	last_jiffy_time = OSCR;
+	OSMR0 = last_jiffy_time + LATCH;
+#endif /* CONFIG_IPIPE */
 	local_irq_restore(flags);
 #ifdef CONFIG_IPIPE
 #ifndef CONFIG_SMP
