@@ -1324,7 +1324,6 @@ static int emac_start_xmit(struct sk_buff *skb, struct net_device *ndev)
 	return emac_xmit_finish(dev, len);
 }
 
-#if defined(CONFIG_IBM_EMAC_TAH)
 static inline int emac_xmit_split(struct ocp_enet_private *dev, int slot,
 				  u32 pd, int len, int last, u16 base_ctrl)
 {
@@ -1438,9 +1437,6 @@ static int emac_start_xmit_sg(struct sk_buff *skb, struct net_device *ndev)
 	DBG2("%d: stopped TX queue" NL, dev->def->index);
 	return 1;
 }
-#else
-# define emac_start_xmit_sg	emac_start_xmit
-#endif	/* !defined(CONFIG_IBM_EMAC_TAH) */
 
 /* BHs disabled */
 static void emac_parse_tx_error(struct ocp_enet_private *dev, u16 ctrl)
@@ -2540,11 +2536,8 @@ static int __init emac_probe(struct ocp_device *ocpdev)
 
 	/* Fill in the driver function table */
 	ndev->open = &emac_open;
-	if (dev->tah_dev) {
-		ndev->hard_start_xmit = &emac_start_xmit_sg;
+	if (dev->tah_dev)
 		ndev->features |= NETIF_F_IP_CSUM | NETIF_F_SG;
-	} else
-		ndev->hard_start_xmit = &emac_start_xmit;
 	ndev->tx_timeout = &emac_full_tx_reset;
 	ndev->watchdog_timeo = 5 * HZ;
 	ndev->stop = &emac_close;
@@ -2552,8 +2545,11 @@ static int __init emac_probe(struct ocp_device *ocpdev)
 	ndev->set_multicast_list = &emac_set_multicast_list;
 	ndev->do_ioctl = &emac_ioctl;
 	if (emac_phy_supports_gige(emacdata->phy_mode)) {
+		ndev->hard_start_xmit = &emac_start_xmit_sg;
 		ndev->change_mtu = &emac_change_mtu;
 		dev->commac.ops = &emac_commac_sg_ops;
+	} else {
+		ndev->hard_start_xmit = &emac_start_xmit;
 	}
 	SET_ETHTOOL_OPS(ndev, &emac_ethtool_ops);
 
