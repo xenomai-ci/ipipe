@@ -46,8 +46,7 @@
 
 asmlinkage void preempt_schedule_irq(void);
 
-int __ipipe_tick_irq;
-unsigned long __ipipe_apic_timer_freq;
+int __ipipe_tick_irq = TIMER_IRQ;
 
 DEFINE_PER_CPU(struct pt_regs, __ipipe_tick_regs);
 
@@ -100,12 +99,6 @@ int ipipe_get_sysinfo(struct ipipe_sysinfo *info)
 	info->archdep.tmfreq = ipipe_cpu_freq();
 
 	return 0;
-}
-
-int ipipe_tune_timer(unsigned long ns, int flags)
-{
-	printk(KERN_WARNING "I-pipe: %s is deprecated - no action taken\n", __FUNCTION__);
-	return -ENOSYS;
 }
 
 asmlinkage unsigned int do_IRQ(struct pt_regs *regs);
@@ -792,7 +785,6 @@ EXPORT_SYMBOL(ipipe_critical_enter);
 EXPORT_SYMBOL(ipipe_critical_exit);
 EXPORT_SYMBOL(ipipe_trigger_irq);
 EXPORT_SYMBOL(ipipe_get_sysinfo);
-EXPORT_SYMBOL(ipipe_tune_timer);
 
 EXPORT_SYMBOL_GPL(irq_desc);
 struct task_struct *__switch_to(struct task_struct *prev_p,

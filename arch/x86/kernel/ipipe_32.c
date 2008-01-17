@@ -48,8 +48,6 @@
 #include <mach_ipi.h>
 #endif	/* CONFIG_X86_LOCAL_APIC */
 
-extern struct clock_event_device *global_clock_event;
-
 int __ipipe_tick_irq = TIMER_IRQ;
 
 DEFINE_PER_CPU(struct pt_regs, __ipipe_tick_regs);

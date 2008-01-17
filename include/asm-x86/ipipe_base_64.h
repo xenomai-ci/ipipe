@@ -182,8 +182,4 @@ static inline unsigned long __ipipe_test_root(void)
 
 #endif /* !__ASSEMBLY__ */
 
-/* Arch-dependent features */
-
-#define __IPIPE_FEATURE_APIC_TIMER_FREQ  1
-
 #endif	/* !__X86_IPIPE_BASE_64_H */

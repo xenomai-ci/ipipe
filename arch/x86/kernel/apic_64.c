@@ -939,9 +939,6 @@ static void __init calibrate_APIC_clock(void)
 
 	printk(KERN_INFO "Detected %d.%03d MHz APIC timer.\n",
 		result / 1000 / 1000, result / 1000 % 1000);
-#ifdef CONFIG_IPIPE
-	__ipipe_apic_timer_freq = result;
-#endif
 
 	/* Calculate the scaled math multiplication factor */
 	lapic_clockevent.mult = div_sc(result, NSEC_PER_SEC, 32);
@@ -970,9 +967,6 @@ void __init setup_boot_APIC_clock (void)
 	}
 
 	printk(KERN_INFO "Using local APIC timer interrupts.\n");
-#ifdef CONFIG_IPIPE
-	__ipipe_tick_irq = ipipe_apic_vector_irq(LOCAL_TIMER_VECTOR);
-#endif
 	calibrate_APIC_clock();
 
 	/*

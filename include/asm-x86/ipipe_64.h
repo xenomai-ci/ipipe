@@ -79,13 +79,6 @@ extern unsigned cpu_khz;
 #define ipipe_tsc2ns(t)	(((t) * 1000UL) / (ipipe_cpu_freq() / 1000000UL))
 #define ipipe_tsc2us(t)	((t) / (ipipe_cpu_freq() / 1000000UL))
 
-/*
- * The following interface will be deprecated once generic clockevents
- * are supported by this architecture, at which point
- * ipipe_request_tickdev() should be used instead.
- */
-extern unsigned long __ipipe_apic_timer_freq;
-
 /* Private interface -- Internal use only */
 
 #define __ipipe_check_platform()	do { } while(0)
@@ -133,6 +126,15 @@ static inline unsigned long __ipipe_ffnz(unsigned long ul)
       return ul;
 }
 
+#define ipipe_update_tick_evtdev(evtdev)				\
+	do {								\
+		if (strcmp((evtdev)->name, "lapic") == 0)		\
+			__ipipe_tick_irq =				\
+				ipipe_apic_vector_irq(LOCAL_TIMER_VECTOR); \
+		else							\
+			__ipipe_tick_irq = TIMER_IRQ;			\
+	} while (0)
+
 struct irq_desc;
 
 void __ipipe_ack_edge_irq(unsigned irq, struct irq_desc *desc);
@@ -175,10 +177,9 @@ int __ipipe_check_tickdev(const char *devname);
 
 #else /* !CONFIG_IPIPE */
 
-#define task_hijacked(p)	0
+#define ipipe_update_tick_evtdev(evtdev)	do { } while (0)
+#define task_hijacked(p)			0
 
 #endif /* CONFIG_IPIPE */
-
-#define ipipe_update_tick_evtdev(evtdev)	do { } while (0)
 
 #endif	/* !__X86_IPIPE_64_H */
