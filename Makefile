@@ -510,7 +510,7 @@ endif
 include $(srctree)/arch/$(SRCARCH)/Makefile
 
 ifdef CONFIG_IPIPE_TRACE_MCOUNT
-CFLAGS          += -pg
+KBUILD_CFLAGS	+= -pg
 endif
 
 ifdef CONFIG_FRAME_POINTER
