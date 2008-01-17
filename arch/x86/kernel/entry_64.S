@@ -1208,15 +1208,15 @@ ENTRY(kernel_execve)
 ENDPROC(kernel_execve)
 
 KPROBE_ENTRY(page_fault)
-	errorentry do_page_fault ex_page_fault
+	errorentry do_page_fault ex_do_page_fault
 KPROBE_END(page_fault)
 
 ENTRY(coprocessor_error)
-	zeroentry do_coprocessor_error ex_coprocessor_error
+	zeroentry do_coprocessor_error ex_do_coprocessor_error
 END(coprocessor_error)
 
 ENTRY(simd_coprocessor_error)
-	zeroentry do_simd_coprocessor_error ex_simd_coprocessor_error
+	zeroentry do_simd_coprocessor_error ex_do_simd_coprocessor_error
 END(simd_coprocessor_error)
 
 ENTRY(device_not_available)
@@ -1228,7 +1228,7 @@ KPROBE_ENTRY(debug)
  	INTR_FRAME
 	pushq $0
 	CFI_ADJUST_CFA_OFFSET 8		
-	paranoidentry do_debug, DEBUG_STACK, 1, ex_debug
+	paranoidentry do_debug, DEBUG_STACK, 1, ex_do_debug
 	paranoidexit
 KPROBE_END(debug)
 
@@ -1250,25 +1250,25 @@ KPROBE_ENTRY(int3)
  	INTR_FRAME
  	pushq $0
  	CFI_ADJUST_CFA_OFFSET 8
- 	paranoidentry do_int3, DEBUG_STACK, 1, ex_int3
+ 	paranoidentry do_int3, DEBUG_STACK, 1, ex_do_int3
  	jmp paranoid_exit1
  	CFI_ENDPROC
 KPROBE_END(int3)
 
 ENTRY(overflow)
-	zeroentry do_overflow ex_overflow
+	zeroentry do_overflow ex_do_overflow
 END(overflow)
 
 ENTRY(bounds)
-	zeroentry do_bounds ex_bounds
+	zeroentry do_bounds ex_do_bounds
 END(bounds)
 
 ENTRY(invalid_op)
-	zeroentry do_invalid_op ex_invalid_op
+	zeroentry do_invalid_op ex_do_invalid_op
 END(invalid_op)
 
 ENTRY(coprocessor_segment_overrun)
-	zeroentry do_coprocessor_segment_overrun ex_coprocessor_segment_overrun
+	zeroentry do_coprocessor_segment_overrun ex_do_coprocessor_segment_overrun
 END(coprocessor_segment_overrun)
 
 ENTRY(reserved)
@@ -1284,11 +1284,11 @@ ENTRY(double_fault)
 END(double_fault)
 
 ENTRY(invalid_TSS)
-	errorentry do_invalid_TSS ex_invalid_TSS
+	errorentry do_invalid_TSS ex_do_invalid_TSS
 END(invalid_TSS)
 
 ENTRY(segment_not_present)
-	errorentry do_segment_not_present ex_segment_not_present
+	errorentry do_segment_not_present ex_do_segment_not_present
 END(segment_not_present)
 
 	/* runs on exception stack */
@@ -1300,19 +1300,19 @@ ENTRY(stack_segment)
 END(stack_segment)
 
 KPROBE_ENTRY(general_protection)
-	errorentry do_general_protection ex_general_protection
+	errorentry do_general_protection ex_do_general_protection
 KPROBE_END(general_protection)
 
 ENTRY(alignment_check)
-	errorentry do_alignment_check ex_alignment_check
+	errorentry do_alignment_check ex_do_alignment_check
 END(alignment_check)
 
 ENTRY(divide_error)
-	zeroentry do_divide_error ex_divide_error
+	zeroentry do_divide_error ex_do_divide_error
 END(divide_error)
 
 ENTRY(spurious_interrupt_bug)
-	zeroentry do_spurious_interrupt_bug ex_spurious_interrupt_bug
+	zeroentry do_spurious_interrupt_bug ex_do_spurious_interrupt_bug
 END(spurious_interrupt_bug)
 
 #ifdef CONFIG_X86_MCE

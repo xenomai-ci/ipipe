@@ -50,28 +50,6 @@
 
 #define IPIPE_IRQ_ISHIFT  	6	/* 2^6 for 64bits arch. */
 
-#define ex_divide_error			0
-#define ex_debug			1
-/* NMI not pipelined. */
-#define ex_int3				3
-#define ex_overflow			4
-#define ex_bounds			5
-#define ex_invalid_op			6
-#define ex_math_state_restore		7
-/* Double fault not pipelined. */
-#define ex_coprocessor_segment_overrun	9
-#define ex_invalid_TSS			10
-#define ex_segment_not_present		11
-#define ex_stack_segment		12
-#define ex_general_protection		13
-#define ex_page_fault			14
-#define ex_spurious_interrupt_bug	15
-#define ex_coprocessor_error		16
-#define ex_alignment_check		17
-#define ex_reserved			18
-#define ex_machine_check_vector		ex_reserved
-#define ex_simd_coprocessor_error	19
-
 /* IDT fault vectors */
 #define IPIPE_NR_FAULTS		32
 /* Pseudo-vectors used for kernel events */
@@ -134,47 +112,6 @@ static inline unsigned long __ipipe_test_root(void)
 			     PUT_ROOT_STATUS_ADDR
 			     :"=r" (oldbit)
 			     : : "rax");
-	return oldbit;
-}
-
-#else /* !CONFIG_SMP */
-
-#if __GNUC__ >= 4
-/* Alias to ipipe_root_cpudom_var(status) */
-extern unsigned long __ipipe_root_status;
-#else
-extern unsigned long *const __ipipe_root_status_addr;
-#define __ipipe_root_status	(*__ipipe_root_status_addr)
-#endif
-
-static inline void __ipipe_stall_root(void)
-{
-	volatile unsigned long *p = &__ipipe_root_status;
-	__asm__ __volatile__("btsl $0,%0;"
-			     :"+m" (*p) : : "memory");
-}
-
-static inline unsigned long __ipipe_test_and_stall_root(void)
-{
-	volatile unsigned long *p = &__ipipe_root_status;
-	int oldbit;
-
-	__asm__ __volatile__("btsl $0,%1;"
-			     "sbbl %0,%0;"
-			     :"=r" (oldbit), "+m" (*p)
-			     : : "memory");
-	return oldbit;
-}
-
-static inline unsigned long __ipipe_test_root(void)
-{
-	volatile unsigned long *p = &__ipipe_root_status;
-	int oldbit;
-
-	__asm__ __volatile__("btl $0,%1;"
-			     "sbbl %0,%0;"
-			     :"=r" (oldbit)
-			     :"m" (*p));
 	return oldbit;
 }
 

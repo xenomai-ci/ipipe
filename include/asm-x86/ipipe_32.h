@@ -22,43 +22,11 @@
 #ifndef __X86_IPIPE_32_H
 #define __X86_IPIPE_32_H
 
-#ifdef CONFIG_IPIPE
-
-#ifndef __ASSEMBLY__
-
 #include <linux/cpumask.h>
 #include <linux/list.h>
 #include <linux/threads.h>
 #include <linux/ipipe_percpu.h>
 #include <asm/ptrace.h>
-
-#define ipipe_processor_id()   raw_smp_processor_id()
-
-#define prepare_arch_switch(next)		\
-do {						\
-	ipipe_schedule_notify(current, next);	\
-	local_irq_disable_hw();			\
-} while(0)
-
-#define task_hijacked(p)						\
-	({ int x = !ipipe_root_domain_p; \
-	__clear_bit(IPIPE_SYNC_FLAG, &ipipe_root_cpudom_var(status));	\
-	local_irq_enable_hw(); x; })
-
-struct ipipe_domain;
-
-struct ipipe_sysinfo {
-
-	int ncpus;		/* Number of CPUs on board */
-	u64 cpufreq;		/* CPU frequency (in Hz) */
-
-	/* Arch-dependent block */
-
-	struct {
-		unsigned tmirq;	/* Timer tick IRQ */
-		u64 tmfreq;	/* Timer frequency */
-	} archdep;
-};
 
 #define ipipe_read_tsc(t)  __asm__ __volatile__("rdtsc" : "=A" (t))
 #define ipipe_cpu_freq() ({ unsigned long long __freq = cpu_has_tsc?(1000LL * cpu_khz):CLOCK_TICK_RATE; __freq; })
@@ -79,28 +47,7 @@ struct ipipe_sysinfo {
 
 /* Private interface -- Internal use only */
 
-#define __ipipe_check_platform()	do { } while(0)
-#define __ipipe_init_platform()		do { } while(0)
-#define __ipipe_enable_irq(irq)		irq_desc[irq].chip->enable(irq)
-#define __ipipe_disable_irq(irq)	irq_desc[irq].chip->disable(irq)
-
-#ifdef CONFIG_SMP
-void __ipipe_hook_critical_ipi(struct ipipe_domain *ipd);
-#else
-#define __ipipe_hook_critical_ipi(ipd) do { } while(0)
-#endif
-
-#define __ipipe_disable_irqdesc(ipd, irq)	do { } while(0)
-
-void __ipipe_enable_irqdesc(struct ipipe_domain *ipd, unsigned irq);
-
-void __ipipe_enable_pipeline(void);
-
 int __ipipe_handle_irq(struct pt_regs regs);
-
-void __ipipe_do_critical_sync(unsigned irq, void *cookie);
-
-extern int __ipipe_tick_irq;
 
 static inline unsigned long __ipipe_ffnz(unsigned long ul)
 {
@@ -108,22 +55,6 @@ static inline unsigned long __ipipe_ffnz(unsigned long ul)
       :	"r"(ul));
 	return ul;
 }
-
-#ifdef CONFIG_X86_LOCAL_APIC
-#define ipipe_update_tick_evtdev(evtdev)				\
-	do {								\
-		if (strcmp((evtdev)->name, "lapic") == 0)		\
-			__ipipe_tick_irq =				\
-				ipipe_apic_vector_irq(LOCAL_TIMER_VECTOR); \
-		else							\
-			__ipipe_tick_irq = TIMER_IRQ;			\
-	} while (0)
-#else
-#define ipipe_update_tick_evtdev(evtdev)				\
-	__ipipe_tick_irq = TIMER_IRQ
-#endif
-
-DECLARE_PER_CPU(struct pt_regs, __ipipe_tick_regs);
 
 static inline void __ipipe_call_root_xirq_handler(unsigned irq,
 						  ipipe_irq_handler_t handler)
@@ -209,21 +140,5 @@ do {									\
 	}								\
 	local_irq_disable_nohead(ipd);					\
 } while(0)
-
-#endif /* __ASSEMBLY__ */
-
-#define __ipipe_syscall_watched_p(p, sc)	\
-	(((p)->flags & PF_EVNOTIFY) || (unsigned long)sc >= NR_syscalls)
-
-int __ipipe_check_lapic(void);
-
-int __ipipe_check_tickdev(const char *devname);
-
-#else /* !CONFIG_IPIPE */
-
-#define ipipe_update_tick_evtdev(evtdev)	do { } while (0)
-#define task_hijacked(p)			0
-
-#endif /* CONFIG_IPIPE */
 
 #endif	/* !__X86_IPIPE_32_H */

@@ -1,7 +1,7 @@
 /*   -*- linux-c -*-
- *   linux/arch/x86/kernel/ipipe_64.c
+ *   linux/arch/x86/kernel/ipipe.c
  *
- *   Copyright (C) 2007 Philippe Gerum.
+ *   Copyright (C) 2002-2007 Philippe Gerum.
  *
  *   This program is free software; you can redistribute it and/or modify
  *   it under the terms of the GNU General Public License as published by
@@ -18,7 +18,7 @@
  *   along with this program; if not, write to the Free Software
  *   Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
  *
- *   Architecture-dependent I-PIPE support for x86_64.
+ *   Architecture-dependent I-PIPE support for x86.
  */
 
 #include <linux/kernel.h>
@@ -28,6 +28,7 @@
 #include <linux/interrupt.h>
 #include <linux/slab.h>
 #include <linux/irq.h>
+#include <linux/clockchips.h>
 #include <asm/unistd.h>
 #include <asm/system.h>
 #include <asm/atomic.h>
@@ -35,16 +36,22 @@
 #include <asm/irq.h>
 #include <asm/desc.h>
 #include <asm/io.h>
+#ifdef CONFIG_X86_LOCAL_APIC
 #include <asm/tlbflush.h>
 #include <asm/fixmap.h>
 #include <asm/bitops.h>
 #include <asm/mpspec.h>
+#ifdef CONFIG_X86_IO_APIC
 #include <asm/io_apic.h>
-#include <asm/smp.h>
+#endif	/* CONFIG_X86_IO_APIC */
+#ifdef CONFIG_X86_32
+#include <asm/apic.h>
+#include <mach_ipi.h>
+#else /* !CONFIG_X86_32 */
 #include <asm/ipi.h>
 #include <asm/mach_apic.h>
-
-asmlinkage void preempt_schedule_irq(void);
+#endif /* !CONFIG_X86_32 */
+#endif	/* CONFIG_X86_LOCAL_APIC */
 
 int __ipipe_tick_irq = TIMER_IRQ;
 
@@ -80,11 +87,19 @@ int ipipe_trigger_irq(unsigned irq)
 
 	local_irq_save_hw(flags);
 
+	regs.eflags = flags;
+#ifdef CONFIG_X86_32
+	regs.orig_eax = irq;	/* Positive value - IRQ won't be acked */
+	regs.xcs = __KERNEL_CS;
+
+	__ipipe_handle_irq(regs);
+
+#else /* !CONFIG_X86_32 */
 	regs.orig_rax = irq;	/* Positive value - IRQ won't be acked */
 	regs.cs = __KERNEL_CS;
-	regs.eflags = flags;
 
 	__ipipe_handle_irq(&regs);
+#endif /* !CONFIG_X86_32 */
 
 	local_irq_restore_hw(flags);
 
@@ -96,20 +111,24 @@ int ipipe_get_sysinfo(struct ipipe_sysinfo *info)
 	info->ncpus = num_online_cpus();
 	info->cpufreq = ipipe_cpu_freq();
 	info->archdep.tmirq = __ipipe_tick_irq;
+#ifdef CONFIG_X86_TSC
 	info->archdep.tmfreq = ipipe_cpu_freq();
+#else	/* !CONFIG_X86_TSC */
+	info->archdep.tmfreq = CLOCK_TICK_RATE;
+#endif	/* CONFIG_X86_TSC */
 
 	return 0;
 }
 
-asmlinkage unsigned int do_IRQ(struct pt_regs *regs);
-asmlinkage void smp_apic_timer_interrupt(struct pt_regs *regs);
-asmlinkage void smp_spurious_interrupt(struct pt_regs *regs);
-asmlinkage void smp_error_interrupt(struct pt_regs *regs);
-asmlinkage void smp_thermal_interrupt(struct pt_regs *regs);
-asmlinkage void smp_reschedule_interrupt(struct pt_regs *regs);
-asmlinkage void smp_invalidate_interrupt(struct pt_regs *regs);
-asmlinkage void smp_call_function_interrupt(struct pt_regs *regs);
-asmlinkage void mce_threshold_interrupt(struct pt_regs *regs);
+unsigned int do_IRQ(struct pt_regs *regs);
+void smp_apic_timer_interrupt(struct pt_regs *regs);
+void smp_spurious_interrupt(struct pt_regs *regs);
+void smp_error_interrupt(struct pt_regs *regs);
+void smp_thermal_interrupt(struct pt_regs *regs);
+void smp_reschedule_interrupt(struct pt_regs *regs);
+void smp_invalidate_interrupt(struct pt_regs *regs);
+void smp_call_function_interrupt(struct pt_regs *regs);
+void mce_threshold_interrupt(struct pt_regs *regs);
 
 static int __ipipe_ack_irq(unsigned irq)
 {
@@ -122,6 +141,8 @@ void __ipipe_enable_irqdesc(struct ipipe_domain *ipd, unsigned irq)
 {
 	irq_desc[irq].status &= ~IRQ_DISABLED;
 }
+
+#ifdef CONFIG_X86_LOCAL_APIC
 
 static int __ipipe_noack_apic(unsigned irq)
 {
@@ -138,12 +159,16 @@ static void __ipipe_null_handler(unsigned irq, void *cookie)
 {
 }
 
+#endif	/* CONFIG_X86_LOCAL_APIC */
+
 /* __ipipe_enable_pipeline() -- We are running on the boot CPU, hw
    interrupts are off, and secondary CPUs are still lost in space. */
 
 void __init __ipipe_enable_pipeline(void)
 {
 	unsigned irq;
+
+#ifdef CONFIG_X86_LOCAL_APIC
 
 	/* Map the APIC system vectors. */
 
@@ -196,19 +221,25 @@ void __init __ipipe_enable_pipeline(void)
 			     &__ipipe_ack_apic,
 			     IPIPE_STDROOT_MASK);
 
-	ipipe_virtualize_irq(ipipe_root_domain,
-			     ipipe_apic_vector_irq(THRESHOLD_APIC_VECTOR),
-			     (ipipe_irq_handler_t)&mce_threshold_interrupt,
-			     NULL,
-			     &__ipipe_ack_apic,
-			     IPIPE_STDROOT_MASK);
-
+#if defined(CONFIG_X86_MCE_P4THERMAL) || defined(CONFIG_X86_64)
 	ipipe_virtualize_irq(ipipe_root_domain,
 			     ipipe_apic_vector_irq(THERMAL_APIC_VECTOR),
 			     (ipipe_irq_handler_t)&smp_thermal_interrupt,
 			     NULL,
 			     &__ipipe_ack_apic,
 			     IPIPE_STDROOT_MASK);
+#endif /* CONFIG_X86_MCE_P4THERMAL || CONFIG_X86_64 */
+
+#ifdef CONFIG_X86_64
+	ipipe_virtualize_irq(ipipe_root_domain,
+			     ipipe_apic_vector_irq(THRESHOLD_APIC_VECTOR),
+			     (ipipe_irq_handler_t)&mce_threshold_interrupt,
+			     NULL,
+			     &__ipipe_ack_apic,
+			     IPIPE_STDROOT_MASK);
+#endif /* CONFIG_X86_64 */
+
+#endif	/* CONFIG_X86_LOCAL_APIC */
 
 #ifdef CONFIG_SMP
 	ipipe_virtualize_irq(ipipe_root_domain,
@@ -218,6 +249,14 @@ void __init __ipipe_enable_pipeline(void)
 			     &__ipipe_ack_apic,
 			     IPIPE_STDROOT_MASK);
 
+#ifdef CONFIG_X86_32
+	ipipe_virtualize_irq(ipipe_root_domain,
+			     ipipe_apic_vector_irq(INVALIDATE_TLB_VECTOR),
+			     (ipipe_irq_handler_t)&smp_invalidate_interrupt,
+			     NULL,
+			     &__ipipe_ack_apic,
+			     IPIPE_STDROOT_MASK);
+#else /* !CONFIG_X86_32 */
 	{
 		unsigned vector;
 
@@ -230,6 +269,7 @@ void __init __ipipe_enable_pipeline(void)
 					     &__ipipe_ack_apic,
 					     IPIPE_STDROOT_MASK);
 	}
+#endif /* !CONFIG_X86_32 */
 
 	ipipe_virtualize_irq(ipipe_root_domain,
 			     ipipe_apic_vector_irq(CALL_FUNCTION_VECTOR),
@@ -237,6 +277,7 @@ void __init __ipipe_enable_pipeline(void)
 			     NULL,
 			     &__ipipe_ack_apic,
 			     IPIPE_STDROOT_MASK);
+
 #endif	/* CONFIG_SMP */
 
 	/* Finally, virtualize the remaining ISA and IO-APIC
@@ -248,22 +289,23 @@ void __init __ipipe_enable_pipeline(void)
 		/* Fails for IPIPE_CRITICAL_IPI but that's ok. */
 		ipipe_virtualize_irq(ipipe_root_domain,
 				     irq,
-				     (ipipe_irq_handler_t)&do_IRQ, /* Via thunk. */
+				     (ipipe_irq_handler_t)&do_IRQ,
 				     NULL,
 				     &__ipipe_ack_irq,
 				     IPIPE_STDROOT_MASK);
 
+#ifdef CONFIG_X86_LOCAL_APIC
 	/* Eventually allow these vectors to be reprogrammed. */
 	ipipe_root_domain->irqs[IPIPE_SERVICE_IPI0].control &= ~IPIPE_SYSTEM_MASK;
 	ipipe_root_domain->irqs[IPIPE_SERVICE_IPI1].control &= ~IPIPE_SYSTEM_MASK;
 	ipipe_root_domain->irqs[IPIPE_SERVICE_IPI2].control &= ~IPIPE_SYSTEM_MASK;
 	ipipe_root_domain->irqs[IPIPE_SERVICE_IPI3].control &= ~IPIPE_SYSTEM_MASK;
+#endif	/* CONFIG_X86_LOCAL_APIC */
 }
 
 #ifdef CONFIG_SMP
 
 cpumask_t __ipipe_set_irq_affinity(unsigned irq, cpumask_t cpumask)
-
 {
 	cpumask_t oldmask = irq_desc[irq].affinity;
 
@@ -283,8 +325,7 @@ cpumask_t __ipipe_set_irq_affinity(unsigned irq, cpumask_t cpumask)
 	return oldmask;
 }
 
-int asmlinkage __ipipe_send_ipi(unsigned ipi, cpumask_t cpumask)
-
+int __ipipe_send_ipi(unsigned ipi, cpumask_t cpumask)
 {
 	unsigned long flags;
 	int self;
@@ -422,7 +463,11 @@ static inline void __fixup_if(struct pt_regs *regs)
 	if (!ipipe_root_domain_p)
 		return;
 
-	/* Have the saved hw state look like the domain stall bit. */
+	/*
+	 * Have the saved hw state look like the domain stall bit, so
+	 * that __ipipe_unstall_iret_root() restores the proper
+	 * pipeline state for the root stage upon exit.
+	 */
 
 	if (test_bit(IPIPE_STALL_FLAG, &ipipe_root_cpudom_var(status)))
 		regs->eflags &= ~X86_EFLAGS_IF;
@@ -430,8 +475,101 @@ static inline void __fixup_if(struct pt_regs *regs)
 		regs->eflags |= X86_EFLAGS_IF;
 }
 
-#ifdef CONFIG_PREEMPT
+#ifdef CONFIG_X86_32
 
+/*
+ * Check the stall bit of the root domain to make sure the existing
+ * preemption opportunity upon in-kernel resumption could be
+ * exploited. In case a rescheduling could take place, the root stage
+ * is stalled before the hw interrupts are re-enabled. This routine
+ * must be called with hw interrupts off.
+ */
+
+asmlinkage int __ipipe_kpreempt_root(struct pt_regs regs)
+{
+	if (test_bit(IPIPE_STALL_FLAG, &ipipe_root_cpudom_var(status)))
+		/* Root stage is stalled: rescheduling denied. */
+		return 0;
+
+	__ipipe_stall_root();
+	local_irq_enable_hw_notrace();
+
+	return 1;	/* Ok, may reschedule now. */
+}
+
+asmlinkage void __ipipe_unstall_iret_root(struct pt_regs regs)
+{
+	/* Emulate IRET's handling of the interrupt flag. */
+
+	local_irq_disable_hw();
+
+	/* Restore the software state as it used to be on kernel
+	   entry. CAUTION: NMIs must *not* return through this
+	   emulation. */
+
+	if (!(regs.eflags & X86_EFLAGS_IF)) {
+		if (!__test_and_set_bit(IPIPE_STALL_FLAG, &ipipe_root_cpudom_var(status)))
+			trace_hardirqs_off();
+		regs.eflags |= X86_EFLAGS_IF;
+	} else {
+		if (test_bit(IPIPE_STALL_FLAG, &ipipe_root_cpudom_var(status))) {
+			trace_hardirqs_on();
+			__clear_bit(IPIPE_STALL_FLAG, &ipipe_root_cpudom_var(status));
+		}
+
+		/* Only sync virtual IRQs here, so that we don't recurse
+		   indefinitely in case of an external interrupt flood. */
+
+		if ((ipipe_root_cpudom_var(irqpend_himask) & IPIPE_IRQMASK_VIRT) != 0)
+			__ipipe_sync_pipeline(IPIPE_IRQMASK_VIRT);
+	}
+#ifdef CONFIG_IPIPE_TRACE_IRQSOFF
+	ipipe_trace_end(0x8000000D);
+#endif /* CONFIG_IPIPE_TRACE_IRQSOFF */
+}
+
+asmlinkage int __ipipe_syscall_root(struct pt_regs regs)
+{
+	unsigned long flags;
+
+	__fixup_if(&regs);
+
+	/* This routine either returns:
+	    0 -- if the syscall is to be passed to Linux;
+	   >0 -- if the syscall should not be passed to Linux, and no
+	   tail work should be performed;
+	   <0 -- if the syscall should not be passed to Linux but the
+	   tail work has to be performed (for handling signals etc). */
+
+	if (__ipipe_syscall_watched_p(current, regs.orig_eax) &&
+	    __ipipe_event_monitored_p(IPIPE_EVENT_SYSCALL) &&
+	    __ipipe_dispatch_event(IPIPE_EVENT_SYSCALL,&regs) > 0) {
+		/* We might enter here over a non-root domain and exit
+		 * over the root one as a result of the syscall
+		 * (i.e. by recycling the register set of the current
+		 * context across the migration), so we need to fixup
+		 * the interrupt flag upon return too, so that
+		 * __ipipe_unstall_iret_root() resets the correct
+		 * stall bit on exit. */
+		__fixup_if(&regs);
+
+		if (ipipe_root_domain_p && !in_atomic()) {
+			/* Sync pending VIRQs before _TIF_NEED_RESCHED is tested. */
+			local_irq_save_hw(flags);
+			if ((ipipe_root_cpudom_var(irqpend_himask) & IPIPE_IRQMASK_VIRT) != 0)
+				__ipipe_sync_pipeline(IPIPE_IRQMASK_VIRT);
+			local_irq_restore_hw(flags);
+			return -1;
+		}
+		return 1;
+	}
+
+	return 0;
+}
+
+#else /* !CONFIG_X86_32 */
+
+#ifdef CONFIG_PREEMPT
 /*
  * Check the stall bit of the root domain to make sure the existing
  * preemption opportunity upon in-kernel resumption could be
@@ -453,7 +591,6 @@ asmlinkage int __ipipe_preempt_schedule_irq(void)
 
 	return 1;
 }
-
 #endif
 
 asmlinkage int __ipipe_syscall_root(struct pt_regs *regs)
@@ -500,54 +637,61 @@ asmlinkage int __ipipe_syscall_root(struct pt_regs *regs)
     return 0;
 }
 
-static asmlinkage void do_machine_check_vector(struct pt_regs *regs, long error_code)
+#endif /* !CONFIG_X86_32 */
+
+static void do_machine_check_vector(struct pt_regs *regs, long error_code)
 {
 #ifdef CONFIG_X86_MCE
-	void do_machine_check(struct pt_regs * regs, long error_code);
+	void do_machine_check(struct pt_regs *, long);
 	do_machine_check(regs,error_code);
 #endif /* CONFIG_X86_MCE */
 }
 
-asmlinkage void do_divide_error(struct pt_regs *regs, long error_code);
-asmlinkage void do_overflow(struct pt_regs *regs, long error_code);
-asmlinkage void do_bounds(struct pt_regs *regs, long error_code);
-asmlinkage void do_invalid_op(struct pt_regs *regs, long error_code);
-asmlinkage void math_state_restore(struct pt_regs *regs, long error_code);
-asmlinkage void do_coprocessor_segment_overrun(struct pt_regs *regs, long error_code);
-asmlinkage void do_invalid_TSS(struct pt_regs *regs, long error_code);
-asmlinkage void do_segment_not_present(struct pt_regs *regs, long error_code);
-asmlinkage void do_stack_segment(struct pt_regs *regs, long error_code);
-asmlinkage void do_general_protection(struct pt_regs *regs, long error_code);
-asmlinkage void do_page_fault(struct pt_regs *regs, long error_code);
-asmlinkage void do_spurious_interrupt_bug(struct pt_regs *regs, long error_code);
-asmlinkage void do_coprocessor_error(struct pt_regs *regs, long error_code);
-asmlinkage void do_alignment_check(struct pt_regs *regs, long error_code);
-asmlinkage void do_simd_coprocessor_error(struct pt_regs *regs, long error_code);
+void do_divide_error(struct pt_regs *regs, long error_code);
+void do_overflow(struct pt_regs *regs, long error_code);
+void do_bounds(struct pt_regs *regs, long error_code);
+void do_invalid_op(struct pt_regs *regs, long error_code);
+void math_state_restore(struct pt_regs *regs, long error_code);
+void do_coprocessor_segment_overrun(struct pt_regs *regs, long error_code);
+void do_invalid_TSS(struct pt_regs *regs, long error_code);
+void do_segment_not_present(struct pt_regs *regs, long error_code);
+void do_stack_segment(struct pt_regs *regs, long error_code);
+void do_general_protection(struct pt_regs *regs, long error_code);
+void do_page_fault(struct pt_regs *regs, long error_code);
+void do_spurious_interrupt_bug(struct pt_regs *regs, long error_code);
+void do_coprocessor_error(struct pt_regs *regs, long error_code);
+void do_alignment_check(struct pt_regs *regs, long error_code);
+void do_simd_coprocessor_error(struct pt_regs *regs, long error_code);
+void do_iret_error(struct pt_regs *regs, long error_code);
 
 /* Work around genksyms's issue with over-qualification in decls. */
 
-typedef asmlinkage void __ipipe_exhandler(struct pt_regs *, long);
+typedef void __ipipe_exhandler(struct pt_regs *, long);
 
 typedef __ipipe_exhandler *__ipipe_exptr;
 
 static __ipipe_exptr __ipipe_std_extable[] = {
 
-	[ex_divide_error] = &do_divide_error,
-	[ex_overflow] = &do_overflow,
-	[ex_bounds] = &do_bounds,
-	[ex_invalid_op] = &do_invalid_op,
-	[ex_math_state_restore] = &math_state_restore,
-	[ex_coprocessor_segment_overrun] = &do_coprocessor_segment_overrun,
-	[ex_invalid_TSS] = &do_invalid_TSS,
-	[ex_segment_not_present] = &do_segment_not_present,
-	[ex_stack_segment] = &do_stack_segment,
-	[ex_general_protection] = do_general_protection,
-	[ex_page_fault] = &do_page_fault,
-	[ex_spurious_interrupt_bug] = &do_spurious_interrupt_bug,
-	[ex_coprocessor_error] = &do_coprocessor_error,
-	[ex_alignment_check] = &do_alignment_check,
+	[ex_do_divide_error] = &do_divide_error,
+	[ex_do_overflow] = &do_overflow,
+	[ex_do_bounds] = &do_bounds,
+	[ex_do_invalid_op] = &do_invalid_op,
+	[ex_do_coprocessor_segment_overrun] = &do_coprocessor_segment_overrun,
+	[ex_do_invalid_TSS] = &do_invalid_TSS,
+	[ex_do_segment_not_present] = &do_segment_not_present,
+	[ex_do_stack_segment] = &do_stack_segment,
+	[ex_do_general_protection] = do_general_protection,
+	[ex_do_page_fault] = &do_page_fault,
+	[ex_do_spurious_interrupt_bug] = &do_spurious_interrupt_bug,
+	[ex_do_coprocessor_error] = &do_coprocessor_error,
+	[ex_do_alignment_check] = &do_alignment_check,
 	[ex_machine_check_vector] = &do_machine_check_vector,
-	[ex_simd_coprocessor_error] = &do_simd_coprocessor_error,
+	[ex_do_simd_coprocessor_error] = &do_simd_coprocessor_error,
+#ifdef CONFIG_X86_32
+	[ex_do_iret_error] = &do_iret_error,
+#else
+	[ex_math_state_restore] = &math_state_restore,
+#endif
 };
 
 #ifdef CONFIG_KGDB
@@ -555,31 +699,34 @@ static __ipipe_exptr __ipipe_std_extable[] = {
 
 static int __ipipe_xlate_signo[] = {
 
-	[ex_divide_error] = SIGFPE,
-	[ex_debug] = SIGTRAP,
+	[ex_do_divide_error] = SIGFPE,
+	[ex_do_debug] = SIGTRAP,
 	[2] = -1,
-	[ex_int3] = SIGTRAP,
-	[ex_overflow] = SIGSEGV,
-	[ex_bounds] = SIGSEGV,
-	[ex_invalid_op] = SIGILL,
-	[ex_math_state_restore] = -1,
+	[ex_do_int3] = SIGTRAP,
+	[ex_do_overflow] = SIGSEGV,
+	[ex_do_bounds] = SIGSEGV,
+	[ex_do_invalid_op] = SIGILL,
+	[ex_device_not_available] = -1, /* == ex_math_state_restore on x86_64 */
 	[8] = -1,
-	[ex_coprocessor_segment_overrun] = SIGFPE,
-	[ex_invalid_TSS] = SIGSEGV,
-	[ex_segment_not_present] = SIGBUS,
-	[ex_stack_segment] = SIGBUS,
-	[ex_general_protection] = SIGSEGV,
-	[ex_page_fault] = SIGSEGV,
-	[ex_spurious_interrupt_bug] = -1,
-	[ex_coprocessor_error] = -1,
-	[ex_alignment_check] = SIGBUS,
+	[ex_do_coprocessor_segment_overrun] = SIGFPE,
+	[ex_do_invalid_TSS] = SIGSEGV,
+	[ex_do_segment_not_present] = SIGBUS,
+	[ex_do_stack_segment] = SIGBUS,
+	[ex_do_general_protection] = SIGSEGV,
+	[ex_do_page_fault] = SIGSEGV,
+	[ex_do_spurious_interrupt_bug] = -1,
+	[ex_do_coprocessor_error] = -1,
+	[ex_do_alignment_check] = SIGBUS,
 	[ex_machine_check_vector] = -1,
-	[ex_simd_coprocessor_error] = -1,
+	[ex_do_simd_coprocessor_error] = -1,
 	[20 ... 31] = -1,
+#ifndef CONFIG_X86_64
+	[ex_do_iret_error] = SIGSEGV,
+#endif
 };
 #endif /* CONFIG_KGDB */
 
-asmlinkage int __ipipe_handle_exception(struct pt_regs *regs, long error_code, int vector)
+int __ipipe_handle_exception(struct pt_regs *regs, long error_code, int vector)
 {
 	unsigned long flags;
 
@@ -598,7 +745,7 @@ asmlinkage int __ipipe_handle_exception(struct pt_regs *regs, long error_code, i
 
 #ifdef CONFIG_KGDB
 	/* catch exception KGDB is interested in over non-root domains */
-	if (ipipe_current_domain != ipipe_root_domain &&
+	if (!ipipe_root_domain_p &&
 	    __ipipe_xlate_signo[vector] >= 0 &&
 	    !kgdb_handle_exception(vector, __ipipe_xlate_signo[vector], error_code, regs)) {
 		local_irq_restore(flags);
@@ -622,16 +769,16 @@ asmlinkage int __ipipe_handle_exception(struct pt_regs *regs, long error_code, i
 		ipipe_trace_panic_freeze();
 
 		/* Always warn about user land and unfixable faults. */
-		if ((error_code & 4) || !search_exception_tables(regs->rip))
+		if ((error_code & 4) || !search_exception_tables(instruction_pointer(regs)))
 			printk(KERN_ERR "BUG: Unhandled exception over domain"
 			       " %s at 0x%lx - switching to ROOT\n",
-			       ipd->name, regs->rip);
+			       ipd->name, instruction_pointer(regs));
 #ifdef CONFIG_IPIPE_DEBUG
 		/* Also report fixable ones when debugging is enabled. */
 		else
 			printk(KERN_WARNING "WARNING: Fixable exception over "
 			       "domain %s at 0x%lx - switching to ROOT\n",
-			       ipd->name, regs->rip);
+			       ipd->name, instruction_pointer(regs));
 #endif /* CONFIG_IPIPE_DEBUG */
 
 		dump_stack();
@@ -644,11 +791,15 @@ asmlinkage int __ipipe_handle_exception(struct pt_regs *regs, long error_code, i
 	return 0;
 }
 
-asmlinkage int __ipipe_divert_exception(struct pt_regs *regs, int vector)
+int __ipipe_divert_exception(struct pt_regs *regs, int vector)
 {
 #ifdef CONFIG_KGDB
 	/* catch int1 and int3 over non-root domains */
-	if (ipipe_current_domain != ipipe_root_domain) {
+#ifdef CONFIG_X86_32
+	if (!ipipe_root_domain_p && vector != ex_do_device_not_available) {
+#else
+	if (!ipipe_root_domain_p) {
+#endif
 		unsigned int condition = 0;
 
 		if (vector == 1)
@@ -670,6 +821,21 @@ asmlinkage int __ipipe_divert_exception(struct pt_regs *regs, int vector)
    interrupt protection log is maintained here for each domain.  Hw
    interrupts are off on entry. */
 
+#ifdef CONFIG_X86_32
+int __ipipe_handle_irq(struct pt_regs regs)
+{
+	struct ipipe_domain *this_domain, *next_domain;
+	unsigned irq = regs.orig_eax;
+	struct list_head *head, *pos;
+	int m_ack;
+
+	if ((long)regs.orig_eax < 0) {
+		irq = ~irq;
+		m_ack = 0;
+	} else /* This is a self-triggered interrupt. */
+		m_ack = 1;
+
+#else /* !CONFIG_X86_32 */
 int __ipipe_handle_irq(struct pt_regs *regs)
 {
 	struct ipipe_domain *this_domain, *next_domain;
@@ -689,6 +855,7 @@ int __ipipe_handle_irq(struct pt_regs *regs)
 		m_ack = 1;
 	}
 
+#endif /* !CONFIG_X86_32 */
 	head = __ipipe_pipeline.next;
 	next_domain = list_entry(head, struct ipipe_domain, p_link);
 	if (likely(test_bit(IPIPE_WIRED_FLAG, &next_domain->irqs[irq].control))) {
@@ -743,14 +910,27 @@ int __ipipe_handle_irq(struct pt_regs *regs)
 
 finalize:
 
+	/* Given our deferred dispatching model for regular IRQs, we
+	 * only record CPU regs for the last timer interrupt, so that
+	 * the timer handler charges CPU times properly. It is assumed
+	 * that other interrupt handlers don't actually care for such
+	 * information. */
+
 	if (irq == __ipipe_tick_irq) {
 		struct pt_regs *tick_regs = &__raw_get_cpu_var(__ipipe_tick_regs);
+#ifdef CONFIG_X86_32
+		tick_regs->eflags = regs.eflags;
+		tick_regs->xcs = regs.xcs;
+		tick_regs->eip = regs.eip;
+		tick_regs->ebp = regs.ebp;
+#else /* !CONFIG_X86_32 */
 		tick_regs->ss = regs->ss;
 		tick_regs->rsp = regs->rsp;
 		tick_regs->eflags = regs->eflags;
 		tick_regs->cs = regs->cs;
 		tick_regs->rip = regs->rip;
 		tick_regs->rbp = regs->rbp;
+#endif /* !CONFIG_X86_32 */
 	}
 
 	/*
@@ -769,13 +949,25 @@ finalize_nosync:
 	    test_bit(IPIPE_STALL_FLAG, &ipipe_root_cpudom_var(status)))
 		return 0;
 
+#if defined(CONFIG_X86_32) && defined(CONFIG_SMP)
+	/*
+	 * Prevent a spurious rescheduling from being triggered on
+	 * preemptible kernels along the way out through
+	 * ret_from_intr.
+	 */
+	if ((long)regs.orig_eax < 0)
+		__set_bit(IPIPE_STALL_FLAG, &ipipe_root_cpudom_var(status));
+#endif	/* CONFIG_SMP */
+
 	return 1;
 }
 
 int __ipipe_check_tickdev(const char *devname)
 {
+#ifdef CONFIG_X86_LOCAL_APIC
 	if (!strcmp(devname, "lapic"))
 		return __ipipe_check_lapic();
+#endif
 
 	return 1;
 }
@@ -791,7 +983,15 @@ struct task_struct *__switch_to(struct task_struct *prev_p,
 				struct task_struct *next_p);
 EXPORT_SYMBOL_GPL(__switch_to);
 EXPORT_SYMBOL_GPL(show_stack);
+
+#ifdef CONFIG_X86_32
+EXPORT_PER_CPU_SYMBOL_GPL(init_tss);
+#ifdef CONFIG_SMP
+EXPORT_PER_CPU_SYMBOL_GPL(cpu_tlbstate);
+#endif /* CONFIG_SMP */
+#else /* !CONFIG_X86_32 */
 EXPORT_SYMBOL_GPL(cpu_gdt_descr);
+#endif /* !CONFIG_X86_32 */
 
 #if defined(CONFIG_SMP) || defined(CONFIG_DEBUG_SPINLOCK)
 EXPORT_SYMBOL(tasklist_lock);
