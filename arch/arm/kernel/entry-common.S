@@ -216,11 +216,12 @@ ENTRY(vector_swi)
 	stmdb	sp!, {r4, r5}			@ push fifth and sixth args
 #ifdef CONFIG_IPIPE
 	stmfd	sp!, {r0-r3, ip}
-	add	r1, sp, #S_OFF
-	add	r1, r1, #20
+	sub	sp, sp, #4
+	add	r1, sp, #S_OFF+24
 	mov	r0, scno
 	bl	__ipipe_syscall_root
 	cmp	r0, #0
+	add	sp, sp, #4
 	ldmfd	sp!, {r0-r3, ip}
 	blt	__ipipe_ret_fast_syscall
 	bgt	__ipipe_fast_exit_syscall
