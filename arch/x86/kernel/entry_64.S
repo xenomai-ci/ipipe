@@ -582,54 +582,8 @@ END(stub_rt_sigreturn)
 #endif
 	.endm
 
-#ifdef CONFIG_IPIPE
-
-	/* %rdi=negated _vector_ number, %rsi=handler, %rdx=regs */
-ENTRY(__ipipe_root_xirq_thunk)
-	movq %rsp, %rax
-	pushq $0
-	pushq %rax
-	pushfq
-	pushq $__KERNEL_CS
-	pushq $1f
-	pushq %rdi
-	XCPT_FRAME
-	SAVE_ARGS
-	movq %rdi, ORIG_RAX(%rdx)	# regs->orig_eax = ~irq_vector
-	movq %rdx, %rdi		     	# regs for handler
-	call *%rsi
-	jmp exit_intr
-	CFI_ENDPROC
-1:
-	cli
-        ret
-END(__ipipe_root_xirq_thunk)
-	
-	/* %rdi=virq number, %rsi=cookie, %rdx=handler */
-ENTRY(__ipipe_root_virq_thunk)
-	movq %rsp, %rax
-	pushq $0
-	pushq %rax
-	pushfq
-	pushq $__KERNEL_CS
-	pushq $1f
-	pushq $-1
-	XCPT_FRAME
-	SAVE_ARGS
-	call irq_enter
-	movq RDI-ARGOFFSET(%rsp), %rdi
-	movq RSI-ARGOFFSET(%rsp), %rsi
-	movq RDX-ARGOFFSET(%rsp), %rdx
-	call *%rdx
-	call irq_exit
-	jmp exit_intr
-	CFI_ENDPROC
-1:
-	cli
-        ret
-END(__ipipe_root_virq_thunk)
-	
 ENTRY(common_interrupt)
+#ifdef CONFIG_IPIPE
 	XCPT_FRAME
 	interrupt __ipipe_handle_irq
 	testl %eax, %eax
@@ -643,7 +597,6 @@ ENTRY(common_interrupt)
 	swapgs
 	jmp restore_args
 #else /* !CONFIG_IPIPE */
-ENTRY(common_interrupt)
 	XCPT_FRAME
 	interrupt do_IRQ
 #endif /* !CONFIG_IPIPE */	
@@ -655,7 +608,7 @@ ret_from_intr:
 	leaveq
 	CFI_DEF_CFA_REGISTER	rsp
 	CFI_ADJUST_CFA_OFFSET	-8
-exit_intr:
+ENTRY(exit_intr)
 	GET_THREAD_INFO(%rcx)
 	testl $3,CS-ARGOFFSET(%rsp)
 	je retint_kernel

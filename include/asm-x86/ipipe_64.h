@@ -51,14 +51,6 @@ void __ipipe_serial_debug(const char *fmt, ...);
 
 unsigned __ipipe_get_irq_vector(int irq);
 
-asmlinkage void __ipipe_root_xirq_thunk(unsigned irq,
-					void (*handler)(unsigned irq, void *cookie),
-					struct pt_regs *regs);
-
-asmlinkage void __ipipe_root_virq_thunk(unsigned irq,
-					void *cookie,
-					void (*handler)(unsigned irq, void *cookie));
-
 static inline unsigned long __ipipe_ffnz(unsigned long ul)
 {
       __asm__("bsrq %1, %0":"=r"(ul)
@@ -72,6 +64,76 @@ void __ipipe_ack_edge_irq(unsigned irq, struct irq_desc *desc);
 
 void __ipipe_end_edge_irq(unsigned irq, struct irq_desc *desc);
 
+static inline void __ipipe_call_root_xirq_handler(unsigned irq,
+						  void (*handler)(unsigned, void *))
+{
+	struct pt_regs *regs = &__raw_get_cpu_var(__ipipe_tick_regs);
+
+	regs->orig_rax = ~__ipipe_get_irq_vector(irq);
+
+	__asm__ __volatile__("movq  %%rsp, %%rax\n\t"
+			     "pushq $0\n\t"
+			     "pushq %%rax\n\t"
+			     "pushfq\n\t"
+			     "pushq %[kernel_cs]\n\t"
+			     "pushq $__xirq_end\n\t"
+			     "pushq %[vector]\n\t"
+			     "subq  $9*8,%%rsp\n\t"
+			     "movq  %%rdi,8*8(%%rsp)\n\t"
+			     "movq  %%rsi,7*8(%%rsp)\n\t"
+			     "movq  %%rdx,6*8(%%rsp)\n\t"
+			     "movq  %%rcx,5*8(%%rsp)\n\t"
+			     "movq  %%rax,4*8(%%rsp)\n\t"
+			     "movq  %%r8,3*8(%%rsp)\n\t"
+			     "movq  %%r9,2*8(%%rsp)\n\t"
+			     "movq  %%r10,1*8(%%rsp)\n\t"
+			     "movq  %%r11,(%%rsp)\n\t"
+			     "call  *%[handler]\n\t"
+			     "jmp exit_intr\n\t"
+			     "__xirq_end: cli\n"
+			     : /* no output */
+			     : [kernel_cs] "i" (__KERNEL_CS),
+			       [vector] "rm" (regs->orig_rax),
+			       [handler] "rm" (handler), "D" (regs)
+			     : "rax");
+}
+
+void irq_enter(void);
+void irq_exit(void);
+
+static inline void __ipipe_call_root_virq_handler(unsigned irq,
+						  void (*handler)(unsigned, void *),
+						  void *cookie)
+{
+	__asm__ __volatile__("movq  %%rsp, %%rax\n\t"
+			     "pushq $0\n\t"
+			     "pushq %%rax\n\t"
+			     "pushfq\n\t"
+			     "pushq %[kernel_cs]\n\t"
+			     "pushq $__virq_end\n\t"
+			     "pushq $-1\n\t"
+			     "subq  $9*8,%%rsp\n\t"
+			     "movq  %%rdi,8*8(%%rsp)\n\t"
+			     "movq  %%rsi,7*8(%%rsp)\n\t"
+			     "movq  %%rdx,6*8(%%rsp)\n\t"
+			     "movq  %%rcx,5*8(%%rsp)\n\t"
+			     "movq  %%rax,4*8(%%rsp)\n\t"
+			     "movq  %%r8,3*8(%%rsp)\n\t"
+			     "movq  %%r9,2*8(%%rsp)\n\t"
+			     "movq  %%r10,1*8(%%rsp)\n\t"
+			     "movq  %%r11,(%%rsp)\n\t"
+			     : /* no output */
+			     : [kernel_cs] "i" (__KERNEL_CS)
+			     : "rax");
+	irq_enter();
+	handler(irq, cookie);
+	irq_exit();
+	__asm__ __volatile__("jmp exit_intr\n\t"
+			     "__virq_end: cli\n"
+			     : /* no output */
+			     : /* no input */);
+}
+
 /*
  * When running handlers, enable hw interrupts for all domains but the
  * one heading the pipeline, so that IRQs can never be significantly
@@ -82,13 +144,12 @@ void __ipipe_end_edge_irq(unsigned irq, struct irq_desc *desc);
 		local_irq_enable_nohead(ipd);				\
 		if (ipd == ipipe_root_domain) {				\
 			if (likely(!ipipe_virtual_irq_p(irq)))		\
-				__ipipe_root_xirq_thunk(~__ipipe_get_irq_vector(irq),	\
-							(ipd)->irqs[irq].handler,	\
-							&__raw_get_cpu_var(__ipipe_tick_regs)); \
+				__ipipe_call_root_xirq_handler(		\
+					irq, (ipd)->irqs[irq].handler);	\
 			else						\
-				__ipipe_root_virq_thunk(irq, \
-							(ipd)->irqs[irq].cookie, \
-							(ipd)->irqs[irq].handler); \
+				__ipipe_call_root_virq_handler(		\
+					irq, (ipd)->irqs[irq].handler,	\
+					(ipd)->irqs[irq].cookie);	\
 		} else {						\
 			__clear_bit(IPIPE_SYNC_FLAG, &ipipe_cpudom_var(ipd, status)); \
 			ipd->irqs[irq].handler(irq, ipd->irqs[irq].cookie); \
