@@ -2835,6 +2835,8 @@ static inline int ipipe_pin_pmd_range(struct mm_struct *mm, pud_t *pud,
 	pmd = pmd_offset(pud, addr);
 	do {
 		next = pmd_addr_end(addr, end);
+		if (pmd_none(*pmd) || unlikely(pmd_bad(*pmd)))
+			continue;
 		if (ipipe_pin_pte_range(mm, pmd, vma, addr, next))
 			return -ENOMEM;
 	} while (pmd++, addr = next, addr != end);
@@ -2851,6 +2853,8 @@ static inline int ipipe_pin_pud_range(struct mm_struct *mm, pgd_t *pgd,
 	pud = pud_offset(pgd, addr);
 	do {
 		next = pud_addr_end(addr, end);
+		if (pud_none(*pud) || unlikely(pud_bad(*pud)))
+			continue;
 		if (ipipe_pin_pmd_range(mm, pud, vma, addr, next))
 			return -ENOMEM;
 	} while (pud++, addr = next, addr != end);
@@ -2883,6 +2887,8 @@ int ipipe_disable_ondemand_mappings(struct task_struct *tsk)
 		pgd = pgd_offset(mm, addr);
 		do {
 			next = pgd_addr_end(addr, end);
+			if (pgd_none(*pgd) || unlikely(pgd_bad(*pgd)))
+				continue;
 			if (ipipe_pin_pud_range(mm, pgd, vma, addr, next)) {
 				result = -ENOMEM;
 				goto done_mm;
