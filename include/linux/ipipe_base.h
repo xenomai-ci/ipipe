@@ -48,6 +48,9 @@
 #define IPIPE_STALL_MASK	(1L << IPIPE_STALL_FLAG)
 #define IPIPE_SYNC_MASK		(1L << IPIPE_SYNC_FLAG)
 
+typedef void (*ipipe_irq_handler_t)(unsigned irq,
+				    void *cookie);
+
 extern struct ipipe_domain ipipe_root;
 
 #define ipipe_root_domain (&ipipe_root)
