@@ -36,6 +36,11 @@
 #define UART2_INT			35
 #define UART3_INT			36
 
+/* GPIO register definitions */
+#define GPIO_BASE			0x00000001EF600B00ULL
+#define GPIO_SIZE			0x200
+#define GPIO1_OR_OFFS			0x100
+
 /* IIC Bootstrap Registers */
 #define SDR0_CFGADDR		0x00E		/* System DCR Address Register */
 #define SDR0_CFGDATA		0x00F		/* System DCR Data Register */

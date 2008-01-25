@@ -467,6 +467,17 @@ static void __init lwmon5_init_irq(void)
 	ppc4xx_pic_init();
 }
 
+static void lwmon5_restart(char *cmd)
+{
+	volatile void * gpio_base;
+
+	/* GPIO58_EPX is the reset pin */
+	gpio_base = ioremap64(GPIO_BASE, GPIO_SIZE);
+	out_be32(gpio_base + GPIO1_OR_OFFS,
+		 in_be32(gpio_base + GPIO1_OR_OFFS) | (0x80000000 >> 26));
+	iounmap(gpio_base);
+}
+
 void __init platform_init(unsigned long r3, unsigned long r4,
 			  unsigned long r5, unsigned long r6, unsigned long r7)
 {
@@ -487,4 +498,5 @@ void __init platform_init(unsigned long r3, unsigned long r4,
 #ifdef CONFIG_KGDB
 	ppc_md.early_serial_map = lwmon5_early_serial_map;
 #endif
+	ppc_md.restart = lwmon5_restart;
 }
