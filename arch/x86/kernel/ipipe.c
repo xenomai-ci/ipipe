@@ -48,7 +48,6 @@
 #include <asm/apic.h>
 #include <mach_ipi.h>
 #else /* !CONFIG_X86_32 */
-#include <asm/ipi.h>
 #include <asm/mach_apic.h>
 #endif /* !CONFIG_X86_32 */
 #endif	/* CONFIG_X86_LOCAL_APIC */
