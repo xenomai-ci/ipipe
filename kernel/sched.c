@@ -3510,6 +3510,7 @@ void scheduler_tick(void)
 
 void fastcall add_preempt_count(int val)
 {
+	ipipe_check_context(ipipe_root_domain);
 	/*
 	 * Underflow?
 	 */
@@ -3526,6 +3527,7 @@ EXPORT_SYMBOL(add_preempt_count);
 
 void fastcall sub_preempt_count(int val)
 {
+	ipipe_check_context(ipipe_root_domain);
 	/*
 	 * Underflow?
 	 */
@@ -3629,8 +3631,6 @@ asmlinkage void __sched schedule(void)
 	long *switch_count;
 	struct rq *rq;
 	int cpu;
-
-	ipipe_check_context(ipipe_root_domain);
 
 need_resched:
 	preempt_disable();
