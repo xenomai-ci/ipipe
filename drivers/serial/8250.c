@@ -2546,7 +2546,7 @@ static int serial8250_console_early_setup(void)
 	return serial8250_find_port_for_earlycon();
 }
 
-#ifdef CONFIG_IPIPE
+#ifdef CONFIG_IPIPE_DEBUG
 
 #include <stdarg.h>
 
