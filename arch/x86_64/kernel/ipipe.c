@@ -750,7 +750,11 @@ int __ipipe_handle_irq(struct pt_regs *regs)
 
 finalize:
 
+#ifdef CONFIG_SMP
+	if (irq == __ipipe_tick_irq || regs->orig_rax == ~LOCAL_TIMER_VECTOR) {
+#else
 	if (irq == __ipipe_tick_irq) {
+#endif
 		__raw_get_cpu_var(__ipipe_tick_regs).rip = regs->rip;
 		__raw_get_cpu_var(__ipipe_tick_regs).cs = regs->cs;
 		__raw_get_cpu_var(__ipipe_tick_regs).eflags = regs->eflags;
