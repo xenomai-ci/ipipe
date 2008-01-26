@@ -82,7 +82,7 @@ static inline void __ipipe_call_root_xirq_handler(unsigned irq,
 			     "jmp ret_from_intr\n\t"
 			     "__xirq_end: cli\n"
 			     : /* no output */
-			     : "a" (~irq), "rm" (handler), "rm" (regs));
+			     : "a" (~irq), "r" (handler), "rm" (regs));
 }
 
 void irq_enter(void);
@@ -112,7 +112,7 @@ static inline void __ipipe_call_root_virq_handler(unsigned irq,
 			     "call *%1\n\t"
 			     "addl $8,%%esp\n"
 			     : /* no output */
-			     : "a" (irq), "rm" (handler), "d" (cookie));
+			     : "a" (irq), "r" (handler), "d" (cookie));
 	irq_exit();
 	__asm__ __volatile__("jmp ret_from_intr\n\t"
 			     "__virq_end: cli\n"
