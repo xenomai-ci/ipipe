@@ -15,8 +15,14 @@
   extern void fastcall add_preempt_count(int val);
   extern void fastcall sub_preempt_count(int val);
 #else
-# define add_preempt_count(val)	do { preempt_count() += (val); } while (0)
-# define sub_preempt_count(val)	do { preempt_count() -= (val); } while (0)
+# define add_preempt_count(val)	do { \
+	ipipe_check_context(ipipe_root_domain); \
+	preempt_count() += (val); \
+  } while (0)
+# define sub_preempt_count(val)	do { \
+	ipipe_check_context(ipipe_root_domain); \
+	preempt_count() -= (val); \
+  } while (0)
 #endif
 
 #define inc_preempt_count() add_preempt_count(1)
@@ -30,21 +36,18 @@ asmlinkage void preempt_schedule(void);
 
 #define preempt_disable() \
 do { \
-	ipipe_check_context(ipipe_root_domain); \
 	inc_preempt_count(); \
 	barrier(); \
 } while (0)
 
 #define preempt_enable_no_resched() \
 do { \
-	ipipe_check_context(ipipe_root_domain); \
 	barrier(); \
 	dec_preempt_count(); \
 } while (0)
 
 #define preempt_check_resched() \
 do { \
-	ipipe_check_context(ipipe_root_domain); \
 	if (unlikely(test_thread_flag(TIF_NEED_RESCHED))) \
 		preempt_schedule(); \
 } while (0)
@@ -58,10 +61,10 @@ do { \
 
 #else
 
-#define preempt_disable()		ipipe_check_context(ipipe_root_domain)
-#define preempt_enable_no_resched()	ipipe_check_context(ipipe_root_domain)
-#define preempt_enable()		ipipe_check_context(ipipe_root_domain)
-#define preempt_check_resched()		ipipe_check_context(ipipe_root_domain)
+#define preempt_disable()		do { } while (0)
+#define preempt_enable_no_resched()	do { } while (0)
+#define preempt_enable()		do { } while (0)
+#define preempt_check_resched()		do { } while (0)
 
 #endif
 
