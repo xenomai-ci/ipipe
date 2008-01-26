@@ -570,6 +570,9 @@ asmlinkage int __ipipe_syscall_root(struct pt_regs regs)
 #else /* !CONFIG_X86_32 */
 
 #ifdef CONFIG_PREEMPT
+
+asmlinkage void preempt_schedule_irq(void);
+
 /*
  * Check the stall bit of the root domain to make sure the existing
  * preemption opportunity upon in-kernel resumption could be
