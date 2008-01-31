@@ -2,10 +2,7 @@
  * TQM5200 board Device Tree Source
  *
  * Copyright (C) 2007 Semihalf
- * Modified for TQM5200 by Marian Balakowicz <m8@semihalf.com>
- *
- * Copyright 2006-2007 Secret Lab Technologies Ltd.
- * Grant Likely <grant.likely@secretlab.ca>
+ * Marian Balakowicz <m8@semihalf.com>
  *
  * This program is free software; you can redistribute  it and/or modify it
  * under  the terms of  the GNU General  Public License as published by the
@@ -13,15 +10,9 @@
  * option) any later version.
  */
 
-/*
- * WARNING: Do not depend on this tree layout remaining static just yet.
- * The MPC5200 device tree conventions are still in flux
- * Keep an eye on the linuxppc-dev mailing list for more details
- */
-
 / {
-	model = "fsl,tqm5200";
-	compatible = "fsl,tqm5200\0generic-mpc5200";
+	model = "tqc,tqm5200";
+	compatible = "tqc,tqm5200";
 	#address-cells = <1>;
 	#size-cells = <1>;
 
@@ -48,32 +39,29 @@
 	};
 
 	soc5200@f0000000 {
-		model = "fsl,mpc5200";
-		compatible = "mpc5200";
-		revision = "";			// from bootloader
-		device_type = "soc";
-		ranges = <0 f0000000 f0010000>;
-		reg = <f0000000 00010000>;
+		#address-cells = <1>;
+		#size-cells = <1>;
+		compatible = "fsl,mpc5200-immr";
+		ranges = <0 f0000000 0000c000>;
+		reg = <f0000000 00000100>;
 		bus-frequency = <0>;		// from bootloader
 		system-frequency = <0>;		// from bootloader
 
 		cdm@200 {
-			compatible = "mpc5200b-cdm\0mpc5200-cdm";
+			compatible = "fsl,mpc5200-cdm";
 			reg = <200 38>;
 		};
 
-		mpc5200_pic: pic@500 {
+		mpc5200_pic: interrupt-controller@500 {
 			// 5200 interrupts are encoded into two levels;
 			interrupt-controller;
 			#interrupt-cells = <3>;
-			device_type = "interrupt-controller";
-			compatible = "mpc5200-pic";
+			compatible = "fsl,mpc5200-pic";
 			reg = <500 80>;
 		};
 
-		gpt@600 {	// General Purpose Timer
+		timer@600 {	// General Purpose Timer
 			compatible = "fsl,mpc5200-gpt";
-			cell-index = <0>;
 			reg = <600 10>;
 			interrupts = <1 9 0>;
 			interrupt-parent = <&mpc5200_pic>;
@@ -81,23 +69,21 @@
 		};
 
 		gpio@b00 {
-			compatible = "mpc5200-gpio";
+			compatible = "fsl,mpc5200-gpio";
 			reg = <b00 40>;
 			interrupts = <1 7 0>;
 			interrupt-parent = <&mpc5200_pic>;
 		};
 
 		usb@1000 {
-			device_type = "usb-ohci-be";
-			compatible = "mpc5200-ohci\0ohci-be";
+			compatible = "fsl,mpc5200-ohci","ohci-be";
 			reg = <1000 ff>;
 			interrupts = <2 6 0>;
 			interrupt-parent = <&mpc5200_pic>;
 		};
 
-		bestcomm@1200 {
-			device_type = "dma-controller";
-			compatible = "mpc5200-bestcomm";
+		dma-controller@1200 {
+			compatible = "fsl,mpc5200-bestcomm";
 			reg = <1200 80>;
 			interrupts = <3 0 0  3 1 0  3 2 0  3 3 0
 			              3 4 0  3 5 0  3 6 0  3 7 0
@@ -107,15 +93,14 @@
 		};
 
 		xlb@1f00 {
-			compatible = "mpc5200-xlb";
+			compatible = "fsl,mpc5200-xlb";
 			reg = <1f00 100>;
 		};
 
 		serial@2000 {		// PSC1
 			device_type = "serial";
-			compatible = "mpc5200-psc-uart";
+			compatible = "fsl,mpc5200-psc-uart";
 			port-number = <0>;  // Logical port assignment
-			cell-index = <0>;
 			reg = <2000 100>;
 			interrupts = <2 1 0>;
 			interrupt-parent = <&mpc5200_pic>;
@@ -123,9 +108,8 @@
 
 		serial@2200 {		// PSC2
 			device_type = "serial";
-			compatible = "mpc5200-psc-uart";
+			compatible = "fsl,mpc5200-psc-uart";
 			port-number = <1>;  // Logical port assignment
-			cell-index = <1>;
 			reg = <2200 100>;
 			interrupts = <2 2 0>;
 			interrupt-parent = <&mpc5200_pic>;
@@ -133,9 +117,8 @@
 
 		serial@2400 {		// PSC3
 			device_type = "serial";
-			compatible = "mpc5200-psc-uart";
+			compatible = "fsl,mpc5200-psc-uart";
 			port-number = <2>;  // Logical port assignment
-			cell-index = <2>;
 			reg = <2400 100>;
 			interrupts = <2 3 0>;
 			interrupt-parent = <&mpc5200_pic>;
@@ -143,41 +126,22 @@
 
 		ethernet@3000 {
 			device_type = "network";
-			compatible = "mpc5200-fec";
-			reg = <3000 400>;
-			mac-address = [ 02 03 04 05 06 07 ]; // Bad!
+			compatible = "fsl,mpc5200-fec";
+			reg = <3000 800>;
+			local-mac-address = [ 00 00 00 00 00 00 ];
 			interrupts = <2 5 0>;
 			interrupt-parent = <&mpc5200_pic>;
-			phy-handle = <&phy0>;
-		};
-
-		mdio@3000 {
-			#address-cells = <1>;
-			#size-cells = <0>;
-			device_type = "mdio";
-			compatible = "mpc5200b-fec-phy";
-			reg = <3000 400>;	// fec range, since we need to setup fec interrupts
-			interrupts = <2 5 0>;	// these are for "mii command finished", not link changes & co.
-			interrupt-parent = <&mpc5200_pic>;
-
-			phy0:ethernet-phy@0 {
-				device_type = "ethernet-phy";
-				reg = <0>;
-			};
 		};
 
 		ata@3a00 {
-			device_type = "ata";
-			compatible = "mpc5200b-ata\0mpc5200-ata";
+			compatible = "fsl,mpc5200-ata";
 			reg = <3a00 100>;
 			interrupts = <2 7 0>;
 			interrupt-parent = <&mpc5200_pic>;
 		};
 
 		i2c@3d40 {
-			device_type = "i2c";
-			compatible = "mpc5200-i2c\0fsl-i2c";
-			cell-index = <1>;
+			compatible = "fsl,mpc5200-i2c","fsl-i2c";
 			reg = <3d40 40>;
 			interrupts = <2 10 0>;
 			interrupt-parent = <&mpc5200_pic>;
@@ -185,17 +149,17 @@
 		};
 
 		sram@8000 {
-			device_type = "sram";
-			compatible = "mpc5200-sram\0sram";
+			compatible = "fsl,mpc5200-sram";
 			reg = <8000 4000>;
 		};
+	};
 
 	pci@f0000d00 {
 		#interrupt-cells = <1>;
 		#size-cells = <2>;
 		#address-cells = <3>;
 		device_type = "pci";
-		compatible = "mpc5200-pci";
+		compatible = "fsl,mpc5200-pci";
 		reg = <f0000d00 100>;
 		interrupt-map-mask = <f800 0 0 7>;
 		interrupt-map = <c000 0 0 1 &mpc5200_pic 0 0 3
@@ -209,22 +173,5 @@
 		ranges = <42000000 0 80000000 80000000 0 10000000
 			  02000000 0 90000000 90000000 0 10000000
 			  01000000 0 00000000 a0000000 0 01000000>;
-	};
-
-		flash@c000000 {
-			device_type = "rom";
-			compatible = "direct-mapped";
-			reg = <0c000000 02000000>;
-			probe-type = "CFI";
-			bank-width = <4>;
-			partitions = <00000000 000c0000
-				      000c0000 00040000
-				      00100000 00240000
-				      00300000 00200000
-				      00500000 00400000
-				      00900000 00800000
-				      01100000 00f00000>;
-			partition-names = "firmware\0dtb\0kernel\0initrd\0small-fs\0misc\0big-fs";
-		};
 	};
 };

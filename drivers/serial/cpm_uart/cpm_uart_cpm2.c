@@ -201,6 +201,7 @@ void scc2_lineif(struct uart_cpm_port *pinfo)
 	 * really has to get out of the driver so boards can
 	 * be supported in a sane fashion.
 	 */
+	volatile cpmux_t *cpmux = cpm2_map(im_cpmux);
 #ifndef CONFIG_STX_GP3
 # if defined(CONFIG_MPC8560_ADS) || defined(CONFIG_TQM8560)
 	io->iop_ppard |= 0x00000018;
