@@ -1,7 +1,7 @@
 /*
  * linux/can.h
  *
- * Definitions for CAN networklayer (socket addr / CAN frame / CAN filter)
+ * Definitions for CAN network layer (socket addr / CAN frame / CAN filter)
  *
  * Authors: Oliver Hartkopp <oliver.hartkopp@volkswagen.de>
  *          Urs Thuermann   <urs.thuermann@volkswagen.de>
@@ -67,8 +67,7 @@ struct can_frame {
 #define CAN_TP20	4 /* VAG Transport Protocol v2.0 */
 #define CAN_MCNET	5 /* Bosch MCNet */
 #define CAN_ISOTP	6 /* ISO 15765-2 Transport Protocol */
-#define CAN_BAP		7 /* VAG Bedien- und Anzeigeprotokoll */
-#define CAN_NPROTO	8
+#define CAN_NPROTO	7
 
 #define SOL_CAN_BASE 100
 
@@ -76,17 +75,16 @@ struct can_frame {
  * struct sockaddr_can - the sockaddr structure for CAN sockets
  * @can_family:  address family number AF_CAN.
  * @can_ifindex: CAN network interface index.
- * @can_addr:    transport protocol specific address, mostly CAN IDs.
+ * @can_addr:    protocol specific address information
  */
 struct sockaddr_can {
 	sa_family_t can_family;
 	int         can_ifindex;
 	union {
-		struct { canid_t rx_id, tx_id; } tp16;
-		struct { canid_t rx_id, tx_id; } tp20;
-		struct { canid_t rx_id, tx_id; } mcnet;
-		struct { canid_t rx_id, tx_id; } isotp;
-		struct { int     lcu,   type;  } bap;
+		/* transport protocol class address information (e.g. ISOTP) */
+		struct { canid_t rx_id, tx_id; } tp;
+
+		/* reserved for future CAN protocols address information */
 	} can_addr;
 };
 

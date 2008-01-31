@@ -8,8 +8,7 @@
  * modification, are permitted provided that the following conditions
  * are met:
  * 1. Redistributions of source code must retain the above copyright
- *    notice, this list of conditions, the following disclaimer and
- *    the referenced file 'COPYING'.
+ *    notice, this list of conditions and the following disclaimer.
  * 2. Redistributions in binary form must reproduce the above copyright
  *    notice, this list of conditions and the following disclaimer in the
  *    documentation and/or other materials provided with the distribution.
@@ -19,8 +18,8 @@
  *
  * Alternatively, provided that this notice is retained in full, this
  * software may be distributed under the terms of the GNU General
- * Public License ("GPL") version 2 as distributed in the 'COPYING'
- * file from the main directory of the linux kernel source.
+ * Public License ("GPL") version 2, in which case the provisions of the
+ * GPL apply INSTEAD OF those given above.
  *
  * The provided data structures and external interfaces from this code
  * are not restricted to be used by modules with a GPL compatible license.
@@ -77,7 +76,7 @@ static struct proc_dir_entry *pde_rcvlist_err;
 
 static int user_reset;
 
-static const char *rx_list_name[] = {
+static const char rx_list_name[][8] = {
 	[RX_ERR] = "rx_err",
 	[RX_ALL] = "rx_all",
 	[RX_FIL] = "rx_fil",
@@ -93,38 +92,38 @@ static void can_init_stats(void)
 {
 	/*
 	 * This memset function is called from a timer context (when
-	 * stattimer is active which is the default) OR in a process
-	 * context (reading the proc_fs when stattimer is disabled).
+	 * can_stattimer is active which is the default) OR in a process
+	 * context (reading the proc_fs when can_stattimer is disabled).
 	 */
-	memset(&stats, 0, sizeof(stats));
-	stats.jiffies_init = jiffies;
+	memset(&can_stats, 0, sizeof(can_stats));
+	can_stats.jiffies_init = jiffies;
 
-	pstats.stats_reset++;
+	can_pstats.stats_reset++;
 
 	if (user_reset) {
 		user_reset = 0;
-		pstats.user_reset++;
+		can_pstats.user_reset++;
 	}
 }
 
 static unsigned long calc_rate(unsigned long oldjif, unsigned long newjif,
 			       unsigned long count)
 {
-	unsigned long ret = 0;
+	unsigned long rate;
 
 	if (oldjif == newjif)
 		return 0;
 
-	/* see can_rcv() - this should NEVER happen! */
+	/* see can_stat_update() - this should NEVER happen! */
 	if (count > (ULONG_MAX / HZ)) {
 		printk(KERN_ERR "can: calc_rate: count exceeded! %ld\n",
 		       count);
 		return 99999999;
 	}
 
-	ret = (count * HZ) / (newjif - oldjif);
+	rate = (count * HZ) / (newjif - oldjif);
 
-	return ret;
+	return rate;
 }
 
 void can_stat_update(unsigned long data)
@@ -136,55 +135,57 @@ void can_stat_update(unsigned long data)
 		can_init_stats();
 
 	/* restart counting on jiffies overflow */
-	if (j < stats.jiffies_init)
+	if (j < can_stats.jiffies_init)
 		can_init_stats();
 
-	/* stats.rx_frames is the definitively max. statistic value */
+	/* prevent overflow in calc_rate() */
+	if (can_stats.rx_frames > (ULONG_MAX / HZ))
+		can_init_stats();
 
 	/* prevent overflow in calc_rate() */
-	if (stats.rx_frames > (ULONG_MAX / HZ))
+	if (can_stats.tx_frames > (ULONG_MAX / HZ))
 		can_init_stats();
 
 	/* matches overflow - very improbable */
-	if (stats.matches > (ULONG_MAX / 100))
+	if (can_stats.matches > (ULONG_MAX / 100))
 		can_init_stats();
 
 	/* calc total values */
-	if (stats.rx_frames)
-		stats.total_rx_match_ratio = (stats.matches * 100) /
-						stats.rx_frames;
+	if (can_stats.rx_frames)
+		can_stats.total_rx_match_ratio = (can_stats.matches * 100) /
+			can_stats.rx_frames;
 
-	stats.total_tx_rate = calc_rate(stats.jiffies_init, j,
-					stats.tx_frames);
-	stats.total_rx_rate = calc_rate(stats.jiffies_init, j,
-					stats.rx_frames);
+	can_stats.total_tx_rate = calc_rate(can_stats.jiffies_init, j,
+					    can_stats.tx_frames);
+	can_stats.total_rx_rate = calc_rate(can_stats.jiffies_init, j,
+					    can_stats.rx_frames);
 
 	/* calc current values */
-	if (stats.rx_frames_delta)
-		stats.current_rx_match_ratio =
-			(stats.matches_delta * 100) / stats.rx_frames_delta;
+	if (can_stats.rx_frames_delta)
+		can_stats.current_rx_match_ratio =
+			(can_stats.matches_delta * 100) /
+			can_stats.rx_frames_delta;
 
-	stats.current_tx_rate = calc_rate(0, HZ, stats.tx_frames_delta);
-	stats.current_rx_rate = calc_rate(0, HZ, stats.rx_frames_delta);
+	can_stats.current_tx_rate = calc_rate(0, HZ, can_stats.tx_frames_delta);
+	can_stats.current_rx_rate = calc_rate(0, HZ, can_stats.rx_frames_delta);
 
 	/* check / update maximum values */
-	if (stats.max_tx_rate < stats.current_tx_rate)
-		stats.max_tx_rate = stats.current_tx_rate;
+	if (can_stats.max_tx_rate < can_stats.current_tx_rate)
+		can_stats.max_tx_rate = can_stats.current_tx_rate;
 
-	if (stats.max_rx_rate < stats.current_rx_rate)
-		stats.max_rx_rate = stats.current_rx_rate;
+	if (can_stats.max_rx_rate < can_stats.current_rx_rate)
+		can_stats.max_rx_rate = can_stats.current_rx_rate;
 
-	if (stats.max_rx_match_ratio < stats.current_rx_match_ratio)
-		stats.max_rx_match_ratio = stats.current_rx_match_ratio;
+	if (can_stats.max_rx_match_ratio < can_stats.current_rx_match_ratio)
+		can_stats.max_rx_match_ratio = can_stats.current_rx_match_ratio;
 
 	/* clear values for 'current rate' calculation */
-	stats.tx_frames_delta = 0;
-	stats.rx_frames_delta = 0;
-	stats.matches_delta   = 0;
+	can_stats.tx_frames_delta = 0;
+	can_stats.rx_frames_delta = 0;
+	can_stats.matches_delta   = 0;
 
 	/* restart timer (one second) */
-	stattimer.expires = jiffies + HZ;
-	add_timer(&stattimer);
+	mod_timer(&can_stattimer, round_jiffies(jiffies + HZ));
 }
 
 /*
@@ -247,71 +248,72 @@ static int can_proc_read_stats(char *page, char **start, off_t off,
 
 	len += snprintf(page + len, PAGE_SIZE - len, "\n");
 	len += snprintf(page + len, PAGE_SIZE - len,
-			" %8ld transmitted frames (TXF)\n", stats.tx_frames);
+			" %8ld transmitted frames (TXF)\n",
+			can_stats.tx_frames);
 	len += snprintf(page + len, PAGE_SIZE - len,
-			" %8ld received frames (RXF)\n", stats.rx_frames);
+			" %8ld received frames (RXF)\n", can_stats.rx_frames);
 	len += snprintf(page + len, PAGE_SIZE - len,
-			" %8ld matched frames (RXMF)\n", stats.matches);
+			" %8ld matched frames (RXMF)\n", can_stats.matches);
 
 	len += snprintf(page + len, PAGE_SIZE - len, "\n");
 
-	if (stattimer.function == can_stat_update) {
+	if (can_stattimer.function == can_stat_update) {
 		len += snprintf(page + len, PAGE_SIZE - len,
 				" %8ld %% total match ratio (RXMR)\n",
-				stats.total_rx_match_ratio);
+				can_stats.total_rx_match_ratio);
 
 		len += snprintf(page + len, PAGE_SIZE - len,
 				" %8ld frames/s total tx rate (TXR)\n",
-				stats.total_tx_rate);
+				can_stats.total_tx_rate);
 		len += snprintf(page + len, PAGE_SIZE - len,
 				" %8ld frames/s total rx rate (RXR)\n",
-				stats.total_rx_rate);
+				can_stats.total_rx_rate);
 
 		len += snprintf(page + len, PAGE_SIZE - len, "\n");
 
 		len += snprintf(page + len, PAGE_SIZE - len,
 				" %8ld %% current match ratio (CRXMR)\n",
-				stats.current_rx_match_ratio);
+				can_stats.current_rx_match_ratio);
 
 		len += snprintf(page + len, PAGE_SIZE - len,
 				" %8ld frames/s current tx rate (CTXR)\n",
-				stats.current_tx_rate);
+				can_stats.current_tx_rate);
 		len += snprintf(page + len, PAGE_SIZE - len,
 				" %8ld frames/s current rx rate (CRXR)\n",
-				stats.current_rx_rate);
+				can_stats.current_rx_rate);
 
 		len += snprintf(page + len, PAGE_SIZE - len, "\n");
 
 		len += snprintf(page + len, PAGE_SIZE - len,
 				" %8ld %% max match ratio (MRXMR)\n",
-				stats.max_rx_match_ratio);
+				can_stats.max_rx_match_ratio);
 
 		len += snprintf(page + len, PAGE_SIZE - len,
 				" %8ld frames/s max tx rate (MTXR)\n",
-				stats.max_tx_rate);
+				can_stats.max_tx_rate);
 		len += snprintf(page + len, PAGE_SIZE - len,
 				" %8ld frames/s max rx rate (MRXR)\n",
-				stats.max_rx_rate);
+				can_stats.max_rx_rate);
 
 		len += snprintf(page + len, PAGE_SIZE - len, "\n");
 	}
 
 	len += snprintf(page + len, PAGE_SIZE - len,
 			" %8ld current receive list entries (CRCV)\n",
-			pstats.rcv_entries);
+			can_pstats.rcv_entries);
 	len += snprintf(page + len, PAGE_SIZE - len,
 			" %8ld maximum receive list entries (MRCV)\n",
-			pstats.rcv_entries_max);
+			can_pstats.rcv_entries_max);
 
-	if (pstats.stats_reset)
+	if (can_pstats.stats_reset)
 		len += snprintf(page + len, PAGE_SIZE - len,
 				"\n %8ld statistic resets (STR)\n",
-				pstats.stats_reset);
+				can_pstats.stats_reset);
 
-	if (pstats.user_reset)
+	if (can_pstats.user_reset)
 		len += snprintf(page + len, PAGE_SIZE - len,
 				" %8ld user statistic resets (USTR)\n",
-				pstats.user_reset);
+				can_pstats.user_reset);
 
 	len += snprintf(page + len, PAGE_SIZE - len, "\n");
 
@@ -326,18 +328,18 @@ static int can_proc_read_reset_stats(char *page, char **start, off_t off,
 
 	user_reset = 1;
 
-	if (stattimer.function == can_stat_update) {
+	if (can_stattimer.function == can_stat_update) {
 		len += snprintf(page + len, PAGE_SIZE - len,
 				"Scheduled statistic reset #%ld.\n",
-				pstats.stats_reset + 1);
+				can_pstats.stats_reset + 1);
 
 	} else {
-		if (stats.jiffies_init != jiffies)
+		if (can_stats.jiffies_init != jiffies)
 			can_init_stats();
 
 		len += snprintf(page + len, PAGE_SIZE - len,
 				"Performed statistic reset #%ld.\n",
-				pstats.stats_reset);
+				can_pstats.stats_reset);
 	}
 
 	*eof = 1;
@@ -368,7 +370,7 @@ static int can_proc_read_rcvlist(char *page, char **start, off_t off,
 			"\nreceive list '%s':\n", rx_list_name[idx]);
 
 	rcu_read_lock();
-	hlist_for_each_entry_rcu(d, n, &rx_dev_list, list) {
+	hlist_for_each_entry_rcu(d, n, &can_rx_dev_list, list) {
 
 		if (!hlist_empty(&d->rx[idx])) {
 			len = can_print_recv_banner(page, len);
@@ -401,7 +403,7 @@ static int can_proc_read_rcvlist_sff(char *page, char **start, off_t off,
 			"\nreceive list 'rx_sff':\n");
 
 	rcu_read_lock();
-	hlist_for_each_entry_rcu(d, n, &rx_dev_list, list) {
+	hlist_for_each_entry_rcu(d, n, &can_rx_dev_list, list) {
 		int i, all_empty = 1;
 		/* check wether at least one list is non-empty */
 		for (i = 0; i < 0x800; i++)
@@ -463,11 +465,11 @@ static void can_remove_proc_readentry(const char *name)
 void can_init_proc(void)
 {
 	/* create /proc/net/can directory */
-	can_dir = proc_mkdir(CAN_PROC_DIR, NULL);
+	can_dir = proc_mkdir("can", init_net.proc_net);
 
 	if (!can_dir) {
-		printk(KERN_INFO "can: failed to create /proc/%s . "
-		       "CONFIG_PROC_FS missing?\n", CAN_PROC_DIR);
+		printk(KERN_INFO "can: failed to create /proc/net/can . "
+		       "CONFIG_PROC_FS missing?\n");
 		return;
 	}
 
@@ -527,5 +529,5 @@ void can_remove_proc(void)
 		can_remove_proc_readentry(CAN_PROC_RCVLIST_SFF);
 
 	if (can_dir)
-		remove_proc_entry(CAN_PROC_DIR, NULL);
+		proc_net_remove(&init_net, "can");
 }

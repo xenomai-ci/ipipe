@@ -8,8 +8,7 @@
  * modification, are permitted provided that the following conditions
  * are met:
  * 1. Redistributions of source code must retain the above copyright
- *    notice, this list of conditions, the following disclaimer and
- *    the referenced file 'COPYING'.
+ *    notice, this list of conditions and the following disclaimer.
  * 2. Redistributions in binary form must reproduce the above copyright
  *    notice, this list of conditions and the following disclaimer in the
  *    documentation and/or other materials provided with the distribution.
@@ -19,8 +18,8 @@
  *
  * Alternatively, provided that this notice is retained in full, this
  * software may be distributed under the terms of the GNU General
- * Public License ("GPL") version 2 as distributed in the 'COPYING'
- * file from the main directory of the linux kernel source.
+ * Public License ("GPL") version 2, in which case the provisions of the
+ * GPL apply INSTEAD OF those given above.
  *
  * The provided data structures and external interfaces from this code
  * are not restricted to be used by modules with a GPL compatible license.
@@ -48,6 +47,7 @@
 #include <linux/if_arp.h>
 #include <linux/if_ether.h>
 #include <linux/can.h>
+#include <net/rtnetlink.h>
 
 static __initdata const char banner[] =
 	KERN_INFO "vcan: Virtual CAN interface driver\n";
@@ -56,57 +56,21 @@ MODULE_DESCRIPTION("virtual CAN interface");
 MODULE_LICENSE("Dual BSD/GPL");
 MODULE_AUTHOR("Urs Thuermann <urs.thuermann@volkswagen.de>");
 
-#ifdef CONFIG_CAN_DEBUG_DEVICES
-static int debug;
-module_param(debug, int, S_IRUGO);
-#endif
-
-/* To be moved to linux/can/dev.h */
-#ifdef CONFIG_CAN_DEBUG_DEVICES
-#define DBG(args...)       (debug & 1 ? \
-			       (printk(KERN_DEBUG "vcan %s: ", __func__), \
-				printk(args)) : 0)
-#else
-#define DBG(args...)
-#endif
-
-static int numdev = 4; /* default number of virtual CAN interfaces */
-module_param(numdev, int, S_IRUGO);
-MODULE_PARM_DESC(numdev, "Number of virtual CAN devices");
 
 /*
  * CAN test feature:
- * Enable the loopback on driver level for testing the CAN core loopback modes.
+ * Enable the echo on driver level for testing the CAN core echo modes.
  * See Documentation/networking/can.txt for details.
  */
 
-static int loopback; /* loopback testing. Default: 0 (Off) */
-module_param(loopback, int, S_IRUGO);
-MODULE_PARM_DESC(loopback, "Loop back frames (for testing). Default: 0 (Off)");
+static int echo; /* echo testing. Default: 0 (Off) */
+module_param(echo, bool, S_IRUGO);
+MODULE_PARM_DESC(echo, "Echo sent frames (for testing). Default: 0 (Off)");
 
-static struct net_device **vcan_devs; /* root pointer to netdevice structs */
-
-#define PRIVSIZE sizeof(struct net_device_stats)
-
-static int vcan_open(struct net_device *dev)
-{
-	DBG("%s: interface up\n", dev->name);
-
-	netif_start_queue(dev);
-	return 0;
-}
-
-static int vcan_stop(struct net_device *dev)
-{
-	DBG("%s: interface down\n", dev->name);
-
-	netif_stop_queue(dev);
-	return 0;
-}
 
 static void vcan_rx(struct sk_buff *skb, struct net_device *dev)
 {
-	struct net_device_stats *stats = netdev_priv(dev);
+	struct net_device_stats *stats = &dev->stats;
 
 	stats->rx_packets++;
 	stats->rx_bytes += skb->len;
@@ -116,17 +80,13 @@ static void vcan_rx(struct sk_buff *skb, struct net_device *dev)
 	skb->dev       = dev;
 	skb->ip_summed = CHECKSUM_UNNECESSARY;
 
-	DBG("received skbuff on interface %d\n", dev->ifindex);
-
 	netif_rx(skb);
 }
 
 static int vcan_tx(struct sk_buff *skb, struct net_device *dev)
 {
-	struct net_device_stats *stats = netdev_priv(dev);
+	struct net_device_stats *stats = &dev->stats;
 	int loop;
-
-	DBG("sending skbuff on interface %s\n", dev->name);
 
 	stats->tx_packets++;
 	stats->tx_bytes += skb->len;
@@ -134,38 +94,29 @@ static int vcan_tx(struct sk_buff *skb, struct net_device *dev)
 	/* set flag whether this packet has to be looped back */
 	loop = skb->pkt_type == PACKET_LOOPBACK;
 
-	if (!loopback) {
-		/* no loopback handling available inside this driver */
+	if (!echo) {
+		/* no echo handling available inside this driver */
 
 		if (loop) {
 			/*
 			 * only count the packets here, because the
-			 * CAN core already did the loopback for us
+			 * CAN core already did the echo for us
 			 */
 			stats->rx_packets++;
 			stats->rx_bytes += skb->len;
 		}
 		kfree_skb(skb);
-		return 0;
+		return NETDEV_TX_OK;
 	}
 
-	/* perform standard loopback handling for CAN network interfaces */
+	/* perform standard echo handling for CAN network interfaces */
 
 	if (loop) {
 		struct sock *srcsk = skb->sk;
 
-		if (atomic_read(&skb->users) != 1) {
-			struct sk_buff *old_skb = skb;
-
-			skb = skb_clone(old_skb, GFP_ATOMIC);
-			DBG(KERN_INFO "%s: %s: freeing old skbuff %p, "
-			    "using new skbuff %p\n",
-			    dev->name, __FUNCTION__, old_skb, skb);
-			kfree_skb(old_skb);
-			if (!skb)
-				return 0;
-		} else
-			skb_orphan(skb);
+		skb = skb_share_check(skb, GFP_ATOMIC);
+		if (!skb)
+			return NETDEV_TX_OK;
 
 		/* receive with packet counting */
 		skb->sk = srcsk;
@@ -174,20 +125,11 @@ static int vcan_tx(struct sk_buff *skb, struct net_device *dev)
 		/* no looped packets => no counting */
 		kfree_skb(skb);
 	}
-	return 0;
-}
-
-static struct net_device_stats *vcan_get_stats(struct net_device *dev)
-{
-	struct net_device_stats *stats = netdev_priv(dev);
-
-	return stats;
+	return NETDEV_TX_OK;
 }
 
 static void vcan_setup(struct net_device *dev)
 {
-	DBG("dev %s\n", dev->name);
-
 	dev->type              = ARPHRD_CAN;
 	dev->mtu               = sizeof(struct can_frame);
 	dev->hard_header_len   = 0;
@@ -196,87 +138,31 @@ static void vcan_setup(struct net_device *dev)
 	dev->flags             = IFF_NOARP;
 
 	/* set flags according to driver capabilities */
-	if (loopback)
-		dev->flags |= IFF_LOOPBACK;
+	if (echo)
+		dev->flags |= IFF_ECHO;
 
-	dev->open              = vcan_open;
-	dev->stop              = vcan_stop;
 	dev->hard_start_xmit   = vcan_tx;
-	dev->get_stats         = vcan_get_stats;
-
-	SET_MODULE_OWNER(dev);
+	dev->destructor        = free_netdev;
 }
+
+static struct rtnl_link_ops vcan_link_ops __read_mostly = {
+       .kind           = "vcan",
+       .setup          = vcan_setup,
+};
 
 static __init int vcan_init_module(void)
 {
-	int i, result;
-
 	printk(banner);
 
-	/* register at least one interface */
-	if (numdev < 1)
-		numdev = 1;
+	if (echo)
+		printk(KERN_INFO "vcan: enabled echo on driver level.\n");
 
-	printk(KERN_INFO
-	       "vcan: registering %d virtual CAN interfaces. (loopback %s)\n",
-	       numdev, loopback ? "enabled" : "disabled");
-
-	vcan_devs = kzalloc(numdev * sizeof(struct net_device *), GFP_KERNEL);
-	if (!vcan_devs) {
-		printk(KERN_ERR "vcan: Can't allocate vcan devices array!\n");
-		return -ENOMEM;
-	}
-
-	for (i = 0; i < numdev; i++) {
-		vcan_devs[i] = alloc_netdev(PRIVSIZE, "vcan%d", vcan_setup);
-		if (!vcan_devs[i]) {
-			printk(KERN_ERR "vcan: error allocating net_device\n");
-			result = -ENOMEM;
-			goto out;
-		}
-
-		result = register_netdev(vcan_devs[i]);
-		if (result < 0) {
-			printk(KERN_ERR
-			       "vcan: error %d registering interface %s\n",
-			       result, vcan_devs[i]->name);
-			free_netdev(vcan_devs[i]);
-			vcan_devs[i] = NULL;
-			goto out;
-
-		} else {
-			DBG("successfully registered interface %s\n",
-			    vcan_devs[i]->name);
-		}
-	}
-
-	return 0;
-
- out:
-	for (i = 0; i < numdev; i++) {
-		if (vcan_devs[i]) {
-			unregister_netdev(vcan_devs[i]);
-			free_netdev(vcan_devs[i]);
-		}
-	}
-
-	kfree(vcan_devs);
-
-	return result;
+	return rtnl_link_register(&vcan_link_ops);
 }
 
 static __exit void vcan_cleanup_module(void)
 {
-	int i;
-
-	for (i = 0; i < numdev; i++) {
-		if (vcan_devs[i]) {
-			unregister_netdev(vcan_devs[i]);
-			free_netdev(vcan_devs[i]);
-		}
-	}
-
-	kfree(vcan_devs);
+	rtnl_link_unregister(&vcan_link_ops);
 }
 
 module_init(vcan_init_module);

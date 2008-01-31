@@ -19,7 +19,7 @@
 #include <linux/skbuff.h>
 #include <linux/netdevice.h>
 
-#define CAN_VERSION "20070802"
+#define CAN_VERSION "20071116"
 
 /* increment this number each time you change some user-space interface */
 #define CAN_ABI_VERSION "8"
@@ -27,8 +27,6 @@
 #define CAN_VERSION_STRING "rev " CAN_VERSION " abi " CAN_ABI_VERSION
 
 #define DNAME(dev) ((dev) ? (dev)->name : "any")
-
-#define CAN_PROC_DIR "net/can" /* /proc/... */
 
 /**
  * struct can_proto - CAN protocol structure
@@ -48,33 +46,19 @@ struct can_proto {
 
 /* function prototypes for the CAN networklayer core (af_can.c) */
 
-extern int can_proto_register(struct can_proto *cp);
-extern int can_proto_unregister(struct can_proto *cp);
+extern int  can_proto_register(struct can_proto *cp);
+extern void can_proto_unregister(struct can_proto *cp);
 
-extern int can_rx_register(struct net_device *dev, canid_t can_id,
-			   canid_t mask,
-			   void (*func)(struct sk_buff *, void *),
-			   void *data, char *ident);
+extern int  can_rx_register(struct net_device *dev, canid_t can_id,
+			    canid_t mask,
+			    void (*func)(struct sk_buff *, void *),
+			    void *data, char *ident);
 
-extern int can_rx_unregister(struct net_device *dev, canid_t can_id,
-			     canid_t mask,
-			     void (*func)(struct sk_buff *, void *),
-			     void *data);
+extern void can_rx_unregister(struct net_device *dev, canid_t can_id,
+			      canid_t mask,
+			      void (*func)(struct sk_buff *, void *),
+			      void *data);
 
 extern int can_send(struct sk_buff *skb, int loop);
-
-#ifdef CONFIG_CAN_DEBUG_CORE
-extern void can_debug_skb(struct sk_buff *skb);
-extern void can_debug_cframe(const char *msg, struct can_frame *cframe, ...);
-#define DBG(args...)       (debug & 1 ? \
-			       (printk(KERN_DEBUG "can-%s %s: ", \
-				IDENT, __func__), printk(args)) : 0)
-#define DBG_FRAME(args...) (debug & 2 ? can_debug_cframe(args) : 0)
-#define DBG_SKB(skb)       (debug & 4 ? can_debug_skb(skb) : 0)
-#else
-#define DBG(args...)
-#define DBG_FRAME(args...)
-#define DBG_SKB(skb)
-#endif
 
 #endif /* CAN_CORE_H */
