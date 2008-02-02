@@ -37,44 +37,44 @@ static int ehci_ppc_of_setup(struct usb_hcd *hcd)
 
 
 static const struct hc_driver ehci_ppc_of_hc_driver = {
-	.description = hcd_name,
-	.product_desc = "OF EHCI",
-	.hcd_priv_size = sizeof(struct ehci_hcd),
+	.description		= hcd_name,
+	.product_desc		= "OF EHCI",
+	.hcd_priv_size		= sizeof(struct ehci_hcd),
 
 	/*
 	 * generic hardware linkage
 	 */
-	.irq = ehci_irq,
-	.flags = HCD_MEMORY | HCD_USB2,
+	.irq			= ehci_irq,
+	.flags			= HCD_MEMORY | HCD_USB2,
 
 	/*
 	 * basic lifecycle operations
 	 */
-	.reset = ehci_ppc_of_setup,
-	.start = ehci_run,
-	.stop = ehci_stop,
-	.shutdown = ehci_shutdown,
+	.reset			= ehci_ppc_of_setup,
+	.start			= ehci_run,
+	.stop			= ehci_stop,
+	.shutdown		= ehci_shutdown,
 
 	/*
 	 * managing i/o requests and associated device resources
 	 */
-	.urb_enqueue = ehci_urb_enqueue,
-	.urb_dequeue = ehci_urb_dequeue,
-	.endpoint_disable = ehci_endpoint_disable,
+	.urb_enqueue		= ehci_urb_enqueue,
+	.urb_dequeue		= ehci_urb_dequeue,
+	.endpoint_disable	= ehci_endpoint_disable,
 
 	/*
 	 * scheduling support
 	 */
-	.get_frame_number = ehci_get_frame,
+	.get_frame_number	= ehci_get_frame,
 
 	/*
 	 * root hub support
 	 */
-	.hub_status_data = ehci_hub_status_data,
-	.hub_control = ehci_hub_control,
+	.hub_status_data	= ehci_hub_status_data,
+	.hub_control		= ehci_hub_control,
 #ifdef	CONFIG_PM
-	.hub_suspend = ehci_hub_suspend,
-	.hub_resume = ehci_hub_resume,
+	.bus_suspend		= ehci_bus_suspend,
+	.bus_resume		= ehci_bus_resume,
 #endif
 };
 
@@ -230,14 +230,9 @@ static struct of_platform_driver ehci_hcd_ppc_of_driver = {
 	.match_table	= ehci_hcd_ppc_of_match,
 	.probe		= ehci_hcd_ppc_of_probe,
 	.remove		= ehci_hcd_ppc_of_remove,
-	.shutdown 	= ehci_hcd_ppc_of_shutdown,
-#ifdef CONFIG_PM
-	/*.suspend	= ehci_hcd_ppc_of_drv_suspend,*/
-	/*.resume	= ehci_hcd_ppc_of_drv_resume,*/
-#endif
+	.shutdown	= ehci_hcd_ppc_of_shutdown,
 	.driver		= {
 		.name	= "ppc-of-ehci",
 		.owner	= THIS_MODULE,
 	},
 };
-
