@@ -499,13 +499,13 @@ static int __init mal_probe(struct ocp_device *ocpdev)
 
 #if defined(CONFIG_405EZ)
 	/* 405EZ only has one IRQ for all three sources!!! */
-	err = request_irq(maldata->serr_irq, mal_int, SA_SHIRQ, "MAL SERR", mal);
+	err = request_irq(maldata->serr_irq, mal_int, IRQF_SHARED, "MAL SERR", mal);
 	if (err)
 		goto fail2;
-	err = request_irq(maldata->txde_irq, mal_int, SA_SHIRQ, "MAL TX DE", mal);
+	err = request_irq(maldata->txde_irq, mal_int, IRQF_SHARED, "MAL TX DE", mal);
 	if (err)
 		goto fail3;
-	err = request_irq(maldata->rxde_irq, mal_int, SA_SHIRQ, "MAL RX DE", mal);
+	err = request_irq(maldata->rxde_irq, mal_int, IRQF_SHARED, "MAL RX DE", mal);
 	if (err)
 		goto fail4;
 #else
