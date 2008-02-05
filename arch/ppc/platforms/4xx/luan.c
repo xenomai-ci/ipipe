@@ -390,11 +390,6 @@ luan_setup_arch(void)
 	printk("Luan port (MontaVista Software, Inc. <source@mvista.com>)\n");
 }
 
-static void __init luan_init(void)
-{
-	ibm440gx_l2c_setup(&clocks);
-}
-
 void __init platform_init(unsigned long r3, unsigned long r4,
 		unsigned long r5, unsigned long r6, unsigned long r7)
 {
@@ -409,5 +404,4 @@ void __init platform_init(unsigned long r3, unsigned long r4,
 #ifdef CONFIG_KGDB
 	ppc_md.early_serial_map = luan_early_serial_map;
 #endif
-	ppc_md.init = luan_init;
 }

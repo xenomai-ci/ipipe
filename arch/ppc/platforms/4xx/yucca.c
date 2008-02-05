@@ -509,11 +509,6 @@ yucca_setup_arch(void)
 	printk("Yucca port (Roland Dreier <rolandd@cisco.com>)\n");
 }
 
-static void __init yucca_init(void)
-{
-	ibm440gx_l2c_setup(&clocks);
-}
-
 void __init platform_init(unsigned long r3, unsigned long r4,
 		unsigned long r5, unsigned long r6, unsigned long r7)
 {
@@ -528,5 +523,4 @@ void __init platform_init(unsigned long r3, unsigned long r4,
 #ifdef CONFIG_KGDB
 	ppc_md.early_serial_map = yucca_early_serial_map;
 #endif
-	ppc_md.init = yucca_init;
 }
