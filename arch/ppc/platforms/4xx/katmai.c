@@ -582,11 +582,6 @@ static void katmai_restart(char *cmd)
 	mtspr(SPRN_DBCR0, DBCR0_RST_CHIP);
 }
 
-static void __init katmai_init(void)
-{
-	ibm440gx_l2c_setup(&clocks);
-}
-
 void __init platform_init(unsigned long r3, unsigned long r4,
 			  unsigned long r5, unsigned long r6, unsigned long r7)
 {
@@ -602,5 +597,4 @@ void __init platform_init(unsigned long r3, unsigned long r4,
 	ppc_md.early_serial_map = katmai_early_serial_map;
 #endif
 	ppc_md.restart = katmai_restart;
-	ppc_md.init = katmai_init;
 }
