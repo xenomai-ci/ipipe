@@ -21,6 +21,13 @@
 #define LWMON5_TMRCLK     50000000
 #define LWMON5_SYSCLK     33300000
 
+#define LWMON5_OCM			0xe0010000
+/*
+ * Alternative Log Buffer location settings
+ */
+#define BOARD_ALT_LH_ADDR		PPC440EPX_GPT0_COMP1
+#define BOARD_ALT_LB_ADDR		LWMON5_OCM
+
 /*
  * Serial port defines
  */

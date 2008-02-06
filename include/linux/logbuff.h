@@ -43,7 +43,12 @@ typedef struct {
 } logbuff_t;
 
 extern void setup_ext_logbuff(void);
-extern void* setup_ext_logbuff_mem(void); /* arch specific */
+/* arch specific */
+#ifdef CONFIG_ALT_LB_LOCATION
+extern int setup_ext_logbuff_mem(volatile logbuff_t **lhead, char **lbuf);
+#else
+extern int setup_ext_logbuff_mem(logbuff_t **lhead, char **lbuf);
+#endif
 
 #endif /* CONFIG_LOGBUFFER */
 

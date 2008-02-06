@@ -62,8 +62,14 @@ unsigned long total_memory;
 unsigned long total_lowmem;
 
 #ifdef CONFIG_LOGBUFFER
+#ifdef CONFIG_ALT_LB_LOCATION
+# if !defined(BOARD_ALT_LH_ADDR) || !defined(BOARD_ALT_LB_ADDR)
+#  error "Please specify BOARD_ALT_LH_ADDR & BOARD_ALT_LB_ADDR."
+# endif
+#else
 static unsigned long ext_logbuff;
-#endif
+#endif /* CONFIG_ALT_LB_LOCATION */
+#endif /* CONFIG_LOGBUFFER */
 
 unsigned long ppc_memstart;
 unsigned long ppc_memoffset = PAGE_OFFSET;
@@ -246,11 +252,17 @@ void __init MMU_init(void)
 	if (__max_memory && total_memory > __max_memory)
 		total_memory = __max_memory;
 #ifdef CONFIG_LOGBUFFER
+#ifndef CONFIG_ALT_LB_LOCATION
+	/* When alternative logbuf configuration is used,
+	 * the log head and buffer has to be not in system
+	 * RAM
+	 */
 	if (total_memory > (total_memory-LOGBUFF_RESERVE)) {
 		total_memory-=LOGBUFF_RESERVE;
 		ext_logbuff = total_memory;
 	}
 #endif
+#endif /* CONFIG_LOGBUFFER */
 	total_lowmem = total_memory;
 	if (total_lowmem > __max_low_memory) {
 		total_lowmem = __max_low_memory;
@@ -298,11 +310,48 @@ void __init MMU_init(void)
 }
 
 #ifdef CONFIG_LOGBUFFER
-void* __init setup_ext_logbuff_mem(void)
+#ifdef CONFIG_ALT_LB_LOCATION
+/* Alternative log-buffer mapping: log head & buffer are separated and
+ * allocated not in RAM (e.g. log head in unused registers, and log
+ * buffer in OCM memory)
+ */
+int __init setup_ext_logbuff_mem(volatile logbuff_t **lhead, char **lbuf)
 {
-	return ioremap(ext_logbuff, LOGBUFF_RESERVE);
+	void *h, *b;
+
+	/* map log head */
+	h = ioremap(BOARD_ALT_LH_ADDR, sizeof(logbuff_t));
+	if (unlikely(!h))
+		return -EFAULT;
+
+	/* map log buffer */
+	b = ioremap(BOARD_ALT_LB_ADDR, LOGBUFF_LEN);
+	if (unlikely(!b)) {
+		iounmap(h);
+		return -EFAULT;
+	}
+
+	*lhead = h;
+	*lbuf = b;
+
+	return 0;
 }
-#endif
+#else
+/* Usual log-buffer mapping: log head & buffer are both in system RAM memory */
+int __init setup_ext_logbuff_mem(logbuff_t **lhead, char **lbuf)
+{
+	void *p = ioremap(ext_logbuff, LOGBUFF_RESERVE);
+
+	if (unlikely(!p))
+		return -EFAULT;
+
+	*lhead = (logbuff_t*)(p + LOGBUFF_OVERHEAD) - 1;
+	*lbuf = (*lhead)->buf;
+
+	return 0;
+}
+#endif /* CONFIG_ALT_LB_LOCATION */
+#endif /* CONFIG_LOGBUFFER */
 
 /* This is only called until mem_init is done. */
 void __init *early_get_page(void)

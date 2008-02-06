@@ -108,6 +108,8 @@ static unsigned long _con_start;
 static unsigned long _log_end;
 static unsigned long _logged_chars;
 /* These will be switched to the external log buffer */
+#ifndef CONFIG_ALT_LB_LOCATION
+/* usual logbuffer location */
 static unsigned long *ext_log_start = &_log_start;
 static unsigned long *ext_con_start = &_con_start;
 static unsigned long *ext_log_end = &_log_end;
@@ -116,6 +118,17 @@ static unsigned long *ext_logged_chars = &_logged_chars;
 #define con_start	(*ext_con_start)
 #define log_end		(*ext_log_end)
 #define logged_chars	(*ext_logged_chars)
+#else
+/* alternative logbuffer location */
+static volatile unsigned long *ext_log_start = &_log_start;
+static volatile unsigned long *ext_con_start = &_con_start;
+static volatile unsigned long *ext_log_end = &_log_end;
+static volatile unsigned long *ext_logged_chars = &_logged_chars;
+#define log_start       (*((volatile u32 *)ext_log_start))
+#define con_start       (*((volatile u32 *)ext_con_start))
+#define log_end         (*((volatile u32 *)ext_log_end))
+#define logged_chars    (*((volatile u32 *)ext_logged_chars))
+#endif
 #else
 static unsigned long log_start;	/* Index into log_buf: next char to be read by syslog() */
 static unsigned long con_start;	/* Index into log_buf: next char to be sent to consoles */
@@ -153,16 +166,17 @@ static unsigned long logged_chars; /* Number of chars produced since last read+c
 #ifdef CONFIG_LOGBUFFER
 void __init setup_ext_logbuff(void)
 {
-	char *extbuf;
+#ifdef CONFIG_ALT_LB_LOCATION
+	volatile logbuff_t *log;
+#else
 	logbuff_t *log;
+#endif
 	unsigned long flags, space, start, dest_idx, offset;
 
-	extbuf = setup_ext_logbuff_mem();
-	if (!extbuf) {
+	if (setup_ext_logbuff_mem(&log, &log_buf)) {
 		printk("Failed to setup external logbuffer - ignoring it\n");
 		return;
 	}
-	log = (logbuff_t*)(extbuf + LOGBUFF_OVERHEAD) - 1;
 
 	/* When no properly setup buffer is found, reset pointers */
 	if (log->tag != LOGBUFF_MAGIC) {
@@ -195,7 +209,7 @@ void __init setup_ext_logbuff(void)
 	dest_idx = start + offset;
 
 	while (start != log_end) {
-		log->buf[dest_idx & (LOGBUFF_LEN - 1)] = LOG_BUF(start);
+		log_buf[dest_idx & (LOGBUFF_LEN - 1)] = LOG_BUF(start);
 		start++;
 		dest_idx++;
 	}
@@ -207,13 +221,11 @@ void __init setup_ext_logbuff(void)
 	ext_con_start = &log->con;
 	ext_log_end = &log->end;
 	ext_logged_chars = &log->chars;
-
-	log_buf = log->buf;
 	log_buf_len = LOGBUFF_LEN;
 
 	spin_unlock_irqrestore(&logbuf_lock, flags);
 
-	printk("Kernel logbuffer at 0x%p\n", log->buf);
+	printk("Kernel logbuffer at 0x%p\n", log_buf);
 }
 #endif /* CONFIG_LOGBUFFER */
 
