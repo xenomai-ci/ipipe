@@ -771,19 +771,22 @@ int __ipipe_handle_exception(struct pt_regs *regs, long error_code, int vector)
 		ipipe_trace_panic_freeze();
 
 		/* Always warn about user land and unfixable faults. */
-		if ((error_code & 4) || !search_exception_tables(instruction_pointer(regs)))
+		if ((error_code & 4) || !search_exception_tables(instruction_pointer(regs))) {
 			printk(KERN_ERR "BUG: Unhandled exception over domain"
 			       " %s at 0x%lx - switching to ROOT\n",
 			       ipd->name, instruction_pointer(regs));
+			dump_stack();
+			ipipe_trace_panic_dump();
 #ifdef CONFIG_IPIPE_DEBUG
 		/* Also report fixable ones when debugging is enabled. */
-		else
+		} else {
 			printk(KERN_WARNING "WARNING: Fixable exception over "
 			       "domain %s at 0x%lx - switching to ROOT\n",
 			       ipd->name, instruction_pointer(regs));
+			dump_stack();
+			ipipe_trace_panic_dump();
 #endif /* CONFIG_IPIPE_DEBUG */
-
-		dump_stack();
+		}
 	}
 
 	__ipipe_std_extable[vector](regs, error_code);
