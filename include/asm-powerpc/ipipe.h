@@ -135,6 +135,11 @@ int __ipipe_ack_irq(unsigned irq);
 
 void __ipipe_end_irq(unsigned irq);
 
+static inline int __ipipe_check_tickdev(const char *devname)
+{
+	return 1;
+}
+
 #ifdef CONFIG_SMP
 struct ipipe_ipi_struct {
 	volatile unsigned long value;
