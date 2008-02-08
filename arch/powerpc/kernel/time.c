@@ -145,6 +145,8 @@ EXPORT_SYMBOL(tb_ticks_per_sec);	/* for cputime_t conversions */
 u64 tb_to_xs;
 unsigned tb_to_us;
 
+DEFINE_PER_CPU(int, disarm_decr);
+
 #define TICKLEN_SCALE	TICK_LENGTH_SHIFT
 u64 last_tick_len;	/* units are ns / 2^TICKLEN_SCALE */
 u64 ticklen_to_xs;	/* 0.64 fraction */
@@ -562,10 +564,11 @@ void timer_interrupt(struct pt_regs * regs)
 
 	/* Ensure a positive value is written to the decrementer, or else
 	 * some CPUs will continuue to take decrementer exceptions */
-	set_dec(DECREMENTER_MAX);
+	if (!per_cpu(disarm_decr, cpu))
+		set_dec(DECREMENTER_MAX);
 
 #ifdef CONFIG_PPC_PASEMI_A2_WORKAROUNDS
-	extern spinlock_t native_tlbie_lock;
+	extern ipipe_spinlock_t native_tlbie_lock;
 
 	spin_lock(&native_tlbie_lock);
 	asm("ptesync");
@@ -581,12 +584,14 @@ void timer_interrupt(struct pt_regs * regs)
 	if (now < per_cpu(decrementer_next_tb, cpu)) {
 		/* not time for this event yet */
 		now = per_cpu(decrementer_next_tb, cpu) - now;
-		if (now <= DECREMENTER_MAX)
+		if (!per_cpu(disarm_decr, cpu) && now <= DECREMENTER_MAX)
 			set_dec((int)now);
 		return;
 	}
 	old_regs = set_irq_regs(regs);
+#ifndef CONFIG_IPIPE
 	irq_enter();
+#endif
 
 	calculate_steal_time();
 
@@ -611,7 +616,9 @@ void timer_interrupt(struct pt_regs * regs)
 	}
 #endif
 
+#ifndef CONFIG_IPIPE
 	irq_exit();
+#endif
 	set_irq_regs(old_regs);
 }
 

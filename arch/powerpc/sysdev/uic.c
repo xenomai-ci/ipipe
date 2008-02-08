@@ -49,7 +49,7 @@ struct uic {
 	int index;
 	int dcrbase;
 
-	spinlock_t lock;
+	ipipe_spinlock_t lock;
 
 	/* The remapper for this UIC */
 	struct irq_host	*irqhost;

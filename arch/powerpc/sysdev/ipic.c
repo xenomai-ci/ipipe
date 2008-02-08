@@ -30,7 +30,7 @@
 #include "ipic.h"
 
 static struct ipic * primary_ipic;
-static DEFINE_SPINLOCK(ipic_lock);
+static IPIPE_DEFINE_SPINLOCK(ipic_lock);
 
 static struct ipic_info ipic_info[] = {
 	[9] = {
