@@ -364,7 +364,7 @@ config IBM_OPENBIOS
 
 config PPC4xx_DMA
 	bool "PPC4xx DMA controller support"
-	depends on 4xx
+	depends on 4xx && !440SP && !440SPE
 
 config PPC4xx_EDMA
 	bool
