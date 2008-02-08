@@ -47,26 +47,40 @@ struct dma_chan_ref {
  * address is an implied source, whereas the asynchronous case it must be listed
  * as a source.  The destination address must be the first address in the source
  * array.
- * @ASYNC_TX_ASSUME_COHERENT: skip cache maintenance operations
  * @ASYNC_TX_ACK: immediately ack the descriptor, precludes setting up a
  * dependency chain
  * @ASYNC_TX_DEP_ACK: ack the dependency descriptor.  Useful for chaining.
+ * @ASYNC_TX_KMAP_SRC: if the transaction is to be performed synchronously
+ * take an atomic mapping (KM_USER0) on the source page(s)
+ * @ASYNC_TX_KMAP_DST: if the transaction is to be performed synchronously
+ * take an atomic mapping (KM_USER0) on the dest page(s)
+ * @ASYNC_TX_ASYNC_ONLY: if set then try to perform operation requested in
+ * asynchronous way only.
  */
 enum async_tx_flags {
 	ASYNC_TX_XOR_ZERO_DST	 = (1 << 0),
 	ASYNC_TX_XOR_DROP_DST	 = (1 << 1),
-	ASYNC_TX_ASSUME_COHERENT = (1 << 2),
 	ASYNC_TX_ACK		 = (1 << 3),
 	ASYNC_TX_DEP_ACK	 = (1 << 4),
+	ASYNC_TX_KMAP_SRC	 = (1 << 5),
+	ASYNC_TX_KMAP_DST	 = (1 << 6),
+	ASYNC_TX_ASYNC_ONLY	 = (1 << 7),
+	ASYNC_TX_INT		 = (1 << 8),
 };
 
 #ifdef CONFIG_DMA_ENGINE
 void async_tx_issue_pending_all(void);
 enum dma_status dma_wait_for_async_tx(struct dma_async_tx_descriptor *tx);
 void async_tx_run_dependencies(struct dma_async_tx_descriptor *tx);
+#ifdef CONFIG_ARCH_HAS_ASYNC_TX_FIND_CHANNEL
+#include <asm/async_tx.h>
+#else
+#define async_tx_find_channel(dep, type, dst, dst_count, src, src_count, len) \
+	 __async_tx_find_channel(dep, type)
 struct dma_chan *
-async_tx_find_channel(struct dma_async_tx_descriptor *depend_tx,
+__async_tx_find_channel(struct dma_async_tx_descriptor *depend_tx,
 	enum dma_transaction_type tx_type);
+#endif /* CONFIG_ARCH_HAS_ASYNC_TX_FIND_CHANNEL */
 #else
 static inline void async_tx_issue_pending_all(void)
 {
@@ -80,15 +94,15 @@ dma_wait_for_async_tx(struct dma_async_tx_descriptor *tx)
 }
 
 static inline void
-async_tx_run_dependencies(struct dma_async_tx_descriptor *tx,
-	struct dma_chan *host_chan)
+async_tx_run_dependencies(struct dma_async_tx_descriptor *tx)
 {
 	do { } while (0);
 }
 
 static inline struct dma_chan *
 async_tx_find_channel(struct dma_async_tx_descriptor *depend_tx,
-	enum dma_transaction_type tx_type)
+	enum dma_transaction_type tx_type, struct page **dst, int dst_count,
+	struct page **src, int src_count, size_t len)
 {
 	return NULL;
 }
@@ -147,4 +161,30 @@ struct dma_async_tx_descriptor *
 async_trigger_callback(enum async_tx_flags flags,
 	struct dma_async_tx_descriptor *depend_tx,
 	dma_async_tx_callback cb_fn, void *cb_fn_param);
+
+struct dma_async_tx_descriptor *
+async_pqxor(struct page *pdest, struct page *qdest,
+	struct page **src_list, unsigned char *scoef_list,
+	unsigned int offset, int src_cnt, size_t len, enum async_tx_flags flags,
+	struct dma_async_tx_descriptor *depend_tx,
+	dma_async_tx_callback callback, void *callback_param);
+
+struct dma_async_tx_descriptor *
+async_pqxor_zero_sum(struct page *pdest, struct page *qdest,
+	struct page **src_list, unsigned char *scoef_list,
+	unsigned int offset, int src_cnt, size_t len,
+	u32 *presult, u32 *qresult, enum async_tx_flags flags,
+	struct dma_async_tx_descriptor *depend_tx,
+	dma_async_tx_callback callback, void *callback_param);
+
+struct dma_async_tx_descriptor *
+async_r6_dd_recov (int src_num, size_t bytes, int faila, int failb, struct page **ptrs,
+        enum async_tx_flags flags, struct dma_async_tx_descriptor *depend_tx,
+	dma_async_tx_callback callback, void *callback_param);
+
+struct dma_async_tx_descriptor *
+async_r6_dp_recov (int src_num, size_t bytes, int faila, struct page **ptrs,
+	enum async_tx_flags flags, struct dma_async_tx_descriptor *depend_tx,
+	dma_async_tx_callback callback, void *callback_param);
+
 #endif /* _ASYNC_TX_H_ */

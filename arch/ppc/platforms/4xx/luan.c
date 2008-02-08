@@ -45,7 +45,9 @@
 #include <asm/bootinfo.h>
 #include <asm/ppc4xx_pic.h>
 #include <asm/ppcboot.h>
+#include <asm/tlbflush.h>
 
+#include <syslib/gen550.h>
 #include <syslib/ibm44x_common.h>
 #include <syslib/ibm440gx_common.h>
 #include <syslib/ibm440sp_common.h>
@@ -72,6 +74,7 @@ luan_show_cpuinfo(struct seq_file *m)
 {
 	seq_printf(m, "vendor\t\t: IBM\n");
 	seq_printf(m, "machine\t\t: PPC440SP EVB (Luan)\n");
+	ibm440gx_show_cpuinfo(m);
 
 	return 0;
 }
@@ -81,36 +84,49 @@ luan_map_irq(struct pci_dev *dev, unsigned char idsel, unsigned char pin)
 {
 	struct pci_controller *hose = pci_bus_to_hose(dev->bus->number);
 
-	/* PCIX0 in adapter mode, no host interrupt routing */
-
-	/* PCIX1 */
+	/* PCIX0 */
 	if (hose->index == 0) {
 		static char pci_irq_table[][4] =
-		/*
-		 *	PCI IDSEL/INTPIN->INTLINE
-		 *	  A   B   C   D
-		 */
-		{
-			{ 49, 49, 49, 49 },	/* IDSEL 1 - PCIX1 Slot 0 */
-			{ 49, 49, 49, 49 },	/* IDSEL 2 - PCIX1 Slot 1 */
-			{ 49, 49, 49, 49 },	/* IDSEL 3 - PCIX1 Slot 2 */
-			{ 49, 49, 49, 49 },	/* IDSEL 4 - PCIX1 Slot 3 */
-		};
+			/*
+			 *      PCI IDSEL/INTPIN->INTLINE
+			 *        A   B   C   D
+			 */
+			{
+				{ 32, 32, 32, 32 },     /* IDSEL 1 - PCIX0 Slot 0 */
+				{ 32, 32, 32, 32 },     /* IDSEL 2 - PCIX0 Slot 1 */
+				{ 32, 32, 32, 32 },     /* IDSEL 3 - PCIX0 Slot 2 */
+				{ 32, 32, 32, 32 },     /* IDSEL 4 - PCIX0 Slot 3 */
+			};
+		const long min_idsel = 1, max_idsel = 4, irqs_per_slot = 4;
+		return PCI_IRQ_TABLE_LOOKUP;
+	/* PCIX1 */
+	} else if (hose->index == 1) {
+		static char pci_irq_table[][4] =
+			/*
+			 *	PCI IDSEL/INTPIN->INTLINE
+			 *	  A   B   C   D
+			 */
+			{
+				{ 49, 49, 49, 49 },	/* IDSEL 1 - PCIX1 Slot 0 */
+				{ 49, 49, 49, 49 },	/* IDSEL 2 - PCIX1 Slot 1 */
+				{ 49, 49, 49, 49 },	/* IDSEL 3 - PCIX1 Slot 2 */
+				{ 49, 49, 49, 49 },	/* IDSEL 4 - PCIX1 Slot 3 */
+			};
 		const long min_idsel = 1, max_idsel = 4, irqs_per_slot = 4;
 		return PCI_IRQ_TABLE_LOOKUP;
 	/* PCIX2 */
-	} else if (hose->index == 1) {
+	} else if (hose->index == 2) {
 		static char pci_irq_table[][4] =
-		/*
-		 *	PCI IDSEL/INTPIN->INTLINE
-		 *	  A   B   C   D
-		 */
-		{
-			{ 50, 50, 50, 50 },	/* IDSEL 1 - PCIX2 Slot 0 */
-			{ 50, 50, 50, 50 },	/* IDSEL 2 - PCIX2 Slot 1 */
-			{ 50, 50, 50, 50 },	/* IDSEL 3 - PCIX2 Slot 2 */
-			{ 50, 50, 50, 50 },	/* IDSEL 4 - PCIX2 Slot 3 */
-		};
+			/*
+			 *	PCI IDSEL/INTPIN->INTLINE
+			 *	  A   B   C   D
+			 */
+			{
+				{ 50, 50, 50, 50 },	/* IDSEL 1 - PCIX2 Slot 0 */
+				{ 50, 50, 50, 50 },	/* IDSEL 2 - PCIX2 Slot 1 */
+				{ 50, 50, 50, 50 },	/* IDSEL 3 - PCIX2 Slot 2 */
+				{ 50, 50, 50, 50 },	/* IDSEL 4 - PCIX2 Slot 3 */
+			};
 		const long min_idsel = 1, max_idsel = 4, irqs_per_slot = 4;
 		return PCI_IRQ_TABLE_LOOKUP;
 	}
@@ -145,11 +161,9 @@ luan_setup_pcix(void)
 	int i;
 	void *pcix_reg_base;
 
-	for (i=0;i<3;i++) {
-		pcix_reg_base = ioremap64(PCIX0_REG_BASE + i*PCIX_REG_OFFSET, PCIX_REG_SIZE);
-
-		/* Enable PCIX0 I/O, Mem, and Busmaster cycles */
-		PCIX_WRITEW(PCIX_READW(PCIX0_COMMAND) | PCI_COMMAND_IO | PCI_COMMAND_MEMORY | PCI_COMMAND_MASTER, PCIX0_COMMAND);
+	for (i=0; i<3; i++) {
+		pcix_reg_base = ioremap64(PCIX0_REG_BASE + i * PCIX_REG_OFFSET,
+					  PCIX_REG_SIZE);
 
 		/* Disable all windows */
 		PCIX_WRITEL(0, PCIX0_POM0SA);
@@ -171,11 +185,15 @@ luan_setup_pcix(void)
 		PCIX_WRITEL(0x80000000 | i*LUAN_PCIX_MEM_SIZE, PCIX0_POM0PCIAL);
 		PCIX_WRITEL(0xe0000001, PCIX0_POM0SA);
 
-		/* Setup 2GB PCI->PLB inbound memory window at 0, enable MSIs */
+		/* Setup 512MB PCI->PLB inbound memory window at 0, enable MSIs */
 		PCIX_WRITEL(0x00000000, PCIX0_PIM0LAH);
 		PCIX_WRITEL(0x00000000, PCIX0_PIM0LAL);
 		PCIX_WRITEL(0xe0000007, PCIX0_PIM0SA);
 		PCIX_WRITEL(0xffffffff, PCIX0_PIM0SAH);
+
+		/* Enable PCIX0 I/O, Mem, and Busmaster cycles */
+		PCIX_WRITEW(PCIX_READW(PCIX0_COMMAND) | PCI_COMMAND_IO |
+			    PCI_COMMAND_MEMORY | PCI_COMMAND_MASTER, PCIX0_COMMAND);
 
 		iounmap(pcix_reg_base);
 	}
@@ -223,24 +241,33 @@ luan_setup_hose(struct pci_controller *hose,
 static void __init
 luan_setup_hoses(void)
 {
-	struct pci_controller *hose1, *hose2;
+	struct pci_controller *hose0, *hose1, *hose2;
 
 	/* Configure windows on the PCI-X host bridge */
 	luan_setup_pcix();
 
-	/* Allocate hoses for PCIX1 and PCIX2 */
+	/* Allocate hoses for PCIX0, PCIX1 and PCIX2 */
+	hose0 = pcibios_alloc_controller();
 	hose1 = pcibios_alloc_controller();
-	if (!hose1)
+	hose2 = pcibios_alloc_controller();
+	if (!hose0 || !hose1 || !hose2)
 		return;
 
-	hose2 = pcibios_alloc_controller();
-	if (!hose2) {
-		pcibios_free_controller(hose1);
-		return;
-	}
+	/* Setup PCIX0 */
+	hose0->first_busno = 0;
+	hose0->last_busno = 0xff;
+
+	luan_setup_hose(hose0,
+			LUAN_PCIX0_LOWER_MEM,
+			LUAN_PCIX0_UPPER_MEM,
+			PCIX0_CFGA,
+			PCIX0_CFGD,
+			PCIX0_IO_BASE);
+
+	hose0->last_busno = pciauto_bus_scan(hose0, hose0->first_busno);
 
 	/* Setup PCIX1 */
-	hose1->first_busno = 0;
+	hose1->first_busno = hose0->last_busno + 1;
 	hose1->last_busno = 0xff;
 
 	luan_setup_hose(hose1,
@@ -289,6 +316,14 @@ luan_early_serial_map(void)
 	if (early_serial_setup(&port) != 0) {
 		printk("Early serial init of port 0 failed\n");
 	}
+
+#if defined(CONFIG_SERIAL_TEXT_DEBUG) || defined(CONFIG_KGDB)
+	/* Configure debug serial access */
+	gen550_init(0, &port);
+
+	/* Purge TLB entry added in head_44x.S for early serial access */
+	_tlbie(UART0_IO_BASE);
+#endif
 
 	port.membase = ioremap64(PPC440SP_UART1_ADDR, 8);
 	port.irq = UART1_INT;

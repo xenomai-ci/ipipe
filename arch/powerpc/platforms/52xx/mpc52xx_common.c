@@ -54,15 +54,14 @@ mpc52xx_find_and_map(const char *compatible)
 	return mpc52xx_map_node(
 		of_find_compatible_node(NULL, NULL, compatible));
 }
-
 EXPORT_SYMBOL(mpc52xx_find_and_map);
+
 
 void __iomem *
 mpc52xx_find_and_map_path(const char *path)
 {
 	return mpc52xx_map_node(of_find_node_by_path(path));
 }
-
 EXPORT_SYMBOL(mpc52xx_find_and_map_path);
 
 /**
@@ -158,6 +157,13 @@ mpc52xx_map_wdt(void)
 		}
 	}
 }
+
+inline volatile struct mpc52xx_gpt*
+mpc52xx_get_wdt()
+{
+	return mpc52xx_wdt;
+}
+EXPORT_SYMBOL_GPL(mpc52xx_get_wdt);
 
 void
 mpc52xx_restart(char *cmd)

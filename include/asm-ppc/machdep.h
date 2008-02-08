@@ -76,6 +76,8 @@ struct machdep_calls {
 	void		(*nvram_write_val)(int addr, unsigned char val);
 	void		(*nvram_sync)(void);
 
+	void		(*l2cache_inv_range)(unsigned long s, unsigned long e);
+
 	/*
 	 * optional PCI "hooks"
 	 */

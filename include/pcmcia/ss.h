@@ -298,6 +298,7 @@ extern int pcmcia_register_socket(struct pcmcia_socket *socket);
 extern void pcmcia_unregister_socket(struct pcmcia_socket *socket);
 
 extern struct class pcmcia_socket_class;
+extern struct bus_type pcmcia_bus_type;
 
 /* socket drivers are expected to use these callbacks in their .drv struct */
 extern int pcmcia_socket_dev_suspend(struct device *dev, pm_message_t state);

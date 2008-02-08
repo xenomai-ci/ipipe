@@ -31,6 +31,7 @@
 #include <linux/highmem.h>
 #include <linux/initrd.h>
 #include <linux/pagemap.h>
+#include <linux/logbuff.h>
 
 #include <asm/pgalloc.h>
 #include <asm/prom.h>
@@ -59,6 +60,10 @@ DEFINE_PER_CPU(struct mmu_gather, mmu_gathers);
 
 unsigned long total_memory;
 unsigned long total_lowmem;
+
+#ifdef CONFIG_LOGBUFFER
+static unsigned long ext_logbuff;
+#endif
 
 unsigned long ppc_memstart;
 unsigned long ppc_memoffset = PAGE_OFFSET;
@@ -240,6 +245,12 @@ void __init MMU_init(void)
 
 	if (__max_memory && total_memory > __max_memory)
 		total_memory = __max_memory;
+#ifdef CONFIG_LOGBUFFER
+	if (total_memory > (total_memory-LOGBUFF_RESERVE)) {
+		total_memory-=LOGBUFF_RESERVE;
+		ext_logbuff = total_memory;
+	}
+#endif
 	total_lowmem = total_memory;
 #ifdef CONFIG_FSL_BOOKE
 	/* Freescale Book-E parts expect lowmem to be mapped by fixed TLB
@@ -291,6 +302,13 @@ void __init MMU_init(void)
 	map_boot_text();
 #endif
 }
+
+#ifdef CONFIG_LOGBUFFER
+void* __init setup_ext_logbuff_mem(void)
+{
+	return ioremap(ext_logbuff, LOGBUFF_RESERVE);
+}
+#endif
 
 /* This is only called until mem_init is done. */
 void __init *early_get_page(void)

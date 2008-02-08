@@ -36,7 +36,7 @@ struct sleep_mode {
 };
 
 static struct sleep_mode modes[] = {
-	{ .name = "spin", .entry = &idle_spin },
+	{ .name = "spin", .entry = NULL },
 	{ .name = "doze", .entry = &idle_doze },
 };
 

@@ -428,6 +428,7 @@ static void mv_error_handler(struct ata_port *ap);
 static void mv_post_int_cmd(struct ata_queued_cmd *qc);
 static void mv_eh_freeze(struct ata_port *ap);
 static void mv_eh_thaw(struct ata_port *ap);
+static int mv_slave_config(struct scsi_device *sdev);
 static int mv_init_one(struct pci_dev *pdev, const struct pci_device_id *ent);
 
 static void mv5_phy_errata(struct mv_host_priv *hpriv, void __iomem *mmio,
@@ -465,7 +466,7 @@ static struct scsi_host_template mv5_sht = {
 	.use_clustering		= 1,
 	.proc_name		= DRV_NAME,
 	.dma_boundary		= MV_DMA_BOUNDARY,
-	.slave_configure	= ata_scsi_slave_config,
+	.slave_configure	= mv_slave_config,
 	.slave_destroy		= ata_scsi_slave_destroy,
 	.bios_param		= ata_std_bios_param,
 };
@@ -483,7 +484,7 @@ static struct scsi_host_template mv6_sht = {
 	.use_clustering		= 1,
 	.proc_name		= DRV_NAME,
 	.dma_boundary		= MV_DMA_BOUNDARY,
-	.slave_configure	= ata_scsi_slave_config,
+	.slave_configure	= mv_slave_config,
 	.slave_destroy		= ata_scsi_slave_destroy,
 	.bios_param		= ata_std_bios_param,
 };
@@ -762,6 +763,17 @@ static inline int mv_get_hc_count(unsigned long port_flags)
 
 static void mv_irq_clear(struct ata_port *ap)
 {
+}
+
+static int mv_slave_config(struct scsi_device *sdev)
+{
+	int rc = ata_scsi_slave_config(sdev);
+	if (rc)
+		return rc;
+
+	blk_queue_max_phys_segments(sdev->request_queue, MV_MAX_SG_CT / 2);
+
+	return 0;	/* scsi layer doesn't check return value, sigh */
 }
 
 static void mv_set_edma_ptrs(void __iomem *port_mmio,

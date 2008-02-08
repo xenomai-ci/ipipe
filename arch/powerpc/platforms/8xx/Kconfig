@@ -11,6 +11,12 @@ choice
 	depends on 8xx
 	default MPC885ADS
 
+config MGSUVD
+	bool "MGSUVD"
+	select CPM1
+	help
+	  MGSUVD port
+
 config MPC8XXFADS
 	bool "FADS"
 	select FADS

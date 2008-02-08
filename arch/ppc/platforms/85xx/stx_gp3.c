@@ -66,6 +66,15 @@ unsigned long isa_mem_base = 0;
 unsigned long pci_dram_offset = 0;
 #endif
 
+/* PCI interrupt controller */
+#define PIRQA		MPC85xx_IRQ_EXT1
+#define PIRQB		MPC85xx_IRQ_EXT2
+#define PIRQC		MPC85xx_IRQ_EXT3
+#define PIRQD		MPC85xx_IRQ_EXT4
+#define PCI_MIN_IDSEL	16
+#define PCI_MAX_IDSEL	19
+#define PCI_IRQ_SLOT	4
+
 /* Internal interrupts are all Level Sensitive, and Positive Polarity */
 static u8 gp3_openpic_initsenses[] __initdata = {
 	MPC85XX_INTERNAL_IRQ_SENSES,
@@ -101,7 +110,9 @@ gp3_setup_arch(void)
 	struct gianfar_platform_data *pdata;
 	struct gianfar_mdio_data *mdata;
 
+#ifdef CONFIG_CPM2
 	cpm2_reset();
+#endif
 
 	/* get the core frequency */
 	freq = binfo->bi_intfreq;
@@ -116,6 +127,16 @@ gp3_setup_arch(void)
 #ifdef CONFIG_PCI
 	/* setup PCI host bridges */
 	mpc85xx_setup_hose();
+#endif
+
+#ifdef CONFIG_SERIAL_8250
+        mpc85xx_early_serial_map();
+#endif
+
+#ifdef CONFIG_SERIAL_TEXT_DEBUG
+	/* Invalidate the entry we stole earlier the serial ports
+	 * should be properly mapped */
+	invalidate_tlbcam_entry(num_tlbcam_entries - 1);
 #endif
 
 	/* setup the board related info for the MDIO bus */
@@ -156,6 +177,7 @@ gp3_setup_arch(void)
 	printk ("bi_immr_base = %8.8lx\n", binfo->bi_immr_base);
 }
 
+#ifdef CONFIG_CPM2
 static irqreturn_t cpm2_cascade(int irq, void *dev_id)
 {
 	while ((irq = cpm2_get_irq()) >= 0)
@@ -170,6 +192,7 @@ static struct irqaction cpm2_irqaction = {
 	.mask		= CPU_MASK_NONE,
 	.name		= "cpm2_cascade",
 };
+#endif
 
 static void __init
 gp3_init_IRQ(void)
@@ -199,10 +222,12 @@ gp3_init_IRQ(void)
 	 */
 	openpic_init(MPC85xx_OPENPIC_IRQ_OFFSET);
 
+#ifdef CONFIG_CPM2
 	/* Setup CPM2 PIC */
         cpm2_init_IRQ();
 
 	setup_irq(MPC85xx_IRQ_CPM, &cpm2_irqaction);
+#endif
 
 	return;
 }
@@ -261,12 +286,18 @@ int mpc85xx_map_irq(struct pci_dev *dev, unsigned char idsel,
 	return PCI_IRQ_TABLE_LOOKUP;
 }
 
+extern int mpc85xx_pci1_last_busno;
+
 int mpc85xx_exclude_device(u_char bus, u_char devfn)
 {
 	if (bus == 0 && PCI_SLOT(devfn) == 0)
 		return PCIBIOS_DEVICE_NOT_FOUND;
-	else
-		return PCIBIOS_SUCCESSFUL;
+#ifdef CONFIG_85xx_PCI2
+	if (mpc85xx_pci1_last_busno)
+		if (bus == (mpc85xx_pci1_last_busno + 1) && PCI_SLOT(devfn) == 0)
+			return PCIBIOS_DEVICE_NOT_FOUND;
+#endif
+	return PCIBIOS_SUCCESSFUL;
 }
 #endif /* CONFIG_PCI */
 
@@ -298,6 +329,31 @@ platform_init(unsigned long r3, unsigned long r4, unsigned long r5,
 		       sizeof (bd_t));
 
 	}
+#ifdef CONFIG_SERIAL_TEXT_DEBUG
+	{
+		bd_t *binfo = (bd_t *) __res;
+		struct uart_port p;
+
+		/* Use the last TLB entry to map CCSRBAR to allow access to DUART regs */
+		settlbcam(num_tlbcam_entries - 1, binfo->bi_immr_base,
+				binfo->bi_immr_base, MPC85xx_CCSRBAR_SIZE, _PAGE_IO, 0);
+
+		memset(&p, 0, sizeof (p));
+		p.iotype = UPIO_MEM;
+		p.membase = (void *) binfo->bi_immr_base + MPC85xx_UART0_OFFSET;
+		p.uartclk = binfo->bi_busfreq;
+
+		gen550_init(0, &p);
+
+		memset(&p, 0, sizeof (p));
+		p.iotype = UPIO_MEM;
+		p.membase = (void *) binfo->bi_immr_base + MPC85xx_UART1_OFFSET;
+		p.uartclk = binfo->bi_busfreq;
+
+		gen550_init(1, &p);
+	}
+#endif
+
 #if defined(CONFIG_BLK_DEV_INITRD)
 	/*
 	 * If the init RAM disk has been configured in, and there's a valid
@@ -332,6 +388,13 @@ platform_init(unsigned long r3, unsigned long r4, unsigned long r5,
 	ppc_md.find_end_of_memory = mpc85xx_find_end_of_memory;
 
 	ppc_md.calibrate_decr = mpc85xx_calibrate_decr;
+
+#if defined(CONFIG_SERIAL_8250) && defined(CONFIG_SERIAL_TEXT_DEBUG)
+	ppc_md.progress = gen550_progress;
+#endif /* CONFIG_SERIAL_8250 && CONFIG_SERIAL_TEXT_DEBUG */
+#if defined(CONFIG_SERIAL_8250) && defined(CONFIG_KGDB)
+	ppc_md.early_serial_map = mpc85xx_early_serial_map;
+#endif	/* CONFIG_SERIAL_8250 && CONFIG_KGDB */
 
 	if (ppc_md.progress)
 		ppc_md.progress("platform_init(): exit", 0);

@@ -95,6 +95,17 @@ enum dma_transaction_type {
 #define DMA_TX_TYPE_END (DMA_INTERRUPT + 1)
 
 /**
+ * enum dma_prep_flags - DMA flags to augment operation preparation
+ * @DMA_PREP_INTERRUPT - trigger an interrupt (callback) upon completion of
+ * 	this transaction
+ * @DMA_PREP_ZERO_DST - clean the destination prior starting the transaction
+ */
+enum dma_prep_flags {
+	DMA_PREP_INTERRUPT = (1 << 0),
+	DMA_PREP_ZERO_DST  = (1 << 1),
+};
+
+/**
  * dma_cap_mask_t - capabilities bitmap modeled after cpumask_t.
  * See linux/cpumask.h
  */
@@ -208,8 +219,6 @@ typedef void (*dma_async_tx_callback)(void *dma_async_param);
  *	descriptors
  * @chan: target channel for this operation
  * @tx_submit: set the prepared descriptor(s) to be executed by the engine
- * @tx_set_dest: set a destination address in a hardware descriptor
- * @tx_set_src: set a source address in a hardware descriptor
  * @callback: routine to call after this operation is complete
  * @callback_param: general parameter to pass to the callback routine
  * ---async_tx api specific fields---
@@ -226,10 +235,6 @@ struct dma_async_tx_descriptor {
 	struct list_head tx_list;
 	struct dma_chan *chan;
 	dma_cookie_t (*tx_submit)(struct dma_async_tx_descriptor *tx);
-	void (*tx_set_dest)(dma_addr_t addr,
-		struct dma_async_tx_descriptor *tx, int index);
-	void (*tx_set_src)(dma_addr_t addr,
-		struct dma_async_tx_descriptor *tx, int index);
 	dma_async_tx_callback callback;
 	void *callback_param;
 	struct list_head depend_list;
@@ -254,7 +259,9 @@ struct dma_async_tx_descriptor {
  * @device_free_chan_resources: release DMA channel's resources
  * @device_prep_dma_memcpy: prepares a memcpy operation
  * @device_prep_dma_xor: prepares a xor operation
+ * @device_prep_dma_pqxor: prepares a pq-xor operation
  * @device_prep_dma_zero_sum: prepares a zero_sum operation
+ * @device_prep_dma_pqzero_sum: prepares a pqzero_sum operation
  * @device_prep_dma_memset: prepares a memset operation
  * @device_prep_dma_interrupt: prepares an end of chain interrupt operation
  * @device_dependency_added: async_tx notifies the channel about new deps
@@ -278,15 +285,25 @@ struct dma_device {
 	void (*device_free_chan_resources)(struct dma_chan *chan);
 
 	struct dma_async_tx_descriptor *(*device_prep_dma_memcpy)(
-		struct dma_chan *chan, size_t len, int int_en);
+		struct dma_chan *chan, dma_addr_t dest, dma_addr_t src,
+		size_t len, unsigned long flags);
 	struct dma_async_tx_descriptor *(*device_prep_dma_xor)(
-		struct dma_chan *chan, unsigned int src_cnt, size_t len,
-		int int_en);
+		struct dma_chan *chan, dma_addr_t dest, dma_addr_t *src,
+		unsigned int src_cnt, size_t len, unsigned long flags);
+	struct dma_async_tx_descriptor *(*device_prep_dma_pqxor)(
+		struct dma_chan *chan, dma_addr_t *dst, unsigned int dst_cnt,
+		dma_addr_t *src, unsigned int src_cnt, unsigned char *scf,
+		size_t len, unsigned long flags);
 	struct dma_async_tx_descriptor *(*device_prep_dma_zero_sum)(
-		struct dma_chan *chan, unsigned int src_cnt, size_t len,
-		u32 *result, int int_en);
+		struct dma_chan *chan, dma_addr_t *src, unsigned int src_cnt,
+		size_t len, u32 *result, unsigned long flags);
+	struct dma_async_tx_descriptor *(*device_prep_dma_pqzero_sum)(
+		struct dma_chan *chan, dma_addr_t *src, unsigned int src_cnt,
+		unsigned char *scf,
+		size_t len, u32 *presult, u32 *qresult, unsigned long flags);
 	struct dma_async_tx_descriptor *(*device_prep_dma_memset)(
-		struct dma_chan *chan, int value, size_t len, int int_en);
+		struct dma_chan *chan, dma_addr_t dest, int value, size_t len,
+		unsigned long flags);
 	struct dma_async_tx_descriptor *(*device_prep_dma_interrupt)(
 		struct dma_chan *chan);
 

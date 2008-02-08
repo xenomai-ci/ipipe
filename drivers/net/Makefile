@@ -12,6 +12,7 @@ obj-$(CONFIG_IP1000) += ipg.o
 obj-$(CONFIG_CHELSIO_T1) += chelsio/
 obj-$(CONFIG_CHELSIO_T3) += cxgb3/
 obj-$(CONFIG_EHEA) += ehea/
+obj-$(CONFIG_CAN) += can/
 obj-$(CONFIG_BONDING) += bonding/
 obj-$(CONFIG_ATL1) += atl1/
 obj-$(CONFIG_GIANFAR) += gianfar_driver.o
@@ -29,6 +30,8 @@ ucc_geth_driver-objs := ucc_geth.o ucc_geth_mii.o ucc_geth_ethtool.o
 # link order important here
 #
 obj-$(CONFIG_PLIP) += plip.o
+
+obj-$(CONFIG_KORINA) += korina.o
 
 obj-$(CONFIG_ROADRUNNER) += rrunner.o
 

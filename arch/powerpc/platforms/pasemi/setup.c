@@ -36,6 +36,7 @@
 #include <asm/smp.h>
 #include <asm/time.h>
 #include <asm/of_platform.h>
+#include <asm/mmu-hash64.h>
 
 #include <pcmcia/ss.h>
 #include <pcmcia/cistpl.h>
@@ -45,6 +46,11 @@
 
 /* SDC reset register, must be pre-mapped at reset time */
 static void __iomem *reset_reg;
+void __iomem *mem_errsta0, *mem_errsta1;
+
+#ifdef CONFIG_PPC_PASEMI_A2_WORKAROUNDS
+DEFINE_SPINLOCK(lbi_lock);
+#endif
 
 /* Various error status registers, must be pre-mapped at MCE time */
 
@@ -119,6 +125,9 @@ void __init pas_setup_arch(void)
 	/* Remap SDC register for doing reset */
 	/* XXXOJN This should maybe come out of the device tree */
 	reset_reg = ioremap(0xfc101100, 4);
+
+	mem_errsta0 = ioremap(0xe0020730, 4);
+	mem_errsta1 = ioremap(0xe0028730, 4);
 }
 
 static int __init pas_setup_mce_regs(void)
@@ -214,7 +223,11 @@ static __init void pas_init_IRQ(void)
 	printk(KERN_DEBUG "OpenPIC addr: %lx\n", openpic_addr);
 
 	mpic = mpic_alloc(mpic_node, openpic_addr,
+#ifdef CONFIG_PPC_PASEMI_A2_WORKAROUNDS
 			  MPIC_PRIMARY|MPIC_LARGE_VECTORS,
+#else
+			  MPIC_PRIMARY|MPIC_LARGE_VECTORS|MPIC_WANTS_RESET,
+#endif
 			  0, 0, " PAS-OPIC  ");
 	BUG_ON(!mpic);
 
@@ -234,8 +247,8 @@ static int pas_machine_check_handler(struct pt_regs *regs)
 {
 	int cpu = smp_processor_id();
 	unsigned long srr0, srr1, dsisr;
-	int dump_slb = 0;
-	int i;
+	int dump_slb = 0, flush_slb = 0;
+	int i, dump_memsta = 0;
 
 	srr0 = regs->nip;
 	srr1 = regs->msr;
@@ -254,18 +267,23 @@ static int pas_machine_check_handler(struct pt_regs *regs)
 
 	if (srr1 & 0x100000) {
 		printk(KERN_ERR "Load/Store detected error:\n");
-		if (dsisr & 0x8000)
+		if (dsisr & 0x8000) {
 			printk(KERN_ERR "D-cache ECC double-bit error or bus error\n");
+			dump_memsta = 1;
+		}
 		if (dsisr & 0x4000)
 			printk(KERN_ERR "LSU snoop response error\n");
 		if (dsisr & 0x2000) {
 			printk(KERN_ERR "MMU SLB multi-hit or invalid B field\n");
 			dump_slb = 1;
+			flush_slb = 1;
 		}
 		if (dsisr & 0x1000)
 			printk(KERN_ERR "Recoverable Duptags\n");
-		if (dsisr & 0x800)
+		if (dsisr & 0x800) {
 			printk(KERN_ERR "Recoverable D-cache parity error count overflow\n");
+			dump_memsta = 1;
+		}
 		if (dsisr & 0x400)
 			printk(KERN_ERR "TLB parity error count overflow\n");
 	}
@@ -276,10 +294,38 @@ static int pas_machine_check_handler(struct pt_regs *regs)
 	if (srr1 & 0x40000) {
 		printk(KERN_ERR "I-side SLB multiple hit\n");
 		dump_slb = 1;
+		flush_slb = 1;
+	}
+	if (srr1 & 0x20000) {
+		printk(KERN_ERR "I-cache parity error hit\n");
+		dump_memsta = 1;
 	}
 
-	if (srr1 & 0x20000)
-		printk(KERN_ERR "I-cache parity error hit\n");
+	if (dump_memsta) {
+		unsigned int errsta;
+		errsta = in_le32(mem_errsta0);
+		printk("mc0_mcdebug_errsta: 0x%08x (MER %d SER %d)\n",
+			errsta, !!(errsta & 0x2), !!(errsta & 0x1));
+		errsta = in_le32(mem_errsta1);
+		printk("mc1_mcdebug_errsta: 0x%08x (MER %d SER %d)\n",
+			errsta, !!(errsta & 0x2), !!(errsta & 0x1));
+	}
+
+	if (dump_slb) {
+		unsigned long slb_e, slb_v;
+		int i;
+		printk("slb contents:\n");
+		for (i = 0; i < SLB_NUM_ENTRIES; i++) {
+			asm volatile("slbmfee  %0,%1" : "=r" (slb_e) : "r" (i));
+			asm volatile("slbmfev  %0,%1" : "=r" (slb_v) : "r" (i));
+
+			printk("%02d %016lx %016lx\n", i, slb_e, slb_v);
+		}
+	}
+
+	if (flush_slb)
+		/* We really can recover from this. flush, rebolt and go. */
+		slb_flush_and_rebolt();
 
 	if (num_mce_regs == 0)
 		printk(KERN_ERR "No MCE registers mapped yet, can't dump\n");
@@ -399,6 +445,11 @@ static int __init pas_probe(void)
 	return 1;
 }
 
+#ifdef CONFIG_RTC_DRV_DS1307
+void ds1307_get_rtc_time(struct rtc_time *);
+int ds1307_set_rtc_time(struct rtc_time *);
+#endif
+
 define_machine(pasemi) {
 	.name			= "PA Semi PA6T-1682M",
 	.probe			= pas_probe,
@@ -407,6 +458,10 @@ define_machine(pasemi) {
 	.init_IRQ		= pas_init_IRQ,
 	.get_irq		= mpic_get_irq,
 	.restart		= pas_restart,
+#ifdef CONFIG_RTC_DRV_DS1307
+	.get_rtc_time		= ds1307_get_rtc_time,
+	.set_rtc_time		= ds1307_set_rtc_time,
+#endif
 	.get_boot_time		= pas_get_boot_time,
 	.calibrate_decr		= generic_calibrate_decr,
 	.progress		= pas_progress,

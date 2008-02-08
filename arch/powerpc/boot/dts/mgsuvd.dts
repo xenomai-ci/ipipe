@@ -1,0 +1,145 @@
+/*
+ * MGSUVD Device Tree Source
+ *
+ * Copyright 2007 DENX, Software Engineering GmbH
+ *
+ * This program is free software; you can redistribute  it and/or modify it
+ * under  the terms of  the GNU General  Public License as published by the
+ * Free Software Foundation;  either version 2 of the  License, or (at your
+ * option) any later version.
+ */
+
+
+/ {
+	model = "MGSUVD";
+	compatible = "mpc8xx";
+	#address-cells = <1>;
+	#size-cells = <1>;
+
+	cpus {
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		PowerPC,866@0 {
+			device_type = "cpu";
+			reg = <0>;
+			d-cache-line-size = <20>;	// 32 bytes
+			i-cache-line-size = <20>;	// 32 bytes
+			d-cache-size = <2000>;		// L1, 8K
+			i-cache-size = <4000>;		// L1, 16K
+			timebase-frequency = <0>;
+			bus-frequency = <0>;
+			clock-frequency = <0>;
+			32-bit;
+			interrupts = <f 2>;	// decrementer interrupt
+			interrupt-parent = <&mpc8xx_pic>;
+		};
+	};
+
+	memory {
+		device_type = "memory";
+		reg = <00000000 4000000>;
+	};
+
+	localbus {
+		#address-cells = <2>;
+		#size-cells = <1>;
+		reg = <f0010100 40>;
+
+		ranges = <0 0 f0000000 01000000>;
+
+		flash@0,0 {
+			compatible = "cfi-flash";
+			reg = <0 0 1000000>;
+			#address-cells = <1>;
+			#size-cells = <1>;
+			bank-width = <1>;
+			device-width = <1>;
+			partition@0 {
+				label = "u-boot";
+				reg = <0 40000>;
+			};
+			partition@40000 {
+				label = "env";
+				reg = <40000 40000>;
+			};
+			partition@80000 {
+				label = "user";
+				reg = <80000 f80000>;
+			};
+		};
+	};
+
+	soc866@fff00000 {
+		#address-cells = <1>;
+		#size-cells = <1>;
+		#interrupt-cells = <2>;
+		device_type = "soc";
+		ranges = <0 fff00000 00100000>;
+		reg = <fff00000 00000200>;
+		bus-frequency = <0>;
+
+		mpc8xx_pic: pic@fff00000 {
+			interrupt-controller;
+			#address-cells = <0>;
+			#interrupt-cells = <2>;
+			reg = <0 24>;
+			built-in;
+			device_type = "mpc8xx-pic";
+			compatible = "CPM";
+		};
+
+		cpm@fff00000 {
+			#address-cells = <1>;
+			#size-cells = <1>;
+			#interrupt-cells = <2>;
+			device_type = "cpm";
+			model = "CPM";
+			ranges = <0 0 4000>;
+			reg = <860 f0>;
+			command-proc = <9c0>;
+			brg-frequency = <0>;
+			interrupts = <0 2>;	// cpm error interrupt
+			interrupt-parent = <&cpm_pic>;
+
+			cpm_pic: pic@930 {
+				interrupt-controller;
+				#address-cells = <0>;
+				#interrupt-cells = <2>;
+				interrupts = <5 2 0 2 20 2>;
+				interrupt-parent = <&mpc8xx_pic>;
+				reg = <930 20>;
+				built-in;
+				device_type = "cpm-pic";
+				compatible = "CPM";
+			};
+
+			serial@a80 {
+				device_type = "serial";
+				compatible = "cpm_uart";
+				model = "SMC";
+				device-id = <1>;
+				reg = <a80 10 3ec0 40>;
+				clock-setup = <00ffffff 0>;
+				rx-clock = <1>;
+				tx-clock = <1>;
+				current-speed = <0>;
+				interrupts = <4 3>;
+				interrupt-parent = <&cpm_pic>;
+				fsl,cpm-brg = <1>;
+				fsl,cpm-command = <0090>;
+			};
+
+			scc@a40 {
+				device_type = "network";
+				compatible = "fs_enet";
+				model = "SCC";
+				device-id = <3>;
+				reg = <a40 18 3e00 b0>;
+				mac-address = [ 00 00 00 00 00 00 ];
+				interrupts = <1c 3>;
+				interrupt-parent = <&cpm_pic>;
+			};
+		};
+	};
+};

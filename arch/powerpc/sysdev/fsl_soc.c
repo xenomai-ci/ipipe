@@ -1099,7 +1099,7 @@ static int __init fs_enet_of_init(void)
 			fs_enet_data.use_napi = 1;
 			fs_enet_data.napi_weight = 17;
 
-			snprintf((char*)&bus_id[i], BUS_ID_SIZE, "%s", "fixed@10:1");
+			snprintf((char*)&bus_id[i], BUS_ID_SIZE, "%s", "4:01");
                         fs_enet_data.bus_id = (char*)&bus_id[i];
 			fs_enet_data.init_ioports = init_scc_ioports;
 		}

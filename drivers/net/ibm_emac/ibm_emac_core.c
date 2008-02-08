@@ -47,7 +47,7 @@
 /*
  * Lack of dma_unmap_???? calls is intentional.
  *
- * API-correct usage requires additional support state information to be 
+ * API-correct usage requires additional support state information to be
  * maintained for every RX and TX buffer descriptor (BD). Unfortunately, due to
  * EMAC design (e.g. TX buffer passed from network stack can be split into
  * several BDs, dma_map_single/dma_map_page can be used to map particular BD),
@@ -56,8 +56,8 @@
  * and dma_unmap_???? routines are empty and are likely to stay this way.
  * I decided to omit dma_unmap_??? calls because I don't want to add additional
  * complexity just for the sake of following some abstract API, when it doesn't
- * add any real benefit to the driver. I understand that this decision maybe 
- * controversial, but I really tried to make code API-correct and efficient 
+ * add any real benefit to the driver. I understand that this decision maybe
+ * controversial, but I really tried to make code API-correct and efficient
  * at the same time and didn't come up with code I liked :(.                --ebs
  */
 
@@ -73,7 +73,7 @@ MODULE_LICENSE("GPL");
 /* minimum number of free TX descriptors required to wake up TX process */
 #define EMAC_TX_WAKEUP_THRESH		(NUM_TX_BUFF / 4)
 
-/* If packet size is less than this number, we allocate small skb and copy packet 
+/* If packet size is less than this number, we allocate small skb and copy packet
  * contents into it instead of just sending original big skb up
  */
 #define EMAC_RX_COPY_THRESH		CONFIG_IBM_EMAC_RX_COPY_THRESHOLD
@@ -84,11 +84,22 @@ MODULE_LICENSE("GPL");
  */
 static u32 busy_phy_map;
 
+#if (defined(CONFIG_440EPX) || defined(CONFIG_440GRX)) &&	\
+    defined(CONFIG_IBM_EMAC_INTR_COALESCE)
+/* add copy of iccrtx and iccrrx registers
+ * to bypass the bug on the 440EPX pass1 where these
+ * registers are write only
+ */
+static u32 iccrtx;
+static u32 iccrrx;
+#endif
+
 #if defined(CONFIG_IBM_EMAC_PHY_RX_CLK_FIX) && \
-    (defined(CONFIG_405EP) || defined(CONFIG_440EP) || defined(CONFIG_440GR))
+    (defined(CONFIG_405EP) || defined(CONFIG_440EP) || defined(CONFIG_440GR) || \
+     defined(CONFIG_440EPX) || defined(CONFIG_440GRX))
 /* 405EP has "EMAC to PHY Control Register" (CPC0_EPCTL) which can help us
  * with PHY RX clock problem.
- * 440EP/440GR has more sane SDR0_MFR register implementation than 440GX, which
+ * 440EP(x)/440GR(x) has more sane SDR0_MFR register implementation than 440GX, which
  * also allows controlling each EMAC clock
  */
 static inline void EMAC_RX_CLK_TX(int idx)
@@ -98,7 +109,7 @@ static inline void EMAC_RX_CLK_TX(int idx)
 
 #if defined(CONFIG_405EP)
 	mtdcr(0xf3, mfdcr(0xf3) | (1 << idx));
-#else /* CONFIG_440EP || CONFIG_440GR */
+#else /* CONFIG_440EP(x) || CONFIG_440GR(x) */
 	SDR_WRITE(DCRN_SDR_MFR, SDR_READ(DCRN_SDR_MFR) | (0x08000000 >> idx));
 #endif
 
@@ -112,7 +123,7 @@ static inline void EMAC_RX_CLK_DEFAULT(int idx)
 
 #if defined(CONFIG_405EP)
 	mtdcr(0xf3, mfdcr(0xf3) & ~(1 << idx));
-#else /* CONFIG_440EP */
+#else /* CONFIG_440EP(x) || CONFIG_440GR(x) */
 	SDR_WRITE(DCRN_SDR_MFR, SDR_READ(DCRN_SDR_MFR) & ~(0x08000000 >> idx));
 #endif
 
@@ -125,7 +136,7 @@ static inline void EMAC_RX_CLK_DEFAULT(int idx)
 
 #if defined(CONFIG_IBM_EMAC_PHY_RX_CLK_FIX) && defined(CONFIG_440GX)
 /* We can switch Ethernet clock to the internal source through SDR0_MFR[ECS],
- * unfortunately this is less flexible than 440EP case, because it's a global 
+ * unfortunately this is less flexible than 440EP case, because it's a global
  * setting for all EMACs, therefore we do this clock trick only during probe.
  */
 #define EMAC_CLK_INTERNAL		SDR_WRITE(DCRN_SDR_MFR, \
@@ -137,7 +148,7 @@ static inline void EMAC_RX_CLK_DEFAULT(int idx)
 #define EMAC_CLK_EXTERNAL		((void)0)
 #endif
 
-/* I don't want to litter system log with timeout errors 
+/* I don't want to litter system log with timeout errors
  * when we have brain-damaged PHY.
  */
 static inline void emac_report_timeout_error(struct ocp_enet_private *dev,
@@ -155,10 +166,10 @@ static inline void emac_report_timeout_error(struct ocp_enet_private *dev,
 #define PHY_POLL_LINK_ON	HZ
 #define PHY_POLL_LINK_OFF	(HZ / 5)
 
-/* Graceful stop timeouts in us. 
- * We should allow up to 1 frame time (full-duplex, ignoring collisions) 
+/* Graceful stop timeouts in us.
+ * We should allow up to 1 frame time (full-duplex, ignoring collisions)
  */
-#define STOP_TIMEOUT_10		1230	
+#define STOP_TIMEOUT_10		1230
 #define STOP_TIMEOUT_100	124
 #define STOP_TIMEOUT_1000	13
 #define STOP_TIMEOUT_1000_JUMBO	73
@@ -184,6 +195,140 @@ static const char emac_stats_keys[EMAC_ETHTOOL_STATS_COUNT][ETH_GSTRING_LEN] = {
 
 static irqreturn_t emac_irq(int irq, void *dev_instance);
 static void emac_clean_tx_ring(struct ocp_enet_private *dev);
+
+#ifdef CONFIG_IBM_EMAC_INTR_COALESCE
+static unsigned int emac_ethtool_usecs2ticks(unsigned int usecs);
+static unsigned int emac_ethtool_ticks2usecs(unsigned int ticks);
+
+#if defined(CONFIG_440EPX) || defined(CONFIG_440GRX)
+static inline void ic_set_tx_frame_thr(int chan, u32 val)
+{
+	val = ((val << 23) >> (11*chan));
+	iccrtx = val | (iccrtx & ~(ICCR_FTHR_MASK >> (11*chan)));
+	SDR_WRITE(DCRN_SDR_ICCRTX, iccrtx);
+}
+
+static inline void ic_set_tx_time_thr(int chan, u32 val)
+{
+	SDR_WRITE(DCRN_SDR_ICTRTX0 + chan, val);
+}
+
+static inline void ic_set_rx_frame_thr(int chan, u32 val)
+{
+	val = ((val << 23) >> (11*chan));
+	iccrrx = val | (iccrrx & ~(ICCR_FTHR_MASK >> (11*chan)));
+	SDR_WRITE(DCRN_SDR_ICCRRX, iccrrx);
+}
+
+static inline void ic_set_rx_time_thr(int chan, u32 val)
+{
+	SDR_WRITE(DCRN_SDR_ICTRRX0 + chan, val);
+}
+
+static inline void ic_set_txflush(int chan)
+{
+	iccrtx = iccrtx | ((1 << 22) >> (11*chan));
+	SDR_WRITE(DCRN_SDR_ICCRTX, iccrtx);
+}
+
+static inline void ic_reset_txflush(int chan)
+{
+	iccrtx = iccrtx & ~((1 << 22) >> (11*chan));
+	SDR_WRITE(DCRN_SDR_ICCRTX, iccrtx);
+}
+
+static inline void ic_set_rxflush(int chan)
+{
+	iccrrx = iccrrx | ((1 << 22) >> (11*chan));
+	SDR_WRITE(DCRN_SDR_ICCRRX, iccrrx);
+}
+
+static inline void ic_reset_rxflush(int chan)
+{
+	iccrrx = iccrrx & ~((1 << 22) >> (11*chan));
+	SDR_WRITE(DCRN_SDR_ICCRRX, iccrrx);
+}
+
+static inline void ic_enable_tx_int(int chan)
+{
+	/* nothing needed here */
+}
+
+static inline void ic_enable_rx_int(int chan)
+{
+	/* nothing needed here */
+}
+#endif /* CONFIG_440EPX */
+
+#if defined(CONFIG_405EZ)
+static inline void ic_set_tx_frame_thr(int chan, u32 val)
+{
+	SDR_WRITE(DCRN_SDR_TX0ICCR0 + (0x30 * chan),
+		  (SDR_READ(DCRN_SDR_TX0ICCR0 +  (0x30 * chan)) &
+		   (~TX_ICCR_THR_MASK)) | TX_ICCR_ICFT_ENCODE(val));
+}
+
+static inline void ic_set_tx_time_thr(int chan, u32 val)
+{
+	SDR_WRITE(DCRN_SDR_TX0ICCR0 + (0x30 * chan),
+		  (SDR_READ(DCRN_SDR_TX0ICCR0 + (0x30 * chan)) |
+		   TX_ICCR_COR_EN));
+	SDR_WRITE(DCRN_SDR_TX0ICCR1, val);
+}
+
+static inline void ic_set_rx_frame_thr(int chan, u32 val)
+{
+	SDR_WRITE(DCRN_SDR_RXICCR0,
+		  (SDR_READ(DCRN_SDR_RXICCR0) &
+		   (~RX_ICCR_THR_MASK)) | RX_ICCR_ICFT_ENCODE(val));
+}
+
+static inline void ic_set_rx_time_thr(int chan, u32 val)
+{
+	SDR_WRITE(DCRN_SDR_RXICCR0, SDR_READ(DCRN_SDR_RXICCR0) |
+		  RX_ICCR_COR_EN);
+	SDR_WRITE(DCRN_SDR_RXICCR1, val);
+}
+
+static inline void ic_set_txflush(int chan)
+{
+	SDR_WRITE(DCRN_SDR_TX0ICCR0 + (0x30 * chan),
+		  SDR_READ(DCRN_SDR_TX0ICCR0 + (0x30 * chan)) |
+		  TX_ICCR_FLUSH);
+}
+
+static inline void ic_reset_txflush(int chan)
+{
+	SDR_WRITE(DCRN_SDR_TX0ICCR0 + (0x30 * chan),
+		  SDR_READ(DCRN_SDR_TX0ICCR0  + (0x30 * chan)) &
+		  ~TX_ICCR_FLUSH);
+}
+
+static inline void ic_set_rxflush(int chan)
+{
+	SDR_WRITE(DCRN_SDR_RXICCR0, SDR_READ(DCRN_SDR_RXICCR0) |
+		  RX_ICCR_FLUSH);
+}
+
+static inline void ic_reset_rxflush(int chan)
+{
+	SDR_WRITE(DCRN_SDR_RXICCR0, SDR_READ(DCRN_SDR_RXICCR0) &
+		  ~RX_ICCR_FLUSH);
+}
+
+static inline void ic_enable_tx_int(int chan)
+{
+	SDR_WRITE(DCRN_SDR_TX0ICCR0, SDR_READ(DCRN_SDR_TX0ICCR0) | TX_ICCR_ICEN);
+	SDR_WRITE(DCRN_SDR_ICINT_EN, SDR_READ(DCRN_SDR_ICINT_EN) | ICTX0_EN);
+}
+
+static inline void ic_enable_rx_int(int chan)
+{
+	SDR_WRITE(DCRN_SDR_RXICCR0, SDR_READ(DCRN_SDR_RXICCR0) | RX_ICCR_ICEN);
+	SDR_WRITE(DCRN_SDR_ICINT_EN, SDR_READ(DCRN_SDR_ICINT_EN) | ICRX_EN);
+}
+#endif /* CONFIG_405EZ */
+#endif /* CONFIG_IBM_EMAC_INTR_COALESCE */
 
 static inline int emac_phy_supports_gige(int phy_mode)
 {
@@ -232,7 +377,7 @@ static void emac_tx_disable(struct ocp_enet_private *dev)
 		while (!(in_be32(&p->mr0) & EMAC_MR0_TXI) && n) {
 			udelay(1);
 			--n;
-		}	
+		}
 		if (unlikely(!n))
 			emac_report_timeout_error(dev, "TX disable timeout");
 	}
@@ -259,7 +404,7 @@ static void emac_rx_enable(struct ocp_enet_private *dev)
 			while (!(r = in_be32(&p->mr0) & EMAC_MR0_RXI) && n) {
 				udelay(1);
 				--n;
-			}	
+			}
 			if (unlikely(!n))
 				emac_report_timeout_error(dev,
 							  "RX disable timeout");
@@ -287,7 +432,7 @@ static void emac_rx_disable(struct ocp_enet_private *dev)
 		while (!(in_be32(&p->mr0) & EMAC_MR0_RXI) && n) {
 			udelay(1);
 			--n;
-		}	
+		}
 		if (unlikely(!n))
 			emac_report_timeout_error(dev, "RX disable timeout");
 	}
@@ -328,10 +473,33 @@ static int emac_reset(struct ocp_enet_private *dev)
 		emac_tx_disable(dev);
 	}
 
+#if defined(CONFIG_440EPX) || defined(CONFIG_440GRX) || \
+    defined(CONFIG_440SPE) || defined(CONFIG_405EX) || \
+    defined(CONFIG_440SP)
+	/*
+	 * This sequence is needed to avoid EMAC soft reset to lock
+	 * when no external clock is available (no ethernet used in
+	 * U-Boot at all before running Linux, like flash_self).
+	 *
+	 * Provide clocks for EMAC internal loopback
+	 */
+	SDR_WRITE(DCRN_SDR_MFR, SDR_READ(DCRN_SDR_MFR) | (0x08000000 >> dev->def->index));
+	/* set EMAC internal loopback to avoid softreset to lock if no link */
+	out_be32(&p->mr1, in_be32(&p->mr1) | EMAC_MR1_ILE);
+#endif
+
 	out_be32(&p->mr0, EMAC_MR0_SRST);
 	while ((in_be32(&p->mr0) & EMAC_MR0_SRST) && n)
 		--n;
 	local_irq_restore(flags);
+
+#if defined(CONFIG_440EPX) || defined(CONFIG_440GRX) || \
+    defined(CONFIG_440SPE) || defined(CONFIG_405EX) || \
+    defined(CONFIG_440SP)
+	/* Restore Initial Config */
+	SDR_WRITE(DCRN_SDR_MFR, SDR_READ(DCRN_SDR_MFR) & ~(0x08000000 >> dev->def->index));
+	out_be32(&p->mr1, in_be32(&p->mr1) & ~EMAC_MR1_ILE);
+#endif
 
 	if (n) {
 		dev->reset_failed = 0;
@@ -418,7 +586,7 @@ static int emac_configure(struct ocp_enet_private *dev)
 			out_be32(&p->ipcr, 0xdeadbeef);
 		} else
 			r |= EMAC_MR1_MF_1000;
-		r |= EMAC_MR1_RFS_16K;
+		r |= EMAC_MR1_RFS_GIGE;
 		gige = 1;
 
 		if (dev->ndev->mtu > ETH_DATA_LEN) {
@@ -432,10 +600,13 @@ static int emac_configure(struct ocp_enet_private *dev)
 		dev->stop_timeout = STOP_TIMEOUT_100;
 		/* Fall through */
 	default:
-		r |= EMAC_MR1_RFS_4K;
+		r |= EMAC_MR1_RFS_DEF;
 		gige = 0;
 		break;
 	}
+
+	/* do special speed setup if necessary */
+	emac_speed_setup(gige);
 
 	if (dev->rgmii_dev)
 		rgmii_set_speed(dev->rgmii_dev, dev->rgmii_input,
@@ -443,8 +614,8 @@ static int emac_configure(struct ocp_enet_private *dev)
 	else
 		zmii_set_speed(dev->zmii_dev, dev->zmii_input, dev->phy.speed);
 
-#if !defined(CONFIG_40x)
-	/* on 40x erratum forces us to NOT use integrated flow control, 
+#if !defined(CONFIG_40x) || defined(CONFIG_IBM_EMAC4V4)
+	/* on 40x erratum forces us to NOT use integrated flow control,
 	 * let's hope it works on 44x ;)
 	 */
 	if (dev->phy.duplex == DUPLEX_FULL) {
@@ -479,7 +650,7 @@ static int emac_configure(struct ocp_enet_private *dev)
 
 	/* PAUSE frame is sent when RX FIFO reaches its high-water mark,
 	   there should be still enough space in FIFO to allow the our link
-	   partner time to process this frame and also time to send PAUSE 
+	   partner time to process this frame and also time to send PAUSE
 	   frame itself.
 
 	   Here is the worst case scenario for the RX FIFO "headroom"
@@ -490,7 +661,7 @@ static int emac_configure(struct ocp_enet_private *dev)
 	   3) PAUSE frame decode time allowance                   64 bytes
 	   4) One maximum-length frame on RX                    1522 bytes
 	   5) Round-trip propagation delay of the link (100Mb)    15 bytes
-	   ----------       
+	   ----------
 	   3187 bytes
 
 	   I chose to set high-water mark to RX_FIFO_SIZE / 4 (1024 bytes)
@@ -508,11 +679,11 @@ static int emac_configure(struct ocp_enet_private *dev)
 		 EMAC_ISR_RXOE | */ EMAC_ISR_OVR | EMAC_ISR_BP | EMAC_ISR_SE |
 		 EMAC_ISR_ALE | EMAC_ISR_BFCS | EMAC_ISR_PTLE | EMAC_ISR_ORE |
 		 EMAC_ISR_IRE | EMAC_ISR_TE);
-		 
+
 	/* We need to take GPCS PHY out of isolate mode after EMAC reset */
-	if (emac_phy_gpcs(dev->phy.mode)) 
+	if (emac_phy_gpcs(dev->phy.mode))
 		mii_reset_phy(&dev->phy);
-		 
+
 	return 0;
 }
 
@@ -559,6 +730,7 @@ static int __emac_mdio_read(struct ocp_enet_private *dev, u8 id, u8 reg)
 
 	/* Enable proper MDIO port */
 	zmii_enable_mdio(dev->zmii_dev, dev->zmii_input);
+	rgmii_enable_mdio(dev->rgmii_dev, dev->rgmii_input);
 
 	/* Wait for management interface to become idle */
 	n = 10;
@@ -608,6 +780,7 @@ static void __emac_mdio_write(struct ocp_enet_private *dev, u8 id, u8 reg,
 
 	/* Enable proper MDIO port */
 	zmii_enable_mdio(dev->zmii_dev, dev->zmii_input);
+	rgmii_enable_mdio(dev->rgmii_dev, dev->rgmii_input);
 
 	/* Wait for management interface to be idle */
 	n = 10;
@@ -671,10 +844,10 @@ static void emac_set_multicast_list(struct net_device *ndev)
 	/* I decided to relax register access rules here to avoid
 	 * full EMAC reset.
 	 *
-	 * There is a real problem with EMAC4 core if we use MWSW_001 bit 
+	 * There is a real problem with EMAC4 core if we use MWSW_001 bit
 	 * in MR1 register and do a full EMAC reset.
-	 * One TX BD status update is delayed and, after EMAC reset, it 
-	 * never happens, resulting in TX hung (it'll be recovered by TX 
+	 * One TX BD status update is delayed and, after EMAC reset, it
+	 * never happens, resulting in TX hung (it'll be recovered by TX
 	 * timeout handler eventually, but this is just gross).
 	 * So we either have to do full TX reset or try to cheat here :)
 	 *
@@ -706,7 +879,7 @@ static int emac_resize_rx_ring(struct ocp_enet_private *dev, int new_mtu)
 		dev->rx_sg_skb = NULL;
 	}
 
-	/* Make a first pass over RX ring and mark BDs ready, dropping 
+	/* Make a first pass over RX ring and mark BDs ready, dropping
 	 * non-processed packets on the way. We need this as a separate pass
 	 * to simplify error recovery in the case of allocation failure later.
 	 */
@@ -782,7 +955,7 @@ static int emac_change_mtu(struct net_device *ndev, int new_mtu)
 		ndev->mtu = new_mtu;
 		dev->rx_skb_size = emac_rx_skb_size(new_mtu);
 		dev->rx_sync_size = emac_rx_sync_size(new_mtu);
-	}	
+	}
 	local_bh_enable();
 
 	return ret;
@@ -831,8 +1004,8 @@ static inline int emac_alloc_rx_skb(struct ocp_enet_private *dev, int slot,
 	dev->rx_desc[slot].data_len = 0;
 
 	skb_reserve(skb, EMAC_RX_SKB_HEADROOM + 2);
-	dev->rx_desc[slot].data_ptr = 
-	    dma_map_single(dev->ldev, skb->data - 2, dev->rx_sync_size, 
+	dev->rx_desc[slot].data_ptr =
+	    dma_map_single(dev->ldev, skb->data - 2, dev->rx_sync_size,
 			   DMA_FROM_DEVICE) + 2;
 	barrier();
 	dev->rx_desc[slot].ctrl = MAL_RX_CTRL_EMPTY |
@@ -859,8 +1032,57 @@ static int emac_open(struct net_device *ndev)
 	struct ocp_enet_private *dev = ndev->priv;
 	struct ocp_func_emac_data *emacdata = dev->def->additions;
 	int err, i;
+#ifdef CONFIG_IBM_EMAC_INTR_COALESCE
+	struct coales_param *coal = &dev->coales;
+#endif
 
 	DBG("%d: open" NL, dev->def->index);
+
+#ifdef CONFIG_IBM_EMAC_INTR_COALESCE
+	/*
+	 * Set coalescing default values
+	 *
+	 * The current implementation has the following restrictions:
+	 * - Upon enabling interrupt coalescing, EMAC0 & 1 will run
+	 *   in coalescing mode.
+	 * - Upon enabling interrupt coalescing, rx & tx will run
+	 *   in coalescing mode.
+	 */
+	coal->tx_count = CONFIG_IBM_EMAC_TX_COALESCE_COUNT & MAX_COAL_FRAMES;
+	coal->tx_time = emac_ethtool_usecs2ticks(CONFIG_IBM_EMAC_TX_COALESCE_TIMER);
+	coal->rx_count = CONFIG_IBM_EMAC_RX_COALESCE_COUNT & MAX_COAL_FRAMES;
+	coal->rx_time = emac_ethtool_usecs2ticks(CONFIG_IBM_EMAC_RX_COALESCE_TIMER);
+
+	ic_set_tx_frame_thr(dev->def->index, coal->tx_count);
+	ic_set_tx_time_thr(dev->def->index, coal->tx_count);
+	ic_set_rx_frame_thr(dev->def->index, coal->rx_count);
+	ic_set_rx_time_thr(dev->def->index, coal->tx_count);
+	ic_reset_txflush(dev->def->index);
+	ic_reset_rxflush(dev->def->index);
+	ic_enable_tx_int(dev->def->index);
+	ic_enable_rx_int(dev->def->index);
+	printk(KERN_INFO "%s: interrupt coalescing (RX:count=%d time=%d,"
+	       " TX:count=%d time=%d)\n", ndev->name,
+	       coal->rx_count, emac_ethtool_ticks2usecs(coal->rx_time),
+	       coal->tx_count, emac_ethtool_ticks2usecs(coal->tx_time));
+
+#if defined(CONFIG_440EPX) || defined(CONFIG_440GRX)
+	/* only 440EPx/440GRx have additional coalescing interrupt vectors */
+	err = request_irq(emacdata->txcoal_irq, mal_txeob, 0, "TX COAL", dev->mal);
+	if (err) {
+		printk(KERN_ERR "%s: failed to request TX COAL IRQ %d\n",
+		       ndev->name, emacdata->txcoal_irq);
+		return err;
+	}
+
+	err = request_irq(emacdata->rxcoal_irq, mal_rxeob, 0, "RX COAL", dev->mal);
+	if (err) {
+		printk(KERN_ERR "%s: failed to request RX COAL IRQ %d\n",
+		       ndev->name, emacdata->rxcoal_irq);
+		return err;
+	}
+#endif /* CONFIG_440EPX */
+#endif /* CONFIG_IBM_EMAC_INTR_COALESCE */
 
 	/* Setup error IRQ handler */
 	err = request_irq(dev->def->irq, emac_irq, 0, "EMAC", dev);
@@ -913,6 +1135,10 @@ static int emac_open(struct net_device *ndev)
 	return 0;
       oom:
 	emac_clean_rx_ring(dev);
+#ifdef CONFIG_IBM_EMAC_INTR_COALESCE
+	free_irq(emacdata->txcoal_irq, dev->mal);
+	free_irq(emacdata->rxcoal_irq, dev->mal);
+#endif
 	free_irq(dev->def->irq, dev);
 	return -ENOMEM;
 }
@@ -1026,6 +1252,15 @@ static int emac_close(struct net_device *ndev)
 	emac_clean_rx_ring(dev);
 	free_irq(dev->def->irq, dev);
 
+#ifdef CONFIG_IBM_EMAC_INTR_COALESCE
+	if (emac_intr_coalesce(dev->def->index)) {
+		ic_set_txflush(dev->def->index);
+		ic_set_rxflush(dev->def->index);
+		free_irq(emacdata->txcoal_irq, dev->mal);
+		free_irq(emacdata->rxcoal_irq, dev->mal);
+	}
+#endif
+
 	return 0;
 }
 
@@ -1089,7 +1324,6 @@ static int emac_start_xmit(struct sk_buff *skb, struct net_device *ndev)
 	return emac_xmit_finish(dev, len);
 }
 
-#if defined(CONFIG_IBM_EMAC_TAH)
 static inline int emac_xmit_split(struct ocp_enet_private *dev, int slot,
 				  u32 pd, int len, int last, u16 base_ctrl)
 {
@@ -1187,7 +1421,7 @@ static int emac_start_xmit_sg(struct sk_buff *skb, struct net_device *ndev)
 	return emac_xmit_finish(dev, skb->len);
 
       undo_frame:
-	/* Well, too bad. Our previous estimation was overly optimistic. 
+	/* Well, too bad. Our previous estimation was overly optimistic.
 	 * Undo everything.
 	 */
 	while (slot != dev->tx_slot) {
@@ -1203,9 +1437,6 @@ static int emac_start_xmit_sg(struct sk_buff *skb, struct net_device *ndev)
 	DBG2("%d: stopped TX queue" NL, dev->def->index);
 	return 1;
 }
-#else
-# define emac_start_xmit_sg	emac_start_xmit
-#endif	/* !defined(CONFIG_IBM_EMAC_TAH) */
 
 /* BHs disabled */
 static void emac_parse_tx_error(struct ocp_enet_private *dev, u16 ctrl)
@@ -1278,8 +1509,8 @@ static inline void emac_recycle_rx_skb(struct ocp_enet_private *dev, int slot,
 	struct sk_buff *skb = dev->rx_skb[slot];
 	DBG2("%d: recycle %d %d" NL, dev->def->index, slot, len);
 
-	if (len) 
-		dma_map_single(dev->ldev, skb->data - 2, 
+	if (len)
+		dma_map_single(dev->ldev, skb->data - 2,
 			       EMAC_DMA_ALIGN(len + 2), DMA_FROM_DEVICE);
 
 	dev->rx_desc[slot].data_len = 0;
@@ -1883,6 +2114,141 @@ static void emac_ethtool_get_drvinfo(struct net_device *ndev,
 	info->regdump_len = emac_ethtool_get_regs_len(ndev);
 }
 
+#ifdef CONFIG_IBM_EMAC_INTR_COALESCE
+/* Convert microseconds to ethernet clock ticks, which changes
+ * depending on what speed the controller is running at */
+static unsigned int emac_ethtool_usecs2ticks(unsigned int usecs)
+{
+  	unsigned long long ticks;
+
+  	ticks = (unsigned long long)usecs * (ocp_sys_info.plb_bus_freq / 1000000);
+	/* Make sure computed ticks is valid from usec */
+	if (ticks > 0xFFFFFFFF)
+		ticks = 0xFFFFFFFF;
+
+	return ((unsigned int)ticks);
+}
+
+/* Convert PLB clock ticks to microseconds */
+static unsigned int emac_ethtool_ticks2usecs(unsigned int ticks)
+{
+  	unsigned int count;
+	u32 plb_mhz;
+
+	plb_mhz = ocp_sys_info.plb_bus_freq / 1000000;
+
+  	count = ticks / plb_mhz;
+
+	return (count);
+}
+
+/* Get the coalescing parameters, and put them in the cvals
+ * structure.  */
+static int emac_ethtool_get_coalesce(struct net_device *ndev,
+				     struct ethtool_coalesce *cvals)
+{
+	struct ocp_enet_private *dev = ndev->priv;
+	struct coales_param *coal = &dev->coales;
+
+	cvals->rx_coalesce_usecs = emac_ethtool_ticks2usecs(coal->rx_time);
+	cvals->rx_max_coalesced_frames = coal->rx_count;
+
+	cvals->tx_coalesce_usecs = emac_ethtool_ticks2usecs(coal->tx_time);
+	cvals->tx_max_coalesced_frames = coal->tx_count;
+
+	cvals->use_adaptive_rx_coalesce = 0;
+	cvals->use_adaptive_tx_coalesce = 0;
+
+	cvals->pkt_rate_low = 0;
+	cvals->rx_coalesce_usecs_low = 0;
+	cvals->rx_max_coalesced_frames_low = 0;
+	cvals->tx_coalesce_usecs_low = 0;
+	cvals->tx_max_coalesced_frames_low = 0;
+
+	/* When the packet rate is below pkt_rate_high but above
+	 * pkt_rate_low (both measured in packets per second) the
+	 * normal {rx,tx}_* coalescing parameters are used.
+	 */
+
+	/* When the packet rate is (measured in packets per second)
+	 * is above pkt_rate_high, the {rx,tx}_*_high parameters are
+	 * used.
+	 */
+	cvals->pkt_rate_high = 0;
+	cvals->rx_coalesce_usecs_high = 0;
+	cvals->rx_max_coalesced_frames_high = 0;
+	cvals->tx_coalesce_usecs_high = 0;
+	cvals->tx_max_coalesced_frames_high = 0;
+
+	/* How often to do adaptive coalescing packet rate sampling,
+	 * measured in seconds.  Must not be zero.
+	 */
+	cvals->rate_sample_interval = 0;
+
+	return 0;
+}
+
+/* Change the coalescing values.
+ * Both cvals->*_usecs and cvals->*_frames have to be > 0
+ * in order for coalescing to be active
+ */
+static int emac_ethtool_set_coalesce(struct net_device *ndev,
+				     struct ethtool_coalesce *cvals)
+{
+	struct ocp_enet_private *dev = ndev->priv;
+	struct coales_param *coal = &dev->coales;
+	unsigned int timer;
+
+  	timer = emac_ethtool_usecs2ticks(cvals->rx_coalesce_usecs);
+	/* Check the bounds of the values */
+	if (timer == MAX_COAL_TIMER) {
+		pr_info("Rx Coalescing is limited to %d microseconds\n",
+			emac_ethtool_ticks2usecs(MAX_COAL_TIMER));
+		return -EINVAL;
+	}
+	coal->rx_time = timer;
+
+	if (cvals->rx_max_coalesced_frames > MAX_COAL_FRAMES) {
+		pr_info("Rx Coalescing is limited to %d frames\n",
+			MAX_COAL_FRAMES);
+		return -EINVAL;
+	}
+	coal->rx_count = cvals->rx_max_coalesced_frames;
+
+	timer = emac_ethtool_usecs2ticks(cvals->tx_coalesce_usecs);
+	/* Check the bounds of the values */
+	if (timer == MAX_COAL_TIMER) {
+		pr_info("Tx Coalescing is limited to %d microseconds\n",
+			emac_ethtool_ticks2usecs(MAX_COAL_TIMER));
+		return -EINVAL;
+	}
+	coal->tx_time = timer;
+
+	if (cvals->tx_max_coalesced_frames > MAX_COAL_FRAMES) {
+		pr_info("Tx Coalescing is limited to %d frames\n",
+			MAX_COAL_FRAMES);
+		return -EINVAL;
+	}
+	coal->tx_count = cvals->tx_max_coalesced_frames;
+
+	if (emac_intr_coalesce(dev->def->index)) {
+		ic_set_rx_frame_thr(dev->def->index, coal->rx_count);
+		ic_set_rx_time_thr(dev->def->index, coal->rx_time);
+		ic_set_tx_frame_thr(dev->def->index, coal->tx_count);
+		ic_set_tx_time_thr(dev->def->index, coal->tx_time);
+	} else {
+		ic_set_rxflush(dev->def->index);
+		ic_set_rx_frame_thr(dev->def->index, 1);
+		ic_set_rx_time_thr(dev->def->index, 0);
+		ic_set_txflush(dev->def->index);
+		ic_set_tx_frame_thr(dev->def->index, 1);
+		ic_set_tx_time_thr(dev->def->index, 0);
+	}
+
+	return 0;
+}
+#endif /* CONFIG_IBM_EMAC_INTR_COALESCE */
+
 static const struct ethtool_ops emac_ethtool_ops = {
 	.get_settings = emac_ethtool_get_settings,
 	.set_settings = emac_ethtool_set_settings,
@@ -1903,6 +2269,13 @@ static const struct ethtool_ops emac_ethtool_ops = {
 	.get_ethtool_stats = emac_ethtool_get_ethtool_stats,
 
 	.get_link = ethtool_op_get_link,
+	.get_tx_csum = ethtool_op_get_tx_csum,
+	.get_sg = ethtool_op_get_sg,
+
+#ifdef CONFIG_IBM_EMAC_INTR_COALESCE
+	.get_coalesce = emac_ethtool_get_coalesce,
+	.set_coalesce = emac_ethtool_set_coalesce,
+#endif
 };
 
 static int emac_ioctl(struct net_device *ndev, struct ifreq *rq, int cmd)
@@ -2093,7 +2466,7 @@ static int __init emac_probe(struct ocp_device *ocpdev)
 			 */
 			dev->phy.address = dev->def->index;
 		}
-		
+
 		emac_configure(dev);
 
 		for (i = 0; i < 0x20; phy_map >>= 1, ++i)
@@ -2117,14 +2490,14 @@ static int __init emac_probe(struct ocp_device *ocpdev)
 		/* Init PHY */
 		if (dev->phy.def->ops->init)
 			dev->phy.def->ops->init(&dev->phy);
-		
+
 		/* Disable any PHY features not supported by the platform */
 		dev->phy.def->features &= ~emacdata->phy_feat_exc;
 
 		/* Setup initial link parameters */
 		if (dev->phy.features & SUPPORTED_Autoneg) {
 			adv = dev->phy.features;
-#if !defined(CONFIG_40x)
+#if !defined(CONFIG_40x) || defined(CONFIG_IBM_EMAC4V4)
 			adv |= ADVERTISED_Pause | ADVERTISED_Asym_Pause;
 #endif
 			/* Restart autonegotiation */
@@ -2163,11 +2536,8 @@ static int __init emac_probe(struct ocp_device *ocpdev)
 
 	/* Fill in the driver function table */
 	ndev->open = &emac_open;
-	if (dev->tah_dev) {
-		ndev->hard_start_xmit = &emac_start_xmit_sg;
+	if (dev->tah_dev)
 		ndev->features |= NETIF_F_IP_CSUM | NETIF_F_SG;
-	} else
-		ndev->hard_start_xmit = &emac_start_xmit;
 	ndev->tx_timeout = &emac_full_tx_reset;
 	ndev->watchdog_timeo = 5 * HZ;
 	ndev->stop = &emac_close;
@@ -2175,8 +2545,11 @@ static int __init emac_probe(struct ocp_device *ocpdev)
 	ndev->set_multicast_list = &emac_set_multicast_list;
 	ndev->do_ioctl = &emac_ioctl;
 	if (emac_phy_supports_gige(emacdata->phy_mode)) {
+		ndev->hard_start_xmit = &emac_start_xmit_sg;
 		ndev->change_mtu = &emac_change_mtu;
 		dev->commac.ops = &emac_commac_sg_ops;
+	} else {
+		ndev->hard_start_xmit = &emac_start_xmit;
 	}
 	SET_ETHTOOL_OPS(ndev, &emac_ethtool_ops);
 
@@ -2246,6 +2619,13 @@ static int __init emac_init(void)
 		return -ENODEV;
 	}
 	EMAC_CLK_EXTERNAL;
+
+#if (defined(CONFIG_440EPX) || defined(CONFIG_440GRX)) && \
+    defined(CONFIG_IBM_EMAC_INTR_COALESCE)
+	/* setup default values for interrupt coalescing */
+	iccrtx = DCRN_SDR_ICCRTX_INIT;
+	iccrrx = DCRN_SDR_ICCRRX_INIT;
+#endif
 
 	emac_init_debug();
 	return 0;

@@ -333,7 +333,9 @@ mpc85xx_setup_hose(void)
 			   binfo->bi_immr_base + PCI2_CFG_DATA_OFFSET);
 	hose_b->set_cfg_type = 1;
 
+	ppc_md.pci_exclude_device = 0;
 	mpc85xx_setup_pci2(hose_b);
+	ppc_md.pci_exclude_device = mpc85xx_exclude_device;
 
 	hose_b->pci_mem_offset = MPC85XX_PCI2_MEM_OFFSET;
 	hose_b->mem_space.start = MPC85XX_PCI2_LOWER_MEM;
