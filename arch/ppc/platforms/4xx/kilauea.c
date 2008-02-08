@@ -212,6 +212,14 @@ static int __init kilauea_setup_platform_devices(void)
 arch_initcall(kilauea_setup_platform_devices);
 
 #ifdef CONFIG_PCI
+enum kilauea_hoses {
+	HOSE_PCIE0,
+	HOSE_PCIE1,
+	HOSE_MAX
+};
+
+static enum kilauea_hoses hose_type[2];
+
 /*
  * Some IRQs unique to Kilauea
  */
@@ -220,7 +228,7 @@ int __init kilauea_map_irq(struct pci_dev *dev, unsigned char idsel,
 {
 	struct pci_controller *hose = pci_bus_to_hose(dev->bus->number);
 
-	if (hose->index == 0) {
+	if (hose_type[hose->index] == HOSE_PCIE0) {
 		static char pci_irq_table[][4] =
 			/*
 			 *  PCI IDSEL/INTPIN->INTLINE
@@ -231,7 +239,7 @@ int __init kilauea_map_irq(struct pci_dev *dev, unsigned char idsel,
 			};
 		const long min_idsel = 1, max_idsel = 1, irqs_per_slot = 4;
 		return PCI_IRQ_TABLE_LOOKUP;
-	} else if (hose->index == 1) {
+	} else if (hose_type[hose->index] == HOSE_PCIE1) {
 		static char pci_irq_table[][4] =
 			/*
 			 *  PCI IDSEL/INTPIN->INTLINE
@@ -312,6 +320,7 @@ static void __init kilauea_setup_hoses(void)
 
 		hose->first_busno = bus_no;
 		hose->last_busno = 0xff;
+		hose_type[hose->index] = hs;
 
 		if (ppc4xx_setup_pcie(hose, hs) != 0) {
 			printk(KERN_ERR "PCIE setup failed for hose no %d\n", hs);
