@@ -77,8 +77,13 @@ struct ipipe_sysinfo {
 	} archdep;
 };
 
+extern unsigned long tb_ticks_per_jiffy;
+
+#define ipipe_cpu_freq()	(HZ * tb_ticks_per_jiffy)
 #ifdef CONFIG_PPC64
 #define ipipe_read_tsc(t)	(t = mftb())
+#define ipipe_tsc2ns(t)		(((t) * 1000UL) / (ipipe_cpu_freq() / 1000000UL))
+#define ipipe_tsc2us(t)		((t) / (ipipe_cpu_freq() / 1000000UL))
 #else
 #define ipipe_read_tsc(t)					\
 	({							\
@@ -93,21 +98,6 @@ struct ipipe_sysinfo {
 				       "=r" (__tbu));			\
 		t;							\
 	})
-#endif	/* !CONFIG_PPC64 */
-
-#define __ipipe_read_timebase()					\
-	({							\
- 	unsigned long long t;					\
- 	ipipe_read_tsc(t);					\
- 	t;							\
- 	})
-
-extern unsigned long tb_ticks_per_jiffy;
-#define ipipe_cpu_freq()	(HZ * tb_ticks_per_jiffy)
-#ifdef CONFIG_PPC64
-#define ipipe_tsc2ns(t)		(((t) * 1000UL) / (ipipe_cpu_freq() / 1000000UL))
-#define ipipe_tsc2us(t)		((t) / (ipipe_cpu_freq() / 1000000UL))
-#else
 #define ipipe_tsc2ns(t)		((((unsigned long)(t)) * 1000) / (ipipe_cpu_freq() / 1000000))
 #define ipipe_tsc2us(t)						\
 	({							\
@@ -115,8 +105,15 @@ extern unsigned long tb_ticks_per_jiffy;
 		do_div(delta, ipipe_cpu_freq()/1000000+1);	\
 		(unsigned long)delta;				\
 	})
-extern unsigned long disarm_decr[];
 #endif
+#define __ipipe_read_timebase()					\
+	({							\
+ 	unsigned long long t;					\
+ 	ipipe_read_tsc(t);					\
+ 	t;							\
+ 	})
+
+DECLARE_PER_CPU(int, disarm_decr);
 
 /* Private interface -- Internal use only */
 
