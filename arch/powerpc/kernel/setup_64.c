@@ -559,11 +559,6 @@ static void ppc64_do_msg(unsigned int src, const char *msg)
 		snprintf(buf, 128, "%s", msg);
 		ppc_md.progress(buf, 0);
 	}
-#ifdef CONFIG_IPIPE
-	/* Reset pointer to the relocated per-cpu root domain data. */
-	get_paca()->root_percpu = (u64)&ipipe_percpudom(&ipipe_root, status, 0);
-#endif	
-
 }
 
 /* Print a boot progress message. */
@@ -611,6 +606,11 @@ void __init setup_per_cpu_areas(void)
 
 	/* Now that per_cpu is setup, initialize cpu_sibling_map */
 	smp_setup_cpu_sibling_map();
+
+#ifdef CONFIG_IPIPE
+	/* Reset pointer to the relocated per-cpu root domain data. */
+	get_paca()->root_percpu = (u64)&ipipe_percpudom(&ipipe_root, status, 0);
+#endif	
 }
 #endif
 
