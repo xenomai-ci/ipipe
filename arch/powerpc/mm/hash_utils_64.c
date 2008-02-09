@@ -668,6 +668,7 @@ int hash_page(unsigned long ea, unsigned long access, unsigned long trap)
 	cpumask_t tmp;
 	int rc, user_region = 0, local = 0;
 	int psize, ssize;
+	unsigned long flags;
 
 	DBG_LOW("hash_page(ea=%016lx, access=%lx, trap=%lx\n",
 		ea, access, trap);
@@ -721,11 +722,14 @@ int hash_page(unsigned long ea, unsigned long access, unsigned long trap)
 	if (user_region && cpus_equal(mm->cpu_vm_mask, tmp))
 		local = 1;
 
+	local_irq_save_hw(flags);
+
 #ifdef CONFIG_HUGETLB_PAGE
 	/* Handle hugepage regions */
 	if (HPAGE_SHIFT && psize == mmu_huge_psize) {
 		DBG_LOW(" -> huge page !\n");
-		return hash_huge_page(mm, access, ea, vsid, local, trap);
+		rc = hash_huge_page(mm, access, ea, vsid, local, trap);
+		goto out;
 	}
 #endif /* CONFIG_HUGETLB_PAGE */
 
@@ -742,7 +746,8 @@ int hash_page(unsigned long ea, unsigned long access, unsigned long trap)
 	ptep = find_linux_pte(pgdir, ea);
 	if (ptep == NULL || !pte_present(*ptep)) {
 		DBG_LOW(" no PTE !\n");
-		return 1;
+		rc = 1;
+		goto out;
 	}
 
 #ifndef CONFIG_PPC_64K_PAGES
@@ -756,7 +761,8 @@ int hash_page(unsigned long ea, unsigned long access, unsigned long trap)
 	 */
 	if (access & ~pte_val(*ptep)) {
 		DBG_LOW(" no access !\n");
-		return 1;
+		rc = 1;
+		goto out;
 	}
 
 	/* Do actual hashing */
@@ -817,6 +823,8 @@ int hash_page(unsigned long ea, unsigned long access, unsigned long trap)
 		pte_val(*(ptep + PTRS_PER_PTE)));
 #endif
 	DBG_LOW(" -> rc=%d\n", rc);
+out:
+	local_irq_restore_hw(flags);
 	return rc;
 }
 EXPORT_SYMBOL_GPL(hash_page);
@@ -867,7 +875,7 @@ void hash_preload(struct mm_struct *mm, unsigned long ea,
 	vsid = get_vsid(mm->context.id, ea, ssize);
 
 	/* Hash doesn't like irqs */
-	local_irq_save(flags);
+	local_irq_save_hw(flags);
 
 	/* Is that local to this CPU ? */
 	mask = cpumask_of_cpu(smp_processor_id());
@@ -882,7 +890,7 @@ void hash_preload(struct mm_struct *mm, unsigned long ea,
 #endif /* CONFIG_PPC_HAS_HASH_64K */
 		__hash_page_4K(ea, access, vsid, ptep, trap, local, ssize);
 
-	local_irq_restore(flags);
+	local_irq_restore_hw(flags);
 }
 
 /* WARNING: This is called from hash_low_64.S, if you change this prototype,
