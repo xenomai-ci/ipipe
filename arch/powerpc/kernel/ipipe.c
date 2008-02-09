@@ -48,6 +48,8 @@ static void __ipipe_do_timer(unsigned irq, void *cookie);
 
 DEFINE_PER_CPU(struct pt_regs, __ipipe_tick_regs);
 
+#define DECREMENTER_MAX	0x7fffffff
+
 #ifdef CONFIG_SMP
 
 #include <asm/mpic.h>	/* We currently need a MPIC to support SMP. */
@@ -65,8 +67,6 @@ static void (*__ipipe_cpu_sync) (void);
 static DEFINE_PER_CPU(struct ipipe_ipi_struct, ipipe_ipi_message);
 
 unsigned int __ipipe_ipi_irq = NR_IRQS + 1; /* dummy value */
-
-#define DECREMENTER_MAX	0x7fffffff
 
 /* Always called with hw interrupts off. */
 
