@@ -722,14 +722,11 @@ int hash_page(unsigned long ea, unsigned long access, unsigned long trap)
 	if (user_region && cpus_equal(mm->cpu_vm_mask, tmp))
 		local = 1;
 
-	local_irq_save_hw(flags);
-
 #ifdef CONFIG_HUGETLB_PAGE
 	/* Handle hugepage regions */
 	if (HPAGE_SHIFT && psize == mmu_huge_psize) {
 		DBG_LOW(" -> huge page !\n");
-		rc = hash_huge_page(mm, access, ea, vsid, local, trap);
-		goto out;
+		return hash_huge_page(mm, access, ea, vsid, local, trap);
 	}
 #endif /* CONFIG_HUGETLB_PAGE */
 
@@ -746,8 +743,7 @@ int hash_page(unsigned long ea, unsigned long access, unsigned long trap)
 	ptep = find_linux_pte(pgdir, ea);
 	if (ptep == NULL || !pte_present(*ptep)) {
 		DBG_LOW(" no PTE !\n");
-		rc = 1;
-		goto out;
+		return 1;
 	}
 
 #ifndef CONFIG_PPC_64K_PAGES
@@ -761,8 +757,7 @@ int hash_page(unsigned long ea, unsigned long access, unsigned long trap)
 	 */
 	if (access & ~pte_val(*ptep)) {
 		DBG_LOW(" no access !\n");
-		rc = 1;
-		goto out;
+		return 1;
 	}
 
 	/* Do actual hashing */
@@ -796,6 +791,9 @@ int hash_page(unsigned long ea, unsigned long access, unsigned long trap)
 #endif
 		}
 	}
+
+	local_irq_save_hw(flags);
+
 	if (user_region) {
 		if (psize != get_paca()->context.user_psize) {
 			get_paca()->context = mm->context;
@@ -807,6 +805,8 @@ int hash_page(unsigned long ea, unsigned long access, unsigned long trap)
 			mmu_psize_defs[mmu_vmalloc_psize].sllp;
 		slb_vmalloc_update();
 	}
+
+	local_irq_restore_hw(flags);
 #endif /* CONFIG_PPC_64K_PAGES */
 
 #ifdef CONFIG_PPC_HAS_HASH_64K
@@ -823,8 +823,6 @@ int hash_page(unsigned long ea, unsigned long access, unsigned long trap)
 		pte_val(*(ptep + PTRS_PER_PTE)));
 #endif
 	DBG_LOW(" -> rc=%d\n", rc);
-out:
-	local_irq_restore_hw(flags);
 	return rc;
 }
 EXPORT_SYMBOL_GPL(hash_page);
@@ -875,7 +873,7 @@ void hash_preload(struct mm_struct *mm, unsigned long ea,
 	vsid = get_vsid(mm->context.id, ea, ssize);
 
 	/* Hash doesn't like irqs */
-	local_irq_save_hw(flags);
+	local_irq_save(flags);
 
 	/* Is that local to this CPU ? */
 	mask = cpumask_of_cpu(smp_processor_id());
@@ -890,7 +888,7 @@ void hash_preload(struct mm_struct *mm, unsigned long ea,
 #endif /* CONFIG_PPC_HAS_HASH_64K */
 		__hash_page_4K(ea, access, vsid, ptep, trap, local, ssize);
 
-	local_irq_restore_hw(flags);
+	local_irq_restore(flags);
 }
 
 /* WARNING: This is called from hash_low_64.S, if you change this prototype,
