@@ -265,7 +265,7 @@ struct task_struct *__switch_to(struct task_struct *prev,
 	struct task_struct *new)
 {
 	struct thread_struct *new_thread, *old_thread;
-	unsigned long vflags, rflags;
+	unsigned long flags;
 	struct task_struct *last;
 #ifdef CONFIG_PPC_PASEMI_A2_WORKAROUNDS
 	unsigned long vsid;
@@ -351,15 +351,13 @@ struct task_struct *__switch_to(struct task_struct *prev,
 	}
 #endif
 
-	local_irq_save(vflags);
+	local_irq_save_hw(flags);
+
 	account_system_vtime(current);
 	account_process_vtime(current);
 	calculate_steal_time();
-	local_irq_restore_nosync(vflags);
 
-	local_irq_save_hw(rflags);
 	last = _switch(old_thread, new_thread);
-	local_irq_restore_hw(rflags);
 
 #ifdef CONFIG_PPC_PASEMI_A2_WORKAROUNDS
 	ssize = user_segment_size(0);
@@ -374,6 +372,8 @@ struct task_struct *__switch_to(struct task_struct *prev,
 #endif
 	}
 #endif
+
+	local_irq_restore_hw(flags);
 
 	return last;
 }
