@@ -265,7 +265,7 @@ struct task_struct *__switch_to(struct task_struct *prev,
 	struct task_struct *new)
 {
 	struct thread_struct *new_thread, *old_thread;
-	unsigned long flags;
+	unsigned long vflags, rflags;
 	struct task_struct *last;
 #ifdef CONFIG_PPC_PASEMI_A2_WORKAROUNDS
 	unsigned long vsid;
@@ -351,20 +351,22 @@ struct task_struct *__switch_to(struct task_struct *prev,
 	}
 #endif
 
-	local_irq_save_hw(flags);
+	local_irq_save(vflags);
 
 	account_system_vtime(current);
 	account_process_vtime(current);
 	calculate_steal_time();
 
+	local_irq_save_hw(rflags);
 	last = _switch(old_thread, new_thread);
+	local_irq_restore_hw(rflags);
 
 #ifdef CONFIG_PPC_PASEMI_A2_WORKAROUNDS
 	ssize = user_segment_size(0);
 	vsid = get_vsid(current->mm->context.id, 0, ssize);
 
 	/* current is still really us, just a different us :-) */
-	if (ipipe_root_domain_p && current->mm) {
+	if (current->mm) {
 #ifdef CONFIG_PPC_64K_PAGES
 		__hash_page_64K(0, _PAGE_USER|_PAGE_RW, vsid, &current->zero_pte.pte, 0x300, 1, ssize);
 #else
@@ -373,7 +375,7 @@ struct task_struct *__switch_to(struct task_struct *prev,
 	}
 #endif
 
-	local_irq_restore_hw(flags);
+	local_irq_restore(vflags);
 
 	return last;
 }
