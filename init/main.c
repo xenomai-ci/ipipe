@@ -57,6 +57,7 @@
 #include <linux/device.h>
 #include <linux/kthread.h>
 #include <linux/sched.h>
+#include <linux/signal.h>
 #include <linux/logbuff.h>
 
 #include <asm/io.h>
@@ -84,7 +85,6 @@ extern void init_IRQ(void);
 extern void fork_init(unsigned long);
 extern void mca_init(void);
 extern void sbus_init(void);
-extern void signals_init(void);
 extern void pidhash_init(void);
 extern void pidmap_init(void);
 extern void prio_tree_init(void);
@@ -101,6 +101,12 @@ static inline void mark_rodata_ro(void) { }
 
 #ifdef CONFIG_TC
 extern void tc_init(void);
+#endif
+
+#ifdef CONFIG_ACPI_CUSTOM_DSDT_INITRD
+extern int populate_rootfs(void);
+#else
+static inline void populate_rootfs(void) {}
 #endif
 
 enum system_states system_state;
@@ -652,6 +658,7 @@ asmlinkage void __init start_kernel(void)
 
 	check_bugs();
 
+	populate_rootfs(); /* For DSDT override from initramfs */
 	acpi_early_init(); /* before LAPIC and SMP init */
 
 	/* Do the rest non-__init'ed, we're now alive */

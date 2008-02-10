@@ -50,8 +50,6 @@
 #include <asm/pgtable.h>
 #include <asm/mmu_context.h>
 
-extern void sem_exit (void);
-
 static void exit_mm(struct task_struct * tsk);
 
 static void __unhash_process(struct task_struct *p)
@@ -1085,11 +1083,12 @@ do_group_exit(int exit_code)
 		struct signal_struct *const sig = current->signal;
 		struct sighand_struct *const sighand = current->sighand;
 		spin_lock_irq(&sighand->siglock);
-		if (sig->flags & SIGNAL_GROUP_EXIT)
+		if (signal_group_exit(sig))
 			/* Another thread got here before we took the lock.  */
 			exit_code = sig->group_exit_code;
 		else {
 			sig->group_exit_code = exit_code;
+			sig->flags = SIGNAL_GROUP_EXIT;
 			zap_other_threads(current);
 		}
 		spin_unlock_irq(&sighand->siglock);
@@ -1591,8 +1590,6 @@ repeat:
 					goto repeat;
 				if (retval != 0) /* He released the lock.  */
 					goto end;
-			} else if (p->exit_state == EXIT_DEAD) {
-				continue;
 			} else if (p->exit_state == EXIT_ZOMBIE) {
 				/*
 				 * Eligible but we cannot release it yet:
@@ -1607,7 +1604,7 @@ repeat:
 				/* He released the lock.  */
 				if (retval != 0)
 					goto end;
-			} else {
+			} else if (p->exit_state != EXIT_DEAD) {
 check_continued:
 				/*
 				 * It's running now, so it might later

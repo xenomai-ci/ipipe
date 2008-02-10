@@ -150,11 +150,6 @@ SECTIONS
 
   . = ALIGN(PAGE_SIZE);
   __init_end = .;
-
-  . = ALIGN(PAGE_SIZE);
-  _sextratext = .;
-  _eextratext = .;
-
   __bss_start = .;
   .bss       :
   {
