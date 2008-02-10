@@ -580,16 +580,23 @@ void timer_interrupt(struct pt_regs * regs)
 		do_IRQ(regs);
 #endif
 
-	now = get_tb_or_rtc();
-	if (now < per_cpu(decrementer_next_tb, cpu)) {
-		/* not time for this event yet */
-		now = per_cpu(decrementer_next_tb, cpu) - now;
-		if (!per_cpu(disarm_decr, cpu) && now <= DECREMENTER_MAX)
-			set_dec((int)now);
-		return;
+	if (!per_cpu(disarm_decr, cpu)) {
+		now = get_tb_or_rtc();
+		if (now < per_cpu(decrementer_next_tb, cpu)) {
+			/* not time for this event yet */
+			now = per_cpu(decrementer_next_tb, cpu) - now;
+			if (now <= DECREMENTER_MAX)
+				set_dec((int)now);
+			return;
+		}
 	}
 	old_regs = set_irq_regs(regs);
 #ifndef CONFIG_IPIPE
+	/*
+	 * The timer interrupt is a virtual one when the I-pipe is
+	 * active, therefore we already called irq_enter() for it (see
+	 * __ipipe_run_isr).
+	 */
 	irq_enter();
 #endif
 
