@@ -235,6 +235,9 @@ void machine_check_exception(struct pt_regs *regs)
 {
 	unsigned long reason = get_mc_reason(regs);
 
+ 	if (ipipe_trap_notify(IPIPE_TRAP_MCE,regs))
+ 	    	return;
+ 
 	if (user_mode(regs)) {
 		regs->msr |= MSR_RI;
 		_exception(SIGBUS, regs, BUS_ADRERR, regs->nip);
@@ -396,11 +399,18 @@ void unknown_exception(struct pt_regs *regs)
 {
 	printk("Bad trap at PC: %lx, MSR: %lx, vector=%lx    %s\n",
 	       regs->nip, regs->msr, regs->trap, print_tainted());
+
+ 	if (ipipe_trap_notify(IPIPE_TRAP_UNKNOWN,regs))
+ 	    	return;
+ 
 	_exception(SIGTRAP, regs, 0, 0);
 }
 
 void instruction_breakpoint_exception(struct pt_regs *regs)
 {
+ 	if (ipipe_trap_notify(IPIPE_TRAP_IABR,regs))
+ 	    	return;
+ 
 	if (debugger_iabr_match(regs))
 		return;
 	_exception(SIGTRAP, regs, TRAP_BRKPT, 0);
@@ -408,6 +418,8 @@ void instruction_breakpoint_exception(struct pt_regs *regs)
 
 void RunModeException(struct pt_regs *regs)
 {
+	if (ipipe_trap_notify(IPIPE_TRAP_RM,regs))
+	    	return;
 	_exception(SIGTRAP, regs, 0, 0);
 }
 
@@ -557,6 +569,8 @@ static void emulate_single_step(struct pt_regs *regs)
 {
 	if (single_stepping(regs)) {
 		clear_single_step(regs);
+		if (ipipe_trap_notify(IPIPE_TRAP_SSTEP,regs))
+		    return;
 		_exception(SIGTRAP, regs, TRAP_TRACE, 0);
 	}
 }
@@ -584,6 +598,9 @@ void program_check_exception(struct pt_regs *regs)
 		return;
 	}
 #endif /* CONFIG_MATH_EMULATION */
+
+	if (ipipe_trap_notify(IPIPE_TRAP_PCE,regs))
+	    	return;
 
 	if (reason & REASON_FP) {
 		/* IEEE FP exception */
@@ -650,6 +667,10 @@ void program_check_exception(struct pt_regs *regs)
 void single_step_exception(struct pt_regs *regs)
 {
 	regs->msr &= ~(MSR_SE | MSR_BE);  /* Turn off 'trace' bits */
+
+ 	if (ipipe_trap_notify(IPIPE_TRAP_SSTEP,regs))
+ 	    return;
+ 
 	if (debugger_sstep(regs))
 		return;
 	_exception(SIGTRAP, regs, TRAP_TRACE, 0);
@@ -659,6 +680,9 @@ void alignment_exception(struct pt_regs *regs)
 {
 	int sig, code, fixed = 0;
 
+ 	if (ipipe_trap_notify(IPIPE_TRAP_ALIGNMENT,regs))
+ 	    	return;
+ 
 	fixed = fix_alignment(regs);
 	if (fixed == 1) {
 		regs->nip += 4;	/* skip over emulated instruction */
@@ -691,6 +715,8 @@ void nonrecoverable_exception(struct pt_regs *regs)
 {
 	printk(KERN_ERR "Non-recoverable exception at PC=%lx MSR=%lx\n",
 	       regs->nip, regs->msr);
+	if (ipipe_trap_notify(IPIPE_TRAP_NREC,regs))
+	    	return;
 	debugger(regs);
 	die("nonrecoverable exception", regs, SIGKILL);
 }
@@ -708,6 +734,9 @@ void SoftwareEmulation(struct pt_regs *regs)
 	extern int do_mathemu(struct pt_regs *);
 	extern int Soft_emulate_8xx(struct pt_regs *);
 	int errcode;
+
+	if (ipipe_trap_notify(IPIPE_TRAP_SOFTEMU,regs))
+	    	return;
 
 	CHECK_FULL_REGS(regs);
 
@@ -737,6 +766,9 @@ void SoftwareEmulation(struct pt_regs *regs)
 
 void DebugException(struct pt_regs *regs, unsigned long debug_status)
 {
+	if (ipipe_trap_notify(IPIPE_TRAP_DEBUG,regs))
+	    	return;
+
 	if (debug_status & DBSR_IC) {	/* instruction completion */
 		regs->msr &= ~MSR_DE;
 		if (user_mode(regs)) {
@@ -769,6 +801,8 @@ void TAUException(struct pt_regs *regs)
 void kernel_fp_unavailable_exception(struct pt_regs *regs)
 {
 	regs->msr |= MSR_FP;
+ 	if (ipipe_trap_notify(IPIPE_TRAP_KFPUNAVAIL,regs))
+ 	    	return;
 	printk(KERN_ERR "floating point used in kernel (task=%p, pc=%lx)\n",
 	       current, regs->nip);
 }
@@ -777,6 +811,9 @@ void altivec_unavailable_exception(struct pt_regs *regs)
 {
 	static int kernel_altivec_count;
 
+ 	if (ipipe_trap_notify(IPIPE_TRAP_ALTUNAVAIL,regs))
+ 	    	return;
+ 
 #ifndef CONFIG_ALTIVEC
 	if (user_mode(regs)) {
 		/* A user program has executed an altivec instruction,
@@ -798,6 +835,9 @@ void altivec_assist_exception(struct pt_regs *regs)
 {
 	int err;
 
+ 	if (ipipe_trap_notify(IPIPE_TRAP_ALTASSIST,regs))
+ 	    	return;
+ 
 	preempt_disable();
 	if (regs->msr & MSR_VEC)
 		giveup_altivec(current);
@@ -845,8 +885,11 @@ void CacheLockingException(struct pt_regs *regs, unsigned long address,
 	 * as priv ops, in the future we could try to do
 	 * something smarter
 	 */
-	if (error_code & (ESR_DLK|ESR_ILK))
+	if (error_code & (ESR_DLK|ESR_ILK)) {
+		if (ipipe_trap_notify(IPIPE_TRAP_CACHE,regs))
+			return;
 		_exception(SIGILL, regs, ILL_PRVOPC, regs->nip);
+	}
 	return;
 }
 #endif /* CONFIG_FSL_BOOKE */
@@ -857,6 +900,9 @@ void SPEFloatingPointException(struct pt_regs *regs)
 	unsigned long spefscr;
 	int fpexc_mode;
 	int code = 0;
+
+	if (ipipe_trap_notify(IPIPE_TRAP_SPE,regs))
+	    	return;
 
 	spefscr = current->thread.spefscr;
 	fpexc_mode = current->thread.fpexc_mode;

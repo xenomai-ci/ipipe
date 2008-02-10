@@ -19,7 +19,7 @@
 extern unsigned tb_ticks_per_jiffy;
 extern unsigned tb_to_us;
 extern unsigned tb_last_stamp;
-extern unsigned long disarm_decr[NR_CPUS];
+DECLARE_PER_CPU(int, disarm_decr);
 
 extern void to_tm(int tim, struct rtc_time * tm);
 extern time_t last_rtc_update;

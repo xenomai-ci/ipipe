@@ -722,7 +722,6 @@ EXPORT_SYMBOL(__ipipe_test_root);
 EXPORT_SYMBOL(__ipipe_test_and_stall_root);
 #endif
 
-EXPORT_PER_CPU_SYMBOL(disarm_decr);
 EXPORT_SYMBOL_GPL(__switch_to);
 EXPORT_SYMBOL_GPL(show_stack);
 EXPORT_SYMBOL_GPL(_switch);

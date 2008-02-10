@@ -30,10 +30,7 @@ extern unsigned long tb_ticks_per_usec;
 extern unsigned long tb_ticks_per_sec;
 extern u64 tb_to_xs;
 extern unsigned      tb_to_us;
-
-#ifdef CONFIG_IPIPE
-extern unsigned long disarm_decr[NR_CPUS];
-#endif /* CONFIG_IPIPE */
+DECLARE_PER_CPU(int, disarm_decr);
 
 struct rtc_time;
 extern void to_tm(int tim, struct rtc_time * tm);

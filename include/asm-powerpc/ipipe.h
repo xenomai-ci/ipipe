@@ -44,10 +44,10 @@
 #include <asm/paca.h>
 #endif
 
-#define IPIPE_ARCH_STRING	"2.0-09"
+#define IPIPE_ARCH_STRING	"2.1-00"
 #define IPIPE_MAJOR_NUMBER	2
-#define IPIPE_MINOR_NUMBER	0
-#define IPIPE_PATCH_NUMBER	9
+#define IPIPE_MINOR_NUMBER	1
+#define IPIPE_PATCH_NUMBER	0
 
 #define prepare_arch_switch(next)			\
 	do {						\
@@ -77,7 +77,11 @@ struct ipipe_sysinfo {
 	} archdep;
 };
 
+#ifdef CONFIG_PPC_MERGE
 extern unsigned long tb_ticks_per_jiffy;
+#else
+extern unsigned int tb_ticks_per_jiffy;
+#endif
 
 #define ipipe_cpu_freq()	(HZ * tb_ticks_per_jiffy)
 #ifdef CONFIG_PPC64
@@ -113,8 +117,6 @@ extern unsigned long tb_ticks_per_jiffy;
  	t;							\
  	})
 
-DECLARE_PER_CPU(int, disarm_decr);
-
 /* Private interface -- Internal use only */
 
 #define __ipipe_check_platform()		do { } while(0)
@@ -149,12 +151,15 @@ void __ipipe_register_ipi(unsigned int irq);
 #define __ipipe_hook_critical_ipi(ipd)	do { } while(0)
 #endif /* CONFIG_SMP */
 
-DECLARE_PER_CPU(unsigned long long, __ipipe_decr_next);
-
 DECLARE_PER_CPU(struct pt_regs, __ipipe_tick_regs);
 
-void __ipipe_handle_irq(int irq,
-			struct pt_regs *regs);
+void __ipipe_handle_irq(int irq, struct pt_regs *regs);
+
+struct irq_desc;
+void __ipipe_ack_level_irq(unsigned irq, struct irq_desc *desc);
+void __ipipe_end_level_irq(unsigned irq, struct irq_desc *desc);
+void __ipipe_ack_edge_irq(unsigned irq, struct irq_desc *desc);
+void __ipipe_end_edge_irq(unsigned irq, struct irq_desc *desc);
 
 void __ipipe_serial_debug(const char *fmt, ...);
 
