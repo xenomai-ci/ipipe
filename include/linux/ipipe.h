@@ -503,6 +503,14 @@ int ipipe_disable_ondemand_mappings(struct task_struct *tsk);
 		local_irq_restore(vflags);		\
 	} while(0)
 
+static inline void local_irq_restore_nosync(unsigned long x)
+{
+	if (x)
+		set_bit(IPIPE_STALL_FLAG, &ipipe_cpudom_var(ipipe_root_domain, status));
+	else
+		clear_bit(IPIPE_STALL_FLAG, &ipipe_cpudom_var(ipipe_root_domain, status));
+}
+
 #define ipipe_root_domain_p		(ipipe_current_domain == ipipe_root_domain)
 
 #else	/* !CONFIG_IPIPE */
@@ -533,6 +541,7 @@ int ipipe_disable_ondemand_mappings(struct task_struct *tsk);
 
 #define local_irq_save_full(vflags, rflags)	do { (void)(vflags); local_irq_save(rflags); } while(0)
 #define local_irq_restore_full(vflags, rflags)	do { (void)(vflags); local_irq_restore(rflags); } while(0)
+#define local_irq_restore_nosync(vflags)	local_irq_restore(vflags)
 
 #endif	/* CONFIG_IPIPE */
 
