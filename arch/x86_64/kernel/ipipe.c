@@ -608,13 +608,17 @@ asmlinkage int __ipipe_handle_exception(struct pt_regs *regs, long error_code, i
 	if (ipipe_current_domain != ipipe_root_domain &&
 	    __ipipe_xlate_signo[vector] >= 0 &&
 	    !kgdb_handle_exception(vector, __ipipe_xlate_signo[vector], error_code, regs)) {
-		local_irq_restore(flags);
+		if (!flags)
+			__clear_bit(IPIPE_STALL_FLAG,
+				    &ipipe_root_cpudom_var(status));
 		return 1;
 	}
 #endif /* CONFIG_KGDB */
 
 	if (unlikely(ipipe_trap_notify(vector, regs))) {
-		local_irq_restore(flags);
+		if (!flags)
+			__clear_bit(IPIPE_STALL_FLAG,
+				    &ipipe_root_cpudom_var(status));
 		return 1;
 	}
 
