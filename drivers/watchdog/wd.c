@@ -997,5 +997,12 @@ static void insert_mon_chain(monitored_chain_t *new)
 	list_add_tail(&new->list, &mon_list);
 }
 
+#if defined(CONFIG_LWMON5)
+/*
+ * Call wd_init very early on LWMON5 platform since it's timeout is very short.
+ */
+subsys_initcall(wd_init);
+#else
 module_init(wd_init);
+#endif
 module_exit(wd_cleanup);
