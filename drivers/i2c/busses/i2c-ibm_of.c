@@ -123,6 +123,26 @@ static struct i2c_timings {
 	.buf	= 1300,
 }};
 
+struct i2c_driver_device {
+	char	*of_device;
+	char	*i2c_driver;
+	char	*i2c_type;
+};
+
+static struct i2c_driver_device i2c_devices[] __initdata = {
+	{"ricoh,rs5c372a", "rtc-rs5c372", "rs5c372a",},
+	{"ricoh,rs5c372b", "rtc-rs5c372", "rs5c372b",},
+	{"ricoh,rv5c386",  "rtc-rs5c372", "rv5c386",},
+	{"ricoh,rv5c387a", "rtc-rs5c372", "rv5c387a",},
+	{"dallas,ds1307",  "rtc-ds1307",  "ds1307",},
+	{"dallas,ds1337",  "rtc-ds1307",  "ds1337",},
+	{"dallas,ds1338",  "rtc-ds1307",  "ds1338",},
+	{"dallas,ds1339",  "rtc-ds1307",  "ds1339",},
+	{"dallas,ds1340",  "rtc-ds1307",  "ds1340",},
+	{"stm,m41t00",     "rtc-ds1307",  "m41t00"},
+	{"dallas,ds1374",  "rtc-ds1374",  "rtc-ds1374",},
+};
+
 /* Enable/disable interrupt generation */
 static inline void iic_interrupt_mode(struct ibm_iic_private* dev, int enable)
 {
@@ -670,6 +690,53 @@ static inline u8 iic_clckdiv(unsigned int opb)
 	return (u8)((opb + 9) / 10 - 1);
 }
 
+static int __init of_find_i2c_driver(struct device_node *node,
+				     struct i2c_board_info *info)
+{
+	int i;
+
+	for (i = 0; i < ARRAY_SIZE(i2c_devices); i++) {
+		if (!of_device_is_compatible(node, i2c_devices[i].of_device))
+			continue;
+		if (strlcpy(info->driver_name, i2c_devices[i].i2c_driver,
+			    KOBJ_NAME_LEN) >= KOBJ_NAME_LEN ||
+		    strlcpy(info->type, i2c_devices[i].i2c_type,
+			    I2C_NAME_SIZE) >= I2C_NAME_SIZE)
+			return -ENOMEM;
+		return 0;
+	}
+	return -ENODEV;
+}
+
+static void __init of_register_i2c_devices(struct device_node *adap_node,
+					   int bus_num)
+{
+	struct device_node *node = NULL;
+
+	while ((node = of_get_next_child(adap_node, node))) {
+		struct i2c_board_info info = {};
+		const u32 *addr;
+		int len;
+
+		addr = of_get_property(node, "reg", &len);
+		if (!addr || len < sizeof(int) || *addr > (1 << 10) - 1) {
+			printk(KERN_WARNING "fsl_soc.c: invalid i2c device entry\n");
+			continue;
+		}
+
+		info.irq = irq_of_parse_and_map(node, 0);
+		if (info.irq == NO_IRQ)
+			info.irq = -1;
+
+		if (of_find_i2c_driver(node, &info) < 0)
+			continue;
+
+		info.addr = *addr;
+
+		i2c_register_board_info(bus_num, &info, 1);
+	}
+}
+
 /*
  * Register single IIC interface
  */
@@ -774,6 +841,8 @@ static int __devinit iic_probe (struct of_device *ofdev,
 	adap->retries = 1;
 
 	adap->nr = ++device_idx;
+
+	of_register_i2c_devices(np, adap->nr);
 	if ((ret = i2c_add_numbered_adapter(adap)) < 0) {
 		printk(KERN_CRIT"ibm-iic(%s): failed to register i2c adapter\n",
 				dev->np->full_name);
@@ -831,37 +900,32 @@ static int __devexit iic_remove(struct of_device *ofdev)
 	return 0;
 }
 
-static struct of_device_id ibm_iic_match[] = {
-	{
-	 .type = "i2c",
-	 .compatible = "ibm,iic",
-	 },
-	{},
+static const struct of_device_id ibm_iic_match[] = {
+	{ .compatible = "ibm,iic-405ex", },
+	{ .compatible = "ibm,iic-405gp", },
+	{ .compatible = "ibm,iic-440gp", },
+	{ .compatible = "ibm,iic-440gpx", },
+	{ .compatible = "ibm,iic-440grx", },
+	{}
 };
-
-MODULE_DEVICE_TABLE(of, ibm_iic_match);
 
 static struct of_platform_driver ibm_iic_driver = {
 	.name = "ibm-iic",
 	.match_table = ibm_iic_match,
 	.probe = iic_probe,
 	.remove = iic_remove,
-#if defined(CONFIG_PM)
-	.suspend = NULL,
-	.resume = NULL,
-#endif
 };
 
-static int __init iic_init(void)
+static int __init ibm_iic_init(void)
 {
 	printk(KERN_INFO "IBM IIC driver v" DRIVER_VERSION "\n");
 	return of_register_platform_driver(&ibm_iic_driver);
 }
 
-static void __exit iic_exit(void)
+static void __exit ibm_iic_exit(void)
 {
 	of_unregister_platform_driver(&ibm_iic_driver);
 }
 
-module_init(iic_init);
-module_exit(iic_exit);
+module_init(ibm_iic_init);
+module_exit(ibm_iic_exit);
