@@ -6,7 +6,7 @@
  * Copyright (c) 2003, 2004 Zultys Technologies.
  * Eugene Surovegin <eugene.surovegin@zultys.com> or <ebs@ebshome.net>
  *
- * Based on original work by 
+ * Based on original work by
  * 	Ian DaSilva  <idasilva@mvista.com>
  *      Armin Kuster <akuster@mvista.com>
  * 	Matt Porter  <mporter@mvista.com>
@@ -89,8 +89,8 @@ static void dump_iic_regs(const char* header, struct ibm_iic_private* dev)
 	       KERN_DEBUG "  sts      = 0x%02x, extsts = 0x%02x\n"
 	       KERN_DEBUG "  clkdiv   = 0x%02x, xfrcnt = 0x%02x\n"
 	       KERN_DEBUG "  xtcntlss = 0x%02x, directcntl = 0x%02x\n",
-		in_8(&iic->cntl), in_8(&iic->mdcntl), in_8(&iic->sts), 
-		in_8(&iic->extsts), in_8(&iic->clkdiv), in_8(&iic->xfrcnt), 
+		in_8(&iic->cntl), in_8(&iic->mdcntl), in_8(&iic->sts),
+		in_8(&iic->extsts), in_8(&iic->clkdiv), in_8(&iic->xfrcnt),
 		in_8(&iic->xtcntlss), in_8(&iic->directcntl));
 }
 #  define DUMP_REGS(h,dev)	dump_iic_regs((h),(dev))
@@ -128,7 +128,7 @@ static inline void iic_interrupt_mode(struct ibm_iic_private* dev, int enable)
 {
 	out_8(&dev->vaddr->intmsk, enable ? INTRMSK_EIMTC : 0);
 }
- 
+
 /*
  * Initialize IIC interface.
  */
@@ -137,7 +137,7 @@ static void iic_dev_init(struct ibm_iic_private* dev)
 	volatile struct iic_regs __iomem *iic = dev->vaddr;
 
 	DBG("%s: init\n", dev->np->full_name);
-	
+
 	/* Clear master address */
 	out_8(&iic->lmadr, 0);
 	out_8(&iic->hmadr, 0);
@@ -163,7 +163,7 @@ static void iic_dev_init(struct ibm_iic_private* dev)
 
 	/* Clear control register */
 	out_8(&iic->cntl, 0);
-	
+
 	/* Enable interrupts if possible */
 	iic_interrupt_mode(dev, dev->irq >= 0);
 
@@ -174,7 +174,7 @@ static void iic_dev_init(struct ibm_iic_private* dev)
 	DUMP_REGS("iic_init", dev);
 }
 
-/* 
+/*
  * Reset IIC interface
  */
 static void iic_dev_reset(struct ibm_iic_private* dev)
@@ -182,42 +182,42 @@ static void iic_dev_reset(struct ibm_iic_private* dev)
 	volatile struct iic_regs __iomem *iic = dev->vaddr;
 	int i;
 	u8 dc;
-	
+
 	DBG("%s: soft reset\n", dev->np->full_name);
 	DUMP_REGS("reset", dev);
-	
+
     	/* Place chip in the reset state */
 	out_8(&iic->xtcntlss, XTCNTLSS_SRST);
-	
+
 	/* Check if bus is free */
-	dc = in_8(&iic->directcntl);	
+	dc = in_8(&iic->directcntl);
 	if (!DIRCTNL_FREE(dc)){
 		DBG("%s: trying to regain bus control\n", dev->np->full_name);
-	
+
 		/* Try to set bus free state */
-		out_8(&iic->directcntl, DIRCNTL_SDAC | DIRCNTL_SCC);	
-	
+		out_8(&iic->directcntl, DIRCNTL_SDAC | DIRCNTL_SCC);
+
 		/* Wait until we regain bus control */
 		for (i = 0; i < 100; ++i){
 			dc = in_8(&iic->directcntl);
 			if (DIRCTNL_FREE(dc))
 				break;
-			
+
 			/* Toggle SCL line */
 			dc ^= DIRCNTL_SCC;
 			out_8(&iic->directcntl, dc);
 			udelay(10);
 			dc ^= DIRCNTL_SCC;
 			out_8(&iic->directcntl, dc);
-			
+
 			/* be nice */
 			cond_resched();
 		}
 	}
-	
+
 	/* Remove reset */
 	out_8(&iic->xtcntlss, 0);
-	
+
 	/* Reinitialize interface */
 	iic_dev_init(dev);
 }
@@ -328,14 +328,14 @@ static irqreturn_t iic_handler(int irq, void *dev_id)
 {
 	struct ibm_iic_private* dev = dev_id;
 	volatile struct iic_regs __iomem *iic = dev->vaddr;
-	
+
 	DBG2("%s: irq handler, STS = 0x%02x, EXTSTS = 0x%02x\n",
 	     dev->np->full_name, in_8(&iic->sts), in_8(&iic->extsts));
-	
+
 	/* Acknowledge IRQ and wakeup iic_wait_for_tc */
 	out_8(&iic->sts, STS_IRQA | STS_SCMP);
 	wake_up_interruptible(&dev->wq);
-	
+
 	return IRQ_HANDLED;
 }
 
@@ -345,19 +345,19 @@ static irqreturn_t iic_handler(int irq, void *dev_id)
  */
 static int iic_xfer_result(struct ibm_iic_private* dev)
 {
-	volatile struct iic_regs __iomem *iic = dev->vaddr;	
-	
+	volatile struct iic_regs __iomem *iic = dev->vaddr;
+
 	if (unlikely(in_8(&iic->sts) & STS_ERR)){
 		DBG("%s: xfer error, EXTSTS = 0x%02x\n", dev->np->full_name,
 			in_8(&iic->extsts));
-				
+
 		/* Clear errors and possible pending IRQs */
-		out_8(&iic->extsts, EXTSTS_IRQP | EXTSTS_IRQD | 
+		out_8(&iic->extsts, EXTSTS_IRQP | EXTSTS_IRQD |
 			EXTSTS_LA | EXTSTS_ICT | EXTSTS_XFRA);
-			
+
 		/* Flush master data buffer */
 		out_8(&iic->mdcntl, in_8(&iic->mdcntl) | MDCNTL_FMDB);
-		
+
 		/* Is bus free?
 		 * If error happened during combined xfer
 		 * IIC interface is usually stuck in some strange
@@ -381,11 +381,11 @@ static void iic_abort_xfer(struct ibm_iic_private* dev)
 {
 	volatile struct iic_regs __iomem *iic = dev->vaddr;
 	unsigned long x;
-	
+
 	DBG("%s: iic_abost_xfer\n", dev->np->full_name);
-	
+
 	out_8(&iic->cntl, CNTL_HMT);
-	
+
 	/*
 	 * Wait for the abort command to complete.
 	 * It's not worth to be optimized, just poll (timeout >= 1 tick)
@@ -411,13 +411,13 @@ static void iic_abort_xfer(struct ibm_iic_private* dev)
  * Returns the number of transferred bytes or error (<0)
  */
 static int iic_wait_for_tc(struct ibm_iic_private* dev){
-	
+
 	volatile struct iic_regs __iomem *iic = dev->vaddr;
 	int ret = 0;
-	
+
 	if (dev->irq >= 0){
 		/* Interrupt mode */
-		ret = wait_event_interruptible_timeout(dev->wq, 
+		ret = wait_event_interruptible_timeout(dev->wq,
 			!(in_8(&iic->sts) & STS_PT), dev->adap.timeout * HZ);
 
 		if (unlikely(ret < 0))
@@ -430,14 +430,14 @@ static int iic_wait_for_tc(struct ibm_iic_private* dev){
 	else {
 		/* Polling mode */
 		unsigned long x = jiffies + dev->adap.timeout * HZ;
-		
+
 		while (in_8(&iic->sts) & STS_PT){
 			if (unlikely(time_after(jiffies, x))){
 				DBG("%s: poll timeout\n", dev->np->full_name);
 				ret = -ETIMEDOUT;
 				break;
 			}
-		
+
 			if (unlikely(signal_pending(current))){
 				DBG("%s: poll interrupted\n",
 						dev->np->full_name);
@@ -445,23 +445,23 @@ static int iic_wait_for_tc(struct ibm_iic_private* dev){
 				break;
 			}
 			schedule();
-		}	
+		}
 	}
-	
+
 	if (unlikely(ret < 0))
 		iic_abort_xfer(dev);
 	else
 		ret = iic_xfer_result(dev);
-	
+
 	DBG2("%s: iic_wait_for_tc -> %d\n", dev->np->full_name, ret);
-	
+
 	return ret;
 }
 
 /*
  * Low level master transfer routine
  */
-static int iic_xfer_bytes(struct ibm_iic_private* dev, struct i2c_msg* pm, 
+static int iic_xfer_bytes(struct ibm_iic_private* dev, struct i2c_msg* pm,
 			  int combined_xfer)
 {
 	volatile struct iic_regs __iomem *iic = dev->vaddr;
@@ -472,27 +472,27 @@ static int iic_xfer_bytes(struct ibm_iic_private* dev, struct i2c_msg* pm,
 	u8 cntl = (in_8(&iic->cntl) & CNTL_AMD) | CNTL_PT;
 	if (pm->flags & I2C_M_RD)
 		cntl |= CNTL_RW;
-	
+
 	loops = (len + 3) / 4;
 	for (i = 0; i < loops; ++i, len -= 4){
 		int count = len > 4 ? 4 : len;
 		u8 cmd = cntl | ((count - 1) << CNTL_TCT_SHIFT);
-		
+
 		if (!(cntl & CNTL_RW))
 			for (j = 0; j < count; ++j)
 				out_8((void __iomem *)&iic->mdbuf, *buf++);
-		
+
 		if (i < loops - 1)
 			cmd |= CNTL_CHT;
 		else if (combined_xfer)
 			cmd |= CNTL_RPST;
-		
+
 		DBG2("%s: xfer_bytes, %d, CNTL = 0x%02x\n",
 				dev->np->full_name, count, cmd);
-		
+
 		/* Start transfer */
 		out_8(&iic->cntl, cmd);
-		
+
 		/* Wait for completion */
 		ret = iic_wait_for_tc(dev);
 
@@ -501,20 +501,20 @@ static int iic_xfer_bytes(struct ibm_iic_private* dev, struct i2c_msg* pm,
 		else if (unlikely(ret != count)){
 			DBG("%s: xfer_bytes, requested %d, transfered %d\n",
 				dev->np->full_name, count, ret);
-			
+
 			/* If it's not a last part of xfer, abort it */
 			if (combined_xfer || (i < loops - 1))
     				iic_abort_xfer(dev);
-				
+
 			ret = -EREMOTEIO;
-			break;				
+			break;
 		}
-		
+
 		if (cntl & CNTL_RW)
 			for (j = 0; j < count; ++j)
 				*buf++ = in_8((void __iomem *)&iic->mdbuf);
 	}
-	
+
 	return ret > 0 ? 0 : ret;
 }
 
@@ -525,10 +525,10 @@ static inline void iic_address(struct ibm_iic_private* dev, struct i2c_msg* msg)
 {
 	volatile struct iic_regs __iomem *iic = dev->vaddr;
 	u16 addr = msg->addr;
-	
+
 	DBG2("%s: iic_address, 0x%03x (%d-bit)\n", dev->np->full_name,
 		addr, msg->flags & I2C_M_TEN ? 10 : 7);
-	
+
 	if (msg->flags & I2C_M_TEN){
 	    out_8(&iic->cntl, CNTL_AMD);
 	    out_8(&iic->lmadr, addr);
@@ -545,15 +545,15 @@ static inline int iic_invalid_address(const struct i2c_msg* p)
 	return (p->addr > 0x3ff) || (!(p->flags & I2C_M_TEN) && (p->addr > 0x7f));
 }
 
-static inline int iic_address_neq(const struct i2c_msg* p1, 
+static inline int iic_address_neq(const struct i2c_msg* p1,
 				  const struct i2c_msg* p2)
 {
-	return (p1->addr != p2->addr) 
+	return (p1->addr != p2->addr)
 		|| ((p1->flags & I2C_M_TEN) != (p2->flags & I2C_M_TEN));
-} 
+}
 
 /*
- * Generic master transfer entrypoint. 
+ * Generic master transfer entrypoint.
  * Returns the number of processed messages or error (<0)
  */
 static int iic_xfer(struct i2c_adapter *adap, struct i2c_msg *msgs, int num)
@@ -561,12 +561,12 @@ static int iic_xfer(struct i2c_adapter *adap, struct i2c_msg *msgs, int num)
     	struct ibm_iic_private* dev = i2c_get_adapdata(adap);
 	volatile struct iic_regs __iomem *iic = dev->vaddr;
 	int i, ret = 0;
-	
+
 	DBG2("%s: iic_xfer, %d msg(s)\n", dev->np->full_name, num);
-	
+
 	if (!num)
 		return 0;
-	
+
 	/* Check the sanity of the passed messages.
 	 * Uhh, generic i2c layer is more suitable place for such code...
 	 */
@@ -574,7 +574,7 @@ static int iic_xfer(struct i2c_adapter *adap, struct i2c_msg *msgs, int num)
 		DBG("%s: invalid address 0x%03x (%d-bit)\n", dev->np->full_name,
 			msgs[0].addr, msgs[0].flags & I2C_M_TEN ? 10 : 7);
 		return -EINVAL;
-	}		
+	}
 	for (i = 0; i < num; ++i){
 		if (unlikely(msgs[i].len <= 0)){
 			if (num == 1 && !msgs[0].len){
@@ -595,36 +595,36 @@ static int iic_xfer(struct i2c_adapter *adap, struct i2c_msg *msgs, int num)
 			return -EINVAL;
 		}
 	}
-	
+
 	/* Check bus state */
 	if (unlikely((in_8(&iic->extsts) & EXTSTS_BCS_MASK)
 				!= EXTSTS_BCS_FREE)){
 		DBG("%s: iic_xfer, bus is not free\n", dev->np->full_name);
-		
+
 		/* Usually it means something serious has happend.
 		 * We *cannot* have unfinished previous transfer
 		 * so it doesn't make any sense to try to stop it.
-		 * Probably we were not able to recover from the 
+		 * Probably we were not able to recover from the
 		 * previous error.
 		 * The only *reasonable* thing I can think of here
 		 * is soft reset.  --ebs
 		 */
 		iic_dev_reset(dev);
-		
+
 		if ((in_8(&iic->extsts) & EXTSTS_BCS_MASK) != EXTSTS_BCS_FREE){
 			DBG("%s: iic_xfer, bus is still not free\n",
 					dev->np->full_name);
 			return -EREMOTEIO;
 		}
-	} 
+	}
 	else {
 		/* Flush master data buffer (just in case) */
 		out_8(&iic->mdcntl, in_8(&iic->mdcntl) | MDCNTL_FMDB);
 	}
-	
+
 	/* Load slave address */
 	iic_address(dev, &msgs[0]);
-	
+
 	/* Do real transfer */
     	for (i = 0; i < num && !ret; ++i)
 		ret = iic_xfer_bytes(dev, &msgs[i], i < num - 1);
@@ -661,7 +661,7 @@ static inline u8 iic_clckdiv(unsigned int opb)
 
 	/* Convert to MHz */
 	opb /= 1000000;
-	
+
 	if (opb < 20 || opb > 150){
 		printk(KERN_CRIT"ibm-iic: invalid OPB clock frequency %u MHz\n",
 			opb);
@@ -729,7 +729,7 @@ static int __devinit iic_probe (struct of_device *ofdev,
 		if (request_irq(dev->irq, iic_handler, 0, "IBM IIC", dev)) {
 			printk(KERN_ERR "ibm-iic(%s): request_irq %d failed\n",
 					dev->np->full_name, dev->irq);
-			/* Fallback to the polling mode */	
+			/* Fallback to the polling mode */
 			dev->irq = -1;
 		}
 	}
@@ -742,7 +742,7 @@ static int __devinit iic_probe (struct of_device *ofdev,
 	prop = of_get_property(np, "iic-mode", &len);
 	/* use 400kHz only if stated in dts, 100kHz otherwise */
 	dev->fast_mode = (prop && (*prop == 400));
-	/* clckdiv is the same for *all* IIC interfaces, 
+	/* clckdiv is the same for *all* IIC interfaces,
 	 * but I'd rather make a copy than introduce another global. --ebs
 	 */
 	/* Parent bus should have frequency filled */
@@ -753,7 +753,7 @@ static int __devinit iic_probe (struct of_device *ofdev,
 			dev->np->full_name);
 		goto fail;
 	}
-	
+
 	dev->clckdiv = iic_clckdiv(*prop);
 	DBG("%s: clckdiv = %d\n", dev->np->full_name, dev->clckdiv);
 
@@ -786,18 +786,18 @@ static int __devinit iic_probe (struct of_device *ofdev,
 
 	return 0;
 
-fail:	
+fail:
 	if (dev->irq >= 0){
 		iic_interrupt_mode(dev, 0);
 		free_irq(dev->irq, dev);
-	}	
+	}
 
 	iounmap(dev->vaddr);
-fail2:	
+fail2:
 	release_mem_region(dev->paddr, sizeof(struct iic_regs));
 fail1:
 	dev_set_drvdata(&ofdev->dev, NULL);
-	kfree(dev);	
+	kfree(dev);
 
 	return ret;
 }
@@ -815,13 +815,13 @@ static int __devexit iic_remove(struct of_device *ofdev)
 			dev->np->full_name);
 		/* That's *very* bad, just shutdown IRQ ... */
 		if (dev->irq >= 0){
-		    iic_interrupt_mode(dev, 0);	
+		    iic_interrupt_mode(dev, 0);
 		    free_irq(dev->irq, dev);
 		    dev->irq = -1;
 		}
 	} else {
 		if (dev->irq >= 0){
-		    iic_interrupt_mode(dev, 0);	
+		    iic_interrupt_mode(dev, 0);
 		    free_irq(dev->irq, dev);
 		}
 		iounmap(dev->vaddr);
