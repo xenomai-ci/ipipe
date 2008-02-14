@@ -308,9 +308,6 @@ static int parse_cmdline_partitions(struct mtd_info *master,
 	struct cmdline_mtd_partition *part;
 	char *mtd_id = master->name;
 
-	if(!cmdline)
-		return -EINVAL;
-
 	/* parse command line */
 	if (!cmdline_parsed)
 		mtdpart_setup_real(cmdline);
@@ -341,7 +338,7 @@ static int parse_cmdline_partitions(struct mtd_info *master,
 			return part->num_parts;
 		}
 	}
-	return -EINVAL;
+	return 0;
 }
 
 
