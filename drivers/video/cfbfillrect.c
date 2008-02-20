@@ -24,8 +24,13 @@
 #include "fb_draw.h"
 
 #if BITS_PER_LONG == 32
+#if defined(CONFIG_4xx) && defined(CONFIG_FB_MB86290)
+#  define FB_WRITEL fb_writel_swapped
+#  define FB_READL  fb_readl_swapped
+#else
 #  define FB_WRITEL fb_writel
 #  define FB_READL  fb_readl
+#endif
 #else
 #  define FB_WRITEL fb_writeq
 #  define FB_READL  fb_readq

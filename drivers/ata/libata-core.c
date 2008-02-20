@@ -4190,6 +4190,7 @@ static const struct ata_blacklist_entry ata_device_blacklist [] = {
 	/* Devices which report 1 sector over size HPA */
 	{ "ST340823A",		NULL,		ATA_HORKAGE_HPA_SIZE, },
 	{ "ST320413A",		NULL,		ATA_HORKAGE_HPA_SIZE, },
+	{ "ST310211A",		NULL,		ATA_HORKAGE_HPA_SIZE, },
 
 	/* Devices which get the IVB wrong */
 	{ "QUANTUM FIREBALLlct10 05", "A03.0900", ATA_HORKAGE_IVB, },
@@ -7086,7 +7087,6 @@ int ata_host_register(struct ata_host *host, struct scsi_host_template *sht)
 	DPRINTK("probe begin\n");
 	for (i = 0; i < host->n_ports; i++) {
 		struct ata_port *ap = host->ports[i];
-		int rc;
 
 		/* probe */
 		if (ap->ops->error_handler) {
