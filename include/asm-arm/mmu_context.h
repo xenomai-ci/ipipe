@@ -95,12 +95,23 @@ switch_mm(struct mm_struct *prev, struct mm_struct *next,
 	  struct task_struct *tsk)
 {
 #ifdef CONFIG_MMU
-	unsigned int cpu = smp_processor_id();
+	unsigned int cpu = smp_processor_id_hw();
 
 	if (!cpu_test_and_set(cpu, next->cpu_vm_mask) || prev != next) {
 		check_context(next);
-		cpu_switch_mm(next->pgd, next);
-		if (cache_is_vivt())
+#if defined(CONFIG_IPIPE)
+		if (ipipe_current_domain == ipipe_root_domain) {
+			do {
+				per_cpu(ipipe_active_mm, cpu) = NULL; /* mm state is undefined. */
+				barrier();
+				cpu_switch_mm(next->pgd, next);
+				barrier();
+				per_cpu(ipipe_active_mm, cpu) = next;
+			} while (test_and_clear_thread_flag(TIF_MMSWITCH_INT));
+		} else
+#endif /* CONFIG_IPIPE */
+			cpu_switch_mm(next->pgd, next);
+		if (cache_is_vivt() && prev)
 			cpu_clear(cpu, prev->cpu_vm_mask);
 	}
 #endif
