@@ -139,6 +139,10 @@
 						label = "kernel";
 						reg = <0 200000>;
 					};
+					partition@1e0000 {
+						label = "dtb";
+						reg = <1e0000 20000>;
+					};
 					partition@200000 {
 						label = "root";
 						reg = <200000 200000>;
