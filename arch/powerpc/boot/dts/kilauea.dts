@@ -138,7 +138,7 @@
 					#size-cells = <1>;
 					partition@0 {
 						label = "kernel";
-						reg = <0 200000>;
+						reg = <0 1e0000>;
 					};
 					partition@1e0000 {
 						label = "dtb";
@@ -350,6 +350,20 @@
 				0000 0 0 2 &UIC2 c 4 /* swizzled int B */
 				0000 0 0 3 &UIC2 d 4 /* swizzled int C */
 				0000 0 0 4 &UIC2 e 4 /* swizzled int D */>;
+		};
+
+		USBOTG0: usbotg@ef6c0000 {
+			compatible = "amcc,usb-otg-405ex";
+			reg = <ef6c0000 10000>;
+			interrupt-parent = <&USBOTG0>;
+			interrupts = <0 1 2>;
+			#interrupt-cells = <1>;
+			#address-cells = <0>;
+			#size-cells = <0>;
+			interrupt-map = </* USB-OTG */ 0 &UIC2 1e 4
+					 /* HIGH-POWER */ 1 &UIC1 1a 8
+					 /* DMA */ 2 &UIC0 c 4>;
+			interrupt-map-mask = <ffffffff>;
 		};
 	};
 };

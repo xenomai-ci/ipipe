@@ -137,7 +137,7 @@
 					#size-cells = <1>;
 					partition@0 {
 						label = "kernel";
-						reg = <0 200000>;
+						reg = <0 1e0000>;
 					};
 					partition@1e0000 {
 						label = "dtb";
@@ -207,6 +207,7 @@
 			};
 
 			RGMII0: emac-rgmii@ef600b00 {
+				device_type = "rgmii-interface";
 				compatible = "ibm,rgmii-405exr", "ibm,rgmii";
 				reg = <ef600b00 104>;
 				has-mdio;
@@ -246,7 +247,7 @@
 			#interrupt-cells = <1>;
 			#size-cells = <2>;
 			#address-cells = <3>;
-			compatible = "ibm,plb-pciex-405exr", "ibm,plb-pciex";
+			compatible = "ibm,plb-pciex-405ex", "ibm,plb-pciex";
 			primary;
 			port = <0>; /* port number */
 			reg = <a0000000 20000000	/* Config space access */
@@ -280,6 +281,20 @@
 				0000 0 0 2 &UIC2 1 4 /* swizzled int B */
 				0000 0 0 3 &UIC2 2 4 /* swizzled int C */
 				0000 0 0 4 &UIC2 3 4 /* swizzled int D */>;
+		};
+
+		USBOTG0: usbotg@ef6c0000 {
+			compatible = "amcc,usb-otg-405ex";
+			reg = <ef6c0000 10000>;
+			interrupt-parent = <&USBOTG0>;
+			interrupts = <0 1 2>;
+			#interrupt-cells = <1>;
+			#address-cells = <0>;
+			#size-cells = <0>;
+			interrupt-map = </* USB-OTG */ 0 &UIC2 1e 4
+					 /* HIGH-POWER */ 1 &UIC1 1a 8
+					 /* DMA */ 2 &UIC0 c 4>;
+			interrupt-map-mask = <ffffffff>;
 		};
 	};
 };
