@@ -712,10 +712,6 @@ void __ipipe_pin_range_globally(unsigned long start, unsigned long end)
 	/* We don't support this. */
 }
 
-EXPORT_SYMBOL(ipipe_critical_enter);
-EXPORT_SYMBOL(ipipe_critical_exit);
-EXPORT_SYMBOL(ipipe_trigger_irq);
-EXPORT_SYMBOL(ipipe_get_sysinfo);
 #ifdef CONFIG_SMP
 EXPORT_SYMBOL(__ipipe_stall_root);
 EXPORT_SYMBOL(__ipipe_test_root);
