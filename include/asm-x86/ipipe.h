@@ -40,10 +40,11 @@ DECLARE_PER_CPU(struct pt_regs, __ipipe_tick_regs);
 #endif
 
 /*
- * The logical processor id is read from the PDA, so this is always
- * safe, regardless of the underlying stack.
+ * The logical processor id and the current Linux task are read from the PDA,
+ * so this is always safe, regardless of the underlying stack.
  */
 #define ipipe_processor_id()	raw_smp_processor_id()
+#define ipipe_safe_current()	current
 
 #define prepare_arch_switch(next)		\
 do {						\
