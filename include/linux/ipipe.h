@@ -435,6 +435,7 @@ static inline void ipipe_clear_foreign_stack(struct ipipe_domain *ipd)
 	__clear_bit(IPIPE_NOSTACK_FLAG, &ipipe_cpudom_var(ipd, status));
 }
 
+#ifndef ipipe_safe_current
 #define ipipe_safe_current()					\
 ({								\
 	struct task_struct *p;					\
@@ -442,6 +443,7 @@ static inline void ipipe_clear_foreign_stack(struct ipipe_domain *ipd)
 		     &ipipe_this_cpudom_var(status)) ? &init_task : current; \
 	p; \
 })
+#endif
 
 ipipe_event_handler_t ipipe_catch_event(struct ipipe_domain *ipd,
 					unsigned event,
