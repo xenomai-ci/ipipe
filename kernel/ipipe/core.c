@@ -1624,3 +1624,13 @@ EXPORT_SYMBOL(__ipipe_schedule_irq);
 EXPORT_SYMBOL(ipipe_request_tickdev);
 EXPORT_SYMBOL(ipipe_release_tickdev);
 #endif
+
+EXPORT_SYMBOL(ipipe_critical_enter);
+EXPORT_SYMBOL(ipipe_critical_exit);
+EXPORT_SYMBOL(ipipe_trigger_irq);
+EXPORT_SYMBOL(ipipe_get_sysinfo);
+
+#ifdef CONFIG_IPIPE_TRACE_MCOUNT
+void notrace mcount(void);
+EXPORT_SYMBOL(mcount);
+#endif /* CONFIG_IPIPE_TRACE_MCOUNT */
