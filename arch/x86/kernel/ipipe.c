@@ -644,8 +644,13 @@ asmlinkage int __ipipe_syscall_root(struct pt_regs *regs)
 static void do_machine_check_vector(struct pt_regs *regs, long error_code)
 {
 #ifdef CONFIG_X86_MCE
+#ifdef CONFIG_X86_32
+	extern void (*machine_check_vector)(struct pt_regs *, long error_code);
+	machine_check_vector(regs, error_code);
+#else  /* !CONFIG_X86_32 */
 	void do_machine_check(struct pt_regs *, long);
-	do_machine_check(regs,error_code);
+	do_machine_check(regs, error_code);
+#endif /* !CONFIG_X86_32 */
 #endif /* CONFIG_X86_MCE */
 }
 
