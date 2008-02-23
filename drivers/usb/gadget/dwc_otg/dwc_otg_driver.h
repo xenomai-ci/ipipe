@@ -1,13 +1,13 @@
 /* ==========================================================================
  * $File: //dwh/usb_iip/dev/software/otg_ipmate/linux/drivers/dwc_otg_driver.h $
- * $Revision: #1 $
- * $Date: 2005/07/07 $
- * $Change: 510275 $
+ * $Revision: #2 $
+ * $Date: 2007/02/07 $
+ * $Change: 791271 $
  *
  * Synopsys HS OTG Linux Software Driver and documentation (hereinafter,
  * "Software") is an Unsupported proprietary work of Synopsys, Inc. unless
  * otherwise expressly agreed to in writing between Synopsys and you.
- *
+ * 
  * The Software IS NOT an item of Licensed Software or Licensed Product under
  * any End User Software License Agreement or Agreement for Licensed Product
  * with Synopsys or any supplement thereto. You are permitted to use and
@@ -17,7 +17,7 @@
  * any information contained herein except pursuant to this license grant from
  * Synopsys. If you do not agree with this notice, including the disclaimer
  * below, then you are not authorized to use the Software.
- *
+ * 
  * THIS SOFTWARE IS BEING DISTRIBUTED BY SYNOPSYS SOLELY ON AN "AS IS" BASIS
  * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
  * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
@@ -34,17 +34,6 @@
 #if !defined(__DWC_OTG_DRIVER_H__)
 #define __DWC_OTG_DRIVER_H__
 
-/* DFX TODO remove these debugging aids. */
-extern int in_set_config;
-
-//#define DFX_DBG 1
-
-#ifdef DFX_DBG
-#undef dev_dbg
-#define dev_dbg(dev, format, arg...)		\
-	dev_printk(KERN_INFO , dev , format , ## arg)
-#endif
-
 /** @file
  * This file contains the interface to the Linux driver.
  */
@@ -60,35 +49,34 @@ struct dwc_otg_hcd;
  */
 typedef struct dwc_otg_device
 {
-        /** Base address returned from ioremap() */
-        void *base;
+	/** Base address returned from ioremap() */
+	void *base;
 
-        /** Pointer to the core interface structure. */
-        dwc_otg_core_if_t *core_if;
+	/** Pointer to the core interface structure. */
+	dwc_otg_core_if_t *core_if;
 
-        /** Register offset for Diagnostic API.*/
-        uint32_t reg_offset;
+	/** Register offset for Diagnostic API.*/
+	uint32_t reg_offset;
+	
+	/** Pointer to the PCD structure. */
+	struct dwc_otg_pcd *pcd;
 
-        /** Pointer to the PCD structure. */
-        struct dwc_otg_pcd *pcd;
-
-        /** Pointer to the HCD structure. */
-        struct dwc_otg_hcd *hcd;
+	/** Pointer to the HCD structure. */
+	struct dwc_otg_hcd *hcd;
 
 	/** Flag to indicate whether the common IRQ handler is installed. */
 	uint8_t common_irq_installed;
 
-        /** Interrupt request number. */
+    /** Interrupt request number. */
 	unsigned int irq;
 
-        /** Physical address of Control and Status registers, used by
-         *  release_mem_region().
-         */
+    /** Physical address of Control and Status registers, used by
+     *  release_mem_region().
+     */
 	unsigned long phys_addr;
 
-        /** Length of memory region, used by release_mem_region(). */
+    /** Length of memory region, used by release_mem_region(). */
 	unsigned long base_len;
-
 } dwc_otg_device_t;
 
 #endif

@@ -48,12 +48,18 @@
  *
  */
 #if !defined(CONFIG_4xx)
-#error "The contents of this file are AMCC 4xx processor specific!!!"
+#error "The contents of this file are AMCC 44x processor specific!!!"
 #endif
 
-/* Define from arm architecture */
-#define SZ_256K  0x00040000
+#if defined(CONFIG_405EX)
+#define CONFIG_DWC_OTG_REG_LE
+#endif
 
+#if defined(CONFIG_405EZ)
+#define CONFIG_DWC_OTG_FIFO_LE
+#endif
+
+#define SZ_256K  0x00040000
 /**
  * Reads the content of a register.
  *
@@ -66,22 +72,11 @@
  */
 static __inline__ uint32_t dwc_read_reg32( volatile uint32_t *_reg)
 {
-        return in_be32(_reg);
-};
-
-/**
- * Reads the content of a FIFO register.
- *
- * @param _reg address of register to read.
- * @return contents of the register.
- *
-
- * Usage:<br>
- * <code>uint32_t dev_ctl = dwc_read_reg32(&dev_regs->dctl);</code>
- */
-static __inline__ uint32_t dwc_read_fifo32( volatile uint32_t *_reg)
-{
-        return in_le32(_reg);
+#ifdef CONFIG_DWC_OTG_REG_LE
+	return in_le32(_reg);
+#else
+	return in_be32(_reg);
+#endif
 };
 
 /**
@@ -95,21 +90,11 @@ static __inline__ uint32_t dwc_read_fifo32( volatile uint32_t *_reg)
  */
 static __inline__ void dwc_write_reg32( volatile uint32_t *_reg, const uint32_t _value)
 {
-        out_be32( _reg, _value );
-};
-
-/**
- * Writes a FIFO register with a 32 bit value.
- *
- * @param _reg address of the FIFO register to read.
- * @param _value to write to _reg.
- *
- * Usage:<br>
- * <code>dwc_write_fifo32(&dev_regs->dctl, 0); </code>
- */
-static __inline__ void dwc_write_fifo32( volatile uint32_t *_reg, const uint32_t _value)
-{
-        out_le32(_reg, _value);
+#ifdef CONFIG_DWC_OTG_REG_LE
+	 out_le32(_reg, _value);
+#else
+	 out_be32(_reg, _value);
+#endif
 };
 
 /**
@@ -126,9 +111,31 @@ static __inline__ void dwc_write_fifo32( volatile uint32_t *_reg, const uint32_t
  *    dwc_modify_reg32(&dev_regs->gintmsk, DWC_SOF_INT, DWC_OTG_INT);</code>
  */
 static __inline__
- void dwc_modify_reg32( volatile uint32_t *_reg, const uint32_t _clear_mask, const uint32_t _set_mask)
+void dwc_modify_reg32( volatile uint32_t *_reg, const uint32_t _clear_mask, const uint32_t _set_mask)
 {
-        out_be32( _reg, (in_be32(_reg) & ~_clear_mask) | _set_mask );
+#ifdef CONFIG_DWC_OTG_REG_LE
+	out_le32( _reg, (in_le32(_reg) & ~_clear_mask) | _set_mask );
+#else
+	out_be32( _reg, (in_be32(_reg) & ~_clear_mask) | _set_mask );
+#endif
+};
+
+static __inline__ void dwc_write_datafifo32( volatile uint32_t *_reg, const uint32_t _value)
+{
+#ifdef CONFIG_DWC_OTG_FIFO_LE
+	out_le32(_reg, _value);
+#else
+	out_be32(_reg, _value);
+#endif
+};
+
+static __inline__ uint32_t dwc_read_datafifo32( volatile uint32_t *_reg)
+{
+#ifdef CONFIG_DWC_OTG_FIFO_LE
+	return in_le32(_reg);
+#else
+	return in_be32(_reg);
+#endif
 };
 
 
@@ -138,7 +145,7 @@ static __inline__
  */
 static __inline__ void UDELAY( const uint32_t _usecs )
 {
-        udelay( _usecs );
+	udelay( _usecs );
 }
 
 /**
@@ -147,7 +154,7 @@ static __inline__ void UDELAY( const uint32_t _usecs )
  */
 static __inline__ void MDELAY( const uint32_t _msecs )
 {
-        mdelay( _msecs );
+	mdelay( _msecs );
 }
 
 /**
@@ -158,7 +165,7 @@ static __inline__ void MDELAY( const uint32_t _msecs )
  */
 static __inline__ void SPIN_LOCK( spinlock_t *_lock )
 {
-        spin_lock(_lock);
+	spin_lock(_lock);
 }
 
 /**
@@ -169,7 +176,7 @@ static __inline__ void SPIN_LOCK( spinlock_t *_lock )
  */
 static __inline__ void SPIN_UNLOCK( spinlock_t *_lock )
 {
-        spin_unlock(_lock);
+	spin_unlock(_lock);
 }
 
 /**
@@ -209,17 +216,16 @@ extern uint32_t g_dbg_lvl;
  */
 static inline uint32_t SET_DEBUG_LEVEL( const uint32_t _new )
 {
-        uint32_t old = g_dbg_lvl;
-        g_dbg_lvl = _new;
-        return old;
+	uint32_t old = g_dbg_lvl;
+	g_dbg_lvl = _new;
+	return old;
 }
 
 /** When debug level has the DBG_CIL bit set, display CIL Debug messages. */
 #define DBG_CIL		(0x2)
 /** When debug level has the DBG_CILV bit set, display CIL Verbose debug
  * messages */
-/* DFX FIXME #define DBG_CILV	(0x20)*/
-#define DBG_CILV	(0x22)
+#define DBG_CILV	(0x20)
 /**  When debug level has the DBG_PCD bit set, display PCD (Device) debug
  *  messages */
 #define DBG_PCD		(0x4)
@@ -262,8 +268,6 @@ static inline uint32_t SET_DEBUG_LEVEL( const uint32_t _new )
  * </code>
  */
 #ifdef DEBUG
-
-//# define DWC_DEBUGPL(lvl, x...) do{ if ((lvl)&g_dbg_lvl)printk( KERN_DEBUG USB_DWC x ); }while(0)
 # define DWC_DEBUGPL(lvl, x...) do{ if ((lvl)&g_dbg_lvl)printk( KERN_ERR USB_DWC x ); }while(0)
 # define DWC_DEBUGP(x...)	DWC_DEBUGPL(DBG_ANY, x )
 
@@ -293,8 +297,7 @@ static inline uint32_t SET_DEBUG_LEVEL( const uint32_t _new )
 /**
  *  Basic message printing.
  */
-// DFX was #define DWC_PRINT(x...) printk( KERN_INFO USB_DWC x )
-#define DWC_PRINT(x...) printk( KERN_ERR USB_DWC x )
+#define DWC_PRINT(x...) printk( KERN_INFO USB_DWC x )
 
 #endif
 

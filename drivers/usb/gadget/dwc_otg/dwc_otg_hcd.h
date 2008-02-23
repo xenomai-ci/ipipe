@@ -1,13 +1,13 @@
 /* ==========================================================================
  * $File: //dwh/usb_iip/dev/software/otg_ipmate/linux/drivers/dwc_otg_hcd.h $
- * $Revision: #5 $
- * $Date: 2005/09/15 $
- * $Change: 537387 $
+ * $Revision: #6 $
+ * $Date: 2006/12/05 $
+ * $Change: 762293 $
  *
  * Synopsys HS OTG Linux Software Driver and documentation (hereinafter,
  * "Software") is an Unsupported proprietary work of Synopsys, Inc. unless
  * otherwise expressly agreed to in writing between Synopsys and you.
- * 
+ *
  * The Software IS NOT an item of Licensed Software or Licensed Product under
  * any End User Software License Agreement or Agreement for Licensed Product
  * with Synopsys or any supplement thereto. You are permitted to use and
@@ -17,7 +17,7 @@
  * any information contained herein except pursuant to this license grant from
  * Synopsys. If you do not agree with this notice, including the disclaimer
  * below, then you are not authorized to use the Software.
- * 
+ *
  * THIS SOFTWARE IS BEING DISTRIBUTED BY SYNOPSYS SOLELY ON AN "AS IS" BASIS
  * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
  * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
@@ -210,10 +210,12 @@ typedef struct dwc_otg_qh {
  */
 typedef struct dwc_otg_hcd {
 
+	spinlock_t		lock;
+
 	/** DWC OTG Core Interface Layer */
 	dwc_otg_core_if_t       *core_if;
 
-	/** Internal DWC HCD Flags */	
+	/** Internal DWC HCD Flags */
 	volatile union dwc_otg_hcd_internal_flags {
 		uint32_t d32;
 		struct {
@@ -334,7 +336,7 @@ typedef struct dwc_otg_hcd {
 	/**
 	 * Buffer to use for any data received during the status phase of a
 	 * control transfer. Normally no data is transferred during the status
-	 * phase. This buffer is used as a bit bucket. 
+	 * phase. This buffer is used as a bit bucket.
 	 */
 	uint8_t			*status_buf;
 
@@ -342,13 +344,14 @@ typedef struct dwc_otg_hcd {
 	 * DMA address for status_buf.
 	 */
 	dma_addr_t		status_buf_dma;
-#define DWC_OTG_HCD_STATUS_BUF_SIZE 64	
+#define DWC_OTG_HCD_STATUS_BUF_SIZE 64
 
 	/**
 	 * Structure to allow starting the HCD in a non-interrupt context
 	 * during an OTG role change.
 	 */
 	struct work_struct	start_work;
+	struct usb_hcd		*_p;
 
 	/**
 	 * Connection timer. An OTG host must display a message if the device
@@ -377,7 +380,7 @@ typedef struct dwc_otg_hcd {
 	uint64_t		hfnum_0_frrem_accum_b;
 	uint32_t		hfnum_other_samples_b;
 	uint64_t		hfnum_other_frrem_accum_b;
-#endif	
+#endif
 
 } dwc_otg_hcd_t;
 
@@ -395,7 +398,7 @@ static inline struct usb_hcd *dwc_otg_hcd_to_hcd(dwc_otg_hcd_t *dwc_otg_hcd)
 
 /** @name HCD Create/Destroy Functions */
 /** @{ */
-extern int __init dwc_otg_hcd_init(struct device *_dev);
+extern int  __init dwc_otg_hcd_init(struct device *_dev, dwc_otg_device_t * dwc_otg_device);
 extern void dwc_otg_hcd_remove(struct device *_dev);
 /** @} */
 
@@ -406,24 +409,22 @@ extern int dwc_otg_hcd_start(struct usb_hcd *hcd);
 extern void dwc_otg_hcd_stop(struct usb_hcd *hcd);
 extern int dwc_otg_hcd_get_frame_number(struct usb_hcd *hcd);
 extern void dwc_otg_hcd_free(struct usb_hcd *hcd);
-extern int dwc_otg_hcd_urb_enqueue(struct usb_hcd *hcd, 
-				   struct usb_host_endpoint *ep,
-				   struct urb *urb, 
-				   int mem_flags);
-extern int dwc_otg_hcd_urb_dequeue(struct usb_hcd *hcd, 
-				   struct usb_host_endpoint *ep,
-				   struct urb *urb);
+extern int dwc_otg_hcd_urb_enqueue(struct usb_hcd *hcd,
+				   struct urb *urb,
+				   gfp_t mem_flags);
+extern int dwc_otg_hcd_urb_dequeue(struct usb_hcd *hcd,
+/*				   struct usb_host_endpoint *ep,*/
+				   struct urb *urb, int status);
 extern void dwc_otg_hcd_endpoint_disable(struct usb_hcd *hcd,
 					 struct usb_host_endpoint *ep);
-extern irqreturn_t dwc_otg_hcd_irq(struct usb_hcd *hcd, 
-				   struct pt_regs *regs);
-extern int dwc_otg_hcd_hub_status_data(struct usb_hcd *hcd, 
+extern irqreturn_t dwc_otg_hcd_irq(struct usb_hcd *hcd);
+extern int dwc_otg_hcd_hub_status_data(struct usb_hcd *hcd,
 				       char *buf);
-extern int dwc_otg_hcd_hub_control(struct usb_hcd *hcd, 
-				   u16 typeReq, 
-				   u16 wValue, 
-				   u16 wIndex, 
-				   char *buf, 
+extern int dwc_otg_hcd_hub_control(struct usb_hcd *hcd,
+				   u16 typeReq,
+				   u16 wValue,
+				   u16 wIndex,
+				   char *buf,
 				   u16 wLength);
 
 /** @} */
@@ -543,8 +544,9 @@ static inline struct usb_host_endpoint *dwc_urb_to_endpoint(struct urb *_urb)
  * Gets the endpoint number from a _bEndpointAddress argument. The endpoint is
  * qualified with its direction (possible 32 endpoints per device).
  */
-#define dwc_ep_addr_to_endpoint(_bEndpointAddress_) ((_bEndpointAddress_ & USB_ENDPOINT_NUMBER_MASK) | \
-                                                     ((_bEndpointAddress_ & USB_DIR_IN) != 0) << 4)
+#define dwc_ep_addr_to_endpoint(_bEndpointAddress_) \
+	((_bEndpointAddress_ & USB_ENDPOINT_NUMBER_MASK) | \
+    ((_bEndpointAddress_ & USB_DIR_IN) != 0) << 4)
 
 /** Gets the QH that contains the list_head */
 #define dwc_list_to_qh(_list_head_ptr_) (container_of(_list_head_ptr_,dwc_otg_qh_t,qh_list_entry))
@@ -638,7 +640,7 @@ static inline uint16_t dwc_micro_frame_num (uint16_t _frame)
 	} \
 }
 #else
-#define dwc_sample_frrem(_hcd, _qh, _letter) 
-#endif		
+#define dwc_sample_frrem(_hcd, _qh, _letter)
+#endif
 #endif
 #endif /* DWC_DEVICE_ONLY */

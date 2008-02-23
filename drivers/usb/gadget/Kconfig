@@ -363,11 +363,11 @@ config USB_MUSBHSFC
 
 config USB_GADGET_DWC_OTG
 	boolean "Synopsys DWC OTG Controller"
-	depends on 405EZ
+	depends on 405EZ || 405EX
 	select USB_GADGET_DUALSPEED
 	help
 	   This driver provides USB Device Controller support for the
-	   Synopsys DesignWare USB OTG Core used on the AMCC 405EZ.
+	   Synopsys DesignWare USB OTG Core used on the AMCC 405EZ/405EX.
 
 	   Note that on the 405EZ, this Core provides USB Device Controller
 	   function only.  It does not act as a true OTG device, and the
