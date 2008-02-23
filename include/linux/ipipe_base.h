@@ -78,7 +78,7 @@ static inline void ipipe_check_context(struct ipipe_domain *border_ipd) { }
 #define ipipe_preempt_disable(flags)	do { \
 						preempt_disable(); \
 						(void)(flags); \
-					while (0)
+					} while (0)
 #define ipipe_preempt_enable(flags)	preempt_enable()
 #define ipipe_check_context(ipd)	do { } while(0)
 #endif	/* CONFIG_IPIPE */
