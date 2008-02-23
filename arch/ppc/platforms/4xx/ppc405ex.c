@@ -166,65 +166,39 @@ struct ppc4xx_uic_settings ppc4xx_core_uic_cfg[] __initdata = {
 	},
 };
 
-static struct resource usb_gadget_resources[] = {
-	[0] = {
-		.start	= 0xEF640000,
-		.end 	= 0xEF67FFFF,
-		.flags	= IORESOURCE_MEM,
-	},
-	[1] = {
-		/*.name	= "usb_device_irq",*/
-		.start	= 15,
-		.end	= 15,
-		.flags	= IORESOURCE_IRQ,
-	},
-};
-
-static struct resource ohci_usb_resources[] = {
-	[0] = {
-		.start	= 0x0EF603000,
-		.end	= 0x0EF6031FF,
-		.flags	= IORESOURCE_MEM,
-	},
-	[1] = {
-		.start	= 13,
-		.end	= 14,
-		.flags	= IORESOURCE_IRQ,
-	},
+static struct resource usb_otg_resources[] = {
+        [0] = {
+                .start  = 0xEF6C0000,
+                .end    = 0xEF6CFFFF,
+                .flags  = IORESOURCE_MEM,
+        },
+        [1] = {
+                /*.name = "usb_device_irq",*/
+                .start  = 94,
+                .end    = 94,
+                .flags  = IORESOURCE_IRQ,
+        },
 };
 
 static u64 dma_mask = 0xffffffffULL;
 
-static struct platform_device ohci_usb_device = {
-	.name		= "ppc-soc-ohci",
-	.id		= 0,
-	.num_resources	= ARRAY_SIZE(ohci_usb_resources),
-	.resource	= ohci_usb_resources,
-	.dev		= {
-		.dma_mask = &dma_mask,
-		.coherent_dma_mask = 0xffffffffULL,
-	}
-};
-
-static struct platform_device usb_gadget_device = {
-	.name		= "dwc_otg",
-	.id		= 0,
-	.num_resources	= ARRAY_SIZE(usb_gadget_resources),
-	.resource       = usb_gadget_resources,
-	.dev		= {
-		.dma_mask = &dma_mask,
-		.coherent_dma_mask = 0xffffffffULL,
-	}
+static struct platform_device usb_otg_device = {
+        .name = "dwc_otg",
+        .id = 0,
+        .num_resources = ARRAY_SIZE(usb_otg_resources),
+        .resource = usb_otg_resources,
+        .dev = {
+                .dma_mask = &dma_mask,
+                .coherent_dma_mask = 0xffffffffULL,
+        }
 };
 
 static struct platform_device *ppc405ex_devs[] __initdata = {
-	&ohci_usb_device,
-	&usb_gadget_device,
+        &usb_otg_device,
 };
 
-static int __init
-ppc405ex_platform_add_devices(void)
+static int __init ppc405ex_platform_add_devices(void)
 {
-	return platform_add_devices(ppc405ex_devs, ARRAY_SIZE(ppc405ex_devs));
+        return platform_add_devices(ppc405ex_devs, ARRAY_SIZE(ppc405ex_devs));
 }
-arch_initcall(ppc405ex_platform_add_devices);
+device_initcall(ppc405ex_platform_add_devices);
