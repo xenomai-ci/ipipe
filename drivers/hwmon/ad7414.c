@@ -39,7 +39,7 @@ I2C_CLIENT_INSMOD;
 
 struct ad7414_data {
 	struct i2c_client	client;
-	struct class_device	*class_dev;
+	struct device		*hwmon_dev;
 	struct mutex		lock;
 	char			valid;		/* !=0 if following fields are valid */
 	unsigned long		last_updated;	/* In jiffies */
@@ -229,9 +229,9 @@ static int ad7414_detect(struct i2c_adapter *adapter, int address, int kind)
 	if ((err = sysfs_create_group(&client->dev.kobj, &ad7414_group)))
 		goto exit_detach;
 
-	data->class_dev = hwmon_device_register(&client->dev);
-	if (IS_ERR(data->class_dev)) {
-		err = PTR_ERR(data->class_dev);
+	data->hwmon_dev = hwmon_device_register(&client->dev);
+	if (IS_ERR(data->hwmon_dev)) {
+		err = PTR_ERR(data->hwmon_dev);
 		goto exit_remove;
 	}
 
@@ -250,7 +250,7 @@ exit:
 static int ad7414_detach_client(struct i2c_client *client)
 {
 	struct ad7414_data *data = i2c_get_clientdata(client);
-	hwmon_device_unregister(data->class_dev);
+	hwmon_device_unregister(data->hwmon_dev);
 	sysfs_remove_group(&client->dev.kobj, &ad7414_group);
 	i2c_detach_client(client);
 	kfree(data);
