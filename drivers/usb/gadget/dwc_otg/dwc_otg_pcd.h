@@ -1,8 +1,8 @@
 /* ==========================================================================
  * $File: //dwh/usb_iip/dev/software/otg_ipmate/linux/drivers/dwc_otg_pcd.h $
- * $Revision: #3 $
- * $Date: 2005/09/15 $
- * $Change: 537387 $
+ * $Revision: #6 $
+ * $Date: 2007/02/07 $
+ * $Change: 791271 $
  *
  * Synopsys HS OTG Linux Software Driver and documentation (hereinafter,
  * "Software") is an Unsupported proprietary work of Synopsys, Inc. unless
@@ -39,7 +39,7 @@
 #include <linux/errno.h>
 #include <linux/device.h>
 #include <linux/usb/ch9.h>
-#include <linux/usb_gadget.h>
+#include <linux/usb/gadget.h>
 #include <linux/interrupt.h>
 #include <linux/dma-mapping.h>
 
@@ -55,7 +55,7 @@ struct dwc_otg_device;
  * the Perpherial Contoller Driver (PCD).
  *
  * The Peripheral Controller Driver (PCD) for Linux will implement the
- * Gadget API, so that the existing Gadget drivers can be used.  For
+ * Gadget API, so that the existing Gadget drivers can be used.	 For
  * the Mass Storage Function driver the File-backed USB Storage Gadget
  * (FBS) driver will be used.  The FBS driver supports the
  * Control-Bulk (CB), Control-Bulk-Interrupt (CBI), and Bulk-Only
@@ -64,9 +64,9 @@ struct dwc_otg_device;
  */
 
 /** Invalid DMA Address */
-#define	DMA_ADDR_INVALID	(~(dma_addr_t)0)
+#define DMA_ADDR_INVALID	(~(dma_addr_t)0)
 /** Maxpacket size for EP0 */
-#define	MAX_EP0_SIZE	64
+#define MAX_EP0_SIZE	64
 /** Maxpacket size for any EP */
 #define MAX_PACKET_SIZE 1024
 
@@ -90,28 +90,28 @@ typedef enum ep0_state {
 /** Fordward declaration.*/
 struct dwc_otg_pcd;
 
-/**   PCD EP structure.
+/**	  PCD EP structure.
  * This structure describes an EP, there is an array of EPs in the PCD
  * structure.
  */
 typedef struct dwc_otg_pcd_ep {
-        /** USB EP data */
-        struct usb_ep		ep;
-        /** USB EP Descriptor */
-        const struct usb_endpoint_descriptor	*desc;
+	/** USB EP data */
+	struct usb_ep		ep;
+	/** USB EP Descriptor */
+	const struct usb_endpoint_descriptor	*desc;
 
-        /** queue of dwc_otg_pcd_requests. */
-        struct list_head	queue;
-        unsigned stopped : 1;
-        unsigned disabling : 1;
-        unsigned dma : 1;
-        unsigned queue_sof : 1;
+	/** queue of dwc_otg_pcd_requests. */
+	struct list_head	queue;
+	unsigned stopped : 1;
+	unsigned disabling : 1;
+	unsigned dma : 1;
+	unsigned queue_sof : 1;
 
-        /** DWC_otg ep data. */
-        dwc_ep_t dwc_ep;
+	/** DWC_otg ep data. */
+	dwc_ep_t dwc_ep;
 
-        /** Pointer to PCD */
-        struct dwc_otg_pcd *pcd;
+	/** Pointer to PCD */
+	struct dwc_otg_pcd *pcd;
 }dwc_otg_pcd_ep_t;
 
 
@@ -120,42 +120,38 @@ typedef struct dwc_otg_pcd_ep {
  * This structure encapsulates the data for the dwc_otg PCD.
  */
 typedef struct dwc_otg_pcd {
-        /** USB gadget */
-        struct usb_gadget gadget;
-        /** USB gadget driver pointer*/
-        struct usb_gadget_driver *driver;
-        /** The DWC otg device pointer. */
-        struct dwc_otg_device *otg_dev;
+	/** USB gadget */
+	struct usb_gadget gadget;
+	/** USB gadget driver pointer*/
+	struct usb_gadget_driver *driver;
+	/** The DWC otg device pointer. */
+	struct dwc_otg_device *otg_dev;
 
-        /** State of EP0 */
-        ep0state_e	ep0state;
-        /** EP0 Request is pending */
-        unsigned 	ep0_pending : 1;
-        /** Indicates when SET CONFIGURATION Request is in process */
-        unsigned	request_config : 1;
-        /** The state of the Remote Wakeup Enable. */
-        unsigned	remote_wakeup_enable : 1;
-        /** The state of the B-Device HNP Enable. */
+	/** State of EP0 */
+	ep0state_e	ep0state;
+	/** EP0 Request is pending */
+	unsigned	ep0_pending : 1;
+	/** Indicates when SET CONFIGURATION Request is in process */
+	unsigned	request_config : 1;
+	/** The state of the Remote Wakeup Enable. */
+	unsigned	remote_wakeup_enable : 1;
+	/** The state of the B-Device HNP Enable. */
 	unsigned	b_hnp_enable : 1;
-        /** The state of A-Device HNP Support. */
+	/** The state of A-Device HNP Support. */
 	unsigned	a_hnp_support : 1;
-        /** The state of the A-Device Alt HNP support. */
+	/** The state of the A-Device Alt HNP support. */
 	unsigned	a_alt_hnp_support : 1;
-        /** Count of pending Requests */
-        unsigned 	request_pending;
-        /** DFX added TODO check this. If not 0 use this EP to send
-         *  next data.
-         */
-	unsigned	next_ep;
+	/** Count of pending Requests */
+	unsigned	request_pending;
 
-        /** SETUP packet for EP0
+	/** SETUP packet for EP0
 	 * This structure is allocated as a DMA buffer on PCD initialization
 	 * with enough space for up to 3 setup packets.
 	 */
-        union {
-                struct usb_ctrlrequest	req;
-                uint32_t	d32[2];
-        } *setup_pkt;
+    union {
+			struct usb_ctrlrequest	req;
+			uint32_t	d32[2];
+	} *setup_pkt;
 
 	dma_addr_t setup_pkt_dma_handle;
 
@@ -163,25 +159,29 @@ typedef struct dwc_otg_pcd {
 	uint16_t *status_buf;
 	dma_addr_t status_buf_dma_handle;
 
-        /** Array of EPs. */
-        dwc_otg_pcd_ep_t ep[ MAX_EPS_CHANNELS ];
-        /** number of valid EPs in the above array. */
-        unsigned 	num_eps : 4;
-        spinlock_t	lock;
-        /** Timer for SRP.  If it expires before SRP is successful
-         * clear the SRP. */
-        struct timer_list srp_timer;
+	/** Array of EPs. */
+	dwc_otg_pcd_ep_t ep0;
+	/** Array of IN EPs. */
+	dwc_otg_pcd_ep_t in_ep[ MAX_EPS_CHANNELS - 1];
+	/** Array of OUT EPs. */
+	dwc_otg_pcd_ep_t out_ep[ MAX_EPS_CHANNELS - 1];
+	/** number of valid EPs in the above array. */
+//	  unsigned	num_eps : 4;
+	spinlock_t	lock;
+	/** Timer for SRP.	If it expires before SRP is successful
+	 * clear the SRP. */
+	struct timer_list srp_timer;
 
-        /** Tasklet to defer starting of TEST mode transmissions until
-         *  Status Phase has been completed.
-         */
-        struct tasklet_struct test_mode_tasklet;
+	/** Tasklet to defer starting of TEST mode transmissions until
+	 *	Status Phase has been completed.
+	 */
+	struct tasklet_struct test_mode_tasklet;
 
-        /** Tasklet to delay starting of xfer in DMA mode */
-        struct tasklet_struct *start_xfer_tasklet;
+	/** Tasklet to delay starting of xfer in DMA mode */
+	struct tasklet_struct *start_xfer_tasklet;
 
-        /** The test mode to enter when the tasklet is executed. */
-        unsigned test_mode;
+	/** The test mode to enter when the tasklet is executed. */
+	unsigned test_mode;
 
 } dwc_otg_pcd_t;
 
@@ -190,12 +190,12 @@ typedef struct dwc_otg_pcd {
  * This structure is a list of requests.
  */
 typedef struct dwc_otg_pcd_request {
-        struct usb_request	req; /**< USB Request. */
-        struct list_head	queue;	/**< queue of these requests. */
+	struct usb_request	req; /**< USB Request. */
+	struct list_head	queue;	/**< queue of these requests. */
 } dwc_otg_pcd_request_t;
 
 
-extern int __init dwc_otg_pcd_init(struct device *_dev);
+extern int  __init dwc_otg_pcd_init(struct device *_dev);
 
 extern void dwc_otg_pcd_remove( struct device *_dev );
 extern int32_t dwc_otg_pcd_handle_intr( dwc_otg_pcd_t *_pcd );
