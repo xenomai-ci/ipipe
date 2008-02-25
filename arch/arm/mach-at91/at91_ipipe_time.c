@@ -11,21 +11,16 @@
  * published by the Free Software Foundation.
  */
 
-#include <linux/init.h>
 #include <linux/interrupt.h>
 #include <linux/irq.h>
 #include <linux/kernel.h>
-#include <linux/sched.h>
-#include <linux/time.h>
+#include <linux/clockchips.h>
 
 #include <asm/hardware.h>
 #include <asm/io.h>
 #include <asm/mach/time.h>
 
 #include <asm/arch/at91_st.h>
-#include <asm/arch/at91_pit.h>
-
-static unsigned long last_CV;
 
 #include <linux/clk.h>
 #include <linux/stringify.h>
@@ -79,6 +74,8 @@ static unsigned long last_CV;
 
 #define TCNXCNS(timer,v) ((v) << ((timer)<<1))
 #define AT91_TC_REG_MASK (0xffff)
+
+static unsigned long last_CV;
 
 union tsc_reg {
 #ifdef __BIG_ENDIAN
@@ -152,21 +149,6 @@ EXPORT_SYMBOL(__ipipe_mach_ticks_per_jiffy);
 static int at91_timer_initialized;
 
 /*
- * Returns number of microseconds since last timer interrupt.  Note that interrupts
- * will have been disabled by do_gettimeofday()
- *  'LATCH' is hwclock ticks (see CLOCK_TICK_RATE in timex.h) per jiffy.
-*  'tick' is usecs per jiffy (linux/timex.h).
- */
-static unsigned long at91_gettimeoffset(void)
-{
-	unsigned long elapsed;
-
-	elapsed = (read_CV() - last_CV) & AT91_TC_REG_MASK;
-
-	return (unsigned long) (elapsed * (tick_nsec / 1000)) / LATCH;
-}
-
-/*
  * IRQ handler for the timer.
  */
 static irqreturn_t at91_timer_interrupt(int irq, void *dev_id)
@@ -182,7 +164,7 @@ static irqreturn_t at91_timer_interrupt(int irq, void *dev_id)
 	write_seqlock(&xtime_lock);
 
 	while (((read_CV() - last_CV) & AT91_TC_REG_MASK) >= LATCH) {
-		timer_tick();
+		clkevt.event_handler(&clkevt);
 		last_CV = (last_CV + LATCH) & AT91_TC_REG_MASK;
 	}
 	if (!__ipipe_mach_timerstolen)
@@ -255,10 +237,54 @@ notrace unsigned long long __ipipe_mach_get_tsc(void)
 }
 EXPORT_SYMBOL(__ipipe_mach_get_tsc);
 
+static struct clocksource clksrc = {
+	.name   = "at91_tc" __stringify(CONFIG_IPIPE_AT91_TC),
+	.rating = 250,
+	.read   = __ipipe_mach_get_tsc,
+	.mask   = CLOCKSOURCE_MASK(64),
+	.shift  = 20,
+	.flags  = CLOCK_SOURCE_IS_CONTINUOUS,
+};
+
+static void
+at91_tc_clkevt_mode(enum clock_event_mode mode, struct clock_event_device *dev)
+{
+	/* Disable the channel */
+	at91_tc_write(AT91_TC_CCR, AT91_TC_CLKDIS);
+
+	/* Disable all interrupts. */
+	at91_tc_write(AT91_TC_IDR, ~0ul);	
+
+	if (mode == CLOCK_EVT_MODE_PERIODIC) {
+		unsigned long v;
+
+		/* No Sync. */
+		at91_tc_write(AT91_TC_BCR, 0);
+
+		/* program NO signal on XCN */
+		v = readl((void __iomem *) (AT91_VA_BASE_TCB0 + AT91_TC_BMR));
+		v &= ~TCNXCNS(CONFIG_IPIPE_AT91_TC, 3);
+		v |= TCNXCNS(CONFIG_IPIPE_AT91_TC, 1); /* AT91_TC_TCNXCNS_NONE */
+		writel(v, (void __iomem *) (AT91_VA_BASE_TCB0 + AT91_TC_BMR));
+
+		/* Select TIMER_CLOCK3 (MCLK/32) as input frequency for TC. */
+		at91_tc_write(AT91_TC_CMR, AT91_TC_TIMER_CLOCK3);
+
+		/* Load the TC register C. */
+		last_CV = 0;
+		write_RC(LATCH);
+
+		/* Enable CPCS interrupt. */
+		at91_tc_write(AT91_TC_IER, AT91_TC_CPCS);
+
+		/* Enable the channel. */
+		at91_tc_write(AT91_TC_CCR, AT91_TC_CLKEN | AT91_TC_SWTRG);
+	}
+}
+
 /*
  * Reprogram the timer
  */
-
 void __ipipe_mach_set_dec(unsigned long delay)
 {
 	unsigned long flags;
@@ -272,9 +298,23 @@ void __ipipe_mach_set_dec(unsigned long delay)
 }
 EXPORT_SYMBOL(__ipipe_mach_set_dec);
 
+int __ipipe_check_tickdev(const char *devname)
+{
+	return !strcmp(devname, clkevt.name);
+}
+
+static struct clock_event_device clkevt = {
+	.name		= "at91_tc" __stringify(CONFIG_IPIPE_AT91_TC),
+	.features	= CLOCK_EVT_FEAT_PERIODIC,
+	.shift		= 32,
+	.rating		= 250,
+	.cpumask	= CPU_MASK_CPU0,
+	.set_mode	= at91_tc_clkevt_mode,
+};
+
 void __ipipe_mach_release_timer(void)
 {
-       __ipipe_mach_set_dec(__ipipe_mach_ticks_per_jiffy);
+	__ipipe_mach_set_dec(__ipipe_mach_ticks_per_jiffy);
 }
 EXPORT_SYMBOL(__ipipe_mach_release_timer);
 
@@ -292,8 +332,6 @@ static struct clk *tc, local_tc = {
 
 void __init at91_timer_init(void)
 {
-	unsigned long v;
-
 	/* Disable (boot loader) timer interrupts. */
 #if defined(CONFIG_ARCH_AT91RM9200)
 	at91_sys_write(AT91_ST_IDR, AT91_ST_PITS | AT91_ST_WDOVF | AT91_ST_RTTINC | AT91_ST_ALMS);
@@ -316,28 +354,6 @@ void __init at91_timer_init(void)
 	}
 	clk_enable(tc);
 
-	/* Disable the channel */
-	at91_tc_write(AT91_TC_CCR, AT91_TC_CLKDIS);
-
-	/* Disable all interrupts. */
-	at91_tc_write(AT91_TC_IDR, ~0ul);
-
-	/* No Sync. */
-	at91_tc_write(AT91_TC_BCR, 0);
-
-	/* program NO signal on XCN */
-	v = readl((void __iomem *) (AT91_VA_BASE_TCB0 + AT91_TC_BMR));
-	v &= ~TCNXCNS(CONFIG_IPIPE_AT91_TC, 3);
-	v |= TCNXCNS(CONFIG_IPIPE_AT91_TC, 1); /* AT91_TC_TCNXCNS_NONE */
-	writel(v, (void __iomem *) (AT91_VA_BASE_TCB0 + AT91_TC_BMR));
-
-	/* Select TIMER_CLOCK3 (MCLK/32) as input frequency for TC. */
-	at91_tc_write(AT91_TC_CMR, AT91_TC_TIMER_CLOCK3);
-
-	/* Load the TC register C. */
-	last_CV = 0;
-	write_RC(LATCH);
-
 	/* Set up the interrupt. */
 	setup_irq(KERNEL_TIMER_IRQ_NUM, &at91_timer_irq);
 
@@ -346,13 +362,16 @@ void __init at91_timer_init(void)
 	barrier();
 #endif /* CONFIG_SMP */
 
-	/* Enable CPCS interrupt. */
-	at91_tc_write(AT91_TC_IER, AT91_TC_CPCS);
-
 	at91_timer_initialized = 1;
 
-	/* Enable the channel. */
-	at91_tc_write(AT91_TC_CCR, AT91_TC_CLKEN | AT91_TC_SWTRG);
+	clkevt.mult = div_sc(CLOCK_TICK_RATE, NSEC_PER_SEC, clkevt.shift);
+	clkevt.max_delta_ns = clockevent_delta2ns(AT91_TC_REG_MASK, &clkevt);
+	clkevt.min_delta_ns = 0;
+	clkevt.cpumask = cpumask_of_cpu(0);
+	clockevents_register_device(&clkevt);
+
+	clksrc.mult = clocksource_hz2mult(CLOCK_TICK_RATE, clksrc.shift);
+	clocksource_register(&clksrc);
 }
 
 #ifdef CONFIG_ARCH_AT91RM9200
@@ -366,7 +385,6 @@ struct sys_timer at91x40_timer = {
 #error "Unknown machine"
 #endif
 	.init		= at91_timer_init,
-	.offset		= at91_gettimeoffset,
 	.suspend	= NULL,
 	.resume		= NULL,
 };
