@@ -28,6 +28,7 @@
 #include <linux/console.h>
 #include <linux/module.h>
 #include <asm/arch/at91_tc.h>
+#include <asm/arch/at91_pit.h>
 #include "clock.h"
 
 #if defined(CONFIG_ARCH_AT91RM9200)
