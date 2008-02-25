@@ -331,7 +331,7 @@ asmlinkage int __ipipe_syscall_root(unsigned long scno, struct pt_regs *regs)
 	if (__ipipe_syscall_watched_p(current, regs->ARM_r7) &&
 	    __ipipe_event_monitored_p(IPIPE_EVENT_SYSCALL) &&
 	    __ipipe_dispatch_event(IPIPE_EVENT_SYSCALL,regs) > 0) {
-		if (ipipe_current_domain == ipipe_root_domain && !in_atomic()) {
+		if (ipipe_root_domain_p && !in_atomic()) {
 			/*
 			 * Sync pending VIRQs before _TIF_NEED_RESCHED
 			 * is tested.
