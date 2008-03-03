@@ -130,7 +130,7 @@
 				fsl,cpm-command = <0090>;
 			};
 
-			scc@a40 {
+			ethernet@a40 {
 				device_type = "network";
 				compatible = "fs_enet";
 				model = "SCC";
@@ -139,6 +139,7 @@
 				mac-address = [ 00 00 00 00 00 00 ];
 				interrupts = <1c 3>;
 				interrupt-parent = <&cpm_pic>;
+				fixed-link = <0 0 a 0 0>;
 			};
 		};
 	};
