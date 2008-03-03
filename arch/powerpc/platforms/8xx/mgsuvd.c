@@ -33,7 +33,7 @@
 #include <asm/time.h>
 #include <asm/mpc8xx.h>
 #include <asm/8xx_immap.h>
-#include <asm/commproc.h>
+#include <asm/cpm1.h>
 #include <asm/fs_pd.h>
 #include <asm/prom.h>
 
@@ -41,14 +41,10 @@
 #include <sysdev/fsl_soc.h>
 #include <linux/mod_devicetable.h>
 #include <asm/of_platform.h>
+#include "mgsuvd.h"
+#include "mpc8xx.h"
 
 extern void cpm_reset(void);
-extern void mpc8xx_restart(char *cmd);
-extern void mpc8xx_calibrate_decr(void);
-extern int mpc8xx_set_rtc_time(struct rtc_time *tm);
-extern void mpc8xx_get_rtc_time(struct rtc_time *tm);
-extern void m8xx_pic_init(void);
-extern unsigned int mpc8xx_get_irq(void);
 
 static void init_smc1_uart_ioports(struct fs_uart_platform_info* fpi);
 static void init_smc2_uart_ioports(struct fs_uart_platform_info* fpi);
@@ -249,7 +245,7 @@ define_machine(mgsuvd) {
 	.name			= "MGSUVD",
 	.probe			= mgsuvd_probe,
 	.setup_arch		= mgsuvd_setup_arch,
-	.init_IRQ		= m8xx_pic_init,
+	.init_IRQ		= mpc8xx_pics_init,
 	.get_irq		= mpc8xx_get_irq,
 	.restart		= mpc8xx_restart,
 	.calibrate_decr		= mpc8xx_calibrate_decr,
