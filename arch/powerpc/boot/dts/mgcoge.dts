@@ -9,6 +9,7 @@
  * option) any later version.
  */
 
+/dts-v1/;
 / {
 	model = "mgcoge";
 	compatible = "fsl,mgcoge";
@@ -22,10 +23,10 @@
 		PowerPC,8247@0 {
 			device_type = "cpu";
 			reg = <0>;
-			d-cache-line-size = <d#32>;
-			i-cache-line-size = <d#32>;
-			d-cache-size = <d#16384>;
-			i-cache-size = <d#16384>;
+			d-cache-line-size = <32>;
+			i-cache-line-size = <32>;
+			d-cache-size = <16384>;
+			i-cache-size = <16384>;
 			bus-frequency = <0>;
 			timebase-frequency = <0>;
 			clock-frequency = <0>;
@@ -38,43 +39,29 @@
 		             "fsl,pq2-localbus";
 		#address-cells = <2>;
 		#size-cells = <1>;
-		reg = <f0010100 40>;
+		reg = <0xf0010100 0x40>;
 
-		ranges = <0 0 fe000000 00400000>;
+		ranges = <0 0 0xfe000000 0x00400000>;
 
 		flash@0,0 {
 			compatible = "cfi-flash";
-			reg = <0 0 400000>;
+			reg = <0 0x0 0x400000>;
 			#address-cells = <1>;
 			#size-cells = <1>;
 			bank-width = <1>;
 			device-width = <1>;
 			partition@0 {
 				label = "u-boot";
-				reg = <0 40000>;
+				reg = <0 0x40000>;
 			};
 			partition@40000 {
 				label = "env";
-				reg = <40000 20000>;
+				reg = <0x40000 0x20000>;
 			};
 			partition@60000 {
 				label = "user";
-				reg = <60000 3a0000>;
+				reg = <0x60000 0x3a0000>;
 			};
-		};
-	};
-
-	mdio@0 {
-		device_type = "mdio";
-		compatible = "fsl,mpc8272ads-mdio-bitbang",
-		             "fsl,mpc8272-mdio-bitbang",
-		             "fsl,cpm2-mdio-bitbang";
-		reg = <4 14>;
-		#address-cells = <1>;
-		#size-cells = <0>;
-
-		PHY0: fixed-phy@0 {
-			reg = <1>;
 		};
 	};
 
@@ -88,25 +75,25 @@
 		#size-cells = <1>;
 		device_type = "soc";
 		compatible = "fsl,mpc8247", "fsl,pq2-soc";
-		ranges = <00000000 f0000000 00053000>;
-		reg = <f0000000 00053000>;
+		ranges = <0x00000000 0xf0000000 0x00053000>;
+		reg = <0xf0000000 0x00053000>;
 
 		cpm@119c0 {
 			#address-cells = <1>;
 			#size-cells = <1>;
 			#interrupt-cells = <2>;
 			compatible = "fsl,mpc8247-cpm", "fsl,cpm2";
-			reg = <119c0 30>;
+			reg = <0x119c0 0x30>;
 			ranges;
 
 			muram {
 				#address-cells = <1>;
 				#size-cells = <1>;
-				ranges = <0 0 10000>;
+				ranges = <0 0 0x10000>;
 
 				data@0 {
 					compatible = "fsl,cpm-muram-data";
-					reg = <0 1100 1100 40 8300 100 88fc 4>;
+					reg = <0 0x1100 0x1100 0x40 0x8300 0x100 0x88fc 0x4>;
 				};
 			};
 
@@ -114,7 +101,7 @@
 				compatible = "fsl,mpc8272-brg",
 				             "fsl,cpm2-brg",
 				             "fsl,cpm-brg";
-				reg = <119f0 10 115f0 10>;
+				reg = <0x119f0 0x10 0x115f0 0x10>;
 			};
 
 			serial@11a90 {
@@ -124,12 +111,12 @@
 				             "fsl,cpm2-smc-uart";
 				model = "SMC";
 				device-id = <2>;
-				reg = <11a90 20 1100 40 88fc 4>;
+				reg = <0x11a90 0x20 0x1100 0x40 0x88fc 0x4>;
 				interrupts = <5 8>;
 				interrupt-parent = <&PIC>;
 				fsl,cpm-brg = <2>;
-				fsl,cpm-command = <21200000>;
-				current-speed = <1c200>;
+				fsl,cpm-command = <0x21200000>;
+				current-speed = <115200>;
 			};
 
 			ethernet@11a60 {
@@ -137,20 +124,20 @@
 				compatible = "fsl,mpc8272-scc-enet",
 				             "fsl,cpm2-scc-enet";
 				device-id = <4>;
-				reg = <11A60 20 8300 100>;
+				reg = <0x11A60 0x20 0x8300 0x100>;
 				mac-address = [ 00 00 00 00 00 00 ];
-				interrupts = <2b 8>;
+				interrupts = <0x2b 8>;
 				interrupt-parent = <&PIC>;
 				linux,network-index = <0>;
-				fsl,cpm-command = <ce00000>;
-				phy-handle = <&PHY0>;
+				fsl,cpm-command = <0xce00000>;
+				fixed-link = <1 0 10 0 0>;
 			};
 		};
 
 		PIC: interrupt-controller@10c00 {
 			#interrupt-cells = <2>;
 			interrupt-controller;
-			reg = <10c00 80>;
+			reg = <0x10c00 0x80>;
 			compatible = "fsl,mpc8247-pic", "fsl,pq2-pic";
 		};
 	};
