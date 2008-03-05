@@ -129,6 +129,20 @@
 					/*RXDE*/  5 4>;
 		};
 
+		USB0: ehci@bffd0400 {
+			compatible = "ibm,usb-ehci-460ex", "usb-ehci";
+			interrupt-parent = <&UIC2>;
+			interrupts = <1d 4>;
+			reg = <4 bffd0400 90 4 bffd0490 70>;
+		};
+
+		USB1: usb@bffd0000 {
+			compatible = "ohci-le";
+			reg = <4 bffd0000 60>;
+			interrupt-parent = <&UIC2>;
+			interrupts = <1e 4>;
+		};
+
 		POB0: opb {
 			compatible = "ibm,opb-460ex", "ibm,opb";
 			#address-cells = <1>;
