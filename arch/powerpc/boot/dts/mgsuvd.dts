@@ -27,9 +27,9 @@
 			i-cache-line-size = <20>;	// 32 bytes
 			d-cache-size = <2000>;		// L1, 8K
 			i-cache-size = <4000>;		// L1, 16K
-			timebase-frequency = <0>;
-			bus-frequency = <0>;
-			clock-frequency = <0>;
+			timebase-frequency = <0>;	/* Filled in by u-boot */
+			bus-frequency = <0>;		/* Filled in by u-boot */
+			clock-frequency = <0>;		/* Filled in by u-boot */
 			32-bit;
 			interrupts = <f 2>;	// decrementer interrupt
 			interrupt-parent = <&mpc8xx_pic>;
@@ -38,7 +38,7 @@
 
 	memory {
 		device_type = "memory";
-		reg = <00000000 4000000>;
+		reg = <00000000 4000000>; /* Filled in by u-boot */
 	};
 
 	localbus {
@@ -57,27 +57,26 @@
 			device-width = <1>;
 			partition@0 {
 				label = "u-boot";
-				reg = <0 40000>;
-			};
-			partition@40000 {
-				label = "env";
-				reg = <40000 40000>;
+				reg = <0 80000>;
 			};
 			partition@80000 {
+				label = "env";
+				reg = <80000 20000>;
+			};
+			partition@a0000 {
 				label = "user";
-				reg = <80000 f80000>;
+				reg = <a0000 f60000>;
 			};
 		};
 	};
 
-	soc866@fff00000 {
+	soc@fff00000 {
 		#address-cells = <1>;
 		#size-cells = <1>;
 		#interrupt-cells = <2>;
 		device_type = "soc";
 		ranges = <0 fff00000 00100000>;
 		reg = <fff00000 00000200>;
-		bus-frequency = <0>;
 
 		mpc8xx_pic: pic@fff00000 {
 			interrupt-controller;
@@ -98,9 +97,29 @@
 			ranges = <0 0 4000>;
 			reg = <860 f0>;
 			command-proc = <9c0>;
-			brg-frequency = <0>;
+			brg-frequency = <0>; /* Filled in by u-boot */
 			interrupts = <0 2>;	// cpm error interrupt
 			interrupt-parent = <&cpm_pic>;
+
+			muram@2000 {
+				#address-cells = <1>;
+				#size-cells = <1>;
+				ranges = <0 2000 1000>;
+
+				data@800 {
+					compatible = "fsl,cpm-muram-data";
+					reg = <800 700>;
+				};
+			};
+
+			brg@9f0 {
+				compatible = "fsl,mpc885-brg",
+				             "fsl,cpm1-brg",
+				             "fsl,cpm-brg";
+				reg = <9f0 10>;
+				clock-frequency = <3ef1480>;
+			};
+
 
 			cpm_pic: pic@930 {
 				interrupt-controller;
@@ -136,7 +155,7 @@
 				model = "SCC";
 				device-id = <3>;
 				reg = <a40 18 3e00 b0>;
-				mac-address = [ 00 00 00 00 00 00 ];
+				mac-address = [ 00 00 00 00 00 00 ]; /* Filled in by u-boot */
 				interrupts = <1c 3>;
 				interrupt-parent = <&cpm_pic>;
 				fixed-link = <0 0 a 0 0>;
