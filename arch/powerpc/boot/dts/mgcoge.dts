@@ -1,7 +1,8 @@
 /*
- * Device Tree for the MGCOGE Board from kexmile.
+ * Device Tree for the MGCOGE Board from keymile.
  *
- * Copyright 2007 Heiko Schocher <hs@denx.de>
+ * Copyright 2008 DENX Software Engineering GmbH
+ *                Heiko Schocher <hs@denx.de>
  *
  * This program is free software; you can redistribute  it and/or modify it
  * under  the terms of  the GNU General  Public License as published by the
@@ -16,6 +17,11 @@
 	#address-cells = <1>;
 	#size-cells = <1>;
 
+	aliases {
+		ethernet0 = &eth0;
+		serial0 = &smc2;
+	};
+
 	cpus {
 		#address-cells = <1>;
 		#size-cells = <0>;
@@ -27,9 +33,9 @@
 			i-cache-line-size = <32>;
 			d-cache-size = <16384>;
 			i-cache-size = <16384>;
-			bus-frequency = <0>;
-			timebase-frequency = <0>;
-			clock-frequency = <0>;
+			bus-frequency = <0>; /* Filled in by U-Boot */
+			timebase-frequency = <0>; /* Filled in by U-Boot */
+			clock-frequency = <0>; /* Filled in by U-Boot */
 		};
 	};
 
@@ -41,7 +47,9 @@
 		#size-cells = <1>;
 		reg = <0xf0010100 0x40>;
 
-		ranges = <0 0 0xfe000000 0x00400000>;
+		ranges = <0 0 0x50000000 0x20000000
+			  1 0 0xfe000000 0x400000
+			>; /* Filled in by U-Boot */
 
 		flash@0,0 {
 			compatible = "cfi-flash";
@@ -63,11 +71,25 @@
 				reg = <0x60000 0x3a0000>;
 			};
 		};
+
+		flash@1,0 {
+			compatible = "cfi-flash";
+			reg = <1 0x0 0x2000000>;
+			#address-cells = <1>;
+			#size-cells = <1>;
+			bank-width = <2>;
+			device-width = <2>;
+			partition@0 {
+				label = "cfg";
+				reg = <0 0x2000000>;
+			};
+		};
+
 	};
 
 	memory {
 		device_type = "memory";
-		reg = <0 0>;
+		reg = <0 0>; /* Filled in by U-Boot */
 	};
 
 	soc@f0000000 {
@@ -104,7 +126,8 @@
 				reg = <0x119f0 0x10 0x115f0 0x10>;
 			};
 
-			serial@11a90 {
+			/* Monitor port/SMC2 */
+			smc2: serial@11a90 {
 				device_type = "serial";
 				compatible = "fsl,mpc8247-smc-uart",
 				             "cpm_uart",
@@ -119,13 +142,13 @@
 				current-speed = <115200>;
 			};
 
-			ethernet@11a60 {
+			eth0: ethernet@11a60 {
 				device_type = "network";
 				compatible = "fsl,mpc8272-scc-enet",
 				             "fsl,cpm2-scc-enet";
 				device-id = <4>;
 				reg = <0x11A60 0x20 0x8300 0x100>;
-				mac-address = [ 00 00 00 00 00 00 ];
+				mac-address = [ 00 00 00 00 00 00 ]; /* Filled in by U-Boot */
 				interrupts = <0x2b 8>;
 				interrupt-parent = <&PIC>;
 				linux,network-index = <0>;
