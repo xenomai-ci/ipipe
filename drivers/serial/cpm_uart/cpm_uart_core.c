@@ -978,7 +978,9 @@ static int cpm_uart_init_port(struct device_node *np,
 		pinfo->sccup = pram;
 	} else if (of_device_is_compatible(np, "fsl,cpm1-smc-uart") ||
 	           of_device_is_compatible(np, "fsl,cpm2-smc-uart")) {
+#if defined(CONFIG_CPM2)
 		u16 __iomem *pram_base;
+#endif
 		struct resource res;
 
 		pinfo->flags |= FLAG_SMC;
@@ -989,6 +991,7 @@ static int cpm_uart_init_port(struct device_node *np,
 			ret = -ENOMEM;
 			goto out_pram;
 		}
+#if defined(CONFIG_CPM2)
 		pram_base = of_iomap(np, 2);
 		if (!pram_base) {
 			ret = -ENOMEM;
@@ -996,6 +999,7 @@ static int cpm_uart_init_port(struct device_node *np,
 		}
 		*pram_base = res.start;
 		iounmap (pram_base);
+#endif
 	} else {
 		ret = -ENODEV;
 		goto out_pram;

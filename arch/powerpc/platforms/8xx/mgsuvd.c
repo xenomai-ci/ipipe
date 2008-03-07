@@ -41,151 +41,42 @@
 #include <sysdev/fsl_soc.h>
 #include <linux/mod_devicetable.h>
 #include <asm/of_platform.h>
-#include "mgsuvd.h"
 #include "mpc8xx.h"
 
 extern void cpm_reset(void);
+struct cpm_pin {
+	int port, pin, flags;
+};
 
-static void init_smc1_uart_ioports(struct fs_uart_platform_info* fpi);
-static void init_smc2_uart_ioports(struct fs_uart_platform_info* fpi);
-static void init_scc3_ioports(struct fs_platform_info* ptr);
+static struct cpm_pin mgsuvd_pins[] = {
+	/* SMC1 */
+	{CPM_PORTB, 24, CPM_PIN_INPUT}, /* RX */
+	{CPM_PORTB, 25, CPM_PIN_INPUT | CPM_PIN_SECONDARY}, /* TX */
 
-void __init mgsuvd_board_setup(void)
+	/* SCC3 */
+	{0, 10, CPM_PIN_INPUT},
+	{0, 11, CPM_PIN_INPUT},
+	{0, 3, CPM_PIN_INPUT},
+	{0, 2, CPM_PIN_INPUT},
+	{2, 13, CPM_PIN_INPUT},
+};
+
+static void __init init_ioports(void)
 {
-	cpm8xx_t *cp;
-	u8 tmpval8;
-	cp = (cpm8xx_t *)immr_map(im_cpm);
+	int i;
 
-#ifdef CONFIG_SERIAL_CPM_SMC1
-	clrbits32(&cp->cp_simode, 0xe0000000 >> 17);	/* brg1 */
-	tmpval8 = in_8(&(cp->cp_smc[0].smc_smcm)) | (SMCM_RX | SMCM_TX);
-	out_8(&(cp->cp_smc[0].smc_smcm), tmpval8);
-	clrbits16(&cp->cp_smc[0].smc_smcmr, SMCMR_REN | SMCMR_TEN);
-#else
-	out_be16(&cp->cp_smc[0].smc_smcmr, 0);
-	out_8(&cp->cp_smc[0].smc_smce, 0);
-#endif
-
-#ifdef CONFIG_SERIAL_CPM_SMC2
-	clrbits32(&cp->cp_simode, 0xe0000000 >> 1);
-	setbits32(&cp->cp_simode, 0x20000000 >> 1);	/* brg2 */
-	tmpval8 = in_8(&(cp->cp_smc[1].smc_smcm)) | (SMCM_RX | SMCM_TX);
-	out_8(&(cp->cp_smc[1].smc_smcm), tmpval8);
-	clrbits16(&cp->cp_smc[1].smc_smcmr, SMCMR_REN | SMCMR_TEN);
-
-	init_smc2_uart_ioports(0);
-#else
-	out_be16(&cp->cp_smc[1].smc_smcmr, 0);
-	out_8(&cp->cp_smc[1].smc_smce, 0);
-#endif
-	immr_unmap(cp);
-}
-
-void init_fec_ioports(struct fs_platform_info *fpi)
-{
-	return;
-}
-
-static void init_scc3_ioports(struct fs_platform_info* fpi)
-{
-	iop8xx_t *io_port;
-	cpm8xx_t *cp;
-
-	io_port = (iop8xx_t *)immr_map(im_ioport);
-	cp = (cpm8xx_t *)immr_map(im_cpm);
-
-	/* Configure port A pins for Txd and Rxd.
-	 */
-	setbits16(&io_port->iop_papar, PA_ENET_RXD | PA_ENET_TXD);
-	clrbits16(&io_port->iop_padir, PA_ENET_RXD | PA_ENET_TXD);
-	clrbits16(&io_port->iop_paodr, PA_ENET_TXD);
-
-	/* Configure port C pins to enable CLSN and RENA.
-	 */
-	clrbits16(&io_port->iop_pcpar, PC_ENET_CLSN | PC_ENET_RENA);
-	clrbits16(&io_port->iop_pcdir, PC_ENET_CLSN | PC_ENET_RENA);
-	setbits16(&io_port->iop_pcso, PC_ENET_CLSN | PC_ENET_RENA);
-
-	/* Configure port A for TCLK and RCLK.
-	 */
-	setbits16(&io_port->iop_papar, PA_ENET_TCLK | PA_ENET_RCLK);
-        clrbits16(&io_port->iop_padir, PA_ENET_TCLK | PA_ENET_RCLK);
-        clrbits32(&cp->cp_pbpar, PB_ENET_TENA);
-        clrbits32(&cp->cp_pbdir, PB_ENET_TENA);
-
-	/* Configure Serial Interface clock routing.
-	 * First, clear all SCC bits to zero, then set the ones we want.
-	 */
-	clrbits32(&cp->cp_sicr, SICR_ENET_MASK);
-	setbits32(&cp->cp_sicr, SICR_ENET_CLKRT);
-
-	/* In the original SCC enet driver the following code is placed at
-	   the end of the initialization */
-        setbits32(&cp->cp_pbpar, PB_ENET_TENA);
-        setbits32(&cp->cp_pbdir, PB_ENET_TENA);
-
-	immr_unmap(cp);
-	immr_unmap(io_port);
-}
-
-void init_scc_ioports(struct fs_platform_info *fpi)
-{
-	int scc_no = fs_get_scc_index(fpi->fs_no);
-
-	switch (scc_no) {
-	case 2:
-		init_scc3_ioports(fpi);
-		break;
-	default:
-		printk(KERN_ERR "init_scc_ioports: invalid SCC number\n");
-		return;
+	for (i = 0; i < ARRAY_SIZE(mgsuvd_pins); i++) {
+		struct cpm_pin *pin = &mgsuvd_pins[i];
+		cpm1_set_pin(pin->port, pin->pin, pin->flags);
 	}
-}
 
-static void init_smc1_uart_ioports(struct fs_uart_platform_info* ptr)
-{
-	cpm8xx_t *cp = (cpm8xx_t *)immr_map(im_cpm);
+	setbits16(&mpc8xx_immr->im_ioport.iop_pcso, 0x300);
+	cpm1_clk_setup(CPM_CLK_SCC3, CPM_CLK5, CPM_CLK_RX);
+	cpm1_clk_setup(CPM_CLK_SCC3, CPM_CLK5, 0);
+	setbits32(&mpc8xx_immr->im_cpm.cp_pbpar, 0x300);
+	setbits32(&mpc8xx_immr->im_cpm.cp_pbdir, 0x300);
 
-	setbits32(&cp->cp_pbpar, 0x000000c0);
-	clrbits32(&cp->cp_pbdir, 0x000000c0);
-	clrbits16(&cp->cp_pbodr, 0x00c0);
-	immr_unmap(cp);
-
-}
-
-static void init_smc2_uart_ioports(struct fs_uart_platform_info* fpi)
-{
-	cpm8xx_t *cp = (cpm8xx_t *)immr_map(im_cpm);
-
-	setbits32(&cp->cp_pbpar, 0x00000c00);
-	clrbits32(&cp->cp_pbdir, 0x00000c00);
-	clrbits16(&cp->cp_pbodr, 0x0c00);
-	immr_unmap(cp);
-
-}
-
-void init_smc_ioports(struct fs_uart_platform_info *data)
-{
-	int smc_no = fs_uart_id_fsid2smc(data->fs_no);
-
-	switch (smc_no) {
-	case 0:
-		init_smc1_uart_ioports(data);
-		data->brg = data->clk_rx;
-		break;
-	case 1:
-		init_smc2_uart_ioports(data);
-		data->brg = data->clk_rx;
-		break;
-	default:
-		printk(KERN_ERR "init_scc_ioports: invalid SCC number\n");
-		return;
-	}
-}
-
-int platform_device_skip(const char *model, int id)
-{
-	return 0;
+	cpm1_clk_setup(CPM_CLK_SMC1, CPM_BRG1, CPM_CLK_RTX);
 }
 
 static void __init mgsuvd_setup_arch(void)
@@ -206,7 +97,7 @@ static void __init mgsuvd_setup_arch(void)
 
 	cpm_reset();
 
-	mgsuvd_board_setup();
+	init_ioports();
 
 	ROOT_DEV = Root_NFS;
 }

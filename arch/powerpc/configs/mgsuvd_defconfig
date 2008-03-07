@@ -1,7 +1,7 @@
 #
 # Automatically generated make config: don't edit
 # Linux kernel version: 2.6.25-rc4
-# Thu Mar  6 12:23:07 2008
+# Fri Mar  7 14:14:49 2008
 #
 # CONFIG_PPC64 is not set
 
@@ -65,7 +65,7 @@ CONFIG_SYSVIPC_SYSCTL=y
 # CONFIG_TASKSTATS is not set
 # CONFIG_AUDIT is not set
 # CONFIG_IKCONFIG is not set
-CONFIG_LOG_BUF_SHIFT=14
+CONFIG_LOG_BUF_SHIFT=17
 # CONFIG_CGROUPS is not set
 CONFIG_GROUP_SCHED=y
 CONFIG_FAIR_GROUP_SCHED=y
@@ -175,6 +175,7 @@ CONFIG_UCODE_PATCH=y
 # CONFIG_PPC_INDIRECT_IO is not set
 # CONFIG_GENERIC_IOMAP is not set
 # CONFIG_CPU_FREQ is not set
+CONFIG_PPC_CPM_NEW_BINDING=y
 # CONFIG_FSL_ULI1575 is not set
 CONFIG_CPM=y
 
@@ -515,11 +516,7 @@ CONFIG_FS_ENET_HAS_SCC=y
 #
 # Hardware I/O ports
 #
-CONFIG_SERIO=y
-CONFIG_SERIO_I8042=y
-CONFIG_SERIO_SERPORT=y
-CONFIG_SERIO_LIBPS2=y
-# CONFIG_SERIO_RAW is not set
+# CONFIG_SERIO is not set
 # CONFIG_GAMEPORT is not set
 
 #

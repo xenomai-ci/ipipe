@@ -14,6 +14,7 @@ choice
 config MGSUVD
 	bool "MGSUVD"
 	select CPM1
+	select PPC_CPM_NEW_BINDING
 	help
 	  MGSUVD port
 
