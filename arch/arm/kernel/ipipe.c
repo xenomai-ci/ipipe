@@ -439,11 +439,6 @@ asmlinkage int __ipipe_grab_irq(int irq, struct pt_regs *regs)
         return status;
 }
 
-EXPORT_SYMBOL(ipipe_critical_enter);
-EXPORT_SYMBOL(ipipe_critical_exit);
-EXPORT_SYMBOL(ipipe_trigger_irq);
-EXPORT_SYMBOL(ipipe_get_sysinfo);
-
 EXPORT_SYMBOL_GPL(show_stack);
 #ifndef MULTI_CPU
 EXPORT_SYMBOL_GPL(cpu_do_switch_mm);
