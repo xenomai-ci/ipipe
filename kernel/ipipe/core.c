@@ -37,6 +37,7 @@
 #endif	/* CONFIG_PROC_FS */
 #include <linux/ipipe_trace.h>
 #include <linux/ipipe_tickdev.h>
+#include <linux/irq.h>
 
 static int __ipipe_ptd_key_count;
 
