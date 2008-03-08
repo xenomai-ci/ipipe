@@ -443,7 +443,6 @@ EXPORT_SYMBOL(ipipe_critical_enter);
 EXPORT_SYMBOL(ipipe_critical_exit);
 EXPORT_SYMBOL(ipipe_trigger_irq);
 EXPORT_SYMBOL(ipipe_get_sysinfo);
-EXPORT_SYMBOL(ipipe_tune_timer);
 
 EXPORT_SYMBOL_GPL(show_stack);
 #ifndef MULTI_CPU
