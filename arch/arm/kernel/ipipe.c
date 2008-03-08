@@ -5,6 +5,7 @@
  * Copyright (C) 2004 Wolfgang Grandegger (Adeos/arm port over 2.4).
  * Copyright (C) 2005 Heikki Lindholm (PowerPC 970 fixes).
  * Copyright (C) 2005 Stelian Pop.
+ * Copyright (C) 2006-2008 Gilles Chanteperdrix.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -41,17 +42,13 @@
 #include <asm/mach/irq.h>
 #include <asm/mmu_context.h>
 
-/* Current reload value for the decrementer. */
-unsigned long __ipipe_decr_ticks;
-
 /* Next tick date (timebase value). */
-DEFINE_PER_CPU(unsigned long long, __ipipe_decr_next);
 DEFINE_PER_CPU(struct pt_regs, __ipipe_tick_regs);
 DEFINE_PER_CPU(struct mm_struct *,ipipe_active_mm);
 EXPORT_PER_CPU_SYMBOL(ipipe_active_mm);
 
 extern struct irq_desc irq_desc[];
-extern asmlinkage void asm_do_IRQ(unsigned int irq, struct pt_regs *regs);
+asmlinkage void asm_do_IRQ(unsigned int irq, struct pt_regs *regs);
 
 #ifdef CONFIG_SMP
 
@@ -116,11 +113,6 @@ int ipipe_trigger_irq(unsigned irq)
 	return 1;
 }
 
-void __ipipe_init_platform(void)
-{
-	__ipipe_decr_ticks = __ipipe_mach_ticks_per_jiffy;
-}
-
 int ipipe_get_sysinfo(struct ipipe_sysinfo *info)
 {
 	info->ncpus = num_online_cpus();
@@ -128,33 +120,6 @@ int ipipe_get_sysinfo(struct ipipe_sysinfo *info)
 	info->archdep.tmirq = __ipipe_mach_timerint;
 	info->archdep.tmfreq = info->cpufreq;
         __ipipe_mach_get_tscinfo(&info->archdep.tsc);
-
-	return 0;
-}
-
-static void __ipipe_set_decr(void)
-{
-	__raw_get_cpu_var(__ipipe_decr_next) = __ipipe_read_timebase() + __ipipe_decr_ticks;
-	__ipipe_mach_set_dec(__ipipe_decr_ticks);
-}
-
-int ipipe_tune_timer(unsigned long ns, int flags)
-{
-	unsigned long x, ticks;
-
-	if (flags & IPIPE_RESET_TIMER)
-		ticks = __ipipe_mach_ticks_per_jiffy;
-	else {
-		ticks = (ns / 1000) * (__ipipe_mach_ticks_per_jiffy) / (1000000 / HZ);
-
-		if (ticks > __ipipe_mach_ticks_per_jiffy)
-			return -EINVAL;
-	}
-
-	x = ipipe_critical_enter(&__ipipe_set_decr);	/* Sync with all CPUs */
-	__ipipe_decr_ticks = ticks;
-	__ipipe_set_decr();
-	ipipe_critical_exit(x);
 
 	return 0;
 }
@@ -188,12 +153,6 @@ void __ipipe_enable_irqdesc(struct ipipe_domain *ipd, unsigned irq)
 	irq_desc[irq].status &= ~IRQ_DISABLED;
 }
 
-static void __ipipe_enable_sync(void)
-{
-	__raw_get_cpu_var(__ipipe_decr_next) =
-		__ipipe_read_timebase() + __ipipe_mach_get_dec();
-}
-
 /*
  * __ipipe_enable_pipeline() -- We are running on the boot CPU, hw
  * interrupts are off, and secondary CPUs are still lost in space.
@@ -203,7 +162,7 @@ void __ipipe_enable_pipeline(void)
 	unsigned long flags;
 	unsigned irq;
 
-	flags = ipipe_critical_enter(&__ipipe_enable_sync);
+	flags = ipipe_critical_enter(NULL);
 
 	/* First, virtualize all interrupts from the root domain. */
 
@@ -215,9 +174,6 @@ void __ipipe_enable_pipeline(void)
 				      ? &__ipipe_ack_timerirq
 				      : &__ipipe_ack_irq),
 				     IPIPE_HANDLE_MASK | IPIPE_PASS_MASK);
-
-	__raw_get_cpu_var(__ipipe_decr_next) =
-		__ipipe_read_timebase() + __ipipe_mach_get_dec();
 
 	ipipe_critical_exit(flags);
 }
@@ -455,28 +411,15 @@ asmlinkage int __ipipe_grab_irq(int irq, struct pt_regs *regs)
         int status;
 
 	if (irq == __ipipe_mach_timerint) {
-
-                /* Given our deferred dispatching model for regular IRQs, we
+                /*
+		 * Given our deferred dispatching model for regular IRQs, we
                  * only record CPU regs for the last timer interrupt, so that
                  * the timer handler charges CPU times properly. It is assumed
                  * that other interrupt handlers don't actually care for such
-                 * information. */
-
+                 * information.
+		 */
 		__raw_get_cpu_var(__ipipe_tick_regs).ARM_cpsr = regs->ARM_cpsr;
 		__raw_get_cpu_var(__ipipe_tick_regs).ARM_pc = regs->ARM_pc;
-
-		if (__ipipe_decr_ticks != __ipipe_mach_ticks_per_jiffy) {
-			unsigned long long next_date, now;
-
-			next_date = __raw_get_cpu_var(__ipipe_decr_next);
-
-			while ((now = __ipipe_read_timebase()) >= next_date)
-				next_date += __ipipe_decr_ticks;
-
-			__ipipe_mach_set_dec(next_date - now);
-
-			__raw_get_cpu_var(__ipipe_decr_next) = next_date;
-		}
 	}
 
 #ifdef CONFIG_IPIPE_TRACE_IRQSOFF

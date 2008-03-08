@@ -3,6 +3,7 @@
  *
  * Copyright (C) 2002-2005 Philippe Gerum.
  * Copyright (C) 2005 Stelian Pop.
+ * Copyright (C) 2006-2008 Gilles Chanteperdrix.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -128,7 +129,7 @@ int __ipipe_check_tickdev(const char *devname);
 
 #define __ipipe_check_platform()	do { } while(0)
 
-void __ipipe_init_platform(void);
+#define __ipipe_init_platform()		do { } while(0)
 
 #define __ipipe_enable_irq(irq)	irq_desc[irq].chip->enable(irq)
 
@@ -142,10 +143,6 @@ void __ipipe_enable_pipeline(void);
 
 void __ipipe_do_critical_sync(unsigned irq,
 			      void *cookie);
-
-extern unsigned long __ipipe_decr_ticks;
-
-extern unsigned long long __ipipe_decr_next[];
 
 DECLARE_PER_CPU(struct pt_regs, __ipipe_tick_regs);
 
