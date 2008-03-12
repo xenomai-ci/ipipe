@@ -1472,118 +1472,124 @@ static inline void pcd_setup(dwc_otg_pcd_t * _pcd)
 /**
  * This function completes the ep0 control transfer.
  */
-static int32_t ep0_complete_request(dwc_otg_pcd_ep_t * _ep)
+static int32_t ep0_complete_request( dwc_otg_pcd_ep_t *_ep )
 {
-	dwc_otg_core_if_t * core_if = GET_CORE_IF(_ep->pcd);
-	dwc_otg_dev_if_t * dev_if = core_if->dev_if;
-	dwc_otg_dev_in_ep_regs_t * in_ep_regs =
-	    dev_if->in_ep_regs[_ep->dwc_ep.num];
-
+        dwc_otg_core_if_t *core_if = GET_CORE_IF(_ep->pcd);
+        dwc_otg_dev_if_t *dev_if = core_if->dev_if;
+        dwc_otg_dev_in_ep_regs_t *in_ep_regs =
+                dev_if->in_ep_regs[_ep->dwc_ep.num];
 #ifdef DEBUG_EP0
-	    dwc_otg_dev_out_ep_regs_t * out_ep_regs =
-	    dev_if->out_ep_regs[_ep->dwc_ep.num];
-
-#endif	/*  */
-	deptsiz0_data_t deptsiz;
-	dwc_otg_pcd_request_t * req;
-	int is_last = 0;
-	dwc_otg_pcd_t * pcd = _ep->pcd;
-	DWC_DEBUGPL(DBG_PCDV, "%s() %s\n", __func__, _ep->ep.name);
-	if (pcd->ep0_pending && list_empty(&_ep->queue)) {
-		if (_ep->dwc_ep.is_in) {
-
-#ifdef DEBUG_EP0
-		    DWC_DEBUGPL(DBG_PCDV,
-				"Do setup OUT status phase\n");
-
-#endif	/*  */
-			do_setup_out_status_phase(pcd);
-		} else {
-#ifdef DEBUG_EP0
-			DWC_DEBUGPL(DBG_PCDV, "Do setup IN status phase\n");
-#endif	/*  */
-			do_setup_in_status_phase(pcd);
-		}
-		pcd->ep0_pending = 0;
-		pcd->ep0state = EP0_STATUS;
-		return 1;
+        dwc_otg_dev_out_ep_regs_t *out_ep_regs =
+                dev_if->out_ep_regs[_ep->dwc_ep.num];
+#endif
+        deptsiz0_data_t deptsiz;
+        dwc_otg_pcd_request_t *req;
+        int is_last = 0;
+        dwc_otg_pcd_t *pcd = _ep->pcd;
+	static int counter =  0;  /*DFX added*/
+	counter++;
+        DWC_DEBUGPL(DBG_PCDV, "%s() %s\n", __func__, _ep->ep.name);
+	/*
+	if ( in_set_config == 1 )  {
+		printk(KERN_ERR "DFX ep0_complete_request in_set_config. ep0 pending: %d  list empty:"
+				" %d ep.is_in: %d ep0State: %d counter: %d\n",
+		       pcd->ep0_pending, list_empty(&_ep->queue), _ep->dwc_ep.is_in,
+		       pcd->ep0state, counter);
 	}
+	if ( in_set_config == 2 )  {
+		printk(KERN_ERR "DFX ep0_complete_request in_set_ADDRESS. ep0 pending: %d  list empty:"
+				" %d ep.is_in: %d ep0State: %d counter: %d\n",
+		       pcd->ep0_pending, list_empty(&_ep->queue), _ep->dwc_ep.is_in,
+		       pcd->ep0state, counter);
+	}
+	*/
+        if ((pcd->ep0_pending && list_empty(&_ep->queue)) /*|| counter == 1*/) {
+                if (_ep->dwc_ep.is_in) {
+#ifdef DEBUG_EP0
+                        DWC_DEBUGPL(DBG_PCDV, "Do setup OUT status phase\n");
+#endif
+                        do_setup_out_status_phase(pcd);
+                } else {
+#ifdef DEBUG_EP0
+                        DWC_DEBUGPL(DBG_PCDV, "Do setup IN status phase\n");
+#endif
+                        do_setup_in_status_phase(pcd);
+                }
+                pcd->ep0_pending = 0;
+                pcd->ep0state = EP0_STATUS;
+                return 1;
+        }
+
+
 	if (list_empty(&_ep->queue)) {
 		return 0;
-	}
-	req = list_entry(_ep->queue.next, dwc_otg_pcd_request_t, queue);
-	if (pcd->ep0state == EP0_STATUS) {
-		is_last = 1;
-	} else if (req->req.zero) {
+        }
+        req = list_entry(_ep->queue.next, dwc_otg_pcd_request_t, queue);
+	//printk(KERN_ERR "DFX compelete request req.zero: %d\n", req->req.zero);
+
+        if (pcd->ep0state == EP0_STATUS) {
+                is_last = 1;
+        }
+	/* DFX TODO Gadget zero sets req.zero to true when the data it is sending
+	 * to the host is shorter than the length specified by the host.  In this
+	 * case, if we also send a ZLP, we also somehow need to come back and
+	 * do_setup_out_status_phase()  Which apparently is not done.
+	 */
+	/* else if (req->req.zero) {
+		req->req.actual = _ep->dwc_ep.xfer_count;
+		//do_setup_in_status_phase (pcd);
+		req->req.zero = 0;
+		_ep->dwc_ep.xfer_len = 0;
+		_ep->dwc_ep.xfer_count = 0;
+		_ep->dwc_ep.sent_zlp = 1;
+		dwc_otg_ep0_start_transfer( GET_CORE_IF(pcd), &_ep->dwc_ep );
+		return 1;
+	}*/
+	else if (_ep->dwc_ep.is_in) {
+        	//printk(KERN_ERR "DFX complete request counter: %d\n", counter);
+                deptsiz.d32 = dwc_read_reg32( &in_ep_regs->dieptsiz);
 #ifdef DEBUG_EP0
-        DWC_DEBUGPL(DBG_PCDV, "%s len=%d  xfersize=%d pktcnt=%d xfer_count=%d mps=%d\n",
-            _ep->ep.name, _ep->dwc_ep.xfer_len,
-            deptsiz.b.xfersize, deptsiz.b.pktcnt,  _ep->dwc_ep.xfer_count,
-            _ep->dwc_ep.maxpacket);
+                DWC_DEBUGPL(DBG_PCDV, "%s len=%d  xfersize=%d pktcnt=%d\n",
+                            _ep->ep.name, _ep->dwc_ep.xfer_len,
+                            deptsiz.b.xfersize, deptsiz.b.pktcnt);
+#endif
+                if (deptsiz.b.xfersize == 0) {
+                        req->req.actual = _ep->dwc_ep.xfer_count;
+                        /* Is a Zero Len Packet needed? */
+                        //if (req->req.zero) {
+#ifdef DEBUG_EP0
+                                DWC_DEBUGPL(DBG_PCD, "Setup Rx ZLP\n");
+#endif
+				do_setup_out_status_phase(pcd);
+                }
+        } else {
+                /* ep0-OUT */
+#ifdef DEBUG_EP0
+                deptsiz.d32 = dwc_read_reg32( &out_ep_regs->doeptsiz);
+                DWC_DEBUGPL(DBG_PCDV, "%s len=%d xsize=%d pktcnt=%d\n",
+                            _ep->ep.name, _ep->dwc_ep.xfer_len,
+                            deptsiz.b.xfersize,
+                            deptsiz.b.pktcnt);
 #endif
 		req->req.actual = _ep->dwc_ep.xfer_count;
-		if (_ep->dwc_ep.xfer_count <  _ep->dwc_ep.maxpacket) {
-            do_setup_out_status_phase(pcd);
-			req->req.zero = 0;
-		}
-		else {
-			//do_setup_in_status_phase (pcd);
-			req->req.zero = 0;
-			_ep->dwc_ep.xfer_len = 0;
-			_ep->dwc_ep.xfer_count = 0;
-			_ep->dwc_ep.sent_zlp = 1;
-			dwc_otg_ep0_start_transfer(GET_CORE_IF(pcd), &_ep->dwc_ep);
-			return 1;
-		}
-	} else if (_ep->dwc_ep.is_in) {
-		deptsiz.d32 = dwc_read_reg32(&in_ep_regs->dieptsiz);
 
+                /* Is a Zero Len Packet needed? */
+                //if (req->req.zero) {
 #ifdef DEBUG_EP0
-		    DWC_DEBUGPL(DBG_PCDV, "%s len=%d  xfersize=%d pktcnt=%d\n",
-				_ep->ep.name, _ep->dwc_ep.xfer_len,
-				deptsiz.b.xfersize, deptsiz.b.pktcnt);
+                        DWC_DEBUGPL(DBG_PCDV, "Setup Tx ZLP\n");
+#endif
+                        do_setup_in_status_phase(pcd);
+        }
 
-#endif	/*  */
-		if (deptsiz.b.xfersize == 0) {
-			req->req.actual = _ep->dwc_ep.xfer_count;
-
-			/* Is a Zero Len Packet needed? */
-			//if (req->req.zero) {
-#ifdef DEBUG_EP0
-			    DWC_DEBUGPL(DBG_PCD, "Setup Rx ZLP\n");
-
-#endif	/*  */
-			do_setup_out_status_phase(pcd);
-		}
-	} else {
-		    /* ep0-OUT */
-#ifdef DEBUG_EP0
-		deptsiz.d32 = dwc_read_reg32(&out_ep_regs->doeptsiz);
-		DWC_DEBUGPL(DBG_PCDV, "%s len=%d xsize=%d pktcnt=%d\n",
-			     _ep->ep.name, _ep->dwc_ep.xfer_len,
-			     deptsiz.b.xfersize, deptsiz.b.pktcnt);
-
-#endif	/*  */
-		req->req.actual = _ep->dwc_ep.xfer_count;
-
-		/* Is a Zero Len Packet needed? */
-		//if (req->req.zero) {
-#ifdef DEBUG_EP0
-		DWC_DEBUGPL(DBG_PCDV, "Setup Tx ZLP\n");
-
-#endif	/*  */
-		do_setup_in_status_phase(pcd);
-	}
-
-	/* Complete the request */
-	if (is_last) {
-		request_done(_ep, req, 0);
-		_ep->dwc_ep.start_xfer_buff = 0;
-		_ep->dwc_ep.xfer_buff = 0;
-		_ep->dwc_ep.xfer_len = 0;
-		return 1;
-	}
-	return 0;
+        /* Complete the request */
+        if (is_last) {
+                request_done(_ep, req, 0);
+                _ep->dwc_ep.start_xfer_buff = 0;
+                _ep->dwc_ep.xfer_buff = 0;
+                _ep->dwc_ep.xfer_len = 0;
+                return 1;
+        }
+        return 0;
 }
 
 /**
