@@ -112,6 +112,16 @@ void request_done(dwc_otg_pcd_ep_t * _ep, dwc_otg_pcd_request_t * _req,
 		--_ep->pcd->request_pending;
 	}
 	_ep->stopped = stopped;
+
+#ifdef CONFIG_405EZ
+	/*
+	 * Added-sr: 2007-07-26
+	 *
+	 * Finally, when the current request is done, mark this endpoint
+	 * as not active, so that new requests can be processed.
+	 */
+	_ep->dwc_ep.active = 0;
+#endif
 }
 
 /**
