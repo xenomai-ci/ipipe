@@ -1,6 +1,13 @@
 #
 # Makefile for miscellaneous I2C chip drivers.
 #
+# Think twice before you add a new driver to this directory.
+# Device drivers are better grouped according to the functionality they
+# implement rather than to the bus they are connected to. In particular:
+# * Hardware monitoring chip drivers go to drivers/hwmon
+# * RTC chip drivers go to drivers/rtc
+# * I/O expander drivers go to drivers/gpio
+#
 
 obj-$(CONFIG_SENSORS_24C01A)	+= 24c01a.o
 obj-$(CONFIG_SENSORS_AD7416)	+= ad7416.o
