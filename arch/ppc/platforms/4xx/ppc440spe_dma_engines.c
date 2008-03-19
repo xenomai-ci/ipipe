@@ -244,6 +244,35 @@ static void ppc440spe_configure_raid_devices(void)
 	 */
 	iounmap(i2o_reg);
 
+	/* Configure MQ as follows:
+	 * MQ: 0x80001C80. This means
+	 * - AddrAck First Request,
+	 * - Read Passing Limit = 1,
+	 * - Read Passing Enable,
+	 * - Read Flow Through Enable,
+	 * - MCIF Cycle Limit = 1.
+	 */
+	mask = (1 << MQ_CF1_AAFR) | ((1 & MQ_CF1_RPLM_MSK) << MQ_CF1_RPLM) |
+	       (1 << MQ_CF1_RPEN) | (1 << MQ_CF1_RFTE) |
+	       ((1 & MQ_CF1_WRCL_MSK) << MQ_CF1_WRCL);
+	mtdcr(DCRN_MQ0_CF1H, mask);
+	mtdcr(DCRN_MQ0_CF1L, mask);
+
+	/* Configure PLB as follows:
+	 * PLB: 0xDF000000. This means
+	 * - Priority level 00 fair priority,
+	 * - Priority level 01 fair priority,
+	 * - Priority level 11 fair priority,
+	 * - High Bus Utilization enabled,
+	 * - 4 Deep read pipe,
+	 * - 2 Deep write pipe.
+	 */
+	mask = (1 << PLB_ACR_PPM0) | (1 << PLB_ACR_PPM1) | (1 << PLB_ACR_PPM3) |
+	       (1 << PLB_ACR_HBU) | ((3 & PLB_ACR_RDP_MSK) << PLB_ACR_RDP) |
+	       (1 << PLB_ACR_WRP);
+	mtdcr(DCRN_PLB0_ACR, mask);
+	mtdcr(DCRN_PLB1_ACR, mask);
+
 	/*
 	 * Set resource addresses
 	 */

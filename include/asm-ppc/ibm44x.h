@@ -374,6 +374,17 @@
 #define DCRN_PLB1_BESRH		0x08b		/* PLB Error Status */
 #define DCRN_PLB1_BEARL		0x08c		/* PLB Error Address Low */
 #define DCRN_PLB1_BEARH		0x08d		/* PLB Error Address High */
+
+/* PLB0/1 ACR masks & shifts */
+#define PLB_ACR_RDP_MSK		0x3
+
+#define PLB_ACR_PPM0		31
+#define PLB_ACR_PPM1		30
+#define PLB_ACR_PPM3		28
+#define PLB_ACR_HBU		27
+#define PLB_ACR_RDP		25
+#define PLB_ACR_WRP		24
+
 #elif defined(CONFIG_440EPX) || defined(CONFIG_440GRX)
 /* EBC error Status */
 #define DCRN_EBC0_BEAR		0x020
@@ -553,8 +564,10 @@
 
 /* 440SP/440SPe XOR DCRs */
 #define DCRN_MQ0_XORBA			0x44
+#define DCRN_MQ0_CF1H			0x45
 #define DCRN_MQ0_CF2H			0x46
 #define DCRN_MQ0_BAUL			0x4a
+#define DCRN_MQ0_CF1L			0x4b
 #define DCRN_MQ0_CFBHL			0x4f
 #define DCRN_MQ0_BAUH			0x50
 
@@ -565,6 +578,16 @@
 #define MQ0_CFBHL_TPLM			28
 #define MQ0_CFBHL_HBCL			23
 #define MQ0_CFBHL_POLY			15
+
+/* MQ HB/LL Configuration masks & shifts */
+#define MQ_CF1_RPLM_MSK			0xF
+#define MQ_CF1_WRCL_MSK			0x7
+
+#define MQ_CF1_AAFR			31
+#define MQ_CF1_RPLM			12
+#define MQ_CF1_RPEN			11
+#define MQ_CF1_RFTE			10
+#define MQ_CF1_WRCL			7
 
 /* Internal SRAM Controller 440GX/440SP/440SPe/440EPx/440GRx */
 #if defined(CONFIG_440EPX) || defined(CONFIG_440GRX)
