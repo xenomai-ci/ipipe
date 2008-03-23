@@ -423,6 +423,48 @@ static void gpio_irq_handler(unsigned irq, struct irq_desc *desc)
 #ifdef CONFIG_IPIPE
 void __ipipe_mach_demux_irq(unsigned irq, struct pt_regs *regs)
 {
+/* CONFIG_AT91_TIMER_HZ is defined only if the AT91 patch is applied. */
+#ifndef CONFIG_AT91_TIMER_HZ
+	struct irq_desc *desc = &irq_desc[irq];
+	unsigned	pin;
+	struct irq_desc	*gpio;
+	void __iomem	*pio;
+	u32		isr;
+
+	pio = get_irq_chip_data(irq);
+
+	/* temporarily mask (level sensitive) parent IRQ */
+	desc->chip->ack(irq);
+	for (;;) {
+		/* reading ISR acks the pending (edge triggered) GPIO interrupt */
+		isr = __raw_readl(pio + PIO_ISR) & __raw_readl(pio + PIO_IMR);
+		if (!isr)
+			break;
+
+		pin = (unsigned) get_irq_data(irq);
+		gpio = &irq_desc[pin];
+
+		while (isr) {
+			if (isr & 1) {
+				if (unlikely(gpio->depth)) {
+					/*
+					 * The core ARM interrupt handler lazily disables IRQs so
+					 * another IRQ must be generated before it actually gets
+					 * here to be disabled on the GPIO controller.
+					 */
+					gpio_irq_mask(pin);
+				}
+				else
+					__ipipe_handle_irq(pin, regs);
+			}
+			pin++;
+			gpio++;
+			isr >>= 1;
+		}
+	}
+	desc->chip->unmask(irq);
+	/* now it may re-trigger */
+#else /* defined(AT91_TIMER_HZ) */
 	struct irq_desc *desc = &irq_desc[irq];
 	unsigned	pin;
 	struct irq_desc	*gpio;
@@ -436,6 +478,10 @@ void __ipipe_mach_demux_irq(unsigned irq, struct pt_regs *regs)
 	/* temporarily mask (level sensitive) parent IRQ */
 	desc->chip->ack(irq);
 	for (;;) {
+		/* Reading ISR acks pending (edge triggered) GPIO interrupts.
+		 * When there none are pending, we're finished unless we need
+		 * to process multiple banks (like ID_PIOCDE on sam9263).
+		 */
 		isr = __raw_readl(pio + PIO_ISR) & __raw_readl(pio + PIO_IMR);
 		if (!isr) {
 			if (!bank->next)
@@ -468,6 +514,7 @@ void __ipipe_mach_demux_irq(unsigned irq, struct pt_regs *regs)
 	}
 	desc->chip->unmask(irq);
 	/* now it may re-trigger */
+#endif /* defined(AT91_TIMER_HZ) */
 }
 #endif /* CONFIG_IPIPE */
 
@@ -508,6 +555,9 @@ void __init at91_gpio_irq_setup(void)
 		set_irq_chained_handler(id, gpio_irq_handler);
 	}
 	pr_info("AT91: %d gpio irqs in %d banks\n", pin - PIN_BASE, gpio_banks);
+#ifdef CONFIG_IPIPE
+	__ipipe_at91_gpio_banks = gpio_banks;
+#endif /* CONFIG_IPIPE */
 }
 
 /*
@@ -519,7 +569,4 @@ void __init at91_gpio_init(struct at91_gpio_bank *data, int nr_banks)
 
 	gpio = data;
 	gpio_banks = nr_banks;
-#ifdef CONFIG_IPIPE
-	__ipipe_at91_gpio_banks = nr_banks;
-#endif /* CONFIG_IPIPE */
 }

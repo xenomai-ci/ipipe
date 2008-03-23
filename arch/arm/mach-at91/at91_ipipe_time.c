@@ -325,7 +325,7 @@ unsigned long __ipipe_mach_get_dec(void)
 }
 
 static struct clk *tc, local_tc = {
-#ifndef(CONFIG_ARCH_AT91SAM9263)
+#ifndef CONFIG_ARCH_AT91SAM9263
 	.name		= "tc" __stringify(CONFIG_IPIPE_AT91_TC) "_clk",
 #else
 	/* at91sam9263 only has a single TCB clock. */
