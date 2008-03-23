@@ -426,19 +426,26 @@ void __ipipe_mach_demux_irq(unsigned irq, struct pt_regs *regs)
 	struct irq_desc *desc = &irq_desc[irq];
 	unsigned	pin;
 	struct irq_desc	*gpio;
+	struct at91_gpio_bank *bank;
 	void __iomem	*pio;
 	u32		isr;
 
-	pio = get_irq_chip_data(irq);
+	bank = get_irq_chip_data(irq);
+	pio = bank->regbase;
 
 	/* temporarily mask (level sensitive) parent IRQ */
 	desc->chip->ack(irq);
 	for (;;) {
 		isr = __raw_readl(pio + PIO_ISR) & __raw_readl(pio + PIO_IMR);
-		if (!isr)
-			break;
+		if (!isr) {
+			if (!bank->next)
+				break;
+			bank = bank->next;
+			pio = bank->regbase;
+			continue;
+		}
 
-		pin = (unsigned) get_irq_data(irq);
+		pin = bank->chipbase;
 		gpio = &irq_desc[pin];
 
 		while (isr) {
