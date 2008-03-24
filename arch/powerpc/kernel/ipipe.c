@@ -741,6 +741,10 @@ EXPORT_SYMBOL_GPL(steal_context);
 EXPORT_SYMBOL_GPL(context_map);
 EXPORT_SYMBOL_GPL(atomic_set_mask);
 EXPORT_SYMBOL_GPL(atomic_clear_mask);
+#ifdef CONFIG_PPC_MERGE
+EXPORT_SYMBOL_GPL(last_task_used_math);
+#endif
+EXPORT_SYMBOL_GPL(tasklist_lock);
 #ifdef CONFIG_IPIPE_TRACE_MCOUNT
 void notrace _mcount(void);
 EXPORT_SYMBOL(_mcount);
