@@ -11,8 +11,7 @@
  * modification, are permitted provided that the following conditions
  * are met:
  * 1. Redistributions of source code must retain the above copyright
- *    notice, this list of conditions, the following disclaimer and
- *    the referenced file 'COPYING'.
+ *    notice, this list of conditions and the following disclaimer.
  * 2. Redistributions in binary form must reproduce the above copyright
  *    notice, this list of conditions and the following disclaimer in the
  *    documentation and/or other materials provided with the distribution.
@@ -22,8 +21,8 @@
  *
  * Alternatively, provided that this notice is retained in full, this
  * software may be distributed under the terms of the GNU General
- * Public License ("GPL") version 2 as distributed in the 'COPYING'
- * file from the main directory of the linux kernel source.
+ * Public License ("GPL") version 2, in which case the provisions of the
+ * GPL apply INSTEAD OF those given above.
  *
  * The provided data structures and external interfaces from this code
  * are not restricted to be used by modules with a GPL compatible license.
@@ -145,7 +144,7 @@ static int rx_probe[MAXDEV]	= { 0 };
 static int clk			= DEFAULT_HW_CLK;
 static int debug		= 0;
 static int restart_ms		= 100;
-static int loopback		= 1;
+static int echo			= 1;
 
 static int base_n;
 static int irq_n;
@@ -162,7 +161,7 @@ module_param_array(rx_probe, int, &rx_probe_n, 0);
 module_param(clk, int, 0);
 module_param(debug, int, 0);
 module_param(restart_ms, int, 0);
-module_param(loopback, int, S_IRUGO);
+module_param(echo, int, S_IRUGO);
 
 MODULE_PARM_DESC(base, "CAN controller base address");
 MODULE_PARM_DESC(irq, "CAN controller interrupt");
@@ -173,15 +172,15 @@ MODULE_PARM_DESC(rx_probe, "switch to trx mode after correct msg receiption. (de
 MODULE_PARM_DESC(clk, "CAN controller chip clock (default: 16MHz)");
 MODULE_PARM_DESC(debug, "set debug mask (default: 0)");
 MODULE_PARM_DESC(restart_ms, "restart chip on heavy bus errors / bus off after x ms (default 100ms)");
-MODULE_PARM_DESC(loopback, "Loop back sent frames. default: 1 (On)");
+MODULE_PARM_DESC(echo, "Echo sent frames. default: 1 (On)");
 
 /*
- * CAN network devices *should* support a local loopback functionality
+ * CAN network devices *should* support a local echo functionality
  * (see Documentation/networking/can.txt). To test the handling of CAN
- * interfaces that do not support the loopback both driver types are
+ * interfaces that do not support the local echo both driver types are
  * implemented inside this sja1000 driver. In the case that the driver does
- * not support the loopback the IFF_LOOPBACK remains clear in dev->flags.
- * This causes the PF_CAN core to perform the loopback as a fallback solution.
+ * not support the echo the IFF_ECHO remains clear in dev->flags.
+ * This causes the PF_CAN core to perform the echo as a fallback solution.
  */
 
 /* function declarations */
@@ -435,9 +434,9 @@ static void chipset_init(struct net_device *dev, int wake)
 		chipset_init_trx(dev);
 
 	if ((wake) && netif_queue_stopped(dev)) {
-		if (priv->loop_skb) { /* pending loopback? */
-			kfree_skb(priv->loop_skb);
-			priv->loop_skb = NULL;
+		if (priv->echo_skb) { /* pending echo? */
+			kfree_skb(priv->echo_skb);
+			priv->echo_skb = NULL;
 		}
 		netif_wake_queue(dev);
 	}
@@ -494,6 +493,7 @@ static void chipset_init_trx(struct net_device *dev)
 static int can_start_xmit(struct sk_buff *skb, struct net_device *dev)
 {
 	struct can_priv  *priv	= netdev_priv(dev);
+	struct net_device_stats *stats = dev->get_stats(dev);
 	struct can_frame *cf	= (struct can_frame*)skb->data;
 	unsigned long base	= dev->base_addr;
 	uint8_t	fi;
@@ -532,19 +532,19 @@ static int can_start_xmit(struct sk_buff *skb, struct net_device *dev)
 
 	hw_writereg(base, REG_CMR, CMD_TR);
 
-	priv->stats.tx_bytes += dlc;
+	stats->tx_bytes += dlc;
 
 	dev->trans_start = jiffies;
 
 	/* set flag whether this packet has to be looped back */
 	loop = skb->pkt_type == PACKET_LOOPBACK;
 
-	if (!loopback || !loop) {
+	if (!echo || !loop) {
 		kfree_skb(skb);
 		return 0;
 	}
 
-	if (!priv->loop_skb) {
+	if (!priv->echo_skb) {
 		struct sock *srcsk = skb->sk;
 
 		if (atomic_read(&skb->users) != 1) {
@@ -563,18 +563,18 @@ static int can_start_xmit(struct sk_buff *skb, struct net_device *dev)
 
 		skb->sk = srcsk;
 
-		/* make settings for loopback to reduce code in irq context */
+		/* make settings for echo to reduce code in irq context */
 		skb->protocol	= htons(ETH_P_CAN);
 		skb->pkt_type	= PACKET_BROADCAST;
 		skb->ip_summed	= CHECKSUM_UNNECESSARY;
 		skb->dev	= dev;
 
-		/* save this skb for tx interrupt loopback handling */
-		priv->loop_skb = skb;
+		/* save this skb for tx interrupt echo handling */
+		priv->echo_skb = skb;
 
 	} else {
 		/* locking problem with netif_stop_queue() ?? */
-		printk(KERN_ERR "%s: %s: occupied loop_skb!\n",
+		printk(KERN_ERR "%s: %s: occupied echo_skb!\n",
 		       dev->name, __FUNCTION__ );
 		kfree_skb(skb);
 	}
@@ -585,15 +585,16 @@ static int can_start_xmit(struct sk_buff *skb, struct net_device *dev)
 static void can_tx_timeout(struct net_device *dev)
 {
 	struct can_priv *priv = netdev_priv(dev);
+	struct net_device_stats *stats = dev->get_stats(dev);
 
-	priv->stats.tx_errors++;
+	stats->tx_errors++;
 
 	/* do not conflict with e.g. bus error handling */
 	if (!(priv->timer.expires)){ /* no restart on the run */
 		chipset_init_trx(dev); /* no tx queue wakeup */
-		if (priv->loop_skb) { /* pending loopback? */
-			kfree_skb(priv->loop_skb);
-			priv->loop_skb = NULL;
+		if (priv->echo_skb) { /* pending echo? */
+			kfree_skb(priv->echo_skb);
+			priv->echo_skb = NULL;
 		}
 		netif_wake_queue(dev); /* wakeup here */
 	}
@@ -664,8 +665,8 @@ static void can_restart_now(struct net_device *dev)
 
 static void can_rx(struct net_device *dev)
 {
-	struct can_priv *priv	= netdev_priv(dev);
-	unsigned long base	= dev->base_addr;
+	struct net_device_stats *stats = dev->get_stats(dev);
+	unsigned long base = dev->base_addr;
 	struct can_frame *cf;
 	struct sk_buff	*skb;
 	uint8_t	fi;
@@ -718,32 +719,8 @@ static void can_rx(struct net_device *dev)
 	netif_rx(skb);
 
 	dev->last_rx = jiffies;
-	priv->stats.rx_packets++;
-	priv->stats.rx_bytes += dlc;
-}
-
-static struct net_device_stats *can_get_stats(struct net_device *dev)
-{
-	struct can_priv *priv = netdev_priv(dev);
-
-	/* TODO: read statistics from chip */
-	return &priv->stats;
-}
-
-static int can_ioctl(struct net_device *dev, struct ifreq *rq, int cmd)
-{
-	if (!netif_running(dev))
-		return -EINVAL;
-
-	switch (cmd) {
-	case SIOCSCANBAUDRATE:
-		;
-		return 0;
-	case SIOCGCANBAUDRATE:
-		;
-		return 0;
-	}
-	return 0;
+	stats->rx_packets++;
+	stats->rx_bytes += dlc;
 }
 
 /*
@@ -753,6 +730,7 @@ static irqreturn_t can_interrupt(int irq, void *dev_id)
 {
 	struct net_device *dev	= (struct net_device*)dev_id;
 	struct can_priv *priv	= netdev_priv(dev);
+	struct net_device_stats *stats = dev->get_stats(dev);
 	unsigned long base	= dev->base_addr;
 	uint8_t isrc, status, ecc, alc;
 	int n = 0;
@@ -787,11 +765,11 @@ static irqreturn_t can_interrupt(int irq, void *dev_id)
 		}
 		if (isrc & IRQ_TI) {
 			/* transmission complete interrupt */
-			priv->stats.tx_packets++;
+			stats->tx_packets++;
 
-			if (loopback && priv->loop_skb) {
-				netif_rx(priv->loop_skb);
-				priv->loop_skb = NULL;
+			if (echo && priv->echo_skb) {
+				netif_rx(priv->echo_skb);
+				priv->echo_skb = NULL;
 			}
 
 			netif_wake_queue(dev);
@@ -831,7 +809,7 @@ static irqreturn_t can_interrupt(int irq, void *dev_id)
 				       "restarting device\n", dev->name);
 				can_restart_on(dev);
 				/* controller has been restarted: leave here */
-				return IRQ_HANDLED;
+				goto out;
 			} else if (status & SR_ES) {
 				iDBG(KERN_INFO "%s: error\n", dev->name);
 			}
@@ -860,7 +838,7 @@ static irqreturn_t can_interrupt(int irq, void *dev_id)
 				     " restarting device\n", dev->name);
 				can_restart_on(dev);
 				/* controller has been restarted: leave here */
-				return IRQ_HANDLED;
+				goto out;
 			}
 #if 1
 			/* don't know, if this is a good idea, */
@@ -870,7 +848,7 @@ static irqreturn_t can_interrupt(int irq, void *dev_id)
 				     " restarting device\n", dev->name);
 				can_restart_on(dev);
 				/* controller has been restarted: leave here */
-				return IRQ_HANDLED;
+				goto out;
 			}
 #endif
 		}
@@ -886,7 +864,7 @@ static irqreturn_t can_interrupt(int irq, void *dev_id)
 				     "restarting device\n", dev->name);
 				can_restart_on(dev);
 				/* controller has been restarted: leave here */
-				return IRQ_HANDLED;
+				goto out;
 			} else {
 				iDBG(KERN_INFO "%s: -> ERROR ACTIVE\n",
 				     dev->name);
@@ -906,7 +884,7 @@ static irqreturn_t can_interrupt(int irq, void *dev_id)
 	if (n > 1) {
 		iDBG(KERN_INFO "%s: handled %d IRQs\n", dev->name, n);
 	}
-
+out:
 	hw_postirq(dev);
 
 	return n == 0 ? IRQ_NONE : IRQ_HANDLED;
@@ -929,9 +907,6 @@ static int can_open(struct net_device *dev)
 			dev->name, (void*)dev)) {
 		return -EAGAIN;
 	}
-
-	/* clear statistics */
-	memset(&priv->stats, 0, sizeof(priv->stats));
 
 	/* init chip */
 	chipset_init(dev, 0);
@@ -994,12 +969,8 @@ void can_netdev_setup(struct net_device *dev)
 	   with CAN netdev generic values */
 
 	dev->change_mtu			= NULL;
-	dev->hard_header		= NULL;
-	dev->rebuild_header		= NULL;
 	dev->set_mac_address		= NULL;
-	dev->hard_header_cache		= NULL;
-	dev->header_cache_update	= NULL;
-	dev->hard_header_parse		= NULL;
+	dev->header_ops			= NULL;
 
 	dev->type			= ARPHRD_CAN;
 	dev->hard_header_len		= 0;
@@ -1010,21 +981,17 @@ void can_netdev_setup(struct net_device *dev)
 	dev->flags			= IFF_NOARP;
 
 	/* set flags according to driver capabilities */
-	if (loopback)
-		dev->flags |= IFF_LOOPBACK;
+	if (echo)
+		dev->flags |= IFF_ECHO;
 
 	dev->features			= NETIF_F_NO_CSUM;
 
 	dev->open			= can_open;
 	dev->stop			= can_close;
 	dev->hard_start_xmit		= can_start_xmit;
-	dev->get_stats			= can_get_stats;
-	dev->do_ioctl           	= can_ioctl;
 
 	dev->tx_timeout			= can_tx_timeout;
 	dev->watchdog_timeo		= TX_TIMEOUT;
-
-	SET_MODULE_OWNER(dev);
 }
 
 static struct net_device* can_create_netdev(int dev_num, int hw_regs)
@@ -1082,7 +1049,7 @@ int can_set_drv_name(void)
 	return 0;
 }
 
-static __exit void sja1000_exit_module(void)
+static void sja1000_exit_module(void)
 {
 	int i, ret;
 

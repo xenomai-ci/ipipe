@@ -44,7 +44,7 @@ ifeq ($(KERNELRELEASE),)
 
 KERNELDIR := /lib/modules/$(shell uname -r)/build
 PWD       := $(shell pwd)
-TOPDIR    := $(PWD)/../../../../..
+TOPDIR    := $(PWD)/../../../..
 
 modules modules_install clean:
 	$(MAKE) -C $(KERNELDIR) M=$(PWD) $@ TOPDIR=$(TOPDIR)
@@ -52,15 +52,12 @@ modules modules_install clean:
 else
 
 -include $(TOPDIR)/Makefile.common
-EXTRA_CFLAGS += -I$(TOPDIR)/drivers/net/can/old/hal
+#EXTRA_CFLAGS += -I$(TOPDIR)/drivers/net/can/hal
 
-obj-m := sja1000-io.o sja1000-iomem.o sja1000-iomux.o sja1000-gw2.o sja1000-esdio.o sja1000-c200.o
-
-sja1000-io-objs    := sja1000.o proc.o ../hal/io.o
-sja1000-iomem-objs := sja1000.o proc.o ../hal/iomem.o
-sja1000-iomux-objs := sja1000.o proc.o ../hal/iomux.o
-sja1000-gw2-objs   := sja1000.o proc.o ../hal/gw2.o
-sja1000-esdio-objs := sja1000.o proc.o ../hal/esdio.o
-sja1000-c200-objs  := sja1000.o proc.o ../hal/c200.o
+obj-$(CONFIG_CAN_SJA1000) += sja1000.o
+obj-$(CONFIG_CAN_EMS_PCI) += ems_pci.o
+obj-$(CONFIG_CAN_IXXAT_PCI) += ixxat_pci.o
+obj-$(CONFIG_CAN_PEAK_PCI) += peak_pci.o
+obj-$(CONFIG_CAN_PCM027) += pcm027.o
 
 endif

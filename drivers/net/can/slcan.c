@@ -8,8 +8,7 @@
  * modification, are permitted provided that the following conditions
  * are met:
  * 1. Redistributions of source code must retain the above copyright
- *    notice, this list of conditions, the following disclaimer and
- *    the referenced file 'COPYING'.
+ *    notice, this list of conditions and the following disclaimer.
  * 2. Redistributions in binary form must reproduce the above copyright
  *    notice, this list of conditions and the following disclaimer in the
  *    documentation and/or other materials provided with the distribution.
@@ -19,8 +18,8 @@
  *
  * Alternatively, provided that this notice is retained in full, this
  * software may be distributed under the terms of the GNU General
- * Public License ("GPL") version 2 as distributed in the 'COPYING'
- * file from the main directory of the linux kernel source.
+ * Public License ("GPL") version 2, in which case the provisions of the
+ * GPL apply INSTEAD OF those given above.
  *
  * The provided data structures and external interfaces from this code
  * are not restricted to be used by modules with a GPL compatible license.
@@ -139,9 +138,6 @@ struct slcan {
 	unsigned char		*xhead;         /* pointer to next XMIT byte */
 	int			xleft;          /* bytes left in XMIT queue  */
 
-	/* SLCAN interface statistics. */
-	struct net_device_stats stats;
-
 	unsigned long		flags;		/* Flag values/ mode etc     */
 #define SLF_INUSE		0		/* Channel in use            */
 #define SLF_ERROR		1               /* Parity, etc. error        */
@@ -209,6 +205,7 @@ static int asc2nibble(char c) {
 /* Send one completely decapsulated can_frame to the network layer */
 static void slc_bump(struct slcan *sl)
 {
+	struct net_device_stats *stats = sl->dev->get_stats(sl->dev);
 	struct sk_buff *skb;
 	struct can_frame cf;
 	int i, dlc_pos, tmp;
@@ -262,13 +259,15 @@ static void slc_bump(struct slcan *sl)
 	netif_rx(skb);
 
 	sl->dev->last_rx = jiffies;
-	sl->stats.rx_packets++;
-	sl->stats.rx_bytes += cf.can_dlc;
+	stats->rx_packets++;
+	stats->rx_bytes += cf.can_dlc;
 }
 
 /* parse tty input stream */
 static void slcan_unesc(struct slcan *sl, unsigned char s)
 {
+	struct net_device_stats *stats = sl->dev->get_stats(sl->dev);
+
 	if ((s == '\r') || (s == '\a')) { /* CR or BEL ends the pdu */
 		if (!test_and_clear_bit(SLF_ERROR, &sl->flags) &&
 		    (sl->rcount > 4))  {
@@ -281,7 +280,7 @@ static void slcan_unesc(struct slcan *sl, unsigned char s)
 				sl->rbuff[sl->rcount++] = s;
 				return;
 			} else {
-				sl->stats.rx_over_errors++;
+				stats->rx_over_errors++;
 				set_bit(SLF_ERROR, &sl->flags);
 			}
 		}
@@ -295,6 +294,7 @@ static void slcan_unesc(struct slcan *sl, unsigned char s)
 /* Encapsulate one can_frame and stuff into a TTY queue. */
 static void slc_encaps(struct slcan *sl, struct can_frame *cf)
 {
+	struct net_device_stats *stats = sl->dev->get_stats(sl->dev);
 	int actual, idx, i;
 	char cmd;
 
@@ -334,7 +334,7 @@ static void slc_encaps(struct slcan *sl, struct can_frame *cf)
 #endif
 	sl->xleft = strlen(sl->xbuff) - actual;
 	sl->xhead = sl->xbuff + actual;
-	sl->stats.tx_bytes += cf->can_dlc;
+	stats->tx_bytes += cf->can_dlc;
 }
 
 /*
@@ -345,6 +345,7 @@ static void slcan_write_wakeup(struct tty_struct *tty)
 {
 	int actual;
 	struct slcan *sl = (struct slcan *) tty->disc_data;
+	struct net_device_stats *stats = sl->dev->get_stats(sl->dev);
 
 	/* First make sure we're connected. */
 	if (!sl || sl->magic != SLCAN_MAGIC || !netif_running(sl->dev)) {
@@ -353,7 +354,7 @@ static void slcan_write_wakeup(struct tty_struct *tty)
 	if (sl->xleft <= 0)  {
 		/* Now serial buffer is almost free & we can start
 		 * transmission of another packet */
-		sl->stats.tx_packets++;
+		stats->tx_packets++;
 		tty->flags &= ~(1 << TTY_DO_WRITE_WAKEUP);
 		netif_wake_queue(sl->dev);
 		return;
@@ -460,28 +461,17 @@ static int slc_open(struct net_device *dev)
 	return 0;
 }
 
-/* Netdevice get statistics request */
-static struct net_device_stats *slc_get_stats(struct net_device *dev)
-{
-	struct slcan *sl = netdev_priv(dev);
-
-	return (&sl->stats);
-}
-
 /* Netdevice register callback */
 static void slc_setup(struct net_device *dev)
 {
 	dev->open		= slc_open;
 	dev->destructor		= free_netdev;
 	dev->stop		= slc_close;
-	dev->get_stats	        = slc_get_stats;
 	dev->hard_start_xmit	= slc_xmit;
 
 	dev->hard_header_len	= 0;
 	dev->addr_len		= 0;
 	dev->tx_queue_len	= 10;
-
-	SET_MODULE_OWNER(dev);
 
 	dev->mtu		= sizeof(struct can_frame);
 	dev->type		= ARPHRD_CAN;
@@ -512,6 +502,7 @@ static void slcan_receive_buf(struct tty_struct *tty,
 			      const unsigned char *cp, char *fp, int count)
 {
 	struct slcan *sl = (struct slcan *) tty->disc_data;
+	struct net_device_stats *stats = sl->dev->get_stats(sl->dev);
 
 	if (!sl || sl->magic != SLCAN_MAGIC ||
 	    !netif_running(sl->dev))
@@ -521,7 +512,7 @@ static void slcan_receive_buf(struct tty_struct *tty,
 	while (count--) {
 		if (fp && *fp++) {
 			if (!test_and_set_bit(SLF_ERROR, &sl->flags))  {
-				sl->stats.rx_errors++;
+				stats->rx_errors++;
 			}
 			cp++;
 			continue;
