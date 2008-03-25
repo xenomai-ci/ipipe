@@ -143,6 +143,20 @@
 			interrupts = <1e 4>;
 		};
 
+		USBOTG0: usbotg@bff80000 {
+			compatible = "amcc,usb-otg-460ex";
+			reg = <4 bff80000 10000>;
+			interrupt-parent = <&USBOTG0>;
+			interrupts = <0 1 2>;
+			#interrupt-cells = <1>;
+			#address-cells = <0>;
+			#size-cells = <0>;
+			interrupt-map = </* USB-OTG */ 0 &UIC2 1c 4
+					 /* HIGH-POWER */ 1 &UIC1 1a 8
+					 /* DMA */ 2 &UIC0 c 4>;
+			interrupt-map-mask = <ffffffff>;
+		};
+
 		POB0: opb {
 			compatible = "ibm,opb-460ex", "ibm,opb";
 			#address-cells = <1>;
