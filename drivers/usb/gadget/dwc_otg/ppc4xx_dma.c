@@ -114,6 +114,9 @@ ppc4xx_enable_dma(unsigned int dmanr)
 		}
 
 #endif
+#if defined(CONFIG_460EX) || defined(CONFIG_460GT)
+		control |= DMA_MODE_MM | DMA_DAI | DMA_SAI;
+#endif
 	}
 
 	mtdcr(DCRN_DMACR0 + (dmanr * 0x8), control);
@@ -266,8 +269,9 @@ ppc4xx_get_dma_residue(unsigned int dmanr)
 	}
 
 	count = mfdcr(DCRN_DMACT0 + (dmanr * 0x8));
-#if defined(CONFIG_405EX) || defined(CONFIG_405EXr)
-	count &= DMA_CTC_TC_MASK ;
+#if defined(CONFIG_405EX) || defined(CONFIG_405EXr) || \
+    defined(CONFIG_460EX) || defined(CONFIG_460GT)
+	count &= DMA_CTC_TC_MASK;
 #endif
 
 	return (count << p_dma_ch->shift);
@@ -397,12 +401,12 @@ ppc4xx_enable_dma_interrupt(unsigned int dmanr)
 
 	p_dma_ch->int_enable = 1;
 
-#if defined(CONFIG_405EX) || defined (CONFIG_405EXr)
+#if defined(CONFIG_405EX) || defined (CONFIG_405EXr) || \
+    defined(CONFIG_460EX) || defined (CONFIG_460GT)
 	control = mfdcr(DCRN_DMACT0 + (dmanr * 0x8));
 	control |= DMA_CTC_TCIE | DMA_CTC_ETIE | DMA_CTC_EIE;
 	mtdcr(DCRN_DMACT0 + (dmanr * 0x8), control);
 #endif
-
 
 	control = mfdcr(DCRN_DMACR0 + (dmanr * 0x8));
 	control |= DMA_CIE_ENABLE;	/* Channel Interrupt Enable */

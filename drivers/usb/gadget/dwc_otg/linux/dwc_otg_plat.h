@@ -51,7 +51,7 @@
 #error "The contents of this file are AMCC 44x processor specific!!!"
 #endif
 
-#if defined(CONFIG_405EX)
+#if defined(CONFIG_405EX) || defined(CONFIG_460EX)
 #define CONFIG_DWC_OTG_REG_LE
 #endif
 

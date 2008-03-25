@@ -7,7 +7,7 @@
  * Synopsys HS OTG Linux Software Driver and documentation (hereinafter,
  * "Software") is an Unsupported proprietary work of Synopsys, Inc. unless
  * otherwise expressly agreed to in writing between Synopsys and you.
- * 
+ *
  * The Software IS NOT an item of Licensed Software or Licensed Product under
  * any End User Software License Agreement or Agreement for Licensed Product
  * with Synopsys or any supplement thereto. You are permitted to use and
@@ -17,7 +17,7 @@
  * any information contained herein except pursuant to this license grant from
  * Synopsys. If you do not agree with this notice, including the disclaimer
  * below, then you are not authorized to use the Software.
- * 
+ *
  * THIS SOFTWARE IS BEING DISTRIBUTED BY SYNOPSYS SOLELY ON AN "AS IS" BASIS
  * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
  * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
@@ -57,7 +57,7 @@ typedef struct dwc_otg_device
 
 	/** Register offset for Diagnostic API.*/
 	uint32_t reg_offset;
-	
+
 	/** Pointer to the PCD structure. */
 	struct dwc_otg_pcd *pcd;
 
@@ -73,7 +73,7 @@ typedef struct dwc_otg_device
     /** Physical address of Control and Status registers, used by
      *  release_mem_region().
      */
-	unsigned long phys_addr;
+	resource_size_t phys_addr;
 
     /** Length of memory region, used by release_mem_region(). */
 	unsigned long base_len;

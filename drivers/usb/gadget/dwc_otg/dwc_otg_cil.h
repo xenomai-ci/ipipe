@@ -723,7 +723,7 @@ typedef struct dwc_otg_core_if
 	uint32_t		hfnum_other_samples;
 	uint64_t		hfnum_other_frrem_accum;
 #endif
-	uint32_t phys_addr;		/* Added to support PLB DMA : phys-virt mapping */
+	resource_size_t phys_addr;		/* Added to support PLB DMA : phys-virt mapping */
 #ifdef OTG_PLB_DMA_TASKLET
     /* Tasket to do plbdma */
     struct tasklet_struct   *plbdma_tasklet;

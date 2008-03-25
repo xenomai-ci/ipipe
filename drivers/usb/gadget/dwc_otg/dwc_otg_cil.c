@@ -401,7 +401,7 @@ void dwc_otg_core_init(dwc_otg_core_if_t * _core_if)
 	DWC_DEBUGPL(DBG_CIL, "USB config register: 0x%08x\n", usbcfg.d32);
 
 	/* Program the ULPI External VBUS bit if needed */
-#ifdef OTG_EXT_CHG_PUMP
+#if defined(OTG_EXT_CHG_PUMP) || defined(CONFIG_460EX)
     usbcfg.b.ulpi_ext_vbus_drv = 1;
 #else
     //usbcfg.b.ulpi_ext_vbus_drv = 0;
@@ -507,6 +507,7 @@ void dwc_otg_core_init(dwc_otg_core_if_t * _core_if)
 		     * during soft reset so only program the first time.  Do
 		     * a soft reset immediately after setting phyif.
 			 */
+			// test-only: in AMCC 460EX code not used!!!???
 		    usbcfg.b.ulpi_utmi_sel = _core_if->core_params->phy_type;
 			if (usbcfg.b.ulpi_utmi_sel == 1) {
 				DWC_DEBUGPL(DBG_CIL, "ULPI\n");
@@ -1072,6 +1073,7 @@ void dwc_otg_core_host_init(dwc_otg_core_if_t * _core_if)
 		phy_read(_core_if, i);
 #endif
 
+#ifdef CONFIG_405EX
 	/* Write 0x60 to USB PHY register 7:
 	 * Modify "Indicator Complement" and "Indicator Pass Thru" of
 	 * Interface control register to disable the internal Vbus
@@ -1082,6 +1084,7 @@ void dwc_otg_core_host_init(dwc_otg_core_if_t * _core_if)
 	 * on Makalu, let's keep it in here too.
 	 */
 	phy_write(_core_if, 7, 0x60);
+#endif
 
 #if 0 // test-only
 	for (i=0; i<16; i++)

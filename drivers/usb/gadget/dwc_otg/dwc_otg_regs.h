@@ -1345,7 +1345,11 @@ typedef union deptsiz0_data                 //*
 #define MAX_TX_FIFOS 15
 
 /** Maximum number of Endpoints/HostChannels */
+#if defined(CONFIG_460EX)
+#define MAX_EPS_CHANNELS 12
+#else
 #define MAX_EPS_CHANNELS 4
+#endif
 
 /**
  * The dwc_otg_dev_if structure contains information needed to manage
