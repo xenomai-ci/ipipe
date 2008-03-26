@@ -1,5 +1,5 @@
 /*
- * iomem.c - linear register access CAN hardware abstraction layer
+ * iomux.c - multiplex register access CAN hardware abstraction layer
  *
  * Inspired by the OCAN driver http://ar.linux.it/software/#ocan
  *
@@ -10,8 +10,7 @@
  * modification, are permitted provided that the following conditions
  * are met:
  * 1. Redistributions of source code must retain the above copyright
- *    notice, this list of conditions, the following disclaimer and
- *    the referenced file 'COPYING'.
+ *    notice, this list of conditions and the following disclaimer.
  * 2. Redistributions in binary form must reproduce the above copyright
  *    notice, this list of conditions and the following disclaimer in the
  *    documentation and/or other materials provided with the distribution.
@@ -21,8 +20,8 @@
  *
  * Alternatively, provided that this notice is retained in full, this
  * software may be distributed under the terms of the GNU General
- * Public License ("GPL") version 2 as distributed in the 'COPYING'
- * file from the main directory of the linux kernel source.
+ * Public License ("GPL") version 2, in which case the provisions of the
+ * GPL apply INSTEAD OF those given above.
  *
  * The provided data structures and external interfaces from this code
  * are not restricted to be used by modules with a GPL compatible license.
@@ -56,7 +55,7 @@ int hal_init(void) { return 0; }
 int hal_exit(void) { return 0; }
 
 /* get name of this CAN HAL */
-char *hal_name(void) { return "iomem"; }
+char *hal_name(void) { return "iomux"; }
 
 /* fill arrays base[] and irq[] with HAL specific defaults */
 void hal_use_defaults(void)
@@ -64,11 +63,8 @@ void hal_use_defaults(void)
 	extern unsigned long base[];
 	extern unsigned int  irq[];
 
-	base[0]		= 0xd8000UL;
+	base[0]		= 0x300UL;
 	irq[0]		= 5;
-
-	base[1]		= 0xd8100UL;
-	irq[1]		= 15;
 }
 
 /* request controller register access space */
@@ -79,19 +75,12 @@ int hal_request_region(int dev_num,
 	extern unsigned long base[];
 	extern unsigned long rbase[];
 
-	/* creating the region for IOMEM is pretty easy */
-	if (!request_mem_region(base[dev_num], num_regs, drv_name))
-		return 0; /* failed */
+	/* set for device base_addr */
+	rbase[dev_num] = base[dev_num];
 
-	/* set device base_addr */
-	rbase[dev_num] = (unsigned long)ioremap(base[dev_num], num_regs);
-
-	if (rbase[dev_num])
-		return 1; /* success */
-
-	/* cleanup due to failed ioremap() */
-	release_mem_region(base[dev_num], num_regs);
-	return 0; /* failed */
+	/* ignore num_regs and create the 2 register region:  */
+	/* address register = base / data register = base + 1 */
+	return (request_region(base[dev_num], 2, drv_name))? 1 : 0;
 }
 
 /* release controller register access space */
@@ -99,10 +88,10 @@ void hal_release_region(int dev_num,
 			unsigned int num_regs)
 {
 	extern unsigned long base[];
-	extern unsigned long rbase[];
 
-	iounmap((void *)rbase[dev_num]);
-	release_mem_region(base[dev_num], num_regs);
+	/* ignore num_regs and create the 2 register region:  */
+	/* address register = base / data register = base + 1 */
+	release_region(base[dev_num], 2);
 }
 
 /* enable non controller hardware (e.g. irq routing, etc.) */
@@ -117,22 +106,15 @@ int hw_reset_dev(int dev_num) { return 0; }
 /* read from controller register */
 u8 hw_readreg(unsigned long base, int reg) {
 
-	static u8 val;
-	void __iomem *addr = (void __iomem *)base + reg;
-
-	val = (u8)readb(addr);
-	rmb();
-
-        return val;
+	outb(reg, base);	/* address */
+	return inb(base + 1);	/* data */
 }
 
 /* write to controller register */
 void hw_writereg(unsigned long base, int reg, u8 val) {
 
-	void __iomem *addr = (void __iomem *)base + reg;
-
-	writeb(val, addr);
-	wmb();
+	outb(reg, base);	/* address */
+	outb(val, base + 1);	/* data */
 }
 
 /* hardware specific work to do at start of irq handler */
