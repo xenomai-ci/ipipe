@@ -694,16 +694,15 @@ static int dwc_otg_driver_probe(struct device *_dev)
 		retval = -ENODEV;
 		goto fail;
 	}
-	printk(KERN_INFO " OTG - device irq: %d\n", dwc_otg_device->irq);
+	dev_dbg(_dev, "OTG - device irq: %d\n", dwc_otg_device->irq);
 	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
 	if (res == NULL) {
 		dev_err(_dev, "no CSR address\n");
 		retval = -ENODEV;
 		goto fail;
 	}
-	printk(KERN_INFO "OTG - ioresource_mem start0x%08x: end:0x%08x\n",
+	dev_dbg(_dev, "OTG - ioresource_mem start0x%08x: end:0x%08x\n",
 		(unsigned)res->start, (unsigned)res->end);
-	dev_dbg(_dev, "start=0x%08x\n", (unsigned)res->start);
 	dwc_otg_device->phys_addr = res->start;
 	dwc_otg_device->base_len = res->end - res->start + 1;
 	if (request_mem_region(dwc_otg_device->phys_addr, dwc_otg_device->base_len,
@@ -723,9 +722,7 @@ static int dwc_otg_driver_probe(struct device *_dev)
 		retval = -ENOMEM;
 		goto fail;
 	}
-	dev_dbg(_dev, "base=0x%08x\n", (unsigned)dwc_otg_device->base);
-	printk(KERN_INFO "OTG Mapped base: 0x%08x\n",
-		(unsigned)dwc_otg_device->base);
+	dev_dbg(_dev, "mapped base=0x%08x\n", (unsigned)dwc_otg_device->base);
 
     /*
      * Attempt to ensure this device is really a DWC_otg Controller.

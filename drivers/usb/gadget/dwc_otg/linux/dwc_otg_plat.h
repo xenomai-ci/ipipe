@@ -248,7 +248,7 @@ static inline uint32_t SET_DEBUG_LEVEL( const uint32_t _new )
 #define DBG_OFF		0
 
 /** Prefix string for DWC_DEBUG print macros. */
-#define USB_DWC "DWC_otg: "
+#define USB_DWC "dwc_otg: "
 
 /**
  * Print a debug message when the Global debug level variable contains
