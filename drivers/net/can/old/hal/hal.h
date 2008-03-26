@@ -1,5 +1,5 @@
 /*
- * pc7io.c - linear register access CAN hardware abstraction layer
+ * hal.h - definitions for CAN controller hardware abstraction layer
  *
  * Inspired by the OCAN driver http://ar.linux.it/software/#ocan
  *
@@ -10,8 +10,7 @@
  * modification, are permitted provided that the following conditions
  * are met:
  * 1. Redistributions of source code must retain the above copyright
- *    notice, this list of conditions, the following disclaimer and
- *    the referenced file 'COPYING'.
+ *    notice, this list of conditions and the following disclaimer.
  * 2. Redistributions in binary form must reproduce the above copyright
  *    notice, this list of conditions and the following disclaimer in the
  *    documentation and/or other materials provided with the distribution.
@@ -21,8 +20,8 @@
  *
  * Alternatively, provided that this notice is retained in full, this
  * software may be distributed under the terms of the GNU General
- * Public License ("GPL") version 2 as distributed in the 'COPYING'
- * file from the main directory of the linux kernel source.
+ * Public License ("GPL") version 2, in which case the provisions of the
+ * GPL apply INSTEAD OF those given above.
  *
  * The provided data structures and external interfaces from this code
  * are not restricted to be used by modules with a GPL compatible license.
@@ -44,84 +43,57 @@
  *
  */
 
+#ifndef CAN_HAL_H
+#define CAN_HAL_H
+
+#include <linux/types.h>
 #include <linux/netdevice.h>
-#include <linux/ioport.h>
-#include <asm/io.h>
-#include "hal.h"
+
+/* Number of supported CAN devices for each HAL (default) */
+#define MAXDEV 8
+
+/* general function prototypes for CAN HAL */
 
 /* init the HAL - call at driver module init */
-int hal_init(void) { return 0; }
+int hal_init(void);
 
 /* exit the HAL - call at driver module exit */
-int hal_exit(void) { return 0; }
+int hal_exit(void);
 
 /* get name of this CAN HAL */
-char *hal_name(void) { return "pc7io"; }
+char *hal_name(void);
 
 /* fill arrays base[] and irq[] with HAL specific defaults */
-void hal_use_defaults(void)
-{
-	extern unsigned long base[];
-	extern unsigned int  irq[];
-
-	base[0]		= 0x1000UL;
-	irq[0]		= 9;
-}
+void hal_use_defaults(void);
 
 /* request controller register access space */
 int hal_request_region(int dev_num,
 		       unsigned int num_regs,
-		       char *drv_name)
-{
-	extern unsigned long base[];
-	extern unsigned long rbase[];
-
-	/* set for device base_addr */
-	rbase[dev_num] = base[dev_num];
-
-	/* creating the region for IO is pretty easy */
-	return (request_region(base[dev_num], num_regs, drv_name))? 1 : 0;
-}
+		       char *drv_name);
 
 /* release controller register access space */
 void hal_release_region(int dev_num,
-			unsigned int num_regs)
-{
-	extern unsigned long base[];
-
-	release_region(base[dev_num], num_regs);
-}
+			unsigned int num_regs);
 
 /* enable non controller hardware (e.g. irq routing, etc.) */
-int hw_attach(int dev_num) {
-
-	/* Unlock special function register */
-	outb(5, 0x169);
-
-	return 0;
-}
+int hw_attach(int dev_num);
 
 /* disable non controller hardware (e.g. irq routing, etc.) */
-int hw_detach(int dev_num) { return 0; }
+int hw_detach(int dev_num);
 
 /* reset controller hardware (with specific non controller hardware) */
-int hw_reset_dev(int dev_num) { return 0; }
+int hw_reset_dev(int dev_num);
 
 /* read from controller register */
-u8 hw_readreg(unsigned long base, int reg) {
-
-	return inb(base + reg);
-}
+u8 hw_readreg(unsigned long base, int reg);
 
 /* write to controller register */
-void hw_writereg(unsigned long base, int reg, u8 val) {
-
-	outb(val, base + reg);
-}
+void hw_writereg(unsigned long base, int reg, u8 val);
 
 /* hardware specific work to do at start of irq handler */
-void hw_preirq(struct net_device *dev) { return; }
+void hw_preirq(struct net_device *dev);
 
 /* hardware specific work to do at end of irq handler */
-void hw_postirq(struct net_device *dev) { return; }
+void hw_postirq(struct net_device *dev);
 
+#endif /* CAN_HAL_H */

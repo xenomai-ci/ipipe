@@ -1,10 +1,5 @@
 /*
- * c200.c - low cost parallelport CAN adaptor hardware abstraction layer
- *          ( direct register access without parport subsystem support )
- *
- *          CAN200 project homepage http://private.addcom.de/horo/can200
- *
- *          This hal is based on a patch from Uwe Bonnes.
+ * pc7io.c - linear register access CAN hardware abstraction layer
  *
  * Inspired by the OCAN driver http://ar.linux.it/software/#ocan
  *
@@ -15,8 +10,7 @@
  * modification, are permitted provided that the following conditions
  * are met:
  * 1. Redistributions of source code must retain the above copyright
- *    notice, this list of conditions, the following disclaimer and
- *    the referenced file 'COPYING'.
+ *    notice, this list of conditions and the following disclaimer.
  * 2. Redistributions in binary form must reproduce the above copyright
  *    notice, this list of conditions and the following disclaimer in the
  *    documentation and/or other materials provided with the distribution.
@@ -26,8 +20,8 @@
  *
  * Alternatively, provided that this notice is retained in full, this
  * software may be distributed under the terms of the GNU General
- * Public License ("GPL") version 2 as distributed in the 'COPYING'
- * file from the main directory of the linux kernel source.
+ * Public License ("GPL") version 2, in which case the provisions of the
+ * GPL apply INSTEAD OF those given above.
  *
  * The provided data structures and external interfaces from this code
  * are not restricted to be used by modules with a GPL compatible license.
@@ -51,7 +45,6 @@
 
 #include <linux/netdevice.h>
 #include <linux/ioport.h>
-#include <linux/spinlock.h>
 #include <asm/io.h>
 #include "hal.h"
 
@@ -62,7 +55,7 @@ int hal_init(void) { return 0; }
 int hal_exit(void) { return 0; }
 
 /* get name of this CAN HAL */
-char *hal_name(void) { return "c200"; }
+char *hal_name(void) { return "pc7io"; }
 
 /* fill arrays base[] and irq[] with HAL specific defaults */
 void hal_use_defaults(void)
@@ -70,14 +63,9 @@ void hal_use_defaults(void)
 	extern unsigned long base[];
 	extern unsigned int  irq[];
 
-	base[0]		= 0x378UL;
-	irq[0]		= 7;
+	base[0]		= 0x1000UL;
+	irq[0]		= 9;
 }
-
-#define ECR_REGS_OFFSET 0x400
-#define ECR_CTRL_OFFSET (ECR_REGS_OFFSET + 2)
-
-static u8 ecr_crtl_save;
 
 /* request controller register access space */
 int hal_request_region(int dev_num,
@@ -90,22 +78,8 @@ int hal_request_region(int dev_num,
 	/* set for device base_addr */
 	rbase[dev_num] = base[dev_num];
 
-	/* grab ECR control registers and set parport to 'byte mode' */
-	if (request_region(rbase[dev_num] + ECR_REGS_OFFSET, 3, drv_name)) {
-
-		ecr_crtl_save = inb(rbase[dev_num] + ECR_CTRL_OFFSET);
-
-		outb((ecr_crtl_save & 0x1F) | 0x20,
-		     rbase[dev_num] + ECR_CTRL_OFFSET);
-	} else
-		return 0;
-
-	if (request_region(rbase[dev_num], 4, drv_name))
-		return 1;
-
-	release_region(rbase[dev_num] + ECR_REGS_OFFSET, 3);
-
-	return 0;
+	/* creating the region for IO is pretty easy */
+	return (request_region(base[dev_num], num_regs, drv_name))? 1 : 0;
 }
 
 /* release controller register access space */
@@ -114,90 +88,34 @@ void hal_release_region(int dev_num,
 {
 	extern unsigned long base[];
 
-	release_region(base[dev_num], 4);
-
-	/* restore original ECR control register value */
-	outb(ecr_crtl_save, base[dev_num] + ECR_CTRL_OFFSET);
-	release_region(base[dev_num] + ECR_REGS_OFFSET, 3);
+	release_region(base[dev_num], num_regs);
 }
 
 /* enable non controller hardware (e.g. irq routing, etc.) */
-int hw_attach(int dev_num)
-{
-	extern unsigned long rbase[];
-	unsigned long pc = rbase[dev_num] + 2;
+int hw_attach(int dev_num) {
 
-	/* enable irq */
-	outb(inb(pc) | 0x10, pc);
+	/* Unlock special function register */
+	outb(5, 0x169);
 
 	return 0;
 }
 
 /* disable non controller hardware (e.g. irq routing, etc.) */
-int hw_detach(int dev_num)
-{
-	extern unsigned long rbase[];
-	unsigned long pc = rbase[dev_num] + 2;
-
-	/* disable irq */
-	outb(inb(pc) & ~0x10, pc);
-
-	return 0;
-}
+int hw_detach(int dev_num) { return 0; }
 
 /* reset controller hardware (with specific non controller hardware) */
 int hw_reset_dev(int dev_num) { return 0; }
 
-#define WRITEP		0x01 /* inverted at port  */
-#define DATASTB		0x02 /* inverted at port and at device*/
-#define ADDRSTB		0x08 /* inverted at port and at device*/
-#define PORTREAD	0x20
-
-static DEFINE_SPINLOCK(c200_lock);
-
 /* read from controller register */
-u8 hw_readreg(unsigned long base, int reg)
-{
-	unsigned long pa = base;
-	unsigned long pc = pa + 2;
-	unsigned long flags;
-	u8 irqstatus = (inb(pc) & 0x10) | 0x04;
-	u8 val;
+u8 hw_readreg(unsigned long base, int reg) {
 
-	spin_lock_irqsave(&c200_lock, flags);
-
-	outb(irqstatus | ADDRSTB, pc);
-	outb((reg & 0x1F) | 0x80, pa);
-	outb(irqstatus, pc);
-	outb(irqstatus | PORTREAD, pc);
-	outb(irqstatus | DATASTB | PORTREAD, pc);
-	val = inb(pa);
-	outb(irqstatus, pc);
-
-	spin_unlock_irqrestore(&c200_lock, flags);
-
-	return val;
+	return inb(base + reg);
 }
 
 /* write to controller register */
-void hw_writereg(unsigned long base, int reg, u8 val)
-{
-	unsigned long pa = base;
-	unsigned long pc = pa + 2;
-	unsigned long flags;
-	u8 irqstatus = (inb(pc) & 0x10) | 0x04;
+void hw_writereg(unsigned long base, int reg, u8 val) {
 
-	spin_lock_irqsave(&c200_lock, flags);
-
-	outb(irqstatus | ADDRSTB, pc);
-	outb(reg & 0x1F, pa);
-	outb(irqstatus, pc);
-	outb(irqstatus | WRITEP, pc);
-	outb(irqstatus | DATASTB | WRITEP, pc);
-	outb(val, pa);
-	outb(irqstatus, pc);
-
-	spin_unlock_irqrestore(&c200_lock, flags);
+	outb(val, base + reg);
 }
 
 /* hardware specific work to do at start of irq handler */
@@ -205,3 +123,4 @@ void hw_preirq(struct net_device *dev) { return; }
 
 /* hardware specific work to do at end of irq handler */
 void hw_postirq(struct net_device *dev) { return; }
+

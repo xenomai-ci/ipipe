@@ -1,6 +1,6 @@
 #
 #
-#  Copyright (c) 2002-2005 Volkswagen Group Electronic Research
+#  Copyright (c) 2002-2007 Volkswagen Group Electronic Research
 #  All rights reserved.
 #
 #  Redistribution and use in source and binary forms, with or without
@@ -39,12 +39,11 @@
 #
 #  Send feedback to <socketcan-users@lists.berlios.de>
 
-
 ifeq ($(KERNELRELEASE),)
 
 KERNELDIR := /lib/modules/$(shell uname -r)/build
 PWD       := $(shell pwd)
-TOPDIR    := $(PWD)/../../../..
+TOPDIR    := $(PWD)/../../../../..
 
 modules modules_install clean:
 	$(MAKE) -C $(KERNELDIR) M=$(PWD) $@ TOPDIR=$(TOPDIR)
@@ -52,12 +51,12 @@ modules modules_install clean:
 else
 
 -include $(TOPDIR)/Makefile.common
-#EXTRA_CFLAGS += -I$(TOPDIR)/drivers/net/can/hal
+EXTRA_CFLAGS += -I$(TOPDIR)/drivers/net/can/old/hal
 
-obj-$(CONFIG_CAN_SJA1000) += sja1000.o
-obj-$(CONFIG_CAN_EMS_PCI) += ems_pci.o
-obj-$(CONFIG_CAN_IXXAT_PCI) += ixxat_pci.o
-obj-$(CONFIG_CAN_PEAK_PCI) += peak_pci.o
-obj-$(CONFIG_CAN_PCM027) += pcm027.o
+obj-m := i82527-pc7io.o i82527-iomem.o i82527-esdio.o
+
+i82527-pc7io-objs := i82527.o proc.o ../hal/pc7io.o
+i82527-iomem-objs := i82527.o proc.o ../hal/iomem.o
+i82527-esdio-objs := i82527.o proc.o ../hal/esdio.o
 
 endif

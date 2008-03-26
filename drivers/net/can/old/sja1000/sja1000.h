@@ -44,16 +44,26 @@
  *
  */
 
-#ifndef SJA1000DEV_H
-#define SJA1000DEV_H
+#ifndef SJA1000_H
+#define SJA1000_H
 
-#include <linux/can/dev.h>
+#define SJA1000_IO_SIZE_BASIC   0x20
+#define SJA1000_IO_SIZE_PELICAN 0x80 /* unused */
 
-#define CHIP_NAME	"SJA1000"
+#define CHIP_NAME	"sja1000"
 
-#define TX_TIMEOUT      (50*HZ/1000)	/* 50ms */
-#define RESTART_MS      100	/* restart chip on persistent errors in 100ms */
-#define MAX_BUS_ERRORS  200	/* prevent from flooding bus error interrupts */
+#define DRV_NAME_LEN	30 /* for "<chip_name>-<hal_name>" */
+
+#define PROCBASE          "driver" /* /proc/ ... */
+
+#define DEFAULT_HW_CLK	16000000
+#define DEFAULT_SPEED	500 /* kBit/s */
+
+#define CAN_NETDEV_NAME	"can%d"
+
+#define TX_TIMEOUT      (50*HZ/1000) /* 50ms */ 
+#define RESTART_MS      100  /* restart chip on persistent errors in 100ms */
+#define MAX_BUS_ERRORS  200  /* prevent from flooding bus error interrupts */
 
 /* SJA1000 registers - manual section 6.4 (Pelican Mode) */
 #define REG_MOD		0x00
@@ -136,60 +146,42 @@
 #define SR_CRIT (SR_BS|SR_ES)
 
 /* ECC register */
-#define ECC_SEG		0x1F
 #define ECC_DIR		0x20
+#define ECC_SEG		0x1F
 #define ECC_ERR		6
-#define ECC_BIT		0x00
-#define ECC_FORM	0x40
-#define ECC_STUFF	0x80
-#define ECC_MASK	0xc0
 
-/* clock divider register */
-#define CDR_CLKOUT_MASK 0x07
-#define CDR_CLK_OFF	0x08 /* Clock off (CLKOUT pin) */
-#define CDR_RXINPEN	0x20 /* TX1 output is RX irq output */
-#define CDR_CBP		0x40 /* CAN input comparator bypass */
-#define CDR_PELICAN	0x80 /* PeliCAN mode */
+/* bus timing */
+#define MAX_TSEG1	15
+#define MAX_TSEG2	 7
+#define SAMPLE_POINT	75
+#define JUMPWIDTH     0x40
 
-/* output control register */
-#define OCR_MODE_BIPHASE  0x00
-#define OCR_MODE_TEST     0x01
-#define OCR_MODE_NORMAL   0x02
-#define OCR_MODE_CLOCK    0x03
-#define OCR_TX0_INVERT    0x04
-#define OCR_TX0_PULLDOWN  0x08
-#define OCR_TX0_PULLUP    0x10
-#define OCR_TX0_PUSHPULL  0x18
-#define OCR_TX1_INVERT    0x20
-#define OCR_TX1_PULLDOWN  0x40
-#define OCR_TX1_PULLUP    0x80
-#define OCR_TX1_PUSHPULL  0xc0
+/* CAN private data structure */
 
-/*
- * SJA1000 private data structure
- */
-struct sja1000_priv {
-	struct can_priv can;	/* must be the first member! */
-	long open_time;
-	struct sk_buff *echo_skb;
-	u8 (*read_reg) (struct net_device * dev, int reg);
-	void (*write_reg) (struct net_device * dev, int reg, u8 val);
-	void (*pre_irq) (struct net_device * dev);
-	void (*post_irq) (struct net_device * dev);
-	void *priv;		/* for board-specific data */
-	struct net_device *dev;
-	u8 ocr;
-	u8 cdr;
+struct can_priv {
+	struct can_device_stats	can_stats;
+	long			open_time;
+	int			clock;
+	int			hw_regs;
+	int			restart_ms;
+	int			debug;
+	int			speed;
+	int			btr;
+	int			rx_probe;
+	struct timer_list       timer;
+	int			state;
+	struct sk_buff		*echo_skb;
 };
 
-struct net_device *alloc_sja1000dev(int sizeof_priv);
-void free_sja1000dev(struct net_device *dev);
-int register_sja1000dev(struct net_device *dev);
-void unregister_sja1000dev(struct net_device *dev);
+#define STATE_UNINITIALIZED	0
+#define STATE_PROBE		1
+#define STATE_ACTIVE		2
+#define STATE_ERROR_ACTIVE	3
+#define STATE_ERROR_PASSIVE	4
+#define STATE_BUS_OFF		5
+#define STATE_RESET_MODE	6
 
-#if 0
 void can_proc_create(const char *drv_name);
 void can_proc_remove(const char *drv_name);
-#endif
 
-#endif /* SJA1000_DEV_H */
+#endif /* SJA1000_H */

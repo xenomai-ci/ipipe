@@ -1,5 +1,5 @@
 /*
- * hal.h - definitions for CAN controller hardware abstraction layer
+ * iomem.c - linear register access CAN hardware abstraction layer
  *
  * Inspired by the OCAN driver http://ar.linux.it/software/#ocan
  *
@@ -10,8 +10,7 @@
  * modification, are permitted provided that the following conditions
  * are met:
  * 1. Redistributions of source code must retain the above copyright
- *    notice, this list of conditions, the following disclaimer and
- *    the referenced file 'COPYING'.
+ *    notice, this list of conditions and the following disclaimer.
  * 2. Redistributions in binary form must reproduce the above copyright
  *    notice, this list of conditions and the following disclaimer in the
  *    documentation and/or other materials provided with the distribution.
@@ -21,8 +20,8 @@
  *
  * Alternatively, provided that this notice is retained in full, this
  * software may be distributed under the terms of the GNU General
- * Public License ("GPL") version 2 as distributed in the 'COPYING'
- * file from the main directory of the linux kernel source.
+ * Public License ("GPL") version 2, in which case the provisions of the
+ * GPL apply INSTEAD OF those given above.
  *
  * The provided data structures and external interfaces from this code
  * are not restricted to be used by modules with a GPL compatible license.
@@ -44,57 +43,100 @@
  *
  */
 
-#ifndef CAN_HAL_H
-#define CAN_HAL_H
-
-#include <linux/types.h>
 #include <linux/netdevice.h>
-
-/* Number of supported CAN devices for each HAL (default) */
-#define MAXDEV 8
-
-/* general function prototypes for CAN HAL */
+#include <linux/ioport.h>
+#include <asm/io.h>
+#include "hal.h"
 
 /* init the HAL - call at driver module init */
-int hal_init(void);
+int hal_init(void) { return 0; }
 
 /* exit the HAL - call at driver module exit */
-int hal_exit(void);
+int hal_exit(void) { return 0; }
 
 /* get name of this CAN HAL */
-char *hal_name(void);
+char *hal_name(void) { return "iomem"; }
 
 /* fill arrays base[] and irq[] with HAL specific defaults */
-void hal_use_defaults(void);
+void hal_use_defaults(void)
+{
+	extern unsigned long base[];
+	extern unsigned int  irq[];
+
+	base[0]		= 0xd8000UL;
+	irq[0]		= 5;
+
+	base[1]		= 0xd8100UL;
+	irq[1]		= 15;
+}
 
 /* request controller register access space */
 int hal_request_region(int dev_num,
 		       unsigned int num_regs,
-		       char *drv_name);
+		       char *drv_name)
+{
+	extern unsigned long base[];
+	extern unsigned long rbase[];
+
+	/* creating the region for IOMEM is pretty easy */
+	if (!request_mem_region(base[dev_num], num_regs, drv_name))
+		return 0; /* failed */
+
+	/* set device base_addr */
+	rbase[dev_num] = (unsigned long)ioremap(base[dev_num], num_regs);
+
+	if (rbase[dev_num])
+		return 1; /* success */
+
+	/* cleanup due to failed ioremap() */
+	release_mem_region(base[dev_num], num_regs);
+	return 0; /* failed */
+}
 
 /* release controller register access space */
 void hal_release_region(int dev_num,
-			unsigned int num_regs);
+			unsigned int num_regs)
+{
+	extern unsigned long base[];
+	extern unsigned long rbase[];
+
+	iounmap((void *)rbase[dev_num]);
+	release_mem_region(base[dev_num], num_regs);
+}
 
 /* enable non controller hardware (e.g. irq routing, etc.) */
-int hw_attach(int dev_num);
+int hw_attach(int dev_num) { return 0; }
 
 /* disable non controller hardware (e.g. irq routing, etc.) */
-int hw_detach(int dev_num);
+int hw_detach(int dev_num) { return 0; }
 
 /* reset controller hardware (with specific non controller hardware) */
-int hw_reset_dev(int dev_num);
+int hw_reset_dev(int dev_num) { return 0; }
 
 /* read from controller register */
-u8 hw_readreg(unsigned long base, int reg);
+u8 hw_readreg(unsigned long base, int reg) {
+
+	static u8 val;
+	void __iomem *addr = (void __iomem *)base + reg;
+
+	val = (u8)readb(addr);
+	rmb();
+
+        return val;
+}
 
 /* write to controller register */
-void hw_writereg(unsigned long base, int reg, u8 val);
+void hw_writereg(unsigned long base, int reg, u8 val) {
+
+	void __iomem *addr = (void __iomem *)base + reg;
+
+	writeb(val, addr);
+	wmb();
+}
 
 /* hardware specific work to do at start of irq handler */
-void hw_preirq(struct net_device *dev);
+void hw_preirq(struct net_device *dev) { return; }
 
 /* hardware specific work to do at end of irq handler */
-void hw_postirq(struct net_device *dev);
+void hw_postirq(struct net_device *dev) { return; }
 
-#endif /* CAN_HAL_H */

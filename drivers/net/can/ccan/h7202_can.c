@@ -89,7 +89,6 @@ static int h7202can_drv_probe(struct platform_device *pdev)
 	}
 
 	SET_NETDEV_DEV(dev, &pdev->dev);
-	SET_MODULE_OWNER(THIS_MODULE);
 
 	dev->base_addr = (unsigned long)ioremap_nocache(mem->start, mem_size);
 
