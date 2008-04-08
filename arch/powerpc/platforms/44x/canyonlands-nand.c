@@ -30,17 +30,17 @@ static struct mtd_partition nand_parts[] = {
 	{
 		.name   = "u-boot",
 		.offset = 0,
-		.size   = 0x0060000
+		.size   = 0x0100000
 	},
 	{
 		.name   = "env",
-		.offset = 0x0060000,
-		.size   = 0x0008000
+		.offset = 0x0100000,
+		.size   = 0x0040000
 	},
 	{
 		.name   = "content",
-		.offset = 0x0068000,
-		.size   = 0x1F98000
+		.offset = 0x0140000,
+		.size   = 0xFEC0000
 	},
 };
 
@@ -67,19 +67,13 @@ static struct platform_device canyonlands_ndfc_device = {
 	.resource = &canyonlands_ndfc,
 };
 
-static struct nand_ecclayout nand_oob_16 = {
-	.eccbytes = 3,
-	.eccpos = { 0, 1, 2, 3, 6, 7 },
-	.oobfree = { {.offset = 8, .length = 16} }
-};
-
 static struct platform_nand_chip canyonlands_nand_chip0 = {
 	.nr_chips = 1,
 	.chip_offset = CS_NAND_0,
 	.nr_partitions = ARRAY_SIZE(nand_parts),
 	.partitions = nand_parts,
 	.chip_delay = 50,
-	.ecclayout = &nand_oob_16,
+	.ecclayout = NULL,		/* use default ECC layout */
 	.priv = &canyonlands_chip0_settings,
 };
 
