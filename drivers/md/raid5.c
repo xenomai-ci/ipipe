@@ -3947,7 +3947,7 @@ static void handle_queue(struct stripe_queue *sq, int disks, int data_disks)
 	    (to_write && test_bit(STRIPE_QUEUE_PREREAD_ACTIVE, &sq->state))) {
 		struct stripe_head *sh = get_active_stripe(sq, disks, 1);
 		if (sh) {
-			handle_stripe(sh);
+			set_bit(STRIPE_HANDLE, &sh->state);
 			release_stripe(sh);
 		}
 	}
@@ -4764,11 +4764,6 @@ static void raid456_cache_arbiter(struct work_struct *work)
 		 * things to do
 		 */
 		if (!sq_entry) {
-			if (atomic_read(&conf->preread_active_queues) <
-			    IO_THRESHOLD &&
-			    !blk_queue_plugged(conf->mddev->queue) &&
-			    !list_empty(&conf->delayed_q_list))
-				raid5_activate_delayed(conf);
 			if (conf->seq_flush != conf->seq_write) {
 				int seq = conf->seq_flush;
 				spin_unlock_irq(&conf->device_lock);
