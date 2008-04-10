@@ -47,6 +47,7 @@ static void ppc4xx_uic##n##_enable(unsigned int irq)			\
 		mtdcr(DCRN_UIC_SR(UIC##n), mask);			\
 	ppc_cached_irq_mask[n] |= mask;					\
 	mtdcr(DCRN_UIC_ER(UIC##n), ppc_cached_irq_mask[n]);		\
+	ipipe_irq_unlock(irq);						\
 	local_irq_restore_hw_cond(flags);				\
 }									\
 									\
@@ -54,6 +55,7 @@ static void ppc4xx_uic##n##_disable(unsigned int irq)			\
 {									\
 	unsigned long flags;						\
 	local_irq_save_hw_cond(flags);					\
+	ipipe_irq_lock(irq);						\
 	ppc_cached_irq_mask[n] &= ~IRQ_MASK_UIC##n(irq);		\
 	mtdcr(DCRN_UIC_ER(UIC##n), ppc_cached_irq_mask[n]);		\
 	ACK_UIC##n##_PARENT						\
@@ -86,6 +88,7 @@ static void ppc4xx_uic##n##_end(unsigned int irq)			\
 		ppc_cached_irq_mask[n] |= mask;				\
 		mtdcr(DCRN_UIC_ER(UIC##n), ppc_cached_irq_mask[n]);	\
 	}								\
+	ipipe_irq_unlock(irq);						\
 	local_irq_restore_hw_cond(flags);				\
 }
 
