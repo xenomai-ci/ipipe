@@ -118,8 +118,9 @@ static void cpm2_end_irq(unsigned int virq)
 	int	bit, word;
 	unsigned int irq_nr = virq_to_hw(virq);
 
-	if (!(irq_desc[irq_nr].status & (IRQ_DISABLED|IRQ_INPROGRESS))
-			&& irq_desc[irq_nr].action) {
+	if (!ipipe_root_domain_p ||
+	    (!(irq_desc[irq_nr].status & (IRQ_DISABLED|IRQ_INPROGRESS))
+	     && irq_desc[irq_nr].action)) {
 
 		bit = irq_to_siubit[irq_nr];
 		word = irq_to_siureg[irq_nr];
