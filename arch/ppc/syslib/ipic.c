@@ -492,8 +492,8 @@ void __init ipic_init(phys_addr_t phys_addr,
 		irq_desc[i+irq_offset].chip = &ipic;
 		irq_desc[i+irq_offset].status = IRQ_LEVEL;
 #ifdef CONFIG_IPIPE
-		irq_desc[i+offset].ipipe_ack = &__ipipe_ack_level_irq;
-		irq_desc[i+offset].ipipe_end = &__ipipe_end_level_irq;
+		irq_desc[i+irq_offset].ipipe_ack = &__ipipe_ack_level_irq;
+		irq_desc[i+irq_offset].ipipe_end = &__ipipe_end_level_irq;
 #endif
 	}
 
