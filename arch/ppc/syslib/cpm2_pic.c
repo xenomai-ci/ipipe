@@ -107,8 +107,9 @@ static void cpm2_end_irq(unsigned int irq_nr)
 	volatile uint	*simr;
 	unsigned long flags;
 
-	if (!(irq_desc[irq_nr].status & (IRQ_DISABLED|IRQ_INPROGRESS))
-			&& irq_desc[irq_nr].action) {
+	if (!ipipe_root_domain_p ||
+	    (!(irq_desc[irq_nr].status & (IRQ_DISABLED|IRQ_INPROGRESS))
+	     && irq_desc[irq_nr].action)) {
 
 		irq_nr -= CPM_IRQ_OFFSET;
 		bit = irq_to_siubit[irq_nr];

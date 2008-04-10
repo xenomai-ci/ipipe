@@ -424,7 +424,8 @@ static void ipic_disable_irq_and_ack(unsigned int irq)
 
 static void ipic_end_irq(unsigned int irq)
 {
-	if (!(irq_desc[irq].status & (IRQ_DISABLED|IRQ_INPROGRESS)))
+	if (!ipipe_root_domain_p ||
+	    !(irq_desc[irq].status & (IRQ_DISABLED|IRQ_INPROGRESS)))
 		ipic_enable_irq(irq);
 }
 

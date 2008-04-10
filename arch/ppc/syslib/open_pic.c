@@ -850,8 +850,9 @@ static void openpic_ack_irq(unsigned int irq_nr)
 static void openpic_end_irq(unsigned int irq_nr)
 {
 #if defined(__SLOW_VERSION__) || defined(CONFIG_IPIPE)
-	if (!(irq_desc[irq_nr].status & (IRQ_DISABLED|IRQ_INPROGRESS))
-	     && irq_desc[irq_nr].action)
+	if (!ipipe_root_domain_p ||
+	    (!(irq_desc[irq_nr].status & (IRQ_DISABLED|IRQ_INPROGRESS))
+	     && irq_desc[irq_nr].action))
 		openpic_enable_irq(irq_nr);
 #else
 	if ((irq_desc[irq_nr].status & IRQ_LEVEL) != 0)
