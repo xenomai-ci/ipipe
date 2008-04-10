@@ -69,6 +69,7 @@ static void uic_unmask_irq(unsigned int virq)
 	er = mfdcr(uic->dcrbase + UIC_ER);
 	er |= 1 << (31 - src);
 	mtdcr(uic->dcrbase + UIC_ER, er);
+	ipipe_irq_unlock(virq);
 	spin_unlock_irqrestore(&uic->lock, flags);
 }
 
@@ -80,6 +81,7 @@ static void uic_mask_irq(unsigned int virq)
 	u32 er;
 
 	spin_lock_irqsave(&uic->lock, flags);
+	ipipe_irq_lock(virq);
 	er = mfdcr(uic->dcrbase + UIC_ER);
 	er &= ~(1 << (31 - src));
 	mtdcr(uic->dcrbase + UIC_ER, er);
@@ -106,6 +108,7 @@ static void uic_mask_ack_irq(unsigned int virq)
 
 	sr = 1 << (31-src);
 	spin_lock_irqsave(&uic->lock, flags);
+	ipipe_irq_lock(virq);
 	er = mfdcr(uic->dcrbase + UIC_ER);
 	er &= ~sr;
 	mtdcr(uic->dcrbase + UIC_ER, er);
