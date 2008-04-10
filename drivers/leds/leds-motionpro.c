@@ -1,9 +1,9 @@
 /*
- * LEDs driver for the Motionpro board.
- * 
- * Copyright (C) 2007 Semihalf
+ * LEDs driver for the Motion-PRO board.
  *
- * Author: Jan Wrobel <wrr@semihalf.com>
+ * Copyright (C) 2007 Semihalf
+ * Jan Wrobel <wrr@semihalf.com>
+ * Marian Balakowicz <m8@semihalf.com>
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License version 2 as published by
@@ -19,103 +19,62 @@
  * Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
  *
  *
- * This driver enables control over Motionpro's status and ready LEDs through
+ * Decription:
+ * This driver enables control over Motion-PRO status and ready LEDs through
  * sysfs. LEDs can be controlled by writing to sysfs files:
- * class/leds/motionpro-(ready|status)led/(brightness|delay_off|delay_on).
- * See Documentation/leds-class.txt for more details
+ * class/leds/<led-name>/(brightness|delay_off|delay_on).
+ * See Documentation/leds-class.txt for more details.
+ * <led-name> is the set to the value of 'label' property of the
+ * corresponding GPT node.
  *
  * Before user issues first control command via sysfs, LED blinking is
- * controlled by the kernel. By default status LED is blinking fast and ready
- * LED is turned off.
+ * controlled by the kernel ('blink-delay' property of the GPT node
+ * in the device tree blob).
+ *
  */
 
+#define DEBUG
+
 #include <linux/module.h>
-#include <linux/types.h>
-#include <linux/kernel.h>
-#include <linux/device.h>
 #include <linux/leds.h>
-
+#include <linux/of_platform.h>
 #include <asm/mpc52xx.h>
-#include <asm/io.h>
 
-/* Led status */
-#define LED_NOT_REGISTERED	0
-#define LED_KERNEL_CONTROLLED	1
-#define LED_USER_CONTROLLED	2
-
-
-/* Led control bits */
+/* LED control bits */
 #define LED_ON	MPC52xx_GPT_OUTPUT_1
 
-static void mpled_set(struct led_classdev *led_cdev,
-		      enum led_brightness brightness);
+/* LED mode */
+#define LED_MODE_KERNEL		1
+#define LED_MODE_USER		2
 
-static struct motionpro_led{
-	/* Protects the led data */
-	spinlock_t led_lock;
-
-	/* Path to led's control register DTS node */
-	char *reg_path;
-
-	/* Address to access led's register */
-	void __iomem *reg_addr;
-
-	int status;
-
-	/* Blinking timer used when led is controlled by the kernel */
-	struct timer_list kernel_mode_timer;
-
-	/*
-	 * Delay between blinks when led is controlled by the kernel.
-	 * If set to 0 led blinking is off.
-	 */
-	int kernel_mode_delay;
-
-	struct led_classdev classdev;
-}led[] = {
-	{
-		.reg_path = "/soc5200@f0000000/gpt@660",
-		.reg_addr = 0,
-		.led_lock = SPIN_LOCK_UNLOCKED,
-		.status = LED_NOT_REGISTERED,
-		.kernel_mode_delay = HZ / 10,
-		.classdev = {
-			.name = "motionpro-statusled",
-			.brightness_set = mpled_set,
-			.default_trigger = "timer",
-		},
-	},
-	{
-		.reg_path = "/soc5200@f0000000/gpt@670",
-		.reg_addr = 0,
-		.led_lock = SPIN_LOCK_UNLOCKED,
-		.status = LED_NOT_REGISTERED,
-		.kernel_mode_delay = 0,
-		.classdev = {
-			.name = "motionpro-readyled",
-			.brightness_set = mpled_set,
-			.default_trigger = "timer",
-		}
-	}
+struct motionpro_led {
+	spinlock_t led_lock;		/* Protects the LED data */
+	struct mpc52xx_gpt __iomem *gpt;/* LED registers */
+	struct timer_list blink_timer;	/* Used if blink_delay is nonzero */
+	unsigned int blink_delay;	/* [ms], if set to 0 blinking is off */
+	unsigned int mode;		/* kernel/user */
+	struct led_classdev mpled_cdev;	/* LED class */
 };
 
-/* Timer event - blinks led before user takes control over it */
-static void mpled_timer_toggle(unsigned long ptr)
+/*
+ * Timer event - blinks LED before user takes control over it
+ * with the first access via sysfs.
+ */
+static void mpled_timer_toggle(unsigned long data)
 {
-	struct motionpro_led *mled = (struct motionpro_led *) ptr;
+	struct motionpro_led *mpled = (struct motionpro_led *)data;
 
-	spin_lock_bh(&mled->led_lock);
-	if (mled->status == LED_KERNEL_CONTROLLED){
-		u32 reg = in_be32(mled->reg_addr);
-		reg ^= LED_ON;
-		out_be32(mled->reg_addr, reg);
-		led->kernel_mode_timer.expires = jiffies +
-			led->kernel_mode_delay;
-		add_timer(&led->kernel_mode_timer);
+	spin_lock_bh(&mpled->led_lock);
+	if (mpled->mode == LED_MODE_KERNEL) {
+		u32 val = in_be32(&mpled->gpt->mode);
+		val ^= LED_ON;
+		out_be32(&mpled->gpt->mode, val);
+
+		mod_timer(&mpled->blink_timer,
+			jiffies + msecs_to_jiffies(mpled->blink_delay));
 	}
-	spin_unlock_bh(&mled->led_lock);
+	spin_unlock_bh(&mpled->led_lock);
 }
-
 
 /*
  * Turn on/off led according to user settings in sysfs.
@@ -124,98 +83,168 @@ static void mpled_timer_toggle(unsigned long ptr)
 static void mpled_set(struct led_classdev *led_cdev,
 		      enum led_brightness brightness)
 {
-	struct motionpro_led *mled;
-	u32 reg;
+	struct motionpro_led *mpled;
+	int old_mode;
+	u32 val;
 
-	mled = container_of(led_cdev, struct motionpro_led, classdev);
+	mpled = container_of(led_cdev, struct motionpro_led, mpled_cdev);
 
-	spin_lock_bh(&mled->led_lock);
-	mled->status = LED_USER_CONTROLLED;
+	spin_lock_bh(&mpled->led_lock);
+	/* disable kernel controll */
+	old_mode = mpled->mode;
+	if (old_mode == LED_MODE_KERNEL)
+		mpled->mode = LED_MODE_USER;
 
-	reg = in_be32(mled->reg_addr);
+	val = in_be32(&mpled->gpt->mode);
 	if (brightness)
-		reg |= LED_ON;
+		val |= LED_ON;
 	else
-		reg &= ~LED_ON;
-	out_be32(mled->reg_addr, reg);
+		val &= ~LED_ON;
+	out_be32(&mpled->gpt->mode, val);
+	spin_unlock_bh(&mpled->led_lock);
 
-	spin_unlock_bh(&mled->led_lock);
+	/* delete kernel mode blink timer, not needed anymore */
+	if ((old_mode == LED_MODE_KERNEL) && mpled->blink_delay)
+		del_timer(&mpled->blink_timer);
 }
 
-static void mpled_init_led(void __iomem *reg_addr)
+static void mpled_init_led(void __iomem *gpt_mode)
 {
-	u32 reg = in_be32(reg_addr);
-	reg |= MPC52xx_GPT_ENABLE_OUTPUT;
-	reg &= ~LED_ON;
-	out_be32(reg_addr, reg);
+	u32 val = in_be32(gpt_mode);
+	val |= MPC52xx_GPT_ENABLE_OUTPUT;
+	val &= ~LED_ON;
+	out_be32(gpt_mode, val);
 }
 
-static void mpled_clean(void)
+static int __devinit mpled_probe(struct of_device *op,
+				 const struct of_device_id *match)
 {
-	int i;
-	for (i = 0; i < sizeof(led) / sizeof(struct motionpro_led); i++){
-		if (led[i].status != LED_NOT_REGISTERED){
-			spin_lock_bh(&led[i].led_lock);
-			led[i].status = LED_NOT_REGISTERED;
-			spin_unlock_bh(&led[i].led_lock);
-			led_classdev_unregister(&led[i].classdev);
-		}
-		if (led[i].reg_addr){
-			iounmap(led[i].reg_addr);
-			led[i].reg_addr = 0;
-		}
+	struct motionpro_led *mpled;
+	const unsigned int *of_blink_delay;
+	const char *label;
+	int err;
+
+	dev_dbg(&op->dev, "mpled_probe: node=%s (op=%p, match=%p)\n",
+		op->node->name, op, match);
+
+	mpled = kzalloc(sizeof(*mpled), GFP_KERNEL);
+	if (!mpled)
+		return -ENOMEM;
+
+	mpled->gpt = of_iomap(op->node, 0);
+	if (!mpled->gpt) {
+		printk(KERN_ERR __FILE__ ": "
+			"Error mapping GPT registers for LED %s\n",
+			op->node->full_name);
+		err = -EIO;
+		goto err_free;
 	}
+
+	/* initialize GPT for LED use */
+	mpled_init_led(&mpled->gpt->mode);
+
+	spin_lock_init(&mpled->led_lock);
+	mpled->mode = LED_MODE_KERNEL;
+
+	/* get LED label, used to register led classdev */
+	label = of_get_property(op->node, "label", NULL);
+	if (label == NULL) {
+		printk(KERN_ERR __FILE__ ": "
+			"No label property provided for LED %s\n",
+			op->node->full_name);
+		err = -EINVAL;
+		goto err;
+	}
+	dev_dbg(&op->dev, "mpled_probe: label = '%s'\n", label);
+
+	/* get 'blink-delay' property if present */
+	of_blink_delay = of_get_property(op->node, "blink-delay", NULL);
+	mpled->blink_delay =  of_blink_delay ? *of_blink_delay : 0;
+	dev_dbg(&op->dev, "mpled_probe: blink_delay = %d msec\n",
+		mpled->blink_delay);
+
+	/* initialize kernel blink_timer if blink_delay was provided */
+	if (mpled->blink_delay) {
+		init_timer(&mpled->blink_timer);
+		mpled->blink_timer.function = mpled_timer_toggle;
+		mpled->blink_timer.data = (unsigned long)mpled;
+
+		mod_timer(&mpled->blink_timer,
+			jiffies + msecs_to_jiffies(mpled->blink_delay));
+	}
+
+	/* register LED classdev */
+	mpled->mpled_cdev.name = label;
+	mpled->mpled_cdev.brightness_set = mpled_set;
+	mpled->mpled_cdev.default_trigger = "timer";
+
+	err = led_classdev_register(NULL, &mpled->mpled_cdev);
+	if (err) {
+		printk(KERN_ERR __FILE__ ": "
+			"Error registering class device for LED %s\n",
+			op->node->full_name);
+		goto err;
+	}
+
+	dev_set_drvdata(&op->dev, mpled);
+	return 0;
+
+err:
+	if (mpled->blink_delay)
+		del_timer(&mpled->blink_timer);
+	iounmap(mpled->gpt);
+err_free:
+	kfree(mpled);
+
+	return err;
 }
+
+static int mpled_remove(struct of_device *op)
+{
+	struct motionpro_led *mpled = dev_get_drvdata(&op->dev);
+
+	dev_dbg(&op->dev, "mpled_remove: (%p)\n", op);
+
+	if (mpled->blink_delay && (mpled->mode == LED_MODE_KERNEL))
+		del_timer(&mpled->blink_timer);
+
+	led_classdev_unregister(&mpled->mpled_cdev);
+
+	iounmap(mpled->gpt);
+	kfree(mpled);
+
+	return 0;
+}
+
+static const struct of_device_id mpled_match[] = {
+	{ .compatible = "promess,motionpro-led", },
+	{},
+};
+
+static struct of_platform_driver mpled_driver = {
+	.match_table	= mpled_match,
+	.probe		= mpled_probe,
+	.remove		= mpled_remove,
+	.driver		= {
+		.owner		= THIS_MODULE,
+		.name		= "leds-motionpro",
+	},
+};
 
 static int __init mpled_init(void)
 {
-	int i, error;
-
-	for (i = 0; i < sizeof(led) / sizeof(struct motionpro_led); i++){
-		led[i].reg_addr = mpc52xx_find_and_map_path(led[i].reg_path);
-		if (!led[i].reg_addr){
-			printk(KERN_ERR __FILE__ ": "
-			       "Error while mapping GPIO register for LED %s\n",
-			       led[i].classdev.name);
-			error = -EIO;
-			goto err;
-		}
-
-		mpled_init_led(led[i].reg_addr);
-		led[i].status = LED_KERNEL_CONTROLLED;
-		if (led[i].kernel_mode_delay){
-			init_timer(&led[i].kernel_mode_timer);
-			led[i].kernel_mode_timer.function = mpled_timer_toggle;
-			led[i].kernel_mode_timer.data = (unsigned long)&led[i];
-			led[i].kernel_mode_timer.expires =
-				jiffies + led[i].kernel_mode_delay;
-			add_timer(&led[i].kernel_mode_timer);
-		}
-
-		if ((error = led_classdev_register(NULL, &led[i].classdev)) < 0){
-			printk(KERN_ERR __FILE__ ": "
-			       "Error while registering class device for LED "
-			       "%s\n",
-			       led[i].classdev.name);
-			goto err;
-		}
-	}
-
-	printk("Motionpro LEDs driver initialized\n");
-	return 0;
-err:
-	mpled_clean();
-	return error;
+	return of_register_platform_driver(&mpled_driver);
 }
 
 static void __exit mpled_exit(void)
 {
-	mpled_clean();
+	of_unregister_platform_driver(&mpled_driver);
 }
 
 module_init(mpled_init);
 module_exit(mpled_exit);
 
 MODULE_LICENSE("GPL")
-MODULE_DESCRIPTION("LEDs support for Motionpro");
+MODULE_DESCRIPTION("Motion-PRO LED driver");
 MODULE_AUTHOR("Jan Wrobel <wrr@semihalf.com>");
+MODULE_AUTHOR("Marian Balakowicz <m8@semihalf.com>");
