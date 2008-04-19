@@ -12,7 +12,7 @@
 	#address-cells = <2>;
 	#size-cells = <1>;
 	model = "amcc,glacier";
-	compatible = "amcc,canyonlands";
+	compatible = "amcc,glacier", "amcc,canyonlands";
 	dcr-parent = <&/cpus/cpu@0>;
 
 	aliases {
@@ -174,12 +174,16 @@
 						reg = <1e0000 20000>;
 					};
 					partition@200000 {
-						label = "root";
-						reg = <200000 200000>;
+						label = "ramdisk";
+						reg = <200000 1400000>;
 					};
-					partition@400000 {
+					partition@1600000 {
+						label = "jffs2";
+						reg = <1600000 400000>;
+					};
+					partition@1a00000 {
 						label = "user";
-						reg = <400000 3b60000>;
+						reg = <1a00000 2560000>;
 					};
 					partition@3f60000 {
 						label = "env";
