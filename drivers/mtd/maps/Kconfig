@@ -678,20 +678,5 @@ config MTD_SC3
 	help
 	  This enables access routines for the flash chips on the SC3 board.
 
-config MTD_MOTIONPRO
-	tristate "Flash device mapped on Motion-PRO board"
-	depends on MTD_CFI && PPC_MOTIONPRO
-	help
-	  This enables access routines for the flash chips on the
-	  Motion-PRO board. If you have this board and would like
-	  to use the flash chips on it, say 'Y'.
-
-config MTD_TQM5200
-	tristate "Flash device mapped on TQM5200 board"
-	depends on MTD_CFI && PPC_TQM5200
-	help
-	  This enables access routines for the flash chips on the
-	  TQM5200 board. If you have such a board, say 'Y'.
-
 endmenu
 

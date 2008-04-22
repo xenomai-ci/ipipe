@@ -9,9 +9,6 @@ endif
 obj-$(CONFIG_PPC_MPC5200_SIMPLE) += mpc5200_simple.o
 obj-$(CONFIG_PPC_EFIKA)		+= efika.o
 obj-$(CONFIG_PPC_LITE5200)	+= lite5200.o
-obj-$(CONFIG_PPC_MOTIONPRO)	+= motionpro.o
-obj-$(CONFIG_PPC_TQM5200)	+= tqm5200.o
-obj-$(CONFIG_PPC_CM5200)	+= cm5200.o
 
 obj-$(CONFIG_PM)		+= mpc52xx_sleep.o mpc52xx_pm.o
 ifeq ($(CONFIG_PPC_LITE5200),y)
