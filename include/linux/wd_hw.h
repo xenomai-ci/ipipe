@@ -53,5 +53,13 @@ extern wd_delete_t		wd_mpc5200_delete;
 extern wd_machine_restart_t	wd_mpc5200_machine_restart;
 #endif /* CONFIG_WD_MPC5200 */
 
+#ifdef CONFIG_WD_LWMON5
+/* Extern declarations of low-level LWMON5 watchdog functions */
+extern wd_init_t		wd_lwmon5_init;
+extern wd_kick_t		wd_lwmon5_kick;
+extern wd_delete_t		wd_lwmon5_delete;
+extern wd_machine_restart_t	wd_lwmon5_machine_restart;
+#endif /* CONFIG_WD_LWMON5 */
+
 #endif /* CONFIG_WD */
 #endif /* !_LINUX_WD_HW_H */

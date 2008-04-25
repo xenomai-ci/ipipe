@@ -72,6 +72,14 @@ config WD_MPC5200
 	help
 	  Low level functions for MPC5200(B) watchdog driver based on GPT.
 
+config WD_LWMON5
+	bool "Driver for LWMON5 board specific watchdog"
+	depends on LWMON5
+	default n
+	help
+	  Low level functions for board specific Liebherr LWMON5 watchdog
+	  driver based on GPT.
+
 endif # WD
 
 config SOFT_WATCHDOG
@@ -479,7 +487,7 @@ config PC87413_WDT
 	  module will be called pc87413_wdt.
 
 	  Most people will say N.
- 
+
 config 60XX_WDT
 	tristate "SBC-60XX Watchdog Timer"
 	depends on X86

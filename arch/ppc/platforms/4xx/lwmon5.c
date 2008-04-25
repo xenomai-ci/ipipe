@@ -28,6 +28,8 @@
 #include <linux/serial_8250.h>
 #include <linux/serial_core.h>
 #include <linux/platform_device.h>
+#include <linux/wd.h>
+#include <linux/wd_hw.h>
 #include <linux/mtd/partitions.h>
 #include <linux/mtd/nand.h>
 #include <linux/mtd/ndfc.h>
@@ -44,9 +46,20 @@
 
 #define BOARDNAME  "440EPx LWMON5"
 
+#define GPIO1_BASE		0x1ef600c00ULL
+
 extern bd_t __res;
 
 static struct ibm44x_clocks clocks __initdata;
+
+/*
+ * We need to map the GPIO output register very early on bootup.
+ * Mapping in wd_lwmon5_init() is too late since the WD needs to
+ * get kicked earlier because of the very short timeout. So the
+ * GPIO output register gets mapped in the board specific platform
+ * code upon bootup.
+ */
+u32 __iomem *lwmon5_gpio1_or;
 
 /*
  * Lwmon5 external IRQ triggering/polarity settings
@@ -431,6 +444,16 @@ static void __init lwmon5_early_serial_map(void)
 
 static void __init lwmon5_setup_arch(void)
 {
+#if defined(CONFIG_WD) && defined(CONFIG_WD_LWMON5)
+	lwmon5_gpio1_or = ioremap64(GPIO1_BASE, 4);
+
+        /* Init watchdog functions structure */
+        wd_hw_functions.wd_init = wd_lwmon5_init;
+        wd_hw_functions.wd_kick = wd_lwmon5_kick;
+        wd_hw_functions.wd_delete = wd_lwmon5_delete;
+        wd_hw_functions.wd_machine_restart = wd_lwmon5_machine_restart;
+#endif /* CONFIG_WD && CONFIG_WD_LWMON5 */
+
 	lwmon5_set_emacdata();
 
 	/* parm1 = sys clock is OK , parm 2 ser_clock to be checked */

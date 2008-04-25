@@ -110,6 +110,9 @@ obj-$(CONFIG_BOOKE_WDT) += booke_wdt.o
 # PPC64 Architecture
 obj-$(CONFIG_WATCHDOG_RTAS) += wdrtas.o
 
+# PPC Architecture
+obj-$(CONFIG_WD_LWMON5) += wd_lwmon5.o
+
 # S390 Architecture
 
 # SUPERH (sh + sh64) Architecture
