@@ -90,5 +90,10 @@
 #define LWMON5_PCIL0_PTM2MS		0x038
 #define LWMON5_PCIL0_PTM2LA		0x03C
 
+#ifdef CONFIG_WD_LWMON5
+#define ARCH_HAS_NMI_WATCHDOG		/* See include/linux/nmi.h */
+#define BOARD_WATCHDOG_FUNC		wd_lwmon5_kick_early
+#endif
+
 #endif                          /* __ASM_LWMON5_H__ */
 #endif                          /* __KERNEL__ */

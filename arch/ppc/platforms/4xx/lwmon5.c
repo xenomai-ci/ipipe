@@ -28,6 +28,8 @@
 #include <linux/serial_8250.h>
 #include <linux/serial_core.h>
 #include <linux/platform_device.h>
+#include <linux/wd.h>
+#include <linux/wd_hw.h>
 #include <linux/mtd/partitions.h>
 #include <linux/mtd/nand.h>
 #include <linux/mtd/ndfc.h>
@@ -44,22 +46,33 @@
 
 #define BOARDNAME  "440EPx LWMON5"
 
+#define GPIO1_BASE		0x1ef600c00ULL
+
 extern bd_t __res;
 
 static struct ibm44x_clocks clocks __initdata;
+
+/*
+ * We need to map the GPIO output register very early on bootup.
+ * Mapping in wd_lwmon5_init() is too late since the WD needs to
+ * get kicked earlier because of the very short timeout. So the
+ * GPIO output register gets mapped in the board specific platform
+ * code upon bootup.
+ */
+u32 __iomem *lwmon5_gpio1_or;
 
 /*
  * Lwmon5 external IRQ triggering/polarity settings
  */
 unsigned char ppc4xx_uic_ext_irq_cfg[] __initdata = {
 	(IRQ_SENSE_LEVEL | IRQ_POLARITY_NEGATIVE), /* Index0 - IRQ4: */
-	(IRQ_SENSE_LEVEL | IRQ_POLARITY_NEGATIVE), /* Index1 - IRQ7: */
+	(IRQ_SENSE_EDGE | IRQ_POLARITY_NEGATIVE),  /* Index1 - IRQ7: Powerfail */
 	(IRQ_SENSE_LEVEL | IRQ_POLARITY_NEGATIVE), /* Index2 - IRQ8: */
 	(IRQ_SENSE_LEVEL | IRQ_POLARITY_NEGATIVE), /* Index3 - IRQ9: */
 	(IRQ_SENSE_LEVEL | IRQ_POLARITY_NEGATIVE), /* Index4 - IRQ0: Ethernet 0 */
 	(IRQ_SENSE_LEVEL | IRQ_POLARITY_NEGATIVE), /* Index5 - IRQ1: Ethernet 1 */
 	(IRQ_SENSE_LEVEL | IRQ_POLARITY_NEGATIVE), /* Index6 - IRQ5: */
-	(IRQ_SENSE_EDGE | IRQ_POLARITY_NEGATIVE), /* Index7 - IRQ6: dsPIC-KBD */
+	(IRQ_SENSE_EDGE | IRQ_POLARITY_NEGATIVE),  /* Index7 - IRQ6: dsPIC-KBD */
 	(IRQ_SENSE_LEVEL | IRQ_POLARITY_NEGATIVE), /* Index8 - IRQ2: PCI slots */
 	(IRQ_SENSE_LEVEL | IRQ_POLARITY_NEGATIVE), /* Index9 - IRQ3: STTM alert */
 };
@@ -78,20 +91,21 @@ static struct resource lwmon5_nor_resource = {
 #define RW_PART1_SZ	0x800000
 #define RW_PART2_SZ	0x200000
 /* Partition 3 will be autosized dynamically... */
-#define RW_PART4_SZ	0x2000000
-#define RW_PART5_SZ	0x80000
+#define RW_PART4_SZ	0x1000000
+#define RW_PART5_SZ	0x2000000
 #define RW_PART6_SZ	0x80000
+#define RW_PART7_SZ	0x80000
 
 static struct mtd_partition lwmon5_nor_parts[] = {
 	{
 		.name = "kernel",
 		.offset = 0,
-		.size = RW_PART0_SZ
+		.size = RW_PART0_SZ,
 	},
 	{
 		.name = "kernel_bak",
 		.offset = MTDPART_OFS_APPEND,
-		.size = RW_PART1_SZ
+		.size = RW_PART1_SZ,
 	},
 	{
 		.name = "bitmap",
@@ -104,19 +118,24 @@ static struct mtd_partition lwmon5_nor_parts[] = {
 /*		.size = RW_PART3_SZ */ /* will be adjusted dynamically */
 	},
 	{
-		.name = "rootfs",
+		.name = "uprootfs",
 		.offset = MTDPART_OFS_APPEND,
 		.size = RW_PART4_SZ,
 	},
 	{
-		.name = "env",
+		.name = "rootfs",
 		.offset = MTDPART_OFS_APPEND,
 		.size = RW_PART5_SZ,
 	},
 	{
-		.name = "u-boot",
+		.name = "env",
 		.offset = MTDPART_OFS_APPEND,
 		.size = RW_PART6_SZ,
+	},
+	{
+		.name = "u-boot",
+		.offset = MTDPART_OFS_APPEND,
+		.size = RW_PART7_SZ,
 	}
 };
 
@@ -145,7 +164,7 @@ static int lwmon5_setup_flash(void)
 	 */
 	lwmon5_nor_parts[3].size = __res.bi_flashsize
 		- RW_PART0_SZ - RW_PART1_SZ - RW_PART2_SZ - RW_PART4_SZ
-		- RW_PART5_SZ - RW_PART6_SZ;
+		- RW_PART5_SZ - RW_PART6_SZ - RW_PART7_SZ;
 
 	platform_device_register(&lwmon5_nor_device);
 
@@ -431,6 +450,16 @@ static void __init lwmon5_early_serial_map(void)
 
 static void __init lwmon5_setup_arch(void)
 {
+#if defined(CONFIG_WD) && defined(CONFIG_WD_LWMON5)
+	lwmon5_gpio1_or = ioremap64(GPIO1_BASE, 4);
+
+        /* Init watchdog functions structure */
+        wd_hw_functions.wd_init = wd_lwmon5_init;
+        wd_hw_functions.wd_kick = wd_lwmon5_kick;
+        wd_hw_functions.wd_delete = wd_lwmon5_delete;
+        wd_hw_functions.wd_machine_restart = wd_lwmon5_machine_restart;
+#endif /* CONFIG_WD && CONFIG_WD_LWMON5 */
+
 	lwmon5_set_emacdata();
 
 	/* parm1 = sys clock is OK , parm 2 ser_clock to be checked */
