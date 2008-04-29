@@ -1,5 +1,8 @@
 /***********************************************************************
  *
+ * (C) Copyright 2008
+ * Stefan Roese, DENX Software Engineering, sr@denx.de.
+ *
  * (C) Copyright 2004-2008
  * Wolfgang Denk, DENX Software Engineering, wd@denx.de.
  *
@@ -78,33 +81,16 @@ int wd_lwmon5_init(unsigned long *tpp)
 	return 0;
 }
 
-static void gpio1_write_bit(int pin, int val)
-{
-	if (val)
-		out_be32(lwmon5_gpio1_or,
-			 in_be32(lwmon5_gpio1_or) | GPIO_VAL(pin));
-	else
-		out_be32(lwmon5_gpio1_or,
-			 in_be32(lwmon5_gpio1_or) & ~GPIO_VAL(pin));
-}
-
-static int gpio1_read_out_bit(int pin)
-{
-	return (in_be32(lwmon5_gpio1_or) & GPIO_VAL(pin) ? 1 : 0);
-}
-
 /*
  * This function triggers the external watchdog
  */
 void wd_lwmon5_kick(void)
 {
-	int val;
+	u32 val;
 
-	/*
-	 * Toggle watchdog output
-	 */
-	val = gpio1_read_out_bit(CFG_GPIO1_WATCHDOG) == 0 ? 1 : 0;
-	gpio1_write_bit(CFG_GPIO1_WATCHDOG, val);
+	val = in_be32(lwmon5_gpio1_or);
+	val ^= GPIO_VAL(CFG_GPIO1_WATCHDOG);
+	out_be32(lwmon5_gpio1_or, val);
 }
 
 void wd_lwmon5_kick_early(void)
