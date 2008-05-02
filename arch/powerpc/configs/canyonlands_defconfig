@@ -1,7 +1,7 @@
 #
 # Automatically generated make config: don't edit
-# Linux kernel version: 2.6.25-rc6
-# Wed Mar 26 06:57:58 2008
+# Linux kernel version: 2.6.25
+# Wed Apr 30 15:29:11 2008
 #
 # CONFIG_PPC64 is not set
 
@@ -228,6 +228,7 @@ CONFIG_ISA_DMA_API=y
 #
 CONFIG_ZONE_DMA=y
 CONFIG_PPC_INDIRECT_PCI=y
+CONFIG_4xx_SOC=y
 CONFIG_PCI=y
 CONFIG_PCI_DOMAINS=y
 CONFIG_PCI_SYSCALL=y
@@ -948,7 +949,8 @@ CONFIG_RTC_INTF_DEV=y
 # CONFIG_RTC_DRV_X1205 is not set
 # CONFIG_RTC_DRV_PCF8563 is not set
 # CONFIG_RTC_DRV_PCF8583 is not set
-# CONFIG_RTC_DRV_M41T80 is not set
+CONFIG_RTC_DRV_M41T80=y
+# CONFIG_RTC_DRV_M41T80_WDT is not set
 # CONFIG_RTC_DRV_S35390A is not set
 
 #
