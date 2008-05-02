@@ -141,6 +141,7 @@ static struct i2c_driver_device i2c_devices[] __initdata = {
 	{"dallas,ds1340",  "rtc-ds1307",  "ds1340",},
 	{"stm,m41t00",     "rtc-ds1307",  "m41t00"},
 	{"dallas,ds1374",  "rtc-ds1374",  "rtc-ds1374",},
+	{"stm,m41t80",  "rtc-m41t80",  "m41t80",},
 };
 
 /* Enable/disable interrupt generation */
@@ -901,6 +902,7 @@ static int __devexit iic_remove(struct of_device *ofdev)
 }
 
 static const struct of_device_id ibm_iic_match[] = {
+	{ .compatible = "ibm,iic", },
 	{ .compatible = "ibm,iic-405ex", },
 	{ .compatible = "ibm,iic-405exr", },
 	{ .compatible = "ibm,iic-405gp", },
