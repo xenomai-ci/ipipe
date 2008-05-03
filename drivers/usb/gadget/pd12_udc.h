@@ -49,7 +49,7 @@
 #include <asm/ibm4xx.h>
 
 #include <linux/usb/ch9.h>
-#include <linux/usb_gadget.h>
+#include <linux/usb/gadget.h>
 
 #define TH_PD12_ADDR  0x50000000
 #define TH_CPLD_ADDR  0x50100000

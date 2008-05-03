@@ -347,7 +347,7 @@ static int __init sc3_nand_init(void)
 #ifdef SC3_NAND_INTERRUPT
 	if (!request_irq(SC3_NAND_INTERRUPT,
 					sc3_nand_interrupt,
-					SA_SAMPLE_RANDOM,
+					IRQF_SAMPLE_RANDOM,
 					"SC3 NAND flash",
 					NULL)) {
 		disable_irg(SC3_NAND_INTERRUPT);	/* we need it, but later! */

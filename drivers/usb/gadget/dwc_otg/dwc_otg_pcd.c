@@ -47,7 +47,7 @@
  * (Gadget Driver is the Linux terminology for a Function Driver.)
  *
  * The Linux Gadget API is defined in the header file
- * <code><linux/usb_gadget.h></code>.  The USB EP operations API is
+ * <code><linux/usb/gadget.h></code>.  The USB EP operations API is
  * defined in the structure <code>usb_ep_ops</code> and the USB
  * Controller API is defined in the structure
  * <code>usb_gadget_ops</code>.

@@ -1703,7 +1703,7 @@ static int __devinit pd12_udc_probe(struct device *_dev)
 	dev->gadget.speed = USB_SPEED_FULL;
 	/* irq setup after old hardware state is cleaned up */
 	retval =
-	    request_irq(IRQ_USBINTR, pd12_udc_irq, /*SA_INTERRUPT*/SA_SAMPLE_RANDOM, driver_name,
+	    request_irq(IRQ_USBINTR, pd12_udc_irq, IRQF_SAMPLE_RANDOM, driver_name,
 			dev);
 	if (retval != 0) {
 		DEBUG_PD12(KERN_ERR "%s: can't get irq %i, err %d\n", driver_name,
