@@ -40,7 +40,7 @@ static struct mtd_partition nand_parts[] = {
 	{
 		.name   = "content",
 		.offset = 0x0140000,
-		.size   = 0xFEC0000
+		.size   = 0x7EC0000
 	},
 };
 
