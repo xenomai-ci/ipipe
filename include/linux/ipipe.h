@@ -532,6 +532,7 @@ int ipipe_disable_ondemand_mappings(struct task_struct *tsk);
 
 #define ipipe_root_domain_p		1
 #define ipipe_safe_current		current
+#define ipipe_processor_id()		smp_processor_id()
 
 #define local_irq_disable_head()	local_irq_disable()
 
