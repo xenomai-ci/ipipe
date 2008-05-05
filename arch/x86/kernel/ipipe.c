@@ -799,6 +799,7 @@ int __ipipe_handle_exception(struct pt_regs *regs, long error_code, int vector)
 	}
 
 	__ipipe_std_extable[vector](regs, error_code);
+	asm volatile ("cli");
 	local_irq_restore(flags);
 	__fixup_if(regs);
 
