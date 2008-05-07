@@ -167,6 +167,15 @@
 			interrupt-map-mask = <ffffffff>;
 		};
 
+		SATA0: sata@bffd1000 {
+			compatible = "amcc,sata-460ex";
+			reg = <4 bffd1000 800	/* SATA */
+			       4 bffd0800 400>;	/* AHBDMA */
+			interrupt-parent = <&UIC3>;
+			interrupts = <0 4	/* SATA */
+				      5 4>;	/* AHBDMA */
+		};
+
 		POB0: opb {
 			compatible = "ibm,opb-460ex", "ibm,opb";
 			#address-cells = <1>;

@@ -15,3 +15,6 @@ endif
 ifeq ($(CONFIG_USB_GADGET_DWC_OTG),y)
 obj-$(CONFIG_CANYONLANDS) += canyonlands-usb.o
 endif
+ifeq ($(CONFIG_SATA_DWC),y)
+obj-$(CONFIG_CANYONLANDS) += canyonlands-sata.o
+endif
