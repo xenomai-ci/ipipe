@@ -847,15 +847,13 @@ void fastcall __ipipe_sync_stage(unsigned long syncmask)
 			rank = __ipipe_ffnz(submask);
 			irq = (level << IPIPE_IRQ_ISHIFT) + rank;
 
-			if (test_bit(IPIPE_LOCK_FLAG, &ipd->irqs[irq].control)) {
-				__clear_bit(rank, &ipipe_this_cpudom_var(irqpend_lomask)[level]);
-				continue;
-			}
-
 			__clear_bit(rank, &ipipe_this_cpudom_var(irqpend_lomask)[level]);
 
 			if (ipipe_this_cpudom_var(irqpend_lomask)[level] == 0)
 				__clear_bit(level, &ipipe_this_cpudom_var(irqpend_himask));
+
+			if (test_bit(IPIPE_LOCK_FLAG, &ipd->irqs[irq].control))
+				continue;
 
 			__set_bit(IPIPE_STALL_FLAG, &ipipe_this_cpudom_var(status));
 
