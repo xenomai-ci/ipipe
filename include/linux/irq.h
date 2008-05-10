@@ -151,11 +151,11 @@ struct irq_chip {
  */
 struct irq_desc {
 #ifdef CONFIG_IPIPE
-	void			fastcall (*ipipe_ack)(unsigned int irq,
+	void			(*ipipe_ack)(unsigned int irq,
 						      struct irq_desc *desc);
-	void			fastcall (*ipipe_demux)(unsigned int irq,
+	void			(*ipipe_demux)(unsigned int irq,
 							struct irq_desc *desc);
-	void			fastcall (*ipipe_end)(unsigned int irq,
+	void			(*ipipe_end)(unsigned int irq,
 						      struct irq_desc *desc);
 #endif /* CONFIG_IPIPE */
 	irq_flow_handler_t	handle_irq;
@@ -380,7 +380,7 @@ extern void set_irq_probe(unsigned int irq);
 #ifdef CONFIG_IPIPE
 extern void
 __set_irq_demux_handler(unsigned int irq,
-			void fastcall (*decode)(unsigned int, struct irq_desc *),
+			void (*decode)(unsigned int, struct irq_desc *),
 			int is_chained,
 			const char *name);
 #endif /* CONFIG_IPIPE */

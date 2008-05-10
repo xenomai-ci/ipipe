@@ -162,7 +162,7 @@ void __init setup_per_cpu_areas(void)
 	setup_per_cpu_maps();
 } 
 
-void pda_init(int cpu)
+void notrace pda_init(int cpu)
 { 
 	struct x8664_pda *pda = cpu_pda(cpu);
 
@@ -246,7 +246,7 @@ DEFINE_PER_CPU(struct orig_ist, orig_ist);
  * 'CPU state barrier', nothing should get across.
  * A lot of state is already set up in PDA init.
  */
-void __cpuinit cpu_init (void)
+void __cpuinit notrace cpu_init (void)
 {
 	int cpu = stack_smp_processor_id();
 	struct tss_struct *t = &per_cpu(init_tss, cpu);

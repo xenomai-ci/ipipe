@@ -83,10 +83,10 @@
   END(name)
 #endif
 
-#ifndef notrace
-#define notrace		__attribute__((no_instrument_function))
 #endif
 
+#ifndef notrace
+#define notrace		__attribute__((no_instrument_function))
 #endif
 
 #define NORET_TYPE    /**/

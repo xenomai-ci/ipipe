@@ -111,7 +111,7 @@ void default_idle(void)
 		 */
 		smp_mb();
 
-		local_irq_disable();
+		local_irq_disable_hw();
 		if (!need_resched()) {
 			ktime_t t0, t1;
 			u64 t0n, t1n;
@@ -123,8 +123,9 @@ void default_idle(void)
 			t1 = ktime_get();
 			t1n = ktime_to_ns(t1);
 			sched_clock_idle_wakeup_event(t1n - t0n);
-		}
-		local_irq_enable();
+			local_irq_enable(); /* This will force enable_hw as well. */
+		} else
+			local_irq_enable_hw();
 		current_thread_info()->status |= TS_POLLING;
 	} else {
 		/* loop is done by the caller */
@@ -203,6 +204,7 @@ void cpu_idle(void)
 				play_dead();
 
 			__get_cpu_var(irq_stat).idle_timestamp = jiffies;
+ 			ipipe_suspend_domain();
 			idle();
 		}
 		tick_nohz_restart_sched_tick();
@@ -269,6 +271,11 @@ static int __cpuinit mwait_usable(const struct cpuinfo_x86 *c)
 
 void __cpuinit select_idle_routine(const struct cpuinfo_x86 *c)
 {
+#ifdef CONFIG_IPIPE
+#define default_to_mwait force_mwait
+#else
+#define default_to_mwait 1
+#endif
 	static int selected;
 
 	if (selected)
@@ -284,7 +291,7 @@ void __cpuinit select_idle_routine(const struct cpuinfo_x86 *c)
 		 * Skip, if setup has overridden idle.
 		 * One CPU supports mwait => All CPUs supports mwait
 		 */
-		if (!pm_idle) {
+		if (!pm_idle && default_to_mwait) {
 			printk(KERN_INFO "using mwait in idle threads.\n");
 			pm_idle = mwait_idle;
 		}

@@ -322,6 +322,7 @@ struct thread_struct {
 #else
 	unsigned long 	usersp;	/* Copy from PDA */
 	unsigned short	es, ds, fsindex, gsindex;
+	unsigned long	rip;
 #endif
 	unsigned long	ip;
 	unsigned long	fs;

@@ -78,7 +78,7 @@ static __init void reserve_ebda(void)
 	reserve_early(ebda_addr, ebda_addr + ebda_size, "EBDA");
 }
 
-void __init x86_64_start_kernel(char * real_mode_data)
+void __init notrace x86_64_start_kernel(char * real_mode_data)
 {
 	int i;
 

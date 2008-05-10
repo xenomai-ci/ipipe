@@ -51,8 +51,17 @@
 #include <asm/page.h>
 #include <asm/irqflags.h>
 #include <asm/paravirt.h>
+#include <asm/ipipe_base.h>
 
 	.code64
+
+#ifdef CONFIG_IPIPE
+#define PREEMPT_SCHEDULE_IRQ		call __ipipe_preempt_schedule_irq_thunk;  \
+					testl %eax, %eax; \
+					jz retint_restore_args
+#else /* !CONFIG_IPIPE */
+#define PREEMPT_SCHEDULE_IRQ		call preempt_schedule_irq
+#endif /* !CONFIG_IPIPE */
 
 #ifndef CONFIG_PREEMPT
 #define retint_kernel retint_restore_args
@@ -167,6 +176,7 @@ ENTRY(ret_from_fork)
 	CFI_ADJUST_CFA_OFFSET 4
 	popf				# reset kernel eflags
 	CFI_ADJUST_CFA_OFFSET -4
+	ENABLE_INTERRUPTS_HW_COND
 	call schedule_tail
 	GET_THREAD_INFO(%rcx)
 	testl $(_TIF_SYSCALL_TRACE|_TIF_SYSCALL_AUDIT),threadinfo_flags(%rcx)
@@ -243,6 +253,17 @@ ENTRY(system_call_after_swapgs)
 	movq  %rax,ORIG_RAX-ARGOFFSET(%rsp) 
 	movq  %rcx,RIP-ARGOFFSET(%rsp)
 	CFI_REL_OFFSET rip,RIP-ARGOFFSET
+#ifdef CONFIG_IPIPE
+	pushq %rdi
+	pushq %rax
+	leaq -(ARGOFFSET-16)(%rsp),%rdi	# regs for handler
+	call	__ipipe_syscall_root_thunk
+	testl %eax, %eax
+	popq %rax
+	popq %rdi
+	js    ret_from_sys_call
+	jnz   sysret_fastexit
+#endif		
 	GET_THREAD_INFO(%rcx)
 	testl $(_TIF_SYSCALL_TRACE|_TIF_SYSCALL_AUDIT|_TIF_SECCOMP),threadinfo_flags(%rcx)
 	jnz tracesys
@@ -271,6 +292,7 @@ sysret_check:
 	 * sysretq will re-enable interrupts:
 	 */
 	TRACE_IRQS_ON
+sysret_fastexit:	
 	movq RIP-ARGOFFSET(%rsp),%rcx
 	CFI_REGISTER	rip,rcx
 	RESTORE_ARGS 0,-ARG_SKIP,1
@@ -281,6 +303,8 @@ sysret_check:
 	/* Handle reschedules */
 	/* edx:	work, edi: workmask */	
 sysret_careful:
+	testl $(_TIF_SYSCALL_TRACE|_TIF_SYSCALL_AUDIT|_TIF_SECCOMP),%edx
+	jnz ret_from_sys_call_trace
 	bt $TIF_NEED_RESCHED,%edx
 	jnc sysret_signal
 	TRACE_IRQS_ON
@@ -291,6 +315,16 @@ sysret_careful:
 	popq  %rdi
 	CFI_ADJUST_CFA_OFFSET -8
 	jmp sysret_check
+
+ret_from_sys_call_trace:
+	TRACE_IRQS_ON
+	sti
+	SAVE_REST
+	FIXUP_TOP_OF_STACK %rdi
+	movq %rsp,%rdi
+	LOAD_ARGS ARGOFFSET  /* reload args from stack in case ptrace changed it */
+	RESTORE_REST
+	jmp int_ret_from_sys_call
 
 	/* Handle a signal */ 
 sysret_signal:
@@ -533,12 +567,51 @@ END(stub_rt_sigreturn)
 	 * We entered an interrupt context - irqs are off:
 	 */
 	TRACE_IRQS_OFF
+#ifdef CONFIG_IPIPE_TRACE_IRQSOFF
+	leaq RIP-8(%rdi), %rbp	# make interrupted address show up in trace
+	pushq %rdi
+	movq ORIG_RAX(%rdi), %rdi	# IRQ number
+	notq %rdi			# ...is inverted, fix up
+	call ipipe_trace_begin
+	popq %rdi
+	popq %rbp
+	pushq %rbp
+
 	call \func
+
+	popq %rbp
+	pushq %rbp
+	pushq %rax
+	movq 8-ARGOFFSET+ORIG_RAX(%rbp), %rdi
+	leaq 8-ARGOFFSET+RIP-8(%rbp), %rbp
+	notq %rdi
+	call ipipe_trace_end
+	popq %rax
+	popq %rbp
+	pushq %rbp
+#else
+	call \func
+#endif
 	.endm
 
 ENTRY(common_interrupt)
+#ifdef CONFIG_IPIPE
+	XCPT_FRAME
+	interrupt __ipipe_handle_irq
+	testl %eax, %eax
+	jnz ret_from_intr
+	decl %gs:pda_irqcount
+	leaveq
+	CFI_DEF_CFA_REGISTER	rsp
+	CFI_ADJUST_CFA_OFFSET	-8
+	testl $3,CS-ARGOFFSET(%rsp)
+	jz restore_args
+	swapgs
+	jmp restore_args
+#else /* !CONFIG_IPIPE */
 	XCPT_FRAME
 	interrupt do_IRQ
+#endif /* !CONFIG_IPIPE */	
 	/* 0(%rsp): oldrsp-ARGOFFSET */
 ret_from_intr:
 	DISABLE_INTERRUPTS(CLBR_NONE)
@@ -547,7 +620,7 @@ ret_from_intr:
 	leaveq
 	CFI_DEF_CFA_REGISTER	rsp
 	CFI_ADJUST_CFA_OFFSET	-8
-exit_intr:
+ENTRY(exit_intr)
 	GET_THREAD_INFO(%rcx)
 	testl $3,CS-ARGOFFSET(%rsp)
 	je retint_kernel
@@ -567,20 +640,20 @@ retint_check:
 	jnz  retint_careful
 
 retint_swapgs:		/* return to user-space */
+	TRACE_IRQS_IRETQ
 	/*
 	 * The iretq could re-enable interrupts:
 	 */
-	DISABLE_INTERRUPTS(CLBR_ANY)
-	TRACE_IRQS_IRETQ
+retint_swapgs_notrace:
 	SWAPGS
+retint_noswapgs:
 	jmp restore_args
 
 retint_restore_args:	/* return to kernel space */
-	DISABLE_INTERRUPTS(CLBR_ANY)
+	TRACE_IRQS_IRETQ
 	/*
 	 * The iretq could re-enable interrupts:
 	 */
-	TRACE_IRQS_IRETQ
 restore_args:
 	RESTORE_ARGS 0,8,0
 
@@ -663,7 +736,7 @@ ENTRY(retint_kernel)
 	jnc  retint_restore_args
 	bt   $9,EFLAGS-ARGOFFSET(%rsp)	/* interrupts off? */
 	jnc  retint_restore_args
-	call preempt_schedule_irq
+	PREEMPT_SCHEDULE_IRQ
 	jmp exit_intr
 #endif	
 
@@ -672,7 +745,26 @@ END(common_interrupt)
 	
 /*
  * APIC interrupts.
- */		
+ */
+#ifdef CONFIG_IPIPE
+	.macro apicinterrupt num,func
+	INTR_FRAME
+	pushq $~(\num)
+	CFI_ADJUST_CFA_OFFSET 8
+	interrupt __ipipe_handle_irq
+	testl %eax, %eax
+	jnz ret_from_intr
+	decl %gs:pda_irqcount
+	leaveq
+	CFI_DEF_CFA_REGISTER	rsp
+	CFI_ADJUST_CFA_OFFSET	-8
+	testl $3,CS-ARGOFFSET(%rsp)
+	jz restore_args
+	swapgs
+	jmp restore_args
+	CFI_ENDPROC
+	.endm
+#else /* !CONFIG_IPIPE */	
 	.macro apicinterrupt num,func
 	INTR_FRAME
 	pushq $~(\num)
@@ -681,6 +773,7 @@ END(common_interrupt)
 	jmp ret_from_intr
 	CFI_ENDPROC
 	.endm
+#endif /* !CONFIG_IPIPE */	
 
 ENTRY(thermal_interrupt)
 	apicinterrupt THERMAL_APIC_VECTOR,smp_thermal_interrupt
@@ -705,10 +798,12 @@ END(invalidate_interrupt\num)
 	INVALIDATE_ENTRY 1
 	INVALIDATE_ENTRY 2
 	INVALIDATE_ENTRY 3
+#ifndef CONFIG_IPIPE	
 	INVALIDATE_ENTRY 4
 	INVALIDATE_ENTRY 5
 	INVALIDATE_ENTRY 6
 	INVALIDATE_ENTRY 7
+#endif /* !CONFIG_IPIPE */	
 
 ENTRY(call_function_interrupt)
 	apicinterrupt CALL_FUNCTION_VECTOR,smp_call_function_interrupt
@@ -733,31 +828,39 @@ END(spurious_interrupt)
 /*
  * Exception entry points.
  */ 		
-	.macro zeroentry sym
+	.macro zeroentry sym, ex_code
 	INTR_FRAME
 	pushq $0	/* push error code/oldrax */ 
 	CFI_ADJUST_CFA_OFFSET 8
 	pushq %rax	/* push real oldrax to the rdi slot */ 
 	CFI_ADJUST_CFA_OFFSET 8
 	CFI_REL_OFFSET rax,0
+#ifdef CONFIG_IPIPE    
+	movq $\ex_code,%rax
+#else
 	leaq  \sym(%rip),%rax
+#endif
 	jmp error_entry
 	CFI_ENDPROC
 	.endm	
 
-	.macro errorentry sym
+	.macro errorentry sym, ex_code
 	XCPT_FRAME
 	pushq %rax
 	CFI_ADJUST_CFA_OFFSET 8
 	CFI_REL_OFFSET rax,0
+#ifdef CONFIG_IPIPE    
+	movq $\ex_code,%rax
+#else
 	leaq  \sym(%rip),%rax
+#endif
 	jmp error_entry
 	CFI_ENDPROC
 	.endm
 
 	/* error code is on the stack already */
 	/* handle NMI like exceptions that can happen everywhere */
-	.macro paranoidentry sym, ist=0, irqtrace=1
+	.macro paranoidentry sym, ist=0, irqtrace=1, ex_code=0
 	SAVE_ALL
 	cld
 	movl $1,%ebx
@@ -777,6 +880,16 @@ END(spurious_interrupt)
 	.if \ist
 	subq	$EXCEPTION_STKSZ, per_cpu__init_tss + TSS_ist + (\ist - 1) * 8(%rbp)
 	.endif
+#ifdef CONFIG_IPIPE
+	.if \ex_code
+	movq $\ex_code,%rsi
+	call __ipipe_divert_exception   /* handle(regs, ex_code) */
+	testl %eax,%eax
+	jnz 3f
+	movq %rsp,%rdi
+	movq ORIG_RAX(%rsp),%rsi
+	.endif
+#endif
 	call \sym
 	.if \ist
 	addq	$EXCEPTION_STKSZ, per_cpu__init_tss + TSS_ist + (\ist - 1) * 8(%rbp)
@@ -785,6 +898,12 @@ END(spurious_interrupt)
 	.if \irqtrace
 	TRACE_IRQS_OFF
 	.endif
+#ifdef CONFIG_IPIPE	
+	xorl %eax,%eax
+	/* WARNING: paranoidexit will check %eax to decide whether the
+	exception has to be propagated or not. */
+#endif	
+3:	
 	.endm
 
 	/*
@@ -804,6 +923,10 @@ END(spurious_interrupt)
 paranoid_exit\trace:
 	testl %ebx,%ebx				/* swapgs needed? */
 	jnz paranoid_restore\trace
+#ifdef CONFIG_IPIPE
+	testl %eax,%eax
+	jnz paranoid_swapgs\trace
+#endif		
 	testl $3,CS(%rsp)
 	jnz   paranoid_userspace\trace
 paranoid_swapgs\trace:
@@ -903,7 +1026,19 @@ error_sti:
 	movq %rsp,%rdi
 	movq ORIG_RAX(%rsp),%rsi	/* get error code */ 
 	movq $-1,ORIG_RAX(%rsp)
+#ifdef CONFIG_IPIPE
+	movq %rax, %rdx
+	call __ipipe_handle_exception   /* handle(regs, error_code, ex_code) */
+	testl %eax, %eax
+	jz error_exit
+	movl %ebx,%eax
+	RESTORE_REST
+	testl %eax,%eax
+	jne retint_noswapgs
+	jmp retint_swapgs_notrace
+#else /* !CONFIG_IPIPE */
 	call *%rax
+#endif /* !CONFIG_IPIPE */
 	/* ebx:	no swapgs flag (1: don't need swapgs, 0: need it) */
 error_exit:
 	movl %ebx,%eax
@@ -1059,19 +1194,19 @@ ENTRY(kernel_execve)
 ENDPROC(kernel_execve)
 
 KPROBE_ENTRY(page_fault)
-	errorentry do_page_fault
+	errorentry do_page_fault ex_do_page_fault
 KPROBE_END(page_fault)
 
 ENTRY(coprocessor_error)
-	zeroentry do_coprocessor_error
+	zeroentry do_coprocessor_error ex_do_coprocessor_error
 END(coprocessor_error)
 
 ENTRY(simd_coprocessor_error)
-	zeroentry do_simd_coprocessor_error	
+	zeroentry do_simd_coprocessor_error ex_do_simd_coprocessor_error
 END(simd_coprocessor_error)
 
 ENTRY(device_not_available)
-	zeroentry math_state_restore
+	zeroentry math_state_restore ex_math_state_restore
 END(device_not_available)
 
 	/* runs on exception stack */
@@ -1079,7 +1214,7 @@ KPROBE_ENTRY(debug)
  	INTR_FRAME
 	pushq $0
 	CFI_ADJUST_CFA_OFFSET 8		
-	paranoidentry do_debug, DEBUG_STACK
+	paranoidentry do_debug, DEBUG_STACK, 1, ex_do_debug
 	paranoidexit
 KPROBE_END(debug)
 
@@ -1101,29 +1236,29 @@ KPROBE_ENTRY(int3)
  	INTR_FRAME
  	pushq $0
  	CFI_ADJUST_CFA_OFFSET 8
- 	paranoidentry do_int3, DEBUG_STACK
+ 	paranoidentry do_int3, DEBUG_STACK, 1, ex_do_int3
  	jmp paranoid_exit1
  	CFI_ENDPROC
 KPROBE_END(int3)
 
 ENTRY(overflow)
-	zeroentry do_overflow
+	zeroentry do_overflow ex_do_overflow
 END(overflow)
 
 ENTRY(bounds)
-	zeroentry do_bounds
+	zeroentry do_bounds ex_do_bounds
 END(bounds)
 
 ENTRY(invalid_op)
-	zeroentry do_invalid_op	
+	zeroentry do_invalid_op ex_do_invalid_op
 END(invalid_op)
 
 ENTRY(coprocessor_segment_overrun)
-	zeroentry do_coprocessor_segment_overrun
+	zeroentry do_coprocessor_segment_overrun ex_do_coprocessor_segment_overrun
 END(coprocessor_segment_overrun)
 
 ENTRY(reserved)
-	zeroentry do_reserved
+	zeroentry do_reserved ex_reserved
 END(reserved)
 
 	/* runs on exception stack */
@@ -1135,11 +1270,11 @@ ENTRY(double_fault)
 END(double_fault)
 
 ENTRY(invalid_TSS)
-	errorentry do_invalid_TSS
+	errorentry do_invalid_TSS ex_do_invalid_TSS
 END(invalid_TSS)
 
 ENTRY(segment_not_present)
-	errorentry do_segment_not_present
+	errorentry do_segment_not_present ex_do_segment_not_present
 END(segment_not_present)
 
 	/* runs on exception stack */
@@ -1151,19 +1286,19 @@ ENTRY(stack_segment)
 END(stack_segment)
 
 KPROBE_ENTRY(general_protection)
-	errorentry do_general_protection
+	errorentry do_general_protection ex_do_general_protection
 KPROBE_END(general_protection)
 
 ENTRY(alignment_check)
-	errorentry do_alignment_check
+	errorentry do_alignment_check ex_do_alignment_check
 END(alignment_check)
 
 ENTRY(divide_error)
-	zeroentry do_divide_error
+	zeroentry do_divide_error ex_do_divide_error
 END(divide_error)
 
 ENTRY(spurious_interrupt_bug)
-	zeroentry do_spurious_interrupt_bug
+	zeroentry do_spurious_interrupt_bug ex_do_spurious_interrupt_bug
 END(spurious_interrupt_bug)
 
 #ifdef CONFIG_X86_MCE

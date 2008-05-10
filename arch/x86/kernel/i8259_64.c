@@ -97,7 +97,7 @@ static void (*__initdata interrupt[NR_VECTORS - FIRST_EXTERNAL_VECTOR])(void) = 
  */
 
 static int i8259A_auto_eoi;
-DEFINE_SPINLOCK(i8259A_lock);
+IPIPE_DEFINE_SPINLOCK(i8259A_lock);
 static void mask_and_ack_8259A(unsigned int);
 
 static struct irq_chip i8259A_chip = {
@@ -134,6 +134,7 @@ void disable_8259A_irq(unsigned int irq)
 	unsigned long flags;
 
 	spin_lock_irqsave(&i8259A_lock, flags);
+	ipipe_irq_lock(irq);
 	cached_irq_mask |= mask;
 	if (irq & 8)
 		outb(cached_slave_mask, PIC_SLAVE_IMR);
@@ -148,11 +149,15 @@ void enable_8259A_irq(unsigned int irq)
 	unsigned long flags;
 
 	spin_lock_irqsave(&i8259A_lock, flags);
+ 	if (cached_irq_mask & mask) {
+		cached_irq_mask &= mask;
+		if (irq & 8)
+			outb(cached_slave_mask, PIC_SLAVE_IMR);
+		else
+			outb(cached_master_mask, PIC_MASTER_IMR);
+		ipipe_irq_unlock(irq);
+	}
 	cached_irq_mask &= mask;
-	if (irq & 8)
-		outb(cached_slave_mask, PIC_SLAVE_IMR);
-	else
-		outb(cached_master_mask, PIC_MASTER_IMR);
 	spin_unlock_irqrestore(&i8259A_lock, flags);
 }
 
@@ -233,6 +238,15 @@ static void mask_and_ack_8259A(unsigned int irq)
 	 */
 	if (cached_irq_mask & irqmask)
 		goto spurious_8259A_irq;
+#ifdef CONFIG_IPIPE
+	if (irq == 0) {
+	    /* Fast timer ack -- don't mask (unless supposedly
+	      spurious) */
+	    outb(0x60, 0x20);	/* Specific EOI to master. */
+	    spin_unlock_irqrestore(&i8259A_lock, flags);
+	    return;
+	}
+#endif /* CONFIG_IPIPE */
 	cached_irq_mask |= irqmask;
 
 handle_real_irq:
@@ -486,10 +500,12 @@ void __init native_init_IRQ(void)
 	set_intr_gate(INVALIDATE_TLB_VECTOR_START+1, invalidate_interrupt1);
 	set_intr_gate(INVALIDATE_TLB_VECTOR_START+2, invalidate_interrupt2);
 	set_intr_gate(INVALIDATE_TLB_VECTOR_START+3, invalidate_interrupt3);
+#ifndef CONFIG_IPIPE
 	set_intr_gate(INVALIDATE_TLB_VECTOR_START+4, invalidate_interrupt4);
 	set_intr_gate(INVALIDATE_TLB_VECTOR_START+5, invalidate_interrupt5);
 	set_intr_gate(INVALIDATE_TLB_VECTOR_START+6, invalidate_interrupt6);
 	set_intr_gate(INVALIDATE_TLB_VECTOR_START+7, invalidate_interrupt7);
+#endif /* !CONFIG_IPIPE */
 
 	/* IPI for generic function call */
 	set_intr_gate(CALL_FUNCTION_VECTOR, call_function_interrupt);

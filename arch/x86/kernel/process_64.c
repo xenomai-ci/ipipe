@@ -53,6 +53,8 @@
 
 asmlinkage extern void ret_from_fork(void);
 
+asmlinkage extern void thread_return(void);
+
 unsigned long kernel_thread_flags = CLONE_VM | CLONE_UNTRACED;
 
 unsigned long boot_option_idle_override = 0;
@@ -105,7 +107,7 @@ void default_idle(void)
 	 * test NEED_RESCHED:
 	 */
 	smp_mb();
-	local_irq_disable();
+	local_irq_disable_hw();
 	if (!need_resched()) {
 		ktime_t t0, t1;
 		u64 t0n, t1n;
@@ -117,8 +119,9 @@ void default_idle(void)
 		t1 = ktime_get();
 		t1n = ktime_to_ns(t1);
 		sched_clock_idle_wakeup_event(t1n - t0n);
-	}
-	local_irq_enable();
+		local_irq_enable(); /* This will force enable_hw as well. */
+	} else
+		local_irq_enable_hw();
 	current_thread_info()->status |= TS_POLLING;
 }
 
@@ -185,6 +188,7 @@ void cpu_idle(void)
 			 */
 			local_irq_disable();
 			enter_idle();
+ 			ipipe_suspend_domain();
 			idle();
 			/* In many cases the interrupt that ended idle
 			   has already called exit_idle. But some idle
@@ -265,6 +269,11 @@ static int __cpuinit mwait_usable(const struct cpuinfo_x86 *c)
 
 void __cpuinit select_idle_routine(const struct cpuinfo_x86 *c)
 {
+#ifdef CONFIG_IPIPE
+#define default_to_mwait force_mwait
+#else
+#define default_to_mwait 1
+#endif
 	static int selected;
 
 	if (selected)
@@ -280,7 +289,7 @@ void __cpuinit select_idle_routine(const struct cpuinfo_x86 *c)
 		 * Skip, if setup has overridden idle.
 		 * One CPU supports mwait => All CPUs supports mwait
 		 */
-		if (!pm_idle) {
+ 		if (!pm_idle && default_to_mwait) {
 			printk(KERN_INFO "using mwait in idle threads.\n");
 			pm_idle = mwait_idle;
 		}
@@ -483,6 +492,7 @@ int copy_thread(int nr, unsigned long clone_flags, unsigned long sp,
 	p->thread.sp = (unsigned long) childregs;
 	p->thread.sp0 = (unsigned long) (childregs+1);
 	p->thread.usersp = me->thread.usersp;
+ 	p->thread.rip = (unsigned long) thread_return;
 
 	set_tsk_thread_flag(p, TIF_FORK);
 
@@ -602,7 +612,7 @@ __switch_to(struct task_struct *prev_p, struct task_struct *next_p)
 {
 	struct thread_struct *prev = &prev_p->thread,
 				 *next = &next_p->thread;
-	int cpu = smp_processor_id();
+	int cpu = raw_smp_processor_id();
 	struct tss_struct *tss = &per_cpu(init_tss, cpu);
 
 	/* we're going to use this soon, after a few expensive things */

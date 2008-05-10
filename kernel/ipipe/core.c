@@ -328,7 +328,7 @@ void __ipipe_restore_root(unsigned long x)
 		__ipipe_unstall_root();
 }
 
-void fastcall ipipe_stall_pipeline_from(struct ipipe_domain *ipd)
+void ipipe_stall_pipeline_from(struct ipipe_domain *ipd)
 {
 	set_bit_safe(IPIPE_STALL_FLAG, &ipipe_cpudom_var(ipd, status));
 
@@ -336,7 +336,7 @@ void fastcall ipipe_stall_pipeline_from(struct ipipe_domain *ipd)
 		local_irq_disable_hw();
 }
 
-unsigned long fastcall ipipe_test_and_stall_pipeline_from(struct ipipe_domain *ipd)
+unsigned long ipipe_test_and_stall_pipeline_from(struct ipipe_domain *ipd)
 {
 	unsigned long x;
 
@@ -353,7 +353,7 @@ unsigned long fastcall ipipe_test_and_stall_pipeline_from(struct ipipe_domain *i
  * synchronize pending interrupts for a given domain. See
  * __ipipe_walk_pipeline() for more information.
  */
-void fastcall ipipe_unstall_pipeline_from(struct ipipe_domain *ipd)
+void ipipe_unstall_pipeline_from(struct ipipe_domain *ipd)
 {
 	struct list_head *pos;
 	unsigned long flags;
@@ -375,7 +375,7 @@ void fastcall ipipe_unstall_pipeline_from(struct ipipe_domain *ipd)
 		local_irq_restore_hw(flags);
 }
 
-unsigned long fastcall ipipe_test_and_unstall_pipeline_from(struct ipipe_domain *ipd)
+unsigned long ipipe_test_and_unstall_pipeline_from(struct ipipe_domain *ipd)
 {
 	unsigned long x;
 
@@ -385,7 +385,7 @@ unsigned long fastcall ipipe_test_and_unstall_pipeline_from(struct ipipe_domain 
 	return x;
 }
 
-void fastcall ipipe_restore_pipeline_from(struct ipipe_domain *ipd,
+void ipipe_restore_pipeline_from(struct ipipe_domain *ipd,
 					  unsigned long x)
 {
 	if (x)
@@ -413,7 +413,7 @@ void ipipe_unstall_pipeline_head(void)
 	local_irq_enable_hw();
 }
 
-void fastcall __ipipe_restore_pipeline_head(struct ipipe_domain *head_domain, unsigned long x)
+void __ipipe_restore_pipeline_head(struct ipipe_domain *head_domain, unsigned long x)
 {
 	local_irq_disable_hw();
 
@@ -446,21 +446,21 @@ void fastcall __ipipe_restore_pipeline_head(struct ipipe_domain *head_domain, un
 	}
 }
 
-void fastcall __ipipe_spin_lock_irq(raw_spinlock_t *lock)
+void __ipipe_spin_lock_irq(raw_spinlock_t *lock)
 {
 	local_irq_disable_hw();
 	__raw_spin_lock(lock);
 	__set_bit(IPIPE_STALL_FLAG, &ipipe_this_cpudom_var(status));
 }
 
-void fastcall __ipipe_spin_unlock_irq(raw_spinlock_t *lock)
+void __ipipe_spin_unlock_irq(raw_spinlock_t *lock)
 {
 	__raw_spin_unlock(lock);
 	__clear_bit(IPIPE_STALL_FLAG, &ipipe_this_cpudom_var(status));
 	local_irq_enable_hw();
 }
 
-unsigned long fastcall __ipipe_spin_lock_irqsave(raw_spinlock_t *lock)
+unsigned long __ipipe_spin_lock_irqsave(raw_spinlock_t *lock)
 {
 	unsigned long flags;
 	int s;
@@ -472,7 +472,7 @@ unsigned long fastcall __ipipe_spin_lock_irqsave(raw_spinlock_t *lock)
 	return raw_mangle_irq_bits(s, flags);
 }
 
-void fastcall __ipipe_spin_unlock_irqrestore(raw_spinlock_t *lock, unsigned long x)
+void __ipipe_spin_unlock_irqrestore(raw_spinlock_t *lock, unsigned long x)
 {
 	__raw_spin_unlock(lock);
 	if (!raw_demangle_irq_bits(&x))
@@ -480,12 +480,12 @@ void fastcall __ipipe_spin_unlock_irqrestore(raw_spinlock_t *lock, unsigned long
 	local_irq_restore_hw(x);
 }
 
-void fastcall __ipipe_spin_unlock_irqbegin(ipipe_spinlock_t *lock)
+void __ipipe_spin_unlock_irqbegin(ipipe_spinlock_t *lock)
 {
 	__raw_spin_unlock(&lock->__raw_lock);
 }
 
-void fastcall __ipipe_spin_unlock_irqcomplete(unsigned long x)
+void __ipipe_spin_unlock_irqcomplete(unsigned long x)
 {
 	if (!raw_demangle_irq_bits(&x))
 		__clear_bit(IPIPE_STALL_FLAG, &ipipe_this_cpudom_var(status));
@@ -493,7 +493,7 @@ void fastcall __ipipe_spin_unlock_irqcomplete(unsigned long x)
 }
 
 /* Must be called hw IRQs off. */
-void fastcall __ipipe_set_irq_pending(struct ipipe_domain *ipd, unsigned irq)
+void __ipipe_set_irq_pending(struct ipipe_domain *ipd, unsigned irq)
 {
 	int level = irq >> IPIPE_IRQ_ISHIFT, rank = irq & IPIPE_IRQ_IMASK;
 
@@ -507,7 +507,7 @@ void fastcall __ipipe_set_irq_pending(struct ipipe_domain *ipd, unsigned irq)
 }
 
 /* Must be called hw IRQs off. */
-void fastcall __ipipe_lock_irq(struct ipipe_domain *ipd, int cpu, unsigned irq)
+void __ipipe_lock_irq(struct ipipe_domain *ipd, int cpu, unsigned irq)
 {
 	if (likely(!test_and_set_bit(IPIPE_LOCK_FLAG, &ipd->irqs[irq].control))) {
 		int level = irq >> IPIPE_IRQ_ISHIFT, rank = irq & IPIPE_IRQ_IMASK;
@@ -519,7 +519,7 @@ void fastcall __ipipe_lock_irq(struct ipipe_domain *ipd, int cpu, unsigned irq)
 }
 
 /* Must be called hw IRQs off. */
-void fastcall __ipipe_unlock_irq(struct ipipe_domain *ipd, unsigned irq)
+void __ipipe_unlock_irq(struct ipipe_domain *ipd, unsigned irq)
 {
 	int cpu;
 
@@ -538,7 +538,7 @@ void fastcall __ipipe_unlock_irq(struct ipipe_domain *ipd, unsigned irq)
 /* __ipipe_walk_pipeline(): Plays interrupts pending in the log. Must
    be called with local hw interrupts disabled. */
 
-void fastcall __ipipe_walk_pipeline(struct list_head *pos)
+void __ipipe_walk_pipeline(struct list_head *pos)
 {
 	struct ipipe_domain *this_domain = ipipe_current_domain, *next_domain;
 
@@ -792,7 +792,7 @@ int ipipe_control_irq(unsigned irq, unsigned clrmask, unsigned setmask)
 
 /* __ipipe_dispatch_event() -- Low-level event dispatcher. */
 
-int fastcall __ipipe_dispatch_event (unsigned event, void *data)
+int __ipipe_dispatch_event (unsigned event, void *data)
 {
 	struct ipipe_domain *start_domain, *this_domain, *next_domain;
 	ipipe_event_handler_t evhand;
@@ -878,7 +878,7 @@ int fastcall __ipipe_dispatch_event (unsigned event, void *data)
  * Called with hw interrupts off.
  */
 
-int fastcall __ipipe_dispatch_wired(struct ipipe_domain *head_domain, unsigned irq)
+int __ipipe_dispatch_wired(struct ipipe_domain *head_domain, unsigned irq)
 {
 	struct ipipe_domain *old;
 
@@ -929,7 +929,7 @@ int fastcall __ipipe_dispatch_wired(struct ipipe_domain *head_domain, unsigned i
  *
  * This routine must be called with hw interrupts off.
  */
-void fastcall __ipipe_sync_stage(unsigned long syncmask)
+void __ipipe_sync_stage(unsigned long syncmask)
 {
 	unsigned long mask, submask;
 	struct ipipe_domain *ipd;
@@ -1187,7 +1187,7 @@ int ipipe_unregister_domain(struct ipipe_domain *ipd)
  * ipipe_schedule_irq() -- Does almost the same as above, but attempts
  * to pend the interrupt for the current domain first.
  */
-int fastcall __ipipe_schedule_irq(unsigned irq, struct list_head *head)
+int __ipipe_schedule_irq(unsigned irq, struct list_head *head)
 {
 	struct ipipe_domain *ipd;
 	struct list_head *ln;
@@ -1326,7 +1326,7 @@ cpumask_t ipipe_set_irq_affinity (unsigned irq, cpumask_t cpumask)
 	return CPU_MASK_NONE;
 }
 
-int fastcall ipipe_send_ipi (unsigned ipi, cpumask_t cpumask)
+int ipipe_send_ipi (unsigned ipi, cpumask_t cpumask)
 
 {
 #ifdef CONFIG_SMP
@@ -1371,7 +1371,7 @@ int ipipe_free_ptdkey (int key)
 	return 0;
 }
 
-int fastcall ipipe_set_ptd (int key, void *value)
+int ipipe_set_ptd (int key, void *value)
 
 {
 	if (key < 0 || key >= IPIPE_ROOT_NPTDKEYS)
@@ -1382,7 +1382,7 @@ int fastcall ipipe_set_ptd (int key, void *value)
 	return 0;
 }
 
-void fastcall *ipipe_get_ptd (int key)
+void *ipipe_get_ptd (int key)
 
 {
 	if (key < 0 || key >= IPIPE_ROOT_NPTDKEYS)

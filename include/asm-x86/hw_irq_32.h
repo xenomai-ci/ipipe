@@ -40,6 +40,13 @@ void error_interrupt(void);
 void spurious_interrupt(void);
 void thermal_interrupt(void);
 #define platform_legacy_irq(irq)	((irq) < 16)
+#ifdef CONFIG_IPIPE
+void ipipe_ipi0(void);
+void ipipe_ipi1(void);
+void ipipe_ipi2(void);
+void ipipe_ipi3(void);
+void ipipe_ipiX(void);
+#endif
 #endif
 
 void disable_8259A_irq(unsigned int irq);

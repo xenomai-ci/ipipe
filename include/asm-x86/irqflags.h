@@ -8,10 +8,17 @@
  * Interrupt control:
  */
 
+#include <linux/ipipe_base.h>
+#include <linux/ipipe_trace.h>
+
 static inline unsigned long native_save_fl(void)
 {
 	unsigned long flags;
 
+#ifdef CONFIG_IPIPE
+	flags = (!__ipipe_test_root()) << 9;
+	barrier();
+#else
 	__asm__ __volatile__(
 		"# __raw_save_flags\n\t"
 		"pushf ; pop %0"
@@ -19,32 +26,52 @@ static inline unsigned long native_save_fl(void)
 		: /* no input */
 		: "memory"
 	);
+#endif
 
 	return flags;
 }
 
 static inline void native_restore_fl(unsigned long flags)
 {
+#ifdef CONFIG_IPIPE
+	barrier();
+	__ipipe_restore_root(!(flags & X86_EFLAGS_IF));
+#else
 	__asm__ __volatile__(
 		"push %0 ; popf"
 		: /* no output */
 		:"g" (flags)
 		:"memory", "cc"
 	);
+#endif
 }
 
 static inline void native_irq_disable(void)
 {
+#ifdef CONFIG_IPIPE
+	ipipe_check_context(ipipe_root_domain);
+	__ipipe_stall_root();
+	barrier();
+#else
 	asm volatile("cli": : :"memory");
+#endif
 }
 
 static inline void native_irq_enable(void)
 {
+#ifdef CONFIG_IPIPE
+	barrier();
+	__ipipe_unstall_root();
+#else
 	asm volatile("sti": : :"memory");
+#endif
 }
 
 static inline void native_safe_halt(void)
 {
+#ifdef CONFIG_IPIPE_TRACE_IRQSOFF
+	ipipe_trace_end(0x8000000E);
+#endif
 	asm volatile("sti; hlt": : :"memory");
 }
 
@@ -70,11 +97,89 @@ static inline void raw_local_irq_restore(unsigned long flags)
 	native_restore_fl(flags);
 }
 
+static inline unsigned long raw_mangle_irq_bits(int virt, unsigned long real)
+{
+	/*
+	 * Merge virtual and real interrupt mask bits into a single
+	 * (32bit) word.
+	 */
+	return (real & ~(1L << 31)) | ((virt != 0) << 31);
+}
+
+static inline int raw_demangle_irq_bits(unsigned long *x)
+{
+	int virt = (*x & (1L << 31)) != 0;
+	*x &= ~(1L << 31);
+	return virt;
+}
+
+#define local_irq_save_hw_notrace(x) \
+	__asm__ __volatile__("pushf ; pop %0 ; cli":"=g" (x): /* no input */ :"memory")
+#define local_irq_restore_hw_notrace(x) \
+	__asm__ __volatile__("push %0 ; popf": /* no output */ :"g" (x):"memory", "cc")
+
+#define local_save_flags_hw(x)	__asm__ __volatile__("pushf ; pop %0":"=g" (x): /* no input */)
+
+#define irqs_disabled_hw()		\
+    ({					\
+	unsigned long x;		\
+	local_save_flags_hw(x);		\
+	!((x) & X86_EFLAGS_IF);		\
+    })
+
+#ifdef CONFIG_IPIPE_TRACE_IRQSOFF
+#define local_irq_disable_hw() do {			\
+		if (!irqs_disabled_hw()) {		\
+			local_irq_disable_hw_notrace();	\
+			ipipe_trace_begin(0x80000000);	\
+		}					\
+	} while (0)
+#define local_irq_enable_hw() do {			\
+		if (irqs_disabled_hw()) {		\
+			ipipe_trace_end(0x80000000);	\
+			local_irq_enable_hw_notrace();	\
+		}					\
+	} while (0)
+#define local_irq_save_hw(x) do {			\
+		local_save_flags_hw(x);			\
+		if ((x) & X86_EFLAGS_IF) {		\
+			local_irq_disable_hw_notrace();	\
+			ipipe_trace_begin(0x80000001);	\
+		}					\
+	} while (0)
+#define local_irq_restore_hw(x) do {			\
+		if ((x) & X86_EFLAGS_IF)		\
+			ipipe_trace_end(0x80000001);	\
+		local_irq_restore_hw_notrace(x);	\
+	} while (0)
+#else /* !CONFIG_IPIPE_TRACE_IRQSOFF */
+#define local_irq_save_hw(x)		local_irq_save_hw_notrace(x)
+#define local_irq_restore_hw(x)		local_irq_restore_hw_notrace(x)
+#define local_irq_enable_hw()		local_irq_enable_hw_notrace()
+#define local_irq_disable_hw()		local_irq_disable_hw_notrace()
+#endif /* CONFIG_IPIPE_TRACE_IRQSOFF */
+
 #ifdef CONFIG_X86_VSMP
 
 /*
  * Interrupt control for the VSMP architecture:
  */
+
+static inline void local_irq_disable_hw_notrace(void)
+{
+	unsigned long flags;
+
+	local_save_flags_hw(flags);
+	local_irq_restore_hw_notrace((flags & ~X86_EFLAGS_IF) | X86_EFLAGS_AC);
+}
+	
+static inline void local_irq_enable_hw_notrace(void)
+{
+	unsigned long flags;
+
+	local_save_flags_hw(flags);
+	local_irq_restore_hw_notrace((flags | X86_EFLAGS_IF) & ~X86_EFLAGS_AC);
+}
 
 static inline void raw_local_irq_disable(void)
 {
@@ -89,6 +194,9 @@ static inline void raw_local_irq_enable(void)
 }
 
 #else
+
+#define local_irq_disable_hw_notrace()	__asm__ __volatile__("cli": : :"memory")
+#define local_irq_enable_hw_notrace()	__asm__ __volatile__("sti": : :"memory")
 
 static inline void raw_local_irq_disable(void)
 {
@@ -125,16 +233,38 @@ static inline void halt(void)
  */
 static inline unsigned long __raw_local_irq_save(void)
 {
+#ifdef CONFIG_IPIPE
+	unsigned long flags = (!__ipipe_test_and_stall_root()) << 9;
+	barrier();
+#else
 	unsigned long flags = __raw_local_save_flags();
 
 	raw_local_irq_disable();
+#endif
 
 	return flags;
 }
 #else
 
-#define ENABLE_INTERRUPTS(x)	sti
-#define DISABLE_INTERRUPTS(x)	cli
+#ifdef CONFIG_IPIPE
+#ifdef CONFIG_X86_32
+#define DISABLE_INTERRUPTS(clobbers)	PER_CPU(ipipe_percpu_darray, %eax); btsl $0,(%eax); sti
+#define ENABLE_INTERRUPTS(clobbers)	call __ipipe_unstall_root
+#else /* CONFIG_X86_64 */
+/* Not worth virtualizing in x86_64 mode. */
+#define DISABLE_INTERRUPTS(clobbers)	cli
+#define ENABLE_INTERRUPTS(clobbers)	sti
+#endif /* CONFIG_X86_64 */
+#define ENABLE_INTERRUPTS_HW_COND	sti
+#define DISABLE_INTERRUPTS_HW(clobbers)	cli
+#define ENABLE_INTERRUPTS_HW(clobbers)	sti
+#else /* !CONFIG_IPIPE */
+#define ENABLE_INTERRUPTS(x)		sti
+#define DISABLE_INTERRUPTS(x)		cli
+#define ENABLE_INTERRUPTS_HW_COND
+#define DISABLE_INTERRUPTS_HW(clobbers)	DISABLE_INTERRUPTS(clobbers)
+#define ENABLE_INTERRUPTS_HW(clobbers)	ENABLE_INTERRUPTS(clobbers)
+#endif /* !CONFIG_IPIPE */
 
 #ifdef CONFIG_X86_64
 #define INTERRUPT_RETURN	iretq
@@ -156,8 +286,10 @@ static inline unsigned long __raw_local_irq_save(void)
 #define raw_local_save_flags(flags) \
 		do { (flags) = __raw_local_save_flags(); } while (0)
 
-#define raw_local_irq_save(flags) \
-		do { (flags) = __raw_local_irq_save(); } while (0)
+#define raw_local_irq_save(flags) do {			\
+		ipipe_check_context(ipipe_root_domain);	\
+		(flags) = __raw_local_irq_save();	\
+	} while (0)
 
 #ifdef CONFIG_X86_VSMP
 static inline int raw_irqs_disabled_flags(unsigned long flags)

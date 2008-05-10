@@ -28,7 +28,7 @@
 #include "irq_vectors.h"
 
 
-static DEFINE_SPINLOCK(cobalt_lock);
+static IPIPE_DEFINE_SPINLOCK(cobalt_lock);
 
 /*
  * Set the given Cobalt APIC Redirection Table entry to point

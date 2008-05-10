@@ -9,7 +9,7 @@ targets := vmlinux vmlinux.bin vmlinux.bin.gz head_$(BITS).o misc.o piggy.o
 KBUILD_CFLAGS := -m$(BITS) -D__KERNEL__ $(LINUX_INCLUDE) -O2
 KBUILD_CFLAGS += -fno-strict-aliasing -fPIC
 cflags-$(CONFIG_X86_64) := -mcmodel=small
-KBUILD_CFLAGS += $(cflags-y)
+KBUILD_CFLAGS += $(cflags-y) $(mflags-y)
 KBUILD_CFLAGS += $(call cc-option,-ffreestanding)
 KBUILD_CFLAGS += $(call cc-option,-fno-stack-protector)
 

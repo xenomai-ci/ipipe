@@ -26,7 +26,8 @@ extern void setup_apic_nmi_watchdog (void *);
 extern void stop_apic_nmi_watchdog (void *);
 extern void disable_timer_nmi_watchdog(void);
 extern void enable_timer_nmi_watchdog(void);
-extern int nmi_watchdog_tick (struct pt_regs * regs, unsigned reason);
+extern int (*nmi_watchdog_tick)(struct pt_regs * regs, unsigned reason);
+extern void die_nmi(struct pt_regs *, const char *msg);
 
 extern atomic_t nmi_active;
 extern unsigned int nmi_watchdog;
