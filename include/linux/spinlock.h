@@ -458,13 +458,13 @@ extern int _atomic_dec_and_lock(atomic_t *atomic, spinlock_t *lock);
 #define spin_can_lock(lock)	(!spin_is_locked(lock))
 
 #ifdef CONFIG_IPIPE
-void fastcall __ipipe_spin_lock_irq(raw_spinlock_t *lock);
-void fastcall __ipipe_spin_unlock_irq(raw_spinlock_t *lock);
-unsigned long fastcall __ipipe_spin_lock_irqsave(raw_spinlock_t *lock);
-void fastcall __ipipe_spin_unlock_irqrestore(raw_spinlock_t *lock,
+void __ipipe_spin_lock_irq(raw_spinlock_t *lock);
+void __ipipe_spin_unlock_irq(raw_spinlock_t *lock);
+unsigned long __ipipe_spin_lock_irqsave(raw_spinlock_t *lock);
+void __ipipe_spin_unlock_irqrestore(raw_spinlock_t *lock,
 					     unsigned long x);
-void fastcall __ipipe_spin_unlock_irqbegin(ipipe_spinlock_t *lock);
-void fastcall __ipipe_spin_unlock_irqcomplete(unsigned long x);
+void __ipipe_spin_unlock_irqbegin(ipipe_spinlock_t *lock);
+void __ipipe_spin_unlock_irqcomplete(unsigned long x);
 #define spin_lock_irqsave_cond(lock, flags) \
 	spin_lock_irqsave(lock, flags)
 #define spin_unlock_irqrestore_cond(lock, flags) \

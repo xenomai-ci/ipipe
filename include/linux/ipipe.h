@@ -198,21 +198,21 @@ void __ipipe_remove_domain_proc(struct ipipe_domain *ipd);
 
 void __ipipe_flush_printk(unsigned irq, void *cookie);
 
-void fastcall __ipipe_walk_pipeline(struct list_head *pos);
+void __ipipe_walk_pipeline(struct list_head *pos);
 
-int fastcall __ipipe_schedule_irq(unsigned irq, struct list_head *head);
+int __ipipe_schedule_irq(unsigned irq, struct list_head *head);
 
-int fastcall __ipipe_dispatch_event(unsigned event, void *data);
+int __ipipe_dispatch_event(unsigned event, void *data);
 
-int fastcall __ipipe_dispatch_wired(struct ipipe_domain *head_domain, unsigned irq);
+int __ipipe_dispatch_wired(struct ipipe_domain *head_domain, unsigned irq);
 
-void fastcall __ipipe_sync_stage(unsigned long syncmask);
+void __ipipe_sync_stage(unsigned long syncmask);
 
-void fastcall __ipipe_set_irq_pending(struct ipipe_domain *ipd, unsigned irq);
+void __ipipe_set_irq_pending(struct ipipe_domain *ipd, unsigned irq);
 
-void fastcall __ipipe_lock_irq(struct ipipe_domain *ipd, int cpu, unsigned irq);
+void __ipipe_lock_irq(struct ipipe_domain *ipd, int cpu, unsigned irq);
 
-void fastcall __ipipe_unlock_irq(struct ipipe_domain *ipd, unsigned irq);
+void __ipipe_unlock_irq(struct ipipe_domain *ipd, unsigned irq);
 
 void __ipipe_pin_range_globally(unsigned long start, unsigned long end);
 
@@ -252,7 +252,7 @@ static inline void ipipe_irq_unlock(unsigned irq)
 cpumask_t __ipipe_set_irq_affinity(unsigned irq,
 				   cpumask_t cpumask);
 
-int fastcall __ipipe_send_ipi(unsigned ipi,
+int __ipipe_send_ipi(unsigned ipi,
 			      cpumask_t cpumask);
 
 #endif /* CONFIG_SMP */
@@ -330,7 +330,7 @@ unsigned ipipe_alloc_virq(void);
 
 int ipipe_free_virq(unsigned virq);
 
-int fastcall ipipe_trigger_irq(unsigned irq);
+int ipipe_trigger_irq(unsigned irq);
 
 static inline int ipipe_propagate_irq(unsigned irq)
 {
@@ -342,15 +342,15 @@ static inline int ipipe_schedule_irq(unsigned irq)
 	return __ipipe_schedule_irq(irq, &ipipe_current_domain->p_link);
 }
 
-void fastcall ipipe_stall_pipeline_from(struct ipipe_domain *ipd);
+void ipipe_stall_pipeline_from(struct ipipe_domain *ipd);
 
-unsigned long fastcall ipipe_test_and_stall_pipeline_from(struct ipipe_domain *ipd);
+unsigned long ipipe_test_and_stall_pipeline_from(struct ipipe_domain *ipd);
 
-void fastcall ipipe_unstall_pipeline_from(struct ipipe_domain *ipd);
+void ipipe_unstall_pipeline_from(struct ipipe_domain *ipd);
 
-unsigned long fastcall ipipe_test_and_unstall_pipeline_from(struct ipipe_domain *ipd);
+unsigned long ipipe_test_and_unstall_pipeline_from(struct ipipe_domain *ipd);
 
-void fastcall ipipe_restore_pipeline_from(struct ipipe_domain *ipd,
+void ipipe_restore_pipeline_from(struct ipipe_domain *ipd,
 					  unsigned long x);
 
 static inline unsigned long ipipe_test_pipeline_from(struct ipipe_domain *ipd)
@@ -372,7 +372,7 @@ static inline unsigned long ipipe_test_and_stall_pipeline_head(void)
 
 void ipipe_unstall_pipeline_head(void);
 
-void fastcall __ipipe_restore_pipeline_head(struct ipipe_domain *head_domain,
+void __ipipe_restore_pipeline_head(struct ipipe_domain *head_domain,
 					    unsigned long x);
 
 static inline void ipipe_restore_pipeline_head(unsigned long x)
@@ -453,7 +453,7 @@ ipipe_event_handler_t ipipe_catch_event(struct ipipe_domain *ipd,
 cpumask_t ipipe_set_irq_affinity(unsigned irq,
 				 cpumask_t cpumask);
 
-int fastcall ipipe_send_ipi(unsigned ipi,
+int ipipe_send_ipi(unsigned ipi,
 			    cpumask_t cpumask);
 
 int ipipe_setscheduler_root(struct task_struct *p,
@@ -468,10 +468,10 @@ int ipipe_alloc_ptdkey(void);
 
 int ipipe_free_ptdkey(int key);
 
-int fastcall ipipe_set_ptd(int key,
+int ipipe_set_ptd(int key,
 			   void *value);
 
-void fastcall *ipipe_get_ptd(int key);
+void *ipipe_get_ptd(int key);
 
 int ipipe_disable_ondemand_mappings(struct task_struct *tsk);
 

@@ -527,57 +527,57 @@ out_unlock:
 
 #ifdef CONFIG_IPIPE
 
-void fastcall __ipipe_ack_simple_irq(unsigned irq, struct irq_desc *desc)
+void __ipipe_ack_simple_irq(unsigned irq, struct irq_desc *desc)
 {
 }
 
-void fastcall __ipipe_end_simple_irq(unsigned irq, struct irq_desc *desc)
+void __ipipe_end_simple_irq(unsigned irq, struct irq_desc *desc)
 {
 }
 
-void fastcall __ipipe_ack_level_irq(unsigned irq, struct irq_desc *desc)
+void __ipipe_ack_level_irq(unsigned irq, struct irq_desc *desc)
 {
 	mask_ack_irq(desc, irq);
 }
 
-void fastcall __ipipe_end_level_irq(unsigned irq, struct irq_desc *desc)
+void __ipipe_end_level_irq(unsigned irq, struct irq_desc *desc)
 {
 	if (desc->chip->unmask)
 		desc->chip->unmask(irq);
 }
 
-void fastcall __ipipe_ack_fasteoi_irq(unsigned irq, struct irq_desc *desc)
+void __ipipe_ack_fasteoi_irq(unsigned irq, struct irq_desc *desc)
 {
 	desc->chip->eoi(irq);
 }
 
-void fastcall __ipipe_end_fasteoi_irq(unsigned irq, struct irq_desc *desc)
+void __ipipe_end_fasteoi_irq(unsigned irq, struct irq_desc *desc)
 {
 	desc->chip->unmask(irq);
 }
 
-void fastcall __ipipe_ack_edge_irq(unsigned irq, struct irq_desc *desc)
+void __ipipe_ack_edge_irq(unsigned irq, struct irq_desc *desc)
 {
 	desc->chip->ack(irq);
 }
 
-void fastcall __ipipe_ack_percpu_irq(unsigned irq, struct irq_desc *desc)
+void __ipipe_ack_percpu_irq(unsigned irq, struct irq_desc *desc)
 {
 	if (desc->chip->ack)
 		desc->chip->ack(irq);
 }
 
-void fastcall __ipipe_end_percpu_irq(unsigned irq, struct irq_desc *desc)
+void __ipipe_end_percpu_irq(unsigned irq, struct irq_desc *desc)
 {
 	if (desc->chip->eoi)
 		desc->chip->eoi(irq);
 }
 
-void fastcall __ipipe_end_edge_irq(unsigned irq, struct irq_desc *desc)
+void __ipipe_end_edge_irq(unsigned irq, struct irq_desc *desc)
 {
 }
 
-void fastcall __ipipe_ack_demux_irq(unsigned irq, struct irq_desc *desc)
+void __ipipe_ack_demux_irq(unsigned irq, struct irq_desc *desc)
 {
 	/*
 	 * Handling is delegated to some demultiplexer routine,
@@ -590,14 +590,13 @@ void fastcall __ipipe_ack_demux_irq(unsigned irq, struct irq_desc *desc)
 	desc->ipipe_demux(irq, desc);
 }
 
-void fastcall __ipipe_end_demux_irq(unsigned irq, struct irq_desc *desc)
+void __ipipe_end_demux_irq(unsigned irq, struct irq_desc *desc)
 {
 	if (desc->chip->unmask)
 		desc->chip->unmask(irq);
 }
 
-void fastcall
-handle_demux_irq(unsigned int irq, struct irq_desc *desc)
+void handle_demux_irq(unsigned int irq, struct irq_desc *desc)
 {
 	/*
 	 * The regular IRQ handler will run last of all GPIO handlers,
@@ -607,7 +606,7 @@ handle_demux_irq(unsigned int irq, struct irq_desc *desc)
 }
 
 void __set_irq_demux_handler(unsigned int irq,
-			     void fastcall (*decode)(unsigned int, struct irq_desc *),
+			     void (*decode)(unsigned int, struct irq_desc *),
 			     int is_chained,
 			     const char *name)
 {
@@ -616,7 +615,7 @@ void __set_irq_demux_handler(unsigned int irq,
 	desc->ipipe_demux = decode;
 }
 
-void fastcall __ipipe_ack_bad_irq(unsigned irq, struct irq_desc *desc)
+void __ipipe_ack_bad_irq(unsigned irq, struct irq_desc *desc)
 {
 	static int done;
 
@@ -629,11 +628,11 @@ void fastcall __ipipe_ack_bad_irq(unsigned irq, struct irq_desc *desc)
 	}
 }
 
-void fastcall __ipipe_noack_irq(unsigned irq, struct irq_desc *desc)
+void __ipipe_noack_irq(unsigned irq, struct irq_desc *desc)
 {
 }
 
-void fastcall __ipipe_noend_irq(unsigned irq, struct irq_desc *desc)
+void __ipipe_noend_irq(unsigned irq, struct irq_desc *desc)
 {
 }
 
