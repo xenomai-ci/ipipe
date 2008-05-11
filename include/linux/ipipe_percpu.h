@@ -49,6 +49,9 @@ DECLARE_PER_CPU(struct ipipe_percpu_domain_data *, ipipe_percpu_daddr[CONFIG_IPI
 	(__raw_get_cpu_var(ipipe_percpu_daddr)[(ipd)->slot]->var)
 #endif
 
+#define IPIPE_ROOT_SLOT			0
+#define IPIPE_HEAD_SLOT			(CONFIG_IPIPE_DOMAINS - 1)
+
 DECLARE_PER_CPU(struct ipipe_percpu_domain_data, ipipe_percpu_darray[CONFIG_IPIPE_DOMAINS]);
 
 DECLARE_PER_CPU(struct ipipe_domain *, ipipe_percpu_domain);
@@ -61,9 +64,12 @@ DECLARE_PER_CPU(int, ipipe_percpu_context_check);
 #define ipipe_cpu_var(var)		__raw_get_cpu_var(var)
 
 #define ipipe_root_cpudom_var(var)	\
-	__raw_get_cpu_var(ipipe_percpu_darray)[0].var
+	__raw_get_cpu_var(ipipe_percpu_darray)[IPIPE_ROOT_SLOT].var
 
 #define ipipe_this_cpudom_var(var)	\
 	ipipe_cpudom_var(ipipe_current_domain, var)
+
+#define ipipe_head_cpudom_var(var)	\
+	__raw_get_cpu_var(ipipe_percpu_darray)[IPIPE_HEAD_SLOT].var
 
 #endif	/* !__LINUX_IPIPE_PERCPU_H */
