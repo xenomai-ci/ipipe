@@ -361,31 +361,29 @@ static inline unsigned long ipipe_test_pipeline_from(struct ipipe_domain *ipd)
 static inline void ipipe_stall_pipeline_head(void)
 {
 	local_irq_disable_hw();
-	__set_bit(IPIPE_STALL_FLAG, &ipipe_cpudom_var(__ipipe_pipeline_head(), status));
+	__set_bit(IPIPE_STALL_FLAG, &ipipe_head_cpudom_var(status));
 }
 
 static inline unsigned long ipipe_test_and_stall_pipeline_head(void)
 {
 	local_irq_disable_hw();
-	return __test_and_set_bit(IPIPE_STALL_FLAG, &ipipe_cpudom_var(__ipipe_pipeline_head(), status));
+	return __test_and_set_bit(IPIPE_STALL_FLAG, &ipipe_head_cpudom_var(status));
 }
 
 void ipipe_unstall_pipeline_head(void);
 
-void __ipipe_restore_pipeline_head(struct ipipe_domain *head_domain,
-					    unsigned long x);
+void __ipipe_restore_pipeline_head(unsigned long x);
 
 static inline void ipipe_restore_pipeline_head(unsigned long x)
 {
-	struct ipipe_domain *head_domain = __ipipe_pipeline_head();
 	/* On some archs, __test_and_set_bit() might return different
 	 * truth value than test_bit(), so we test the exclusive OR of
 	 * both statuses, assuming that the lowest bit is always set in
 	 * the truth value (if this is wrong, the failed optimization will
 	 * be caught in __ipipe_restore_pipeline_head() if
 	 * CONFIG_DEBUG_KERNEL is set). */
-	if ((x ^ test_bit(IPIPE_STALL_FLAG, &ipipe_cpudom_var(head_domain, status))) & 1)
-		__ipipe_restore_pipeline_head(head_domain, x);
+	if ((x ^ test_bit(IPIPE_STALL_FLAG, &ipipe_head_cpudom_var(status))) & 1)
+		__ipipe_restore_pipeline_head(x);
 }
 
 #define ipipe_unstall_pipeline() \
@@ -479,7 +477,6 @@ int ipipe_disable_ondemand_mappings(struct task_struct *tsk);
 #define local_irq_disable_hw_cond()		local_irq_disable_hw()
 #define local_irq_save_hw_cond(flags)		local_irq_save_hw(flags)
 #define local_irq_restore_hw_cond(flags)	local_irq_restore_hw(flags)
-#define local_irq_disable_head()		ipipe_stall_pipeline_head()
 
 #define local_irq_enable_nohead(ipd)			\
 	do {						\

@@ -66,17 +66,18 @@ EXPORT_SYMBOL(__ipipe_root_status);
  * Work around a GCC 3.x issue making alias symbols unusable as
  * constant initializers.
  */
-unsigned long *const __ipipe_root_status_addr = &__raw_get_cpu_var(ipipe_percpu_darray)[0].status;
+unsigned long *const __ipipe_root_status_addr =
+	&__raw_get_cpu_var(ipipe_percpu_darray)[IPIPE_ROOT_SLOT].status;
 EXPORT_SYMBOL(__ipipe_root_status_addr);
 #endif /* __GNUC__ < 4 */
 
 DEFINE_PER_CPU(struct ipipe_percpu_domain_data *, ipipe_percpu_daddr[CONFIG_IPIPE_DOMAINS]) =
-{ [0] = (struct ipipe_percpu_domain_data *)&__raw_get_cpu_var(ipipe_percpu_darray) };
+{ [IPIPE_ROOT_SLOT] = (struct ipipe_percpu_domain_data *)&__raw_get_cpu_var(ipipe_percpu_darray) };
 EXPORT_PER_CPU_SYMBOL(ipipe_percpu_daddr);
 #endif /* !CONFIG_SMP */
 
 DEFINE_PER_CPU(struct ipipe_percpu_domain_data, ipipe_percpu_darray[CONFIG_IPIPE_DOMAINS]) =
-{ [0] = { .status = IPIPE_STALL_MASK } }; /* Root domain stalled on each CPU at startup. */
+{ [IPIPE_ROOT_SLOT] = { .status = IPIPE_STALL_MASK } }; /* Root domain stalled on each CPU at startup. */
 
 DEFINE_PER_CPU(struct ipipe_domain *, ipipe_percpu_domain) = { &ipipe_root };
 
@@ -396,14 +397,12 @@ void ipipe_restore_pipeline_from(struct ipipe_domain *ipd,
 
 void ipipe_unstall_pipeline_head(void)
 {
-	struct ipipe_domain *head_domain;
-
 	local_irq_disable_hw();
 
-	head_domain = __ipipe_pipeline_head();
-	__clear_bit(IPIPE_STALL_FLAG, &ipipe_cpudom_var(head_domain, status));
+	__clear_bit(IPIPE_STALL_FLAG, &ipipe_head_cpudom_var(status));
 
-	if (unlikely(ipipe_cpudom_var(head_domain, irqpend_himask) != 0)) {
+	if (unlikely(ipipe_head_cpudom_var(irqpend_himask) != 0)) {
+		struct ipipe_domain *head_domain = __ipipe_pipeline_head();
 		if (likely(head_domain == ipipe_current_domain))
 			__ipipe_sync_pipeline(IPIPE_IRQMASK_ANY);
 		else
@@ -413,14 +412,14 @@ void ipipe_unstall_pipeline_head(void)
 	local_irq_enable_hw();
 }
 
-void __ipipe_restore_pipeline_head(struct ipipe_domain *head_domain, unsigned long x)
+void __ipipe_restore_pipeline_head(unsigned long x)
 {
 	local_irq_disable_hw();
 
 	if (x) {
 #ifdef CONFIG_DEBUG_KERNEL
 		static int warned;
-		if (!warned && test_and_set_bit(IPIPE_STALL_FLAG, &ipipe_cpudom_var(head_domain, status))) {
+		if (!warned && test_and_set_bit(IPIPE_STALL_FLAG, &ipipe_head_cpudom_var(status))) {
 			/*
 			 * Already stalled albeit ipipe_restore_pipeline_head()
 			 * should have detected it? Send a warning once.
@@ -431,12 +430,13 @@ void __ipipe_restore_pipeline_head(struct ipipe_domain *head_domain, unsigned lo
 			dump_stack();
 		}
 #else /* !CONFIG_DEBUG_KERNEL */
-		set_bit(IPIPE_STALL_FLAG, &ipipe_cpudom_var(head_domain, status));
+		set_bit(IPIPE_STALL_FLAG, &ipipe_head_cpudom_var(status));
 #endif /* CONFIG_DEBUG_KERNEL */
 	}
 	else {
-		__clear_bit(IPIPE_STALL_FLAG, &ipipe_cpudom_var(head_domain, status));
-		if (unlikely(ipipe_cpudom_var(head_domain, irqpend_himask) != 0)) {
+		__clear_bit(IPIPE_STALL_FLAG, &ipipe_head_cpudom_var(status));
+		if (unlikely(ipipe_head_cpudom_var(irqpend_himask) != 0)) {
+			struct ipipe_domain *head_domain = __ipipe_pipeline_head();
 			if (likely(head_domain == ipipe_current_domain))
 				__ipipe_sync_pipeline(IPIPE_IRQMASK_ANY);
 			else
@@ -1010,7 +1010,7 @@ int ipipe_register_domain(struct ipipe_domain *ipd,
 			  struct ipipe_domain_attr *attr)
 {
 	struct ipipe_domain *_ipd;
-	struct list_head *pos;
+	struct list_head *pos = NULL;
 	unsigned long flags;
 
 	if (!ipipe_root_domain_p) {
@@ -1019,14 +1019,16 @@ int ipipe_register_domain(struct ipipe_domain *ipd,
 		return -EPERM;
 	}
 
-	if (attr->priority == IPIPE_HEAD_PRIORITY &&
-	    test_bit(IPIPE_AHEAD_FLAG,&__ipipe_pipeline_head()->flags))
-		return -EAGAIN;	/* Cannot override current head. */
-
 	flags = ipipe_critical_enter(NULL);
 
-	pos = NULL;
-	ipd->slot = ffz(__ipipe_domain_slot_map);
+	if (attr->priority == IPIPE_HEAD_PRIORITY) {
+		if (test_bit(IPIPE_HEAD_SLOT, &__ipipe_domain_slot_map)) {
+			ipipe_critical_exit(flags);
+			return -EAGAIN;	/* Cannot override current head. */
+		}
+		ipd->slot = IPIPE_HEAD_SLOT;
+	} else
+		ipd->slot = ffz(__ipipe_domain_slot_map);
 
 	if (ipd->slot < CONFIG_IPIPE_DOMAINS) {
 		set_bit(ipd->slot, &__ipipe_domain_slot_map);
