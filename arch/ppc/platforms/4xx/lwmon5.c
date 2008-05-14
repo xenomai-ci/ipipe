@@ -82,9 +82,13 @@ unsigned char ppc4xx_uic_ext_irq_cfg[] __initdata = {
  */
 
 /* start will be added dynamically, end is always fixed */
-static struct resource lwmon5_nor_resource = {
-		.end   = 0xffffffff,
+static struct resource lwmon5_nor_resource[] = {
+	[0] = {
 		.flags = IORESOURCE_MEM,
+	},
+	[1] = {
+		.flags = IORESOURCE_MEM,
+	}
 };
 
 #define RW_PART0_SZ	0x800000
@@ -151,13 +155,17 @@ static struct platform_device lwmon5_nor_device = {
 	.dev = {
 			.platform_data = &lwmon5_nor_data,
 		},
-	.num_resources	= 1,
-	.resource	= &lwmon5_nor_resource,
+	.num_resources	= ARRAY_SIZE(lwmon5_nor_resource),
+	.resource	= lwmon5_nor_resource,
 };
 
 static int lwmon5_setup_flash(void)
 {
-	lwmon5_nor_resource.start = __res.bi_flashstart;
+	lwmon5_nor_resource[0].start = __res.bi_flashstart;
+	lwmon5_nor_resource[1].start = __res.bi_flashstart +
+		(__res.bi_flashsize >> 1);
+	lwmon5_nor_resource[0].end = lwmon5_nor_resource[1].start - 1;
+	lwmon5_nor_resource[1].end = 0xffffffff;
 
 	/*
 	 * Adjust partition 3 to flash size

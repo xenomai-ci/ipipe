@@ -1,7 +1,7 @@
 #
 # Automatically generated make config: don't edit
-# Linux kernel version: 2.6.25-rc8
-# Fri Apr 25 14:15:16 2008
+# Linux kernel version: 2.6.25
+# Wed May 14 08:49:12 2008
 #
 CONFIG_WORD_SIZE=32
 CONFIG_MMU=y
@@ -343,7 +343,7 @@ CONFIG_PREVENT_FIRMWARE_BUILD=y
 # CONFIG_CONNECTOR is not set
 CONFIG_MTD=y
 # CONFIG_MTD_DEBUG is not set
-# CONFIG_MTD_CONCAT is not set
+CONFIG_MTD_CONCAT=y
 CONFIG_MTD_PARTITIONS=y
 # CONFIG_MTD_REDBOOT_PARTS is not set
 CONFIG_MTD_CMDLINE_PARTS=y
