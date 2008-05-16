@@ -1637,6 +1637,16 @@ static void __init ppc4xx_probe_pciex_bridge(struct device_node *np)
 	}
 	port = &ppc4xx_pciex_ports[portno];
 	port->index = portno;
+
+	/*
+	 * Check if device is enabled
+	 */
+	val = of_get_property(np, "status", NULL);
+	if (val && !strcmp(val, "disabled")) {
+		printk(KERN_INFO "PCIE%d: Port disabled via device-tree\n", port->index);
+		return;
+	}
+
 	port->node = of_node_get(np);
 	pval = of_get_property(np, "sdr-base", NULL);
 	if (pval == NULL) {
