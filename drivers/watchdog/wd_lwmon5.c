@@ -74,7 +74,7 @@ int wd_lwmon5_init(unsigned long *tpp)
 	 * Return number of seconds for re-triggering, calculations are
 	 * done in jiffies
 	 */
-	*tpp = HZ / 25;		/* 1s/25 = 40ms */
+	*tpp = HZ / 33;		/* 1s/33 = 30ms */
 
 	wd_running = 1;
 
