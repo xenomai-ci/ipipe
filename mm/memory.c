@@ -502,7 +502,7 @@ copy_one_pte(struct mm_struct *dst_mm, struct mm_struct *src_mm,
 				pte = pte_mkclean(pte);
 			pte = pte_mkold(pte);
 
-			page_dup_rmap(uncow_page, vma, addr);
+			page_add_new_anon_rmap(uncow_page, vma, addr);
 			rss[!!PageAnon(uncow_page)]++;
 			goto out_set_pte;
 		}
