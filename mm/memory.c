@@ -510,7 +510,7 @@ copy_one_pte(struct mm_struct *dst_mm, struct mm_struct *src_mm,
 				pte = pte_mkclean(pte);
 			pte = pte_mkold(pte);
 
-			page_dup_rmap(uncow_page, vma, addr);
+			page_add_new_anon_rmap(uncow_page, vma, addr);
 			rss[!!PageAnon(uncow_page)]++;
 			goto out_set_pte;
 		}
@@ -2801,7 +2801,7 @@ static inline int ipipe_pin_pte_range(struct mm_struct *mm, pmd_t *pmd,
 		if (!pte)
 			continue;
 
-		if (!pte_present(*pte)) {
+		if (!pte_present(*pte) || pte_write(*pte)) {
 			pte_unmap_unlock(pte, ptl);
 			continue;
 		}
@@ -2865,7 +2865,8 @@ int ipipe_disable_ondemand_mappings(struct task_struct *tsk)
 		goto done_mm;
 
 	for (vma = mm->mmap; vma; vma = vma->vm_next) {
-		if (!is_cow_mapping(vma->vm_flags))
+		if (!is_cow_mapping(vma->vm_flags)
+		    || !(vma->vm_flags & VM_WRITE))
 			continue;
 
 		addr = vma->vm_start;
