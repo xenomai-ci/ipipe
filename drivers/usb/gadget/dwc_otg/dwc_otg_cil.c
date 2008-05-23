@@ -2565,7 +2565,7 @@ void dwc_otg_ep0_continue_transfer(dwc_otg_core_if_t * _core_if,
 			dwc_write_reg32(&_core_if->core_global_regs->gintsts,
 					 intr_mask.d32);
 			dwc_modify_reg32(&_core_if->core_global_regs->gintmsk,
-					   intr_mask.d32, 0);		/* Bug fixed - to avoid spurious NPTxFEmp intr */
+					 intr_mask.d32, intr_mask.d32);
 		}
 	}
 }
