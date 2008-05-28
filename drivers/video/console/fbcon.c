@@ -418,10 +418,8 @@ static void fb_flashcursor(struct work_struct *work)
 	c = scr_readw((u16 *) vc->vc_pos);
 	mode = (!ops->cursor_flash || ops->cursor_state.enable) ?
 		CM_ERASE : CM_DRAW;
-#ifndef CONFIG_FB_PRE_INIT_FB
 	ops->cursor(vc, info, mode, softback_lines, get_color(vc, info, c, 1),
 		    get_color(vc, info, c, 0));
-#endif
 	release_console_sem();
 }
 
@@ -1158,6 +1156,9 @@ static void fbcon_init(struct vc_data *vc, int init)
 	if (p->userfont)
 		charcnt = FNTCHARCNT(p->fontdata);
 
+#if defined(CONFIG_FB_PRE_INIT_FB)
+	vc->vc_deccm = 0;
+#endif
 	vc->vc_can_do_color = (fb_get_color_depth(&info->var, &info->fix)!=1);
 	vc->vc_complement_mask = vc->vc_can_do_color ? 0x7700 : 0x0800;
 	if (charcnt == 256) {
@@ -1381,10 +1382,8 @@ static void fbcon_cursor(struct vc_data *vc, int mode)
 		y = 0;
 	}
 
-#ifndef CONFIG_FB_PRE_INIT_FB
 	ops->cursor(vc, info, mode, y, get_color(vc, info, c, 1),
 		    get_color(vc, info, c, 0));
-#endif
 	vbl_cursor_cnt = CURSOR_DRAW_DELAY;
 }
 
