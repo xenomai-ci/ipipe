@@ -1490,7 +1490,6 @@ static dma_cookie_t ppc440spe_adma_run_tx_complete_actions(
 	enum dma_data_direction dir;
 
 	BUG_ON(desc->async_tx.cookie < 0);
-	spin_lock_bh(&desc->async_tx.lock);
 	if (desc->async_tx.cookie > 0) {
 		cookie = desc->async_tx.cookie;
 		desc->async_tx.cookie = 0;
@@ -1555,7 +1554,6 @@ static dma_cookie_t ppc440spe_adma_run_tx_complete_actions(
 
 	/* run dependent operations */
 	async_tx_run_dependencies(&desc->async_tx);
-	spin_unlock_bh(&desc->async_tx.lock);
 
 	return cookie;
 }
@@ -1740,7 +1738,9 @@ static void __ppc440spe_adma_slot_cleanup(ppc440spe_ch_t *chan)
 static void ppc440spe_adma_tasklet (unsigned long data)
 {
 	ppc440spe_ch_t *chan = (ppc440spe_ch_t *) data;
+	spin_lock(&chan->lock);
 	__ppc440spe_adma_slot_cleanup(chan);
+	spin_unlock(&chan->lock);
 }
 
 /**
