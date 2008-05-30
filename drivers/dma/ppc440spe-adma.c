@@ -2323,12 +2323,12 @@ static inline ppc440spe_desc_t *ppc440spe_dma01_prep_pqxor (
 		}
 
 		/* Setup byte count foreach slot just allocated */
+		sw_desc->async_tx.flags = flags;
 		list_for_each_entry(iter, &sw_desc->group_list,
 				chain_node) {
 			ppc440spe_desc_set_byte_count(iter,
 				ppc440spe_chan, len);
 			iter->unmap_len = len;
-			iter->async_tx.flags = flags;
 		}
 	}
 	spin_unlock_bh(&ppc440spe_chan->lock);
@@ -2356,13 +2356,13 @@ static inline ppc440spe_desc_t *ppc440spe_dma2_prep_pqxor (
 	sw_desc = ppc440spe_adma_alloc_slots(ppc440spe_chan, slot_cnt, 1);
 	if (sw_desc) {
 		op = slot_cnt;
+		sw_desc->async_tx.flags = flags;
 		list_for_each_entry(iter, &sw_desc->group_list, chain_node) {
 			ppc440spe_desc_init_dma2rxor(iter, dst_cnt, src_cnt,
 				--op ? 0 : flags);
 			ppc440spe_desc_set_byte_count(iter, ppc440spe_chan,
 				len);
 			iter->unmap_len = len;
-			iter->async_tx.flags = flags;
 
 			ppc440spe_init_rxor_cursor(&(iter->rxor_cursor));
 			iter->rxor_cursor.len = len;
@@ -2477,11 +2477,11 @@ static struct dma_async_tx_descriptor *ppc440spe_adma_prep_dma_pqzero_sum(
 		ppc440spe_desc_init_pqzero_sum(sw_desc, dst_cnt, src_cnt);
 
 		/* Setup byte count foreach slot just allocated */
+		sw_desc->async_tx.flags = flags;
 		list_for_each_entry(iter, &sw_desc->group_list, chain_node) {
 			ppc440spe_desc_set_byte_count(iter, ppc440spe_chan,
 			    len);
 			iter->unmap_len = len;
-			iter->async_tx.flags = flags;
 		}
 
 		/* Setup destinations for P/Q ops */
