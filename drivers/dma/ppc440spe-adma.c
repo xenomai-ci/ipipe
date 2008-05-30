@@ -1202,7 +1202,7 @@ static inline void ppc440spe_chan_append(ppc440spe_ch_t *chan)
 
 		/* is there something new to append */
 		if (!iter->hw_next)
-			return;
+			break;
 
 		/* flush descriptors from the s/w queue to fifo */
 		list_for_each_entry_continue(iter, &chan->chain, chain_node) {

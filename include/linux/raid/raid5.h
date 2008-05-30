@@ -190,6 +190,7 @@ struct stripe_head {
 		struct bio	req;
 		struct bio_vec	vec;
 		struct page	*page;
+		struct page	*dpage;	/* direct pointer to a bio buffer */
 		struct bio	*toread, *read, *towrite, *written;
 		sector_t	sector;			/* sector of this page */
 		unsigned long	flags;
