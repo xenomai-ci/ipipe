@@ -111,7 +111,7 @@ iop_adma_clean_slot(struct iop_adma_desc_slot *desc,
 	/* the client is allowed to attach dependent operations
 	 * until 'ack' is set
 	 */
-	if (!desc->async_tx.ack)
+	if (!async_tx_test_ack(&desc->async_tx))
 		return 0;
 
 	/* leave the last descriptor in the chain
@@ -148,7 +148,7 @@ static void __iop_adma_slot_cleanup(struct iop_adma_chan *iop_chan)
 			"this_desc: %#x next_desc: %#x ack: %d\n",
 			iter->async_tx.cookie, iter->idx, busy,
 			iter->async_tx.phys, iop_desc_get_next_desc(iter),
-			iter->async_tx.ack);
+			async_tx_test_ack(&iter->async_tx));
 		prefetch(_iter);
 		prefetch(&_iter->async_tx);
 
@@ -340,9 +340,7 @@ retry:
 
 				/* pre-ack all but the last descriptor */
 				if (num_slots != slots_per_op)
-					iter->async_tx.ack = 1;
-				else
-					iter->async_tx.ack = 0;
+					async_tx_ack(&iter->async_tx);
 
 				list_add_tail(&iter->chain_node, &chain);
 				alloc_tail = iter;
@@ -515,7 +513,7 @@ static int iop_adma_alloc_chan_resources(struct dma_chan *chan)
 }
 
 static struct dma_async_tx_descriptor *
-iop_adma_prep_dma_interrupt(struct dma_chan *chan)
+iop_adma_prep_dma_interrupt(struct dma_chan *chan, unsigned long flags)
 {
 	struct iop_adma_chan *iop_chan = to_iop_adma_chan(chan);
 	struct iop_adma_desc_slot *sw_desc, *grp_start;
@@ -530,6 +528,7 @@ iop_adma_prep_dma_interrupt(struct dma_chan *chan)
 		grp_start = sw_desc->group_head;
 		iop_desc_init_interrupt(grp_start, iop_chan);
 		grp_start->unmap_len = 0;
+		sw_desc->async_tx.flags = flags;
 	}
 	spin_unlock_bh(&iop_chan->lock);
 
@@ -562,6 +561,7 @@ iop_adma_prep_dma_memcpy(struct dma_chan *chan, dma_addr_t dma_dest,
 		iop_desc_set_memcpy_src_addr(grp_start, dma_src);
 		sw_desc->unmap_src_cnt = 1;
 		sw_desc->unmap_len = len;
+		sw_desc->async_tx.flags = flags;
 	}
 	spin_unlock_bh(&iop_chan->lock);
 
@@ -594,6 +594,7 @@ iop_adma_prep_dma_memset(struct dma_chan *chan, dma_addr_t dma_dest,
 		iop_desc_set_dest_addr(grp_start, iop_chan, dma_dest);
 		sw_desc->unmap_src_cnt = 1;
 		sw_desc->unmap_len = len;
+		sw_desc->async_tx.flags = flags;
 	}
 	spin_unlock_bh(&iop_chan->lock);
 
@@ -627,6 +628,7 @@ iop_adma_prep_dma_xor(struct dma_chan *chan, dma_addr_t dma_dest,
 		iop_desc_set_dest_addr(grp_start, iop_chan, dma_dest);
 		sw_desc->unmap_src_cnt = src_cnt;
 		sw_desc->unmap_len = len;
+		sw_desc->async_tx.flags = flags;
 		while (src_cnt--)
 			iop_desc_set_xor_src_addr(grp_start, src_cnt,
 						  dma_src[src_cnt]);
@@ -663,6 +665,7 @@ iop_adma_prep_dma_zero_sum(struct dma_chan *chan, dma_addr_t *dma_src,
 			__func__, grp_start->xor_check_result);
 		sw_desc->unmap_src_cnt = src_cnt;
 		sw_desc->unmap_len = len;
+		sw_desc->async_tx.flags = flags;
 		while (src_cnt--)
 			iop_desc_set_zero_sum_src_addr(grp_start, src_cnt,
 						       dma_src[src_cnt]);
@@ -855,11 +858,11 @@ static int __devinit iop_adma_memcpy_self_test(struct iop_adma_device *device)
 	src_dma = dma_map_single(dma_chan->device->dev, src,
 				IOP_ADMA_TEST_SIZE, DMA_TO_DEVICE);
 	tx = iop_adma_prep_dma_memcpy(dma_chan, dest_dma, src_dma,
-				      IOP_ADMA_TEST_SIZE, 1);
+				      IOP_ADMA_TEST_SIZE,
+				      DMA_PREP_INTERRUPT | DMA_CTRL_ACK);
 
 	cookie = iop_adma_tx_submit(tx);
 	iop_adma_issue_pending(dma_chan);
-	async_tx_ack(tx);
 	msleep(1);
 
 	if (iop_adma_is_complete(dma_chan, cookie, NULL, NULL) !=
@@ -955,11 +958,11 @@ iop_adma_xor_zero_sum_self_test(struct iop_adma_device *device)
 		dma_srcs[i] = dma_map_page(dma_chan->device->dev, xor_srcs[i],
 					   0, PAGE_SIZE, DMA_TO_DEVICE);
 	tx = iop_adma_prep_dma_xor(dma_chan, dest_dma, dma_srcs,
-				   IOP_ADMA_NUM_SRC_TEST, PAGE_SIZE, 1);
+				   IOP_ADMA_NUM_SRC_TEST, PAGE_SIZE,
+				   DMA_PREP_INTERRUPT | DMA_CTRL_ACK);
 
 	cookie = iop_adma_tx_submit(tx);
 	iop_adma_issue_pending(dma_chan);
-	async_tx_ack(tx);
 	msleep(8);
 
 	if (iop_adma_is_complete(dma_chan, cookie, NULL, NULL) !=
@@ -1002,11 +1005,11 @@ iop_adma_xor_zero_sum_self_test(struct iop_adma_device *device)
 					   DMA_TO_DEVICE);
 	tx = iop_adma_prep_dma_zero_sum(dma_chan, dma_srcs,
 					IOP_ADMA_NUM_SRC_TEST + 1, PAGE_SIZE,
-					&zero_sum_result, 1);
+					&zero_sum_result,
+					DMA_PREP_INTERRUPT | DMA_CTRL_ACK);
 
 	cookie = iop_adma_tx_submit(tx);
 	iop_adma_issue_pending(dma_chan);
-	async_tx_ack(tx);
 	msleep(8);
 
 	if (iop_adma_is_complete(dma_chan, cookie, NULL, NULL) != DMA_SUCCESS) {
@@ -1026,11 +1029,11 @@ iop_adma_xor_zero_sum_self_test(struct iop_adma_device *device)
 	/* test memset */
 	dma_addr = dma_map_page(dma_chan->device->dev, dest, 0,
 			PAGE_SIZE, DMA_FROM_DEVICE);
-	tx = iop_adma_prep_dma_memset(dma_chan, dma_addr, 0, PAGE_SIZE, 1);
+	tx = iop_adma_prep_dma_memset(dma_chan, dma_addr, 0, PAGE_SIZE,
+				      DMA_PREP_INTERRUPT | DMA_CTRL_ACK);
 
 	cookie = iop_adma_tx_submit(tx);
 	iop_adma_issue_pending(dma_chan);
-	async_tx_ack(tx);
 	msleep(8);
 
 	if (iop_adma_is_complete(dma_chan, cookie, NULL, NULL) != DMA_SUCCESS) {
@@ -1058,11 +1061,11 @@ iop_adma_xor_zero_sum_self_test(struct iop_adma_device *device)
 					   DMA_TO_DEVICE);
 	tx = iop_adma_prep_dma_zero_sum(dma_chan, dma_srcs,
 					IOP_ADMA_NUM_SRC_TEST + 1, PAGE_SIZE,
-					&zero_sum_result, 1);
+					&zero_sum_result,
+					DMA_PREP_INTERRUPT | DMA_CTRL_ACK);
 
 	cookie = iop_adma_tx_submit(tx);
 	iop_adma_issue_pending(dma_chan);
-	async_tx_ack(tx);
 	msleep(8);
 
 	if (iop_adma_is_complete(dma_chan, cookie, NULL, NULL) != DMA_SUCCESS) {
@@ -1299,7 +1302,7 @@ static void iop_chan_start_null_memcpy(struct iop_adma_chan *iop_chan)
 		grp_start = sw_desc->group_head;
 
 		list_splice_init(&sw_desc->async_tx.tx_list, &iop_chan->chain);
-		sw_desc->async_tx.ack = 1;
+		async_tx_ack(&sw_desc->async_tx);
 		iop_desc_init_memcpy(grp_start, 0);
 		iop_desc_set_byte_count(grp_start, iop_chan, 0);
 		iop_desc_set_dest_addr(grp_start, iop_chan, 0);
@@ -1355,7 +1358,7 @@ static void iop_chan_start_null_xor(struct iop_adma_chan *iop_chan)
 	if (sw_desc) {
 		grp_start = sw_desc->group_head;
 		list_splice_init(&sw_desc->async_tx.tx_list, &iop_chan->chain);
-		sw_desc->async_tx.ack = 1;
+		async_tx_ack(&sw_desc->async_tx);
 		iop_desc_init_null_xor(grp_start, 2, 0);
 		iop_desc_set_byte_count(grp_start, iop_chan, 0);
 		iop_desc_set_dest_addr(grp_start, iop_chan, 0);

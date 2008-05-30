@@ -1567,7 +1567,7 @@ static int ppc440spe_adma_clean_slot(ppc440spe_desc_t *desc,
 	/* the client is allowed to attach dependent operations
 	 * until 'ack' is set
 	 */
-	if (!desc->async_tx.ack)
+	if (!async_tx_test_ack(&desc->async_tx))
 		return 0;
 
 	/* leave the last descriptor in the chain
@@ -1632,9 +1632,9 @@ static void __ppc440spe_adma_slot_cleanup(ppc440spe_ch_t *chan)
 					chain_node) {
 		dev_dbg(chan->device->common.dev, "\tcookie: %d slot: %d "
 		    "busy: %d this_desc: %#x next_desc: %#x cur: %#x ack: %d\n",
-			iter->async_tx.cookie, iter->idx, busy, iter->phys,
+		    iter->async_tx.cookie, iter->idx, busy, iter->phys,
 		    ppc440spe_desc_get_link(iter, chan), current_desc,
-			iter->async_tx.ack);
+		    async_tx_test_ack(&iter->async_tx));
 		prefetch(_iter);
 		prefetch(&_iter->async_tx);
 
@@ -1803,8 +1803,8 @@ retry:
 			while (num_slots) {
 				int i;
 				/* pre-ack all but the last descriptor */
-				iter->async_tx.ack = (num_slots !=
-				    slots_per_op) ? 1 : 0;
+				if (num_slots != slots_per_op)
+					async_tx_ack(&iter->async_tx);
 
 				list_add_tail(&iter->chain_node, &chain);
 				alloc_tail = iter;
@@ -2045,7 +2045,7 @@ static dma_cookie_t ppc440spe_adma_tx_submit(struct dma_async_tx_descriptor *tx)
  * ppc440spe_adma_prep_dma_interrupt - prepare CDB for a pseudo DMA operation
  */
 static struct dma_async_tx_descriptor *ppc440spe_adma_prep_dma_interrupt(
-		struct dma_chan *chan)
+		struct dma_chan *chan, unsigned long flags)
 {
 	ppc440spe_ch_t *ppc440spe_chan = to_ppc440spe_adma_chan(chan);
 	ppc440spe_desc_t *sw_desc, *group_start;
@@ -2063,6 +2063,7 @@ static struct dma_async_tx_descriptor *ppc440spe_adma_prep_dma_interrupt(
 		group_start = sw_desc->group_head;
 		ppc440spe_desc_init_interrupt(group_start, ppc440spe_chan);
 		group_start->unmap_len = 0;
+		sw_desc->async_tx.flags = flags;
 	}
 	spin_unlock_bh(&ppc440spe_chan->lock);
 
@@ -2100,6 +2101,7 @@ static struct dma_async_tx_descriptor *ppc440spe_adma_prep_dma_memcpy(
 		ppc440spe_adma_memcpy_xor_set_src(group_start, dma_src, 0);
 		ppc440spe_desc_set_byte_count(group_start, ppc440spe_chan, len);
 		sw_desc->unmap_len = len;
+		sw_desc->async_tx.flags = flags;
 	}
 	spin_unlock_bh(&ppc440spe_chan->lock);
 
@@ -2136,6 +2138,7 @@ static struct dma_async_tx_descriptor *ppc440spe_adma_prep_dma_memset(
 		ppc440spe_adma_set_dest(group_start, dma_dest, 0);
 		ppc440spe_desc_set_byte_count(group_start, ppc440spe_chan, len);
 		sw_desc->unmap_len = len;
+		sw_desc->async_tx.flags = flags;
 	}
 	spin_unlock_bh(&ppc440spe_chan->lock);
 
@@ -2175,6 +2178,7 @@ static struct dma_async_tx_descriptor *ppc440spe_adma_prep_dma_xor(
 				dma_src[src_cnt], src_cnt);
 		ppc440spe_desc_set_byte_count(group_start, ppc440spe_chan, len);
 		sw_desc->unmap_len = len;
+		sw_desc->async_tx.flags = flags;
 	}
 	spin_unlock_bh(&ppc440spe_chan->lock);
 
@@ -2324,6 +2328,7 @@ static inline ppc440spe_desc_t *ppc440spe_dma01_prep_pqxor (
 			ppc440spe_desc_set_byte_count(iter,
 				ppc440spe_chan, len);
 			iter->unmap_len = len;
+			iter->async_tx.flags = flags;
 		}
 	}
 	spin_unlock_bh(&ppc440spe_chan->lock);
@@ -2357,6 +2362,7 @@ static inline ppc440spe_desc_t *ppc440spe_dma2_prep_pqxor (
 			ppc440spe_desc_set_byte_count(iter, ppc440spe_chan,
 				len);
 			iter->unmap_len = len;
+			iter->async_tx.flags = flags;
 
 			ppc440spe_init_rxor_cursor(&(iter->rxor_cursor));
 			iter->rxor_cursor.len = len;
@@ -2475,6 +2481,7 @@ static struct dma_async_tx_descriptor *ppc440spe_adma_prep_dma_pqzero_sum(
 			ppc440spe_desc_set_byte_count(iter, ppc440spe_chan,
 			    len);
 			iter->unmap_len = len;
+			iter->async_tx.flags = flags;
 		}
 
 		/* Setup destinations for P/Q ops */
@@ -3560,7 +3567,7 @@ static void ppc440spe_chan_start_null_xor(ppc440spe_ch_t *chan)
 	if (sw_desc) {
 		group_start = sw_desc->group_head;
 		list_splice_init(&sw_desc->group_list, &chan->chain);
-		sw_desc->async_tx.ack = 1;
+		async_tx_ack(&sw_desc->async_tx);
 		ppc440spe_desc_init_null_xor(group_start);
 
 		cookie = chan->common.cookie;
@@ -3638,7 +3645,7 @@ static int ppc440spe_test_raid6 (ppc440spe_ch_t *chan)
 	ppc440spe_adma_pqxor_set_src_mult(sw_desc, 1, 0);
 	ppc440spe_adma_pqxor_set_dest(sw_desc, dma_addr, 0);
 
-	sw_desc->async_tx.ack = 1;
+	async_tx_ack(&sw_desc->async_tx);
 	sw_desc->async_tx.callback = ppc440spe_test_callback;
 	sw_desc->async_tx.callback_param = NULL;
 
