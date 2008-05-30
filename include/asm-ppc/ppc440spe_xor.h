@@ -17,6 +17,9 @@
 
 #include <asm/types.h>
 
+/* Number of XOR engines available on the contoller */
+#define XOR_ENGINES_NUM		1
+
 /* Number of operands supported in the h/w */
 #define XOR_MAX_OPS		16
 

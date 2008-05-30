@@ -40,6 +40,34 @@
 #include <linux/proc_fs.h>
 #include <asm/ppc440spe_adma.h>
 
+enum ppc_adma_init_code {
+	PPC_ADMA_INIT_OK = 0,
+	PPC_ADMA_INIT_MEMRES,
+	PPC_ADMA_INIT_MEMREG,
+	PPC_ADMA_INIT_ALLOC,
+	PPC_ADMA_INIT_COHERENT,
+	PPC_ADMA_INIT_CHANNEL,
+	PPC_ADMA_INIT_IRQ1,
+	PPC_ADMA_INIT_IRQ2,
+	PPC_ADMA_INIT_REGISTER
+};
+
+static char *ppc_adma_errors[] = {
+	[PPC_ADMA_INIT_OK] = "ok",
+	[PPC_ADMA_INIT_MEMRES] = "failed to get memory resource",
+	[PPC_ADMA_INIT_MEMREG] = "failed to request memory region",
+	[PPC_ADMA_INIT_ALLOC] = "failed to allocate memory for adev "
+		"structure",
+	[PPC_ADMA_INIT_COHERENT] = "failed to allocate coherent memory for "
+		"hardware descriptors",
+	[PPC_ADMA_INIT_CHANNEL] = "failed to allocate memory for channel",
+	[PPC_ADMA_INIT_IRQ1] = "failed to request first irq",
+	[PPC_ADMA_INIT_IRQ2] = "failed to request second irq",
+	[PPC_ADMA_INIT_REGISTER] = "failed to register dma async device",
+};
+
+static enum ppc_adma_init_code ppc_adma_devices[PPC440SPE_ADMA_ENGINES_NUM];
+
 /* The list of channels exported by ppc440spe ADMA */
 struct list_head
 ppc_adma_chan_list = LIST_HEAD_INIT(ppc_adma_chan_list);
@@ -3268,6 +3296,9 @@ static int __devexit ppc440spe_adma_remove(struct platform_device *dev)
 	int i;
 	ppc440spe_aplat_t *plat_data = dev->dev.platform_data;
 
+	if (dev->id < PPC440SPE_ADMA_ENGINES_NUM)
+		ppc_adma_devices[dev->id] = -1;
+
 	dma_async_device_unregister(&device->common);
 
 	for (i = 0; i < 3; i++) {
@@ -3308,24 +3339,38 @@ static int __devexit ppc440spe_adma_remove(struct platform_device *dev)
 static int __devinit ppc440spe_adma_probe(struct platform_device *pdev)
 {
 	struct resource *res;
-	int ret=0, irq;
+	int ret=0, irq, initcode = PPC_ADMA_INIT_OK;
 	ppc440spe_dev_t *adev;
 	ppc440spe_ch_t *chan;
 	ppc440spe_aplat_t *plat_data;
 	struct ppc_dma_chan_ref *ref;
 
 	dev_dbg(&pdev->dev, "%s: %i\n",__FUNCTION__,__LINE__);
+	
 	plat_data = pdev->dev.platform_data;
 	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
-	if (!res)
-		return -ENODEV;
+	if (!res) {
+		initcode = PPC_ADMA_INIT_MEMRES;
+		ret = -ENODEV;
+		dev_err(&pdev->dev, "failed to get memory resource\n");
+		goto out;
+	}
 
-	if (!request_mem_region(res->start, res->end - res->start, pdev->name))
-		return -EBUSY;
+	if (!request_mem_region(res->start, res->end - res->start,
+			       	pdev->name)) {
+		initcode = PPC_ADMA_INIT_MEMREG;
+		ret = -EBUSY;
+		dev_err(&pdev->dev, "failed to request memory region "
+				"(0x%08x-0x%08x)\n", res->start, res->end);
+		goto out;
+	}
 
 	/* create a device */
 	if ((adev = kzalloc(sizeof(*adev), GFP_KERNEL)) == NULL) {
+		initcode = PPC_ADMA_INIT_ALLOC;
 		ret = -ENOMEM;
+		dev_err(&pdev->dev, "failed to get %d bytes of memory "
+				"for adev structure\n", sizeof(*adev));
 		goto err_adev_alloc;
 	}
 
@@ -3335,7 +3380,11 @@ static int __devinit ppc440spe_adma_probe(struct platform_device *pdev)
 	 */
 	if ((adev->dma_desc_pool_virt = dma_alloc_coherent(&pdev->dev,
 	     plat_data->pool_size, &adev->dma_desc_pool, GFP_KERNEL)) == NULL) {
+		initcode = PPC_ADMA_INIT_COHERENT;
 		ret = -ENOMEM;
+		dev_err(&pdev->dev, "failed to allocate %d bytes of coherent "
+				"memory for hardware descriptors\n",
+				plat_data->pool_size);
 		goto err_dma_alloc;
 	}
 
@@ -3390,7 +3439,10 @@ static int __devinit ppc440spe_adma_probe(struct platform_device *pdev)
 
 	/* create a channel */
 	if ((chan = kzalloc(sizeof(*chan), GFP_KERNEL)) == NULL) {
+		initcode = PPC_ADMA_INIT_CHANNEL;
 		ret = -ENOMEM;
+		dev_err(&pdev->dev, "failed to allocate %d bytes of memory "
+				"for channel\n", sizeof(*chan));
 		goto err_chan_alloc;
 	}
 
@@ -3401,7 +3453,9 @@ static int __devinit ppc440spe_adma_probe(struct platform_device *pdev)
 		ret = request_irq(irq, ppc440spe_adma_eot_handler,
 			0, pdev->name, chan);
 		if (ret) {
+			initcode = PPC_ADMA_INIT_IRQ1;
 			ret = -EIO;
+			dev_err(&pdev->dev, "failed to request irq %d\n", irq);
 			goto err_irq;
 		}
 
@@ -3414,12 +3468,17 @@ static int __devinit ppc440spe_adma_probe(struct platform_device *pdev)
 			ret = request_irq(irq, ppc440spe_adma_err_handler,
 				IRQF_SHARED, pdev->name, chan);
 			if (ret) {
+				initcode = PPC_ADMA_INIT_IRQ2;
 				ret = -EIO;
+				dev_err(&pdev->dev, "failed to request "
+						"irq %d\n", irq);
 				goto err_irq;
 			}
 		}
-	} else
+	} else {
 		ret = -ENXIO;
+		dev_warn(&pdev->dev, "no irq resource?\n");
+	}
 
 	chan->device = adev;
 	spin_lock_init(&chan->lock);
@@ -3449,15 +3508,20 @@ static int __devinit ppc440spe_adma_probe(struct platform_device *pdev)
 	  dma_has_cap(DMA_MEMCPY, adev->common.cap_mask) ? "memcpy " : "",
 	  dma_has_cap(DMA_INTERRUPT, adev->common.cap_mask) ? "int " : "");
 
-	dma_async_device_register(&adev->common);
+	ret = dma_async_device_register(&adev->common);
+	if (ret) {
+		initcode = PPC_ADMA_INIT_REGISTER;
+		dev_err(&pdev->dev, "failed to register dma async device");
+		goto err_irq;
+	}
+
 	ref = kmalloc(sizeof(*ref), GFP_KERNEL);
 	if (ref) {
 		ref->chan = &chan->common;
 		INIT_LIST_HEAD(&ref->node);
 		list_add_tail(&ref->node, &ppc_adma_chan_list);
 	} else
-		printk(KERN_WARNING "%s: failed to allocate channel reference!\n",
-		       __FUNCTION__);
+		dev_warn(&pdev->dev, "failed to allocate channel reference!\n");
 	goto out;
 
 err_irq:
@@ -3470,6 +3534,9 @@ err_dma_alloc:
 err_adev_alloc:
 	release_mem_region(res->start, res->end - res->start);
 out:
+	if (pdev->id < PPC440SPE_ADMA_ENGINES_NUM)
+		ppc_adma_devices[pdev->id] = initcode;
+
 	return ret;
 }
 
@@ -3712,10 +3779,29 @@ static int ppc440spe_r6ena_write (struct file *file, const char __user *buffer,
 	return count;
 }
 
+static int ppc440spe_status_read (char *page, char **start, off_t off,
+	int count, int *eof, void *data)
+{
+	char *p = page;
+	int i;
+
+	for (i = 0; i < PPC440SPE_ADMA_ENGINES_NUM; i++) {
+		if (ppc_adma_devices[i] == -1)
+			continue;
+		p += sprintf(p, "PPC440SP(E)-ADMA.%d: %s\n", i,
+			       ppc_adma_errors[ppc_adma_devices[i]]);
+	}
+
+	return p - page;
+}
+
 static int __init ppc440spe_adma_init (void)
 {
-	int rval;
+	int rval, i;
 	struct proc_dir_entry *p;
+
+	for (i = 0; i < PPC440SPE_ADMA_ENGINES_NUM; i++)
+		ppc_adma_devices[i] = -1;
 
 	rval = platform_driver_register(&ppc440spe_adma_driver);
 
@@ -3741,6 +3827,12 @@ static int __init ppc440spe_adma_init (void)
 		if (p) {
 			p->read_proc = ppc440spe_r6ena_read;
 			p->write_proc = ppc440spe_r6ena_write;
+		}
+
+		/* initialization status */
+		p = create_proc_entry("devices", 0, ppc440spe_proot);
+		if (p) {
+			p->read_proc = ppc440spe_status_read;
 		}
 	}
 	return rval;

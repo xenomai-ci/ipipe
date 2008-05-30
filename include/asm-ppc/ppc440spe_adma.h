@@ -23,6 +23,8 @@
 /* Default polynomial (for 440SP is only available) */
 #define PPC440SPE_DEFAULT_POLY	0x4d
 
+#define PPC440SPE_ADMA_ENGINES_NUM	(XOR_ENGINES_NUM + DMA_ENGINES_NUM)
+
 #define PPC440SPE_ADMA_WATCHDOG_MSEC	3
 #define PPC440SPE_ADMA_THRESHOLD	5
 
