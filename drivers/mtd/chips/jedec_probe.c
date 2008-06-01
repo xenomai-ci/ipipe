@@ -137,6 +137,8 @@
 #define M29F800AB	0x0058
 #define M29W800DT	0x00D7
 #define M29W800DB	0x005B
+#define M29W400DT	0x00EE
+#define M29W400DB	0x00EF
 #define M29W160DT	0x22C4
 #define M29W160DB	0x2249
 #define M29W040B	0x00E3
@@ -165,6 +167,7 @@
 #define SST49LF030A	0x001C
 #define SST49LF040A	0x0051
 #define SST49LF080A	0x005B
+#define SST36VF3203	0x7354
 
 /* Toshiba */
 #define TC58FVT160	0x00C2
@@ -1131,7 +1134,7 @@ static const struct amd_flash_info jedec_table[] = {
 		.regions	= {
 			ERASEINFO(0x10000,8),
 		}
-        }, {
+	}, {
 		.mfr_id		= MANUFACTURER_MACRONIX,
 		.dev_id		= MX29F016,
 		.name		= "Macronix MX29F016",
@@ -1143,7 +1146,7 @@ static const struct amd_flash_info jedec_table[] = {
 		.regions	= {
 			ERASEINFO(0x10000,32),
 		}
-        }, {
+	}, {
 		.mfr_id		= MANUFACTURER_MACRONIX,
 		.dev_id		= MX29F004T,
 		.name		= "Macronix MX29F004T",
@@ -1158,7 +1161,7 @@ static const struct amd_flash_info jedec_table[] = {
 			ERASEINFO(0x02000,2),
 			ERASEINFO(0x04000,1),
 		}
-        }, {
+	}, {
 		.mfr_id		= MANUFACTURER_MACRONIX,
 		.dev_id		= MX29F004B,
 		.name		= "Macronix MX29F004B",
@@ -1236,7 +1239,7 @@ static const struct amd_flash_info jedec_table[] = {
 		.regions	= {
 			ERASEINFO(0x40000,16),
 		}
-        }, {
+	}, {
 		.mfr_id		= MANUFACTURER_SST,
 		.dev_id		= SST39LF512,
 		.name		= "SST 39LF512",
@@ -1248,7 +1251,7 @@ static const struct amd_flash_info jedec_table[] = {
 		.regions	= {
 			ERASEINFO(0x01000,16),
 		}
-        }, {
+	}, {
 		.mfr_id		= MANUFACTURER_SST,
 		.dev_id		= SST39LF010,
 		.name		= "SST 39LF010",
@@ -1260,7 +1263,7 @@ static const struct amd_flash_info jedec_table[] = {
 		.regions	= {
 			ERASEINFO(0x01000,32),
 		}
-        }, {
+	}, {
 		.mfr_id		= MANUFACTURER_SST,
  		.dev_id 	= SST29EE020,
 		.name		= "SST 29EE020",
@@ -1294,7 +1297,7 @@ static const struct amd_flash_info jedec_table[] = {
 		.regions	= {
 			ERASEINFO(0x01000,64),
 		}
-        }, {
+	}, {
 		.mfr_id		= MANUFACTURER_SST,
 		.dev_id		= SST39LF040,
 		.name		= "SST 39LF040",
@@ -1306,7 +1309,7 @@ static const struct amd_flash_info jedec_table[] = {
 		.regions	= {
 			ERASEINFO(0x01000,128),
 		}
-        }, {
+	}, {
 		.mfr_id		= MANUFACTURER_SST,
 		.dev_id		= SST39SF010A,
 		.name		= "SST 39SF010A",
@@ -1318,7 +1321,7 @@ static const struct amd_flash_info jedec_table[] = {
 		.regions	= {
 			ERASEINFO(0x01000,32),
 		}
-        }, {
+	}, {
 		.mfr_id		= MANUFACTURER_SST,
 		.dev_id		= SST39SF020A,
 		.name		= "SST 39SF020A",
@@ -1430,6 +1433,18 @@ static const struct amd_flash_info jedec_table[] = {
 			ERASEINFO(0x1000,256)
 		}
 	}, {
+		.mfr_id		= MANUFACTURER_SST,
+		.dev_id		= SST36VF3203,
+		.name		= "SST 36VF3203",
+		.devtypes	= CFI_DEVICETYPE_X16|CFI_DEVICETYPE_X8,
+		.uaddr		= MTD_UADDR_0x0AAA_0x0555,
+		.dev_size	= SIZE_4MiB,
+		.cmd_set	= P_ID_AMD_STD,
+		.nr_regions	= 1,
+		.regions	= {
+			ERASEINFO(0x10000,64),
+		}
+	}, {
 		.mfr_id		= MANUFACTURER_ST,
 		.dev_id		= M29F800AB,
 		.name		= "ST M29F800AB",
@@ -1444,7 +1459,7 @@ static const struct amd_flash_info jedec_table[] = {
 			ERASEINFO(0x08000,1),
 			ERASEINFO(0x10000,15),
 		}
-       }, {
+	}, {
 		.mfr_id		= MANUFACTURER_ST,	/* FIXME - CFI device? */
 		.dev_id		= M29W800DT,
 		.name		= "ST M29W800DT",
@@ -1473,6 +1488,36 @@ static const struct amd_flash_info jedec_table[] = {
 			ERASEINFO(0x02000,2),
 			ERASEINFO(0x08000,1),
 			ERASEINFO(0x10000,15)
+		}
+	},  {
+		.mfr_id         = MANUFACTURER_ST,
+		.dev_id         = M29W400DT,
+		.name           = "ST M29W400DT",
+		.devtypes       = CFI_DEVICETYPE_X16|CFI_DEVICETYPE_X8,
+		.uaddr          = MTD_UADDR_0x0AAA_0x0555,
+		.dev_size       = SIZE_512KiB,
+		.cmd_set        = P_ID_AMD_STD,
+		.nr_regions     = 4,
+		.regions        = {
+			ERASEINFO(0x04000,7),
+			ERASEINFO(0x02000,1),
+			ERASEINFO(0x08000,2),
+			ERASEINFO(0x10000,1)
+		}
+	}, {
+		.mfr_id         = MANUFACTURER_ST,
+		.dev_id         = M29W400DB,
+		.name           = "ST M29W400DB",
+		.devtypes       = CFI_DEVICETYPE_X16|CFI_DEVICETYPE_X8,
+		.uaddr          = MTD_UADDR_0x0AAA_0x0555,
+		.dev_size       = SIZE_512KiB,
+		.cmd_set        = P_ID_AMD_STD,
+		.nr_regions     = 4,
+		.regions        = {
+			ERASEINFO(0x04000,1),
+			ERASEINFO(0x02000,2),
+			ERASEINFO(0x08000,1),
+			ERASEINFO(0x10000,7)
 		}
 	}, {
 		.mfr_id		= MANUFACTURER_ST,	/* FIXME - CFI device? */
@@ -1504,7 +1549,7 @@ static const struct amd_flash_info jedec_table[] = {
 			ERASEINFO(0x08000,1),
 			ERASEINFO(0x10000,31)
 		}
-        }, {
+	}, {
 		.mfr_id		= MANUFACTURER_ST,
 		.dev_id		= M29W040B,
 		.name		= "ST M29W040B",
@@ -1516,7 +1561,7 @@ static const struct amd_flash_info jedec_table[] = {
 		.regions	= {
 			ERASEINFO(0x10000,8),
 		}
-        }, {
+	}, {
 		.mfr_id		= MANUFACTURER_ST,
 		.dev_id		= M50FW040,
 		.name		= "ST M50FW040",
@@ -1528,7 +1573,7 @@ static const struct amd_flash_info jedec_table[] = {
 		.regions	= {
 			ERASEINFO(0x10000,8),
 		}
-        }, {
+	}, {
 		.mfr_id		= MANUFACTURER_ST,
 		.dev_id		= M50FW080,
 		.name		= "ST M50FW080",
@@ -1540,7 +1585,7 @@ static const struct amd_flash_info jedec_table[] = {
 		.regions	= {
 			ERASEINFO(0x10000,16),
 		}
-        }, {
+	}, {
 		.mfr_id		= MANUFACTURER_ST,
 		.dev_id		= M50FW016,
 		.name		= "ST M50FW016",

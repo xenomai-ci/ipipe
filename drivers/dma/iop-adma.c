@@ -255,8 +255,6 @@ static void __iop_adma_slot_cleanup(struct iop_adma_chan *iop_chan)
 
 	BUG_ON(!seen_current);
 
-	iop_chan_idle(busy, iop_chan);
-
 	if (cookie > 0) {
 		iop_chan->completed_cookie = cookie;
 		pr_debug("\tcompleted cookie %d\n", cookie);
@@ -675,12 +673,6 @@ iop_adma_prep_dma_zero_sum(struct dma_chan *chan, dma_addr_t *dma_src,
 	return sw_desc ? &sw_desc->async_tx : NULL;
 }
 
-static void iop_adma_dependency_added(struct dma_chan *chan)
-{
-	struct iop_adma_chan *iop_chan = to_iop_adma_chan(chan);
-	tasklet_schedule(&iop_chan->irq_tasklet);
-}
-
 static void iop_adma_free_chan_resources(struct dma_chan *chan)
 {
 	struct iop_adma_chan *iop_chan = to_iop_adma_chan(chan);
@@ -829,10 +821,10 @@ static int __devinit iop_adma_memcpy_self_test(struct iop_adma_device *device)
 
 	dev_dbg(device->common.dev, "%s\n", __func__);
 
-	src = kzalloc(sizeof(u8) * IOP_ADMA_TEST_SIZE, GFP_KERNEL);
+	src = kmalloc(IOP_ADMA_TEST_SIZE, GFP_KERNEL);
 	if (!src)
 		return -ENOMEM;
-	dest = kzalloc(sizeof(u8) * IOP_ADMA_TEST_SIZE, GFP_KERNEL);
+	dest = kzalloc(IOP_ADMA_TEST_SIZE, GFP_KERNEL);
 	if (!dest) {
 		kfree(src);
 		return -ENOMEM;
@@ -841,8 +833,6 @@ static int __devinit iop_adma_memcpy_self_test(struct iop_adma_device *device)
 	/* Fill in src buffer */
 	for (i = 0; i < IOP_ADMA_TEST_SIZE; i++)
 		((u8 *) src)[i] = (u8)i;
-
-	memset(dest, 0, IOP_ADMA_TEST_SIZE);
 
 	/* Start copy, using first DMA channel */
 	dma_chan = container_of(device->common.channels.next,
@@ -1181,7 +1171,6 @@ static int __devinit iop_adma_probe(struct platform_device *pdev)
 	dma_dev->device_free_chan_resources = iop_adma_free_chan_resources;
 	dma_dev->device_is_tx_complete = iop_adma_is_complete;
 	dma_dev->device_issue_pending = iop_adma_issue_pending;
-	dma_dev->device_dependency_added = iop_adma_dependency_added;
 	dma_dev->dev = &pdev->dev;
 
 	/* set prep routines based on capability */
@@ -1236,9 +1225,6 @@ static int __devinit iop_adma_probe(struct platform_device *pdev)
 	}
 
 	spin_lock_init(&iop_chan->lock);
-	init_timer(&iop_chan->cleanup_watchdog);
-	iop_chan->cleanup_watchdog.data = (unsigned long) iop_chan;
-	iop_chan->cleanup_watchdog.function = iop_adma_tasklet;
 	INIT_LIST_HEAD(&iop_chan->chain);
 	INIT_LIST_HEAD(&iop_chan->all_slots);
 	INIT_RCU_HEAD(&iop_chan->common.rcu);

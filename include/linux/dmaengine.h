@@ -96,9 +96,9 @@ enum dma_transaction_type {
 
 /**
  * enum dma_ctrl_flags - DMA flags to augment operation preparation,
- *      control completion, and communicate status.
+ * 	control completion, and communicate status.
  * @DMA_PREP_INTERRUPT - trigger an interrupt (callback) upon completion of
- *      this transaction
+ * 	this transaction
  * @DMA_CTRL_ACK - the descriptor cannot be reused until the client
  *      acknowledges receipt, i.e. has has a chance to establish any
  *      dependency chains
@@ -267,7 +267,6 @@ struct dma_async_tx_descriptor {
  * @device_prep_dma_pqzero_sum: prepares a pqzero_sum operation
  * @device_prep_dma_memset: prepares a memset operation
  * @device_prep_dma_interrupt: prepares an end of chain interrupt operation
- * @device_dependency_added: async_tx notifies the channel about new deps
  * @device_issue_pending: push pending transactions to hardware
  */
 struct dma_device {
@@ -310,7 +309,6 @@ struct dma_device {
 	struct dma_async_tx_descriptor *(*device_prep_dma_interrupt)(
 		struct dma_chan *chan, unsigned long flags);
 
-	void (*device_dependency_added)(struct dma_chan *chan);
 	enum dma_status (*device_is_tx_complete)(struct dma_chan *chan,
 			dma_cookie_t cookie, dma_cookie_t *last,
 			dma_cookie_t *used);
@@ -418,7 +416,7 @@ static inline enum dma_status dma_async_is_tx_complete(struct dma_chan *chan,
  * @last_used: last cookie value handed out
  *
  * dma_async_is_complete() is used in dma_async_memcpy_complete()
- * the test logic is seperated for lightweight testing of multiple cookies
+ * the test logic is separated for lightweight testing of multiple cookies
  */
 static inline enum dma_status dma_async_is_complete(dma_cookie_t cookie,
 			dma_cookie_t last_complete, dma_cookie_t last_used)

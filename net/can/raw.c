@@ -214,7 +214,7 @@ static int raw_notifier(struct notifier_block *nb,
 	struct raw_sock *ro = container_of(nb, struct raw_sock, notifier);
 	struct sock *sk = &ro->sk;
 
-	if (dev->nd_net != &init_net)
+	if (dev_net(dev) != &init_net)
 		return NOTIFY_DONE;
 
 	if (dev->type != ARPHRD_CAN)
@@ -440,15 +440,13 @@ static int raw_setsockopt(struct socket *sock, int level, int optname,
 			if (!filter)
 				return -ENOMEM;
 
-			err = copy_from_user(filter, optval, optlen);
-			if (err) {
+			if (copy_from_user(filter, optval, optlen)) {
 				kfree(filter);
-				return err;
+				return -EFAULT;
 			}
 		} else if (count == 1) {
-			err = copy_from_user(&sfilter, optval, optlen);
-			if (err)
-				return err;
+			if (copy_from_user(&sfilter, optval, optlen))
+				return -EFAULT;
 		}
 
 		lock_sock(sk);
@@ -499,9 +497,8 @@ static int raw_setsockopt(struct socket *sock, int level, int optname,
 		if (optlen != sizeof(err_mask))
 			return -EINVAL;
 
-		err = copy_from_user(&err_mask, optval, optlen);
-		if (err)
-			return err;
+		if (copy_from_user(&err_mask, optval, optlen))
+			return -EFAULT;
 
 		err_mask &= CAN_ERR_MASK;
 
@@ -537,7 +534,8 @@ static int raw_setsockopt(struct socket *sock, int level, int optname,
 		if (optlen != sizeof(ro->loopback))
 			return -EINVAL;
 
-		err = copy_from_user(&ro->loopback, optval, optlen);
+		if (copy_from_user(&ro->loopback, optval, optlen))
+			return -EFAULT;
 
 		break;
 
@@ -545,7 +543,8 @@ static int raw_setsockopt(struct socket *sock, int level, int optname,
 		if (optlen != sizeof(ro->recv_own_msgs))
 			return -EINVAL;
 
-		err = copy_from_user(&ro->recv_own_msgs, optval, optlen);
+		if (copy_from_user(&ro->recv_own_msgs, optval, optlen))
+			return -EFAULT;
 
 		break;
 
@@ -579,7 +578,8 @@ static int raw_getsockopt(struct socket *sock, int level, int optname,
 			int fsize = ro->count * sizeof(struct can_filter);
 			if (len > fsize)
 				len = fsize;
-			err = copy_to_user(optval, ro->filter, len);
+			if (copy_to_user(optval, ro->filter, len))
+				err = -EFAULT;
 		} else
 			len = 0;
 		release_sock(sk);

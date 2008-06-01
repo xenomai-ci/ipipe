@@ -692,6 +692,9 @@ config ROMKERNEL
 
 endchoice
 
+if COLDFIRE
+source "kernel/Kconfig.preempt"
+endif
 source "mm/Kconfig"
 
 endmenu

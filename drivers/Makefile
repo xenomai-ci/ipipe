@@ -71,6 +71,7 @@ obj-$(CONFIG_PHONE)		+= telephony/
 obj-$(CONFIG_ASYNC_TX_DMA)	+= dma/
 obj-$(CONFIG_MD)		+= md/
 obj-$(CONFIG_BT)		+= bluetooth/
+obj-$(CONFIG_ACCESSIBILITY)	+= accessibility/
 obj-$(CONFIG_ISDN)		+= isdn/
 obj-$(CONFIG_EDAC)		+= edac/
 obj-$(CONFIG_MCA)		+= mca/

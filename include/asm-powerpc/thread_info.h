@@ -97,13 +97,13 @@ struct thread_info {
 #define alloc_thread_info(tsk)	\
 	((struct thread_info *)__get_free_pages(GFP_KERNEL, 0))
 #else
-#define alloc_thread_info(tsk)	kmalloc(THREAD_SIZE, GFP_KERNEL)
+extern struct thread_info *alloc_thread_info(struct task_struct *tsk);
 #endif
 #endif /* CONFIG_DEBUG_STACK_USAGE */
 #if defined(CONFIG_PPC_PAGE_256K)
 #define free_thread_info(ti)	free_pages((unsigned long)ti, 0)
 #else
-#define free_thread_info(ti)	kfree(ti)
+extern void free_thread_info(struct thread_info *ti);
 #endif
 
 #endif /* THREAD_SHIFT < PAGE_SHIFT */

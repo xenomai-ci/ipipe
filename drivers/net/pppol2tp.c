@@ -980,6 +980,8 @@ static int pppol2tp_xmit(struct ppp_channel *chan, struct sk_buff *skb)
 	__wsum csum = 0;
 	struct udphdr *uh;
 	unsigned int len;
+	int old_headroom;
+	int new_headroom;
 
 	if (sock_flag(sk, SOCK_DEAD) || !(sk->sk_state & PPPOX_CONNECTED))
 		goto abort;
@@ -1001,15 +1003,17 @@ static int pppol2tp_xmit(struct ppp_channel *chan, struct sk_buff *skb)
 
 	/* Check that there's enough headroom in the skb to insert IP,
 	 * UDP and L2TP and PPP headers. If not enough, expand it to
-	 * make room. Note that a new skb (or a clone) is
-	 * allocated. If we return an error from this point on, make
-	 * sure we free the new skb but do not free the original skb
-	 * since that is done by the caller for the error case.
+	 * make room. Adjust truesize.
 	 */
 	headroom = NET_SKB_PAD + sizeof(struct iphdr) +
 		sizeof(struct udphdr) + hdr_len + sizeof(ppph);
+	old_headroom = skb_headroom(skb);
 	if (skb_cow_head(skb, headroom))
 		goto abort;
+
+	new_headroom = skb_headroom(skb);
+	skb_orphan(skb);
+	skb->truesize += new_headroom - old_headroom;
 
 	/* Setup PPP header */
 	__skb_push(skb, sizeof(ppph));
@@ -1065,7 +1069,6 @@ static int pppol2tp_xmit(struct ppp_channel *chan, struct sk_buff *skb)
 	/* Get routing info from the tunnel socket */
 	dst_release(skb->dst);
 	skb->dst = dst_clone(__sk_dst_get(sk_tun));
-	skb_orphan(skb);
 	skb->sk = sk_tun;
 
 	/* Queue the packet to IP for output */
@@ -1621,9 +1624,16 @@ out_no_ppp:
 end:
 	release_sock(sk);
 
-	if (error != 0)
-		PRINTK(session ? session->debug : -1, PPPOL2TP_MSG_CONTROL, KERN_WARNING,
-		       "%s: connect failed: %d\n", session->name, error);
+	if (error != 0) {
+		if (session)
+			PRINTK(session->debug,
+				PPPOL2TP_MSG_CONTROL, KERN_WARNING,
+				"%s: connect failed: %d\n",
+				session->name, error);
+		else
+			PRINTK(-1, PPPOL2TP_MSG_CONTROL, KERN_WARNING,
+				"connect failed: %d\n", error);
+	}
 
 	return error;
 }
@@ -2469,12 +2479,12 @@ static int __init pppol2tp_init(void)
 		goto out_unregister_pppol2tp_proto;
 
 #ifdef CONFIG_PROC_FS
-	pppol2tp_proc = create_proc_entry("pppol2tp", 0, init_net.proc_net);
+	pppol2tp_proc = proc_net_fops_create(&init_net, "pppol2tp", 0,
+					     &pppol2tp_proc_fops);
 	if (!pppol2tp_proc) {
 		err = -ENOMEM;
 		goto out_unregister_pppox_proto;
 	}
-	pppol2tp_proc->proc_fops = &pppol2tp_proc_fops;
 #endif /* CONFIG_PROC_FS */
 	printk(KERN_INFO "PPPoL2TP kernel driver, %s\n",
 	       PPPOL2TP_DRV_VERSION);
