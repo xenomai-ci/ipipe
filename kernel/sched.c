@@ -8160,6 +8160,7 @@ struct cgroup_subsys cpuacct_subsys = {
 
 int ipipe_setscheduler_root (struct task_struct *p, int policy, int prio)
 {
+	const struct sched_class *prev_class = p->sched_class;
 	int oldprio, on_rq, running;
 	unsigned long flags;
 	struct rq *rq;
