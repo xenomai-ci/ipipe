@@ -21,6 +21,8 @@
 #include <asm/uic.h>
 #include <asm/pci-bridge.h>
 #include <asm/ppc4xx.h>
+#include <asm/dcr.h>
+#include <asm/dcr-regs.h>
 
 static __initdata struct of_device_id kilauea_of_bus[] = {
 	{ .compatible = "ibm,plb4", },
