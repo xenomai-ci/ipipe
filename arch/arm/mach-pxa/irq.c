@@ -249,6 +249,38 @@ static void pxa_gpio_demux_handler(unsigned int irq, struct irq_desc *desc)
 	} while (loop);
 }
 
+#ifdef CONFIG_IPIPE
+void __ipipe_mach_demux_irq(unsigned irq, struct pt_regs *regs)
+{
+	struct irq_desc *desc_unused = irq_desc + irq;
+	unsigned irq_unused = irq;
+	unsigned int i, mask[4];
+	int loop;
+
+	do {
+		loop = 0;
+
+		mask[0] = GEDR0 & ~3;
+		mask[1] = GEDR1;
+		mask[2] = GEDR2;
+		mask[3] = GEDR3;
+		i = 4;
+		for (; i; i--) {
+			loop |= mask[i - 1];
+			while (mask[i - 1]) {
+				irq = fls(mask[i - 1]) - 1;
+				mask[i - 1] &= ~(1 << irq);
+				irq = IRQ_GPIO((i - 1) * 32 + irq);
+
+				__ipipe_handle_irq(irq, regs);
+			}
+		}
+	} while (loop);
+
+	desc_unused->chip->unmask(irq_unused);
+}
+#endif /* CONFIG_IPIPE */
+
 static void pxa_ack_muxed_gpio(unsigned int irq)
 {
 	int gpio = irq - IRQ_GPIO(2) + 2;

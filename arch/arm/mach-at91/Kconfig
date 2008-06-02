@@ -212,6 +212,31 @@ endif
 
 # ----------------------------------------------------------
 
+comment "Adeos I-pipe Options"
+
+config IPIPE_AT91_TC
+	depends on IPIPE
+	int "AT91 TC used as time base by Adeos I-pipe"
+	default 0
+	help
+	When Adeos interrupt pipeline is enabled, TC0 is used by default
+	as time base, but you can use TC1 or TC2 by setting this variable to 1
+	or 2. This should only be needed to avoid conflicts with other drivers.
+
+config IPIPE_AT91_MCK
+	depends on IPIPE
+	int "AT91 Master clock Frequency"
+	default 46080000 if MACH_CSB637
+	default 59904000 if MACH_AT91RM9200EK
+	default 99328000 if MACH_AT91SAM9260EK || MACH_AT91SAM9261EK
+	default 53000000
+	help
+	When Adeos interrupt pipeline is enabled, AT91 timer is based on
+	the AT91 master clock, whose frequency need hence to be known at
+	compilation time.
+
+# ----------------------------------------------------------
+
 comment "AT91 Board Options"
 
 config MTD_AT91_DATAFLASH_CARD
