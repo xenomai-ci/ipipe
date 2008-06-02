@@ -62,7 +62,7 @@ ppc4xx_setup_arch(void)
 #endif
 
 	/* Setup PCI host bridges */
-#ifdef CONFIG_PCI
+#if defined(CONFIG_PCI) && !defined(CONFIG_405EX)
 	ppc4xx_find_bridges();
 #endif
 }
@@ -114,7 +114,7 @@ ppc4xx_map_io(void)
 {
 	io_block_mapping(PPC4xx_ONB_IO_VADDR,
 			 PPC4xx_ONB_IO_PADDR, PPC4xx_ONB_IO_SIZE, _PAGE_IO);
-#ifdef CONFIG_PCI
+#if defined(CONFIG_PCI) && !defined(CONFIG_405EX)
 	io_block_mapping(PPC4xx_PCI_IO_VADDR,
 			 PPC4xx_PCI_IO_PADDR, PPC4xx_PCI_IO_SIZE, _PAGE_IO);
 	io_block_mapping(PPC4xx_PCI_CFG_VADDR,
@@ -165,7 +165,7 @@ ppc4xx_calibrate_decr(void)
 	unsigned int freq;
 	bd_t *bip = &__res;
 
-#if defined(CONFIG_WALNUT) || defined(CONFIG_SYCAMORE)
+#if defined(CONFIG_WALNUT) || defined(CONFIG_SYCAMORE) || defined(CONFIG_SC3)
 	/* Walnut boot rom sets DCR CHCR1 (aka CPC0_CR1) bit CETE to 1 */
 	mtdcr(DCRN_CHCR1, mfdcr(DCRN_CHCR1) & ~CHR1_CETE);
 #endif

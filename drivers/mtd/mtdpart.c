@@ -21,6 +21,10 @@
 #include <linux/mtd/partitions.h>
 #include <linux/mtd/compatmac.h>
 
+#ifdef CONFIG_PPC_MERGE
+#include <asm/prom.h>
+#endif
+
 /* Our partition linked list */
 static LIST_HEAD(mtd_partitions);
 
@@ -573,6 +577,62 @@ int parse_mtd_partitions(struct mtd_info *master, const char **types,
 	}
 	return ret;
 }
+
+#ifdef CONFIG_PPC_MERGE
+int of_parse_flash_partitions(struct device_node *dp,
+				struct mtd_partition **mparts)
+{
+	int nr_parts = 0;
+	int i;
+	struct device_node *pp;
+	const char *partname;
+	struct mtd_partition *parts;
+
+	/* First count the subnodes */
+	for (pp = dp->child; pp; pp = pp->sibling)
+		nr_parts++;
+
+	if (nr_parts) {
+		parts = kzalloc(nr_parts * sizeof(struct mtd_partition),
+				      GFP_KERNEL);
+		if (!parts) {
+			printk(KERN_ERR
+				"Can't allocate the flash partition data!\n");
+			return -ENOMEM;
+		}
+
+		for (pp = dp->child, i = 0 ; pp; pp = pp->sibling, i++) {
+			const u32 *reg;
+			int len;
+
+			reg = of_get_property(pp, "reg", &len);
+			if (!reg || (len != 2*sizeof(u32))) {
+				printk(KERN_ERR "Invalid 'reg' on %s\n",
+					dp->full_name);
+				kfree(parts);
+				parts = NULL;
+				return -EINVAL;
+			}
+			parts[i].offset = reg[0];
+			parts[i].size = reg[1];
+
+			partname = of_get_property(pp, "label", &len);
+			if (!partname)
+				partname = of_get_property(pp, "name", &len);
+			parts[i].name = (char *)partname;
+			if (of_get_property(pp, "read-only", &len))
+				parts[i].mask_flags = MTD_WRITEABLE;
+			(*mparts) = parts;
+		}
+	} else {
+		printk(KERN_ERR
+		"Node %s does not seem to contain partitions definition!\n",
+			dp->full_name);
+		return -EINVAL;
+	}
+	return nr_parts;
+}
+#endif
 
 EXPORT_SYMBOL_GPL(parse_mtd_partitions);
 EXPORT_SYMBOL_GPL(register_mtd_parser);

@@ -96,6 +96,8 @@
 
 #define I2C_DRIVERID_I2CDEV	900
 
+#define I2C_DRIVERID_LWMON5_KBD	950	/* LWMON5 matrix keyboard	*/
+
 #define I2C_DRIVERID_OV7670 1048	/* Omnivision 7670 camera */
 
 /*
@@ -125,6 +127,7 @@
 #define I2C_HW_B_CX2341X	0x010020 /* Conexant CX2341X MPEG encoder cards */
 #define I2C_HW_B_INTELFB	0x010021 /* intel framebuffer driver */
 #define I2C_HW_B_CX23885	0x010022 /* conexant 23885 based tv cards (bus1) */
+#define I2C_HW_B_MPC		0x010023 /* MPC systems */
 
 /* --- PCF 8584 based algorithms					*/
 #define I2C_HW_P_ELEK		0x020002 /* Elektor ISA Bus inteface card */
@@ -134,6 +137,9 @@
 
 /* --- PowerPC on-chip adapters						*/
 #define I2C_HW_OCP		0x120000 /* IBM on-chip I2C adapter */
+
+/* --- MPC8260 PowerPC adapters                                         */
+#define I2C_HW_MPC8260    	0x100002 /* MPC8260 I2C adapter */
 
 /* --- Broadcom SiByte adapters						*/
 #define I2C_HW_SIBYTE		0x150000

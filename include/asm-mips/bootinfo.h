@@ -78,6 +78,10 @@
 #define  MACH_LASAT_100		0	/* Masquerade II/SP100/SP50/SP25 */
 #define  MACH_LASAT_200		1	/* Masquerade PRO/SP200 */
 
+
+#define MACH_GROUP_MIKROTIK    24	/* Mikrotik Boards		*/
+
+
 /*
  * Valid machtype for group NEC EMMA2RH
  */

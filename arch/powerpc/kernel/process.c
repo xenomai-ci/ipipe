@@ -269,6 +269,10 @@ struct task_struct *__switch_to(struct task_struct *prev,
 	struct thread_struct *new_thread, *old_thread;
 	unsigned long flags;
 	struct task_struct *last;
+#ifdef CONFIG_PPC_PASEMI_A2_WORKAROUNDS
+	unsigned long vsid;
+	int ssize;
+#endif
 
 #ifdef CONFIG_SMP
 	/* avoid complexity of lazy save/restore of fpu
@@ -360,6 +364,20 @@ struct task_struct *__switch_to(struct task_struct *prev,
 	 */
 	hard_irq_disable();
 	last = _switch(old_thread, new_thread);
+
+#ifdef CONFIG_PPC_PASEMI_A2_WORKAROUNDS
+	ssize = user_segment_size(0);
+	vsid = get_vsid(current->mm->context.id, 0, ssize);
+
+	/* current is still really us, just a different us :-) */
+	if (current->mm) {
+#ifdef CONFIG_PPC_64K_PAGES
+		__hash_page_64K(0, _PAGE_USER|_PAGE_RW, vsid, &current->zero_pte.pte, 0x300, 1, ssize);
+#else
+		__hash_page_4K(0, _PAGE_USER|_PAGE_RW, vsid, &current->zero_pte, 0x300, 1, ssize);
+#endif
+	}
+#endif
 
 	local_irq_restore(flags);
 
@@ -1026,12 +1044,25 @@ void ppc64_runlatch_on(void)
 {
 	unsigned long ctrl;
 
-	if (cpu_has_feature(CPU_FTR_CTRL) && !test_thread_flag(TIF_RUNLATCH)) {
+
+#ifdef CONFIG_PPC_PASEMI_A2_WORKAROUNDS
+	if (!test_thread_flag(TIF_RUNLATCH))
+#else
+	if (cpu_has_feature(CPU_FTR_CTRL) &&
+	    !test_thread_flag(TIF_RUNLATCH))
+#endif
+	{
 		HMT_medium();
 
 		ctrl = mfspr(SPRN_CTRLF);
 		ctrl |= CTRL_RUNLATCH;
 		mtspr(SPRN_CTRLT, ctrl);
+
+#ifndef CONFIG_PPC_PASEMI_A2_WORKAROUNDS
+		ctrl = mfmsr();
+		ctrl &= ~MSR_PMM;
+		mtmsrd(ctrl);
+#endif
 
 		set_thread_flag(TIF_RUNLATCH);
 	}
@@ -1041,7 +1072,13 @@ void ppc64_runlatch_off(void)
 {
 	unsigned long ctrl;
 
-	if (cpu_has_feature(CPU_FTR_CTRL) && test_thread_flag(TIF_RUNLATCH)) {
+#ifdef CONFIG_PPC_PASEMI_A2_WORKAROUNDS
+	if (!test_thread_flag(TIF_RUNLATCH))
+#else
+	if (cpu_has_feature(CPU_FTR_CTRL) &&
+	    !test_thread_flag(TIF_RUNLATCH))
+#endif
+	{
 		HMT_medium();
 
 		clear_thread_flag(TIF_RUNLATCH);
@@ -1049,6 +1086,12 @@ void ppc64_runlatch_off(void)
 		ctrl = mfspr(SPRN_CTRLF);
 		ctrl &= ~CTRL_RUNLATCH;
 		mtspr(SPRN_CTRLT, ctrl);
+
+#ifdef CONFIG_PPC_PASEMI_A2_WORKAROUNDS
+		ctrl = mfmsr();
+		ctrl |= MSR_PMM;
+		mtmsrd(ctrl);
+#endif
 	}
 }
 #endif

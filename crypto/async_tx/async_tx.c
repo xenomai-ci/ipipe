@@ -91,7 +91,7 @@ dma_wait_for_async_tx(struct dma_async_tx_descriptor *tx)
 		/* find the root of the unsubmitted dependency chain */
 		while (iter->cookie == -EBUSY) {
 			parent = iter->parent;
-			if (parent && parent->cookie == -EBUSY)
+			if (parent)
 				iter = iter->parent;
 			else
 				break;
@@ -119,10 +119,11 @@ async_tx_run_dependencies(struct dma_async_tx_descriptor *tx)
 		depend_node) {
 		chan = dep_tx->chan;
 		dev = chan->device;
-		/* we can't depend on ourselves */
-		BUG_ON(chan == tx->chan);
 		list_del(&dep_tx->depend_node);
-		tx->tx_submit(dep_tx);
+		dep_tx->tx_submit(dep_tx);
+
+		/* we no longer have a parent */
+		dep_tx->parent = NULL;
 
 		/* we need to poke the engine as client code does not
 		 * know about dependency submission events
@@ -408,25 +409,41 @@ async_tx_submit(struct dma_chan *chan, struct dma_async_tx_descriptor *tx,
 	/* set this new tx to run after depend_tx if:
 	 * 1/ a dependency exists (depend_tx is !NULL)
 	 * 2/ the tx can not be submitted to the current channel
+	 * 3/ the depend_tx has a parent
 	 */
-	if (depend_tx && depend_tx->chan != chan) {
+	if (depend_tx && (depend_tx->chan != chan || depend_tx->parent)) {
 		/* if ack is already set then we cannot be sure
 		 * we are referring to the correct operation
 		 */
 		BUG_ON(depend_tx->ack);
 
-		tx->parent = depend_tx;
 		spin_lock_bh(&depend_tx->lock);
+		tx->parent = depend_tx;
 		list_add_tail(&tx->depend_node, &depend_tx->depend_list);
 		if (depend_tx->cookie == 0) {
-			struct dma_chan *dep_chan = depend_tx->chan;
-			struct dma_device *dep_dev = dep_chan->device;
-			dep_dev->device_dependency_added(dep_chan);
-		}
-		spin_unlock_bh(&depend_tx->lock);
+			/* depend_tx has been completed, run our dep
+			 * manually
+			 */
+			async_tx_run_dependencies(depend_tx);
+			spin_unlock_bh(&depend_tx->lock);
+		} else {
+			/* depend_tx still in fly */
+			spin_unlock_bh(&depend_tx->lock);
 
-		/* schedule an interrupt to trigger the channel switch */
-		async_trigger_callback(ASYNC_TX_ACK, depend_tx, NULL, NULL);
+			/* schedule an interrupt to trigger the channel
+			 * switch or dependencies submittion
+			 */
+			if (!(flags & ASYNC_TX_INT) && (depend_tx->chan != chan ||
+			    !depend_tx->callback))
+				async_trigger_callback(ASYNC_TX_ACK | ASYNC_TX_INT,
+						depend_tx, NULL, NULL);
+
+			/* flush the parent if it's not submitted yet */
+			spin_lock_bh(&depend_tx->lock);
+			depend_tx->chan->device->device_issue_pending(
+				depend_tx->chan);
+			spin_unlock_bh(&depend_tx->lock);
+		}
 	} else {
 		tx->parent = NULL;
 		tx->tx_submit(tx);

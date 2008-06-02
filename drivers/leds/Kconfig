@@ -53,6 +53,20 @@ config LEDS_TOSA
 	  This option enables support for the LEDs on Sharp Zaurus
 	  SL-6000 series.
 
+config LEDS_MOTIONPRO
+	tristate "Motionpro LEDs Support"
+	depends on LEDS_CLASS
+	help
+	  This option enables support for status and ready LEDs connected
+	  to GPIO lines on Motionpro board.
+
+config LEDS_MOTIONPRO
+	tristate "Motion-PRO LEDs Support"
+	depends on LEDS_CLASS && PPC_MPC5200
+	help
+	  This option enables support for status and ready LEDs connected
+	  to GPIO lines on Motion-PRO board.
+
 config LEDS_S3C24XX
 	tristate "LED Support for Samsung S3C24XX GPIO LEDs"
 	depends on LEDS_CLASS && ARCH_S3C2410

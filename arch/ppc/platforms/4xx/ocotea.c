@@ -70,7 +70,7 @@ ocotea_calibrate_decr(void)
 static int
 ocotea_show_cpuinfo(struct seq_file *m)
 {
-	seq_printf(m, "vendor\t\t: IBM\n");
+	seq_printf(m, "vendor\t\t: AMCC\n");
 	seq_printf(m, "machine\t\t: PPC440GX EVB (Ocotea)\n");
 	ibm440gx_show_cpuinfo(m);
 	return 0;
@@ -221,9 +221,7 @@ ocotea_setup_hose(void)
 	hose->io_base_virt = ioremap64(OCOTEA_PCI_IO_BASE, OCOTEA_PCI_IO_SIZE);
 	isa_io_base = (unsigned long) hose->io_base_virt;
 
-	setup_indirect_pci(hose,
-			OCOTEA_PCI_CFGA_PLB32,
-			OCOTEA_PCI_CFGD_PLB32);
+	setup_indirect_pci(hose, PCIX0_CFGA, PCIX0_CFGD);
 	hose->set_cfg_type = 1;
 
 	hose->last_busno = pciauto_bus_scan(hose, hose->first_busno);

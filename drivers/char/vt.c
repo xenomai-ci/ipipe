@@ -172,7 +172,11 @@ int do_poke_blanked_console;
 int console_blanked;
 
 static int vesa_blank_mode; /* 0:none 1:suspendV 2:suspendH 3:powerdown */
+#ifndef CONFIG_FB_PRE_INIT_FB
 static int blankinterval = 10*60*HZ;
+#else
+static int blankinterval = 0;
+#endif
 static int vesa_off_interval;
 
 static DECLARE_WORK(console_work, console_callback);
@@ -695,8 +699,10 @@ void redraw_screen(struct vc_data *vc, int is_switch)
 			update_attr(vc);
 			clear_buffer_attributes(vc);
 		}
+#ifndef CONFIG_FB_PRE_INIT_FB
 		if (update && vc->vc_mode != KD_GRAPHICS)
 			do_update_region(vc, vc->vc_origin, vc->vc_screenbuf_size / 2);
+#endif
 	}
 	set_cursor(vc);
 	if (is_switch) {
@@ -777,7 +783,11 @@ int vc_allocate(unsigned int currcons)	/* return 0 on success */
 		return -ENOMEM;
 	    }
 	    vc->vc_kmalloced = 1;
+#ifdef CONFIG_FB_PRE_INIT_FB
+	    vc_init(vc, vc->vc_rows, vc->vc_cols, 0);
+#else
 	    vc_init(vc, vc->vc_rows, vc->vc_cols, 1);
+#endif
 	    atomic_notifier_call_chain(&vt_notifier_list, VT_ALLOCATE, &param);
 	}
 	return 0;
@@ -2723,6 +2733,10 @@ static int con_open(struct tty_struct *tty, struct file *filp)
 				tty->winsize.ws_row = vc_cons[currcons].d->vc_rows;
 				tty->winsize.ws_col = vc_cons[currcons].d->vc_cols;
 			}
+			if (vc->vc_utf)
+				tty->termios->c_iflag |= IUTF8;
+			else
+				tty->termios->c_iflag &= ~IUTF8;
 			release_console_sem();
 			vcs_make_sysfs(tty);
 			return ret;
@@ -2899,6 +2913,8 @@ int __init vty_init(void)
 	console_driver->minor_start = 1;
 	console_driver->type = TTY_DRIVER_TYPE_CONSOLE;
 	console_driver->init_termios = tty_std_termios;
+	if (default_utf8)
+		console_driver->init_termios.c_iflag |= IUTF8;
 	console_driver->flags = TTY_DRIVER_REAL_RAW | TTY_DRIVER_RESET_TERMIOS;
 	tty_set_operations(console_driver, &con_ops);
 	if (tty_register_driver(console_driver))

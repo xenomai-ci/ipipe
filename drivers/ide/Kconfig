@@ -1000,6 +1000,12 @@ config BLK_DEV_Q40IDE
 	  normally be on; disable it only if you are running a custom hard
 	  drive subsystem through an expansion card.
 
+config BLK_DEV_IDE_SC3
+	bool "SC3 IDE interface support"
+	depends on SC3
+	help
+	 Enable the on-board IDE controller on the SC3.
+
 config BLK_DEV_PALMCHIP_BK3710
 	tristate "Palmchip bk3710 IDE controller support"
 	depends on ARCH_DAVINCI
@@ -1007,7 +1013,6 @@ config BLK_DEV_PALMCHIP_BK3710
 	help
 	  Say Y here if you want to support the onchip IDE controller on the
 	  TI DaVinci SoC
-
 
 config BLK_DEV_MPC8xx_IDE
 	tristate "MPC8xx IDE support"

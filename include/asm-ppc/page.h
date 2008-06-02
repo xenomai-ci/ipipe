@@ -4,7 +4,15 @@
 #include <asm/asm-compat.h>
 
 /* PAGE_SHIFT determines the page size */
+#if defined(CONFIG_PPC_PAGE_4K)
 #define PAGE_SHIFT	12
+#elif defined(CONFIG_PPC_PAGE_16K)
+#define PAGE_SHIFT	14
+#elif defined(CONFIG_PPC_PAGE_64K)
+#define PAGE_SHIFT	16
+#elif defined(CONFIG_PPC_PAGE_256K)
+#define PAGE_SHIFT	18
+#endif
 #define PAGE_SIZE	(ASM_CONST(1) << PAGE_SHIFT)
 
 /*
@@ -28,7 +36,11 @@
  */
 #ifdef CONFIG_PTE_64BIT
 typedef unsigned long long pte_basic_t;
-#define PTE_SHIFT	(PAGE_SHIFT - 3)	/* 512 ptes per page */
+#if defined(CONFIG_PPC_PAGE_256K)
+#define PTE_SHIFT	(PAGE_SHIFT - 7)
+#else
+#define PTE_SHIFT	(PAGE_SHIFT - 3)	/* PAGE_SIZE/8 ptes per page */
+#endif
 #define PTE_FMT		"%16Lx"
 #else
 typedef unsigned long pte_basic_t;

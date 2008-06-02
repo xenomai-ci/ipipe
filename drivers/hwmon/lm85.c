@@ -38,7 +38,7 @@
 static const unsigned short normal_i2c[] = { 0x2c, 0x2d, 0x2e, I2C_CLIENT_END };
 
 /* Insmod parameters */
-I2C_CLIENT_INSMOD_6(lm85b, lm85c, adm1027, adt7463, emc6d100, emc6d102);
+I2C_CLIENT_INSMOD_7(lm85b, lm85c, adm1027, adt7463, adt7467, emc6d100, emc6d102);
 
 /* The LM85 registers */
 
@@ -76,6 +76,7 @@ I2C_CLIENT_INSMOD_6(lm85b, lm85c, adm1027, adt7463, emc6d100, emc6d102);
 #define	LM85_VERSTEP_ADM1027		0x60
 #define	LM85_VERSTEP_ADT7463		0x62
 #define	LM85_VERSTEP_ADT7463C		0x6A
+#define	LM85_VERSTEP_ADT7467		0x71
 #define	LM85_VERSTEP_EMC6D100_A0        0x60
 #define	LM85_VERSTEP_EMC6D100_A1        0x61
 #define	LM85_VERSTEP_EMC6D102		0x65
@@ -1194,6 +1195,9 @@ static int lm85_detect(struct i2c_adapter *adapter, int address,
 			 || verstep == LM85_VERSTEP_ADT7463C) ) {
 			kind = adt7463 ;
 		} else if( company == LM85_COMPANY_ANALOG_DEV
+		    && (verstep == LM85_VERSTEP_ADT7467) ) {
+			kind = adt7467 ;
+		} else if( company == LM85_COMPANY_ANALOG_DEV
 		    && (verstep & LM85_VERSTEP_VMASK) == LM85_VERSTEP_GENERIC ) {
 			dev_err(&adapter->dev, "Unrecognized version/stepping 0x%02x"
 				" Defaulting to Generic LM85.\n", verstep );
@@ -1245,6 +1249,8 @@ static int lm85_detect(struct i2c_adapter *adapter, int address,
 		type_name = "adm1027";
 	} else if ( kind == adt7463 ) {
 		type_name = "adt7463";
+	} else if ( kind == adt7467 ) {
+		type_name = "adt7467";
 	} else if ( kind == emc6d100){
 		type_name = "emc6d100";
 	} else if ( kind == emc6d102 ) {
@@ -1440,7 +1446,8 @@ static struct lm85_data *lm85_update_device(struct device *dev)
 		 * There are 2 additional resolution bits per channel and we
 		 * have room for 4, so we shift them to the left.
 		 */
-		if ( (data->type == adm1027) || (data->type == adt7463) ) {
+		if ( (data->type == adm1027) || (data->type == adt7463) ||
+		     (data->type == adt7467) ) {
 			int ext1 = lm85_read_value(client,
 						   ADM1027_REG_EXTEND_ADC1);
 			int ext2 =  lm85_read_value(client,
@@ -1483,7 +1490,7 @@ static struct lm85_data *lm85_update_device(struct device *dev)
 
 		data->alarms = lm85_read_value(client, LM85_REG_ALARM1);
 
-		if ( data->type == adt7463 ) {
+		if ( data->type == adt7463 || data->type == adt7467 ) {
 			if( data->therm_total < ULONG_MAX - 256 ) {
 			    data->therm_total +=
 				lm85_read_value(client, ADT7463_REG_THERM );

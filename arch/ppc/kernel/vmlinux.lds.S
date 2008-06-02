@@ -1,7 +1,13 @@
 #include <asm-generic/vmlinux.lds.h>
+#include <asm/page.h>
 
 OUTPUT_ARCH(powerpc:common)
 jiffies = jiffies_64 + 4;
+PHDRS
+{
+ text PT_LOAD FILEHDR PHDRS FLAGS (7);
+ data PT_LOAD FLAGS (7);
+}
 SECTIONS
 {
   /* Read-only sections, merged into text segment: */
@@ -29,6 +35,7 @@ SECTIONS
   .rela.plt      : { *(.rela.plt)		}
 /*  .init          : { *(.init)	} =0*/
   .plt : { *(.plt) }
+  . = ALIGN(PAGE_SIZE);
   .text      :
   {
     _text = .;
@@ -40,7 +47,7 @@ SECTIONS
     __got2_start = .;
     *(.got2)
     __got2_end = .;
-  }
+  } :text
   _etext = .;
   PROVIDE (etext = .);
 
@@ -64,7 +71,7 @@ SECTIONS
 	}
 
   /* Read-write section, merged into data segment: */
-  . = ALIGN(4096);
+  . = ALIGN(PAGE_SIZE);
   .data    :
   {
     DATA_DATA
@@ -74,12 +81,12 @@ SECTIONS
     *(.got.plt) *(.got)
     *(.dynamic)
     CONSTRUCTORS
-  }
+  } :data
 
-  . = ALIGN(4096);
+  . = ALIGN(PAGE_SIZE);
   __nosave_begin = .;
   .data_nosave : { *(.data.nosave) }
-  . = ALIGN(4096);
+  . = ALIGN(PAGE_SIZE);
   __nosave_end = .;
 
   . = ALIGN(32);
@@ -88,12 +95,12 @@ SECTIONS
   _edata  =  .;
   PROVIDE (edata = .);
 
-  . = ALIGN(8192);
+  . = ALIGN(PAGE_SIZE << 1);
   .data.init_task : { *(.data.init_task) }
 
   NOTES
 
-  . = ALIGN(4096);
+  . = ALIGN(PAGE_SIZE);
   __init_begin = .;
   .init.text : {
 	_sinittext = .;
@@ -135,13 +142,13 @@ SECTIONS
   PERCPU(4096)
 
 #ifdef CONFIG_BLK_DEV_INITRD
-  . = ALIGN(4096);
+  . = ALIGN(PAGE_SIZE);
   __initramfs_start = .;
   .init.ramfs : { *(.init.ramfs) }
   __initramfs_end = .;
 #endif
 
-  . = ALIGN(4096);
+  . = ALIGN(PAGE_SIZE);
   __init_end = .;
   __bss_start = .;
   .bss       :

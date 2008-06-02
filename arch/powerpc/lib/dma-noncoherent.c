@@ -31,6 +31,7 @@
 #include <linux/dma-mapping.h>
 
 #include <asm/tlbflush.h>
+#include <asm/machdep.h>
 
 /*
  * This address range defaults to a value that is safe for all
@@ -186,6 +187,8 @@ __dma_alloc_coherent(size_t size, dma_addr_t *handle, gfp_t gfp)
 		unsigned long kaddr = (unsigned long)page_address(page);
 		memset(page_address(page), 0, size);
 		flush_dcache_range(kaddr, kaddr + size);
+		if (ppc_md.l2cache_inv_range)
+			ppc_md.l2cache_inv_range(__pa(kaddr), __pa(kaddr + size));
 	}
 
 	/*
@@ -320,7 +323,8 @@ static int __init dma_alloc_init(void)
 			ret = -ENOMEM;
 			break;
 		}
-		WARN_ON(!pmd_none(*pmd));
+		if(!pmd_none(*pmd))
+			printk("%s warning: PMD is not empty.\n", __FUNCTION__);
 
 		pte = pte_alloc_kernel(pmd, CONSISTENT_BASE);
 		if (!pte) {
@@ -350,12 +354,16 @@ void __dma_sync(void *vaddr, size_t size, int direction)
 		BUG();
 	case DMA_FROM_DEVICE:	/* invalidate only */
 		invalidate_dcache_range(start, end);
+		if (ppc_md.l2cache_inv_range)
+			ppc_md.l2cache_inv_range(__pa(start), __pa(end));
 		break;
 	case DMA_TO_DEVICE:		/* writeback only */
 		clean_dcache_range(start, end);
 		break;
 	case DMA_BIDIRECTIONAL:	/* writeback and invalidate */
 		flush_dcache_range(start, end);
+		if (ppc_md.l2cache_inv_range)
+			ppc_md.l2cache_inv_range(__pa(start), __pa(end));
 		break;
 	}
 }

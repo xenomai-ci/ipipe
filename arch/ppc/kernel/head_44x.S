@@ -38,6 +38,7 @@
 #include <asm/thread_info.h>
 #include <asm/ppc_asm.h>
 #include <asm/asm-offsets.h>
+#include <asm/ppc_page_asm.h>
 #include "head_booke.h"
 
 
@@ -183,7 +184,7 @@ skpinv:	addi	r4,r4,1				/* Increment */
 	 */
  	/* pageid fields */
 	lis	r3,UART0_IO_BASE@h
-	ori	r3,r3,PPC44x_TLB_VALID | PPC44x_TLB_4K
+	ori	r3,r3,PPC44x_TLB_VALID | PPC44x_TLB_SIZE
 
 	/* xlat fields */
 	lis	r4,UART0_PHYS_IO_BASE@h		/* RPN depends on SoC */
@@ -226,6 +227,16 @@ skpinv:	addi	r4,r4,1				/* Increment */
 	/* Establish the interrupt vector base */
 	lis	r4,interrupt_base@h	/* IVPR only uses the high 16-bits */
 	mtspr	SPRN_IVPR,r4
+
+#if defined(CONFIG_440EP) || defined(CONFIG_440EPX)
+	/* Clear DAPUIB flag in CCR0 (enable APU between CPU and FPU) */
+	mfspr	r2,SPRN_CCR0
+	lis	r3,0xffef
+	ori	r3,r3,0xffff
+	and	r2,r2,r3
+	mtspr	SPRN_CCR0,r2
+	isync
+#endif
 
 	/*
 	 * This is where the main kernel code starts.
@@ -353,12 +364,12 @@ interrupt_base:
 4:
 	mtspr   SPRN_MMUCR,r12
 
-	rlwinm  r12, r10, 13, 19, 29    /* Compute pgdir/pmd offset */
+	rlwinm  r12, r10, PPC44x_PGD_OFF_SH, PPC44x_PGD_OFF_M1, 29 /* Compute pgdir/pmd offset */
 	lwzx    r11, r12, r11           /* Get pgd/pmd entry */
 	rlwinm. r12, r11, 0, 0, 20      /* Extract pt base address */
 	beq     2f                      /* Bail if no table */
 
-	rlwimi  r12, r10, 23, 20, 28    /* Compute pte address */
+	rlwimi  r12, r10, PPC44x_PTE_ADD_SH, PPC44x_PTE_ADD_M1, 28    /* Compute pte address */
 	lwz     r11, 4(r12)             /* Get pte entry */
 
 	andi.	r13, r11, _PAGE_RW	/* Is it writeable? */
@@ -492,12 +503,12 @@ interrupt_base:
 4:
 	mtspr	SPRN_MMUCR,r12
 
-	rlwinm 	r12, r10, 13, 19, 29	/* Compute pgdir/pmd offset */
+	rlwinm 	r12, r10, PPC44x_PGD_OFF_SH, PPC44x_PGD_OFF_M1, 29 /* Compute pgdir/pmd offset */
 	lwzx	r11, r12, r11		/* Get pgd/pmd entry */
 	rlwinm.	r12, r11, 0, 0, 20	/* Extract pt base address */
 	beq	2f			/* Bail if no table */
 
-	rlwimi	r12, r10, 23, 20, 28	/* Compute pte address */
+	rlwimi	r12, r10, PPC44x_PTE_ADD_SH, PPC44x_PTE_ADD_M1, 28	/* Compute pte address */
 	lwz	r11, 4(r12)		/* Get pte entry */
 	andi.	r13, r11, _PAGE_PRESENT	/* Is the page present? */
 	beq	2f			/* Bail if not present */
@@ -562,12 +573,12 @@ interrupt_base:
 4:
 	mtspr	SPRN_MMUCR,r12
 
-	rlwinm	r12, r10, 13, 19, 29	/* Compute pgdir/pmd offset */
+	rlwinm	r12, r10, PPC44x_PGD_OFF_SH, PPC44x_PGD_OFF_M1, 29 /* Compute pgdir/pmd offset */
 	lwzx	r11, r12, r11		/* Get pgd/pmd entry */
 	rlwinm.	r12, r11, 0, 0, 20	/* Extract pt base address */
 	beq	2f			/* Bail if no table */
 
-	rlwimi	r12, r10, 23, 20, 28	/* Compute pte address */
+	rlwimi	r12, r10, PPC44x_PTE_ADD_SH, PPC44x_PTE_ADD_M1, 28	/* Compute pte address */
 	lwz	r11, 4(r12)		/* Get pte entry */
 	andi.	r13, r11, _PAGE_PRESENT	/* Is the page present? */
 	beq	2f			/* Bail if not present */
@@ -646,14 +657,14 @@ finish_tlb_load:
 
 	lwz	r11, 0(r12)			/* Get MS word of PTE */
 	lwz	r12, 4(r12)			/* Get LS word of PTE */
-	rlwimi	r11, r12, 0, 0 , 19		/* Insert RPN */
+	rlwimi	r11, r12, 0, 0 , PPC44x_RPN_M2	/* Insert RPN */
 	tlbwe	r11, r13, PPC44x_TLB_XLAT	/* Write XLAT */
 
 	/*
 	 * Create PAGEID. This is the faulting address,
 	 * page size, and valid flag.
 	 */
-	li	r11, PPC44x_TLB_VALID | PPC44x_TLB_4K
+	li	r11, PPC44x_TLB_VALID | PPC44x_TLB_SIZE
 	rlwimi	r10, r11, 0, 20, 31		/* Insert valid and page size */
 	tlbwe	r10, r13, PPC44x_TLB_PAGEID	/* Write PAGEID */
 
@@ -730,12 +741,12 @@ _GLOBAL(set_context)
  * goes at the beginning of the data segment, which is page-aligned.
  */
 	.data
-	.align	12
+	.align	PAGE_SHIFT
 	.globl	sdata
 sdata:
 	.globl	empty_zero_page
 empty_zero_page:
-	.space	4096
+	.space	PAGE_SIZE
 
 /*
  * To support >32-bit physical addresses, we use an 8KB pgdir.

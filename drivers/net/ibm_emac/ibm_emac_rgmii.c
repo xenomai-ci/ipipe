@@ -9,7 +9,7 @@
  * Based on original work by
  * 	Matt Porter <mporter@kernel.crashing.org>
  * 	Copyright 2004 MontaVista Software, Inc.
- * 
+ *
  * This program is free software; you can redistribute  it and/or modify it
  * under  the terms of  the GNU General  Public License as published by the
  * Free Software Foundation;  either version 2 of the  License, or (at your
@@ -24,6 +24,8 @@
 #include "ibm_emac_debug.h"
 
 /* RGMIIx_FER */
+#define RGMII_FER_MDI(idx)	(0x80000000 >> (12+(idx)))
+#define RGMII_FER_MDI_ALL	(RGMII_FER_MDI(0) | RGMII_FER_MDI(1))
 #define RGMII_FER_MASK(idx)	(0x7 << ((idx) * 4))
 #define RGMII_FER_RTBI(idx)	(0x4 << ((idx) * 4))
 #define RGMII_FER_RGMII(idx)	(0x5 << ((idx) * 4))
@@ -145,6 +147,16 @@ int __init rgmii_attach(void *emac)
 		}
 	}
 	return 0;
+}
+
+void __rgmii_enable_mdio(struct ocp_device *ocpdev, int input)
+{
+	struct ibm_ocp_rgmii *dev = ocp_get_drvdata(ocpdev);
+	u32 fer = in_be32(&dev->base->fer) & ~RGMII_FER_MDI_ALL;
+
+	RGMII_DBG2("%d: mdio(%d)" NL, ocpdev->def->index, input);
+
+	out_be32(&dev->base->fer, fer | RGMII_FER_MDI(input));
 }
 
 void rgmii_set_speed(struct ocp_device *ocpdev, int input, int speed)

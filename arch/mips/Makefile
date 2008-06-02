@@ -577,6 +577,13 @@ cflags-$(CONFIG_TOSHIBA_JMR3927) += -Iinclude/asm-mips/mach-jmr3927
 load-$(CONFIG_TOSHIBA_JMR3927)	+= 0xffffffff80050000
 
 #
+# Routerboard 532 board
+#
+core-$(CONFIG_MIKROTIK_RB500)	+= arch/mips/rb500/
+cflags-$(CONFIG_MIKROTIK_RB500) += -Iinclude/asm-mips/rc32434
+load-$(CONFIG_MIKROTIK_RB500)	+= 0xffffffff80101000
+
+#
 # Toshiba RBTX4927 board or
 # Toshiba RBTX4937 board
 #

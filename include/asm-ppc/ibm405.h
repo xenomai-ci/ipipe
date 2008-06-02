@@ -295,5 +295,193 @@
 #define DCRN_OCMDSCR	(DCRN_OCM0_BASE + 0x3)	/* OCM Data Side Control */
 #endif
 
+#ifdef CONFIG_405EZ
+/* DCR defines */
+#define DCRN_CPMSR_BASE         0x0BA
+#define DCRN_CPMFR_BASE         0x0B9
+
+#define DCRN_CPR_BASE           0x0C
+#define DCRN_CPR_CFGADDR        (DCRN_CPR_BASE+0x00)
+#define DCRN_CPR_CFGDATA        (DCRN_CPR_BASE+0x01)
+
+#define CPR_CLKUPD              0x0020
+#define CPR_ENPLLCH             0x40000000 /* Enable CPR PLL changes */
+#define CPR_ENDVCH              0x20000000 /* Enable CPR Sys Divider changes */
+
+#define CPR_PLLC                0x0040
+#define CPR_PLLC_SRC_MASK       0x20000000
+#define CPR_PLL_TUNING_MASK     0x000003FF
+
+#define CPR_PLLD		0x0060
+#define CPR_PLLD_FBDV_MASK      0x1F000000 /* PLL feedback divider value */
+#define CPR_PLLD_FWDVA_MASK     0x000F0000 /* PLL forward divider A value */
+#define CPR_PLLD_FWDVB_MASK     0x00000700 /* PLL forward divider B value */
+
+#define CPR_PRIMAD		0x0080
+#define CPR_PRIMAD_CPUDV_MASK	0x0F000000
+#define CPR_PRIMAD_PLBDV_MASK	0x000F0000
+#define CPR_PRIMAD_OPBDV_MASK	0x00000F00
+#define CPR_PRIMAD_EBCDV_MASK	0x0000000F
+
+#define CPR_PERD0               0x00E0
+#define CPR_PERD0_PWMDV_MASK	0xFF000000
+#define CPR_PERD0_SPIDV_MASK	0x000F0000
+#define CPR_PERD0_U0DV_MASK	0x0000FF00
+#define CPR_PERD0_U1DV_MASK	0x000000FF
+
+#define CPR_PERD1		0x00E1
+#define CPR_PERD1_DACDV_MASK	0xFF000000
+#define CPR_PERD1_ADCDV_MASK	0x00FF0000
+#define CPR_PERD1_EMACDV_MASK	0x0000FF00
+
+/* Clock and Power Management (CPM) */
+#define IBM_CPM_ADC             0x10000000  /* ADC Logic */
+#define IBM_CPM_OCM             0x04000000  /* OCM interface */
+#define IBM_CPM_MADMAL          0x02000000  /* MADMAL interface */
+#define IBM_CPM_OPB2PLB         0x01000000  /* OPB to PLB bridge */
+#define IBM_CPM_CAN0            0x00800000  /* CAN Controller 0 */
+#define IBM_CPM_CAN1            0x00400000  /* CAN Controller 1 */
+#define IBM_CPM_SPI             0x00200000  /* CAN Controller 1 */
+#define IBM_CPM_1588            0x00100000  /* IEEE 1588 */
+#define IBM_CPM_EMACTX          0x00080000  /* Ethernet MAC TX Clock */
+#define IBM_CPM_EMACRX          0x00040000  /* Ethernet MAC RX Clock */
+#define IBM_CPM_EMAC0           0x00020000  /* Ethernet MAC Management clock */
+#define IBM_CPM_UIC             0x00010000  /* Universal Interrupt Controller */
+#define IBM_CPM_CPU             0x00008000  /* 405 processor core */
+#define IBM_CPM_NDFC            0x00002000  /* NAND Flash Controller */
+#define IBM_CPM_GPIO0           0x00001000  /* General Purpose IO Core 0 */
+#define IBM_CPM_GPIO1           0x00000800  /* General Purpose IO Core 1 */
+#define IBM_CPM_TMRCLK          0x00000400  /* CPU timers */
+#define IBM_CPM_PWM             0x00000200  /* PWM - Chameleon Timer */
+#define IBM_CPM_PLB             0x00000100  /* Processor Local Bus */
+#define IBM_CPM_PLB2OPB         0x00000080  /* PLB to OPB bridge */
+#define IBM_CPM_DMA             0x00000040  /* DMA controller */
+#define IBM_CPM_IIC0            0x00000010  /* IIC interface */
+#define IBM_CPM_DAC             0x00000008  /* DAC Logic */
+#define IBM_CPM_DACCUR          0x00000004  /* DAC Logic */
+#define IBM_CPM_UART0           0x00000001  /* serial port 0 */
+#define IBM_CPM_UART1           0x00000002  /* serial port 1 */
+
+#define DFLT_IBM4xx_PM		~( IBM_CPM_CPU | IBM_CPM_DMA \
+					| IBM_CPM_OPB  | IBM_CPM_EBC \
+					| IBM_CPM_OBRG | IBM_CPM_PLB \
+					| IBM_CPM_UIC  | IBM_CPM_TMRCLK)
+
+#define DCRN_DMA0_BASE     0x100
+#define DCRN_DMA1_BASE     0x108
+#define DCRN_DMA2_BASE     0x110
+#define DCRN_DMA3_BASE     0x118
+
+/* DMA Channel 0 */
+#define DCRN_DMA_CR0      (DCRN_DMA0_BASE + 0x0)    /* DMA Channel Control */
+#define DCRN_DMA_CT0      (DCRN_DMA0_BASE + 0x1)    /* DMA Count */
+#define DCRN_DMA_DA0      (DCRN_DMA0_BASE + 0x2)    /* DMA Dest Addr */
+#define DCRN_DMA_SA0      (DCRN_DMA0_BASE + 0x3)    /* DMA Src Addr */
+#define DCRN_DMA_SG0      (DCRN_DMA0_BASE + 0x4)    /* DMA SG Desc Addr */
+
+/* DMA Channel 1 */
+#define DCRN_DMA_CR1      (DCRN_DMA1_BASE + 0x0)    /* DMA Channel Control */
+#define DCRN_DMA_CT1      (DCRN_DMA1_BASE + 0x1)    /* DMA Count */
+#define DCRN_DMA_DA1      (DCRN_DMA1_BASE + 0x2)    /* DMA Dest Addr */
+#define DCRN_DMA_SA1      (DCRN_DMA1_BASE + 0x3)    /* DMA Src Addr */
+#define DCRN_DMA_SG1      (DCRN_DMA1_BASE + 0x4)    /* DMA SG Desc Addr */
+
+/* DMA Channel 2 */
+#define DCRN_DMA_CR2      (DCRN_DMA2_BASE + 0x0)    /* DMA Channel Control */
+#define DCRN_DMA_CT2      (DCRN_DMA2_BASE + 0x1)    /* DMA Count */
+#define DCRN_DMA_DA2      (DCRN_DMA2_BASE + 0x2)    /* DMA Dest Addr */
+#define DCRN_DMA_SA2      (DCRN_DMA2_BASE + 0x3)    /* DMA Src Addr */
+#define DCRN_DMA_SG2      (DCRN_DMA2_BASE + 0x4)    /* DMA SG Desc Addr */
+
+/* DMA Channel 3 */
+#define DCRN_DMA_CR3      (DCRN_DMA3_BASE + 0x0)    /* DMA Channel Control */
+#define DCRN_DMA_CT3      (DCRN_DMA3_BASE + 0x1)    /* DMA Count */
+#define DCRN_DMA_DA3      (DCRN_DMA3_BASE + 0x2)    /* DMA Dest Addr */
+#define DCRN_DMA_SA3      (DCRN_DMA3_BASE + 0x3)    /* DMA Src Addr */
+#define DCRN_DMA_SG3      (DCRN_DMA3_BASE + 0x4)    /* DMA SG Desc Addr */
+
+#define DCRN_DMA_SR        0x120   /* DMA Status Register */
+#define DCRN_DMA_SGC       0x123   /* DMA Scatter/Gather Command */
+#define DCRN_DMA_SLP       0x125   /* DMA Sleep Mode Register */
+
+#define DCRNCAP_DMA_SG		1	/* have DMA scatter/gather capability */
+
+#define DCRN_DMASR_BASE		0x120
+#define DCRN_EBC_BASE		0x012
+#define DCRN_DCP0_BASE		0x014
+#define DCRN_MAL_BASE           0x380
+#define DCRN_OCM0_BASE		0x018
+#define DCRN_PLB0_BASE		0x084
+#define DCRN_PLLMR_BASE		0x0B0
+#define DCRN_OBRG_BASE          0x0B0
+#define DCRN_POB0_BASE		0x0A0
+#define DCRN_UIC0_BASE		0x0C0
+#define UIC0			DCRN_UIC0_BASE
+
+#define DCRN_UIC1_BASE		0x0E0 /* 1588 UIC Snapshot Source */
+#define UIC1			DCRN_UIC1_BASE
+#define UIC0_UIC1NC		0x08000000 /* 1588 SYNC Interrupt */
+#define NR_UICS			2
+
+#define DCRN_SDR_ICINTSTAT	0x4510
+#define ICINSTAT_ICRX		0x80000000
+#define ICINSTAT_ICTX0		0x40000000
+#define ICINSTAT_ICTX1		0x20000000
+#define ICINSTAT_ICTX		0x60000000
+
+/*
+ * EMAC interrupt coalesing
+ */
+#define MAX_COAL_FRAMES		0xFF
+#define MAX_COAL_TIMER		0xFFFFFFFF
+
+#define DCRN_SDR_RXICCR0	0x4400
+#define DCRN_SDR_RXICCR1	0x4410
+#define DCRN_SDR_TX0ICCR0	0x4430
+#define DCRN_SDR_TX0ICCR1	0x4440
+#define	DCRN_SDR_ICINT_EN	0x4500
+
+#define	RX_ICCR_ICEN		0x80000000
+#define	RX_ICCR_FLUSH		0x20000000
+#define	RX_ICCR_COR_EN		0x08000000
+#define	RX_ICCR_THR_MASK	0x01FE0000
+
+#define TX_ICCR_ICEN		0x80000000
+#define TX_ICCR_FLUSH		0x20000000
+#define TX_ICCR_COR_EN		0x08000000
+#define	TX_ICCR_THR_MASK	0x01FE0000
+
+#define RX_ICCR_ICFT_ENCODE(val) (((uint)val<<17) & 0x01FE0000)
+#define TX_ICCR_ICFT_ENCODE(val) (((uint)val<<17) & 0x01FE0000)
+
+#define ICRX_EN			0x80000000
+#define ICTX0_EN		0x40000000
+
+#endif /* CONFIG_405EZ */
+
+#define DCRN_SDR_UART0		0x0120
+#define DCRN_SDR_UART1		0x0121
+#define SDR_UART_U0DIV		0x000000ff
+#define SDR_UART_U0EC		0x00800000
+
+#define DCRN_SDR_CONFIG_ADDR    0x00E
+#define DCRN_SDR_CONFIG_DATA    0x00F
+
+/* SDR read/write helper macros */
+#define SDR_READ(offset) ({			\
+	mtdcr(DCRN_SDR_CONFIG_ADDR, offset);	\
+	mfdcr(DCRN_SDR_CONFIG_DATA);})
+#define SDR_WRITE(offset, data) ({		\
+	mtdcr(DCRN_SDR_CONFIG_ADDR, offset);	\
+	mtdcr(DCRN_SDR_CONFIG_DATA, data);})
+
+/* SDR read/write helper macros */
+#define CPR_READ(offset) ({			\
+	mtdcr(DCRN_CPR_CFGADDR, offset);	\
+	mfdcr(DCRN_CPR_CFGDATA);})
+#define CPR_WRITE(offset, data) ({		\
+	mtdcr(DCRN_CPR_CFGADDR, offset);	\
+	mtdcr(DCRN_CPR_CFGDATA, data);})
+
 #endif				/* __ASM_IBM405_H__ */
 #endif				/* __KERNEL__ */

@@ -1326,6 +1326,14 @@ static int mv643xx_eth_open(struct net_device *dev)
 	unsigned int size;
 	int err;
 
+	/*
+	 * Should disable interrupts (that might be enabled in U-Boot)
+	 * prior requesting since network rings are not initialized yet
+	 */
+	mv_write(MV643XX_ETH_INTERRUPT_EXTEND_MASK_REG(port_num),
+		 ETH_INT_MASK_ALL_EXT);
+	mv_write(MV643XX_ETH_INTERRUPT_MASK_REG(port_num), ETH_INT_MASK_ALL);
+
 	/* Clear any pending ethernet port interrupts */
 	mv_write(INTERRUPT_CAUSE_REG(port_num), 0);
 	mv_write(INTERRUPT_CAUSE_EXTEND_REG(port_num), 0);

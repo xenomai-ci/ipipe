@@ -109,6 +109,10 @@ static int pa6t_reg_setup(struct op_counter_config *ctr,
 			pr_debug("turned off counter %u\n", pmc);
 		}
 
+#ifdef CONFIG_PPC_PASEMI_A2_WORKAROUNDS
+	sys->mmcr0 |= PA6T_MMCR0_FCM1;
+#endif
+
 	if (sys->enable_kernel)
 		sys->mmcr0 |= PA6T_MMCR0_SUPEN | PA6T_MMCR0_HYPEN;
 	else
@@ -219,6 +223,9 @@ static void pa6t_handle_interrupt(struct pt_regs *regs,
 			if (oprofile_running && ctr[i].enabled) {
 				if (mmcr0 & PA6T_MMCR0_SIARLOG)
 					oprofile_add_ext_sample(pc, regs, i, is_kernel);
+				else if (i < 2)
+					/* PMC0/1 might not set SIARLOG, just log PC at time of fault */
+					oprofile_add_ext_sample(regs->nip, regs, i, is_kernel);
 				ctr_write(i, reset_value[i]);
 			} else {
 				ctr_write(i, 0UL);

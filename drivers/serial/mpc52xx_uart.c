@@ -42,7 +42,7 @@
  * The idx field must be equal to the PSC index (e.g. 0 for PSC1, 1 for PSC2,
  * and so on). So the PSC1 is mapped to /dev/ttyPSC0, PSC2 to /dev/ttyPSC1 and
  * so on. But be warned, it's an ABSOLUTE REQUIREMENT ! This is needed mainly
- * fpr the console code : without this 1:1 mapping, at early boot time, when we
+ * for the console code : without this 1:1 mapping, at early boot time, when we
  * are parsing the kernel args console=ttyPSC?, we wouldn't know which PSC it
  * will be mapped to.
  */
@@ -1221,8 +1221,8 @@ static struct of_device_id mpc52xx_uart_of_match[] = {
 #endif
 #ifdef CONFIG_PPC_MPC512x
 	{ .compatible = "fsl,mpc5121-psc-uart", .data = &mpc512x_psc_ops, },
-	{},
 #endif
+	{},
 };
 
 static int __devinit
@@ -1298,6 +1298,9 @@ mpc52xx_uart_of_remove(struct of_device *op)
 		uart_remove_one_port(&mpc52xx_uart_driver, port);
 		irq_dispose_mapping(port->irq);
 	}
+
+	if (port->irq != NO_IRQ)
+		irq_dispose_mapping(port->irq);
 
 	return 0;
 }

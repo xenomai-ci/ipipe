@@ -98,6 +98,11 @@ obj-$(CONFIG_GPIO_VR41XX)	+= vr41xx_giu.o
 obj-$(CONFIG_GPIO_TB0219)	+= tb0219.o
 obj-$(CONFIG_TELCLOCK)		+= tlclk.o
 
+obj-$(CONFIG_PPC405EZ_ADC)	+= ppc405ez_adc.o
+obj-$(CONFIG_PPC405EZ_DAC)	+= ppc405ez_dac.o
+
+obj-$(CONFIG_LWMON5_KBD)	+= lwmon5_kbd.o
+
 obj-$(CONFIG_MWAVE)		+= mwave/
 obj-$(CONFIG_AGP)		+= agp/
 obj-$(CONFIG_DRM)		+= drm/

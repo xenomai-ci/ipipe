@@ -7,6 +7,8 @@
 #include <linux/serial_reg.h>
 #include <asm/serial.h>
 
+#include <linux/serial_8250.h>
+
 #if defined(CONFIG_XILINX_VIRTEX)
 #include <platforms/4xx/xparameters/xparameters.h>
 #endif

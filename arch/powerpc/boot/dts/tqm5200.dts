@@ -83,6 +83,7 @@
 		};
 
 		dma-controller@1200 {
+			device_type = "dma-controller";
 			compatible = "fsl,mpc5200-bestcomm";
 			reg = <1200 80>;
 			interrupts = <3 0 0  3 1 0  3 2 0  3 3 0

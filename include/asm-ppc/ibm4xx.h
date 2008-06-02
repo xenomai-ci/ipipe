@@ -19,6 +19,10 @@
 
 #ifdef CONFIG_40x
 
+#if defined(CONFIG_ACADIA)
+#include <platforms/4xx/acadia.h>
+#endif
+
 #if defined(CONFIG_BUBINGA)
 #include <platforms/4xx/bubinga.h>
 #endif
@@ -31,6 +35,18 @@
 #include <platforms/4xx/ep405.h>
 #endif
 
+#if defined(CONFIG_KILAUEA)
+#include <platforms/4xx/kilauea.h>
+#endif
+
+#if defined(CONFIG_MAKALU)
+#include <platforms/4xx/makalu.h>
+#endif
+
+#if defined(CONFIG_PPChameleonEVB)
+#include <platforms/4xx/ppchameleon.h>
+#endif
+
 #if defined(CONFIG_REDWOOD_5)
 #include <platforms/4xx/redwood5.h>
 #endif
@@ -39,8 +55,16 @@
 #include <platforms/4xx/redwood6.h>
 #endif
 
+#if defined(CONFIG_SC3)
+# include <platforms/4xx/sc3.h>
+#endif
+
 #if defined(CONFIG_SYCAMORE)
 #include <platforms/4xx/sycamore.h>
+#endif
+
+#if defined(CONFIG_TAIHU)
+#include <platforms/4xx/taihu.h>
 #endif
 
 #if defined(CONFIG_WALNUT)
@@ -85,6 +109,10 @@ void ppc4xx_init(unsigned long r3, unsigned long r4, unsigned long r5,
 
 #elif defined(CONFIG_44x)
 
+#if defined(CONFIG_ALPR)
+#include <platforms/4xx/alpr.h>
+#endif
+
 #if defined(CONFIG_BAMBOO)
 #include <platforms/4xx/bamboo.h>
 #endif
@@ -93,20 +121,40 @@ void ppc4xx_init(unsigned long r3, unsigned long r4, unsigned long r5,
 #include <platforms/4xx/ebony.h>
 #endif
 
+#if defined(CONFIG_KATMAI)
+#include <platforms/4xx/katmai.h>
+#endif
+
 #if defined(CONFIG_LUAN)
 #include <platforms/4xx/luan.h>
 #endif
 
-#if defined(CONFIG_YUCCA)
-#include <platforms/4xx/yucca.h>
+#if defined(CONFIG_LWMON5)
+#include <platforms/4xx/lwmon5.h>
 #endif
 
 #if defined(CONFIG_OCOTEA)
 #include <platforms/4xx/ocotea.h>
 #endif
 
+#if defined(CONFIG_P3P440)
+#include <platforms/4xx/p3p440.h>
+#endif
+
+#if defined(CONFIG_SEQUOIA) || defined(CONFIG_RAINIER)
+#include <platforms/4xx/sequoia.h>
+#endif
+
 #if defined(CONFIG_TAISHAN)
 #include <platforms/4xx/taishan.h>
+#endif
+
+#if defined(CONFIG_YELLOWSTONE) || defined(CONFIG_YOSEMITE)
+#include <platforms/4xx/yosemite.h>
+#endif
+
+#if defined(CONFIG_YUCCA)
+#include <platforms/4xx/yucca.h>
 #endif
 
 #ifndef __ASSEMBLY__

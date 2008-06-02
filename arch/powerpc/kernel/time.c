@@ -570,6 +570,14 @@ void timer_interrupt(struct pt_regs * regs)
 	 * some CPUs will continuue to take decrementer exceptions */
 	set_dec(DECREMENTER_MAX);
 
+#ifdef CONFIG_PPC_PASEMI_A2_WORKAROUNDS
+	extern spinlock_t native_tlbie_lock;
+
+	spin_lock(&native_tlbie_lock);
+	asm("ptesync");
+	spin_unlock(&native_tlbie_lock);
+#endif
+
 #ifdef CONFIG_PPC32
 	if (atomic_read(&ppc_n_lost_interrupts) != 0)
 		do_IRQ(regs);

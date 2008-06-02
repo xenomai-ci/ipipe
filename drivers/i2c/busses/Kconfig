@@ -246,7 +246,17 @@ config I2C_PIIX4
 
 config I2C_IBM_IIC
 	tristate "IBM PPC 4xx on-chip I2C interface"
-	depends on IBM_OCP
+	depends on !PPC_MERGE
+	help
+	  Say Y here if you want to use IIC peripheral found on 
+	  embedded IBM PPC 4xx based systems. 
+
+	  This driver can also be built as a module.  If so, the module
+	  will be called i2c-ibm_iic.
+
+config I2C_IBM_OF
+	tristate "IBM PPC 4xx on-chip I2C interface"
+	depends on PPC_MERGE
 	help
 	  Say Y here if you want to use IIC peripheral found on 
 	  embedded IBM PPC 4xx based systems. 
@@ -278,6 +288,16 @@ config I2C_IXP2000
 	  This driver is deprecated and will be dropped soon. Use i2c-gpio
 	  instead.
 
+config I2C_TQM82XX
+	tristate "MPC82XX Bitbanged I2C Interface"
+	depends on I2C && (8260 || 8272)
+	select I2C_ALGOBIT
+	help
+ 	  Say Y here if you have a MPC82XX based Board. 
+
+	  This support is also available as a module. If so, the module
+	  will be called i2c-tqm82xx.
+
 config I2C_POWERMAC
 	tristate "Powermac I2C interface"
 	depends on PPC_PMAC
@@ -301,6 +321,16 @@ config I2C_MPC
 
 	  This driver can also be built as a module.  If so, the module
 	  will be called i2c-mpc.
+
+config I2C_MPC8260
+        tristate "MPC 8260"
+        depends on I2C && PPC32
+        help
+          If you say yes to this option, support will be included for the
+          I2C interface on the MPC8260.
+
+          This driver can also be built as a module.  If so, the module
+          will be called i2c-m8260.
 
 config I2C_NFORCE2
 	tristate "Nvidia nForce2, nForce3 and nForce4"

@@ -1,7 +1,7 @@
 /*
  * Kilauea board specific routines
  *
- * Copyright 2007 DENX Software Engineering, Stefan Roese <sr@denx.de>
+ * Copyright 2007-2008 DENX Software Engineering, Stefan Roese <sr@denx.de>
  *
  * Based on the Walnut code by
  * Josh Boyer <jwboyer@linux.vnet.ibm.com>
@@ -20,6 +20,9 @@
 #include <asm/time.h>
 #include <asm/uic.h>
 #include <asm/pci-bridge.h>
+#include <asm/ppc4xx.h>
+#include <asm/dcr.h>
+#include <asm/dcr-regs.h>
 
 static __initdata struct of_device_id kilauea_of_bus[] = {
 	{ .compatible = "ibm,plb4", },
@@ -45,6 +48,13 @@ static int __init kilauea_probe(void)
 
 	ppc_pci_flags = PPC_PCI_REASSIGN_ALL_RSRC;
 
+	/*
+	 * 405EX(r) has SDR0_MFR[E0CS/E1CS] set after reset. This selects
+	 * the internal loopback mode. Clear these bits so that both EMACs
+	 * don't use loopback mode as deafult.
+	 */
+	mtdcri(SDR0, SDR0_MFR, mfdcri(SDR0, SDR0_MFR) & ~0x0c000000);
+
 	return 1;
 }
 
@@ -54,5 +64,6 @@ define_machine(kilauea) {
 	.progress 			= udbg_progress,
 	.init_IRQ 			= uic_init_tree,
 	.get_irq 			= uic_get_irq,
+	.restart			= ppc4xx_reset_system,
 	.calibrate_decr			= generic_calibrate_decr,
 };

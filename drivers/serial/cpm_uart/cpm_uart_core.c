@@ -978,9 +978,28 @@ static int cpm_uart_init_port(struct device_node *np,
 		pinfo->sccup = pram;
 	} else if (of_device_is_compatible(np, "fsl,cpm1-smc-uart") ||
 	           of_device_is_compatible(np, "fsl,cpm2-smc-uart")) {
+#if defined(CONFIG_CPM2)
+		u16 __iomem *pram_base;
+#endif
+		struct resource res;
+
 		pinfo->flags |= FLAG_SMC;
 		pinfo->smcp = mem;
 		pinfo->smcup = pram;
+
+		if (of_address_to_resource(np, 1, &res)) {
+			ret = -ENOMEM;
+			goto out_pram;
+		}
+#if defined(CONFIG_CPM2)
+		pram_base = of_iomap(np, 2);
+		if (!pram_base) {
+			ret = -ENOMEM;
+			goto out_pram;
+		}
+		*pram_base = res.start;
+		iounmap (pram_base);
+#endif
 	} else {
 		ret = -ENODEV;
 		goto out_pram;
@@ -1112,9 +1131,10 @@ int cpm_uart_drv_get_platform_data(struct platform_device *pdev, int is_con)
 	int idx;	/* It is UART_SMCx or UART_SCCx index */
 	struct uart_cpm_port *pinfo;
 	int line;
-	u32 mem, pram;
+	u32 mem, pram, pram_base;
+	int	base;
 
-        idx = pdata->fs_no = fs_uart_get_id(pdata);
+	idx = pdata->fs_no = fs_uart_get_id(pdata);
 
 	line = cpm_uart_id2nr(idx);
 	if(line < 0) {
@@ -1138,6 +1158,13 @@ int cpm_uart_drv_get_platform_data(struct platform_device *pdev, int is_con)
 	if (!(r = platform_get_resource_byname(pdev, IORESOURCE_MEM, "pram")))
 		return -EINVAL;
 	pram = (u32)ioremap(r->start, r->end - r->start + 1);
+	base = r->start;
+	
+	r = platform_get_resource_byname(pdev, IORESOURCE_MEM, "pram_base");
+	if (r) {
+		pram_base = r->start;
+		out_be16((u16 *)pram_base, base & 0xffff);
+	}
 
 	if(idx > fsid_smc2_uart) {
 		pinfo->sccp = (scc_t *)mem;
@@ -1306,7 +1333,7 @@ static int __init cpm_uart_console_setup(struct console *co, char *options)
 		pdata = pdev->dev.platform_data;
 		if (pdata)
 			if (pdata->init_ioports)
-    	                	pdata->init_ioports(pdata);
+    				pdata->init_ioports(pdata);
 
 		cpm_uart_drv_get_platform_data(pdev, 1);
 	}
@@ -1478,11 +1505,11 @@ static int cpm_uart_drv_probe(struct device *dev)
 	pr_debug("cpm_uart_drv_probe: Adding CPM UART %d\n", cpm_uart_id2nr(pdata->fs_no));
 
 	if (pdata->init_ioports)
-                pdata->init_ioports(pdata);
+		pdata->init_ioports(pdata);
 
 	ret = uart_add_one_port(&cpm_reg, &cpm_uart_ports[pdata->fs_no].port);
 
-        return ret;
+	return ret;
 }
 
 static int cpm_uart_drv_remove(struct device *dev)
@@ -1493,22 +1520,22 @@ static int cpm_uart_drv_remove(struct device *dev)
 	pr_debug("cpm_uart_drv_remove: Removing CPM UART %d\n",
 			cpm_uart_id2nr(pdata->fs_no));
 
-        uart_remove_one_port(&cpm_reg, &cpm_uart_ports[pdata->fs_no].port);
-        return 0;
+	uart_remove_one_port(&cpm_reg, &cpm_uart_ports[pdata->fs_no].port);
+	return 0;
 }
 
 static struct device_driver cpm_smc_uart_driver = {
-        .name   = "fsl-cpm-smc:uart",
-        .bus    = &platform_bus_type,
-        .probe  = cpm_uart_drv_probe,
-        .remove = cpm_uart_drv_remove,
+	.name   = "fsl-cpm-smc:uart",
+	.bus    = &platform_bus_type,
+	.probe  = cpm_uart_drv_probe,
+	.remove = cpm_uart_drv_remove,
 };
 
 static struct device_driver cpm_scc_uart_driver = {
-        .name   = "fsl-cpm-scc:uart",
-        .bus    = &platform_bus_type,
-        .probe  = cpm_uart_drv_probe,
-        .remove = cpm_uart_drv_remove,
+	.name   = "fsl-cpm-scc:uart",
+	.bus    = &platform_bus_type,
+	.probe  = cpm_uart_drv_probe,
+	.remove = cpm_uart_drv_remove,
 };
 
 /*

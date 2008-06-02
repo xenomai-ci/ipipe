@@ -309,7 +309,11 @@ static int __devinit fs_enet_mdio_probe(struct device *dev)
 	new_bus->name = "BB MII Bus",
 	new_bus->id = pdev->id;
 
+#if defined(CONFIG_TQM8272)
+	new_bus->phy_mask = ~0x1;
+#else
 	new_bus->phy_mask = ~0x9;
+#endif
 	pdata = (struct fs_mii_bb_platform_info *)pdev->dev.platform_data;
 
 	if (NULL == pdata) {

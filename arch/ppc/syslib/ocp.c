@@ -86,17 +86,22 @@ OCP_DEF_ATTR(paddr, "0x%08lx\n");
 OCP_DEF_ATTR(irq, "%d\n");
 OCP_DEF_ATTR(pm, "%lu\n");
 
+static struct device_attribute *dev_attr[] = {
+	&dev_attr_vendor,
+	&dev_attr_function,
+	&dev_attr_index,
+	&dev_attr_paddr,
+	&dev_attr_irq,
+	&dev_attr_pm,
+	NULL
+};
+
 void ocp_create_sysfs_dev_files(struct ocp_device *odev)
 {
 	struct device *dev = &odev->dev;
 
 	/* Current OCP device def attributes */
-	device_create_file(dev, &dev_attr_vendor);
-	device_create_file(dev, &dev_attr_function);
-	device_create_file(dev, &dev_attr_index);
-	device_create_file(dev, &dev_attr_paddr);
-	device_create_file(dev, &dev_attr_irq);
-	device_create_file(dev, &dev_attr_pm);
+	ocp_create_files(dev, dev_attr);
 	/* Current OCP device additions attributes */
 	if (odev->def->additions && odev->def->show)
 		odev->def->show(dev);
@@ -455,9 +460,13 @@ ocp_driver_init(void)
 		return 1;
 	strcpy(ocp_bus->bus_id, "ocp");
 
-	bus_register(&ocp_bus_type);
+	ret = bus_register(&ocp_bus_type);
+	if (unlikely(ret))
+		goto err2;
 
-	device_register(ocp_bus);
+	ret = device_register(ocp_bus);
+	if (unlikely(ret))
+		goto err1;
 
 	/* Put each OCP device into global device list */
 	list_for_each(entry, &ocp_devices) {
@@ -465,14 +474,27 @@ ocp_driver_init(void)
 		sprintf(dev->dev.bus_id, "%2.2x", index);
 		dev->dev.parent = ocp_bus;
 		dev->dev.bus = &ocp_bus_type;
-		device_register(&dev->dev);
-		ocp_create_sysfs_dev_files(dev);
+		ret = device_register(&dev->dev);
+		if (unlikely(ret)) {
+			printk(KERN_ERR "Registering %dth OCP device failed", index);
+			strcpy(dev->dev.bus_id,"no");
+			dev->dev.bus = NULL;
+			dev->dev.parent = NULL;
+		} else {
+			ocp_create_sysfs_dev_files(dev);
+		}
 		index++;
 	}
 
 	DBG(("ocp: ocp_driver_init()... done.\n"));
 
 	return 0;
+err1:
+	bus_unregister(&ocp_bus_type);
+err2:
+	kfree(ocp_bus);
+	printk(KERN_ERR "OCP init failed\n");
+	return ret;
 }
 
 postcore_initcall(ocp_driver_init);

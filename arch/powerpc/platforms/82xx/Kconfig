@@ -3,6 +3,17 @@ choice
 	depends on PPC_82xx
 	default MPC8272_ADS
 
+config MGCOGE
+	bool "Keymile MGCOGE"
+	select DEFAULT_UIMAGE
+	select 8272
+	select 8260
+	select FSL_SOC
+	select PPC_CPM_NEW_BINDING
+	help
+	  This option enables support for the Keymile MGCOGE board
+
+
 config MPC8272_ADS
 	bool "Freescale MPC8272 ADS"
 	select DEFAULT_UIMAGE
