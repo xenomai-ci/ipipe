@@ -71,7 +71,7 @@
 #endif
 
 int __irq_offset_value;
-static int ppc_spurious_interrupts;
+int ppc_spurious_interrupts;
 
 #ifdef CONFIG_PPC32
 EXPORT_SYMBOL(__irq_offset_value);
@@ -97,6 +97,8 @@ extern atomic_t ipi_sent;
 EXPORT_SYMBOL(irq_desc);
 
 int distribute_irqs = 1;
+
+#ifdef CONFIG_SOFTDISABLE
 
 static inline unsigned long get_hard_enabled(void)
 {
@@ -174,6 +176,9 @@ void local_irq_restore(unsigned long en)
 
 	__hard_irq_enable();
 }
+
+#endif /* !CONFIG_SOFTDISABLE */
+
 #endif /* CONFIG_PPC64 */
 
 int show_interrupts(struct seq_file *p, void *v)

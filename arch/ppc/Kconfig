@@ -918,6 +918,24 @@ config NR_CPUS
 	depends on SMP
 	default "4"
 
+source "kernel/ipipe/Kconfig"
+
+if IPIPE
+config RUNLATCH
+	bool "Enable RUNLATCH support"
+	depends on PPC64
+	default n if IPIPE
+	---help---
+	This option is costly latency-wise, so default is to keep
+	it off when the interrupt pipeline is enabled.
+endif
+if !IPIPE
+config RUNLATCH
+	bool
+	depends on PPC64
+	default y
+endif
+
 config HIGHMEM
 	bool "High memory support"
 

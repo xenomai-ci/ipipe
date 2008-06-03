@@ -244,7 +244,7 @@ EXPORT_SYMBOL(__res);
 
 EXPORT_SYMBOL(next_mmu_context);
 EXPORT_SYMBOL(set_context);
-EXPORT_SYMBOL(disarm_decr);
+EXPORT_PER_CPU_SYMBOL(disarm_decr);
 #ifdef CONFIG_PPC_STD_MMU
 extern long mol_trampoline;
 EXPORT_SYMBOL(mol_trampoline); /* For MOL */

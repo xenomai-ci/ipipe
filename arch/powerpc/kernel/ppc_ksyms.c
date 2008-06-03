@@ -45,7 +45,7 @@
 #include <asm/signal.h>
 #include <asm/dcr.h>
 
-#ifdef CONFIG_PPC64
+#if defined(CONFIG_PPC64) && defined(CONFIG_SOFTDISABLE)
 EXPORT_SYMBOL(local_irq_restore);
 #endif
 

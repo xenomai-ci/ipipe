@@ -291,7 +291,7 @@ const struct seq_operations cpuinfo_op = {
  * from the address that it was linked at, so we must use RELOC/PTRRELOC
  * to access static data (including strings).  -- paulus
  */
-__init
+__init notrace
 unsigned long
 early_init(int r3, int r4, int r5)
 {
