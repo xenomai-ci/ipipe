@@ -925,7 +925,7 @@ do_copy:
 		do {
 			/* restore dpages set */
 			sh->dev[i].dpage = NULL;
-		} while (i++ != disks);
+		} while (++i != disks);
 		fswrite = 0;
 		break;
 	}
