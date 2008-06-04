@@ -3152,15 +3152,6 @@ static void ppc440spe_adma_pqzero_sum_set_src_mult (
 }
 
 /**
- * ppc440spe_adma_dependency_added - schedule clean-up
- */
-static void ppc440spe_adma_dependency_added(struct dma_chan *chan)
-{
-	ppc440spe_ch_t *ppc440spe_chan = to_ppc440spe_adma_chan(chan);
-	tasklet_schedule(&ppc440spe_chan->irq_tasklet);
-}
-
-/**
  * ppc440spe_adma_free_chan_resources - free the resources allocated
  */
 static void ppc440spe_adma_free_chan_resources(struct dma_chan *chan)
@@ -3413,7 +3404,6 @@ static int __devinit ppc440spe_adma_probe(struct platform_device *pdev)
 	    ppc440spe_adma_free_chan_resources;
 	adev->common.device_is_tx_complete = ppc440spe_adma_is_complete;
 	adev->common.device_issue_pending = ppc440spe_adma_issue_pending;
-	adev->common.device_dependency_added = ppc440spe_adma_dependency_added;
 	adev->common.dev = &pdev->dev;
 
 	/* set prep routines based on capability */
