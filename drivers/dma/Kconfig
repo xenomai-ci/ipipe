@@ -56,6 +56,9 @@ config FSL_DMA
 	  MPC8560/40, MPC8555, MPC8548 and MPC8641 processors.
 	  The MPC8349, MPC8360 is also supported.
 
+config ARCH_HAS_ASYNC_TX_FIND_CHANNEL
+	bool
+
 config DMA_ENGINE
 	bool
 
