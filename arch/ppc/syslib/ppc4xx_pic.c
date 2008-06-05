@@ -323,13 +323,18 @@ void __init ppc4xx_pic_init(void)
 	/* Attach low-level handlers */
 	for (i = 0; i < (NR_UICS << 5); ++i) {
 		irq_desc[i].chip = &__uic[i >> 5].decl;
-		if (is_level_sensitive(i))
+		if (is_level_sensitive(i)) {
 			irq_desc[i].status |= IRQ_LEVEL;
 #ifdef CONFIG_IPIPE
-		/* We want mask_ack/unmask for all. */
-		irq_desc[i].ipipe_ack = &__ipipe_ack_level_irq;
-		irq_desc[i].ipipe_end = &__ipipe_end_level_irq;
+			irq_desc[i].ipipe_ack = &__ipipe_ack_level_irq;
+			irq_desc[i].ipipe_end = &__ipipe_end_level_irq;
 #endif
+		} else {
+#ifdef CONFIG_IPIPE
+			irq_desc[i].ipipe_ack = &__ipipe_ack_edge_irq;
+			irq_desc[i].ipipe_end = &__ipipe_end_edge_irq;
+#endif
+		}
 	}
 
 	ppc_md.get_irq = ppc4xx_pic_get_irq;
