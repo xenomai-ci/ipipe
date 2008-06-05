@@ -44,10 +44,10 @@
 #include <asm/paca.h>
 #endif
 
-#define IPIPE_ARCH_STRING	"2.1-03"
+#define IPIPE_ARCH_STRING	"2.1-04"
 #define IPIPE_MAJOR_NUMBER	2
 #define IPIPE_MINOR_NUMBER	1
-#define IPIPE_PATCH_NUMBER	3
+#define IPIPE_PATCH_NUMBER	4
 
 #define prepare_arch_switch(next)			\
 	do {						\
