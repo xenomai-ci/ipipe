@@ -739,7 +739,6 @@ static void openpic_enable_irq(u_int irq)
 	do {
 		mb(); /* sync is probably useless here */
 	} while (openpic_readfield(vpp, OPENPIC_MASK));
-	ipipe_irq_unlock(irq);
 	local_irq_restore_hw_cond(flags);
 }
 
@@ -752,7 +751,6 @@ static void openpic_disable_irq(u_int irq)
 	check_arg_irq(irq);
 	vpp = &ISR[irq - open_pic_irq_offset]->Vector_Priority;
 	local_irq_save_hw_cond(flags);
-	ipipe_irq_lock(irq);
 	openpic_setfield(vpp, OPENPIC_MASK);
 	/* make sure mask gets to controller before we return to user */
 	do {

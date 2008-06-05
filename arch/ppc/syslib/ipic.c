@@ -389,7 +389,6 @@ static void ipic_enable_irq(unsigned int irq)
 	temp = ipic_read(ipic->regs, ipic_info[src].mask);
 	temp |= (1 << (31 - ipic_info[src].bit));
 	ipic_write(ipic->regs, ipic_info[src].mask, temp);
-	ipipe_irq_unlock(irq);
 	local_irq_restore_hw_cond(flags);
 }
 
@@ -401,7 +400,6 @@ static void ipic_disable_irq(unsigned int irq)
 	u32 temp;
 
 	local_irq_save_hw_cond(flags);
-	ipipe_irq_lock(irq);
 	temp = ipic_read(ipic->regs, ipic_info[src].mask);
 	temp &= ~(1 << (31 - ipic_info[src].bit));
 	ipic_write(ipic->regs, ipic_info[src].mask, temp);
