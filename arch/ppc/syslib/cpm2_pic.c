@@ -58,7 +58,6 @@ static void cpm2_mask_irq(unsigned int irq_nr)
 
 	simr = &(cpm2_immr->im_intctl.ic_simrh);
 	local_irq_save_hw_cond(flags);
-	ipipe_irq_lock(irq_nr);
 	ppc_cached_irq_mask[word] &= ~(1 << bit);
 	simr[word] = ppc_cached_irq_mask[word];
 	local_irq_restore_hw_cond(flags);
@@ -79,7 +78,6 @@ static void cpm2_unmask_irq(unsigned int irq_nr)
 	local_irq_save_hw_cond(flags);
 	ppc_cached_irq_mask[word] |= 1 << bit;
 	simr[word] = ppc_cached_irq_mask[word];
-	ipipe_irq_unlock(irq_nr);
 	local_irq_restore_hw_cond(flags);
 }
 
@@ -97,7 +95,6 @@ static void cpm2_mask_and_ack(unsigned int irq_nr)
 	simr = &(cpm2_immr->im_intctl.ic_simrh);
 	sipnr = &(cpm2_immr->im_intctl.ic_sipnrh);
 	local_irq_save_hw_cond(flags);
-	ipipe_irq_lock(irq_nr);
 	ppc_cached_irq_mask[word] &= ~(1 << bit);
 	simr[word] = ppc_cached_irq_mask[word];
 	sipnr[word] = 1 << bit;
@@ -122,7 +119,6 @@ static void cpm2_end_irq(unsigned int irq_nr)
 		local_irq_save_hw_cond(flags);
 		ppc_cached_irq_mask[word] |= 1 << bit;
 		simr[word] = ppc_cached_irq_mask[word];
-		ipipe_irq_unlock(irq_nr);
 		local_irq_restore_hw_cond(flags);
 		/*
 		 * Work around large numbers of spurious IRQs on PowerPC 82xx

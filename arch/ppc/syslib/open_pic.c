@@ -739,7 +739,6 @@ static void openpic_enable_irq(u_int irq)
 	do {
 		mb(); /* sync is probably useless here */
 	} while (openpic_readfield(vpp, OPENPIC_MASK));
-	ipipe_irq_unlock(irq);
 	local_irq_restore_hw_cond(flags);
 }
 
