@@ -82,32 +82,24 @@ static void cpm2_mask_irq(unsigned int virq)
 {
 	int	bit, word;
 	unsigned int irq_nr = virq_to_hw(virq);
-	unsigned long flags;
 
 	bit = irq_to_siubit[irq_nr];
 	word = irq_to_siureg[irq_nr];
 
-	local_irq_save_hw_cond(flags);
-	ipipe_irq_lock(irq_nr);
 	ppc_cached_irq_mask[word] &= ~(1 << bit);
 	out_be32(&cpm2_intctl->ic_simrh + word, ppc_cached_irq_mask[word]);
-	local_irq_restore_hw_cond(flags);
 }
 
 static void cpm2_unmask_irq(unsigned int virq)
 {
 	int	bit, word;
 	unsigned int irq_nr = virq_to_hw(virq);
-	unsigned long flags;
 
 	bit = irq_to_siubit[irq_nr];
 	word = irq_to_siureg[irq_nr];
 
-	local_irq_save_hw_cond(flags);
 	ppc_cached_irq_mask[word] |= 1 << bit;
 	out_be32(&cpm2_intctl->ic_simrh + word, ppc_cached_irq_mask[word]);
-	ipipe_irq_unlock(irq_nr);
-	local_irq_restore_hw_cond(flags);
 }
 
 static void cpm2_ack(unsigned int virq)
@@ -125,7 +117,6 @@ static void cpm2_end_irq(unsigned int virq)
 {
 	int	bit, word;
 	unsigned int irq_nr = virq_to_hw(virq);
-	unsigned long flags;
 
 	if (!ipipe_root_domain_p ||
 	    (!(irq_desc[irq_nr].status & (IRQ_DISABLED|IRQ_INPROGRESS))
@@ -134,11 +125,8 @@ static void cpm2_end_irq(unsigned int virq)
 		bit = irq_to_siubit[irq_nr];
 		word = irq_to_siureg[irq_nr];
 
-		local_irq_save_hw_cond(flags);
 		ppc_cached_irq_mask[word] |= 1 << bit;
 		out_be32(&cpm2_intctl->ic_simrh + word, ppc_cached_irq_mask[word]);
-		ipipe_irq_unlock(irq_nr);
-		local_irq_restore_hw_cond(flags);
 
 		/*
 		 * Work around large numbers of spurious IRQs on PowerPC 82xx
