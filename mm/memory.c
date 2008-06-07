@@ -587,8 +587,14 @@ again:
 			if (is_cow_mapping(vma->vm_flags)) {
 				if (((vma->vm_flags|src_mm->def_flags) & (VM_LOCKED|VM_PINNED))
 				    == (VM_LOCKED|VM_PINNED)) {
+					arch_leave_lazy_mmu_mode();
+					spin_unlock(src_ptl);
+					pte_unmap_nested(src_pte);
+					add_mm_rss(dst_mm, rss[0], rss[1]);
+					pte_unmap_unlock(dst_pte, dst_ptl);
+					cond_resched();
 					do_cow_break = 1;
-					break;
+					goto again;
 				}
 			}
 		}
