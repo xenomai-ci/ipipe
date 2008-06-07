@@ -721,6 +721,9 @@ EXPORT_SYMBOL(__ipipe_test_and_stall_root);
 EXPORT_SYMBOL_GPL(__switch_to);
 EXPORT_SYMBOL_GPL(show_stack);
 EXPORT_SYMBOL_GPL(_switch);
+#ifdef CONFIG_PPC_MERGE
+EXPORT_SYMBOL_GPL(last_task_used_math);
+#endif
 EXPORT_SYMBOL_GPL(tasklist_lock);
 #ifdef CONFIG_PPC64
 EXPORT_PER_CPU_SYMBOL(ppc64_tlb_batch);
