@@ -706,7 +706,9 @@ EXPORT_SYMBOL(__ipipe_test_root);
 EXPORT_SYMBOL(__ipipe_test_and_stall_root);
 #endif
 
+#ifdef CONFIG_PPC_MERGE
 EXPORT_SYMBOL(disarm_decr);
+#endif
 EXPORT_SYMBOL_GPL(__switch_to);
 EXPORT_SYMBOL_GPL(show_stack);
 EXPORT_SYMBOL_GPL(_switch);
