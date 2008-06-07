@@ -290,6 +290,8 @@ endmenu
 
 menu "Platform options"
 
+source "kernel/ipipe/Kconfig"
+
 config FADS
 	bool
 

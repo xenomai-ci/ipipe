@@ -132,8 +132,23 @@ transfer_to_handler:
          * check for stack overflow
          */
 	lwz	r9,THREAD_INFO-THREAD(r12)
+#ifdef CONFIG_IPIPE
+	/* Allow for private kernel-based stacks: those must not cause
+	the stack overflow detection to trigger when some activity has
+	been preempted over them. We just check if the kernel stack is
+	not treading on the memory area ranging from
+	&current->thread_info to &current->thread, which is coarser
+	than the vanilla implementation, but likely sensitive enough
+	to catch overflows soon enough though.*/
+	addi	r12,r9,THREAD
+	cmplw	0,r1,r9
+	cmplw	1,r1,r12
+	crand	1,1,4
+	bgt-	stack_ovf		/* if r9 < r1 < r9+THREAD */
+#else /* CONFIG_IPIPE */
 	cmplw	r1,r9			/* if r1 <= current->thread_info */
 	ble-	stack_ovf		/* then the kernel stack overflowed */
+#endif /* CONFIG_IPIPE */
 5:
 #ifdef CONFIG_6xx
 	tophys(r9,r9)			/* check local flags */
@@ -198,6 +213,21 @@ _GLOBAL(DoSyscall)
 	lwz	r11,_CCR(r1)	/* Clear SO bit in CR */
 	rlwinm	r11,r11,0,4,2
 	stw	r11,_CCR(r1)
+#ifdef CONFIG_IPIPE
+	addi	r3,r1,GPR0
+	bl	__ipipe_syscall_root
+	cmpwi	r3,0
+	lwz	r3,GPR3(r1)
+	lwz	r0,GPR0(r1)
+	lwz	r4,GPR4(r1)
+	lwz	r5,GPR5(r1)
+	lwz	r6,GPR6(r1)
+	lwz	r7,GPR7(r1)
+	lwz	r8,GPR8(r1)
+	lwz	r9,GPR9(r1)
+	bgt	.ipipe_end_syscall
+	blt	ret_from_syscall
+#endif /* CONFIG_IPIPE */
 #ifdef SHOW_SYSCALLS
 	bl	do_show_syscall
 #endif /* SHOW_SYSCALLS */
@@ -260,11 +290,34 @@ syscall_exit_cont:
 	SYNC
 	RFI
 
+#ifdef CONFIG_IPIPE
+.ipipe_end_syscall:
+	LOAD_MSR_KERNEL(r10,MSR_KERNEL)	/* doesn't include MSR_EE */
+	SYNC
+	MTMSRD(r10)
+	b syscall_exit_cont
+#endif /* CONFIG_IPIPE */
+
 66:	li	r3,-ENOSYS
 	b	ret_from_syscall
 
 	.globl	ret_from_fork
 ret_from_fork:
+#ifdef CONFIG_IPIPE
+#ifdef CONFIG_IPIPE_TRACE_IRQSOFF
+	stwu	r1,-4(r1)
+	stw	r3,0(r1)
+	lis	r3,(0x80000000)@h
+	ori	r3,r3,(0x80000000)@l
+	bl	ipipe_trace_end
+	lwz	r3,0(r1)
+	addi	r1,r1,4
+#endif /* CONFIG_IPIPE_TRACE_IRQSOFF */
+	LOAD_MSR_KERNEL(r10,MSR_KERNEL)
+	ori	r10,r10,MSR_EE
+	SYNC
+	MTMSRD(r10)
+#endif /* CONFIG_IPIPE */
 	REST_NVGPRS(r1)
 	bl	schedule_tail
 	li	r3,0
@@ -630,6 +683,11 @@ ret_from_except:
 	SYNC			/* Some chip revs have problems here... */
 	MTMSRD(r10)		/* disable interrupts */
 
+#ifdef CONFIG_IPIPE
+        bl __ipipe_check_root
+        cmpwi   r3, 0
+        beq- restore
+#endif /* CONFIG_IPIPE */
 	lwz	r3,_MSR(r1)	/* Returning to user mode? */
 	andi.	r0,r3,MSR_PR
 	beq	resume_kernel
@@ -665,11 +723,37 @@ resume_kernel:
 	beq+	restore
 	andi.	r0,r3,MSR_EE	/* interrupts off? */
 	beq	restore		/* don't schedule if so */
+#ifdef CONFIG_IPIPE
+#ifdef CONFIG_IPIPE_TRACE_IRQSOFF
+	lis	r3,(0x80000000)@h
+	ori	r3,r3,(0x80000000)@l
+	bl	ipipe_trace_end
+#endif /* CONFIG_IPIPE_TRACE_IRQSOFF */
+	LOAD_MSR_KERNEL(r10,MSR_KERNEL)
+	ori	r10,r10,MSR_EE
+	SYNC
+	MTMSRD(r10)
+	bl	__ipipe_fast_stall_root
+#endif /* CONFIG_IPIPE */
 1:	bl	preempt_schedule_irq
 	rlwinm	r9,r1,0,0,18
 	lwz	r3,TI_FLAGS(r9)
 	andi.	r0,r3,_TIF_NEED_RESCHED
 	bne-	1b
+#ifdef CONFIG_IPIPE
+	bl	__ipipe_fast_unstall_root
+	LOAD_MSR_KERNEL(r10,MSR_KERNEL)
+	SYNC
+	MTMSRD(r10)
+#ifdef CONFIG_IPIPE_TRACE_IRQSOFF
+	lwz	r3,_MSR(r1)
+	andi.	r0,r3,MSR_EE
+	bne	restore
+	lis	r3,(0x80000000)@h
+	ori	r3,r3,(0x80000000)@l
+	bl	ipipe_trace_begin
+#endif /* CONFIG_IPIPE_TRACE_IRQSOFF */
+#endif /* CONFIG_IPIPE */
 #else
 resume_kernel:
 #endif /* CONFIG_PREEMPT */
@@ -890,6 +974,13 @@ do_user_signal:			/* r10 contains MSR_KERNEL here */
 	bl	do_signal
 	REST_NVGPRS(r1)
 	b	recheck
+
+#ifdef CONFIG_IPIPE
+_GLOBAL(__ipipe_ret_from_except)
+        cmpwi   r3, 0
+        bne+ ret_from_except
+        b restore
+#endif /* CONFIG_IPIPE */
 
 /*
  * We come here when we are at the end of handling an exception

@@ -41,40 +41,52 @@ extern unsigned char ppc4xx_uic_ext_irq_cfg[] __attribute__ ((weak));
 static void ppc4xx_uic##n##_enable(unsigned int irq)			\
 {									\
 	u32 mask = IRQ_MASK_UIC##n(irq);				\
+	unsigned long flags;						\
+	local_irq_save_hw_cond(flags);					\
 	if (irq_desc[irq].status & IRQ_LEVEL)				\
 		mtdcr(DCRN_UIC_SR(UIC##n), mask);			\
 	ppc_cached_irq_mask[n] |= mask;					\
 	mtdcr(DCRN_UIC_ER(UIC##n), ppc_cached_irq_mask[n]);		\
+	local_irq_restore_hw_cond(flags);				\
 }									\
 									\
 static void ppc4xx_uic##n##_disable(unsigned int irq)			\
 {									\
+	unsigned long flags;						\
+	local_irq_save_hw_cond(flags);					\
 	ppc_cached_irq_mask[n] &= ~IRQ_MASK_UIC##n(irq);		\
 	mtdcr(DCRN_UIC_ER(UIC##n), ppc_cached_irq_mask[n]);		\
 	ACK_UIC##n##_PARENT						\
+	local_irq_restore_hw_cond(flags);				\
 }									\
 									\
 static void ppc4xx_uic##n##_ack(unsigned int irq)			\
 {									\
 	u32 mask = IRQ_MASK_UIC##n(irq);				\
+	unsigned long flags;						\
+	local_irq_save_hw_cond(flags);					\
 	ppc_cached_irq_mask[n] &= ~mask;				\
 	mtdcr(DCRN_UIC_ER(UIC##n), ppc_cached_irq_mask[n]);		\
 	mtdcr(DCRN_UIC_SR(UIC##n), mask);				\
 	ACK_UIC##n##_PARENT						\
+	local_irq_restore_hw_cond(flags);				\
 }									\
 									\
 static void ppc4xx_uic##n##_end(unsigned int irq)			\
 {									\
 	unsigned int status = irq_desc[irq].status;			\
 	u32 mask = IRQ_MASK_UIC##n(irq);				\
+	unsigned long flags;						\
+	local_irq_save_hw_cond(flags);					\
 	if (status & IRQ_LEVEL) {					\
 		mtdcr(DCRN_UIC_SR(UIC##n), mask);			\
 		ACK_UIC##n##_PARENT					\
 	}								\
-	if (!(status & (IRQ_DISABLED | IRQ_INPROGRESS))) {		\
+	if (!ipipe_root_domain_p || !(status & (IRQ_DISABLED | IRQ_INPROGRESS))) {		\
 		ppc_cached_irq_mask[n] |= mask;				\
 		mtdcr(DCRN_UIC_ER(UIC##n), ppc_cached_irq_mask[n]);	\
 	}								\
+	local_irq_restore_hw_cond(flags);				\
 }
 
 #define DECLARE_UIC(n)							\
@@ -84,6 +96,8 @@ static void ppc4xx_uic##n##_end(unsigned int irq)			\
 	.disable 	= ppc4xx_uic##n##_disable,			\
 	.ack 		= ppc4xx_uic##n##_ack,				\
 	.end 		= ppc4xx_uic##n##_end,				\
+	.mask 		= ppc4xx_uic##n##_disable,			\
+	.unmask		= ppc4xx_uic##n##_enable,			\
 }									\
 
 #if NR_UICS == 4
@@ -278,6 +292,11 @@ void __init ppc4xx_pic_init(void)
 		irq_desc[i].chip = &__uic[i >> 5].decl;
 		if (is_level_sensitive(i))
 			irq_desc[i].status |= IRQ_LEVEL;
+#ifdef CONFIG_IPIPE
+		/* We want mask_ack/unmask for all. */
+		irq_desc[i].ipipe_ack = &__ipipe_ack_level_irq;
+		irq_desc[i].ipipe_end = &__ipipe_end_level_irq;
+#endif
 	}
 
 	ppc_md.get_irq = ppc4xx_pic_get_irq;

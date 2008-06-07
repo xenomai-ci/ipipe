@@ -382,40 +382,50 @@ static void ipic_enable_irq(unsigned int irq)
 {
 	struct ipic *ipic = ipic_from_irq(irq);
 	unsigned int src = irq - ipic->irq_offset;
+	unsigned long flags;
 	u32 temp;
 
+	local_irq_save_hw_cond(flags);
 	temp = ipic_read(ipic->regs, ipic_info[src].mask);
 	temp |= (1 << (31 - ipic_info[src].bit));
 	ipic_write(ipic->regs, ipic_info[src].mask, temp);
+	local_irq_restore_hw_cond(flags);
 }
 
 static void ipic_disable_irq(unsigned int irq)
 {
 	struct ipic *ipic = ipic_from_irq(irq);
 	unsigned int src = irq - ipic->irq_offset;
+	unsigned long flags;
 	u32 temp;
 
+	local_irq_save_hw_cond(flags);
 	temp = ipic_read(ipic->regs, ipic_info[src].mask);
 	temp &= ~(1 << (31 - ipic_info[src].bit));
 	ipic_write(ipic->regs, ipic_info[src].mask, temp);
+	local_irq_restore_hw_cond(flags);
 }
 
 static void ipic_disable_irq_and_ack(unsigned int irq)
 {
 	struct ipic *ipic = ipic_from_irq(irq);
 	unsigned int src = irq - ipic->irq_offset;
+	unsigned long flags;
 	u32 temp;
 
 	ipic_disable_irq(irq);
 
+	local_irq_save_hw_cond(flags);
 	temp = ipic_read(ipic->regs, ipic_info[src].pend);
 	temp |= (1 << (31 - ipic_info[src].bit));
 	ipic_write(ipic->regs, ipic_info[src].pend, temp);
+	local_irq_restore_hw_cond(flags);
 }
 
 static void ipic_end_irq(unsigned int irq)
 {
-	if (!(irq_desc[irq].status & (IRQ_DISABLED|IRQ_INPROGRESS)))
+	if (!ipipe_root_domain_p ||
+	    !(irq_desc[irq].status & (IRQ_DISABLED|IRQ_INPROGRESS)))
 		ipic_enable_irq(irq);
 }
 
@@ -425,6 +435,11 @@ struct hw_interrupt_type ipic = {
 	.disable = ipic_disable_irq,
 	.ack = ipic_disable_irq_and_ack,
 	.end = ipic_end_irq,
+#ifdef CONFIG_IPIPE
+	.mask_ack = ipic_disable_irq_and_ack,
+	.mask = ipic_disable_irq,
+	.unmask = ipic_enable_irq,
+#endif
 };
 
 void __init ipic_init(phys_addr_t phys_addr,
@@ -474,6 +489,10 @@ void __init ipic_init(phys_addr_t phys_addr,
 	for (i = 0 ; i < NR_IPIC_INTS ; i++) {
 		irq_desc[i+irq_offset].chip = &ipic;
 		irq_desc[i+irq_offset].status = IRQ_LEVEL;
+#ifdef CONFIG_IPIPE
+		irq_desc[i+irq_offset].ipipe_ack = &__ipipe_ack_level_irq;
+		irq_desc[i+irq_offset].ipipe_end = &__ipipe_end_level_irq;
+#endif
 	}
 
 	temp = 0;
@@ -496,6 +515,7 @@ int ipic_set_priority(unsigned int irq, unsigned int priority)
 {
 	struct ipic *ipic = ipic_from_irq(irq);
 	unsigned int src = irq - ipic->irq_offset;
+	unsigned long flags;
 	u32 temp;
 
 	if (priority > 7)
@@ -504,6 +524,8 @@ int ipic_set_priority(unsigned int irq, unsigned int priority)
 		return -EINVAL;
 	if (ipic_info[src].prio == 0)
 		return -EINVAL;
+
+	local_irq_save_hw_cond(flags);
 
 	temp = ipic_read(ipic->regs, ipic_info[src].prio);
 
@@ -517,6 +539,8 @@ int ipic_set_priority(unsigned int irq, unsigned int priority)
 
 	ipic_write(ipic->regs, ipic_info[src].prio, temp);
 
+	local_irq_restore_hw_cond(flags);
+
 	return 0;
 }
 
@@ -524,7 +548,10 @@ void ipic_set_highest_priority(unsigned int irq)
 {
 	struct ipic *ipic = ipic_from_irq(irq);
 	unsigned int src = irq - ipic->irq_offset;
+	unsigned long flags;
 	u32 temp;
+
+	local_irq_save_hw_cond(flags);
 
 	temp = ipic_read(ipic->regs, IPIC_SICFR);
 
@@ -533,6 +560,8 @@ void ipic_set_highest_priority(unsigned int irq)
 	temp |= (src & 0x7f) << 24;
 
 	ipic_write(ipic->regs, IPIC_SICFR, temp);
+
+	local_irq_restore_hw_cond(flags);
 }
 
 void ipic_set_default_priority(void)

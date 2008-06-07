@@ -90,6 +90,11 @@ struct hw_interrupt_type open_pic = {
 	.enable		= openpic_enable_irq,
 	.disable	= openpic_disable_irq,
 	.ack		= openpic_ack_irq,
+#ifdef CONFIG_IPIPE
+	.mask_ack	= openpic_ack_irq,
+	.mask		= openpic_disable_irq,
+	.unmask		= openpic_enable_irq,
+#endif
 	.end		= openpic_end_irq,
 	.set_affinity	= openpic_set_affinity,
 };
@@ -406,8 +411,14 @@ void __init openpic_init(int offset)
 	}
 
 	/* Init descriptors */
-	for (i = offset; i < NumSources + offset; i++)
+	for (i = offset; i < NumSources + offset; i++) {
 		irq_desc[i].chip = &open_pic;
+#ifdef CONFIG_IPIPE
+		/* We want mask_ack/unmask for all. */
+		irq_desc[i].ipipe_ack = &__ipipe_ack_level_irq;
+		irq_desc[i].ipipe_end = &__ipipe_end_level_irq;
+#endif
+	}
 
 	/* Initialize the spurious interrupt */
 	if (ppc_md.progress) ppc_md.progress("openpic: spurious",0x3bd);
@@ -718,29 +729,35 @@ openpic_hookup_cascade(u_int irq, char *name,
 static void openpic_enable_irq(u_int irq)
 {
 	volatile u_int __iomem *vpp;
+	unsigned long flags;
 
 	check_arg_irq(irq);
 	vpp = &ISR[irq - open_pic_irq_offset]->Vector_Priority;
+	local_irq_save_hw_cond(flags);
 	openpic_clearfield(vpp, OPENPIC_MASK);
 	/* make sure mask gets to controller before we return to user */
 	do {
 		mb(); /* sync is probably useless here */
 	} while (openpic_readfield(vpp, OPENPIC_MASK));
+	local_irq_restore_hw_cond(flags);
 }
 
 static void openpic_disable_irq(u_int irq)
 {
 	volatile u_int __iomem *vpp;
+	unsigned long flags;
 	u32 vp;
 
 	check_arg_irq(irq);
 	vpp = &ISR[irq - open_pic_irq_offset]->Vector_Priority;
+	local_irq_save_hw_cond(flags);
 	openpic_setfield(vpp, OPENPIC_MASK);
 	/* make sure mask gets to controller before we return to user */
 	do {
 		mb();  /* sync is probably useless here */
 		vp = openpic_readfield(vpp, OPENPIC_MASK | OPENPIC_ACTIVITY);
 	} while((vp & OPENPIC_ACTIVITY) && !(vp & OPENPIC_MASK));
+	local_irq_restore_hw_cond(flags);
 }
 
 #ifdef CONFIG_SMP
@@ -821,7 +838,7 @@ static void openpic_set_sense(u_int irq, int sense)
  */
 static void openpic_ack_irq(unsigned int irq_nr)
 {
-#ifdef __SLOW_VERSION__
+#if defined(__SLOW_VERSION__) || defined(CONFIG_IPIPE)
 	openpic_disable_irq(irq_nr);
 	openpic_eoi();
 #else
@@ -832,9 +849,10 @@ static void openpic_ack_irq(unsigned int irq_nr)
 
 static void openpic_end_irq(unsigned int irq_nr)
 {
-#ifdef __SLOW_VERSION__
-	if (!(irq_desc[irq_nr].status & (IRQ_DISABLED|IRQ_INPROGRESS))
-	    && irq_desc[irq_nr].action)
+#if defined(__SLOW_VERSION__) || defined(CONFIG_IPIPE)
+	if (!ipipe_root_domain_p ||
+	    (!(irq_desc[irq_nr].status & (IRQ_DISABLED|IRQ_INPROGRESS))
+	     && irq_desc[irq_nr].action))
 		openpic_enable_irq(irq_nr);
 #else
 	if ((irq_desc[irq_nr].status & IRQ_LEVEL) != 0)

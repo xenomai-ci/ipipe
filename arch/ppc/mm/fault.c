@@ -113,6 +113,9 @@ int do_page_fault(struct pt_regs *regs, unsigned long address,
 		is_write = error_code & 0x02000000;
 #endif /* CONFIG_4xx || CONFIG_BOOKE */
 
+ 	if (ipipe_trap_notify(IPIPE_TRAP_ACCESS,regs))
+ 	    	return 0;
+ 
 #if defined(CONFIG_XMON) || defined(CONFIG_KGDB)
 	if (debugger_fault_handler && TRAP(regs) == 0x300) {
 		debugger_fault_handler(regs);

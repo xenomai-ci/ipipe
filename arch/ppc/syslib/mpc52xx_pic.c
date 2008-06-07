@@ -37,7 +37,10 @@ static struct mpc52xx_sdma __iomem *sdma;
 static void
 mpc52xx_ic_disable(unsigned int irq)
 {
+	unsigned long flags;
 	u32 val;
+
+	local_irq_save_hw_cond(flags);
 
 	if (irq == MPC52xx_IRQ0) {
 		val = in_be32(&intr->ctrl);
@@ -67,12 +70,17 @@ mpc52xx_ic_disable(unsigned int irq)
 		val |= 1 << (31 - (irq - MPC52xx_PERP_IRQ_BASE));
 		out_be32(&intr->per_mask, val);
 	}
+
+	local_irq_restore_hw_cond(flags);
 }
 
 static void
 mpc52xx_ic_enable(unsigned int irq)
 {
+	unsigned long flags;
 	u32 val;
+
+	local_irq_save_hw_cond(flags);
 
 	if (irq == MPC52xx_IRQ0) {
 		val = in_be32(&intr->ctrl);
@@ -102,6 +110,8 @@ mpc52xx_ic_enable(unsigned int irq)
 		val &= ~(1 << (31 - (irq - MPC52xx_PERP_IRQ_BASE)));
 		out_be32(&intr->per_mask, val);
 	}
+
+	local_irq_restore_hw_cond(flags);
 }
 
 static void
@@ -152,14 +162,19 @@ mpc52xx_ic_ack(unsigned int irq)
 static void
 mpc52xx_ic_disable_and_ack(unsigned int irq)
 {
+	unsigned long flags;
+
+	local_irq_save_hw_cond(flags);
 	mpc52xx_ic_disable(irq);
 	mpc52xx_ic_ack(irq);
+	local_irq_restore_hw_cond(flags);
 }
 
 static void
 mpc52xx_ic_end(unsigned int irq)
 {
-	if (!(irq_desc[irq].status & (IRQ_DISABLED | IRQ_INPROGRESS)))
+	if (!ipipe_root_domain_p ||
+	    (!(irq_desc[irq].status & (IRQ_DISABLED | IRQ_INPROGRESS))))
 		mpc52xx_ic_enable(irq);
 }
 
@@ -169,6 +184,11 @@ static struct hw_interrupt_type mpc52xx_ic = {
 	.disable	= mpc52xx_ic_disable,
 	.ack		= mpc52xx_ic_disable_and_ack,
 	.end		= mpc52xx_ic_end,
+#ifdef CONFIG_IPIPE
+	.mask_ack = mpc52xx_ic_disable_and_ack,
+	.mask = mpc52xx_ic_disable,
+	.unmask = mpc52xx_ic_enable,
+#endif
 };
 
 void __init
@@ -208,6 +228,10 @@ mpc52xx_init_irq(void)
 	for (i = 0; i < NR_IRQS; i++) {
 		irq_desc[i].chip = &mpc52xx_ic;
 		irq_desc[i].status = IRQ_LEVEL;
+#ifdef CONFIG_IPIPE
+		irq_desc[i].ipipe_ack = &__ipipe_ack_level_irq;
+		irq_desc[i].ipipe_end = &__ipipe_end_level_irq;
+#endif
 	}
 
 	#define IRQn_MODE(intr_ctrl,irq) (((intr_ctrl) >> (22-(i<<1))) & 0x03)

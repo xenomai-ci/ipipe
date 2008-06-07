@@ -49,6 +49,7 @@ static void cpm2_mask_irq(unsigned int irq_nr)
 {
 	int	bit, word;
 	volatile uint	*simr;
+	unsigned long flags;
 
 	irq_nr -= CPM_IRQ_OFFSET;
 
@@ -56,14 +57,17 @@ static void cpm2_mask_irq(unsigned int irq_nr)
 	word = irq_to_siureg[irq_nr];
 
 	simr = &(cpm2_immr->im_intctl.ic_simrh);
+	local_irq_save_hw_cond(flags);
 	ppc_cached_irq_mask[word] &= ~(1 << bit);
 	simr[word] = ppc_cached_irq_mask[word];
+	local_irq_restore_hw_cond(flags);
 }
 
 static void cpm2_unmask_irq(unsigned int irq_nr)
 {
 	int	bit, word;
 	volatile uint	*simr;
+	unsigned long flags;
 
 	irq_nr -= CPM_IRQ_OFFSET;
 
@@ -71,14 +75,17 @@ static void cpm2_unmask_irq(unsigned int irq_nr)
 	word = irq_to_siureg[irq_nr];
 
 	simr = &(cpm2_immr->im_intctl.ic_simrh);
+	local_irq_save_hw_cond(flags);
 	ppc_cached_irq_mask[word] |= 1 << bit;
 	simr[word] = ppc_cached_irq_mask[word];
+	local_irq_restore_hw_cond(flags);
 }
 
 static void cpm2_mask_and_ack(unsigned int irq_nr)
 {
 	int	bit, word;
 	volatile uint	*simr, *sipnr;
+	unsigned long flags;
 
 	irq_nr -= CPM_IRQ_OFFSET;
 
@@ -87,17 +94,21 @@ static void cpm2_mask_and_ack(unsigned int irq_nr)
 
 	simr = &(cpm2_immr->im_intctl.ic_simrh);
 	sipnr = &(cpm2_immr->im_intctl.ic_sipnrh);
+	local_irq_save_hw_cond(flags);
 	ppc_cached_irq_mask[word] &= ~(1 << bit);
 	simr[word] = ppc_cached_irq_mask[word];
 	sipnr[word] = 1 << bit;
+	local_irq_restore_hw_cond(flags);
 }
 
 static void cpm2_end_irq(unsigned int irq_nr)
 {
 	int	bit, word;
 	volatile uint	*simr;
+	unsigned long flags;
 
-	if (!(irq_desc[irq_nr].status & (IRQ_DISABLED|IRQ_INPROGRESS))
+	if (!ipipe_root_domain_p ||
+	    !(irq_desc[irq_nr].status & (IRQ_DISABLED|IRQ_INPROGRESS))
 			&& irq_desc[irq_nr].action) {
 
 		irq_nr -= CPM_IRQ_OFFSET;
@@ -105,8 +116,10 @@ static void cpm2_end_irq(unsigned int irq_nr)
 		word = irq_to_siureg[irq_nr];
 
 		simr = &(cpm2_immr->im_intctl.ic_simrh);
+		local_irq_save_hw_cond(flags);
 		ppc_cached_irq_mask[word] |= 1 << bit;
 		simr[word] = ppc_cached_irq_mask[word];
+		local_irq_restore_hw_cond(flags);
 		/*
 		 * Work around large numbers of spurious IRQs on PowerPC 82xx
 		 * systems.
@@ -121,6 +134,11 @@ static struct hw_interrupt_type cpm2_pic = {
 	.disable = cpm2_mask_irq,
 	.ack = cpm2_mask_and_ack,
 	.end = cpm2_end_irq,
+#ifdef CONFIG_IPIPE
+	.mask_ack	= cpm2_mask_and_ack,
+	.mask		= cpm2_mask_irq,
+	.unmask		= cpm2_unmask_irq,
+#endif
 };
 
 int cpm2_get_irq(void)
@@ -173,5 +191,9 @@ void cpm2_init_IRQ(void)
 	for (i = 0; i < NR_CPM_INTS; i++) {
 		irq_desc[i+CPM_IRQ_OFFSET].chip = &cpm2_pic;
 		irq_desc[i+CPM_IRQ_OFFSET].status |= IRQ_LEVEL;
+#ifdef CONFIG_IPIPE
+		irq_desc[i+CPM_IRQ_OFFSET].ipipe_ack = &__ipipe_ack_level_irq;
+		irq_desc[i+CPM_IRQ_OFFSET].ipipe_end = &__ipipe_end_level_irq;
+#endif
 	}
 }

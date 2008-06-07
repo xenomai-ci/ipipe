@@ -91,7 +91,12 @@ struct ipipe_sysinfo {
  	t;							\
  	})
 
+#ifdef CONFIG_PPC_MERGE
 extern unsigned long tb_ticks_per_jiffy;
+#else
+extern unsigned int tb_ticks_per_jiffy;
+#endif
+
 extern unsigned long disarm_decr[];
 
 #define ipipe_cpu_freq()	(HZ * tb_ticks_per_jiffy)
@@ -137,8 +142,13 @@ DECLARE_PER_CPU(unsigned long long, __ipipe_decr_next);
 
 DECLARE_PER_CPU(struct pt_regs, __ipipe_tick_regs);
 
-void __ipipe_handle_irq(int irq,
-			struct pt_regs *regs);
+void __ipipe_handle_irq(int irq, struct pt_regs *regs);
+
+struct irq_desc;
+void __ipipe_ack_level_irq(unsigned irq, struct irq_desc *desc);
+void __ipipe_end_level_irq(unsigned irq, struct irq_desc *desc);
+void __ipipe_ack_edge_irq(unsigned irq, struct irq_desc *desc);
+void __ipipe_end_edge_irq(unsigned irq, struct irq_desc *desc);
 
 void __ipipe_serial_debug(const char *fmt, ...);
 
