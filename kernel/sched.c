@@ -1409,7 +1409,7 @@ static int try_to_wake_up(struct task_struct *p, unsigned int state, int sync)
 
 	rq = task_rq_lock(p, &flags);
 	old_state = p->state;
-	if (!(old_state & state) || (old_state & TASK_NOWAKEUP))
+	if (!(old_state & state) || (old_state & (TASK_NOWAKEUP|TASK_ATOMICSWITCH)))
 		goto out;
 
 	if (p->array)
