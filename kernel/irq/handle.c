@@ -177,16 +177,20 @@ fastcall unsigned int __do_IRQ(unsigned int irq)
 		/*
 		 * No locking required for CPU-local interrupts:
 		 */
+#ifndef CONFIG_IPIPE
 		if (desc->chip->ack)
 			desc->chip->ack(irq);
+#endif
 		action_ret = handle_IRQ_event(irq, desc->action);
 		desc->chip->end(irq);
 		return 1;
 	}
 
 	spin_lock(&desc->lock);
+#ifndef CONFIG_IPIPE
 	if (desc->chip->ack)
 		desc->chip->ack(irq);
+#endif
 	/*
 	 * REPLAY is when Linux resends an IRQ that was dropped earlier
 	 * WAITING is used by probe to mark irqs that are being tested
