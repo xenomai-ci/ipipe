@@ -2298,7 +2298,7 @@ static void handle_issuing_new_read_requests6(struct stripe_head *sh,
 
 
 static void handle_completed_postxor_requests(struct stripe_head *sh,
-	struct stripe_head_state *s, int disks)
+	struct stripe_head_state *s, int disks, int prexor)
 {
 	int i, pd_idx = sh->pd_idx;
 	int qd_idx = (sh->raid_conf->level != 6) ? -1 :
@@ -2328,6 +2328,8 @@ static void handle_completed_postxor_requests(struct stripe_head *sh,
 			set_bit(R5_Wantwrite, &dev->flags);
 			if (!test_and_set_bit(STRIPE_OP_IO, &sh->ops.pending))
 				sh->ops.count++;
+			if (prexor)
+				continue;
 			if (!test_bit(R5_Insync, &dev->flags) ||
 			    ((i == pd_idx || i == qd_idx) &&
 			    s->failed == 0))
@@ -2954,6 +2956,7 @@ static void handle_stripe5(struct stripe_head *sh)
 	struct r5dev *dev;
 	unsigned long pending = 0;
 	mdk_rdev_t *blocked_rdev = NULL;
+	int prexor;
 
 	memset(&s, 0, sizeof(s));
 	pr_debug("handling stripe %llu, state=%#lx cnt=%d, pd_idx=%d "
@@ -3083,9 +3086,11 @@ static void handle_stripe5(struct stripe_head *sh)
 	/* leave prexor set until postxor is done, allows us to distinguish
 	 * a rmw from a rcw during biodrain
 	 */
+	prexor = 0;
 	if (test_bit(STRIPE_OP_PREXOR, &sh->ops.complete) &&
 		test_bit(STRIPE_OP_POSTXOR, &sh->ops.complete)) {
 
+		prexor = 1;
 		clear_bit(STRIPE_OP_PREXOR, &sh->ops.complete);
 		clear_bit(STRIPE_OP_PREXOR, &sh->ops.ack);
 		clear_bit(STRIPE_OP_PREXOR, &sh->ops.pending);
@@ -3097,7 +3102,7 @@ static void handle_stripe5(struct stripe_head *sh)
 	/* if only POSTXOR is set then this is an 'expand' postxor */
 	if (test_bit(STRIPE_OP_BIODRAIN, &sh->ops.complete) &&
 		test_bit(STRIPE_OP_POSTXOR, &sh->ops.complete))
-		handle_completed_postxor_requests(sh, &s, disks);
+		handle_completed_postxor_requests(sh, &s, disks, prexor);
 
 	/* Now to consider new write requests and what else, if anything
 	 * should be read.  We do not handle new writes when:
@@ -3359,7 +3364,7 @@ static void handle_stripe6(struct stripe_head *sh)
 	/* if only POSTXOR is set then this is an 'expand' postxor */
 	if (test_bit(STRIPE_OP_BIODRAIN, &sh->ops.complete) &&
 	    test_bit(STRIPE_OP_POSTXOR, &sh->ops.complete))
-		handle_completed_postxor_requests(sh, &s, disks);
+		handle_completed_postxor_requests(sh, &s, disks, 0);
 
 	/* 1/ Now to consider new write requests and what else,
 	 * if anything shuold be read
