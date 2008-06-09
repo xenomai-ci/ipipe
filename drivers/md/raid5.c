@@ -2100,6 +2100,7 @@ static int __handle_issuing_new_read_requests5(struct stripe_head *sh,
 		 * have quiesced.
 		 */
 		if ((s->uptodate == disks - 1) &&
+		    (s->failed && disk_idx == s->failed_num) &&
 		    !test_bit(STRIPE_OP_CHECK, &sh->ops.pending)) {
 			set_bit(STRIPE_OP_COMPUTE_BLK, &sh->ops.pending);
 			set_bit(R5_Wantcompute, &dev->flags);
@@ -2207,6 +2208,8 @@ static int __handle_issuing_new_read_requests6(struct stripe_head *sh,
 		 * operations have quiesced.
 		 */
 		if ((s->uptodate == disks-1) &&
+		    (s->failed && (disk_idx == r6s->failed_num[0] ||
+				   disk_idx == r6s->failed_num[1])) &&
 		    !test_bit(STRIPE_OP_CHECK, &sh->ops.pending)) {
 			pr_debug("Computing stripe %llu block %d\n",
 				 (unsigned long long)sh->sector, disk_idx);
