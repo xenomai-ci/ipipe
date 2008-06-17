@@ -107,7 +107,7 @@ void default_idle(void)
 	 * test NEED_RESCHED:
 	 */
 	smp_mb();
-	local_irq_disable_hw();
+	local_irq_disable();
 	if (!need_resched()) {
 		ktime_t t0, t1;
 		u64 t0n, t1n;
@@ -119,9 +119,8 @@ void default_idle(void)
 		t1 = ktime_get();
 		t1n = ktime_to_ns(t1);
 		sched_clock_idle_wakeup_event(t1n - t0n);
-		local_irq_enable(); /* This will force enable_hw as well. */
-	} else
-		local_irq_enable_hw();
+	}
+	local_irq_enable();
 	current_thread_info()->status |= TS_POLLING;
 }
 
