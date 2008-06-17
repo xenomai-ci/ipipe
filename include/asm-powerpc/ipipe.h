@@ -62,8 +62,6 @@
 		local_irq_enable_hw(); x;				\
 	} )
 
-#define ipipe_update_tick_evtdev(evtdev)	do { } while (0)
-
 struct ipipe_domain;
 
 struct ipipe_sysinfo {
@@ -208,5 +206,7 @@ do {									\
 #define task_hijacked(p)	0
 
 #endif /* CONFIG_IPIPE */
+
+#define ipipe_update_tick_evtdev(evtdev)	do { } while (0)
 
 #endif /* !__ASM_POWERPC_IPIPE_H */
