@@ -138,13 +138,13 @@ static void cpm2_end_irq(unsigned int virq)
 		ppc_cached_irq_mask[word] |= 1 << bit;
 		out_be32(&cpm2_intctl->ic_simrh + word, ppc_cached_irq_mask[word]);
 		ipipe_irq_unlock(irq_nr);
-		local_irq_restore_hw_cond(flags);
 
 		/*
 		 * Work around large numbers of spurious IRQs on PowerPC 82xx
 		 * systems.
 		 */
 		mb();
+		local_irq_restore_hw_cond(flags);
 	}
 }
 
