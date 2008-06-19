@@ -151,10 +151,6 @@ extern int early_find_capability(struct pci_controller *hose, int bus,
 extern void setup_indirect_pci(struct pci_controller* hose,
 			       resource_size_t cfg_addr,
 			       resource_size_t cfg_data, u32 flags);
-
-extern void setup_indirect_pci_noremap(struct pci_controller* hose,
-				       resource_size_t cfg_addr,
-				       resource_size_t cfg_data, u32 flags);
 extern void setup_grackle(struct pci_controller *hose);
 #else	/* CONFIG_PPC64 */
 
