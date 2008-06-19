@@ -111,7 +111,6 @@ static void uic_mask_ack_irq(unsigned int virq)
 
 	sr = 1 << (31-src);
 	spin_lock_irqsave(&uic->lock, flags);
-	ipipe_irq_lock(virq);
 	er = mfdcr(uic->dcrbase + UIC_ER);
 	er &= ~sr;
 	mtdcr(uic->dcrbase + UIC_ER, er);
