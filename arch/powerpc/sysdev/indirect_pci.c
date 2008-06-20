@@ -123,18 +123,17 @@ indirect_write_config(struct pci_bus *bus, unsigned int devfn, int offset,
 			(bus->number == hose->first_busno))
 		val &= 0xffffff00;
 
+	/* Workaround for PCI_28 Errata in 440EPx/GRx */
+	if ((hose->indirect_type & PPC_INDIRECT_TYPE_BROKEN_MRM) &&
+			offset == PCI_CACHE_LINE_SIZE) {
+		val = 0;
+	}
+
 	/*
 	 * Note: the caller has already checked that offset is
 	 * suitably aligned and that len is 1, 2 or 4.
 	 */
 	cfg_data = hose->cfg_data + (offset & 3);
-
-	/* Workaround for MRM failure in 440EPX */
-#if defined(CONFIG_440EPX)
-	if(offset == PCI_CACHE_LINE_SIZE) {
-		val = 0;
-	}
-#endif
 	switch (len) {
 	case 1:
 		out_8(cfg_data, val);
@@ -168,21 +167,6 @@ setup_indirect_pci(struct pci_controller* hose,
 	if ((cfg_data & PAGE_MASK) != base)
 		mbase = ioremap(cfg_data & PAGE_MASK, PAGE_SIZE);
 	hose->cfg_data = mbase + (cfg_data & ~PAGE_MASK);
-	hose->ops = &indirect_pci_ops;
-	hose->indirect_type = flags;
-}
-
-/*
- * For some reason, ioremap does not handle 2-nd way mapping well,
- * causing system check while trying to access config space later
- */
-void __init
-setup_indirect_pci_noremap(struct pci_controller *hose,
-			   resource_size_t cfg_addr,
-			   resource_size_t cfg_data, u32 flags)
-{
-	hose->cfg_addr = (void *)cfg_addr;
-	hose->cfg_data = (void *)cfg_data;
 	hose->ops = &indirect_pci_ops;
 	hose->indirect_type = flags;
 }

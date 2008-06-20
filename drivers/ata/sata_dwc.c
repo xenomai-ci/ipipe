@@ -949,7 +949,7 @@ static void sata_dwc_error_intr(struct ata_port *ap, struct sata_dwc_device *hsd
 	ata_ehi_clear_desc(ehi);
 
 	serror = core_scr_read(SCR_ERROR);
-	status = ata_chk_status(ap);
+	status = ap->ops->sff_check_status(ap);
 
 	err_reg = in_le32(&(sata_dma_regs->interrupt_status.error.low));
 	tag = ap->link.active_tag;
@@ -965,7 +965,7 @@ static void sata_dwc_error_intr(struct ata_port *ap, struct sata_dwc_device *hsd
 
 	/* This is the only error happening now.  TODO check for exact error */
 	err_mask |= AC_ERR_HOST_BUS;
-	action |= ATA_EH_SOFTRESET;
+	action |= ATA_EH_RESET;
 
 	/* Pass this on to EH */
 	ehi->serror |= serror;
@@ -1059,12 +1059,12 @@ static irqreturn_t sata_dwc_isr(int irq, void *dev_instance)
 		if (unlikely(!qc || (qc->tf.flags & ATA_TFLAG_POLLING))) {
 			dev_err(ap->dev, "%s interrupt with no active qc qc=%p\n",
 				__func__, qc);
-			ata_check_status(ap);
+			ata_sff_check_status(ap);
 			handled = 1;
 			goto DONE;
 		}
 
-		status = ata_chk_status(ap);
+		status = ap->ops->sff_check_status(ap);
 
 		qc->ap->link.active_tag = tag;
 		hsdevp->cmd_issued[tag] = SATA_DWC_CMD_ISSUED_NOT;
@@ -1128,7 +1128,7 @@ PROCESS:  /* process completed commands */
 	}
 
 	/* read just to clear ... not bad if currently still busy */
-	status = ata_chk_status(ap);
+	status = ap->ops->sff_check_status(ap);
 	dev_dbg(ap->dev, "%s ATA status register=0x%x\n", __func__, status);
 
 	tag = 0;
@@ -1191,11 +1191,6 @@ PROCESS:  /* process completed commands */
 DONE:
 	spin_unlock_irqrestore(&host->lock, flags);
 	return IRQ_RETVAL(handled);
-}
-
-static void sata_dwc_irq_clear(struct ata_port *ap)
-{
-	/* unused */
 }
 
 static void sata_dwc_clear_dmacr(struct sata_dwc_device_port *hsdevp, u8 tag)
@@ -1277,7 +1272,7 @@ static int sata_dwc_qc_complete(struct ata_port *ap, struct ata_queued_cmd *qc,
 		i = 0;
 		do {
 			/* check main status, clearing INTRQ */
-			status = ata_chk_status(ap);
+			status = ap->ops->sff_check_status(ap);
 			if (status & ATA_BUSY) {
 				dev_dbg(ap->dev, "STATUS BUSY (0x%02x) [%d]\n",
 						status, i);
@@ -1286,7 +1281,7 @@ static int sata_dwc_qc_complete(struct ata_port *ap, struct ata_queued_cmd *qc,
 				break;
 		} while (status & ATA_BUSY);
 
-		status = ata_chk_status(ap);
+		status = ap->ops->sff_check_status(ap);
 		if (unlikely(status & ATA_BUSY))
 			dev_err(ap->dev, "QC complete cmd=0x%02x STATUS BUSY (0x%02x)"
 				" [%d]\n", qc->tf.command, status, i);
@@ -1503,7 +1498,7 @@ static void sata_dwc_exec_command_by_tag(struct ata_port *ap,
 	 * task file is loaded.
 	 */
 	clear_serror();
-	ata_exec_command(ap, tf);
+	ata_sff_exec_command(ap, tf);
 }
 
 static void sata_dwc_bmdma_setup_by_tag(struct ata_queued_cmd *qc, u8 tag)
@@ -1637,12 +1632,12 @@ static unsigned int sata_dwc_qc_issue(struct ata_queued_cmd *qc)
 	}
 #endif
 
-	if (qc->tf.protocol == ATA_PROT_NCQ) {
-		ap->ops->tf_load(ap, &qc->tf);
+	if (ata_is_ncq(qc->tf.protocol)) {
+		ap->ops->sff_tf_load(ap, &qc->tf);
 		sata_dwc_exec_command_by_tag(ap, &qc->tf, qc->tag,
 					     SATA_DWC_CMD_ISSUED_PEND);
 	} else {
-		ata_qc_issue_prot(qc);
+		ata_sff_qc_issue(qc);
 	}
 
 	return 0;
@@ -1762,96 +1757,61 @@ static void sata_dwc_qc_prep(struct ata_queued_cmd *qc)
  */
 static int sata_dwc_prereset(struct ata_link *link, unsigned long deadline)
 {
-	struct ata_port *ap = link->ap;
-	struct ata_eh_context *ehc = &link->eh_context;
 	int rc;
 
-	/* if we're about to do hardreset, nothing more to do */
-	if (ehc->i.action & ATA_EH_HARDRESET)
-		return 0;
-
 	if (ata_link_online(link))
-		rc = ata_wait_ready(ap, deadline);
+		rc = ata_sff_wait_ready(link, deadline);
 	else
 		rc = -ENODEV;
 
 	return rc;
 }
 
-static void sata_dwc_error_handler(struct ata_port *ap)
-{
-	/* perform recovery */
-	ata_do_eh(ap, sata_dwc_prereset, ata_std_softreset, sata_std_hardreset,
-		  ata_std_postreset);
-}
-
 /*
  * scsi mid-layer and libata interface structures
  */
 static struct scsi_host_template sata_dwc_sht = {
-	.module 		= THIS_MODULE,
-	.name			= DRV_NAME,
-	.ioctl			= ata_scsi_ioctl,
-	.queuecommand		= ata_scsi_queuecmd,
+	ATA_NCQ_SHT(DRV_NAME),
 	/*
 	 * test-only: Currently this driver doesn't handle NCQ
 	 * correctly. We enable NCQ but set the queue depth to a
 	 * max of 1. This will get fixed in in a future release.
 	 */
-	.can_queue		= ATA_DEF_QUEUE,	/* ATA_MAX_QUEUE */
-	.this_id		= ATA_SHT_THIS_ID,
-	.sg_tablesize		= LIBATA_MAX_PRD,
-	.max_sectors		= ATA_MAX_SECTORS,
-	.cmd_per_lun		= ATA_SHT_CMD_PER_LUN,
-	.emulated		= ATA_SHT_EMULATED,
-	.use_clustering		= ATA_SHT_USE_CLUSTERING,
-	.proc_name		= DRV_NAME,
-	.dma_boundary		= ATA_DMA_BOUNDARY,
-	.slave_configure	= ata_scsi_slave_config,
-	.slave_destroy		= ata_scsi_slave_destroy,
-	.bios_param		= ata_std_bios_param,
+	.can_queue = ATA_DEF_QUEUE,	/* ATA_MAX_QUEUE */
+	.dma_boundary = ATA_DMA_BOUNDARY,
 };
 
-static const struct ata_port_operations sata_dwc_ops = {
-	.check_status		= ata_check_status,
-	.dev_select		= ata_std_dev_select,
-
-	.error_handler		= sata_dwc_error_handler,
-
-	.tf_read		= ata_tf_read,
-	.tf_load		= ata_tf_load,
-
-	.exec_command		= ata_exec_command,
-	.data_xfer		= ata_data_xfer,
-
-	.irq_on			= ata_irq_on,
+static struct ata_port_operations sata_dwc_ops = {
+	.inherits		= &ata_sff_port_ops,
 
 	.qc_prep		= sata_dwc_qc_prep,
 	.qc_issue		= sata_dwc_qc_issue,
-	.eng_timeout            = sata_dwc_eng_timeout,
-
-	.bmdma_setup		= sata_dwc_bmdma_setup,
-	.bmdma_start		= sata_dwc_bmdma_start,
-	.bmdma_stop		= ata_bmdma_stop,
-	.bmdma_status		= ata_bmdma_status,
-
-	.irq_clear		= sata_dwc_irq_clear,
 
 	.scr_read		= sata_dwc_scr_read,
 	.scr_write		= sata_dwc_scr_write,
 
 	.port_start		= sata_dwc_port_start,
 	.port_stop		= sata_dwc_port_stop,
+
+	.bmdma_setup		= sata_dwc_bmdma_setup,
+	.bmdma_start		= sata_dwc_bmdma_start,
+
+	.prereset		= sata_dwc_prereset,
+
+	.eng_timeout		= sata_dwc_eng_timeout, /* test-only: really needed? */
 };
 
 static const struct ata_port_info sata_dwc_port_info[] = {
 	{
+		/*
+		 * test-only: Currently this driver doesn't handle NCQ
+		 * correctly. So we disable NCQ here for now. To enable
+		 * it ATA_FLAG_NCQ needs to be added to the flags below.
+		 */
 		.flags		= ATA_FLAG_SATA | ATA_FLAG_NO_LEGACY |
-		ATA_FLAG_MMIO | ATA_FLAG_PIO_POLLING |
-		ATA_FLAG_SRST | ATA_FLAG_NCQ,
+				  ATA_FLAG_MMIO | ATA_FLAG_PIO_POLLING,
 		.pio_mask	= 0x1f,	/* pio 0-4 */
-		.mwdma_mask	= 0x07,
-		.udma_mask	= 0x7f,
+		.udma_mask	= ATA_UDMA6,
 		.port_ops	= &sata_dwc_ops,
 	},
 };
