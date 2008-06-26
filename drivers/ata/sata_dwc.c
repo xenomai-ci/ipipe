@@ -46,7 +46,7 @@
 #define DMA_NUM_CHAN_REGS		8
 
 /* SATA DMA Register definitions */
-#define AHB_DMA_BRST_DFLT		64	/* 16 data items burst length */
+#define AHB_DMA_BRST_DFLT		16	/* 4 data items burst length */
 
 struct dmareg {
 	u32 low;		/* Low bits 0-31 */
