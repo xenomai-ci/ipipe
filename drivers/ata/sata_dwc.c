@@ -1757,12 +1757,16 @@ static void sata_dwc_qc_prep(struct ata_queued_cmd *qc)
  */
 static int sata_dwc_prereset(struct ata_link *link, unsigned long deadline)
 {
-	int rc;
+	struct ata_port *ap = link->ap;
+	struct ata_eh_context *ehc = &ap->link.eh_context;
+	int rc = 0;
 
-	if (ata_link_online(link))
+	if (ata_link_online(link)) {
 		rc = ata_sff_wait_ready(link, deadline);
-	else
-		rc = -ENODEV;
+	} else {
+		/* tell EH to bail */
+		ehc->i.action &= ~ATA_EH_RESET;
+	}
 
 	return rc;
 }
