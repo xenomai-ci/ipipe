@@ -2241,6 +2241,8 @@ context_switch(struct rq *rq, struct task_struct *prev,
 
 	barrier();
 
+	prev->state &= ~TASK_ATOMICSWITCH;
+
 	if (task_hijacked(prev))
 		return 1;
 	/*
@@ -3916,11 +3918,9 @@ need_resched:
 	rcu_qsctr_inc(cpu);
 	prev = rq->curr;
 	switch_count = &prev->nivcsw;
- 	if (unlikely(prev->state & TASK_ATOMICSWITCH)) {
- 		prev->state &= ~TASK_ATOMICSWITCH;
+ 	if (unlikely(prev->state & TASK_ATOMICSWITCH))
 		/* Pop one disable level -- one still remains. */
 		preempt_enable();
- 	}
 
 	release_kernel_lock(prev);
 need_resched_nonpreemptible:
@@ -3973,8 +3973,10 @@ need_resched_nonpreemptible:
 		 */
 		cpu = smp_processor_id();
 		rq = cpu_rq(cpu);
-	} else
+	} else {
+		prev->state &= ~TASK_ATOMICSWITCH;
 		spin_unlock_irq(&rq->lock);
+	}
 
 	hrtick_set(rq);
 
