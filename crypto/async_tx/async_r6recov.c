@@ -111,15 +111,17 @@ async_r6_dd_recov (int disks, size_t bytes, int faila, int failb,
 
 	/* (2) Calculate Q+Qxy
 	 */
+	lptrs[0] = ptrs[failb];
 	tx=async_pqxor(ptrs[disks-1], NULL,
-		&ptrs[failb], NULL, 0, 1, bytes,
+		lptrs, NULL, 0, 1, bytes,
 		ASYNC_TX_DEP_ACK,
 		tx, NULL, NULL);
 
 	/* (3) Calculate P+Pxy
 	 */
+	lptrs[0] = ptrs[faila];
 	tx=async_pqxor(ptrs[disks-2], NULL,
-		&ptrs[faila], NULL, 0, 1, bytes,
+		lptrs, NULL, 0, 1, bytes,
 		ASYNC_TX_DEP_ACK,
 		tx, NULL, NULL);
 
@@ -131,8 +133,14 @@ async_r6_dd_recov (int disks, size_t bytes, int faila, int failb,
 	 */
 	bc[0] = raid6_gfexi[failb-faila];
 	bc[1] = raid6_gfinv[raid6_gfexp[faila]^raid6_gfexp[failb]];
+
+	/* Don't really need this, as next async_pqxor() call not going to
+	 * run synchronously (Q-only).
+	 */
+	lptrs[0] = ptrs[disks - 2];
+	lptrs[1] = ptrs[disks - 1];
 	if (!(tx=async_pqxor(NULL, ptrs[failb],
-			&ptrs[disks - 2], bc, 0, 2, bytes,
+			lptrs, bc, 0, 2, bytes,
 			ASYNC_TX_DEP_ACK | ASYNC_TX_XOR_ZERO_DST,
 			tx, NULL, NULL))) {
 		/* It's bad if we failed here; try to repeat this
@@ -140,8 +148,10 @@ async_r6_dd_recov (int disks, size_t bytes, int faila, int failb,
 		 * failed since now we'll be able to compute synchronously
 		 * (there is no support for synchronous Q-only)
 		 */
+		lptrs[0] = ptrs[disks - 2];
+		lptrs[1] = ptrs[disks - 1];
 		async_pqxor(ptrs[faila], ptrs[failb],
-			&ptrs[disks - 2], bc, 0, 2, bytes,
+			lptrs, bc, 0, 2, bytes,
 			ASYNC_TX_DEP_ACK | ASYNC_TX_XOR_ZERO_DST,
 			NULL, NULL, NULL);
 	}
