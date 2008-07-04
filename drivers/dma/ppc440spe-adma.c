@@ -2319,7 +2319,7 @@ static inline ppc440spe_desc_t *ppc440spe_dma01_prep_pqxor (
 			ppc440spe_adma_pqxor_set_src(sw_desc,
 				src[src_cnt], src_cnt);
 			ppc440spe_adma_pqxor_set_src_mult(sw_desc,
-				scf[src_cnt], src_cnt);
+				scf ? scf[src_cnt] : 1, src_cnt);
 		}
 
 		/* Setup byte count foreach slot just allocated */
@@ -2396,8 +2396,8 @@ static inline ppc440spe_desc_t *ppc440spe_dma2_prep_pqxor (
 		while(src_cnt--) {
 			ppc440spe_adma_pqxor_set_src(sw_desc,
 						     src[src_cnt], src_cnt);
-			ppc440spe_adma_pqxor_set_src_mult(sw_desc,
-						     scf[src_cnt], src_cnt);
+			ppc440spe_adma_pqxor_set_src_mult(sw_desc, scf ?
+						     scf[src_cnt] : 1, src_cnt);
 		}
 	}
 	spin_unlock_bh(&ppc440spe_chan->lock);
