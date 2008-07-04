@@ -236,8 +236,9 @@ async_pqxor_zero_sum(struct page *pdest, struct page *qdest,
 		int i;
 
 		for (i = 0; i < src_cnt; i++)
-			dma_src[i] = dma_map_page(device->dev, src_list[i],
-						  offset, len, DMA_TO_DEVICE);
+			dma_src[i] = src_list[i] ? dma_map_page(device->dev,
+					src_list[i], offset, len,
+					DMA_TO_DEVICE) : 0;
 
 		tx = device->device_prep_dma_pqzero_sum(chan, dma_src, src_cnt,
 						      scf, len,
