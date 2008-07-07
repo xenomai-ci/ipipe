@@ -3441,10 +3441,9 @@ asmlinkage void __sched schedule(void)
 	}
 	profile_hit(SCHED_PROFILING, __builtin_return_address(0));
 
-	if (unlikely(current->state & TASK_ATOMICSWITCH)) {
-		current->state &= ~TASK_ATOMICSWITCH;
+	if (unlikely(current->state & TASK_ATOMICSWITCH))
 		goto need_resched_nodisable;
-	}
+
 need_resched:
 	preempt_disable();
 need_resched_nodisable:
@@ -3565,16 +3564,21 @@ switch_tasks:
 		prepare_task_switch(rq, next);
 		prev = context_switch(rq, prev, next);
 		barrier();
- 		if (task_hijacked(prev))
- 		    return;
+ 		if (task_hijacked(prev)) {
+			prev->state &= ~TASK_ATOMICSWITCH;
+			return;
+		}
 		/*
 		 * this_rq must be evaluated again because prev may have moved
 		 * CPUs since it called schedule(), thus the 'rq' on its stack
 		 * frame will be invalid.
 		 */
+		prev->state &= ~TASK_ATOMICSWITCH;
 		finish_task_switch(this_rq(), prev);
-	} else
+	} else {
+		prev->state &= ~TASK_ATOMICSWITCH;
 		spin_unlock_irq(&rq->lock);
+	}
 
 	prev = current;
 	if (unlikely(reacquire_kernel_lock(prev) < 0))
