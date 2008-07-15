@@ -454,7 +454,7 @@ static int netdev_boot_setup_add(char *name, struct ifmap *map)
 	for (i = 0; i < NETDEV_BOOT_SETUP_MAX; i++) {
 		if (s[i].name[0] == '\0' || s[i].name[0] == ' ') {
 			memset(s[i].name, 0, sizeof(s[i].name));
-			strcpy(s[i].name, name);
+			strlcpy(s[i].name, name, IFNAMSIZ);
 			memcpy(&s[i].map, map, sizeof(s[i].map));
 			break;
 		}
@@ -479,7 +479,7 @@ int netdev_boot_setup_check(struct net_device *dev)
 
 	for (i = 0; i < NETDEV_BOOT_SETUP_MAX; i++) {
 		if (s[i].name[0] != '\0' && s[i].name[0] != ' ' &&
-		    !strncmp(dev->name, s[i].name, strlen(s[i].name))) {
+		    !strcmp(dev->name, s[i].name)) {
 			dev->irq 	= s[i].map.irq;
 			dev->base_addr 	= s[i].map.base_addr;
 			dev->mem_start 	= s[i].map.mem_start;
@@ -2077,6 +2077,10 @@ int netif_receive_skb(struct sk_buff *skb)
 
 	rcu_read_lock();
 
+	/* Don't receive packets in an exiting network namespace */
+	if (!net_alive(dev_net(skb->dev)))
+		goto out;
+
 #ifdef CONFIG_NET_CLS_ACT
 	if (skb->tc_verd & TC_NCLS) {
 		skb->tc_verd = CLR_TC_NCLS(skb->tc_verd);
@@ -2969,7 +2973,7 @@ EXPORT_SYMBOL(dev_unicast_delete);
 /**
  *	dev_unicast_add		- add a secondary unicast address
  *	@dev: device
- *	@addr: address to delete
+ *	@addr: address to add
  *	@alen: length of @addr
  *
  *	Add a secondary unicast address to the device or increase
