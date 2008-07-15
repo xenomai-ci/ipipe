@@ -91,10 +91,6 @@
 #define I2C_DRIVERID_M52790 	95      /* Mitsubishi M52790SP/FP AV switch */
 #define I2C_DRIVERID_CS5345	96	/* cs5345 audio processor	*/
 
-#define I2C_DRIVERID_I2CDEV	900
-
-#define I2C_DRIVERID_LWMON5_KBD	950	/* LWMON5 matrix keyboard	*/
-
 #define I2C_DRIVERID_OV7670 1048	/* Omnivision 7670 camera */
 
 /*
@@ -113,7 +109,6 @@
 #define I2C_HW_B_RIVA		0x010010 /* Riva based graphics cards */
 #define I2C_HW_B_IOC		0x010011 /* IOC bit-wiggling */
 #define I2C_HW_B_IXP2000	0x010016 /* GPIO on IXP2000 systems */
-#define I2C_HW_B_S3VIA		0x010018 /* S3Via ProSavage adapter */
 #define I2C_HW_B_ZR36067	0x010019 /* Zoran-36057/36067 based boards */
 #define I2C_HW_B_PCILYNX	0x01001a /* TI PCILynx I2C adapter */
 #define I2C_HW_B_CX2388x	0x01001b /* connexant 2388x based tv cards */
@@ -125,7 +120,6 @@
 #define I2C_HW_B_INTELFB	0x010021 /* intel framebuffer driver */
 #define I2C_HW_B_CX23885	0x010022 /* conexant 23885 based tv cards (bus1) */
 #define I2C_HW_B_AU0828		0x010023 /* auvitek au0828 usb bridge */
-#define I2C_HW_B_MPC		0x010024 /* MPC systems */
 
 /* --- PCF 8584 based algorithms					*/
 #define I2C_HW_P_ELEK		0x020002 /* Elektor ISA Bus inteface card */
@@ -135,9 +129,6 @@
 
 /* --- PowerPC on-chip adapters						*/
 #define I2C_HW_OCP		0x120000 /* IBM on-chip I2C adapter */
-
-/* --- MPC8260 PowerPC adapters                                         */
-#define I2C_HW_MPC8260    	0x100002 /* MPC8260 I2C adapter */
 
 /* --- Broadcom SiByte adapters						*/
 #define I2C_HW_SIBYTE		0x150000
