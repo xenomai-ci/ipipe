@@ -1643,8 +1643,7 @@ static void __init ppc4xx_probe_pciex_bridge(struct device_node *np)
 	/*
 	 * Check if device is enabled
 	 */
-	val = of_get_property(np, "status", NULL);
-	if (val && !strcmp(val, "disabled")) {
+	if (!of_device_is_available(np)) {
 		printk(KERN_INFO "PCIE%d: Port disabled via device-tree\n", port->index);
 		return;
 	}
