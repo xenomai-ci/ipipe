@@ -14,7 +14,7 @@
 
 / {
 	#address-cells = <2>;
-	#size-cells = <1>;
+	#size-cells = <2>;
 	model = "amcc,katmai";
 	compatible = "amcc,katmai";
 	dcr-parent = <&/cpus/cpu@0>;
@@ -47,7 +47,7 @@
 
 	memory {
 		device_type = "memory";
-		reg = <0 0 0>; /* Filled in by zImage */
+		reg = <0 0 0 0>; /* Filled in by zImage */
 	};
 
 	UIC0: interrupt-controller0 {
