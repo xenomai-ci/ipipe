@@ -251,7 +251,7 @@ native_smp_call_function_mask(cpumask_t mask,
 
 static void stop_this_cpu(void *dummy)
 {
-	local_irq_disable();
+	local_irq_disable_hw();
 	/*
 	 * Remove this CPU:
 	 */

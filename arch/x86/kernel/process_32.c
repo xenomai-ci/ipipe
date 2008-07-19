@@ -185,6 +185,7 @@ void cpu_idle(void)
 
 			local_irq_disable();
 			__get_cpu_var(irq_stat).idle_timestamp = jiffies;
+ 			ipipe_suspend_domain();
 			idle();
 		}
 		tick_nohz_restart_sched_tick();
@@ -412,10 +413,12 @@ start_thread(struct pt_regs *regs, unsigned long new_ip, unsigned long new_sp)
 	regs->cs		= __USER_CS;
 	regs->ip		= new_ip;
 	regs->sp		= new_sp;
+#ifndef CONFIG_IPIPE	/* Lazily handled, init_fpu() will reset the state. */
 	/*
 	 * Free the old FP and other extended state
 	 */
 	free_thread_xstate(current);
+#endif
 }
 EXPORT_SYMBOL_GPL(start_thread);
 
@@ -588,7 +591,7 @@ struct task_struct * __switch_to(struct task_struct *prev_p, struct task_struct 
 {
 	struct thread_struct *prev = &prev_p->thread,
 				 *next = &next_p->thread;
-	int cpu = smp_processor_id();
+	int cpu = raw_smp_processor_id();
 	struct tss_struct *tss = &per_cpu(init_tss, cpu);
 
 	/* never put a printk in __switch_to... printk() calls wake_up*() indirectly */

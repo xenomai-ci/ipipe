@@ -19,7 +19,15 @@ int arch_dup_task_struct(struct task_struct *dst, struct task_struct *src)
 			return -ENOMEM;
 		WARN_ON((unsigned long)dst->thread.xstate & 15);
 		memcpy(dst->thread.xstate, src->thread.xstate, xstate_size);
+	} else {
+#ifdef CONFIG_IPIPE
+		dst->thread.xstate = kmem_cache_alloc(task_xstate_cachep,
+						      GFP_KERNEL);
+		if (!dst->thread.xstate)
+			return -ENOMEM;
+#endif
 	}
+
 	return 0;
 }
 
@@ -43,6 +51,10 @@ void arch_task_cache_init(void)
         	kmem_cache_create("task_xstate", xstate_size,
 				  __alignof__(union thread_xstate),
 				  SLAB_PANIC, NULL);
+#ifdef CONFIG_IPIPE
+	current->thread.xstate = kmem_cache_alloc(task_xstate_cachep,
+						  GFP_KERNEL);
+#endif
 }
 
 static void do_nothing(void *unused)
@@ -139,6 +151,11 @@ static int __cpuinit mwait_usable(const struct cpuinfo_x86 *c)
 
 void __cpuinit select_idle_routine(const struct cpuinfo_x86 *c)
 {
+#ifdef CONFIG_IPIPE
+#define default_to_mwait force_mwait
+#else
+#define default_to_mwait 1
+#endif
 	static int selected;
 
 	if (selected)
@@ -154,7 +171,7 @@ void __cpuinit select_idle_routine(const struct cpuinfo_x86 *c)
 		 * Skip, if setup has overridden idle.
 		 * One CPU supports mwait => All CPUs supports mwait
 		 */
-		if (!pm_idle) {
+ 		if (!pm_idle && default_to_mwait) {
 			printk(KERN_INFO "using mwait in idle threads.\n");
 			pm_idle = mwait_idle;
 		}

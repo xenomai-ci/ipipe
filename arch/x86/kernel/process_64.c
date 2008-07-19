@@ -54,6 +54,8 @@
 
 asmlinkage extern void ret_from_fork(void);
 
+asmlinkage extern void thread_return(void);
+
 unsigned long kernel_thread_flags = CLONE_VM | CLONE_UNTRACED;
 
 unsigned long boot_option_idle_override = 0;
@@ -165,6 +167,7 @@ void cpu_idle(void)
 			 */
 			local_irq_disable();
 			enter_idle();
+ 			ipipe_suspend_domain();
 			idle();
 			/* In many cases the interrupt that ended idle
 			   has already called exit_idle. But some idle
@@ -360,6 +363,7 @@ int copy_thread(int nr, unsigned long clone_flags, unsigned long sp,
 	p->thread.sp = (unsigned long) childregs;
 	p->thread.sp0 = (unsigned long) (childregs+1);
 	p->thread.usersp = me->thread.usersp;
+ 	p->thread.rip = (unsigned long) thread_return;
 
 	set_tsk_thread_flag(p, TIF_FORK);
 
@@ -417,10 +421,12 @@ start_thread(struct pt_regs *regs, unsigned long new_ip, unsigned long new_sp)
 	regs->ss		= __USER_DS;
 	regs->flags		= 0x200;
 	set_fs(USER_DS);
+#ifndef CONFIG_IPIPE	/* Lazily handled, init_fpu() will reset the state. */
 	/*
 	 * Free the old FP and other extended state
 	 */
 	free_thread_xstate(current);
+#endif
 }
 EXPORT_SYMBOL_GPL(start_thread);
 
@@ -565,7 +571,7 @@ __switch_to(struct task_struct *prev_p, struct task_struct *next_p)
 {
 	struct thread_struct *prev = &prev_p->thread,
 				 *next = &next_p->thread;
-	int cpu = smp_processor_id();
+	int cpu = raw_smp_processor_id();
 	struct tss_struct *tss = &per_cpu(init_tss, cpu);
 
 	/* we're going to use this soon, after a few expensive things */

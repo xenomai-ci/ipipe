@@ -641,6 +641,8 @@ __SYSCALL(__NR_timerfd_settime, sys_timerfd_settime)
 __SYSCALL(__NR_timerfd_gettime, sys_timerfd_gettime)
 
 
+#define NR_syscalls		286
+
 #ifndef __NO_STUBS
 #define __ARCH_WANT_OLD_READDIR
 #define __ARCH_WANT_OLD_STAT
