@@ -2,6 +2,7 @@
  *  linux/arch/arm/mach-integrator/integrator_cp.c
  *
  *  Copyright (C) 2003 Deep Blue Solutions Ltd
+ *  Copyright (C) 2005 Stelian Pop.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -19,6 +20,7 @@
 #include <linux/amba/bus.h>
 #include <linux/amba/kmi.h>
 #include <linux/amba/clcd.h>
+#include <linux/ipipe.h>
 
 #include <asm/hardware.h>
 #include <asm/io.h>
@@ -221,6 +223,31 @@ sic_handle_irq(unsigned int irq, struct irq_desc *desc)
 		desc_handle_irq(irq, desc);
 	} while (status);
 }
+
+#ifdef CONFIG_IPIPE
+void __ipipe_mach_demux_irq(unsigned irq, struct pt_regs *regs)
+{
+	unsigned long status = sic_readl(INTCP_VA_SIC_BASE + IRQ_STATUS);
+	struct irq_desc *desc_unused = irq_desc + irq;
+	unsigned irq_unused = irq;
+
+	if (status == 0) {
+		do_bad_IRQ(irq, desc_unused);
+		return;
+	}
+
+	do {
+		irq = ffs(status) - 1;
+		status &= ~(1 << irq);
+
+		irq += IRQ_SIC_START;
+
+		__ipipe_handle_irq(irq, regs);
+	} while (status);
+
+	desc_unused->chip->unmask(irq_unused);
+}
+#endif /* CONFIG_IPIPE */
 
 static void __init intcp_init_irq(void)
 {
@@ -568,9 +595,14 @@ static void __init intcp_init(void)
 
 #define TIMER_CTRL_IE	(1 << 5)			/* Interrupt Enable */
 
+#ifdef CONFIG_IPIPE
+unsigned int __ipipe_mach_ticks_per_jiffy = 1000000 * TICKS_PER_uSEC / HZ;
+EXPORT_SYMBOL(__ipipe_mach_ticks_per_jiffy);
+#endif
+
 static void __init intcp_timer_init(void)
 {
-	integrator_time_init(1000000 / HZ, TIMER_CTRL_IE);
+	integrator_time_init(1000000 * TICKS_PER_uSEC / HZ, TIMER_CTRL_IE);
 }
 
 static struct sys_timer cp_timer = {

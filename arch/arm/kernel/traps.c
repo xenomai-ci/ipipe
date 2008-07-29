@@ -337,6 +337,9 @@ asmlinkage void __exception do_undefinstr(struct pt_regs *regs)
 	}
 	spin_unlock_irqrestore(&undef_lock, flags);
 
+	if (ipipe_trap_notify(IPIPE_TRAP_UNDEFINSTR,regs))
+		return;
+
 #ifdef CONFIG_DEBUG_USER
 	if (user_debug & UDBG_UNDEFINED) {
 		printk(KERN_INFO "%s (%d): undefined instruction: pc=%p\n",
@@ -706,13 +709,22 @@ void abort(void)
 }
 EXPORT_SYMBOL(abort);
 
+#ifdef CONFIG_IPIPE
+void *__ipipe_tsc_area;
+#endif /* CONFIG_IPIPE */
+
 void __init trap_init(void)
 {
 	unsigned long vectors = CONFIG_VECTORS_BASE;
 	extern char __stubs_start[], __stubs_end[];
 	extern char __vectors_start[], __vectors_end[];
+#ifndef CONFIG_IPIPE
 	extern char __kuser_helper_start[], __kuser_helper_end[];
 	int kuser_sz = __kuser_helper_end - __kuser_helper_start;
+#else /* !CONFIG_IPIPE */
+	extern char __ipipe_tsc_area_start[], __kuser_helper_end[];
+	int kuser_sz = __kuser_helper_end - __ipipe_tsc_area_start;
+#endif /* !CONFIG_IPIPE */
 
 	/*
 	 * Copy the vectors, stubs and kuser helpers (in entry-armv.S)
@@ -721,7 +733,13 @@ void __init trap_init(void)
 	 */
 	memcpy((void *)vectors, __vectors_start, __vectors_end - __vectors_start);
 	memcpy((void *)vectors + 0x200, __stubs_start, __stubs_end - __stubs_start);
+#ifndef CONFIG_IPIPE
 	memcpy((void *)vectors + 0x1000 - kuser_sz, __kuser_helper_start, kuser_sz);
+#else /* !CONFIG_IPIPE */
+	BUG_ON(0x1000 - kuser_sz < 0x200 + __stubs_end - __stubs_start);
+	memcpy((void *)vectors + 0x1000 - kuser_sz, __ipipe_tsc_area_start, kuser_sz);
+	__ipipe_tsc_area = (void *)vectors + 0x1000 - kuser_sz;
+#endif /* !CONFIG_IPIPE */
 
 	/*
 	 * Copy signal return handlers into the vector page, and
