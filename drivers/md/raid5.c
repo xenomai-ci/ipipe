@@ -672,6 +672,7 @@ ops_run_compute6_1(struct stripe_head *sh, unsigned long pending)
 	struct page *dest = sh->dev[target].page;
 	int count = 0;
 	int pd_idx = sh->pd_idx, qd_idx = raid6_next_disk(pd_idx, disks);
+	int d0_idx = raid6_next_disk(qd_idx, disks);
 	struct dma_async_tx_descriptor *tx;
 	int i;
 
@@ -683,10 +684,11 @@ ops_run_compute6_1(struct stripe_head *sh, unsigned long pending)
 
 	if (target == qd_idx) {
 		/* We are actually computing the Q drive*/
-		for (i = disks; i-- ; ) {
-			if (i != target && i != pd_idx && i != qd_idx)
-				srcs[count++] = sh->dev[i].page;
-		}
+		i = d0_idx;
+		do {
+			srcs[count++] = sh->dev[i].page;
+			i = raid6_next_disk(i, disks);
+		} while (i != pd_idx);
 		/* Synchronous calculations need two destination pages,
 		 * so use P-page too
 		 */
@@ -1033,6 +1035,9 @@ ops_run_postxor(struct stripe_head *sh, struct dma_async_tx_descriptor *tx,
 	int count = 0, pd_idx = sh->pd_idx, i;
 	int qd_idx = (sh->raid_conf->level != 6) ? -1 :
 		     raid6_next_disk(pd_idx, disks);
+	int d0_idx = (sh->raid_conf->level != 6) ?
+		raid6_next_disk(pd_idx, disks) :
+		raid6_next_disk(qd_idx, disks);
 	struct page *xor_dest;
 	struct page *q_dest = NULL;
 	int prexor = test_bit(STRIPE_OP_PREXOR, &pending);
@@ -1057,12 +1062,13 @@ ops_run_postxor(struct stripe_head *sh, struct dma_async_tx_descriptor *tx,
 	} else {
 		xor_dest = sh->dev[pd_idx].page;
 		q_dest = (qd_idx < 0) ? NULL : sh->dev[qd_idx].page;
-		for (i = disks; i--; ) {
+		i = d0_idx;
+		do {
 			struct r5dev *dev = &sh->dev[i];
-			if (i != pd_idx && i != qd_idx)
-				xor_srcs[count++] = dev->dpage ?
-					dev->dpage : dev->page;
-		}
+			xor_srcs[count++] = dev->dpage ?
+				dev->dpage : dev->page;
+			i = raid6_next_disk(i, disks);
+		} while (i != pd_idx);
 	}
 
 	/* check whether this postxor is part of a write */
@@ -1158,6 +1164,7 @@ static void ops_run_check6(struct stripe_head *sh)
 
 	int count = 0, i;
 	int pd_idx = sh->pd_idx, qd_idx = raid6_next_disk(pd_idx, disks);
+	int d0_idx = raid6_next_disk(qd_idx, disks);
 
 	struct page *qxor_dest = srcs[count++] = sh->dev[qd_idx].page;
 	struct page *pxor_dest = srcs[count++] = sh->dev[pd_idx].page;
@@ -1165,10 +1172,13 @@ static void ops_run_check6(struct stripe_head *sh)
 	pr_debug("%s: stripe %llu\n", __FUNCTION__,
 		(unsigned long long)sh->sector);
 
-	for (i = 0; i < disks; i++) {
-		if (i != pd_idx && i != qd_idx)
-			srcs[count++] = sh->dev[i].page;
-	}
+	srcs[count++] = sh->dev[qd_idx].page;
+	srcs[count++] = sh->dev[pd_idx].page;
+	i = d0_idx;
+	do {
+		srcs[count++] = sh->dev[i].page;
+		i = raid6_next_disk(i, disks);
+	} while (i != pd_idx);
 
 	if (test_bit(STRIPE_OP_CHECK_PP, &sh->ops.pending) &&
 	    test_bit(STRIPE_OP_CHECK_QP, &sh->ops.pending)) {
