@@ -58,7 +58,7 @@ do_async_pqxor(struct dma_device *device,
 	dma_addr_t *dma_src = (dma_addr_t *) src_list;
 	unsigned char *scf = qdest ? scoef_list : NULL;
 	struct dma_async_tx_descriptor *tx;
-	int i, dst_cnt = 0, zdst = flags & ASYNC_TX_XOR_ZERO_DST ? 1 : 0;
+	int i, dst_cnt = 0;
 	unsigned long dma_prep_flags = cb_fn ? DMA_PREP_INTERRUPT : 0;
 
 	if (flags & ASYNC_TX_XOR_ZERO_DST)
@@ -178,7 +178,7 @@ async_pqxor(struct page *pdest, struct page *qdest,
 	if (device) { /* run the xor asynchronously */
 		tx = do_async_pqxor(device, chan, pdest, qdest, src_list,
 			       scoef_list, offset, src_cnt, len, flags,
-			       depend_tx, callback,callback_param);
+			       depend_tx, callback, callback_param);
 	} else { /* run the pqxor synchronously */
 		if (!qdest) {
 			struct page *tsrc[src_cnt + 1];
@@ -204,7 +204,7 @@ async_pqxor(struct page *pdest, struct page *qdest,
 			BUG_ON(async_tx_test_ack(depend_tx));
 			if (dma_wait_for_async_tx(depend_tx) == DMA_ERROR)
 				panic("%s: DMA_ERROR waiting for depend_tx\n",
-					__FUNCTION__);
+					__func__);
 		}
 
 		do_sync_pqxor(pdest, qdest, src_list, scoef_list,
@@ -309,7 +309,7 @@ async_gen_syndrome(struct page *pdest, struct page *qdest,
 			BUG_ON(async_tx_test_ack(depend_tx));
 			if (dma_wait_for_async_tx(depend_tx) == DMA_ERROR)
 				panic("%s: DMA_ERROR waiting for depend_tx\n",
-					__FUNCTION__);
+					__func__);
 		}
 
 		do_sync_gen_syndrome(pdest, qdest, src_list,
@@ -514,7 +514,7 @@ static int __init async_pqxor_init(void)
 abort:
 	safe_put_page(spare_pages[0]);
 	safe_put_page(spare_pages[1]);
-	printk(KERN_ERR "%s: cannot allocate spare!\n", __FUNCTION__);
+	printk(KERN_ERR "%s: cannot allocate spare!\n", __func__);
 	return -ENOMEM;
 }
 
