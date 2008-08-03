@@ -154,27 +154,14 @@ do_mult:
 	if (disks == 4)
 		return tx;
 
-	/* (6) Restore the parities back (use Pnm and Qnm)
+	/* (6) Restore the parities back
 	 */
-	flags &= ~ASYNC_TX_XOR_ZERO_DST;
+	flags |= ASYNC_TX_XOR_ZERO_DST;
 	flags |= ASYNC_TX_DEP_ACK;
 
-	lptrs[0] = ptrs[faila];
-	lcoef[0] = raid6_gfexp[faila];
-	lptrs[1] = ptrs[failb];
-	lcoef[1] = raid6_gfexp[failb];
-	if (!(tx=async_pqxor(ptrs[disks-2], ptrs[disks-1],
-			lptrs, lcoef,
-			0, 2, bytes, flags,
-			tx, cb, cb_param))) {
-		/* just return, since data has been recovered anyway */
-		return NULL;
-	}
-
-	/* if come here then all required asynchronous operations
-	 * have been scheduled successfully
-	 */
-	return tx;
+	memcpy(lptrs, ptrs, (disks - 2) * sizeof(struct page *));
+	return async_gen_syndrome(ptrs[disks-2], ptrs[disks-1], lptrs, 0,
+			disks - 2, bytes, flags, tx, cb, cb_param);
 
 ddr_sync:
 	{
