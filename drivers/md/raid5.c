@@ -690,9 +690,8 @@ ops_run_compute6_1(struct stripe_head *sh, unsigned long pending)
 		/* Synchronous calculations need two destination pages,
 		 * so use P-page too
 		 */
-		tx = async_pqxor(sh->dev[pd_idx].page, dest,
-			srcs, (char *)raid6_gfexp,
-			0, count, STRIPE_SIZE,
+		tx = async_gen_syndrome(sh->dev[pd_idx].page, dest,
+			srcs, 0, count, STRIPE_SIZE,
 			ASYNC_TX_XOR_ZERO_DST, NULL,
 			ops_complete_compute, sh);
 	} else {
@@ -768,9 +767,9 @@ ops_run_compute6_2(struct stripe_head *sh, unsigned long pending)
 
 		if ( faila == disks - 2 ) {
 			/* Missing P+Q, just recompute */
-			tx = async_pqxor(sh->dev[pd_idx].page,
-			    sh->dev[qd_idx].page, srcs, (char *)raid6_gfexp,
-			    0, count, STRIPE_SIZE, ASYNC_TX_XOR_ZERO_DST, NULL,
+			tx = async_gen_syndrome(sh->dev[pd_idx].page,
+			    sh->dev[qd_idx].page, srcs, 0, count, STRIPE_SIZE,
+			    ASYNC_TX_XOR_ZERO_DST, NULL,
 			    ops_complete_compute, sh);
 		} else {
 			/* Missing D+Q; recompute D from P */
@@ -1090,9 +1089,9 @@ ops_run_postxor(struct stripe_head *sh, struct dma_async_tx_descriptor *tx,
 			tx = async_xor(xor_dest, xor_srcs, 0, count, STRIPE_SIZE,
 				flags, tx, callback, sh);
 		else
-			tx = async_pqxor(xor_dest, q_dest, xor_srcs,
-				(char *)raid6_gfexp, 0, count, STRIPE_SIZE,
-				flags, tx, callback, sh);
+			tx = async_gen_syndrome(xor_dest, q_dest, xor_srcs, 0,
+					count, STRIPE_SIZE, flags, tx,
+					callback, sh);
 	}
 }
 
@@ -1175,18 +1174,16 @@ static void ops_run_check6(struct stripe_head *sh)
 	    test_bit(STRIPE_OP_CHECK_QP, &sh->ops.pending)) {
 		/* check both P and Q */
 		pr_debug("%s: check both P&Q\n", __FUNCTION__);
-		tx = async_pqxor_zero_sum(pxor_dest, qxor_dest,
-			srcs, (char *)raid6_gfexp,
-			0, count, STRIPE_SIZE,
+		tx = async_syndrome_zero_sum(pxor_dest, qxor_dest,
+			srcs, 0, count, STRIPE_SIZE,
 			&sh->ops.zero_sum_result, &sh->ops.zero_qsum_result,
 			0, NULL, NULL, NULL);
 	} else if (test_bit(STRIPE_OP_CHECK_QP, &sh->ops.pending)) {
 		/* check Q only */
 		srcs[1] = NULL;
 		pr_debug("%s: check Q\n", __FUNCTION__);
-		tx = async_pqxor_zero_sum(NULL, qxor_dest,
-			srcs, (char *)raid6_gfexp,
-			0, count, STRIPE_SIZE,
+		tx = async_syndrome_zero_sum(NULL, qxor_dest,
+			srcs, 0, count, STRIPE_SIZE,
 			&sh->ops.zero_sum_result, &sh->ops.zero_qsum_result,
 			0, NULL, NULL, NULL);
 	} else {

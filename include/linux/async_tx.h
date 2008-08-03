@@ -169,9 +169,22 @@ async_pqxor(struct page *pdest, struct page *qdest,
 	dma_async_tx_callback callback, void *callback_param);
 
 struct dma_async_tx_descriptor *
+async_gen_syndrome(struct page *pdest, struct page *qdest,
+	struct page **src_list, unsigned int offset, int src_cnt, size_t len,
+	enum async_tx_flags flags, struct dma_async_tx_descriptor *depend_tx,
+	dma_async_tx_callback callback, void *callback_param);
+
+struct dma_async_tx_descriptor *
 async_pqxor_zero_sum(struct page *pdest, struct page *qdest,
 	struct page **src_list, unsigned char *scoef_list,
 	unsigned int offset, int src_cnt, size_t len,
+	u32 *presult, u32 *qresult, enum async_tx_flags flags,
+	struct dma_async_tx_descriptor *depend_tx,
+	dma_async_tx_callback callback, void *callback_param);
+
+struct dma_async_tx_descriptor *
+async_syndrome_zero_sum(struct page *pdest, struct page *qdest,
+	struct page **src_list, unsigned int offset, int src_cnt, size_t len,
 	u32 *presult, u32 *qresult, enum async_tx_flags flags,
 	struct dma_async_tx_descriptor *depend_tx,
 	dma_async_tx_callback callback, void *callback_param);
