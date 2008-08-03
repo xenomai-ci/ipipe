@@ -21,4 +21,5 @@ config ASYNC_PQXOR
 config ASYNC_R6RECOV
 	tristate
 	select ASYNC_CORE
+	select ASYNC_MEMSET
 

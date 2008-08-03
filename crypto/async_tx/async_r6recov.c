@@ -85,10 +85,20 @@ async_r6_dd_recov (int disks, size_t bytes, int faila, int failb,
 			k++;
 		}
 	}
-	if (!(tx=async_pqxor(ptrs[faila], ptrs[failb],
-			lptrs, lcoef, 0, k, bytes,
-			ASYNC_TX_XOR_ZERO_DST,
-			depend_tx, NULL, NULL))) {
+
+	if (!k) {
+		tx = async_memset(ptrs[faila], 0, 0, bytes,
+				0, NULL, NULL, NULL);
+		/* Actually there is no need in dependency here, but to
+		 * guarantee that *both* pages will be zeroed before the
+		 * next operation we build this dependency chain
+		 */
+		tx = async_memset(ptrs[failb], 0, 0, bytes,
+				ASYNC_TX_DEP_ACK, tx, NULL, NULL);
+	} else if (!(tx = async_pqxor(ptrs[faila], ptrs[failb],
+					lptrs, lcoef, 0, k, bytes,
+					ASYNC_TX_XOR_ZERO_DST,
+					depend_tx, NULL, NULL))) {
 		/* Here may go to the synchronous variant */
 		if (flags & ASYNC_TX_ASYNC_ONLY)
 			return NULL;
