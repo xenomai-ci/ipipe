@@ -294,7 +294,6 @@ static int __init async_pqxor_init(void)
 	spare_pages[1] = alloc_page(GFP_KERNEL);
 	if (!spare_pages[1])
 		goto abort;
-	spare_pages[1] = alloc_page(GFP_KERNEL);
 
 	return 0;
 abort:
