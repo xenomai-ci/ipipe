@@ -58,6 +58,8 @@ async_r6_dd_recov (int disks, size_t bytes, int faila, int failb,
 	unsigned char lcoef[ASYNC_R6_MAX_SRCS];
 	int i = 0, k = 0, fc = -1;
 	u8 bc[2];
+	dma_async_tx_callback lcb = NULL;
+	void *lcb_param = NULL;
 
 	BUG_ON(disks > ASYNC_R6_MAX_SRCS);
 
@@ -72,6 +74,16 @@ async_r6_dd_recov (int disks, size_t bytes, int faila, int failb,
 	 * Try to compute missed data asynchronously.
 	 */
 
+	if (disks == 4) {
+		/* Pxy and Qxy are zero in this case so we already have
+		 * P+Pxy and Q+Qxy in P and Q strips respectively.
+		 */
+		tx = depend_tx;
+		lcb = cb;
+		lcb_param = cb_param;
+		goto do_mult;
+	}
+
 	/* (1) Calculate Qxy and Pxy:
 	 *  Qxy = A(1)*D(1) + .. + A(n,m-1)*D(n,m-1) + A(n,m+1)*D(n,m+1) + ..,
 	 *   where n = faila, m = failb.
@@ -84,20 +96,10 @@ async_r6_dd_recov (int disks, size_t bytes, int faila, int failb,
 		}
 	}
 
-	if (!k) {
-		tx = async_memset(ptrs[faila], 0, 0, bytes,
-				0, NULL, NULL, NULL);
-		/* Actually there is no need in dependency here, but to
-		 * guarantee that *both* pages will be zeroed before the
-		 * next operation we build this dependency chain
-		 */
-		tx = async_memset(ptrs[failb], 0, 0, bytes,
-				ASYNC_TX_DEP_ACK, tx, NULL, NULL);
-	} else if (!(tx = async_pqxor(ptrs[faila], ptrs[failb],
-					lptrs, lcoef, 0, k, bytes,
-					ASYNC_TX_XOR_ZERO_DST |
-					ASYNC_TX_ASYNC_ONLY,
-					depend_tx, NULL, NULL))) {
+	tx = async_pqxor(ptrs[faila], ptrs[failb], lptrs, lcoef, 0, k, bytes,
+			ASYNC_TX_XOR_ZERO_DST | ASYNC_TX_ASYNC_ONLY,
+			depend_tx, NULL, NULL);
+	if (!tx) {
 		/* Here may go to the synchronous variant */
 		if (flags & ASYNC_TX_ASYNC_ONLY)
 			return NULL;
@@ -124,6 +126,7 @@ async_r6_dd_recov (int disks, size_t bytes, int faila, int failb,
 		ASYNC_TX_DEP_ACK,
 		tx, NULL, NULL);
 
+do_mult:
 	/* (4) Compute (P+Pxy) * Bxy. Compute (Q+Qxy) * Cxy. XOR them and get
 	 *  faila.
 	 * B = (2^(y-x))*((2^(y-x) + {01})^(-1))
@@ -146,7 +149,10 @@ async_r6_dd_recov (int disks, size_t bytes, int faila, int failb,
 	tx=async_pqxor(ptrs[faila], NULL,
 		lptrs, NULL, 0, 2, bytes,
 		ASYNC_TX_DEP_ACK | ASYNC_TX_XOR_ZERO_DST,
-		tx, NULL, NULL);
+		tx, lcb, lcb_param);
+
+	if (disks == 4)
+		return tx;
 
 	/* (6) Restore the parities back (use Pnm and Qnm)
 	 */
