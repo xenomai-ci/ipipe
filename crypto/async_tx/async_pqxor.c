@@ -270,13 +270,13 @@ async_pqxor_zero_sum(struct page *pdest, struct page *qdest,
 			depend_tx, NULL, NULL);
 
 		if (presult && pdest)
-			*presult = memcmp(page_address(pdest),
-					   page_address(spare_pages[0]),
-					   len) == 0 ? 0 : 1;
+			*presult = memcmp(page_address(pdest) + offset,
+					   page_address(spare_pages[0]) +
+					   offset, len) == 0 ? 0 : 1;
 		if (qresult && qdest)
-			*qresult = memcmp(page_address(qdest),
-					   page_address(spare_pages[1]),
-					   len) == 0 ? 0 : 1;
+			*qresult = memcmp(page_address(qdest) + offset,
+					   page_address(spare_pages[1]) +
+					   offset, len) == 0 ? 0 : 1;
 		spin_unlock(&spare_lock);
 	}
 
