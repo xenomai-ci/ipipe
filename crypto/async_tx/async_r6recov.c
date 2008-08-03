@@ -248,7 +248,7 @@ async_r6_dp_recov (int disks, size_t bytes, int faila, struct page **ptrs,
 	 */
 	lptrs[0] = ptrs[disks-2];
 	return async_pqxor(NULL, ptrs[faila],
-			lptrs, (u8 *)&raid6_gfexp[255-faila],
+			lptrs, (u8 *)&raid6_gfexp[faila ? 255-faila : 0],
 			0, 1, bytes,
 			ASYNC_TX_DEP_ACK | ASYNC_TX_XOR_ZERO_DST,
 			tx, cb, cb_param);
