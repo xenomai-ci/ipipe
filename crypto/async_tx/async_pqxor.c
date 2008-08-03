@@ -109,28 +109,33 @@ do_async_pqxor(struct dma_device *device,
  */
 static void
 do_sync_pqxor(struct page *pdest, struct page *qdest,
-	struct page **src_list, unsigned int offset,
+	struct page **src_list, unsigned char *scoef_list, unsigned int offset,
 	unsigned int src_cnt, size_t len, enum async_tx_flags flags,
 	struct dma_async_tx_descriptor *depend_tx,
 	dma_async_tx_callback callback, void *callback_param)
 {
-	int i;
-
-	/* reuse the 'src_list' array to convert to buffer pointers */
-	for (i = 0; i < src_cnt; i++)
-		src_list[i] = (struct page *)
-			(page_address(src_list[i]) + offset);
+	int i, pos;
+	uint8_t *p, *q, *src;
 
 	/* set destination addresses */
-	src_list[i++] = (struct page *)(page_address(pdest) + offset);
-	src_list[i++] = (struct page *)(page_address(qdest) + offset);
+	p = pdest ? (uint8_t *)(page_address(pdest) + offset) : NULL;
+	q = (uint8_t *)(page_address(qdest) + offset);
 
 	if (flags & ASYNC_TX_XOR_ZERO_DST) {
-		memset(src_list[i-2], 0, len);
-		memset(src_list[i-1], 0, len);
+		if (p)
+			memset(p, 0, len);
+		memset(q, 0, len);
 	}
 
-	raid6_call.gen_syndrome(i, len, (void **)src_list);
+	for (i = 0; i < src_cnt; i++) {
+		src = (uint8_t *)(page_address(src_list[i]) + offset);
+		for (pos = 0; pos < len; pos++) {
+			if (p)
+				p[pos] ^= src[pos];
+			q[pos] ^= raid6_gfmul[scoef_list[i]][src[pos]];
+		}
+	}
+
 	async_tx_sync_epilog(flags, depend_tx, callback, callback_param);
 }
 
@@ -164,6 +169,8 @@ async_pqxor(struct page *pdest, struct page *qdest,
 	struct dma_device *device = chan ? chan->device : NULL;
 	struct dma_async_tx_descriptor *tx = NULL;
 
+	BUG_ON(!pdest && !qdest);
+
 	if (!device && (flags & ASYNC_TX_ASYNC_ONLY))
 		return NULL;
 
@@ -172,9 +179,21 @@ async_pqxor(struct page *pdest, struct page *qdest,
 			       scoef_list, offset, src_cnt, len, flags,
 			       depend_tx, callback,callback_param);
 	} else { /* run the pqxor synchronously */
-		/* may do synchronous PQ only when both destinations exsists */
-		if (!pdest || !qdest)
-			return NULL;
+		if (!qdest) {
+			struct page *tsrc[src_cnt + 1];
+			struct page **lsrc = src_list;
+			if (!(flags & ASYNC_TX_XOR_ZERO_DST)) {
+				tsrc[0] = pdest;
+				memcpy(tsrc + 1, src_list, src_cnt *
+						sizeof(struct page *));
+				lsrc = tsrc;
+				src_cnt++;
+				flags |= ASYNC_TX_XOR_DROP_DST;
+			}
+			return async_xor(pdest, lsrc, offset, src_cnt, len,
+					flags, depend_tx,
+					callback, callback_param);
+		}
 
 		/* wait for any prerequisite operations */
 		if (depend_tx) {
@@ -187,7 +206,7 @@ async_pqxor(struct page *pdest, struct page *qdest,
 					__FUNCTION__);
 		}
 
-		do_sync_pqxor(pdest, qdest, src_list,
+		do_sync_pqxor(pdest, qdest, src_list, scoef_list,
 			offset,	src_cnt, len, flags, depend_tx,
 			callback, callback_param);
 	}
@@ -263,9 +282,10 @@ async_pqxor_zero_sum(struct page *pdest, struct page *qdest,
 		/* TBD: support for lengths size of more than PAGE_SIZE */
 
 		lflags &= ~ASYNC_TX_ACK;
+		lflags |= ASYNC_TX_XOR_ZERO_DST;
 		spin_lock(&spare_lock);
 		do_sync_pqxor(spare_pages[0], spare_pages[1],
-			&src_list[2], offset,
+			&src_list[2], scf, offset,
 			src_cnt - 2, len, lflags,
 			depend_tx, NULL, NULL);
 

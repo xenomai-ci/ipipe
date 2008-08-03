@@ -70,8 +70,6 @@ async_r6_dd_recov (int disks, size_t bytes, int faila, int failb,
 
 	/*
 	 * Try to compute missed data asynchronously.
-	 * Some operations never fail (XOR) so do not
-	 * check what they return
 	 */
 
 	/* (1) Calculate Qxy and Pxy:
@@ -97,7 +95,8 @@ async_r6_dd_recov (int disks, size_t bytes, int faila, int failb,
 				ASYNC_TX_DEP_ACK, tx, NULL, NULL);
 	} else if (!(tx = async_pqxor(ptrs[faila], ptrs[failb],
 					lptrs, lcoef, 0, k, bytes,
-					ASYNC_TX_XOR_ZERO_DST,
+					ASYNC_TX_XOR_ZERO_DST |
+					ASYNC_TX_ASYNC_ONLY,
 					depend_tx, NULL, NULL))) {
 		/* Here may go to the synchronous variant */
 		if (flags & ASYNC_TX_ASYNC_ONLY)
@@ -134,27 +133,11 @@ async_r6_dd_recov (int disks, size_t bytes, int faila, int failb,
 	bc[0] = raid6_gfexi[failb-faila];
 	bc[1] = raid6_gfinv[raid6_gfexp[faila]^raid6_gfexp[failb]];
 
-	/* Don't really need this, as next async_pqxor() call not going to
-	 * run synchronously (Q-only).
-	 */
 	lptrs[0] = ptrs[disks - 2];
 	lptrs[1] = ptrs[disks - 1];
-	if (!(tx=async_pqxor(NULL, ptrs[failb],
-			lptrs, bc, 0, 2, bytes,
+	tx = async_pqxor(NULL, ptrs[failb], lptrs, bc, 0, 2, bytes,
 			ASYNC_TX_DEP_ACK | ASYNC_TX_XOR_ZERO_DST,
-			tx, NULL, NULL))) {
-		/* It's bad if we failed here; try to repeat this
-		 * using another failed disk as a spare; this wouldn't
-		 * failed since now we'll be able to compute synchronously
-		 * (there is no support for synchronous Q-only)
-		 */
-		lptrs[0] = ptrs[disks - 2];
-		lptrs[1] = ptrs[disks - 1];
-		async_pqxor(ptrs[faila], ptrs[failb],
-			lptrs, bc, 0, 2, bytes,
-			ASYNC_TX_DEP_ACK | ASYNC_TX_XOR_ZERO_DST,
-			NULL, NULL, NULL);
-	}
+			tx, NULL, NULL);
 
 	/* (5) Compute failed Dy using recovered [failb] and P+Pnm in [p]
 	 */
@@ -260,7 +243,7 @@ async_r6_dp_recov (int disks, size_t bytes, int faila, struct page **ptrs,
 
 	if (!(tx=async_pqxor(NULL, ptrs[disks-2],
 			lptrs, lcoef, 0, k,
-			bytes, ASYNC_TX_XOR_ZERO_DST,
+			bytes, ASYNC_TX_XOR_ZERO_DST | ASYNC_TX_ASYNC_ONLY,
 			depend_tx, NULL, NULL))) {
 		if (flags & ASYNC_TX_ASYNC_ONLY)
 			return NULL;
@@ -270,20 +253,12 @@ async_r6_dp_recov (int disks, size_t bytes, int faila, struct page **ptrs,
 	/* (2) Compute missed Dn:
 	 *  Dn = (Q + Qn) * [A(n)^(-1)]
 	 */
-	if (!(tx=async_pqxor(NULL, ptrs[faila],
-			&ptrs[disks-2], (u8 *)&raid6_gfexp[255-faila],
+	lptrs[0] = ptrs[disks-2];
+	return async_pqxor(NULL, ptrs[faila],
+			lptrs, (u8 *)&raid6_gfexp[255-faila],
 			0, 1, bytes,
 			ASYNC_TX_DEP_ACK | ASYNC_TX_XOR_ZERO_DST,
-			tx, cb, cb_param))) {
-		if (flags & ASYNC_TX_ASYNC_ONLY)
-			return NULL;
-		goto dpr_sync;
-	}
-
-	/* if come here then all required asynchronous operations
-	 * have been scheduled successfully
-	 */
-	return tx;
+			tx, cb, cb_param);
 
 dpr_sync:
 	{
