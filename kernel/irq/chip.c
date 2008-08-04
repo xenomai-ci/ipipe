@@ -553,7 +553,11 @@ void __ipipe_ack_fasteoi_irq(unsigned irq, struct irq_desc *desc)
 
 void __ipipe_end_fasteoi_irq(unsigned irq, struct irq_desc *desc)
 {
-	desc->chip->unmask(irq);
+	/*
+	 * Non-requestable IRQs should not be masked in EOI handler.
+	 */
+	if (!(desc->status & IRQ_NOREQUEST))
+		desc->chip->unmask(irq);
 }
 
 void __ipipe_ack_edge_irq(unsigned irq, struct irq_desc *desc)
