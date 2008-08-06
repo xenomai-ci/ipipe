@@ -961,6 +961,16 @@ void __ipipe_sync_stage(unsigned long syncmask)
 
 			if (ipipe_this_cpudom_var(irqpend_lomask)[level] == 0)
 				__clear_bit(level, &ipipe_this_cpudom_var(irqpend_himask));
+			/*
+			 * Make sure the compiler will not postpone
+			 * the pending bitmask updates before calling
+			 * the interrupt handling routine. Otherwise,
+			 * those late updates could overwrite any
+			 * change to irqpend_hi/lomask due to a nested
+			 * interrupt, leaving the latter unprocessed
+			 * (seen on mpc836x).
+			 */
+			barrier();
 
 			if (test_bit(IPIPE_LOCK_FLAG, &ipd->irqs[irq].control))
 				continue;
