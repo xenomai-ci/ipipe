@@ -670,11 +670,15 @@ call_fpe:
 do_fpe:
 #ifdef CONFIG_IPIPE
 	mov	r4, r0
+	mov	r5, r2
+	mov	r6, lr
 	mov	r0, #5				@ == IPIPE_TRAP_FPU
 	mov	r1, sp				@ r0 = trapno, r1 = &regs
 	bl	__ipipe_dispatch_event		@ branch to trap handler
 	cmp	r0, #0
-	ldrne	pc, [r9]
+	movne	pc, r9
+	mov	lr, r6
+	mov	r2, r5
 	mov	r0, r4
 #endif
 	enable_irq
@@ -686,11 +690,15 @@ do_fpe:
 _do_vfp:
 #ifdef CONFIG_IPIPE
 	mov	r4, r0
+	mov	r5, r2
+	mov	r6, lr
 	mov	r0, #6				@ == IPIPE_TRAP_VFP
 	mov	r1, sp				@ r0 = trapno, r1 = &regs
 	bl	__ipipe_dispatch_event		@ branch to trap handler
 	cmp	r0, #0
-	ldrne	pc, [r9]
+	movne	pc, r9
+	mov	lr, r6
+	mov	r2, r5
 	mov	r0, r4
 #endif
 	b	do_vfp
