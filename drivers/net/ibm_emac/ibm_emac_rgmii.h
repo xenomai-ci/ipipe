@@ -44,6 +44,13 @@ static inline void rgmii_fini(struct ocp_device *ocpdev, int input)
 		__rgmii_fini(ocpdev, input);
 }
 
+void __rgmii_enable_mdio(struct ocp_device *ocpdev, int input);
+static inline void rgmii_enable_mdio(struct ocp_device *ocpdev, int input)
+{
+        if (ocpdev)
+                __rgmii_enable_mdio(ocpdev, input);
+}
+
 void rgmii_set_speed(struct ocp_device *ocpdev, int input, int speed);
 
 int __rgmii_get_regs_len(struct ocp_device *ocpdev);
@@ -56,6 +63,7 @@ void *rgmii_dump_regs(struct ocp_device *ocpdev, void *buf);
 #else
 # define rgmii_attach(x)	0
 # define rgmii_fini(x,y)	((void)0)
+# define rgmii_enable_mdio(x,y)	((void)0)
 # define rgmii_set_speed(x,y,z)	((void)0)
 # define rgmii_get_regs_len(x)	0
 # define rgmii_dump_regs(x,buf)	(buf)

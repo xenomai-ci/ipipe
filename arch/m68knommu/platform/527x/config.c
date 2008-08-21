@@ -25,6 +25,9 @@
 /***************************************************************************/
 
 void coldfire_reset(void);
+#if defined(CONFIG_UBOOT)
+void parse_uboot_commandline(char *commandp, int size);
+#endif
 
 /***************************************************************************/
 
@@ -115,6 +118,19 @@ void mcf_autovector(unsigned int vec)
 void __init config_BSP(char *commandp, int size)
 {
 	mcf_disableall();
+
+#ifdef CONFIG_BOOTPARAM
+	strncpy(commandp, CONFIG_BOOTPARAM_STRING, size);
+	commandp[size-1] = 0;
+#elif defined(CONFIG_UBOOT)
+	parse_uboot_commandline(commandp, size);
+#else
+	memset(commandp, 0, size);
+#endif
+
+	mach_sched_init = coldfire_pit_init;
+	mach_tick = coldfire_pit_tick;
+	mach_gettimeoffset = coldfire_pit_offset;
 	mach_reset = coldfire_reset;
 }
 

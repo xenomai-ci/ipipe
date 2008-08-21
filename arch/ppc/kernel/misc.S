@@ -17,12 +17,17 @@
 #include <asm/errno.h>
 #include <asm/processor.h>
 #include <asm/page.h>
+#include <asm/ppc_page_asm.h>
 #include <asm/cache.h>
 #include <asm/cputable.h>
 #include <asm/mmu.h>
 #include <asm/ppc_asm.h>
 #include <asm/thread_info.h>
 #include <asm/asm-offsets.h>
+
+#ifdef CONFIG_44x
+#include <asm/ibm44x.h>
+#endif
 
 #ifdef CONFIG_8xx
 #define ISYNC_8xx isync
@@ -351,6 +356,35 @@ END_FTR_SECTION_IFSET(CPU_FTR_COHERENT_ICACHE)
 	sync				/* additional sync needed on g4 */
 	isync
 	blr
+
+#if defined(CONFIG_44x)
+/*
+ * Invalidate the Level-2 cache lines corresponded to the address
+ * range.
+ *
+ * invalidate_l2cache_range(unsigned long start, unsigned long stop)
+ */
+_GLOBAL(invalidate_l2cache_range)
+	li	r5,PPC44X_L2_CACHE_BYTES-1	/* align on L2-cache line */
+	andc	r3,r3,r5
+	subf	r4,r3,r4
+	add	r4,r4,r5
+	srwi.	r4,r4,PPC44X_L2_CACHE_SHIFT
+	mtctr	r4
+
+	lis	r4, L2C_CMD_INV>>16
+1:	mtdcr	DCRN_L2C0_ADDR,r3	/* write address to invalidate */
+	mtdcr	DCRN_L2C0_CMD,r4	/* issue the Invalidate cmd */
+
+2:	mfdcr	r5,DCRN_L2C0_SR		/* wait for complete */
+	andis.	r5,r5,L2C_CMD_CLR>>16
+	beq	2b
+
+	addi	r3,r3,PPC44X_L2_CACHE_BYTES	/* next address to invalidate */
+	bdnz	1b
+	blr
+#endif
+
 /*
  * Write any modified data cache blocks out to memory.
  * Does not invalidate the corresponding cache lines (especially for
@@ -449,8 +483,8 @@ _GLOBAL(__flush_dcache_icache)
 BEGIN_FTR_SECTION
 	blr					/* for 601, do nothing */
 END_FTR_SECTION_IFSET(CPU_FTR_COHERENT_ICACHE)
-	rlwinm	r3,r3,0,0,19			/* Get page base address */
-	li	r4,4096/L1_CACHE_BYTES	/* Number of lines in a page */
+	rlwinm	r3,r3,0,0,PPC44x_RPN_M2		/* Get page base address */
+	li	r4,PAGE_SIZE/L1_CACHE_BYTES	/* Number of lines in a page */
 	mtctr	r4
 	mr	r6,r3
 0:	dcbst	0,r3				/* Write line to ram */
@@ -490,8 +524,8 @@ END_FTR_SECTION_IFSET(CPU_FTR_COHERENT_ICACHE)
 	rlwinm	r0,r10,0,28,26			/* clear DR */
 	mtmsr	r0
 	isync
-	rlwinm	r3,r3,0,0,19			/* Get page base address */
-	li	r4,4096/L1_CACHE_BYTES	/* Number of lines in a page */
+	rlwinm	r3,r3,0,0,PPC44x_RPN_M2		/* Get page base address */
+	li	r4,PAGE_SIZE/L1_CACHE_BYTES	/* Number of lines in a page */
 	mtctr	r4
 	mr	r6,r3
 0:	dcbst	0,r3				/* Write line to ram */
@@ -515,7 +549,7 @@ END_FTR_SECTION_IFSET(CPU_FTR_COHERENT_ICACHE)
  * void clear_pages(void *page, int order) ;
  */
 _GLOBAL(clear_pages)
-	li	r0,4096/L1_CACHE_BYTES
+	li	r0,PAGE_SIZE/L1_CACHE_BYTES
 	slw	r0,r0,r4
 	mtctr	r0
 #ifdef CONFIG_8xx
@@ -573,7 +607,7 @@ _GLOBAL(copy_page)
 	dcbt	r5,r4
 	li	r11,L1_CACHE_BYTES+4
 #endif /* MAX_COPY_PREFETCH */
-	li	r0,4096/L1_CACHE_BYTES - MAX_COPY_PREFETCH
+	li	r0,PAGE_SIZE/L1_CACHE_BYTES - MAX_COPY_PREFETCH
 	crclr	4*cr0+eq
 2:
 	mtctr	r0
@@ -773,7 +807,7 @@ _GLOBAL(_outsl_ns)
  * R5    has shift count
  * result in R3/R4
  *
- *  ashrdi3: arithmetic right shift (sign propagation)	
+ *  ashrdi3: arithmetic right shift (sign propagation)
  *  lshrdi3: logical right shift
  *  ashldi3: left shift
  */

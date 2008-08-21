@@ -15,8 +15,11 @@ obj-$(CONFIG_USB_OMAP)		+= omap_udc.o
 obj-$(CONFIG_USB_LH7A40X)	+= lh7a40x_udc.o
 obj-$(CONFIG_USB_S3C2410)	+= s3c2410_udc.o
 obj-$(CONFIG_USB_AT91)		+= at91_udc.o
+obj-$(CONFIG_USB_PD12)		+= pd12_udc.o
+obj-$(CONFIG_USB_MUSBHSFC)	+= musbhsfc_udc.o
 obj-$(CONFIG_USB_ATMEL_USBA)	+= atmel_usba_udc.o
 obj-$(CONFIG_USB_FSL_USB2)	+= fsl_usb2_udc.o
+obj-$(CONFIG_USB_DWC_OTG)	+= dwc_otg/
 obj-$(CONFIG_USB_M66592)	+= m66592-udc.o
 
 #
@@ -35,7 +38,7 @@ g_printer-objs			:= printer.o usbstring.o config.o \
 ifeq ($(CONFIG_USB_ETH_RNDIS),y)
 	g_ether-objs		+= rndis.o
 endif
- 
+
 obj-$(CONFIG_USB_ZERO)		+= g_zero.o
 obj-$(CONFIG_USB_ETH)		+= g_ether.o
 obj-$(CONFIG_USB_GADGETFS)	+= gadgetfs.o

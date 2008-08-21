@@ -15,7 +15,11 @@
 #ifdef CONFIG_PPC64
 #define THREAD_SHIFT		14
 #else
+#if defined(CONFIG_PPC_PAGE_256K)
+#define THREAD_SHIFT		15
+#else
 #define THREAD_SHIFT		13
+#endif
 #endif
 
 #define THREAD_SIZE		(1 << THREAD_SHIFT)
@@ -80,8 +84,27 @@ struct thread_info {
 
 #else /* THREAD_SHIFT < PAGE_SHIFT */
 
+#ifdef CONFIG_DEBUG_STACK_USAGE
+#if defined(CONFIG_PPC_PAGE_256K)
+#define alloc_thread_info(tsk)	\
+	((struct thread_info *)__get_free_pages(GFP_KERNEL |	\
+			__GFP_ZERO, 0))
+#else
+#define alloc_thread_info(tsk) kzalloc(THREAD_SIZE, GFP_KERNEL)
+#endif
+#else /* CONFIG_DEBUG_STACK_USAGE */
+#if defined(CONFIG_PPC_PAGE_256K)
+#define alloc_thread_info(tsk)	\
+	((struct thread_info *)__get_free_pages(GFP_KERNEL, 0))
+#else
 extern struct thread_info *alloc_thread_info(struct task_struct *tsk);
+#endif
+#endif /* CONFIG_DEBUG_STACK_USAGE */
+#if defined(CONFIG_PPC_PAGE_256K)
+#define free_thread_info(ti)	free_pages((unsigned long)ti, 0)
+#else
 extern void free_thread_info(struct thread_info *ti);
+#endif
 
 #endif /* THREAD_SHIFT < PAGE_SHIFT */
 

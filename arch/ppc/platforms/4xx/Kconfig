@@ -16,6 +16,12 @@ choice
 	depends on 40x
 	default WALNUT
 
+config ACADIA
+	bool "Acadia"
+	select WANT_EARLY_SERIAL
+	help
+	  This option enables support for the AMCC 405EZ evaluation board.
+
 config BUBINGA
 	bool "Bubinga"
 	select WANT_EARLY_SERIAL
@@ -33,6 +39,23 @@ config EP405
 	help
 	  This option enables support for the EP405/EP405PC boards.
 
+config KILAUEA
+	bool "Kilauea"
+	select WANT_EARLY_SERIAL
+	help
+	  This option enables support for the AMCC 405EX evaluation board.
+
+config MAKALU
+	bool "Makalu"
+	select WANT_EARLY_SERIAL
+	help
+	  This option enables support for the AMCC 405EX evaluation board.
+
+config PPChameleonEVB
+	bool "PPChameleonEVB"
+	help
+	  This option enables support for the DAVE 405EP evaluation board.
+
 config REDWOOD_5
 	bool "Redwood-5"
 	help
@@ -43,10 +66,21 @@ config REDWOOD_6
 	help
 	  This option enables support for the IBM STBx25xx evaluation board.
 
+config SC3
+	bool "SolidCard3"
+	help
+	  This option enables support for the EuroDesign SolidCard3 405GPr evaluation board.
+
 config SYCAMORE
 	bool "Sycamore"
 	help
 	  This option enables support for the IBM PPC405GPr evaluation board.
+
+config TAIHU
+	bool "Taihu"
+	select WANT_EARLY_SERIAL
+	help
+	  This option enables support for the AMCC 405EP evaluation board.
 
 config WALNUT
 	bool "Walnut"
@@ -73,6 +107,12 @@ choice
 	depends on 44x
 	default EBONY
 
+config ALPR
+	bool "ALPR"
+	select WANT_EARLY_SERIAL
+	help
+	  This option enables support for the ALPR board from Prodrive.
+
 config BAMBOO
 	bool "Bamboo"
 	select WANT_EARLY_SERIAL
@@ -85,17 +125,23 @@ config EBONY
 	help
 	  This option enables support for the IBM PPC440GP evaluation board.
 
+config KATMAI
+	bool "Katmai"
+	select WANT_EARLY_SERIAL
+	help
+	  This option enables support for the AMCC PPC440SPe evaluation board.
+
 config LUAN
 	bool "Luan"
 	select WANT_EARLY_SERIAL
 	help
 	  This option enables support for the IBM PPC440SP evaluation board.
 
-config YUCCA
-	bool "Yucca"
+config LWMON5
+	bool "LWMON5"
 	select WANT_EARLY_SERIAL
 	help
-	  This option enables support for the AMCC PPC440SPe evaluation board.
+	  This option enables support for the Liebherr LWMON5 board.
 
 config OCOTEA
 	bool "Ocotea"
@@ -103,11 +149,47 @@ config OCOTEA
 	help
 	  This option enables support for the IBM PPC440GX evaluation board.
 
+config P3P440
+	bool "P3P440"
+	select WANT_EARLY_SERIAL
+	help
+	  This option enables support for the Prodrive P3P440 board.
+
+config RAINIER
+	bool "Rainier"
+	select WANT_EARLY_SERIAL
+	help
+	  This option enables support for the AMCC PPC440GRx evaluation board.
+
+config SEQUOIA
+	bool "Sequoia"
+	select WANT_EARLY_SERIAL
+	help
+	  This option enables support for the AMCC PPC440EPx evaluation board.
+
 config TAISHAN
 	bool "Taishan"
 	select WANT_EARLY_SERIAL
 	help
 	  This option enables support for the AMCC PPC440GX evaluation board.
+
+config YELLOWSTONE
+	bool "Yellowstone"
+	select WANT_EARLY_SERIAL
+	help
+	  This option enables support for the AMCC PPC440GR evaluation board.
+
+config YOSEMITE
+	bool "Yosemite"
+	select WANT_EARLY_SERIAL
+	help
+	  This option enables support for the AMCC PPC440EP evaluation board.
+
+config YUCCA
+	bool "Yucca"
+	select WANT_EARLY_SERIAL
+	help
+	  This option enables support for the AMCC PPC440SPe evaluation board.
 
 endchoice
 
@@ -126,18 +208,36 @@ config NP405H
 
 config 440EP
 	bool
-	depends on BAMBOO
+	depends on BAMBOO || YOSEMITE
 	select PPC_FPU
+	default y
+
+config 440EPX
+	bool
+	depends on LWMON5 || SEQUOIA
+	select PPC_FPU
+	select USB_EHCI_BIG_ENDIAN_MMIO
+	select USB_EHCI_BIG_ENDIAN_DESC
 	default y
 
 config 440GP
 	bool
-	depends on EBONY
+	depends on EBONY || P3P440
+	default y
+
+config 440GR
+	bool
+	depends on YELLOWSTONE
+	default y
+
+config 440GRX
+	bool
+	depends on RAINIER
 	default y
 
 config 440GX
 	bool
-	depends on OCOTEA || TAISHAN
+	depends on ALPR || OCOTEA || TAISHAN
 	default y
 
 config 440SP
@@ -147,22 +247,22 @@ config 440SP
 
 config 440SPE
 	bool
-	depends on YUCCA
+	depends on YUCCA || KATMAI
 	default y
 
 config 440
 	bool
-	depends on 440GP || 440SP || 440SPE || 440EP
+	depends on 440GP || 440SP || 440SPE || 440EP || 440GR
 	default y
 
 config 440A
 	bool
-	depends on 440GX
+	depends on 440GX || 440EPX || 440GRX
 	default y
 
 config IBM440EP_ERR42
 	bool
-	depends on 440EP
+	depends on 440EP || 440GR
 	default y
 
 # All 405-based cores up until the 405GPR and 405EP have this errata.
@@ -184,17 +284,27 @@ config BOOKE
 
 config IBM_OCP
 	bool
-	depends on ASH || BAMBOO || BUBINGA || CPCI405 || EBONY || EP405 || LUAN || YUCCA || OCOTEA || REDWOOD_5 || REDWOOD_6 || SYCAMORE || TAISHAN || WALNUT
+	depends on ACADIA || ALPR || ASH || BAMBOO || BUBINGA || CPCI405 || EBONY || EP405 || KATMAI || KILAUEA || LUAN || LWMON5 || MAKALU || OCOTEA || P3P440 || PPChameleonEVB || RAINIER || REDWOOD_5 || REDWOOD_6 || SC3 || SEQUOIA || SYCAMORE || TAIHU || TAISHAN || WALNUT || YELLOWSTONE || YOSEMITE || YUCCA
 	default y
 
 config IBM_EMAC4
 	bool
-	depends on 440GX || 440SP || 440SPE
+	depends on 440GX || 440SP || 440SPE || 440EPX || 440GRX || 405EX
+	default y
+
+config IBM_EMAC4V4
+	bool
+	depends on 440EPX || 440GRX || 405EX
+	default y
+
+config IBM_EMAC3V2
+	bool
+	depends on 405EZ
 	default y
 
 config BIOS_FIXUP
 	bool
-	depends on BUBINGA || EP405 || SYCAMORE || WALNUT || CPCI405
+	depends on ACADIA || BUBINGA || CPCI405 || EP405 || SC3 || SYCAMORE || TAIHU || WALNUT
 	default y
 
 # OAK doesn't exist but wanted to keep this around for any future 403GCX boards
@@ -205,7 +315,7 @@ config 403GCX
 
 config 405EP
 	bool
-	depends on BUBINGA
+	depends on BUBINGA || PPChameleonEVB || TAIHU
 	default y
 
 config 405GP
@@ -215,7 +325,17 @@ config 405GP
 
 config 405GPR
 	bool
-	depends on SYCAMORE
+	depends on SC3 || SYCAMORE
+	default y
+
+config 405EX
+	bool
+	depends on KILAUEA || MAKALU
+	default y
+
+config 405EZ
+	bool
+	depends on ACADIA
 	default y
 
 config XILINX_VIRTEX_II_PRO
@@ -244,7 +364,7 @@ config IBM_OPENBIOS
 
 config PPC4xx_DMA
 	bool "PPC4xx DMA controller support"
-	depends on 4xx
+	depends on 4xx && !440SP && !440SPE
 
 config PPC4xx_EDMA
 	bool

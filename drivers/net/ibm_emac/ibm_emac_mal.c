@@ -2,7 +2,7 @@
  * drivers/net/ibm_emac/ibm_emac_mal.c
  *
  * Memory Access Layer (MAL) support
- * 
+ *
  * Copyright (c) 2004, 2005 Zultys Technologies.
  * Eugene Surovegin <eugene.surovegin@zultys.com> or <ebs@ebshome.net>
  *
@@ -215,23 +215,31 @@ static inline void mal_schedule_poll(struct ibm_ocp_mal *mal)
 		MAL_DBG2("%d: already in poll" NL, mal->def->index);
 }
 
-static irqreturn_t mal_txeob(int irq, void *dev_instance)
+irqreturn_t mal_txeob(int irq, void *dev_instance)
 {
 	struct ibm_ocp_mal *mal = dev_instance;
 	u32 r = get_mal_dcrn(mal, MAL_TXEOBISR);
 	MAL_DBG2("%d: txeob %08x" NL, mal->def->index, r);
 	mal_schedule_poll(mal);
 	set_mal_dcrn(mal, MAL_TXEOBISR, r);
+#if defined(CONFIG_405EZ)
+	/* 405EZ need special treatment here! */
+	SDR_WRITE(DCRN_SDR_ICINTSTAT, SDR_READ(DCRN_SDR_ICINTSTAT) | ICINSTAT_ICTX);
+#endif
 	return IRQ_HANDLED;
 }
 
-static irqreturn_t mal_rxeob(int irq, void *dev_instance)
+irqreturn_t mal_rxeob(int irq, void *dev_instance)
 {
 	struct ibm_ocp_mal *mal = dev_instance;
 	u32 r = get_mal_dcrn(mal, MAL_RXEOBISR);
 	MAL_DBG2("%d: rxeob %08x" NL, mal->def->index, r);
 	mal_schedule_poll(mal);
 	set_mal_dcrn(mal, MAL_RXEOBISR, r);
+#if defined(CONFIG_405EZ)
+	/* 405EZ need special treatment here! */
+	SDR_WRITE(DCRN_SDR_ICINTSTAT, SDR_READ(DCRN_SDR_ICINTSTAT) | ICINSTAT_ICRX);
+#endif
 	return IRQ_HANDLED;
 }
 
@@ -272,6 +280,33 @@ static irqreturn_t mal_rxde(int irq, void *dev_instance)
 
 	return IRQ_HANDLED;
 }
+
+#if defined(CONFIG_405EZ)
+/*
+ * Generic routine to check for serr_int, txde_int and rxde_int
+ * since these are coalesced into 1 interrupt for 405EZ
+ */
+static irqreturn_t mal_int(int irq, void *dev_instance)
+{
+	struct ibm_ocp_mal *mal = dev_instance;
+	u32 esr = get_mal_dcrn(mal, MAL_ESR);
+
+	MAL_DBG("%d: MAL_INT %08x" NL, mal->def->index, esr);
+
+	if (esr & MAL_ESR_EVB) {
+		/* descriptor error */
+		if (esr & MAL_ESR_DE) {
+			if (esr & MAL_ESR_CIDT)
+				return(mal_rxde(irq, dev_instance));
+			else
+				return(mal_txde(irq, dev_instance));
+		} else { /* SERR */
+			return(mal_serr(irq, dev_instance));
+		}
+	}
+	return IRQ_HANDLED;
+}
+#endif
 
 static int mal_poll(struct napi_struct *napi, int budget)
 {
@@ -462,21 +497,41 @@ static int __init mal_probe(struct ocp_device *ocpdev)
 			     sizeof(struct mal_descriptor) *
 			     mal_rx_bd_offset(mal, i));
 
+#if defined(CONFIG_405EZ)
+	/* 405EZ only has one IRQ for all three sources!!! */
+	err = request_irq(maldata->serr_irq, mal_int, IRQF_SHARED, "MAL SERR", mal);
+	if (err)
+		goto fail2;
+	err = request_irq(maldata->txde_irq, mal_int, IRQF_SHARED, "MAL TX DE", mal);
+	if (err)
+		goto fail3;
+	err = request_irq(maldata->rxde_irq, mal_int, IRQF_SHARED, "MAL RX DE", mal);
+	if (err)
+		goto fail4;
+#else
 	err = request_irq(maldata->serr_irq, mal_serr, 0, "MAL SERR", mal);
 	if (err)
 		goto fail2;
 	err = request_irq(maldata->txde_irq, mal_txde, 0, "MAL TX DE", mal);
 	if (err)
 		goto fail3;
-	err = request_irq(maldata->txeob_irq, mal_txeob, 0, "MAL TX EOB", mal);
+	err = request_irq(maldata->rxde_irq, mal_rxde, 0, "MAL RX DE", mal);
 	if (err)
 		goto fail4;
-	err = request_irq(maldata->rxde_irq, mal_rxde, 0, "MAL RX DE", mal);
+#endif
+
+#if !defined(CONFIG_IBM_EMAC_INTR_COALESCE) || defined(CONFIG_405EZ)
+	/*
+	 * Only enable EOB interrupts when interrupt coalescing is disabled (440EPx)
+	 * or on 405EZ, which always uses this irq vectors
+	 */
+	err = request_irq(maldata->txeob_irq, mal_txeob, 0, "MAL TX EOB", mal);
 	if (err)
 		goto fail5;
 	err = request_irq(maldata->rxeob_irq, mal_rxeob, 0, "MAL RX EOB", mal);
 	if (err)
 		goto fail6;
+#endif
 
 	/* Enable all MAL SERR interrupt sources */
 	set_mal_dcrn(mal, MAL_IER, MAL_IER_EVENTS);
@@ -490,10 +545,12 @@ static int __init mal_probe(struct ocp_device *ocpdev)
 	       mal->def->index, maldata->num_tx_chans, maldata->num_rx_chans);
 	return 0;
 
+#if !defined(CONFIG_IBM_EMAC_INTR_COALESCE) || defined(CONFIG_405EZ)
       fail6:
-	free_irq(maldata->rxde_irq, mal);
-      fail5:
 	free_irq(maldata->txeob_irq, mal);
+      fail5:
+	free_irq(maldata->rxde_irq, mal);
+#endif
       fail4:
 	free_irq(maldata->txde_irq, mal);
       fail3:
@@ -526,9 +583,11 @@ static void __exit mal_remove(struct ocp_device *ocpdev)
 
 	free_irq(maldata->serr_irq, mal);
 	free_irq(maldata->txde_irq, mal);
-	free_irq(maldata->txeob_irq, mal);
 	free_irq(maldata->rxde_irq, mal);
-	free_irq(maldata->rxeob_irq, mal);
+	if (!emac_intr_coalesce(dev->def->index)) {
+		free_irq(maldata->txeob_irq, mal);
+		free_irq(maldata->rxeob_irq, mal);
+	}
 
 	mal_reset(mal);
 

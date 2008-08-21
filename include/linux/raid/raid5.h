@@ -181,13 +181,16 @@ struct stripe_head {
 		unsigned long	   ack;
 		unsigned long	   complete;
 		int		   target;
+		int		   target2;	/* second target for RAID-6 */
 		int		   count;
-		u32		   zero_sum_result;
+		u32		   zero_sum_result;	/* P-parity check */
+		u32		   zero_qsum_result;	/* Q-parity check */
 	} ops;
 	struct r5dev {
 		struct bio	req;
 		struct bio_vec	vec;
 		struct page	*page;
+		struct page	*dpage;	/* direct pointer to a bio buffer */
 		struct bio	*toread, *read, *towrite, *written;
 		sector_t	sector;			/* sector of this page */
 		unsigned long	flags;
@@ -271,6 +274,11 @@ struct r6_state {
  */
 #define STRIPE_OP_MOD_REPAIR_PD 7
 #define STRIPE_OP_MOD_DMA_CHECK 8
+
+#define STRIPE_OP_CHECK_PP	9
+#define STRIPE_OP_CHECK_QP	10
+#define STRIPE_OP_UPDATE_PP	11
+#define STRIPE_OP_UPDATE_QP	12
 
 /*
  * Plugging:

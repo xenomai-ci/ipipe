@@ -28,9 +28,30 @@
 struct ocp_sys_info_data {
 	int	opb_bus_freq;	/* OPB Bus Frequency (Hz) */
 	int	ebc_bus_freq;	/* EBC Bus Frequency (Hz) */
+	int	plb_bus_freq;	/* PLB Bus Frequency (Hz) */
 };
 
 extern struct ocp_sys_info_data ocp_sys_info;
+
+/*
+ *  Create sysfs attribute files for device.
+ */
+static inline int ocp_create_files (struct device *dev, struct device_attribute **p)
+{
+	int i, ret = 0;
+
+	for (i=0; p[i]; i++) {
+		if (unlikely(ret = device_create_file(dev, p[i]))) {
+			/* roll-back */
+			dev_err(dev, "Failed creating device attrs\n");
+			while (i)
+				device_remove_file(dev, p[--i]);
+			break;
+		}
+	}
+
+	return ret;
+}
 
 /*
  * EMAC additional data and sysfs support
@@ -67,6 +88,8 @@ struct ocp_func_emac_data {
 	u8	mac_addr[6];	/* EMAC mac address */
 	u32	phy_map;	/* EMAC phy map */
 	u32	phy_feat_exc;	/* Excluded PHY features */
+	int 	txcoal_irq;	/* Interrupt coalescence TX IRQ  */
+	int 	rxcoal_irq;	/* Interrupt coalescence RX IRQ */
 };
 
 /* Sysfs support */
@@ -84,22 +107,31 @@ OCP_SYSFS_ADDTL(struct ocp_func_emac_data, "%d\n", emac, tah_idx)	\
 OCP_SYSFS_ADDTL(struct ocp_func_emac_data, "%d\n", emac, phy_mode)	\
 OCP_SYSFS_ADDTL(struct ocp_func_emac_data, "0x%08x\n", emac, phy_map)	\
 OCP_SYSFS_ADDTL(struct ocp_func_emac_data, "0x%08x\n", emac, phy_feat_exc)\
+OCP_SYSFS_ADDTL(struct ocp_func_emac_data, "%d\n", emac, txcoal_irq)	\
+OCP_SYSFS_ADDTL(struct ocp_func_emac_data, "%d\n", emac, rxcoal_irq)	\
+									\
+static struct device_attribute *emac_attrs[] = {			\
+	&dev_attr_emac_rgmii_idx,					\
+	&dev_attr_emac_rgmii_mux,					\
+	&dev_attr_emac_zmii_idx,					\
+	&dev_attr_emac_zmii_mux,					\
+	&dev_attr_emac_mal_idx,						\
+	&dev_attr_emac_mal_rx_chan,					\
+	&dev_attr_emac_mal_tx_chan,					\
+	&dev_attr_emac_wol_irq,						\
+	&dev_attr_emac_mdio_idx,					\
+	&dev_attr_emac_tah_idx,						\
+	&dev_attr_emac_phy_mode,					\
+	&dev_attr_emac_phy_map,						\
+	&dev_attr_emac_phy_feat_exc,					\
+	&dev_attr_emac_txcoal_irq,					\
+	&dev_attr_emac_rxcoal_irq, 					\
+	NULL								\
+};									\
 									\
 void ocp_show_emac_data(struct device *dev)				\
 {									\
-	device_create_file(dev, &dev_attr_emac_rgmii_idx);		\
-	device_create_file(dev, &dev_attr_emac_rgmii_mux);		\
-	device_create_file(dev, &dev_attr_emac_zmii_idx);		\
-	device_create_file(dev, &dev_attr_emac_zmii_mux);		\
-	device_create_file(dev, &dev_attr_emac_mal_idx);		\
-	device_create_file(dev, &dev_attr_emac_mal_rx_chan);		\
-	device_create_file(dev, &dev_attr_emac_mal_tx_chan);		\
-	device_create_file(dev, &dev_attr_emac_wol_irq);		\
-	device_create_file(dev, &dev_attr_emac_mdio_idx);		\
-	device_create_file(dev, &dev_attr_emac_tah_idx);		\
-	device_create_file(dev, &dev_attr_emac_phy_mode);		\
-	device_create_file(dev, &dev_attr_emac_phy_map);		\
-	device_create_file(dev, &dev_attr_emac_phy_feat_exc);		\
+	ocp_create_files(dev, emac_attrs);				\
 }
 
 /*
@@ -174,16 +206,21 @@ OCP_SYSFS_ADDTL(struct ocp_func_mal_data, "%d\n", mal, rxde_irq)	\
 OCP_SYSFS_ADDTL(struct ocp_func_mal_data, "%d\n", mal, serr_irq)	\
 OCP_SYSFS_ADDTL(struct ocp_func_mal_data, "%d\n", mal, dcr_base)	\
 									\
+static struct device_attribute *mal_attrs[] = {				\
+	&dev_attr_mal_num_tx_chans,					\
+	&dev_attr_mal_num_rx_chans,					\
+	&dev_attr_mal_txeob_irq,					\
+	&dev_attr_mal_rxeob_irq,					\
+	&dev_attr_mal_txde_irq,						\
+	&dev_attr_mal_rxde_irq,						\
+	&dev_attr_mal_serr_irq,						\
+	&dev_attr_mal_dcr_base,						\
+	NULL								\
+};									\
+									\
 void ocp_show_mal_data(struct device *dev)				\
 {									\
-	device_create_file(dev, &dev_attr_mal_num_tx_chans);		\
-	device_create_file(dev, &dev_attr_mal_num_rx_chans);		\
-	device_create_file(dev, &dev_attr_mal_txeob_irq);		\
-	device_create_file(dev, &dev_attr_mal_rxeob_irq);		\
-	device_create_file(dev, &dev_attr_mal_txde_irq);		\
-	device_create_file(dev, &dev_attr_mal_rxde_irq);		\
-	device_create_file(dev, &dev_attr_mal_serr_irq);		\
-	device_create_file(dev, &dev_attr_mal_dcr_base);		\
+	ocp_create_files(dev, mal_attrs);				\
 }
 
 /*
@@ -198,7 +235,9 @@ OCP_SYSFS_ADDTL(struct ocp_func_iic_data, "%d\n", iic, fast_mode)	\
 									\
 void ocp_show_iic_data(struct device *dev)				\
 {									\
-	device_create_file(dev, &dev_attr_iic_fast_mode);		\
+	if(unlikely(device_create_file(dev, &dev_attr_iic_fast_mode))){	\
+		dev_err(dev, "Failed creating device attrs\n");		\
+	}								\
 }
 #endif /* __IBM_OCP_H__ */
 #endif /* __KERNEL__ */
