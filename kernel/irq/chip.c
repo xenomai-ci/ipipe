@@ -553,7 +553,11 @@ void __ipipe_ack_fasteoi_irq(unsigned irq, struct irq_desc *desc)
 
 void __ipipe_end_fasteoi_irq(unsigned irq, struct irq_desc *desc)
 {
-	desc->chip->unmask(irq);
+	/*
+	 * Non-requestable IRQs should not be masked in EOI handler.
+	 */
+	if (!(desc->status & IRQ_NOREQUEST))
+		desc->chip->unmask(irq);
 }
 
 void __ipipe_ack_edge_irq(unsigned irq, struct irq_desc *desc)
@@ -575,44 +579,6 @@ void __ipipe_end_percpu_irq(unsigned irq, struct irq_desc *desc)
 
 void __ipipe_end_edge_irq(unsigned irq, struct irq_desc *desc)
 {
-}
-
-void __ipipe_ack_demux_irq(unsigned irq, struct irq_desc *desc)
-{
-	/*
-	 * Handling is delegated to some demultiplexer routine,
-	 * e.g. GPIO. We mask_ack it, then call back into the demux
-	 * handler, which should decode the interrupt and feed the
-	 * pipeline as needed.
-	 */
-	if (desc->chip->mask)
-		desc->chip->mask(irq);
-	desc->ipipe_demux(irq, desc);
-}
-
-void __ipipe_end_demux_irq(unsigned irq, struct irq_desc *desc)
-{
-	if (desc->chip->unmask)
-		desc->chip->unmask(irq);
-}
-
-void handle_demux_irq(unsigned int irq, struct irq_desc *desc)
-{
-	/*
-	 * The regular IRQ handler will run last of all GPIO handlers,
-	 * to unmask the demux IRQ.
-	 */
-	__ipipe_end_demux_irq(irq, desc);
-}
-
-void __set_irq_demux_handler(unsigned int irq,
-			     void (*decode)(unsigned int, struct irq_desc *),
-			     int is_chained,
-			     const char *name)
-{
-	struct irq_desc *desc = irq_desc + irq;
-	__set_irq_handler(irq, &handle_demux_irq, is_chained, name);
-	desc->ipipe_demux = decode;
 }
 
 void __ipipe_ack_bad_irq(unsigned irq, struct irq_desc *desc)
@@ -705,10 +671,6 @@ __set_irq_handler(unsigned int irq, irq_flow_handler_t handle, int is_chained,
 		desc->ipipe_end = &__ipipe_end_percpu_irq;
 	}
 #endif /* CONFIG_SMP */
-	else if (handle == &handle_demux_irq) {
-		desc->ipipe_ack = &__ipipe_ack_demux_irq;
-		desc->ipipe_end = &__ipipe_end_demux_irq;
-	}
 #endif /* CONFIG_IPIPE */
 	else if (desc->chip == &no_irq_chip) {
 		printk(KERN_WARNING "Trying to install %sinterrupt handler "
@@ -727,10 +689,14 @@ __set_irq_handler(unsigned int irq, irq_flow_handler_t handle, int is_chained,
 #endif /* CONFIG_IPIPE */
 	}
 #ifdef CONFIG_IPIPE
- 	else {
+ 	else if (is_chained) {
+ 		desc->ipipe_ack = handle;
+ 		desc->ipipe_end = &__ipipe_noend_irq;
+		handle = &__ipipe_noack_irq;
+ 	} else {
  		desc->ipipe_ack = &__ipipe_ack_bad_irq;
  		desc->ipipe_end = &__ipipe_noend_irq;
- 	}
+	}
 #endif /* CONFIG_IPIPE */
 
 	spin_lock_irqsave(&desc->lock, flags);
