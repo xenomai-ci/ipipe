@@ -22,7 +22,7 @@
 
 static struct resource kilauea_ndfc = {
 	.start = KILAUEA_NAND_FLASH_REG_ADDR,
-	.end   = KILAUEA_NAND_FLASH_REG_ADDR + KILAUEA_NAND_FLASH_REG_SIZE,
+	.end   = KILAUEA_NAND_FLASH_REG_ADDR + KILAUEA_NAND_FLASH_REG_SIZE - 1,
 	.flags = IORESOURCE_MEM,
 };
 
