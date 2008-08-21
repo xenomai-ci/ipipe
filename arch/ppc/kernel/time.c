@@ -66,9 +66,9 @@
 
 #include <asm/time.h>
 
-unsigned long disarm_decr[NR_CPUS];
-
 extern struct timezone sys_tz;
+
+DEFINE_PER_CPU(int, disarm_decr);
 
 /* keep track of when we need to update the rtc */
 time_t last_rtc_update;
@@ -140,7 +140,9 @@ void timer_interrupt(struct pt_regs * regs)
 		do_IRQ(regs);
 
 	old_regs = set_irq_regs(regs);
+#ifndef CONFIG_IPIPE
 	irq_enter();
+#endif
 
 	while ((next_dec = tb_ticks_per_jiffy - tb_delta(&jiffy_stamp)) <= 0) {
 		jiffy_stamp += tb_ticks_per_jiffy;
@@ -183,14 +185,16 @@ void timer_interrupt(struct pt_regs * regs)
 		}
 		write_sequnlock(&xtime_lock);
 	}
-	if ( !disarm_decr[smp_processor_id()] )
+	if ( !per_cpu(disarm_decr, cpu) )
 		set_dec(next_dec);
 	last_jiffy_stamp(cpu) = jiffy_stamp;
 
 	if (ppc_md.heartbeat && !ppc_md.heartbeat_count--)
 		ppc_md.heartbeat();
 
+#ifndef CONFIG_IPIPE
 	irq_exit();
+#endif
 	set_irq_regs(old_regs);
 }
 

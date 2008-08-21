@@ -66,6 +66,12 @@ int qe_ic_set_high_priority(unsigned int virq, unsigned int priority, int high);
 struct qe_ic;
 unsigned int qe_ic_get_low_irq(struct qe_ic *qe_ic);
 unsigned int qe_ic_get_high_irq(struct qe_ic *qe_ic);
+#ifdef CONFIG_IPIPE
+void __ipipe_qe_ic_cascade_irq(struct qe_ic *qe_ic, unsigned int virq);
+#define qe_ic_cascade_irq(qe_ic, irq)	__ipipe_qe_ic_cascade_irq(qe_ic, irq)
+#else
+#define qe_ic_cascade_irq(qe_ic, irq)	generic_handle_irq(irq)
+#endif
 
 static inline void qe_ic_cascade_low_ipic(unsigned int irq,
 					  struct irq_desc *desc)
@@ -74,7 +80,7 @@ static inline void qe_ic_cascade_low_ipic(unsigned int irq,
 	unsigned int cascade_irq = qe_ic_get_low_irq(qe_ic);
 
 	if (cascade_irq != NO_IRQ)
-		generic_handle_irq(cascade_irq);
+		qe_ic_cascade_irq(qe_ic, cascade_irq);
 }
 
 static inline void qe_ic_cascade_high_ipic(unsigned int irq,
@@ -84,7 +90,7 @@ static inline void qe_ic_cascade_high_ipic(unsigned int irq,
 	unsigned int cascade_irq = qe_ic_get_high_irq(qe_ic);
 
 	if (cascade_irq != NO_IRQ)
-		generic_handle_irq(cascade_irq);
+		qe_ic_cascade_irq(qe_ic, cascade_irq);
 }
 
 static inline void qe_ic_cascade_low_mpic(unsigned int irq,
@@ -94,7 +100,7 @@ static inline void qe_ic_cascade_low_mpic(unsigned int irq,
 	unsigned int cascade_irq = qe_ic_get_low_irq(qe_ic);
 
 	if (cascade_irq != NO_IRQ)
-		generic_handle_irq(cascade_irq);
+		qe_ic_cascade_irq(qe_ic, cascade_irq);
 
 	desc->chip->eoi(irq);
 }
@@ -106,7 +112,7 @@ static inline void qe_ic_cascade_high_mpic(unsigned int irq,
 	unsigned int cascade_irq = qe_ic_get_high_irq(qe_ic);
 
 	if (cascade_irq != NO_IRQ)
-		generic_handle_irq(cascade_irq);
+		qe_ic_cascade_irq(qe_ic, cascade_irq);
 
 	desc->chip->eoi(irq);
 }
@@ -122,7 +128,7 @@ static inline void qe_ic_cascade_muxed_mpic(unsigned int irq,
 		cascade_irq = qe_ic_get_low_irq(qe_ic);
 
 	if (cascade_irq != NO_IRQ)
-		generic_handle_irq(cascade_irq);
+		qe_ic_cascade_irq(qe_ic, cascade_irq);
 
 	desc->chip->eoi(irq);
 }

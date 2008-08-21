@@ -242,6 +242,8 @@ extern void switch_slb(struct task_struct *tsk, struct mm_struct *mm);
 static inline void switch_mm(struct mm_struct *prev, struct mm_struct *next,
 			     struct task_struct *tsk)
 {
+	unsigned long flags;
+
 	if (!cpu_isset(smp_processor_id(), next->cpu_vm_mask))
 		cpu_set(smp_processor_id(), next->cpu_vm_mask);
 
@@ -254,10 +256,14 @@ static inline void switch_mm(struct mm_struct *prev, struct mm_struct *next,
 		asm volatile ("dssall");
 #endif /* CONFIG_ALTIVEC */
 
+	local_irq_save_hw_cond(flags);
+
 	if (cpu_has_feature(CPU_FTR_SLB))
 		switch_slb(tsk, next);
 	else
 		switch_stab(tsk, next);
+
+	local_irq_restore_hw_cond(flags);
 }
 
 #define deactivate_mm(tsk,mm)	do { } while (0)

@@ -124,6 +124,8 @@ struct decrementer_clock {
 
 static DEFINE_PER_CPU(struct decrementer_clock, decrementers);
 
+DEFINE_PER_CPU(int, disarm_decr);
+
 #ifdef CONFIG_PPC_ISERIES
 static unsigned long __initdata iSeries_recal_titan;
 static signed long __initdata iSeries_recal_tb;
@@ -564,14 +566,16 @@ void timer_interrupt(struct pt_regs * regs)
 	struct pt_regs *old_regs;
 	struct decrementer_clock *decrementer =  &__get_cpu_var(decrementers);
 	struct clock_event_device *evt = &decrementer->event;
+	int cpu = smp_processor_id();
 	u64 now;
 
 	/* Ensure a positive value is written to the decrementer, or else
 	 * some CPUs will continuue to take decrementer exceptions */
-	set_dec(DECREMENTER_MAX);
+	if (!per_cpu(disarm_decr, cpu))
+		set_dec(DECREMENTER_MAX);
 
 #ifdef CONFIG_PPC_PASEMI_A2_WORKAROUNDS
-	extern spinlock_t native_tlbie_lock;
+	extern ipipe_spinlock_t native_tlbie_lock;
 
 	spin_lock(&native_tlbie_lock);
 	asm("ptesync");
@@ -583,16 +587,25 @@ void timer_interrupt(struct pt_regs * regs)
 		do_IRQ(regs);
 #endif
 
-	now = get_tb_or_rtc();
-	if (now < decrementer->next_tb) {
-		/* not time for this event yet */
-		now = decrementer->next_tb - now;
-		if (now <= DECREMENTER_MAX)
-			set_dec((int)now);
-		return;
+ 	if (!per_cpu(disarm_decr, cpu)) {
+		now = get_tb_or_rtc();
+		if (now < decrementer->next_tb) {
+			/* not time for this event yet */
+			now = decrementer->next_tb - now;
+			if (now <= DECREMENTER_MAX)
+				set_dec((int)now);
+			return;
+		}
 	}
 	old_regs = set_irq_regs(regs);
+#ifndef CONFIG_IPIPE
+	/*
+	 * The timer interrupt is a virtual one when the I-pipe is
+	 * active, therefore we already called irq_enter() for it (see
+	 * __ipipe_run_isr).
+	 */
 	irq_enter();
+#endif
 
 	calculate_steal_time();
 
@@ -617,7 +630,9 @@ void timer_interrupt(struct pt_regs * regs)
 	}
 #endif
 
+#ifndef CONFIG_IPIPE
 	irq_exit();
+#endif
 	set_irq_regs(old_regs);
 }
 

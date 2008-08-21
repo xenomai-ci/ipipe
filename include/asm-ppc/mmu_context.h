@@ -150,7 +150,10 @@ static inline int init_new_context(struct task_struct *t, struct mm_struct *mm)
  */
 static inline void destroy_context(struct mm_struct *mm)
 {
+	unsigned long flags;
+
 	preempt_disable();
+	local_irq_save_hw_cond(flags);
 	if (mm->context.id != NO_CONTEXT) {
 		clear_bit(mm->context.id, context_map);
 		mm->context.id = NO_CONTEXT;
@@ -158,12 +161,14 @@ static inline void destroy_context(struct mm_struct *mm)
 		atomic_inc(&nr_free_contexts);
 #endif
 	}
+ 	local_irq_restore_hw_cond(flags);
 	preempt_enable();
 }
 
 static inline void switch_mm(struct mm_struct *prev, struct mm_struct *next,
 			     struct task_struct *tsk)
 {
+	unsigned long flags;
 #ifdef CONFIG_ALTIVEC
 	if (cpu_has_feature(CPU_FTR_ALTIVEC))
 	asm volatile ("dssall;\n"
@@ -173,15 +178,21 @@ static inline void switch_mm(struct mm_struct *prev, struct mm_struct *next,
 	 : : );
 #endif /* CONFIG_ALTIVEC */
 
+ 	local_irq_save_hw_cond(flags);
+
 	tsk->thread.pgdir = next->pgd;
 
 	/* No need to flush userspace segments if the mm doesnt change */
-	if (prev == next)
+	if (prev == next) {
+		local_irq_restore_hw_cond(flags);
 		return;
+	}
 
 	/* Setup new userspace context */
 	get_mmu_context(next);
 	set_context(next->context.id, next->pgd);
+
+ 	local_irq_restore_hw_cond(flags);
 }
 
 #define deactivate_mm(tsk,mm)	do { } while (0)
