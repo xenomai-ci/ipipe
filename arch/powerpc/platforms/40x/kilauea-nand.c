@@ -67,19 +67,13 @@ static struct platform_device kilauea_ndfc_device = {
 	.resource = &kilauea_ndfc,
 };
 
-static struct nand_ecclayout nand_oob_16 = {
-	.eccbytes = 3,
-	.eccpos = { 0, 1, 2, 3, 6, 7 },
-	.oobfree = { {.offset = 8, .length = 16} }
-};
-
 static struct platform_nand_chip kilauea_nand_chip0 = {
 	.nr_chips = 1,
 	.chip_offset = CS_NAND_0,
 	.nr_partitions = ARRAY_SIZE(nand_parts),
 	.partitions = nand_parts,
 	.chip_delay = 50,
-	.ecclayout = &nand_oob_16,
+	.ecclayout = NULL,		/* use default ECC layout */
 	.priv = &kilauea_chip0_settings,
 };
 
