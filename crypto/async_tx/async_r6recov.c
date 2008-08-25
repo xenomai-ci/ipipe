@@ -244,7 +244,7 @@ async_r6_dp_recov(int disks, size_t bytes, int faila, struct page **ptrs,
 
 dpr_sync:
 	{
-		void **sptrs = (void **) sptrs;
+		void **sptrs = (void **) lptrs;
 
 		/*
 		 * Failed to compute asynchronously, do it in
