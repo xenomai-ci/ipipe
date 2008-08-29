@@ -1,7 +1,6 @@
 /*
- * $Id: walnut.c,v 1.3 2005/11/07 11:14:29 gleixner Exp $
- *
- * drivers/mtd/maps/walnut.c
+ * Mapping for Walnut flash
+ * (used ebony.c as a "framework")
  *
  * Mapping for Walnut (405GP), Sycamore (405GPr) and Bubinga (405EP) flash
  *

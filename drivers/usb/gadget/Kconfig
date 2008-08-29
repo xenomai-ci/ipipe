@@ -284,17 +284,15 @@ config USB_LH7A40X
 	default USB_GADGET
 	select USB_GADGET_SELECTED
 
-config USB_GADGET_PD12
-	boolean "PD12 UDC"
-	depends on TAIHU
-	help
-    This driver provides USB Device Controller driver for PD12 UDC
-
-config USB_PD12
-	tristate
-	depends on USB_GADGET_PD12
-	default USB_GADGET
+# built in ../musb along with host support
+config USB_GADGET_MUSB_HDRC
+	boolean "Inventra HDRC USB Peripheral (TI, ...)"
+	depends on USB_MUSB_HDRC && (USB_MUSB_PERIPHERAL || USB_MUSB_OTG)
+	select USB_GADGET_DUALSPEED
 	select USB_GADGET_SELECTED
+	help
+	  This OTG-capable silicon IP is used in dual designs including
+	  the TI DaVinci, OMAP 243x, OMAP 343x, and TUSB 6010.
 
 config USB_GADGET_OMAP
 	boolean "OMAP USB Device Controller"
