@@ -164,22 +164,14 @@ ddr_sync:
 		 * synchronous manner
 		 */
 		/* wait for any prerequisite operations */
-		if (depend_tx) {
-			/* if ack is already set then we cannot be sure
-			 * we are referring to the correct operation
-			 */
-			BUG_ON(async_tx_test_ack(depend_tx));
-			if (dma_wait_for_async_tx(depend_tx) == DMA_ERROR)
-				panic("%s: DMA_ERROR waiting for depend_tx\n",
-					__func__);
-		}
+		async_tx_quiesce(&depend_tx);
 
 		i = disks;
 		while (i--)
 			sptrs[i] = page_address(ptrs[i]);
 		raid6_2data_recov(disks, bytes, faila, failb, sptrs);
 
-		async_tx_sync_epilog(flags, depend_tx, cb, cb_param);
+		async_tx_sync_epilog(cb, cb_param);
 	}
 
 	return tx;
@@ -251,22 +243,14 @@ dpr_sync:
 		 * synchronous manner
 		 */
 		/* wait for any prerequisite operations */
-		if (depend_tx) {
-			/* if ack is already set then we cannot be sure
-			 * we are referring to the correct operation
-			 */
-			BUG_ON(async_tx_test_ack(depend_tx));
-			if (dma_wait_for_async_tx(depend_tx) == DMA_ERROR)
-				panic("%s: DMA_ERROR waiting for depend_tx\n",
-					__func__);
-		}
+		async_tx_quiesce(&depend_tx);
 
 		i = disks;
 		while (i--)
 			sptrs[i] = page_address(ptrs[i]);
 		raid6_datap_recov(disks, bytes, faila, (void *)sptrs);
 
-		async_tx_sync_epilog(flags, depend_tx, cb, cb_param);
+		async_tx_sync_epilog(cb, cb_param);
 	}
 
 	return tx;

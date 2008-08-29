@@ -997,7 +997,7 @@ static inline void ppc440spe_adma_device_clear_eot_status (ppc440spe_ch_t *chan)
 	case PPC440SPE_DMA1_ID:
 		/* read FIFO to ack */
 		dma_reg = (dma_regs_t *)chan->device->pdev->resource[0].start;
-		while (rv = in_le32(&dma_reg->csfpl)) {
+		while ((rv = in_le32(&dma_reg->csfpl))) {
 			i = rv & DMA_CDB_ADDR_MSK;
 			cdb = (dma_cdb_t *)&p[i -
 			    (u32)chan->device->dma_desc_pool];
@@ -1087,15 +1087,6 @@ static inline void ppc440spe_adma_device_clear_eot_status (ppc440spe_ch_t *chan)
 }
 
 /**
- * ppc440spe_chan_idle - stop the watch-dog timer if channel is idle
- */
-static inline void ppc440spe_chan_idle(int busy, ppc440spe_ch_t *chan)
-{
-	if (!busy)
-		del_timer(&chan->cleanup_watchdog);
-}
-
-/**
  * ppc440spe_chan_is_busy - get the channel status
  */
 static inline int ppc440spe_chan_is_busy(ppc440spe_ch_t *chan)
@@ -1151,13 +1142,13 @@ static inline void ppc440spe_chan_set_first_xor_descriptor(ppc440spe_ch_t *chan,
 }
 
 /**
- * ppc440spe_dma_put_desc - put DMA0,1 descriptor to FIFO
+ * ppc440spe_dma_put_desc - put DMA0,1 descriptor to FIFO.
+ * called with irqs disabled
  */
 static inline void ppc440spe_dma_put_desc(ppc440spe_ch_t *chan,
 		ppc440spe_desc_t *desc)
 {
 	u32 pcdb;
-	unsigned long flags;
 	volatile dma_regs_t *dma_reg =
 	    (dma_regs_t *)chan->device->pdev->resource[0].start;
 
@@ -1165,10 +1156,8 @@ static inline void ppc440spe_dma_put_desc(ppc440spe_ch_t *chan,
 	if (!test_bit(PPC440SPE_DESC_INT, &desc->flags))
 		pcdb |= DMA_CDB_NO_INT;
 
-	local_irq_save(flags);
 	chan_last_sub[chan->device->id] = desc;
 	out_le32 (&dma_reg->cpfpl, pcdb);
-	local_irq_restore(flags);
 }
 
 /**
@@ -1182,6 +1171,8 @@ static inline void ppc440spe_chan_append(ppc440spe_ch_t *chan)
 	xor_cb_t *xcb;
 	u32 cur_desc;
 	unsigned long flags;
+
+	local_irq_save(flags);
 
 	switch (chan->device->id) {
 	case PPC440SPE_DMA0_ID:
@@ -1212,14 +1203,9 @@ static inline void ppc440spe_chan_append(ppc440spe_ch_t *chan)
 		}
 		break;
 	case PPC440SPE_XOR_ID:
-
-		local_irq_save(flags);
-
 		/* update h/w links and refetch */
-		if (!xor_last_submit->hw_next) {
-			local_irq_restore(flags);
+		if (!xor_last_submit->hw_next)
 			break;
-		}
 
 		xor_reg = (xor_regs_t *)chan->device->pdev->resource[0].start;
 		/* the last linked CDB has to generate an interrupt
@@ -1241,14 +1227,11 @@ static inline void ppc440spe_chan_append(ppc440spe_ch_t *chan)
 			/* XORcore is running. Refetch later in the handler */
 			do_xor_refetch = 1;
 		}
-		local_irq_restore(flags);
 
 		break;
 	}
 
-	/* update watch-dog timer */
-	mod_timer(&chan->cleanup_watchdog, jiffies +
-			msecs_to_jiffies(PPC440SPE_ADMA_WATCHDOG_MSEC));
+	local_irq_restore(flags);
 }
 
 /**
@@ -1303,7 +1286,8 @@ static inline void ppc440spe_chan_run(ppc440spe_ch_t *chan)
  ******************************************************************************/
 
 static void ppc440spe_chan_start_null_xor(ppc440spe_ch_t *chan);
-static int ppc440spe_adma_alloc_chan_resources(struct dma_chan *chan);
+static int ppc440spe_adma_alloc_chan_resources(struct dma_chan *chan,
+					       struct dma_client *client);
 static dma_cookie_t ppc440spe_adma_tx_submit(
 		struct dma_async_tx_descriptor *tx);
 
@@ -1723,7 +1707,6 @@ static void __ppc440spe_adma_slot_cleanup(ppc440spe_ch_t *chan)
 	}
 
 	BUG_ON(!seen_current);
-	ppc440spe_chan_idle(busy, chan);
 
 	if (cookie > 0) {
 		chan->completed_cookie = cookie;
@@ -1840,7 +1823,8 @@ retry:
 /**
  * ppc440spe_adma_alloc_chan_resources -  allocate pools for CDB slots
  */
-static int ppc440spe_adma_alloc_chan_resources(struct dma_chan *chan)
+static int ppc440spe_adma_alloc_chan_resources(struct dma_chan *chan,
+					       struct dma_client *client)
 {
 	ppc440spe_ch_t *ppc440spe_chan = to_ppc440spe_adma_chan(chan);
 	ppc440spe_desc_t *slot = NULL;
@@ -2220,6 +2204,7 @@ static inline ppc440spe_desc_t *ppc440spe_dma01_prep_pqxor (
 	 * of destinations (RXOR support only Q-parity calculations)
 	 */
 	set_bit(PPC440SPE_DESC_WXOR, &op);
+#if 0
 	if (!test_and_set_bit(PPC440SPE_RXOR_RUN, &ppc440spe_rxor_state)) {
 		/* no active RXOR;
 		 * do RXOR if:
@@ -2266,7 +2251,7 @@ static inline ppc440spe_desc_t *ppc440spe_dma01_prep_pqxor (
 			ppc440spe_desc_set_rxor_block_size(len);
 		}
 	}
-
+#endif
 	/* Number of necessary slots depends on operation type selected */
 	if (!test_bit(PPC440SPE_DESC_RXOR, &op)) {
 		/*  This is a WXOR only chain. Need descriptors for each
@@ -3479,9 +3464,6 @@ static int __devinit ppc440spe_adma_probe(struct platform_device *pdev)
 
 	chan->device = adev;
 	spin_lock_init(&chan->lock);
-	init_timer(&chan->cleanup_watchdog);
-	chan->cleanup_watchdog.data = (unsigned long) chan;
-	chan->cleanup_watchdog.function = ppc440spe_adma_tasklet;
 	INIT_LIST_HEAD(&chan->chain);
 	INIT_LIST_HEAD(&chan->all_slots);
 	INIT_RCU_HEAD(&chan->common.rcu);

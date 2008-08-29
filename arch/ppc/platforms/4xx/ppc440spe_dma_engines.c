@@ -298,7 +298,9 @@ static void ppc440spe_configure_raid_devices(void)
 	ppc440spe_xor_channel.resource[0].end =
 		ppc440spe_xor_channel.resource[0].start+XOR_MMAP_SIZE;
 	dma_cap_set(DMA_XOR, ppc440spe_xor_data.cap_mask);
+#if 0
 	dma_cap_set(DMA_PQ_XOR, ppc440spe_xor_data.cap_mask);
+#endif
 	dma_cap_set(DMA_INTERRUPT, ppc440spe_xor_data.cap_mask);
 
 	return;

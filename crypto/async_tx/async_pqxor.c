@@ -45,14 +45,13 @@ struct page *spare_pages[3];
  * do_async_pqxor - asynchronously calculate P and/or Q
  */
 static struct dma_async_tx_descriptor *
-do_async_pqxor(struct dma_device *device,
-	struct dma_chan *chan,
-	struct page *pdest, struct page *qdest,
+do_async_pqxor(struct dma_chan *chan, struct page *pdest, struct page *qdest,
 	struct page **src_list, unsigned char *scoef_list,
 	unsigned int offset, unsigned int src_cnt, size_t len,
 	enum async_tx_flags flags, struct dma_async_tx_descriptor *depend_tx,
 	dma_async_tx_callback cb_fn, void *cb_param)
 {
+	struct dma_device *dma = chan->device;
 	struct page *dest;
 	dma_addr_t dma_dest[2];
 	dma_addr_t *dma_src = (dma_addr_t *) src_list;
@@ -68,32 +67,32 @@ do_async_pqxor(struct dma_device *device,
 	 * first always try Q
 	 */
 	dest = qdest ? qdest : pdest;
-	dma_dest[dst_cnt++] = dma_map_page(device->dev, dest, offset, len,
+	dma_dest[dst_cnt++] = dma_map_page(dma->dev, dest, offset, len,
 					    DMA_FROM_DEVICE);
 
 	/* Switch to the next destination */
 	if (qdest && pdest) {
 		/* Both destinations are set, thus here we deal with P */
-		dma_dest[dst_cnt++] = dma_map_page(device->dev, pdest, offset,
+		dma_dest[dst_cnt++] = dma_map_page(dma->dev, pdest, offset,
 						len, DMA_FROM_DEVICE);
 	}
 
 	for (i = 0; i < src_cnt; i++)
-		dma_src[i] = dma_map_page(device->dev, src_list[i],
+		dma_src[i] = dma_map_page(dma->dev, src_list[i],
 			offset, len, DMA_TO_DEVICE);
 
 	/* Since we have clobbered the src_list we are committed
 	 * to doing this asynchronously.  Drivers force forward progress
 	 * in case they can not provide a descriptor
 	 */
-	tx = device->device_prep_dma_pqxor(chan, dma_dest, dst_cnt, dma_src,
+	tx = dma->device_prep_dma_pqxor(chan, dma_dest, dst_cnt, dma_src,
 					   src_cnt, scf, len, dma_prep_flags);
 	if (!tx) {
 		if (depend_tx)
 			dma_wait_for_async_tx(depend_tx);
 
 		while (!tx)
-			tx = device->device_prep_dma_pqxor(chan,
+			tx = dma->device_prep_dma_pqxor(chan,
 							   dma_dest, dst_cnt,
 							   dma_src, src_cnt,
 							   scf, len,
@@ -113,7 +112,7 @@ do_sync_pqxor(struct page *pdest, struct page *qdest,
 	struct page **src_list, unsigned char *scoef_list, unsigned int offset,
 	unsigned int src_cnt, size_t len, enum async_tx_flags flags,
 	struct dma_async_tx_descriptor *depend_tx,
-	dma_async_tx_callback callback, void *callback_param)
+	dma_async_tx_callback cb_fn, void *cb_param)
 {
 	int i, pos;
 	uint8_t *p, *q, *src;
@@ -136,8 +135,7 @@ do_sync_pqxor(struct page *pdest, struct page *qdest,
 			q[pos] ^= raid6_gfmul[scoef_list[i]][src[pos]];
 		}
 	}
-
-	async_tx_sync_epilog(flags, depend_tx, callback, callback_param);
+	async_tx_sync_epilog(cb_fn, cb_param);
 }
 
 /**
@@ -163,7 +161,6 @@ async_pqxor(struct page *pdest, struct page *qdest,
 	struct dma_async_tx_descriptor *depend_tx,
 	dma_async_tx_callback callback, void *callback_param)
 {
-	struct page *dest[] = {pdest, qdest};
 	struct dma_chan *chan = async_tx_find_channel(depend_tx, DMA_PQ_XOR,
 						      dest, 2, src_list,
 						      src_cnt, len);
@@ -176,9 +173,9 @@ async_pqxor(struct page *pdest, struct page *qdest,
 		return NULL;
 
 	if (device) { /* run the xor asynchronously */
-		tx = do_async_pqxor(device, chan, pdest, qdest, src_list,
+		tx = do_async_pqxor(chan, pdest, qdest, src_list,
 			       scoef_list, offset, src_cnt, len, flags,
-			       depend_tx, callback, callback_param);
+			       depend_tx, callback,callback_param);
 	} else { /* run the pqxor synchronously */
 		if (!qdest) {
 			struct page *tsrc[src_cnt + 1];
@@ -197,15 +194,7 @@ async_pqxor(struct page *pdest, struct page *qdest,
 		}
 
 		/* wait for any prerequisite operations */
-		if (depend_tx) {
-			/* if ack is already set then we cannot be sure
-			 * we are referring to the correct operation
-			 */
-			BUG_ON(async_tx_test_ack(depend_tx));
-			if (dma_wait_for_async_tx(depend_tx) == DMA_ERROR)
-				panic("%s: DMA_ERROR waiting for depend_tx\n",
-					__func__);
-		}
+		async_tx_quiesce(&depend_tx);
 
 		do_sync_pqxor(pdest, qdest, src_list, scoef_list,
 			offset,	src_cnt, len, flags, depend_tx,
@@ -242,7 +231,7 @@ do_sync_gen_syndrome(struct page *pdest, struct page *qdest,
 	}
 
 	raid6_call.gen_syndrome(i, len, tsrc);
-	async_tx_sync_epilog(flags, depend_tx, callback, callback_param);
+	async_tx_sync_epilog(callback, callback_param);
 }
 
 /**
@@ -266,7 +255,6 @@ async_gen_syndrome(struct page *pdest, struct page *qdest,
 	enum async_tx_flags flags, struct dma_async_tx_descriptor *depend_tx,
 	dma_async_tx_callback callback, void *callback_param)
 {
-	struct page *dest[] = {pdest, qdest};
 	struct dma_chan *chan = async_tx_find_channel(depend_tx, DMA_PQ_XOR,
 						      dest, 2, src_list,
 						      src_cnt, len);
@@ -277,7 +265,7 @@ async_gen_syndrome(struct page *pdest, struct page *qdest,
 		return NULL;
 
 	if (device) { /* run the xor asynchronously */
-		tx = do_async_pqxor(device, chan, pdest, qdest, src_list,
+		tx = do_async_pqxor(chan, pdest, qdest, src_list,
 			       (uint8_t *)raid6_gfexp, offset, src_cnt,
 			       len, flags, depend_tx, callback, callback_param);
 	} else { /* run the pqxor synchronously */
@@ -370,15 +358,16 @@ async_pqxor_zero_sum(struct page *pdest, struct page *qdest,
 						      presult, qresult,
 						      dma_prep_flags);
 
-		if (!tx) {
-			if (depend_tx)
-				dma_wait_for_async_tx(depend_tx);
+		if (unlikely(!tx)) {
+			async_tx_quiesce(&depend_tx);
 
-			while (!tx)
+			while (!tx) {
+				dma_async_issue_pending(chan);
 				tx = device->device_prep_dma_pqzero_sum(chan,
 						dma_src, src_cnt, scf, len,
 						presult, qresult,
 						dma_prep_flags);
+			}
 		}
 
 		async_tx_submit(chan, tx, flags, depend_tx, cb_fn, cb_param);

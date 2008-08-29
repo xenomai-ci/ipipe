@@ -103,21 +103,14 @@ async_tx_find_channel(struct dma_async_tx_descriptor *depend_tx,
 
 /**
  * async_tx_sync_epilog - actions to take if an operation is run synchronously
- * @flags: async_tx flags
- * @depend_tx: transaction depends on depend_tx
  * @cb_fn: function to call when the transaction completes
  * @cb_fn_param: parameter to pass to the callback routine
  */
 static inline void
-async_tx_sync_epilog(unsigned long flags,
-	struct dma_async_tx_descriptor *depend_tx,
-	dma_async_tx_callback cb_fn, void *cb_fn_param)
+async_tx_sync_epilog(dma_async_tx_callback cb_fn, void *cb_fn_param)
 {
 	if (cb_fn)
 		cb_fn(cb_fn_param);
-
-	if (depend_tx && (flags & ASYNC_TX_DEP_ACK))
-		async_tx_ack(depend_tx);
 }
 
 void
@@ -169,9 +162,22 @@ async_gen_syndrome(struct page *pdest, struct page *qdest,
 	dma_async_tx_callback callback, void *callback_param);
 
 struct dma_async_tx_descriptor *
+async_gen_syndrome(struct page *pdest, struct page *qdest,
+	struct page **src_list, unsigned int offset, int src_cnt, size_t len,
+	enum async_tx_flags flags, struct dma_async_tx_descriptor *depend_tx,
+	dma_async_tx_callback callback, void *callback_param);
+
+struct dma_async_tx_descriptor *
 async_pqxor_zero_sum(struct page *pdest, struct page *qdest,
 	struct page **src_list, unsigned char *scoef_list,
 	unsigned int offset, int src_cnt, size_t len,
+	u32 *presult, u32 *qresult, enum async_tx_flags flags,
+	struct dma_async_tx_descriptor *depend_tx,
+	dma_async_tx_callback callback, void *callback_param);
+
+struct dma_async_tx_descriptor *
+async_syndrome_zero_sum(struct page *pdest, struct page *qdest,
+	struct page **src_list, unsigned int offset, int src_cnt, size_t len,
 	u32 *presult, u32 *qresult, enum async_tx_flags flags,
 	struct dma_async_tx_descriptor *depend_tx,
 	dma_async_tx_callback callback, void *callback_param);
@@ -193,4 +199,5 @@ async_r6_dp_recov (int src_num, size_t bytes, int faila, struct page **ptrs,
 	enum async_tx_flags flags, struct dma_async_tx_descriptor *depend_tx,
 	dma_async_tx_callback callback, void *callback_param);
 
+void async_tx_quiesce(struct dma_async_tx_descriptor **tx);
 #endif /* _ASYNC_TX_H_ */
