@@ -10,6 +10,7 @@
 
 #include <linux/sys.h>
 #include <linux/linkage.h>
+#include <linux/init.h>
 #include <asm/asm-offsets.h>
 #include <asm/coldfire.h>
 #include <asm/mcfcache.h>
@@ -133,7 +134,7 @@ _init_sp:
 
 /*****************************************************************************/
 
-.text
+__HEAD
 
 /*
  *	This is the codes first entry point. This is where it all

@@ -73,35 +73,17 @@ async_memcpy(struct page *dest, struct page *src, unsigned int dest_offset,
 		pr_debug("%s: (sync) len: %zu\n", __func__, len);
 
 		/* wait for any prerequisite operations */
-		if (depend_tx) {
-			/* if ack is already set then we cannot be sure
-			 * we are referring to the correct operation
-			 */
-			BUG_ON(async_tx_test_ack(depend_tx));
-			if (dma_wait_for_async_tx(depend_tx) == DMA_ERROR)
-				panic("%s: DMA_ERROR waiting for depend_tx\n",
-					__func__);
-		}
+		async_tx_quiesce(&depend_tx);
 
-		if (flags & ASYNC_TX_KMAP_DST)
-			dest_buf = kmap_atomic(dest, KM_USER0) + dest_offset;
-		else
-			dest_buf = page_address(dest) + dest_offset;
-
-		if (flags & ASYNC_TX_KMAP_SRC)
-			src_buf = kmap_atomic(src, KM_USER0) + src_offset;
-		else
-			src_buf = page_address(src) + src_offset;
+		dest_buf = kmap_atomic(dest, KM_USER0) + dest_offset;
+		src_buf = kmap_atomic(src, KM_USER1) + src_offset;
 
 		memcpy(dest_buf, src_buf, len);
 
-		if (flags & ASYNC_TX_KMAP_DST)
-			kunmap_atomic(dest_buf, KM_USER0);
+		kunmap_atomic(dest_buf, KM_USER0);
+		kunmap_atomic(src_buf, KM_USER1);
 
-		if (flags & ASYNC_TX_KMAP_SRC)
-			kunmap_atomic(src_buf, KM_USER0);
-
-		async_tx_sync_epilog(flags, depend_tx, cb_fn, cb_param);
+		async_tx_sync_epilog(cb_fn, cb_param);
 	}
 
 	return tx;

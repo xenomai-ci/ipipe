@@ -33,8 +33,6 @@
 
 #include "../drivers/md/raid6.h"
 
-#define ASYNC_R6_MAX_SRCS	256
-
 /**
  * async_r6_dd_recov - attempt to calculate two data misses using dma engines.
  * @disks: number of disks in the RAID-6 array
@@ -48,18 +46,18 @@
  * @cb_param: parameter to pass to the callback routine
  */
 struct dma_async_tx_descriptor *
-async_r6_dd_recov (int disks, size_t bytes, int faila, int failb,
+async_r6_dd_recov(int disks, size_t bytes, int faila, int failb,
 	struct page **ptrs, enum async_tx_flags flags,
 	struct dma_async_tx_descriptor *depend_tx,
 	dma_async_tx_callback cb, void *cb_param)
 {
 	struct dma_async_tx_descriptor *tx = NULL;
-	struct page *lptrs[ASYNC_R6_MAX_SRCS];
-	unsigned char lcoef[ASYNC_R6_MAX_SRCS];
+	struct page *lptrs[disks];
+	unsigned char lcoef[disks - 2];
 	int i = 0, k = 0, fc = -1;
-	u8 bc[2];
-
-	BUG_ON(disks > ASYNC_R6_MAX_SRCS);
+	uint8_t bc[2];
+	dma_async_tx_callback lcb = NULL;
+	void *lcb_param = NULL;
 
 	/* Assume that failb > faila */
 	if (faila > failb) {
@@ -70,12 +68,21 @@ async_r6_dd_recov (int disks, size_t bytes, int faila, int failb,
 
 	/*
 	 * Try to compute missed data asynchronously.
-	 * Some operations never fail (XOR) so do not
-	 * check what they return
 	 */
 
+	if (disks == 4) {
+		/* Pxy and Qxy are zero in this case so we already have
+		 * P+Pxy and Q+Qxy in P and Q strips respectively.
+		 */
+		tx = depend_tx;
+		lcb = cb;
+		lcb_param = cb_param;
+		goto do_mult;
+	}
+
 	/* (1) Calculate Qxy and Pxy:
-	 *  Qxy = A(1)*D(1) + .. + A(n,m-1)*D(n,m-1) + A(n,m+1)*D(n,m+1) + ..,
+	 *  Qxy = A(0)*D(0) + ... + A(n-1)*D(n-1) + A(n+1)*D(n+1) + ... +
+	 *        A(m-1)*D(m-1) + A(m+1)*D(m+1) + ... + A(disks-1)*D(disks-1),
 	 *   where n = faila, m = failb.
 	 */
 	for (i = 0, k = 0; i < disks - 2; i++) {
@@ -85,10 +92,11 @@ async_r6_dd_recov (int disks, size_t bytes, int faila, int failb,
 			k++;
 		}
 	}
-	if (!(tx=async_pqxor(ptrs[faila], ptrs[failb],
-			lptrs, lcoef, 0, k, bytes,
-			ASYNC_TX_XOR_ZERO_DST,
-			depend_tx, NULL, NULL))) {
+
+	tx = async_pqxor(ptrs[faila], ptrs[failb], lptrs, lcoef, 0, k, bytes,
+			ASYNC_TX_XOR_ZERO_DST | ASYNC_TX_ASYNC_ONLY,
+			depend_tx, NULL, NULL);
+	if (!tx) {
 		/* Here may go to the synchronous variant */
 		if (flags & ASYNC_TX_ASYNC_ONLY)
 			return NULL;
@@ -101,18 +109,17 @@ async_r6_dd_recov (int disks, size_t bytes, int faila, int failb,
 
 	/* (2) Calculate Q+Qxy
 	 */
-	tx=async_pqxor(ptrs[disks-1], NULL,
-		&ptrs[failb], NULL, 0, 1, bytes,
-		ASYNC_TX_DEP_ACK,
-		tx, NULL, NULL);
+	lptrs[0] = ptrs[failb];
+	tx = async_pqxor(ptrs[disks-1], NULL, lptrs, NULL, 0, 1, bytes,
+			ASYNC_TX_DEP_ACK, tx, NULL, NULL);
 
 	/* (3) Calculate P+Pxy
 	 */
-	tx=async_pqxor(ptrs[disks-2], NULL,
-		&ptrs[faila], NULL, 0, 1, bytes,
-		ASYNC_TX_DEP_ACK,
-		tx, NULL, NULL);
+	lptrs[0] = ptrs[faila];
+	tx = async_pqxor(ptrs[disks-2], NULL, lptrs, NULL, 0, 1, bytes,
+			ASYNC_TX_DEP_ACK, tx, NULL, NULL);
 
+do_mult:
 	/* (4) Compute (P+Pxy) * Bxy. Compute (Q+Qxy) * Cxy. XOR them and get
 	 *  faila.
 	 * B = (2^(y-x))*((2^(y-x) + {01})^(-1))
@@ -121,77 +128,50 @@ async_r6_dd_recov (int disks, size_t bytes, int faila, int failb,
 	 */
 	bc[0] = raid6_gfexi[failb-faila];
 	bc[1] = raid6_gfinv[raid6_gfexp[faila]^raid6_gfexp[failb]];
-	if (!(tx=async_pqxor(NULL, ptrs[failb],
-			&ptrs[disks - 2], bc, 0, 2, bytes,
+
+	lptrs[0] = ptrs[disks - 2];
+	lptrs[1] = ptrs[disks - 1];
+	tx = async_pqxor(NULL, ptrs[failb], lptrs, bc, 0, 2, bytes,
 			ASYNC_TX_DEP_ACK | ASYNC_TX_XOR_ZERO_DST,
-			tx, NULL, NULL))) {
-		/* It's bad if we failed here; try to repeat this
-		 * using another failed disk as a spare; this wouldn't
-		 * failed since now we'll be able to compute synchronously
-		 * (there is no support for synchronous Q-only)
-		 */
-		async_pqxor(ptrs[faila], ptrs[failb],
-			&ptrs[disks - 2], bc, 0, 2, bytes,
-			ASYNC_TX_DEP_ACK | ASYNC_TX_XOR_ZERO_DST,
-			NULL, NULL, NULL);
-	}
+			tx, NULL, NULL);
 
 	/* (5) Compute failed Dy using recovered [failb] and P+Pnm in [p]
 	 */
 	lptrs[0] = ptrs[disks-2];
 	lptrs[1] = ptrs[failb];
-	tx=async_pqxor(ptrs[faila], NULL,
-		lptrs, NULL, 0, 2, bytes,
-		ASYNC_TX_DEP_ACK | ASYNC_TX_XOR_ZERO_DST,
-		tx, NULL, NULL);
+	tx = async_pqxor(ptrs[faila], NULL, lptrs, NULL, 0, 2, bytes,
+			ASYNC_TX_DEP_ACK | ASYNC_TX_XOR_ZERO_DST, tx, lcb,
+			lcb_param);
 
-	/* (6) Restore the parities back (use Pnm and Qnm)
+	if (disks == 4)
+		return tx;
+
+	/* (6) Restore the parities back
 	 */
-	flags &= ~ASYNC_TX_XOR_ZERO_DST;
+	flags |= ASYNC_TX_XOR_ZERO_DST;
 	flags |= ASYNC_TX_DEP_ACK;
 
-	lptrs[0] = ptrs[faila];
-	lcoef[0] = raid6_gfexp[faila];
-	lptrs[1] = ptrs[failb];
-	lcoef[1] = raid6_gfexp[failb];
-	if (!(tx=async_pqxor(ptrs[disks-2], ptrs[disks-1],
-			lptrs, lcoef,
-			0, 2, bytes, flags,
-			tx, cb, cb_param))) {
-		/* just return, since data has been recovered anyway */
-		return NULL;
-	}
-
-	/* if come here then all required asynchronous operations
-	 * have been scheduled successfully
-	 */
-	return tx;
+	memcpy(lptrs, ptrs, (disks - 2) * sizeof(struct page *));
+	return async_gen_syndrome(ptrs[disks-2], ptrs[disks-1], lptrs, 0,
+			disks - 2, bytes, flags, tx, cb, cb_param);
 
 ddr_sync:
 	{
-		void *sptrs[ASYNC_R6_MAX_SRCS + 2];
+		void **sptrs = (void **)lptrs;
 
 		/*
 		 * Failed to compute asynchronously, do it in
 		 * synchronous manner
 		 */
 		/* wait for any prerequisite operations */
-		if (depend_tx) {
-			/* if ack is already set then we cannot be sure
-			 * we are referring to the correct operation
-			 */
-			BUG_ON(async_tx_test_ack(depend_tx));
-			if (dma_wait_for_async_tx(depend_tx) == DMA_ERROR)
-				panic("%s: DMA_ERROR waiting for depend_tx\n",
-					__FUNCTION__);
-		}
+		async_tx_quiesce(&depend_tx);
 
 		i = disks;
-		while(i--)
+		while (i--)
 			sptrs[i] = page_address(ptrs[i]);
 		raid6_2data_recov(disks, bytes, faila, failb, sptrs);
 
-		async_tx_sync_epilog(flags, depend_tx, cb, cb_param);
+		async_tx_sync_epilog(cb, cb_param);
 	}
 
 	return tx;
@@ -210,26 +190,24 @@ EXPORT_SYMBOL_GPL(async_r6_dd_recov);
  * @cb_param: parameter to pass to the callback routine
  */
 struct dma_async_tx_descriptor *
-async_r6_dp_recov (int disks, size_t bytes, int faila, struct page **ptrs,
+async_r6_dp_recov(int disks, size_t bytes, int faila, struct page **ptrs,
 	enum async_tx_flags flags, struct dma_async_tx_descriptor *depend_tx,
 	dma_async_tx_callback cb, void *cb_param)
 {
 	struct dma_async_tx_descriptor *tx = NULL;
-	struct page *lptrs[ASYNC_R6_MAX_SRCS];
-	unsigned char lcoef[ASYNC_R6_MAX_SRCS];
+	struct page *lptrs[disks];
+	unsigned char lcoef[disks];
 	int i = 0, k = 0;
-
-	BUG_ON(disks > ASYNC_R6_MAX_SRCS);
 
 	/*
 	 * Try compute missed data asynchronously
 	 */
 	/* (1) Calculate Qn + Q:
-	 *  Qn = A(1)*D(1) + .. + A(n-1)*D(n-1) + A(n+1)*D(n+1) + ..,
+	 *  Qn = A(0)*D(0) + .. + A(n-1)*D(n-1) + A(n+1)*D(n+1) + ..,
 	 *   where n = faila;
 	 *  then subtract Qn from Q and place result to Pn.
 	 */
-	for (i=0; i < disks - 2; i++) {
+	for (i = 0; i < disks - 2; i++) {
 		if (i != faila) {
 			lptrs[k] = ptrs[i];
 			lcoef[k++] = raid6_gfexp[i];
@@ -238,10 +216,10 @@ async_r6_dp_recov (int disks, size_t bytes, int faila, struct page **ptrs,
 	lptrs[k] = ptrs[disks-1]; /* Q-parity */
 	lcoef[k++] = 1;
 
-	if (!(tx=async_pqxor(NULL, ptrs[disks-2],
-			lptrs, lcoef, 0, k,
-			bytes, ASYNC_TX_XOR_ZERO_DST,
-			depend_tx, NULL, NULL))) {
+	tx = async_pqxor(NULL, ptrs[disks-2], lptrs, lcoef, 0, k,
+			bytes, ASYNC_TX_XOR_ZERO_DST | ASYNC_TX_ASYNC_ONLY,
+			depend_tx, NULL, NULL);
+	if (!tx) {
 		if (flags & ASYNC_TX_ASYNC_ONLY)
 			return NULL;
 		goto dpr_sync;
@@ -250,46 +228,29 @@ async_r6_dp_recov (int disks, size_t bytes, int faila, struct page **ptrs,
 	/* (2) Compute missed Dn:
 	 *  Dn = (Q + Qn) * [A(n)^(-1)]
 	 */
-	if (!(tx=async_pqxor(NULL, ptrs[faila],
-			&ptrs[disks-2], (u8 *)&raid6_gfexp[255-faila],
-			0, 1, bytes,
-			ASYNC_TX_DEP_ACK | ASYNC_TX_XOR_ZERO_DST,
-			tx, cb, cb_param))) {
-		if (flags & ASYNC_TX_ASYNC_ONLY)
-			return NULL;
-		goto dpr_sync;
-	}
-
-	/* if come here then all required asynchronous operations
-	 * have been scheduled successfully
-	 */
-	return tx;
+	lptrs[0] = ptrs[disks-2];
+	return async_pqxor(NULL, ptrs[faila],
+			lptrs, (u8 *)&raid6_gfexp[faila ? 255-faila : 0],
+			0, 1, bytes, ASYNC_TX_DEP_ACK | ASYNC_TX_XOR_ZERO_DST,
+			tx, cb, cb_param);
 
 dpr_sync:
 	{
-		void *sptrs[ASYNC_R6_MAX_SRCS + 2];
+		void **sptrs = (void **) lptrs;
 
 		/*
 		 * Failed to compute asynchronously, do it in
 		 * synchronous manner
 		 */
 		/* wait for any prerequisite operations */
-		if (depend_tx) {
-			/* if ack is already set then we cannot be sure
-			 * we are referring to the correct operation
-			 */
-			BUG_ON(async_tx_test_ack(depend_tx));
-			if (dma_wait_for_async_tx(depend_tx) == DMA_ERROR)
-				panic("%s: DMA_ERROR waiting for depend_tx\n",
-					__FUNCTION__);
-		}
+		async_tx_quiesce(&depend_tx);
 
 		i = disks;
-		while(i--)
+		while (i--)
 			sptrs[i] = page_address(ptrs[i]);
 		raid6_datap_recov(disks, bytes, faila, (void *)sptrs);
 
-		async_tx_sync_epilog(flags, depend_tx, cb, cb_param);
+		async_tx_sync_epilog(cb, cb_param);
 	}
 
 	return tx;
