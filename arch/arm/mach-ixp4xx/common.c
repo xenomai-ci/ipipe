@@ -604,9 +604,8 @@ notrace unsigned long long __ipipe_mach_get_tsc(void)
 
 		local_tsc = &tsc[ipipe_processor_id()];
 
-		__asm__ ("ldmia %1, %M0\n"
-			 : "=r"(result.full), "+&r"(local_tsc)
-			 : "m"(*local_tsc));
+		__asm__ ("ldmia %1, %M0\n":
+			 "=r"(result.full): "r"(local_tsc), "m"(*local_tsc));
 		barrier();
 		stamp = *IXP4XX_OSTS;
 		if (unlikely(stamp < result.low))
