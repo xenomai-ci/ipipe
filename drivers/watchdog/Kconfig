@@ -761,6 +761,17 @@ config 8xxx_WDT
 
 	  For BookE processors (MPC85xx) use the BOOKE_WDT driver instead.
 
+config WDT_CHAIN
+	tristate "WDT Chain"
+
+config WDT_CHAIN_HWL_MPC8XX
+	tristate "WDT CHAIN Hardwarelayer for MPC8xx"
+	depends on WDT_CHAIN && PPC_8xx
+
+config WDT_CHAIN_HWL_MPC82XX
+	tristate "WDT CHAIN Hardwarelayer for MPC82xx"
+	depends on WDT_CHAIN
+
 config MV64X60_WDT
 	tristate "MV64X60 (Marvell Discovery) Watchdog Timer"
 	depends on MV64X60
