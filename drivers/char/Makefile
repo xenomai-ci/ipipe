@@ -102,6 +102,7 @@ obj-$(CONFIG_PPC405EZ_ADC)	+= ppc405ez_adc.o
 obj-$(CONFIG_PPC405EZ_DAC)	+= ppc405ez_dac.o
 
 obj-$(CONFIG_LWMON5_KBD)	+= lwmon5_kbd.o
+obj-$(CONFIG_IAI_CPLD)		+= cpld.o
 
 obj-$(CONFIG_MWAVE)		+= mwave/
 obj-$(CONFIG_AGP)		+= agp/
