@@ -222,6 +222,24 @@
 				fsl,cpm-command = <0x12000300>;
 			};
 
+			i2c@11860 {
+				compatible = "fsl,mpc8280-i2c",
+						"fsl,cpm2-i2c";
+				reg = <0x11860 0x20 0x8afc 0x2>;
+				interrupts = <0x1 8>;
+				interrupt-parent = <&PIC>;
+				fsl,cpm-command = <0x29600000>;
+				linux,i2c-class = <1>;
+				clock-frequency = <100000>;
+				#address-cells = <1>;
+				#size-cells = <0>;
+
+				sensor@48 {
+					compatible = "linux,lm75";
+					reg = <0x48>;
+				};
+			};
+
 		};
 
 		PIC: interrupt-controller@10c00 {
