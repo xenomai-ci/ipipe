@@ -112,6 +112,9 @@ obj-$(CONFIG_MPC5200_WDT) += mpc5200_wdt.o
 obj-$(CONFIG_8xxx_WDT) += mpc8xxx_wdt.o
 obj-$(CONFIG_MV64X60_WDT) += mv64x60_wdt.o
 obj-$(CONFIG_BOOKE_WDT) += booke_wdt.o
+obj-$(CONFIG_WDT_CHAIN) += wdt_chains.o
+obj-$(CONFIG_WDT_CHAIN_HWL_MPC8XX) += wdt_chain_hwl_mpc8xx.o
+obj-$(CONFIG_WDT_CHAIN_HWL_MPC82XX) += wdt_chain_hwl_mpc82xx.o
 
 # PPC64 Architecture
 obj-$(CONFIG_WATCHDOG_RTAS) += wdrtas.o

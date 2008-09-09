@@ -1129,6 +1129,12 @@ config DEVPORT
 	depends on ISA || PCI
 	default y
 
+config IAI_CPLD
+	bool "IAI CPLD support."
+	depends on MUAS3001
+	help
+	  Gives access to the CPLD on the MUAS3001 board from IAI.
+
 source "drivers/s390/char/Kconfig"
 
 endmenu
