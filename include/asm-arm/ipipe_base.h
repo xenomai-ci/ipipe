@@ -62,6 +62,10 @@
 
 #else /* !CONFIG_SMP */
 
+#ifdef CONFIG_VFP
+#define __IPIPE_FEATURE_VFP_SAFE 1
+#endif
+
 #if __GNUC__ >= 4
 /* Alias to ipipe_root_cpudom_var(status) */
 extern unsigned long __ipipe_root_status;
