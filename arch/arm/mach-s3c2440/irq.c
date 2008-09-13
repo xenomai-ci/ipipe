@@ -105,10 +105,14 @@ void __ipipe_s3c_irq_demux_wdtac97(unsigned int subsrc, struct pt_regs *regs)
 	subsrc &= 3;
 
 	if (subsrc != 0) {
-		if (subsrc & 1)
+		if (subsrc & 1) {
 			__ipipe_handle_irq(IRQ_S3C2440_WDT, regs);
-		if (subsrc & 2)
+			return;
+		}
+		if (subsrc & 2) {
 			__ipipe_handle_irq(IRQ_S3C2440_AC97, regs);
+			return;
+		}
 	}
 }
 #endif /* CONFIG_IPIPE */

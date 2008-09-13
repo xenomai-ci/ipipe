@@ -689,12 +689,18 @@ static void __ipipe_s3c_irq_demux_uart(unsigned int start,
 	subsrc &= 7;
 
 	if (subsrc != 0) {
-		if (subsrc & 1)
+		if (subsrc & 1) {
 			__ipipe_handle_irq(start, regs);
-		if (subsrc & 2)
+			return;
+		}
+		if (subsrc & 2) {
 			__ipipe_handle_irq(start+1, regs);
-		if (subsrc & 4)
+			return;
+		}
+		if (subsrc & 4) {
 			__ipipe_handle_irq(start+2, regs);
+			return;
+		}
 	}
 }
 
@@ -705,10 +711,14 @@ static void __ipipe_s3c_irq_demux_adc(unsigned int subsrc,
 	subsrc &= 3;
 
 	if (subsrc != 0) {
-		if (subsrc & 1)
+		if (subsrc & 1) {
 			__ipipe_handle_irq(IRQ_TC, regs);
-		if (subsrc & 2)
+			return;
+		}
+		if (subsrc & 2) {
 			__ipipe_handle_irq(IRQ_ADC, regs);
+			return;
+		}
 	}
 }
 
@@ -719,16 +729,15 @@ static void __ipipe_s3c_irq_demux_extint(unsigned long mask,
 	unsigned long eintpnd = __raw_readl(S3C24XX_EINTPEND);
 	unsigned long eintmsk = __raw_readl(S3C24XX_EINTMASK);
 
-	eintpnd &= ~eintmsk;
-	eintpnd &= mask;
-
-	while (eintpnd) {
+	while ((eintpnd &= ~eintmsk & mask)) {
 		irq = __ffs(eintpnd);
-		eintpnd &= ~(1<<irq);
 
 		irq += (IRQ_EINT4 - 4);
 
 		__ipipe_handle_irq(irq, regs);
+
+		eintpnd = __raw_readl(S3C24XX_EINTPEND);
+		eintmsk = __raw_readl(S3C24XX_EINTMASK);
 	}
 }
 
@@ -738,40 +747,48 @@ void __ipipe_mach_demux_irq(unsigned irq, struct pt_regs *regs)
 
 	/* read the current pending interrupts, and the mask
 	 * for what it is available */
-	subsrc = __raw_readl(S3C2410_SUBSRCPND);
-	submsk = __raw_readl(S3C2410_INTSUBMSK);
+	for(;;) {
+		subsrc = __raw_readl(S3C2410_SUBSRCPND);
+		submsk = __raw_readl(S3C2410_INTSUBMSK);
 
-	subsrc &= ~submsk;
+		subsrc &= ~submsk;
 
-	switch (irq) {
-	case IRQ_UART0:
-		__ipipe_s3c_irq_demux_uart(IRQ_S3CUART_RX0, subsrc, regs);
-		break;
-	case IRQ_UART1:
-		__ipipe_s3c_irq_demux_uart(IRQ_S3CUART_RX1, subsrc, regs);
-		break;
-	case IRQ_UART2:
-		__ipipe_s3c_irq_demux_uart(IRQ_S3CUART_RX2, subsrc, regs);
-		break;
-	case IRQ_ADCPARENT:
-		__ipipe_s3c_irq_demux_adc(subsrc, regs);
-		break;
-	case IRQ_EINT4t7:
-		__ipipe_s3c_irq_demux_extint(0xff, regs);
-		break;
-	case IRQ_EINT8t23:
-		__ipipe_s3c_irq_demux_extint(0xffffff00, regs);
-		break;
+		if (!subsrc)
+			break;
+
+		switch (irq) {
+		case IRQ_UART0:
+			__ipipe_s3c_irq_demux_uart(IRQ_S3CUART_RX0,
+						   subsrc, regs);
+			break;
+		case IRQ_UART1:
+			__ipipe_s3c_irq_demux_uart(IRQ_S3CUART_RX1,
+						   subsrc, regs);
+			break;
+		case IRQ_UART2:
+			__ipipe_s3c_irq_demux_uart(IRQ_S3CUART_RX2,
+						   subsrc, regs);
+			break;
+		case IRQ_ADCPARENT:
+			__ipipe_s3c_irq_demux_adc(subsrc, regs);
+			break;
+		case IRQ_EINT4t7:
+			__ipipe_s3c_irq_demux_extint(0xff, regs);
+			break;
+		case IRQ_EINT8t23:
+			__ipipe_s3c_irq_demux_extint(0xffffff00, regs);
+			break;
 #ifdef CONFIG_CPU_S3C2440
-	case IRQ_WDT:
-		__ipipe_s3c_irq_demux_wdtac97(subsrc, regs);
-		break;
+		case IRQ_WDT:
+			__ipipe_s3c_irq_demux_wdtac97(subsrc, regs);
+			break;
 #endif /* CONFIG_CPU_S3C2440 */
 #ifdef CONFIG_CPU_S3C244X
-	case IRQ_CAM:
-		__ipipe_s3c_irq_demux_cam(subsrc, regs);
-		break;
+		case IRQ_CAM:
+			__ipipe_s3c_irq_demux_cam(subsrc, regs);
+			break;
 #endif /* CONFIG_CPU_S3C244X */
+		}
 	}
 }
 #endif /* CONFIG_IPIPE */

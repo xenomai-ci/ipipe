@@ -251,6 +251,8 @@ void __ipipe_mach_demux_irq(unsigned irq, struct pt_regs *regs)
 		irq += IRQ_SIC_START;
 
 		__ipipe_handle_irq(irq, regs);
+
+		status = sic_readl(INTCP_VA_SIC_BASE + IRQ_STATUS);
 	} while (status);
 }
 #endif /* CONFIG_IPIPE */

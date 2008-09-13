@@ -390,19 +390,14 @@ imx_init_irq(void)
 #ifdef CONFIG_IPIPE
 void __ipipe_mach_demux_irq(unsigned irq, struct pt_regs *regs)
 {
-        unsigned int i, mask;
+        unsigned int i, base, mask;
 
         /* GPPIOA, GPIOB, GPIOC, GPIOD are INT 11,12,13 and 62 */
 	i = ((irq & 7) - 3);
+	base = (i << 5) + IMX_IRQS;
 
 	/* Get all multiplexed ITs from given GPIO */
-	mask = ISR(i);
-	irq = (i << 5) + IMX_IRQS;
-	while (mask) {
-		if (mask & 1)
-			__ipipe_handle_irq(irq, regs);
-		mask >>= 1;
-		irq++;
-	}
+	while ((mask = ISR(i)))
+		__ipipe_handle_irq(base + __ffs(mask), regs);
 }
 #endif /* CONFIG_IPIPE */

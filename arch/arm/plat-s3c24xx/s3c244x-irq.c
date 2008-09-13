@@ -106,10 +106,14 @@ void __ipipe_s3c_irq_demux_cam(unsigned int subsrc, struct pt_regs *regs)
 	subsrc &= 3;
 
 	if (subsrc != 0) {
-		if (subsrc & 1)
+		if (subsrc & 1) {
 			__ipipe_handle_irq(IRQ_S3C2440_CAM_C, regs);
-		if (subsrc & 2)
+			return;
+		}
+		if (subsrc & 2) {
 			__ipipe_handle_irq(IRQ_S3C2440_CAM_P, regs);
+			return;
+		}
 	}
 }
 #endif /* CONFIG_IPIPE */

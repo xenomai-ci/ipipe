@@ -377,6 +377,7 @@ static struct irq_chip gpio_irqchip = {
 	.name		= "GPIO",
 #ifdef CONFIG_IPIPE
 	.ack            = gpio_irq_mask,
+	.mask_ack       = gpio_irq_mask,
 #endif /* CONFIG_IPIPE */
 	.mask		= gpio_irq_mask,
 	.unmask		= gpio_irq_unmask,
@@ -470,7 +471,6 @@ void __ipipe_mach_demux_irq(unsigned irq, struct pt_regs *regs)
 
 		while (isr) {
 			if (isr & 1) {
-#if 0
 				if (unlikely(gpio->depth)) {
 					/*
 					 * The core ARM interrupt handler lazily disables IRQs so
@@ -480,7 +480,6 @@ void __ipipe_mach_demux_irq(unsigned irq, struct pt_regs *regs)
 					gpio_irq_mask(pin);
 				}
 				else
-#endif
 					__ipipe_handle_irq(pin, regs);
 			}
 			pin++;
