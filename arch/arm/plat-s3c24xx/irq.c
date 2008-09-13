@@ -735,7 +735,6 @@ static void __ipipe_s3c_irq_demux_extint(unsigned long mask,
 void __ipipe_mach_demux_irq(unsigned irq, struct pt_regs *regs)
 {
 	unsigned int subsrc, submsk;
-	struct irq_desc *desc_unused = irq_desc + irq;
 
 	/* read the current pending interrupts, and the mask
 	 * for what it is available */
@@ -774,8 +773,6 @@ void __ipipe_mach_demux_irq(unsigned irq, struct pt_regs *regs)
 		break;
 #endif /* CONFIG_CPU_S3C244X */
 	}
-
-	desc_unused->chip->unmask(irq);
 }
 #endif /* CONFIG_IPIPE */
 

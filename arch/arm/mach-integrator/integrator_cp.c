@@ -238,7 +238,6 @@ void __ipipe_mach_demux_irq(unsigned irq, struct pt_regs *regs)
 {
 	unsigned long status = sic_readl(INTCP_VA_SIC_BASE + IRQ_STATUS);
 	struct irq_desc *desc_unused = irq_desc + irq;
-	unsigned irq_unused = irq;
 
 	if (status == 0) {
 		do_bad_IRQ(irq, desc_unused);
@@ -253,8 +252,6 @@ void __ipipe_mach_demux_irq(unsigned irq, struct pt_regs *regs)
 
 		__ipipe_handle_irq(irq, regs);
 	} while (status);
-
-	desc_unused->chip->unmask(irq_unused);
 }
 #endif /* CONFIG_IPIPE */
 

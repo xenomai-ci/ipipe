@@ -286,8 +286,6 @@ static void pxa_gpio_demux_handler(unsigned int irq, struct irq_desc *desc)
 #ifdef CONFIG_IPIPE
 void __ipipe_mach_demux_irq(unsigned irq, struct pt_regs *regs)
 {
-	struct irq_desc *desc_unused = irq_desc + irq;
-	unsigned irq_unused = irq;
 	int loop, bit, n;
 	unsigned long gedr[4];
 
@@ -311,8 +309,6 @@ void __ipipe_mach_demux_irq(unsigned irq, struct pt_regs *regs)
 			bit = find_next_bit(gedr, GEDR_BITS, bit + 1);
 		}
 	} while (loop);
-
-	desc_unused->chip->unmask(irq_unused);
 }
 #endif /* CONFIG_IPIPE */
 

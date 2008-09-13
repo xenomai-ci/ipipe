@@ -140,8 +140,6 @@ sa1100_high_gpio_handler(unsigned int irq, struct irq_desc *desc)
 #ifdef CONFIG_IPIPE
 void __ipipe_mach_demux_irq(unsigned irq, struct pt_regs *regs)
 {
-	struct irq_desc *desc_unused = irq_desc + irq;
-	unsigned irq_unused = irq;
 	unsigned int mask;
 
 	mask = GEDR & 0xfffff800;
@@ -163,8 +161,6 @@ void __ipipe_mach_demux_irq(unsigned irq, struct pt_regs *regs)
 
 		mask = GEDR & 0xfffff800;
 	} while (mask);
-
-	desc_unused->chip->unmask(irq_unused);
 }
 #endif /* CONFIG_IPIPE */
 
