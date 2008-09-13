@@ -94,6 +94,9 @@ static struct irq_chip s3c_irq_cam = {
 	.mask	    = s3c_irq_cam_mask,
 	.unmask	    = s3c_irq_cam_unmask,
 	.ack	    = s3c_irq_cam_ack,
+#ifdef CONFIG_IPIPE
+	.mask_ack   = s3c_irq_cam_ack,
+#endif /* CONFIG_IPIPE */
 };
 
 #ifdef CONFIG_IPIPE

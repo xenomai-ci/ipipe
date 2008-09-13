@@ -377,7 +377,7 @@ static struct irq_chip gpio_irqchip = {
 	.name		= "GPIO",
 #ifdef CONFIG_IPIPE
 	.ack            = gpio_irq_mask,
-#endif
+#endif /* CONFIG_IPIPE */
 	.mask		= gpio_irq_mask,
 	.unmask		= gpio_irq_unmask,
 	.set_type	= gpio_irq_type,

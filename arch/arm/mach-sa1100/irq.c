@@ -251,6 +251,9 @@ static struct irq_chip sa1100_normal_chip = {
 	.name		= "SC",
 	.ack		= sa1100_mask_irq,
 	.mask		= sa1100_mask_irq,
+#ifdef CONFIG_IPIPE
+	.mask_ack	= sa1100_mask_irq,
+#endif /* CONFIG_IPIPE */
 	.unmask		= sa1100_unmask_irq,
 	.set_wake	= sa1100_set_wake,
 };

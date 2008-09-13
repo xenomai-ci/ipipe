@@ -162,6 +162,9 @@ static struct irq_chip cic_chip = {
 	.name	= "CIC",
 	.ack	= cic_mask_irq,
 	.mask	= cic_mask_irq,
+#ifdef CONFIG_IPIPE
+	.mask_ack = cic_mask_irq,
+#endif /* CONFIG_IPIPE */
 	.unmask	= cic_unmask_irq,
 };
 
@@ -181,6 +184,9 @@ static struct irq_chip pic_chip = {
 	.name	= "PIC",
 	.ack	= pic_mask_irq,
 	.mask	= pic_mask_irq,
+#ifdef CONFIG_IPIPE
+	.mask_ack = pic_mask_irq,
+#endif /* CONFIG_IPIPE */
 	.unmask = pic_unmask_irq,
 };
 
@@ -200,6 +206,9 @@ static struct irq_chip sic_chip = {
 	.name	= "SIC",
 	.ack	= sic_mask_irq,
 	.mask	= sic_mask_irq,
+#ifdef CONFIG_IPIPE
+	.mask_ack = sic_mask_irq,
+#endif /* CONFIG_IPIPE */
 	.unmask	= sic_unmask_irq,
 };
 

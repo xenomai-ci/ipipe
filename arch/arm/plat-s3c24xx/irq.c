@@ -197,6 +197,9 @@ struct irq_chip s3c_irq_level_chip = {
 	.name		= "s3c-level",
 	.ack		= s3c_irq_maskack,
 	.mask		= s3c_irq_mask,
+#ifdef CONFIG_IPIPE
+	.mask_ack       = s3c_irq_maskack,
+#endif /* CONFIG_IPIPE */
 	.unmask		= s3c_irq_unmask,
 	.set_wake	= s3c_irq_wake
 };
@@ -393,6 +396,9 @@ static struct irq_chip s3c_irq_uart0 = {
 	.mask		= s3c_irq_uart0_mask,
 	.unmask		= s3c_irq_uart0_unmask,
 	.ack		= s3c_irq_uart0_ack,
+#ifdef CONFIG_IPIPE
+	.mask_ack       = s3c_irq_uart0_ack,
+#endif /* CONFIG_IPIPE */
 };
 
 /* UART1 */
@@ -420,6 +426,9 @@ static struct irq_chip s3c_irq_uart1 = {
 	.mask		= s3c_irq_uart1_mask,
 	.unmask		= s3c_irq_uart1_unmask,
 	.ack		= s3c_irq_uart1_ack,
+#ifdef CONFIG_IPIPE
+	.mask_ack	= s3c_irq_uart1_ack,
+#endif /* CONFIG_IPIPE */
 };
 
 /* UART2 */
@@ -447,6 +456,9 @@ static struct irq_chip s3c_irq_uart2 = {
 	.mask		= s3c_irq_uart2_mask,
 	.unmask		= s3c_irq_uart2_unmask,
 	.ack		= s3c_irq_uart2_ack,
+#ifdef CONFIG_IPIPE
+	.mask_ack	= s3c_irq_uart2_ack,
+#endif /* CONFIG_IPIPE */
 };
 
 /* ADC and Touchscreen */

@@ -313,6 +313,9 @@ static struct irq_chip imx_internal_chip = {
 	.name = "MPU",
 	.ack = imx_mask_irq,
 	.mask = imx_mask_irq,
+#ifdef CONFIG_IPIPE
+	.mask_ack = imx_mask_irq,
+#endif /* CONFIG_IPIPE */
 	.unmask = imx_unmask_irq,
 };
 
