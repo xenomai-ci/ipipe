@@ -254,18 +254,6 @@ config IPIPE_AT91_TC
 	as time base, but you can use TC1 or TC2 by setting this variable to 1
 	or 2. This should only be needed to avoid conflicts with other drivers.
 
-config IPIPE_AT91_MCK
-	depends on IPIPE
-	int "AT91 Master clock Frequency"
-	default 46080000 if MACH_CSB637
-	default 59904000 if MACH_AT91RM9200EK
-	default 99328000 if MACH_AT91SAM9260EK || MACH_AT91SAM9261EK
-	default 53000000
-	help
-	When Adeos interrupt pipeline is enabled, AT91 timer is based on
-	the AT91 master clock, whose frequency need hence to be known at
-	compilation time.
-
 # ----------------------------------------------------------
 
 comment "AT91 Board Options"

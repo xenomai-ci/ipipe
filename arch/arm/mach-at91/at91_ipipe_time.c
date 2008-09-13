@@ -76,25 +76,37 @@
 #define TCNXCNS(timer,v) ((v) << ((timer)<<1))
 #define AT91_TC_REG_MASK (0xffff)
 
-static unsigned long last_CV;
+static unsigned long next_match;
 
 union tsc_reg {
 #ifdef __BIG_ENDIAN
 	struct {
 		unsigned long high;
-		unsigned short mid;
-		unsigned short low;
+		union {
+			struct {
+				unsigned short mid;
+				unsigned short low;
+			};
+			unsigned long mid_low;
+		};
 	};
 #else /* __LITTLE_ENDIAN */
 	struct {
-		unsigned short low;
-		unsigned short mid;
+		union {
+			struct {
+				unsigned short low;
+				unsigned short mid;
+			};
+			unsigned long mid_low;
+		};
 		unsigned long high;
 	};
 #endif /* __LITTLE_ENDIAN */
 	unsigned long long full;
 };
+static unsigned max_delta_ticks, min_delta_ticks;
 static struct clock_event_device clkevt;
+static int tc_timer_clock;
 
 #ifdef CONFIG_SMP
 static union tsc_reg tsc[NR_CPUS];
@@ -147,6 +159,8 @@ EXPORT_SYMBOL(__ipipe_mach_timerstolen);
 unsigned int __ipipe_mach_ticks_per_jiffy = LATCH;
 EXPORT_SYMBOL(__ipipe_mach_ticks_per_jiffy);
 
+static void ipipe_mach_update_tsc(unsigned short stamp);
+
 static int at91_timer_initialized;
 
 /*
@@ -154,38 +168,8 @@ static int at91_timer_initialized;
  */
 static irqreturn_t at91_timer_interrupt(int irq, void *dev_id)
 {
-	/*
-	 * - if Linux is running under ipipe, but it still has the control over
-	 *   the timer (no Xenomai for example), then reprogram the timer (ipipe
-	 *   has already acked it)
-	 * - if some other domain has taken over the timer, then do nothing
-	 *   (ipipe has acked it, and the other domain has reprogramed it)
-	 */
-
-	while (((read_CV() - last_CV) & AT91_TC_REG_MASK) >= LATCH) {
-		clkevt.event_handler(&clkevt);
-		last_CV = (last_CV + LATCH) & AT91_TC_REG_MASK;
-	}
-	if (!__ipipe_mach_timerstolen)
-		write_RC((last_CV + LATCH) & AT91_TC_REG_MASK);
-
+	clkevt.event_handler(&clkevt);
 	return IRQ_HANDLED;
-}
-
-static irqreturn_t at91_bad_freq(int irq, void *dev_id)
-{
-	static int ticks = 0;
-
-	if (++ticks != HZ * 120) {
-		if (!console_drivers || try_acquire_console_sem())
-			return at91_timer_interrupt(irq, dev_id);
-	
-		release_console_sem();
-	}
-
-	panic("AT91 clock rate incorrectly set.\n"
-	      "Please recompile with IPIPE_AT91_MCK set to %lu Hz.",
-	      clk_get_rate(clk_get(NULL, "mck")));
 }
 
 static struct irqaction at91_timer_irq = {
@@ -194,40 +178,50 @@ static struct irqaction at91_timer_irq = {
 	.handler	= &at91_timer_interrupt
 };
 
-void __ipipe_mach_acktimer(void)
+static void ipipe_mach_update_tsc(unsigned short stamp)
 {
 	union tsc_reg *local_tsc;
-	unsigned short stamp;
-	unsigned long flags;
 
-	at91_tc_read(AT91_TC_SR);
-
-	local_irq_save_hw(flags);
 	local_tsc = &tsc[ipipe_processor_id()];
-	stamp = read_CV();
 	if (unlikely(stamp < local_tsc->low))
 		local_tsc->full += AT91_TC_REG_MASK + 1;
 	local_tsc->low = stamp;
-	local_irq_restore_hw(flags);
+}
+
+void __ipipe_mach_acktimer(void)
+{
+	at91_tc_read(AT91_TC_SR);
+
+	if (unlikely(!__ipipe_mach_timerstolen)) {
+		ipipe_mach_update_tsc(read_CV());
+		next_match = (next_match + __ipipe_mach_ticks_per_jiffy)
+			& AT91_TC_REG_MASK;
+		write_RC(next_match);
+	}
 }
 
 notrace unsigned long long __ipipe_mach_get_tsc(void)
 {
 	if (likely(at91_timer_initialized)) {
-		union tsc_reg *local_tsc, result;
-		unsigned long stamp;
+		union tsc_reg *local_tsc, before, after;
+		unsigned short stamp;
 
 		local_tsc = &tsc[ipipe_processor_id()];
 
-		__asm__ ("ldmia %1, %M0\n"
-			 : "=r"(result.full), "+&r"(local_tsc)
-			 : "m"(*local_tsc));
-		barrier();
-		stamp = read_CV();
-		if (unlikely(stamp < result.low))
-			result.full += AT91_TC_REG_MASK + 1;
-		result.low = stamp;
-		return result.full;
+		__asm__ ("ldmia %1, %M0\n":
+			 "=r"(after.full): "r"(local_tsc), "m"(*local_tsc));
+		do {
+			before = after;
+			stamp = read_CV();
+			barrier();
+			__asm__ ("ldmia %1, %M0\n":
+				 "=r"(after.full):
+				 "r"(local_tsc), "m"(*local_tsc));
+		} while (after.mid_low != before.mid_low);
+		if (unlikely(stamp < before.low))
+			before.full += AT91_TC_REG_MASK + 1;
+		before.low = stamp;
+		return before.full;
 	}
 
 	return 0;
@@ -244,7 +238,7 @@ static struct clocksource clksrc = {
 };
 
 static void
-at91_tc_clkevt_mode(enum clock_event_mode mode, struct clock_event_device *dev)
+at91_tc_set_mode(enum clock_event_mode mode, struct clock_event_device *dev)
 {
 	/* Disable the channel */
 	at91_tc_write(AT91_TC_CCR, AT91_TC_CLKDIS);
@@ -255,6 +249,13 @@ at91_tc_clkevt_mode(enum clock_event_mode mode, struct clock_event_device *dev)
 	if (mode == CLOCK_EVT_MODE_PERIODIC) {
 		unsigned long v;
 
+#ifndef CONFIG_ARCH_AT91SAM9263
+		clk_enable(clk_get(NULL, "tc"
+				   __stringify(CONFIG_IPIPE_AT91_TC) "_clk"));
+#else /* AT91SAM9263 */
+		clk_enable(clk_get(NULL, "tcb_clk"));
+#endif /* AT91SAM9263 */
+
 		/* No Sync. */
 		at91_tc_write(AT91_TC_BCR, 0);
 
@@ -264,18 +265,20 @@ at91_tc_clkevt_mode(enum clock_event_mode mode, struct clock_event_device *dev)
 		v |= TCNXCNS(CONFIG_IPIPE_AT91_TC, 1); /* AT91_TC_TCNXCNS_NONE */
 		writel(v, (void __iomem *) (AT91_VA_BASE_TCB0 + AT91_TC_BMR));
 
-		/* Select TIMER_CLOCK3 (MCLK/32) as input frequency for TC. */
-		at91_tc_write(AT91_TC_CMR, AT91_TC_TIMER_CLOCK3);
+		/* Use the clock selected by at91_timer_init as input clock. */
+		at91_tc_write(AT91_TC_CMR, tc_timer_clock);
 
 		/* Load the TC register C. */
-		last_CV = 0;
-		write_RC(LATCH);
+		next_match = __ipipe_mach_ticks_per_jiffy;
+		write_RC(next_match);
 
 		/* Enable CPCS interrupt. */
 		at91_tc_write(AT91_TC_IER, AT91_TC_CPCS);
 
 		/* Enable the channel. */
 		at91_tc_write(AT91_TC_CCR, AT91_TC_CLKEN | AT91_TC_SWTRG);
+
+		at91_timer_initialized = 1;
 	}
 }
 
@@ -284,11 +287,17 @@ at91_tc_clkevt_mode(enum clock_event_mode mode, struct clock_event_device *dev)
  */
 void __ipipe_mach_set_dec(unsigned long delay)
 {
+	unsigned short stamp;
 	unsigned long flags;
 
-	if (delay > 2) {
+	if (delay > max_delta_ticks)
+		delay = max_delta_ticks;
+
+	if (likely(delay > min_delta_ticks)) {
 		local_irq_save_hw(flags);
-		write_RC((read_CV() + delay) & AT91_TC_REG_MASK);
+		stamp = read_CV();
+		ipipe_mach_update_tsc(stamp);
+		write_RC((stamp + delay) & AT91_TC_REG_MASK);
 		local_irq_restore_hw(flags);
 	} else
 		ipipe_trigger_irq(KERNEL_TIMER_IRQ_NUM);
@@ -306,7 +315,7 @@ static struct clock_event_device clkevt = {
 	.shift		= 32,
 	.rating		= 250,
 	.cpumask	= CPU_MASK_CPU0,
-	.set_mode	= at91_tc_clkevt_mode,
+	.set_mode	= at91_tc_set_mode,
 };
 
 void __ipipe_mach_release_timer(void)
@@ -320,20 +329,12 @@ unsigned long __ipipe_mach_get_dec(void)
 	return (read_RC() - read_CV()) & AT91_TC_REG_MASK;
 }
 
-static struct clk *tc, local_tc = {
-#ifndef CONFIG_ARCH_AT91SAM9263
-	.name		= "tc" __stringify(CONFIG_IPIPE_AT91_TC) "_clk",
-#else
-	/* at91sam9263 only has a single TCB clock. */
-	.name		= "tcb_clk",
-#endif
-	.users          = 0,
-	.type		= CLK_TYPE_PERIPHERAL,
-	.pmc_mask       = 1 << (KERNEL_TIMER_IRQ_NUM),
-};
-
 void __init at91_timer_init(void)
 {
+	unsigned char tc_divisors[] = { 2, 8, 32, 128, 0, };
+	unsigned master_freq, divisor, divided_freq;
+	unsigned long long wrap_ns;
+
 	/* Disable (boot loader) timer interrupts. */
 #if defined(CONFIG_ARCH_AT91RM9200)
 	at91_sys_write(AT91_ST_IDR, AT91_ST_PITS | AT91_ST_WDOVF | AT91_ST_RTTINC | AT91_ST_ALMS);
@@ -346,34 +347,54 @@ void __init at91_timer_init(void)
 	(void) at91_sys_read(AT91_PIT_PIVR);
 #endif /* CONFIG_ARCH_AT91SAM926x */
 
-	if (clk_get_rate(clk_get(NULL, "mck")) != CONFIG_IPIPE_AT91_MCK)
-		at91_timer_irq.handler = &at91_bad_freq;
-
-	tc = clk_get(NULL, local_tc.name);
-	if (IS_ERR(tc)) {
-		tc = &local_tc;
-		clk_register(tc);
+	master_freq = clk_get_rate(clk_get(NULL, "mck"));
+	/* Find the first frequency above 1 MHz */
+	for (tc_timer_clock = ARRAY_SIZE(tc_divisors) - 1;
+	     tc_timer_clock >= 0; tc_timer_clock--) {
+		divisor = tc_divisors[tc_timer_clock];
+		divided_freq = (divisor
+				? master_freq / divisor : AT91_SLOW_CLOCK);
+		if (divided_freq > 1000000)
+			break;
 	}
-	clk_enable(tc);
 
+	wrap_ns = (unsigned long long) (AT91_TC_REG_MASK + 1) * NSEC_PER_SEC;
+	do_div(wrap_ns, divided_freq);
+
+	if (divided_freq < 1000000)
+		printk(KERN_INFO "AT91 I-pipe warning: could not find a"
+		       " frequency greater than 1MHz\n");
+
+	printk(KERN_INFO "AT91 I-pipe timer: div: %u, freq: %u.%06u MHz, wrap: "
+	       "%u.%06u ms\n", divisor,
+	       divided_freq / 1000000, divided_freq % 1000000,
+	       (unsigned) wrap_ns / 1000000, (unsigned) wrap_ns % 1000000);
+
+	/* Add a 1ms margin. It means that when an interrupt occurs, update_tsc
+	   must be called within 1ms. update_tsc is called by acktimer when no
+	   higher domain handles the timer, and called through set_dec when a
+	   higher domain handles the timer. */
+	wrap_ns -= 1000000;
 	/* Set up the interrupt. */
 	setup_irq(KERNEL_TIMER_IRQ_NUM, &at91_timer_irq);
 
 #ifndef CONFIG_SMP
 	tsc = (union tsc_reg *) __ipipe_tsc_area;
-	barrier();
 #endif /* CONFIG_SMP */
 
-	at91_timer_initialized = 1;
-
-	clkevt.mult = div_sc(CLOCK_TICK_RATE, NSEC_PER_SEC, clkevt.shift);
-	clkevt.max_delta_ns = clockevent_delta2ns(AT91_TC_REG_MASK, &clkevt);
-	clkevt.min_delta_ns = 0;
+	clkevt.mult = div_sc(divided_freq, NSEC_PER_SEC, clkevt.shift);
+	clkevt.max_delta_ns = wrap_ns;
+	clkevt.min_delta_ns = 2000;
 	clkevt.cpumask = cpumask_of_cpu(0);
 	clockevents_register_device(&clkevt);
 
-	clksrc.mult = clocksource_hz2mult(CLOCK_TICK_RATE, clksrc.shift);
+	clksrc.mult = clocksource_hz2mult(divided_freq, clksrc.shift);
 	clocksource_register(&clksrc);
+
+	__ipipe_mach_ticks_per_jiffy = (divided_freq + HZ/2) / HZ;
+	max_delta_ticks = (wrap_ns * clkevt.mult) >> clkevt.shift;
+	min_delta_ticks = ((unsigned long long) clkevt.min_delta_ns
+			   * clkevt.mult) >> clkevt.shift;
 }
 
 #ifdef CONFIG_ARCH_AT91RM9200
