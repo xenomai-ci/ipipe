@@ -256,20 +256,20 @@ __ipipe_fast_svc_irq_exit:
 #ifdef CONFIG_PREEMPT
 svc_preempt:
 	mov	r8, lr
-#ifdef CONFIG_IPIPE
-	bl	__ipipe_fast_stall_root
-	enable_irq
-#endif
+	ipipe_fast_stall_root r4, r0		@ r4 must be preserved
+	enable_irq_cond				@ reused by unstall
 1:	bl	preempt_schedule_irq		@ irq en/disable is done inside
 	ldr	r0, [tsk, #TI_FLAGS]		@ get new tasks TI_FLAGS
 	tst	r0, #_TIF_NEED_RESCHED
 	bne	1b
-#ifdef CONFIG_IPIPE
-	disable_irq
-	bl	__ipipe_fast_unstall_root
-#endif	
+	disable_irq_cond
+	ipipe_fast_unstall_root r4, r0
 	mov	pc, r8				@ go again
-#endif
+#ifdef CONFIG_IPIPE
+.LCipipe_root_status:
+	.word	__ipipe_root_status
+#endif /* CONFIG_IPIPE */
+#endif /* CONFIG_PREEMPT */
 
 	.align	5
 __und_svc:

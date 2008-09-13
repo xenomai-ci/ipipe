@@ -61,18 +61,14 @@ work_pending:
 	bne	work_resched
 	tst	r1, #_TIF_SIGPENDING
 	beq	no_work_pending
-#ifdef CONFIG_IPIPE
-	enable_irq
-#endif /* CONFIG_IPIPE */
+	enable_irq_cond
 	mov	r0, sp				@ 'regs'
 	mov	r2, why				@ 'syscall'
 	bl	do_notify_resume
 	b	ret_slow_syscall		@ Check work again
 
 work_resched:
-#ifdef CONFIG_IPIPE
-	enable_irq
-#endif /* CONFIG_IPIPE */
+	enable_irq_cond
 	bl	schedule
 
 /*
@@ -91,9 +87,7 @@ no_work_pending:
  * This is how we return from a fork.
  */
 ENTRY(ret_from_fork)
-#ifdef CONFIG_IPIPE
-	enable_irq
-#endif /* CONFIG_IPIPE */
+	enable_irq_cond
 	bl	schedule_tail
 	get_thread_info tsk
 	ldr	r1, [tsk, #TI_FLAGS]		@ check for syscall tracing

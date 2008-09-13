@@ -256,18 +256,6 @@ asmlinkage int __ipipe_check_root_interruptible(void)
         return ipipe_root_domain_p && !__ipipe_test_root();
 }
 
-/* Called from entry-armv.S with hw interrupts off */
-asmlinkage void __ipipe_fast_stall_root(void)
-{
-        __set_bit(IPIPE_STALL_FLAG, &__ipipe_root_status);
-}
-
-/* Called from entry-armv.S with hw interrupts off */
-asmlinkage void __ipipe_fast_unstall_root(void)
-{
-	__clear_bit(IPIPE_STALL_FLAG, &__ipipe_root_status);
-}
-
 asmlinkage int __ipipe_syscall_root(unsigned long scno, struct pt_regs *regs)
 {
 	unsigned long flags, origr7;
