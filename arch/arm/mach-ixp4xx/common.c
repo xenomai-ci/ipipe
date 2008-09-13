@@ -103,6 +103,8 @@ void __ipipe_mach_get_tscinfo(struct __ipipe_tscinfo *info)
 }
 #endif /* !CONFIG_SMP */
 
+static void ipipe_mach_update_tsc(void);
+
 #endif /* CONFIG_IPIPE */
 
 /*************************************************************************
@@ -332,6 +334,8 @@ static irqreturn_t ixp4xx_timer_interrupt(int irq, void *dev_id)
 #ifndef CONFIG_IPIPE
 	/* Clear Pending Interrupt by writing '1' to it */
 	*IXP4XX_OSST = IXP4XX_OSST_TIMER_1_PEND;
+#else /* CONFIG_IPIPE */
+	ipipe_mach_update_tsc();
 #endif /* CONFIG_IPIPE */
 
 	evt->event_handler(evt);
@@ -573,10 +577,14 @@ static int __init ixp4xx_clockevent_init(void)
 #ifdef CONFIG_IPIPE
 void __ipipe_mach_acktimer(void)
 {
-	union tsc_reg *local_tsc;
-	unsigned long stamp, flags;
 	/* Clear Pending Interrupt by writing '1' to it */
 	*IXP4XX_OSST = IXP4XX_OSST_TIMER_1_PEND;
+}
+
+static void ipipe_mach_update_tsc(void)
+{
+	union tsc_reg *local_tsc;
+	unsigned long stamp, flags;
 
 	local_irq_save_hw(flags);
 	local_tsc = &tsc[ipipe_processor_id()];
@@ -587,8 +595,6 @@ void __ipipe_mach_acktimer(void)
 	local_tsc->low = stamp;
 	local_irq_restore_hw(flags);
 }
-
-EXPORT_SYMBOL(__ipipe_mach_acktimer);
 
 notrace unsigned long long __ipipe_mach_get_tsc(void)
 {

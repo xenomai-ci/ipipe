@@ -74,6 +74,9 @@ void __ipipe_mach_get_tscinfo(struct __ipipe_tscinfo *info)
 	info->u.fr.tsc = &tsc->full;
 }
 #endif /* !CONFIG_SMP */
+
+static void ipipe_mach_update_tsc(void);
+
 #endif /* CONFIG_IPIPE */
 
 /*
@@ -121,7 +124,9 @@ pxa_ost0_interrupt(int irq, void *dev_id)
 #ifndef CONFIG_IPIPE
 	OIER &= ~OIER_E0;
 	OSSR = OSSR_M0;
-#endif /* !CONFIG_IPIPE */
+#else /* CONFIG_IPIPE */
+	ipipe_mach_update_tsc();
+#endif /* CONFIG_IPIPE */
 	c->event_handler(c);
 
 	return IRQ_HANDLED;
@@ -294,11 +299,14 @@ struct sys_timer pxa_timer = {
 #ifdef CONFIG_IPIPE
 void __ipipe_mach_acktimer(void)
 {
-	union tsc_reg *local_tsc;
-	unsigned long stamp, flags;
-
 	OSSR = OSSR_M0;  /* Clear match on timer 0 */
 	OIER &= ~OIER_E0;
+}
+
+static void ipipe_mach_update_tsc(void)
+{
+	union tsc_reg *local_tsc;
+	unsigned long stamp, flags;
 
 	local_irq_save_hw(flags);
 	local_tsc = &tsc[ipipe_processor_id()];

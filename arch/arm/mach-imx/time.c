@@ -70,6 +70,9 @@ void __ipipe_mach_get_tscinfo(struct __ipipe_tscinfo *info)
 	info->u.fr.tsc = &tsc->full;
 }
 #endif				/* !CONFIG_SMP */
+
+static void ipipe_mach_update_tsc(void);
+
 #endif				/* CONFIG_IPIPE */
 
 /* Use timer 1 as system timer */
@@ -100,6 +103,7 @@ imx_timer_interrupt(int irq, void *dev_id)
 
 	return ret;
 #else /* CONFIG_IPIPE */
+	ipipe_mach_update_tsc();
 	evt->event_handler(evt);
 	return  IRQ_HANDLED;
 #endif /* CONFIG_IPIPE */
@@ -279,22 +283,22 @@ struct sys_timer imx_timer = {
 #ifdef CONFIG_IPIPE
 void __ipipe_mach_acktimer(void)
 {
-	uint32_t tstat;
-	tstat = IMX_TSTAT(TIMER_BASE);
 	IMX_TSTAT(TIMER_BASE) = 0;
-	if (likely(tstat & TSTAT_COMP)) {
-		union tsc_reg *local_tsc;
-		unsigned long stamp, flags;
+}
 
-		local_irq_save_hw(flags);
-		local_tsc = &tsc[ipipe_processor_id()];
-		stamp = IMX_TCN(TIMER_BASE);
-		if (unlikely(stamp < local_tsc->low))
-			/* 32 bit counter wrapped, increment high word. */
-			local_tsc->high++;
-		local_tsc->low = stamp;
-		local_irq_restore_hw(flags);
-	}
+static void ipipe_mach_update_tsc(void)
+{
+	union tsc_reg *local_tsc;
+	unsigned long stamp, flags;
+
+	local_irq_save_hw(flags);
+	local_tsc = &tsc[ipipe_processor_id()];
+	stamp = IMX_TCN(TIMER_BASE);
+	if (unlikely(stamp < local_tsc->low))
+		/* 32 bit counter wrapped, increment high word. */
+		local_tsc->high++;
+	local_tsc->low = stamp;
+	local_irq_restore_hw(flags);
 }
 
 notrace unsigned long long __ipipe_mach_get_tsc(void)
