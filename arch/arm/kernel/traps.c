@@ -337,7 +337,9 @@ asmlinkage void __exception do_undefinstr(struct pt_regs *regs)
 	}
 	spin_unlock_irqrestore(&undef_lock, flags);
 
-	if (ipipe_trap_notify(IPIPE_TRAP_UNDEFINSTR,regs))
+	/* In kernel mode, the trap was already signaled at the beginning of
+	 * __und_svc in arch/arm/kernel/entry-armv.S */
+	if (user_mode(regs) && ipipe_trap_notify(IPIPE_TRAP_UNDEFINSTR, regs))
 		return;
 
 #ifdef CONFIG_DEBUG_USER

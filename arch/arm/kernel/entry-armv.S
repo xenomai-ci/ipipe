@@ -283,10 +283,15 @@ __und_svc:
 #endif
 
 #ifdef CONFIG_IPIPE
-	mov	r1, sp				@ r0 = trapno, r1 = &regs
+	/* Beware, do_undefinstr in arch/arm/traps.c will not signal the trap
+	when in svc mode because of this hunk. */
+	mov	r4, r2
+	mov	r0, #7				@ r0 = IPIPE_TRAP_UNDEFINSTR
+	mov	r1, sp				@ r1 = &regs
 	bl	__ipipe_dispatch_event		@ branch to trap handler
 	cmp	r0, #0
 	bne	1f
+	mov	r2, r4
 #endif /* CONFIG_IPIPE */
 	@
 	@ call emulation code, which returns using r9 if it has emulated
@@ -672,8 +677,8 @@ do_fpe:
 	mov	r4, r0
 	mov	r5, r2
 	mov	r6, lr
-	mov	r0, #5				@ == IPIPE_TRAP_FPU
-	mov	r1, sp				@ r0 = trapno, r1 = &regs
+	mov	r0, #5				@ r0 = IPIPE_TRAP_FPU
+	mov	r1, sp				@ r1 = &regs
 	bl	__ipipe_dispatch_event		@ branch to trap handler
 	cmp	r0, #0
 	movne	pc, r9
@@ -692,8 +697,8 @@ _do_vfp:
 	mov	r4, r0
 	mov	r5, r2
 	mov	r6, lr
-	mov	r0, #6				@ == IPIPE_TRAP_VFP
-	mov	r1, sp				@ r0 = trapno, r1 = &regs
+	mov	r0, #6				@ r0 = IPIPE_TRAP_VFP
+	mov	r1, sp				@ r1 = &regs
 	bl	__ipipe_dispatch_event		@ branch to trap handler
 	cmp	r0, #0
 	movne	pc, r9
