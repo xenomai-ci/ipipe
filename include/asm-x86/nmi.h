@@ -42,6 +42,7 @@ extern void die_nmi(char *str, struct pt_regs *regs, int do_panic);
 extern void nmi_watchdog_default(void);
 #else
 #define nmi_watchdog_default() do {} while (0)
+extern void die_nmi(struct pt_regs *regs, const char *msg);
 #endif
 
 extern int check_nmi_watchdog(void);
