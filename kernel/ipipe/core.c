@@ -1577,7 +1577,9 @@ void ipipe_check_context(struct ipipe_domain *border_ipd)
 	/* Note: We don't make the per_cpu access atomic. We assume that code
 	   which temporarily disables the check does this in atomic context
 	   only. */
-	if (likely(ipipe_current_domain->priority <= border_ipd->priority) ||
+	if (likely(ipipe_current_domain->priority <= border_ipd->priority &&
+		   !test_bit(IPIPE_STALL_FLAG,
+			     &ipipe_head_cpudom_var(status))) ||
 	    !per_cpu(ipipe_percpu_context_check, ipipe_processor_id()))
 		return;
 
@@ -1585,10 +1587,18 @@ void ipipe_check_context(struct ipipe_domain *border_ipd)
 
 	ipipe_trace_panic_freeze();
 	ipipe_set_printk_sync(ipipe_current_domain);
-	printk(KERN_ERR "I-pipe: Detected illicit call from domain '%s'\n"
-	       KERN_ERR "        into a service reserved for domain '%s' and "
-			"below.\n",
-	       ipipe_current_domain->name, border_ipd->name);
+
+	if (ipipe_current_domain->priority > border_ipd->priority)
+		printk(KERN_ERR "I-pipe: Detected illicit call from domain "
+				"'%s'\n"
+		       KERN_ERR "        into a service reserved for domain "
+				"'%s' and below.\n",
+		       ipipe_current_domain->name, border_ipd->name);
+	else
+		printk(KERN_ERR "I-pipe: Detected stalled topmost domain, "
+				"probably caused by a bug.\n"
+				"        A critical section may have been "
+				"left unterminated.\n");
 	dump_stack();
 	ipipe_trace_panic_dump();
 }
