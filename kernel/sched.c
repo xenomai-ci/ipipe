@@ -3564,8 +3564,8 @@ switch_tasks:
 		prepare_task_switch(rq, next);
 		prev = context_switch(rq, prev, next);
 		barrier();
- 		if (task_hijacked(prev)) {
-			prev->state &= ~TASK_ATOMICSWITCH;
+ 		if (task_hijacked(current)) {
+			current->state &= ~TASK_ATOMICSWITCH;
 			return;
 		}
 		/*
@@ -3573,7 +3573,7 @@ switch_tasks:
 		 * CPUs since it called schedule(), thus the 'rq' on its stack
 		 * frame will be invalid.
 		 */
-		prev->state &= ~TASK_ATOMICSWITCH;
+		current->state &= ~TASK_ATOMICSWITCH;
 		finish_task_switch(this_rq(), prev);
 	} else {
 		prev->state &= ~TASK_ATOMICSWITCH;
