@@ -2488,9 +2488,9 @@ context_switch(struct rq *rq, struct task_struct *prev,
 
 	barrier();
 
-	prev->state &= ~TASK_ATOMICSWITCH;
+	current->state &= ~TASK_ATOMICSWITCH;
 
-	if (task_hijacked(prev))
+	if (task_hijacked(current))
 		return 1;
 	/*
 	 * this_rq must be evaluated again because prev may have moved
