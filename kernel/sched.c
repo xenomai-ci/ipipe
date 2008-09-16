@@ -2488,10 +2488,18 @@ context_switch(struct rq *rq, struct task_struct *prev,
 
 	barrier();
 
-	current->state &= ~TASK_ATOMICSWITCH;
+#ifdef CONFIG_IPIPE_DELAYED_ATOMICSW
+#define clrtask current
+#else
+#define clrtask prev
+#endif
+	clrtask->state &= ~TASK_ATOMICSWITCH;
 
-	if (task_hijacked(current))
+	if (task_hijacked(clrtask))
 		return 1;
+
+#undef clrtask
+
 	/*
 	 * this_rq must be evaluated again because prev may have moved
 	 * CPUs since it called schedule(), thus the 'rq' on its stack

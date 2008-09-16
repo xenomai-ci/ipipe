@@ -23,3 +23,7 @@ config IPIPE_COMPAT
 	deprecated in future I-pipe releases, and removed from the
 	compatibility support as time passes. Please fix I-pipe
 	clients to get rid of such uses as soon as possible.
+
+config IPIPE_DELAYED_ATOMICSW
+       depends on IPIPE
+       default n
