@@ -25,5 +25,6 @@ config IPIPE_COMPAT
 	clients to get rid of such uses as soon as possible.
 
 config IPIPE_DELAYED_ATOMICSW
+       bool
        depends on IPIPE
        default n
