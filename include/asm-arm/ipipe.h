@@ -28,10 +28,10 @@
 
 #include <linux/ipipe_percpu.h>
 
-#define IPIPE_ARCH_STRING	"1.10-00"
+#define IPIPE_ARCH_STRING	"1.10-01"
 #define IPIPE_MAJOR_NUMBER	1
 #define IPIPE_MINOR_NUMBER	10
-#define IPIPE_PATCH_NUMBER	0
+#define IPIPE_PATCH_NUMBER	1
 
 #ifdef CONFIG_SMP
 #error "I-pipe/arm: SMP not yet implemented"
