@@ -1,6 +1,6 @@
 /***********************************************************************
  *
- * (C) Copyright 2004, 2007
+ * (C) Copyright 2004, 2007, 2008
  * Wolfgang Denk, DENX Software Engineering, wd@denx.de.
  *
  * Adapted to Linux 2.6 by Piotr Kruszynski <ppk@semihalf.com>:
@@ -874,7 +874,7 @@ static int process_mon_chains(void)
 
 	for (ptr = mon_list.next; ptr != &mon_list; ptr = ptr->next) {
 		entry = list_entry(ptr, monitored_chain_t, list);
-		if (entry->expires <= jiffies) {
+		if (time_after_eq(jiffies, entry->expires)) {
 			debugk("%s: WD monitor expired for id %d\n",
 				__FUNCTION__, entry->chainid);
 			switch (entry->action[entry->escalation]) {
@@ -989,7 +989,7 @@ static void insert_mon_chain(monitored_chain_t *new)
 
 	for (ptr = mon_list.next; ptr != &mon_list; ptr = ptr->next) {
 		entry = list_entry(ptr, monitored_chain_t, list);
-		if (entry->expires >= new->expires) {
+		if (time_after_eq(entry->expires, new->expires)) {
 			list_add(&new->list, ptr);
 			return;
 		}
