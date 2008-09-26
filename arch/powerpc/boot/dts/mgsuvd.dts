@@ -158,6 +158,12 @@
 				fsl,cpm-command = <80>;
 				fixed-link = <0 0 a 0 0>;
 			};
+
+			bootcount@0x3eb0 {
+				device_type = "bootcount";
+				compatible = "uboot,bootcount";
+				reg = <0x3eb0 0x08>;
+			};
 		};
 	};
 };

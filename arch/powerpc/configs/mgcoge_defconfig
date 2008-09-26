@@ -1,7 +1,7 @@
 #
 # Automatically generated make config: don't edit
-# Linux kernel version: 2.6.25-rc4
-# Thu Mar  6 09:14:18 2008
+# Linux kernel version: 2.6.26-rc9
+# Wed Sep 24 10:29:36 2008
 #
 # CONFIG_PPC64 is not set
 
@@ -540,6 +540,7 @@ CONFIG_HW_RANDOM=y
 # CONFIG_GEN_RTC is not set
 # CONFIG_R3964 is not set
 # CONFIG_RAW_DRIVER is not set
+CONFIG_BOOTCOUNT=y
 # CONFIG_I2C is not set
 
 #
@@ -551,6 +552,7 @@ CONFIG_HW_RANDOM=y
 # CONFIG_POWER_SUPPLY is not set
 # CONFIG_HWMON is not set
 # CONFIG_THERMAL is not set
+# CONFIG_THERMAL_HWMON is not set
 # CONFIG_WATCHDOG is not set
 
 #

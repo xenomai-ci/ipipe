@@ -1034,6 +1034,12 @@ config MAX_RAW_DEVS
 	  Default is 256. Increase this number in case you need lots of
 	  raw devices.
 
+config BOOTCOUNT
+	tristate "UBoot Bootcount driver"
+	depends on PPC
+	help
+	  The UBoot Bootcount driver ...
+
 config HPET
 	bool "HPET - High Precision Event Timer" if (X86 || IA64)
 	default n
