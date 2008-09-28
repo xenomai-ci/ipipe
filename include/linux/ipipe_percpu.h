@@ -58,6 +58,7 @@ DECLARE_PER_CPU(struct ipipe_domain *, ipipe_percpu_domain);
 
 #ifdef CONFIG_IPIPE_DEBUG_CONTEXT
 DECLARE_PER_CPU(int, ipipe_percpu_context_check);
+DECLARE_PER_CPU(int, ipipe_saved_context_check_state);
 #endif
 
 #define ipipe_percpu(var, cpu)		per_cpu(var, cpu)
