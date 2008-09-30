@@ -241,7 +241,16 @@ void uic_irq_cascade(unsigned int virq, struct irq_desc *desc)
 	src = 32 - ffs(msr);
 
 	subvirq = irq_linear_revmap(uic->irqhost, src);
+#ifdef CONFIG_IPIPE
+	{
+		struct pt_regs regs;    /* Contents not used. */
+		ipipe_trace_irq_entry(subvirq);
+		__ipipe_handle_irq(subvirq, &regs);
+		ipipe_trace_irq_exit(subvirq);
+	}
+#else
 	generic_handle_irq(subvirq);
+#endif
 
 uic_irq_ret:
 	spin_lock(&desc->lock);
