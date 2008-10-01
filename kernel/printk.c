@@ -641,17 +641,33 @@ void __ipipe_flush_printk (unsigned virq, void *cookie)
 
 asmlinkage int printk(const char *fmt, ...)
 {
-  	int r, fbytes, oldcount, cs = -1;
-    	unsigned long flags;
+	int r, fbytes, oldcount;
+	int sprintk = 1;
+	int cs = -1;
+	unsigned long flags;
 	va_list args;
 
 	va_start(args, fmt);
 
-	if (test_bit(IPIPE_SPRINTK_FLAG,&ipipe_current_domain->flags) ||
+	if (test_bit(IPIPE_SPRINTK_FLAG, &ipipe_current_domain->flags) ||
 	    oops_in_progress)
 		cs = ipipe_disable_context_check(ipipe_processor_id());
+	else if (ipipe_current_domain == ipipe_root_domain) {
+		struct ipipe_domain *dom;
 
-	if (ipipe_current_domain == ipipe_root_domain || cs != -1) {
+		local_irq_save_hw(flags);
+		list_for_each_entry(dom, &__ipipe_pipeline, p_link) {
+			if (dom == ipipe_root_domain)
+				break;
+			if (test_bit(IPIPE_STALL_FLAG,
+				     &ipipe_cpudom_var(dom, status)))
+				sprintk = 0;
+		}
+		local_irq_restore_hw(flags);
+	} else
+		sprintk = 0;
+
+	if (sprintk) {
 		r = vprintk(fmt, args);
 		if (cs != -1)
 			ipipe_restore_context_check(ipipe_processor_id(), cs);
