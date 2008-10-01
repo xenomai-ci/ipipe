@@ -25,10 +25,10 @@
 #ifdef CONFIG_IPIPE
 
 #ifndef IPIPE_ARCH_STRING
-#define IPIPE_ARCH_STRING	"2.0-12"
+#define IPIPE_ARCH_STRING	"2.0-13"
 #define IPIPE_MAJOR_NUMBER	2
 #define IPIPE_MINOR_NUMBER	0
-#define IPIPE_PATCH_NUMBER	12
+#define IPIPE_PATCH_NUMBER	13
 #endif
 
 DECLARE_PER_CPU(struct pt_regs, __ipipe_tick_regs);
