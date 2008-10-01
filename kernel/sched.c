@@ -2489,13 +2489,11 @@ context_switch(struct rq *rq, struct task_struct *prev,
 	barrier();
 
 #ifdef CONFIG_IPIPE_DELAYED_ATOMICSW
-#define clrtask current
+	current->state &= ~TASK_ATOMICSWITCH;
 #else
-#define clrtask prev
+	prev->state &= ~TASK_ATOMICSWITCH;
 #endif
-	clrtask->state &= ~TASK_ATOMICSWITCH;
-
-	if (task_hijacked(clrtask))
+	if (task_hijacked(prev))
 		return 1;
 
 #undef clrtask

@@ -566,6 +566,22 @@ static inline void ipipe_context_check_off(void)
 		per_cpu(ipipe_percpu_context_check, cpu) = 0;
 }
 
+static inline void ipipe_nmi_enter(void)
+{
+	int cpu = ipipe_processor_id();
+
+	per_cpu(ipipe_saved_context_check_state, cpu) =
+		ipipe_disable_context_check(cpu);
+}
+
+static inline void ipipe_nmi_exit(void)
+{
+	int cpu = ipipe_processor_id();
+
+	ipipe_restore_context_check
+		(cpu, per_cpu(ipipe_saved_context_check_state, cpu));
+}
+
 #else	/* !CONFIG_IPIPE_DEBUG_CONTEXT */
 
 static inline int ipipe_disable_context_check(int cpu)
@@ -576,6 +592,10 @@ static inline int ipipe_disable_context_check(int cpu)
 static inline void ipipe_restore_context_check(int cpu, int old_state) { }
 
 static inline void ipipe_context_check_off(void) { }
+
+static inline void ipipe_nmi_enter(void) { }
+
+static inline void ipipe_nmi_exit(void) { }
 
 #endif	/* !CONFIG_IPIPE_DEBUG_CONTEXT */
 
