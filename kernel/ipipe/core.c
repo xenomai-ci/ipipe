@@ -1571,6 +1571,7 @@ void __init ipipe_init_proc(void)
 #ifdef CONFIG_IPIPE_DEBUG_CONTEXT
 
 DEFINE_PER_CPU(int, ipipe_percpu_context_check) = { 1 };
+DEFINE_PER_CPU(int, ipipe_saved_context_check_state);
 
 void ipipe_check_context(struct ipipe_domain *border_ipd)
 {
