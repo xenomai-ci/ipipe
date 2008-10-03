@@ -18,6 +18,8 @@
 #ifndef __ASM_ARM_FCSE_H
 #define __ASM_ARM_FCSE_H
 
+#include <linux/sched.h>
+
 #ifdef CONFIG_ARM_FCSE
 
 #define FCSE_PID_SHIFT 25
