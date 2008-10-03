@@ -17,6 +17,7 @@
 #include <asm/cacheflush.h>
 #include <asm/proc-fns.h>
 #include <asm-generic/mm_hooks.h>
+#include <asm/fcse.h>
 
 void __check_kvm_seq(struct mm_struct *mm);
 
@@ -64,7 +65,15 @@ static inline void check_context(struct mm_struct *mm)
 		__check_kvm_seq(mm);
 }
 
-#define init_new_context(tsk,mm)	0
+static inline int
+init_new_context(struct task_struct *tsk, struct mm_struct *mm)
+{
+#ifdef CONFIG_ARM_FCSE
+	cpus_clear(mm->context.cpu_tlb_mask);
+	mm->context.mappings_needing_flush = 0;
+#endif /* CONFIG_ARM_FCSE */
+	return 0;
+}
 
 #endif
 
@@ -97,22 +106,29 @@ switch_mm(struct mm_struct *prev, struct mm_struct *next,
 #ifdef CONFIG_MMU
 	unsigned int cpu = smp_processor_id_hw();
 
-	if (!cpu_test_and_set(cpu, next->cpu_vm_mask) || prev != next) {
+	if (!cpu_test_and_set(cpu, fcse_tlb_mask(next)) || prev != next) {
+		fcse_cpu_set_vm_mask(cpu, next);
 		check_context(next);
 #if defined(CONFIG_IPIPE)
 		if (ipipe_current_domain == ipipe_root_domain) {
 			do {
 				per_cpu(ipipe_active_mm, cpu) = NULL; /* mm state is undefined. */
 				barrier();
-				cpu_switch_mm(next->pgd, next);
+				fcse_pid_set(next->context.pid);
+				cpu_switch_mm(next->pgd, next,
+					      fcse_needs_flush(next));
 				barrier();
 				per_cpu(ipipe_active_mm, cpu) = next;
 			} while (test_and_clear_thread_flag(TIF_MMSWITCH_INT));
 		} else
 #endif /* CONFIG_IPIPE */
-			cpu_switch_mm(next->pgd, next);
+			{
+				fcse_pid_set(next->context.pid);
+				cpu_switch_mm(next->pgd, next,
+					      fcse_needs_flush(next));
+			}
 		if (cache_is_vivt() && prev)
-			cpu_clear(cpu, prev->cpu_vm_mask);
+			cpu_clear(cpu, fcse_tlb_mask(prev));
 	}
 #endif
 }

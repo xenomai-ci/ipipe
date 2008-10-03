@@ -716,3 +716,19 @@ config CACHE_L2X0
 	select OUTER_CACHE
 	help
 	  This option enables the L2x0 PrimeCell.
+
+config ARM_FCSE
+	bool "Fast Context Switch Extension (EXPERIMENTAL)"
+	depends on EXPERIMENTAL
+	default n
+	help
+
+	  The Fast Context Switch Extension (FCSE) avoids the need for
+	  costly MMU-related operations when switching task contexts
+	  (like flushing caches), hence providing a significant
+	  improvement in terms of latency. However, this result is
+	  obtained at the expense of fewer concurrent processes
+	  available (95) and a smaller address space for each process
+	  (32M).
+
+	  Say Y here to enable the ARM FCSE. If unsure, say N.

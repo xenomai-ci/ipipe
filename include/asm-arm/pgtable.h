@@ -344,10 +344,14 @@ static inline pte_t *pmd_page_vaddr(pmd_t pmd)
 /* to find an entry in a page-table-directory */
 #define pgd_index(addr)		((addr) >> PGDIR_SHIFT)
 
-#define pgd_offset(mm, addr)	((mm)->pgd+pgd_index(addr))
+#define pgd_offset(mm, addr)						\
+	({								\
+		struct mm_struct *_mm = (mm);				\
+		(_mm->pgd + pgd_index(fcse_va_to_mva(_mm, (addr))));	\
+	})
 
 /* to find an entry in a kernel page-table-directory */
-#define pgd_offset_k(addr)	pgd_offset(&init_mm, addr)
+#define pgd_offset_k(addr)	(init_mm.pgd+pgd_index(addr))
 
 /* Find an entry in the second-level page table.. */
 #define pmd_offset(dir, addr)	((pmd_t *)(dir))

@@ -7,6 +7,11 @@ typedef struct {
 #ifdef CONFIG_CPU_HAS_ASID
 	unsigned int id;
 #endif
+#ifdef CONFIG_ARM_FCSE
+	unsigned long pid;
+	unsigned mappings_needing_flush;
+	cpumask_t cpu_tlb_mask;
+#endif
 	unsigned int kvm_seq;
 } mm_context_t;
 
