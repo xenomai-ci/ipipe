@@ -298,7 +298,23 @@ static void snapshot_purr(void)
 
 #else /* ! CONFIG_VIRT_CPU_ACCOUNTING */
 #define calc_cputime_factors()
+#ifdef CONFIG_IPIPE
+static void account_process_time(struct pt_regs *regs)
+{
+	int cpu = smp_processor_id();
+	int user_tick = user_mode(regs);
+
+	if (likely(regs->msr & MSR_EE))
+		update_process_times(user_tick);
+	run_local_timers();
+	if (rcu_pending(cpu))
+		rcu_check_callbacks(cpu, user_tick);
+	scheduler_tick();
+ 	run_posix_cpu_timers(current);
+}
+#else
 #define account_process_time(regs)	update_process_times(user_mode(regs))
+#endif
 #define calculate_steal_time()		do { } while (0)
 #endif
 
