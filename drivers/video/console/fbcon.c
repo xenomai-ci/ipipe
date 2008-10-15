@@ -1858,8 +1858,6 @@ static int fbcon_scroll(struct vc_data *vc, int t, int b, int dir,
 	struct fb_info *info = registered_fb[con2fb_map[vc->vc_num]];
 	struct display *p = &fb_display[vc->vc_num];
 	int scroll_partial = info->flags & FBINFO_PARTIAL_PAN_OK;
-	unsigned short saved_ec;
-	int ret;
 
 	if (fbcon_is_inactive(vc, info))
 		return -EINVAL;
@@ -1871,11 +1869,6 @@ static int fbcon_scroll(struct vc_data *vc, int t, int b, int dir,
 	 * ++Andrew: Only use ypan on hardware text mode when scrolling the
 	 *           whole screen (prevents flicker).
 	 */
-
-	saved_ec = vc->vc_video_erase_char;
-	vc->vc_video_erase_char = vc->vc_scrl_erase_char;
-
-	ret = 0;
 
 	switch (dir) {
 	case SM_UP:
@@ -1893,9 +1886,9 @@ static int fbcon_scroll(struct vc_data *vc, int t, int b, int dir,
 			scr_memsetw((unsigned short *) (vc->vc_origin +
 							vc->vc_size_row *
 							(b - count)),
-				    vc->vc_scrl_erase_char,
+				    vc->vc_video_erase_char,
 				    vc->vc_size_row * count);
-			ret = 1;
+			return 1;
 			break;
 
 		case SCROLL_WRAP_MOVE:
@@ -1965,10 +1958,9 @@ static int fbcon_scroll(struct vc_data *vc, int t, int b, int dir,
 			scr_memsetw((unsigned short *) (vc->vc_origin +
 							vc->vc_size_row *
 							(b - count)),
-				    vc->vc_scrl_erase_char,
+				    vc->vc_video_erase_char,
 				    vc->vc_size_row * count);
-			ret = 1;
-			break;
+			return 1;
 		}
 		break;
 
@@ -1985,9 +1977,9 @@ static int fbcon_scroll(struct vc_data *vc, int t, int b, int dir,
 			scr_memsetw((unsigned short *) (vc->vc_origin +
 							vc->vc_size_row *
 							t),
-				    vc->vc_scrl_erase_char,
+				    vc->vc_video_erase_char,
 				    vc->vc_size_row * count);
-			ret = 1;
+			return 1;
 			break;
 
 		case SCROLL_WRAP_MOVE:
@@ -2055,15 +2047,12 @@ static int fbcon_scroll(struct vc_data *vc, int t, int b, int dir,
 			scr_memsetw((unsigned short *) (vc->vc_origin +
 							vc->vc_size_row *
 							t),
-				    vc->vc_scrl_erase_char,
+				    vc->vc_video_erase_char,
 				    vc->vc_size_row * count);
-			ret = 1;
-			break;
+			return 1;
 		}
-		break;
 	}
-	vc->vc_video_erase_char = saved_ec;
-	return ret;
+	return 0;
 }
 
 
@@ -2525,9 +2514,6 @@ static int fbcon_do_set_font(struct vc_data *vc, int w, int h,
 			c = vc->vc_video_erase_char;
 			vc->vc_video_erase_char =
 			    ((c & 0xfe00) >> 1) | (c & 0xff);
-			c = vc->vc_scrl_erase_char;
-			vc->vc_scrl_erase_char =
-			    ((c & 0xFE00) >> 1) | (c & 0xFF);
 			vc->vc_attr >>= 1;
 		}
 	} else if (!vc->vc_hi_font_mask && cnt == 512) {
@@ -2558,14 +2544,9 @@ static int fbcon_do_set_font(struct vc_data *vc, int w, int h,
 			if (vc->vc_can_do_color) {
 				vc->vc_video_erase_char =
 				    ((c & 0xff00) << 1) | (c & 0xff);
-				c = vc->vc_scrl_erase_char;
-				vc->vc_scrl_erase_char =
-				    ((c & 0xFF00) << 1) | (c & 0xFF);
 				vc->vc_attr <<= 1;
-			} else {
+			} else
 				vc->vc_video_erase_char = c & ~0x100;
-				vc->vc_scrl_erase_char = c & ~0x100;
-			}
 		}
 
 	}
