@@ -47,8 +47,8 @@
 		#size-cells = <1>;
 		reg = <0xf0010100 0x40>;
 
-		ranges = <0 0 0x50000000 0x20000000
-			  1 0 0xfe000000 0x400000
+		ranges = <0 0 0xfe000000 0x00400000
+			  5 0 0x50000000 0x20000000
 			>; /* Filled in by U-Boot */
 
 		flash@0,0 {
@@ -72,7 +72,7 @@
 			};
 		};
 
-		flash@1,0 {
+		flash@5,0 {
 			compatible = "cfi-flash";
 			reg = <1 0x0 0x2000000>;
 			#address-cells = <1>;
@@ -115,7 +115,7 @@
 
 				data@0 {
 					compatible = "fsl,cpm-muram-data";
-					reg = <0 0x1100 0x1100 0x40 0x8300 0x100 0x88fc 0x4>;
+					reg = <0x80 0x1f80 0x9800 0x800>;
 				};
 			};
 
@@ -134,7 +134,7 @@
 				             "fsl,cpm2-smc-uart";
 				model = "SMC";
 				device-id = <2>;
-				reg = <0x11a90 0x20 0x1100 0x40 0x88fc 0x4>;
+				reg = <0x11a90 0x20 0x88fc 0x02>;
 				interrupts = <5 8>;
 				interrupt-parent = <&PIC>;
 				fsl,cpm-brg = <2>;

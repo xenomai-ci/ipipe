@@ -22,9 +22,7 @@
 #include <asm/uaccess.h>
 #include <asm/io.h>
 
-#ifdef CONFIG_PPC_CPM_NEW_BINDING
 #include <linux/of_platform.h>
-#endif
 
 #ifndef CONFIG_PROC_FS
 #error "PROC FS support must be switched-on"
