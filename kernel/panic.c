@@ -267,6 +267,8 @@ int oops_may_print(void)
  */
 void oops_enter(void)
 {
+	ipipe_trace_panic_freeze();
+	ipipe_disable_context_check(ipipe_processor_id());
 	debug_locks_off(); /* can't trust the integrity of the kernel anymore */
 	do_oops_enter_exit();
 }
