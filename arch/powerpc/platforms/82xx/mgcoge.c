@@ -1,8 +1,11 @@
 /*
  * Keymile mgcoge support
- *
- * Copyright 2007 DENX Software Engineering GmbH
+ * Copyright 2008 DENX Software Engineering GmbH
  * Author: Heiko Schocher <hs@denx.de>
+ *
+ * based on code from:
+ * Copyright 2007 Freescale Semiconductor, Inc.
+ * Author: Scott Wood <scottwood@freescale.com>
  *
  * This program is free software; you can redistribute  it and/or modify it
  * under  the terms of  the GNU General  Public License as published by the
@@ -13,7 +16,6 @@
 #include <linux/init.h>
 #include <linux/interrupt.h>
 #include <linux/fsl_devices.h>
-#include <linux/mdio-bitbang.h>
 #include <linux/of_platform.h>
 
 #include <asm/io.h>
@@ -45,11 +47,19 @@ struct cpm_pin {
 	int port, pin, flags;
 };
 
-static const struct cpm_pin mgcoge_pins[] = {
+static __initdata struct cpm_pin mgcoge_pins[] = {
+
 	/* SMC2 */
 	{1, 8, CPM_PIN_INPUT | CPM_PIN_PRIMARY},
 	{1, 9, CPM_PIN_OUTPUT | CPM_PIN_PRIMARY},
 
+	/* SCC4 */
+	{3, 25, CPM_PIN_INPUT | CPM_PIN_PRIMARY},
+	{3, 24, CPM_PIN_INPUT | CPM_PIN_PRIMARY},
+	{3,  9, CPM_PIN_INPUT | CPM_PIN_PRIMARY},
+	{3,  8, CPM_PIN_INPUT | CPM_PIN_PRIMARY},
+	{4, 22, CPM_PIN_INPUT | CPM_PIN_PRIMARY},
+	{4, 21, CPM_PIN_OUTPUT | CPM_PIN_PRIMARY},
 };
 
 static void __init init_ioports(void)
@@ -58,11 +68,13 @@ static void __init init_ioports(void)
 
 	for (i = 0; i < ARRAY_SIZE(mgcoge_pins); i++) {
 		const struct cpm_pin *pin = &mgcoge_pins[i];
-		cpm2_set_pin(pin->port, pin->pin, pin->flags);
+		cpm2_set_pin(pin->port - 1, pin->pin, pin->flags);
 	}
-}
 
-#define MPC82XX_BCR_PLDP 0x00800000 /* Pipeline Maximum Depth */
+	cpm2_smc_clk_setup(CPM_CLK_SMC2, CPM_BRG8);
+	cpm2_clk_setup(CPM_CLK_SCC4, CPM_CLK7, CPM_CLK_RX);
+	cpm2_clk_setup(CPM_CLK_SCC4, CPM_CLK8, CPM_CLK_TX);
+}
 
 static void __init mgcoge_setup_arch(void)
 {
@@ -82,23 +94,18 @@ static void __init mgcoge_setup_arch(void)
 		ppc_md.progress("mgcoge_setup_arch(), finish", 0);
 }
 
-static struct of_device_id __initdata of_bus_ids[] = {
-	{ .name = "soc", },
-	{ .name = "cpm", },
-	{ .name = "localbus", },
+static  __initdata struct of_device_id of_bus_ids[] = {
+	{ .compatible = "simple-bus", },
 	{},
 };
 
 static int __init declare_of_platform_devices(void)
 {
-	if (!machine_is(mgcoge))
-		return 0;
-
 	of_platform_bus_probe(NULL, of_bus_ids, NULL);
 
 	return 0;
 }
-device_initcall(declare_of_platform_devices);
+machine_device_initcall(mgcoge, declare_of_platform_devices);
 
 /*
  * Called very early, device-tree isn't unflattened
@@ -106,12 +113,12 @@ device_initcall(declare_of_platform_devices);
 static int __init mgcoge_probe(void)
 {
 	unsigned long root = of_get_flat_dt_root();
-	return of_flat_dt_is_compatible(root, "fsl,mgcoge");
+	return of_flat_dt_is_compatible(root, "keymile,mgcoge");
 }
 
 define_machine(mgcoge)
 {
-	.name = "Keymile mgcoge",
+	.name = "Keymile MGCOGE",
 	.probe = mgcoge_probe,
 	.setup_arch = mgcoge_setup_arch,
 	.init_IRQ = mgcoge_pic_init,

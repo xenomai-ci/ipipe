@@ -8,3 +8,4 @@ obj-$(CONFIG_PQ2FADS) += pq2fads.o
 obj-$(CONFIG_MGCOGE) += mgcoge.o
 obj-$(CONFIG_MUAS3001) += muas3001.o
 obj-$(CONFIG_EP8248E) += ep8248e.o
+obj-$(CONFIG_MGCOGE) += mgcoge.o
