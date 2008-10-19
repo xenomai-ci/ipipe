@@ -81,6 +81,8 @@ DEFINE_PER_CPU(struct ipipe_percpu_domain_data, ipipe_percpu_darray[CONFIG_IPIPE
 
 DEFINE_PER_CPU(struct ipipe_domain *, ipipe_percpu_domain) = { &ipipe_root };
 
+DEFINE_PER_CPU(unsigned long, ipipe_nmi_saved_root); /* Copy of root status during NMI */
+
 static IPIPE_DEFINE_SPINLOCK(__ipipe_pipelock);
 
 LIST_HEAD(__ipipe_pipeline);
