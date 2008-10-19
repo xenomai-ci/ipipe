@@ -406,7 +406,10 @@ asmlinkage int __ipipe_grab_irq(int irq, struct pt_regs *regs)
                  * that other interrupt handlers don't actually care for such
                  * information.
 		 */
-		__raw_get_cpu_var(__ipipe_tick_regs).ARM_cpsr = regs->ARM_cpsr;
+		__raw_get_cpu_var(__ipipe_tick_regs).ARM_cpsr =
+                        (ipipe_root_domain_p
+                         ? regs->ARM_cpsr
+                         : regs->ARM_cpsr | PSR_I_BIT);
 		__raw_get_cpu_var(__ipipe_tick_regs).ARM_pc = regs->ARM_pc;
 	}
 
