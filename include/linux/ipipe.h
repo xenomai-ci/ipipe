@@ -31,6 +31,41 @@
 #include <linux/ipipe_compat.h>
 #include <asm/ipipe.h>
 
+#ifdef CONFIG_IPIPE_DEBUG_CONTEXT
+
+#include <linux/cpumask.h>
+#include <asm/system.h>
+
+static inline int ipipe_disable_context_check(int cpu)
+{
+	return xchg(&per_cpu(ipipe_percpu_context_check, cpu), 0);
+}
+
+static inline void ipipe_restore_context_check(int cpu, int old_state)
+{
+	per_cpu(ipipe_percpu_context_check, cpu) = old_state;
+}
+
+static inline void ipipe_context_check_off(void)
+{
+	int cpu;
+	for_each_online_cpu(cpu)
+		per_cpu(ipipe_percpu_context_check, cpu) = 0;
+}
+
+#else	/* !CONFIG_IPIPE_DEBUG_CONTEXT */
+
+static inline int ipipe_disable_context_check(int cpu)
+{
+	return 0;
+}
+
+static inline void ipipe_restore_context_check(int cpu, int old_state) { }
+
+static inline void ipipe_context_check_off(void) { }
+
+#endif	/* !CONFIG_IPIPE_DEBUG_CONTEXT */
+
 #ifdef CONFIG_IPIPE
 
 /*
@@ -512,6 +547,32 @@ static inline void local_irq_restore_nosync(unsigned long x)
 
 #define ipipe_root_domain_p		(ipipe_current_domain == ipipe_root_domain)
 
+static inline void ipipe_nmi_enter(void)
+{
+	int cpu = ipipe_processor_id();
+
+	per_cpu(ipipe_nmi_saved_root, cpu) = ipipe_root_cpudom_var(status);
+	__set_bit(IPIPE_STALL_FLAG, &ipipe_root_cpudom_var(status));
+
+#ifdef CONFIG_IPIPE_DEBUG_CONTEXT
+	per_cpu(ipipe_saved_context_check_state, cpu) =
+		ipipe_disable_context_check(cpu);
+#endif /* CONFIG_IPIPE_DEBUG_CONTEXT */
+}
+
+static inline void ipipe_nmi_exit(void)
+{
+	int cpu = ipipe_processor_id();
+
+#ifdef CONFIG_IPIPE_DEBUG_CONTEXT
+	ipipe_restore_context_check
+		(cpu, per_cpu(ipipe_saved_context_check_state, cpu));
+#endif /* CONFIG_IPIPE_DEBUG_CONTEXT */
+
+	if (!test_bit(IPIPE_STALL_FLAG, &per_cpu(ipipe_nmi_saved_root, cpu)))
+		__clear_bit(IPIPE_STALL_FLAG, &ipipe_root_cpudom_var(status));
+}
+
 #else	/* !CONFIG_IPIPE */
 
 #define ipipe_init()			do { } while(0)
@@ -536,6 +597,9 @@ static inline void local_irq_restore_nosync(unsigned long x)
 #define ipipe_root_domain_p		1
 #define ipipe_safe_current		current
 
+#define ipipe_nmi_enter()		do { } while ()
+#define ipipe_nmi_exit()		do { } while ()
+
 #define local_irq_disable_head()	local_irq_disable()
 
 #define local_irq_save_full(vflags, rflags)	do { (void)(vflags); local_irq_save(rflags); } while(0)
@@ -543,60 +607,5 @@ static inline void local_irq_restore_nosync(unsigned long x)
 #define local_irq_restore_nosync(vflags)	local_irq_restore(vflags)
 
 #endif	/* CONFIG_IPIPE */
-
-#ifdef CONFIG_IPIPE_DEBUG_CONTEXT
-
-#include <linux/cpumask.h>
-#include <asm/system.h>
-
-static inline int ipipe_disable_context_check(int cpu)
-{
-	return xchg(&per_cpu(ipipe_percpu_context_check, cpu), 0);
-}
-
-static inline void ipipe_restore_context_check(int cpu, int old_state)
-{
-	per_cpu(ipipe_percpu_context_check, cpu) = old_state;
-}
-
-static inline void ipipe_context_check_off(void)
-{
-	int cpu;
-	for_each_online_cpu(cpu)
-		per_cpu(ipipe_percpu_context_check, cpu) = 0;
-}
-
-static inline void ipipe_nmi_enter(void)
-{
-	int cpu = ipipe_processor_id();
-
-	per_cpu(ipipe_saved_context_check_state, cpu) =
-		ipipe_disable_context_check(cpu);
-}
-
-static inline void ipipe_nmi_exit(void)
-{
-	int cpu = ipipe_processor_id();
-
-	ipipe_restore_context_check
-		(cpu, per_cpu(ipipe_saved_context_check_state, cpu));
-}
-
-#else	/* !CONFIG_IPIPE_DEBUG_CONTEXT */
-
-static inline int ipipe_disable_context_check(int cpu)
-{
-	return 0;
-}
-
-static inline void ipipe_restore_context_check(int cpu, int old_state) { }
-
-static inline void ipipe_context_check_off(void) { }
-
-static inline void ipipe_nmi_enter(void) { }
-
-static inline void ipipe_nmi_exit(void) { }
-
-#endif	/* !CONFIG_IPIPE_DEBUG_CONTEXT */
 
 #endif	/* !__LINUX_IPIPE_H */
