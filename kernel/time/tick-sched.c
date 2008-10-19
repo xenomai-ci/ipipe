@@ -469,7 +469,7 @@ static void tick_nohz_handler(struct clock_event_device *dev)
 		ts->idle_jiffies++;
 	}
 
-	update_process_times(user_mode(regs));
+	update_root_process_times(regs);
 	profile_tick(CPU_PROFILING);
 
 	/* Do not restart, when we are in the idle loop */
@@ -576,7 +576,7 @@ static enum hrtimer_restart tick_sched_timer(struct hrtimer *timer)
 			touch_softlockup_watchdog();
 			ts->idle_jiffies++;
 		}
-		update_process_times(user_mode(regs));
+		update_root_process_times(regs);
 		profile_tick(CPU_PROFILING);
 	}
 
