@@ -597,8 +597,8 @@ static inline void ipipe_nmi_exit(void)
 #define ipipe_root_domain_p		1
 #define ipipe_safe_current		current
 
-#define ipipe_nmi_enter()		do { } while ()
-#define ipipe_nmi_exit()		do { } while ()
+#define ipipe_nmi_enter()		do { } while (0)
+#define ipipe_nmi_exit()		do { } while (0)
 
 #define local_irq_disable_head()	local_irq_disable()
 
