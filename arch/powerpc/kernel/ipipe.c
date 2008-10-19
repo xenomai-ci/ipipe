@@ -570,6 +570,10 @@ int __ipipe_grab_timer(struct pt_regs *regs)
 
 	__raw_get_cpu_var(__ipipe_tick_regs).msr = regs->msr; /* for timer_interrupt() */
 	__raw_get_cpu_var(__ipipe_tick_regs).nip = regs->nip;
+
+	if (!ipipe_root_domain_p)
+		__raw_get_cpu_var(__ipipe_tick_regs).msr &= ~MSR_EE;
+
 	__ipipe_handle_irq(IPIPE_TIMER_VIRQ, NULL);
 
 	ipipe_trace_irq_exit(IPIPE_TIMER_VIRQ);
