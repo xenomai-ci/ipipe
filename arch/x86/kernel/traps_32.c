@@ -836,21 +836,17 @@ static int ignore_nmis;
 
 notrace __kprobes void do_nmi(struct pt_regs *regs, long error_code)
 {
-	int cpu, cs;
+	int cpu;
 
 	nmi_enter();
 
 	cpu = smp_processor_id();
 
-	cs = ipipe_disable_context_check(cpu);
- 
 	++nmi_count(cpu);
 
 	if (!ignore_nmis)
 		default_do_nmi(regs);
 
- 	ipipe_restore_context_check(cpu, cs);
- 
 	nmi_exit();
 }
 
