@@ -28,10 +28,10 @@
 
 #include <linux/ipipe_percpu.h>
 
-#define IPIPE_ARCH_STRING	"1.11-01"
+#define IPIPE_ARCH_STRING	"1.11-02"
 #define IPIPE_MAJOR_NUMBER	1
 #define IPIPE_MINOR_NUMBER	11
-#define IPIPE_PATCH_NUMBER	1
+#define IPIPE_PATCH_NUMBER	2
 
 #ifdef CONFIG_SMP
 #error "I-pipe/arm: SMP not yet implemented"
@@ -184,6 +184,8 @@ do {                                                                    \
 
 #define __ipipe_syscall_watched_p(p, sc)                                \
 	(((p)->flags & PF_EVNOTIFY) || (unsigned long)sc >= __ARM_NR_BASE + 64)
+
+#define __ipipe_root_tick_p(regs)	1
 
 #else /* !CONFIG_IPIPE */
 
