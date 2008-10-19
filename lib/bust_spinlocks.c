@@ -18,7 +18,6 @@
 void __attribute__((weak)) bust_spinlocks(int yes)
 {
 	if (yes) {
-  		ipipe_trace_panic_freeze();
 		++oops_in_progress;
 	} else {
 #ifdef CONFIG_VT
