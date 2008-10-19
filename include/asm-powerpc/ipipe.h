@@ -201,6 +201,8 @@ do {									\
 #define __ipipe_syscall_watched_p(p, sc)	\
 	(((p)->flags & PF_EVNOTIFY) || (unsigned long)sc >= NR_syscalls)
 
+#define __ipipe_root_tick_p(regs)	((regs)->msr & MSR_EE)
+
 #else /* !CONFIG_IPIPE */
 
 #define task_hijacked(p)	0
