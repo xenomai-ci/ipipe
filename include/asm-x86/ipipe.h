@@ -116,6 +116,8 @@ int __ipipe_check_tickdev(const char *devname);
 #define __ipipe_syscall_watched_p(p, sc)	\
 	(((p)->flags & PF_EVNOTIFY) || (unsigned long)sc >= NR_syscalls)
 
+#define __ipipe_root_tick_p(regs)	((regs)->flags & X86_EFLAGS_IF)
+
 #else /* !CONFIG_IPIPE */
 
 #define ipipe_update_tick_evtdev(evtdev)	do { } while (0)

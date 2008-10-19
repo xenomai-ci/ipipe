@@ -942,6 +942,8 @@ finalize:
 		tick_regs->ip = regs->ip;
 		tick_regs->bp = regs->bp;
 #endif /* !CONFIG_X86_32 */
+		if (!ipipe_root_domain_p)
+			tick_regs->flags &= ~X86_EFLAGS_IF;
 	}
 
 	/*
