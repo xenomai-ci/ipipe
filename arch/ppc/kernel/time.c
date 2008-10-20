@@ -54,6 +54,7 @@
 #include <linux/kernel_stat.h>
 #include <linux/mc146818rtc.h>
 #include <linux/time.h>
+#include <linux/posix-timers.h>
 #include <linux/init.h>
 #include <linux/profile.h>
 
@@ -103,6 +104,33 @@ static inline int tb_delta(unsigned *jiffy_stamp) {
 	return delta;
 }
 
+#ifdef CONFIG_IPIPE
+
+static inline void update_root_process_times(struct pt_regs *regs)
+{
+	int cpu, user_tick = user_mode(regs);
+
+	if (regs->msr & MSR_EE) {
+		update_process_times(user_tick);
+		return;
+	}
+
+	run_local_timers();
+	cpu = smp_processor_id();
+	if (rcu_pending(cpu))
+		rcu_check_callbacks(cpu, user_tick);
+	run_posix_cpu_timers(current);
+}
+
+#else /* !CONFIG_IPIPE */
+
+static inline void update_process_times(struct pt_regs *regs)
+{
+	update_process_times(user_mode(regs));
+}
+
+#endif	/* !CONFIG_IPIPE */
+
 #ifdef CONFIG_SMP
 unsigned long profile_pc(struct pt_regs *regs)
 {
@@ -150,7 +178,7 @@ void timer_interrupt(struct pt_regs * regs)
 		jiffy_stamp += tb_ticks_per_jiffy;
 		
 		profile_tick(CPU_PROFILING);
-		update_process_times(user_mode(regs));
+		update_root_process_times(regs);
 
 	  	if (smp_processor_id())
 			continue;

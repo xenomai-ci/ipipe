@@ -301,16 +301,18 @@ static void snapshot_purr(void)
 #ifdef CONFIG_IPIPE
 static void account_process_time(struct pt_regs *regs)
 {
-	int cpu = smp_processor_id();
-	int user_tick = user_mode(regs);
+	int cpu, user_tick = user_mode(regs);
 
-	if (likely(regs->msr & MSR_EE))
+	if (regs->msr & MSR_EE) {
 		update_process_times(user_tick);
+		return;
+	}
+
 	run_local_timers();
+	cpu = smp_processor_id();
 	if (rcu_pending(cpu))
 		rcu_check_callbacks(cpu, user_tick);
-	scheduler_tick();
- 	run_posix_cpu_timers(current);
+	run_posix_cpu_timers(current);
 }
 #else
 #define account_process_time(regs)	update_process_times(user_mode(regs))
