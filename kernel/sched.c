@@ -3564,16 +3564,18 @@ switch_tasks:
 		prepare_task_switch(rq, next);
 		prev = context_switch(rq, prev, next);
 		barrier();
- 		if (task_hijacked(current)) {
-			current->state &= ~TASK_ATOMICSWITCH;
+#ifdef CONFIG_IPIPE_DELAYED_ATOMICSW
+		current->state &= ~TASK_ATOMICSWITCH;
+#else
+		prev->state &= ~TASK_ATOMICSWITCH;
+#endif
+ 		if (task_hijacked(prev))
 			return;
-		}
 		/*
 		 * this_rq must be evaluated again because prev may have moved
 		 * CPUs since it called schedule(), thus the 'rq' on its stack
 		 * frame will be invalid.
 		 */
-		current->state &= ~TASK_ATOMICSWITCH;
 		finish_task_switch(this_rq(), prev);
 	} else {
 		prev->state &= ~TASK_ATOMICSWITCH;
