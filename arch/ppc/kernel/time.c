@@ -124,7 +124,7 @@ static inline void update_root_process_times(struct pt_regs *regs)
 
 #else /* !CONFIG_IPIPE */
 
-static inline void update_process_times(struct pt_regs *regs)
+static inline void update_root_process_times(struct pt_regs *regs)
 {
 	update_process_times(user_mode(regs));
 }
