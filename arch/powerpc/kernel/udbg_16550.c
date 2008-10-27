@@ -151,7 +151,7 @@ unsigned int udbg_probe_uart_speed(void __iomem *comport, unsigned int clock)
 	speed = (clock / prescaler) / (divisor * 16);
 
 	/* sanity check */
-	if (speed < 0 || speed > (clock / 16))
+	if (speed > (clock / 16))
 #ifdef CONFIG_PPC_PASEMI_A2_WORKAROUNDS
 		speed = 115200;
 #else
