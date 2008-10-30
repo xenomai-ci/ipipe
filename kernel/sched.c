@@ -3441,8 +3441,12 @@ asmlinkage void __sched schedule(void)
 	}
 	profile_hit(SCHED_PROFILING, __builtin_return_address(0));
 
-	if (unlikely(current->state & TASK_ATOMICSWITCH))
+	if (unlikely(current->state & TASK_ATOMICSWITCH)) {
+#ifndef CONFIG_IPIPE_DELAYED_ATOMICSW
+		current->state &= ~TASK_ATOMICSWITCH;
+#endif
 		goto need_resched_nodisable;
+	}
 
 need_resched:
 	preempt_disable();
@@ -3566,8 +3570,6 @@ switch_tasks:
 		barrier();
 #ifdef CONFIG_IPIPE_DELAYED_ATOMICSW
 		current->state &= ~TASK_ATOMICSWITCH;
-#else
-		prev->state &= ~TASK_ATOMICSWITCH;
 #endif
  		if (task_hijacked(prev))
 			return;
