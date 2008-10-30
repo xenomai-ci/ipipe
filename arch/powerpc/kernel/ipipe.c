@@ -111,8 +111,9 @@ void __ipipe_register_ipi(unsigned int irq)
 static void __ipipe_ipi_demux(int irq)
 {
 	int ipi, cpu = ipipe_processor_id();
-	
-	__ipipe_ack_irq(irq);
+	irq_desc_t *desc = irq_desc + irq;
+
+	desc->ipipe_ack(irq, desc);
 
 	kstat_cpu(cpu).irqs[irq]++;
 
@@ -306,13 +307,6 @@ void __ipipe_init_platform(void)
 #endif
 }
 
-int __ipipe_ack_irq(unsigned irq)
-{
-	irq_desc_t *desc = irq_desc + irq;
-	desc->ipipe_ack(irq, desc);
-	return 1;
-}
-
 void __ipipe_end_irq(unsigned irq)
 {
 	irq_desc_t *desc = irq_desc + irq;
@@ -322,6 +316,11 @@ void __ipipe_end_irq(unsigned irq)
 void __ipipe_enable_irqdesc(struct ipipe_domain *ipd, unsigned irq)
 {
 	irq_desc[irq].status &= ~IRQ_DISABLED;
+}
+
+static void __ipipe_ack_irq(unsigned irq, struct irq_desc *desc)
+{
+	desc->ipipe_ack(irq, desc);
 }
 
 /*
@@ -415,8 +414,8 @@ void __ipipe_handle_irq(int irq, struct pt_regs *regs)
 		head = __ipipe_pipeline.next;
 		next_domain = list_entry(head, struct ipipe_domain, p_link);
 		if (likely(test_bit(IPIPE_WIRED_FLAG, &next_domain->irqs[irq].control))) {
-			if (!m_ack && next_domain->irqs[irq].acknowledge != NULL)
-				next_domain->irqs[irq].acknowledge(irq);
+			if (!m_ack && next_domain->irqs[irq].acknowledge)
+				next_domain->irqs[irq].acknowledge(irq, irq_desc + irq);
 			if (likely(__ipipe_dispatch_wired(next_domain, irq)))
 			    goto finalize;
 			return;
@@ -442,8 +441,10 @@ void __ipipe_handle_irq(int irq, struct pt_regs *regs)
 			 */
 			__ipipe_set_irq_pending(next_domain, irq);
 
-			if (next_domain->irqs[irq].acknowledge != NULL && !m_ack)
-				m_ack = next_domain->irqs[irq].acknowledge(irq);
+			if (!m_ack && next_domain->irqs[irq].acknowledge) {
+				next_domain->irqs[irq].acknowledge(irq, irq_desc + irq);
+				m_ack = 1;
+			}
 		}
 
 		/*

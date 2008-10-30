@@ -130,8 +130,6 @@ void __ipipe_init_platform(void);
 
 void __ipipe_enable_pipeline(void);
 
-int __ipipe_ack_irq(unsigned irq);
-
 void __ipipe_end_irq(unsigned irq);
 
 static inline int __ipipe_check_tickdev(const char *devname)
