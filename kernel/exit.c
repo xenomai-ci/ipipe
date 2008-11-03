@@ -1074,6 +1074,7 @@ NORET_TYPE void do_exit(long code)
 
 	if (group_dead)
 		acct_process();
+ 	ipipe_exit_notify(tsk);
 	exit_sem(tsk);
 	exit_files(tsk);
 	exit_fs(tsk);

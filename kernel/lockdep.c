@@ -2190,7 +2190,7 @@ void trace_hardirqs_on_caller(unsigned long a0)
 	curr->hardirqs_enabled = 1;
 	ip = (unsigned long) __builtin_return_address(0);
 
-	if (DEBUG_LOCKS_WARN_ON(!irqs_disabled()))
+	if (DEBUG_LOCKS_WARN_ON(!irqs_disabled() && !irqs_disabled_hw()))
 		return;
 	if (DEBUG_LOCKS_WARN_ON(current->hardirq_context))
 		return;
@@ -2233,7 +2233,7 @@ void trace_hardirqs_off_caller(unsigned long a0)
 	if (unlikely(!debug_locks || current->lockdep_recursion))
 		return;
 
-	if (DEBUG_LOCKS_WARN_ON(!irqs_disabled()))
+	if (DEBUG_LOCKS_WARN_ON(!irqs_disabled() && !irqs_disabled_hw()))
 		return;
 
 	if (curr->hardirqs_enabled) {

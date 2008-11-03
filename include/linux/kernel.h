@@ -16,6 +16,7 @@
 #include <linux/log2.h>
 #include <linux/typecheck.h>
 #include <linux/ratelimit.h>
+#include <linux/ipipe_base.h>
 #include <asm/byteorder.h>
 #include <asm/bug.h>
 
@@ -110,9 +111,12 @@ struct user;
 
 #ifdef CONFIG_PREEMPT_VOLUNTARY
 extern int _cond_resched(void);
-# define might_resched() _cond_resched()
+# define might_resched() do { \
+		ipipe_check_context(ipipe_root_domain); \
+		_cond_resched(); \
+	} while (0)
 #else
-# define might_resched() do { } while (0)
+# define might_resched() ipipe_check_context(ipipe_root_domain)
 #endif
 
 /**
