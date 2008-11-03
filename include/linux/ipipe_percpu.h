@@ -40,7 +40,7 @@ struct ipipe_percpu_domain_data {
 #define ipipe_percpudom_ptr(ipd, cpu)	\
 	(&per_cpu(ipipe_percpu_darray, cpu)[(ipd)->slot])
 #define ipipe_cpudom_ptr(ipd)	\
-	(&__raw_get_cpu_var(ipipe_percpu_daddr)[(ipd)->slot])
+	(&__raw_get_cpu_var(ipipe_percpu_darray)[(ipd)->slot])
 #else
 DECLARE_PER_CPU(struct ipipe_percpu_domain_data *, ipipe_percpu_daddr[CONFIG_IPIPE_DOMAINS]);
 #define ipipe_percpudom_ptr(ipd, cpu)	\
