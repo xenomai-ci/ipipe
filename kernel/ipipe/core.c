@@ -305,15 +305,17 @@ void __ipipe_cleanup_domain(struct ipipe_domain *ipd)
 
 void __ipipe_unstall_root(void)
 {
+	struct ipipe_percpu_domain_data *p = ipipe_root_cpudom_ptr();
+
 #ifndef CONFIG_IPIPE_DEBUG_CONTEXT
 	BUG_ON(!ipipe_root_domain_p);
 #endif
 
         local_irq_disable_hw();
 
-        __clear_bit(IPIPE_STALL_FLAG, &ipipe_root_cpudom_var(status));
+        __clear_bit(IPIPE_STALL_FLAG, &p->status);
 
-        if (unlikely(ipipe_root_cpudom_var(irqpend_himask) != 0))
+        if (unlikely(p->irqpend_himask != 0))
                 __ipipe_sync_pipeline(IPIPE_IRQMASK_ANY);
 
         local_irq_enable_hw();
@@ -399,11 +401,13 @@ void ipipe_restore_pipeline_from(struct ipipe_domain *ipd,
 
 void ipipe_unstall_pipeline_head(void)
 {
+	struct ipipe_percpu_domain_data *p = ipipe_head_cpudom_ptr();
+
 	local_irq_disable_hw();
 
-	__clear_bit(IPIPE_STALL_FLAG, &ipipe_head_cpudom_var(status));
+	__clear_bit(IPIPE_STALL_FLAG, &p->status);
 
-	if (unlikely(ipipe_head_cpudom_var(irqpend_himask) != 0)) {
+	if (unlikely(p->irqpend_himask != 0)) {
 		struct ipipe_domain *head_domain = __ipipe_pipeline_head();
 		if (likely(head_domain == ipipe_current_domain))
 			__ipipe_sync_pipeline(IPIPE_IRQMASK_ANY);
@@ -416,12 +420,14 @@ void ipipe_unstall_pipeline_head(void)
 
 void __ipipe_restore_pipeline_head(unsigned long x)
 {
+	struct ipipe_percpu_domain_data *p = ipipe_head_cpudom_ptr();
+
 	local_irq_disable_hw();
 
 	if (x) {
 #ifdef CONFIG_DEBUG_KERNEL
 		static int warned;
-		if (!warned && test_and_set_bit(IPIPE_STALL_FLAG, &ipipe_head_cpudom_var(status))) {
+		if (!warned && test_and_set_bit(IPIPE_STALL_FLAG, &p->status)) {
 			/*
 			 * Already stalled albeit ipipe_restore_pipeline_head()
 			 * should have detected it? Send a warning once.
@@ -432,12 +438,12 @@ void __ipipe_restore_pipeline_head(unsigned long x)
 			dump_stack();
 		}
 #else /* !CONFIG_DEBUG_KERNEL */
-		set_bit(IPIPE_STALL_FLAG, &ipipe_head_cpudom_var(status));
+		set_bit(IPIPE_STALL_FLAG, &p->status);
 #endif /* CONFIG_DEBUG_KERNEL */
 	}
 	else {
-		__clear_bit(IPIPE_STALL_FLAG, &ipipe_head_cpudom_var(status));
-		if (unlikely(ipipe_head_cpudom_var(irqpend_himask) != 0)) {
+		__clear_bit(IPIPE_STALL_FLAG, &p->status);
+		if (unlikely(p->irqpend_himask != 0)) {
 			struct ipipe_domain *head_domain = __ipipe_pipeline_head();
 			if (likely(head_domain == ipipe_current_domain))
 				__ipipe_sync_pipeline(IPIPE_IRQMASK_ANY);
@@ -498,41 +504,53 @@ void __ipipe_spin_unlock_irqcomplete(unsigned long x)
 void __ipipe_set_irq_pending(struct ipipe_domain *ipd, unsigned irq)
 {
 	int level = irq >> IPIPE_IRQ_ISHIFT, rank = irq & IPIPE_IRQ_IMASK;
+	struct ipipe_percpu_domain_data *p = ipipe_cpudom_ptr(ipd);
+
 
 	if (likely(!test_bit(IPIPE_LOCK_FLAG, &ipd->irqs[irq].control))) {
-		__set_bit(rank, &ipipe_cpudom_var(ipd, irqpend_lomask)[level]);
-		__set_bit(level,&ipipe_cpudom_var(ipd, irqpend_himask));
+		__set_bit(rank, &p->irqpend_lomask[level]);
+		__set_bit(level, &p->irqpend_himask);
 	} else
-		__set_bit(rank, &ipipe_cpudom_var(ipd, irqheld_mask)[level]);
+		__set_bit(rank, &p->irqheld_mask[level]);
 
-	ipipe_cpudom_var(ipd, irqall)[irq]++;
+	p->irqall[irq]++;
 }
 
 /* Must be called hw IRQs off. */
 void __ipipe_lock_irq(struct ipipe_domain *ipd, int cpu, unsigned irq)
 {
-	if (likely(!test_and_set_bit(IPIPE_LOCK_FLAG, &ipd->irqs[irq].control))) {
-		int level = irq >> IPIPE_IRQ_ISHIFT, rank = irq & IPIPE_IRQ_IMASK;
-		if (__test_and_clear_bit(rank, &ipipe_percpudom(ipd, irqpend_lomask, cpu)[level]))
-			__set_bit(rank, &ipipe_cpudom_var(ipd, irqheld_mask)[level]);
-		if (ipipe_percpudom(ipd, irqpend_lomask, cpu)[level] == 0)
-			__clear_bit(level, &ipipe_percpudom(ipd, irqpend_himask, cpu));
-	}
+	struct ipipe_percpu_domain_data *p;
+	int level, rank;
+
+	if (unlikely(test_and_set_bit(IPIPE_LOCK_FLAG, &ipd->irqs[irq].control)))
+		return;
+
+	level = irq >> IPIPE_IRQ_ISHIFT;
+	rank = irq & IPIPE_IRQ_IMASK;
+	p = ipipe_percpudom_ptr(ipd, cpu);
+
+	if (__test_and_clear_bit(rank, &p->irqpend_lomask[level]))
+		__set_bit(rank, &p->irqheld_mask[level]);
+	if (p->irqpend_lomask[level] == 0)
+		__clear_bit(level, &p->irqpend_himask);
 }
 
 /* Must be called hw IRQs off. */
 void __ipipe_unlock_irq(struct ipipe_domain *ipd, unsigned irq)
 {
-	int cpu;
+	struct ipipe_percpu_domain_data *p;
+	int cpu, level, rank;
 
-	if (likely(test_and_clear_bit(IPIPE_LOCK_FLAG, &ipd->irqs[irq].control))) {
-		int level = irq >> IPIPE_IRQ_ISHIFT, rank = irq & IPIPE_IRQ_IMASK;
-		for_each_online_cpu(cpu) {
-			if (test_and_clear_bit(rank, &ipipe_percpudom(ipd, irqheld_mask, cpu)[level])) {
-				/* We need atomic ops here: */
-				set_bit(rank, &ipipe_percpudom(ipd, irqpend_lomask, cpu)[level]);
-				set_bit(level, &ipipe_percpudom(ipd, irqpend_himask, cpu));
-			}
+	if (unlikely(!test_and_clear_bit(IPIPE_LOCK_FLAG, &ipd->irqs[irq].control)))
+		return;
+
+	level = irq >> IPIPE_IRQ_ISHIFT, rank = irq & IPIPE_IRQ_IMASK;
+	for_each_online_cpu(cpu) {
+		p = ipipe_percpudom_ptr(ipd, cpu);
+		if (test_and_clear_bit(rank, &p->irqheld_mask[level])) {
+			/* We need atomic ops here: */
+			set_bit(rank, &p->irqpend_lomask[level]);
+			set_bit(level, &p->irqpend_himask);
 		}
 	}
 }
