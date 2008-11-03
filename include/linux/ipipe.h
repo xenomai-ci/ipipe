@@ -132,6 +132,8 @@ static inline void ipipe_context_check_off(void) { }
 
 #define IPIPE_SAME_HANDLER	((ipipe_irq_handler_t)(-1))
 
+struct irq_desc√;
+
 typedef void (*ipipe_irq_ackfn_t)(unsigned irq, struct irq_desc *desc);
 
 typedef int (*ipipe_event_handler_t)(unsigned event,
