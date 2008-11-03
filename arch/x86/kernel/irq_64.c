@@ -37,7 +37,7 @@ void ack_bad_irq(unsigned int irq)
 	 * But don't ack when the APIC is disabled. -AK
 	 */
 	if (!disable_apic)
-		ack_APIC_irq();
+		__ack_APIC_irq();
 }
 
 #ifdef CONFIG_DEBUG_STACKOVERFLOW

@@ -427,6 +427,11 @@ void show_registers(struct pt_regs *regs)
 	sp = regs->sp;
 	printk("CPU %d ", cpu);
 	__show_regs(regs);
+#ifdef CONFIG_IPIPE
+	if (ipipe_current_domain != ipipe_root_domain)
+		printk("I-pipe domain %s\n",ipipe_current_domain->name);
+	else
+#endif /* CONFIG_IPIPE */
 	printk("Process %s (pid: %d, threadinfo %p, task %p)\n",
 		cur->comm, cur->pid, task_thread_info(cur), cur);
 
@@ -590,6 +595,8 @@ die_nmi(char *str, struct pt_regs *regs, int do_panic)
 	local_irq_enable();
 	do_exit(SIGBUS);
 }
+
+EXPORT_SYMBOL_GPL(die_nmi);
 
 static void __kprobes
 do_trap(int trapnr, int signr, char *str, struct pt_regs *regs,
@@ -1114,6 +1121,7 @@ asmlinkage void __attribute__((weak)) mce_threshold_interrupt(void)
 asmlinkage void math_state_restore(void)
 {
 	struct task_struct *me = current;
+ 	unsigned long flags;
 
 	if (!used_math()) {
 		local_irq_enable();
@@ -1130,17 +1138,20 @@ asmlinkage void math_state_restore(void)
 		local_irq_disable();
 	}
 
+  	local_irq_save_hw_cond(flags);
 	clts();				/* Allow maths ops (or we recurse) */
 	/*
 	 * Paranoid restore. send a SIGSEGV if we fail to restore the state.
 	 */
 	if (unlikely(restore_fpu_checking(&me->thread.xstate->fxsave))) {
 		stts();
+		local_irq_restore_hw_cond(flags);
 		force_sig(SIGSEGV, me);
 		return;
 	}
 	task_thread_info(me)->status |= TS_USEDFPU;
 	me->fpu_counter++;
+ 	local_irq_restore_hw_cond(flags);
 }
 EXPORT_SYMBOL_GPL(math_state_restore);
 

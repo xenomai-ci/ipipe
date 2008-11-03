@@ -56,6 +56,9 @@ void __send_IPI_shortcut(unsigned int shortcut, int vector)
 	 * to the APIC.
 	 */
 	unsigned int cfg;
+	unsigned long flags;
+
+	local_irq_save_hw_cond(flags);
 
 	/*
 	 * Wait for idle.
@@ -71,6 +74,8 @@ void __send_IPI_shortcut(unsigned int shortcut, int vector)
 	 * Send the IPI. The write to APIC_ICR fires this off.
 	 */
 	apic_write(APIC_ICR, cfg);
+ 
+ 	local_irq_restore_hw_cond(flags);
 }
 
 void send_IPI_self(int vector)
@@ -119,10 +124,10 @@ void send_IPI_mask_bitmask(cpumask_t cpumask, int vector)
 	unsigned long mask = cpus_addr(cpumask)[0];
 	unsigned long flags;
 
-	local_irq_save(flags);
+	local_irq_save_hw(flags);
 	WARN_ON(mask & ~cpus_addr(cpu_online_map)[0]);
 	__send_IPI_dest_field(mask, vector);
-	local_irq_restore(flags);
+	local_irq_restore_hw(flags);
 }
 
 void send_IPI_mask_sequence(cpumask_t mask, int vector)
@@ -136,14 +141,14 @@ void send_IPI_mask_sequence(cpumask_t mask, int vector)
 	 * should be modified to do 1 message per cluster ID - mbligh
 	 */
 
-	local_irq_save(flags);
+	local_irq_save_hw(flags);
 	for_each_possible_cpu(query_cpu) {
 		if (cpu_isset(query_cpu, mask)) {
 			__send_IPI_dest_field(cpu_to_logical_apicid(query_cpu),
 					      vector);
 		}
 	}
-	local_irq_restore(flags);
+	local_irq_restore_hw(flags);
 }
 
 /* must come after the send_IPI functions above for inlining */
