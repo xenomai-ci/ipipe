@@ -49,6 +49,23 @@
 #define IPIPE_MINOR_NUMBER	2
 #define IPIPE_PATCH_NUMBER	7
 
+#ifdef CONFIG_IPIPE_UNMASKED_CONTEXT_SWITCH
+
+#define prepare_arch_switch(next)			\
+	do {						\
+		local_irq_enable_hw();			\
+		ipipe_schedule_notify(current ,next);	\
+	} while(0)
+
+#define task_hijacked(p)						\
+	( {								\
+		int x = !ipipe_root_domain_p;				\
+		clear_bit(IPIPE_SYNC_FLAG, &ipipe_root_cpudom_var(status)); \
+		x;							\
+	} )
+
+#else /* !CONFIG_IPIPE_UNMASKED_CONTEXT_SWITCH */
+
 #define prepare_arch_switch(next)			\
 	do {						\
 		ipipe_schedule_notify(current ,next);	\
@@ -61,6 +78,8 @@
 		__clear_bit(IPIPE_SYNC_FLAG, &ipipe_root_cpudom_var(status)); \
 		local_irq_enable_hw(); x;				\
 	} )
+
+#endif /* !CONFIG_IPIPE_UNMASKED_CONTEXT_SWITCH */
 
 struct ipipe_domain;
 
@@ -81,6 +100,11 @@ struct ipipe_sysinfo {
 extern unsigned long tb_ticks_per_jiffy;
 #else
 extern unsigned int tb_ticks_per_jiffy;
+#endif
+
+#ifdef CONFIG_IPIPE_UNMASKED_CONTEXT_SWITCH
+struct mm;
+DECLARE_PER_CPU(struct mm_struct *, ipipe_active_mm);
 #endif
 
 #define ipipe_cpu_freq()	(HZ * tb_ticks_per_jiffy)

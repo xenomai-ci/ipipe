@@ -66,6 +66,7 @@
 
 #define IPIPE_MSG_IPI_OFFSET	(IPIPE_CRITICAL_IPI)
 
+/* This assumes that we support SMP only over 64bit machines. */
 #define ipipe_processor_id()	raw_smp_processor_id()
 #else  /* !CONFIG_SMP */
 #define ipipe_processor_id()	0
@@ -144,5 +145,7 @@ static __inline__ unsigned long __ipipe_test_root(void)
 #endif /* !CONFIG_SMP */
 
 #endif /* !__ASSEMBLY__ */
+
+#define __IPIPE_FEATURE_UNMASKED_CONTEXT_SWITCH  1
 
 #endif	/* !__ASM_POWERPC_IPIPE_BASE_H */
