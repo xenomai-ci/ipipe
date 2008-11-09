@@ -847,6 +847,18 @@ int __ipipe_dispatch_event (unsigned event, void *data)
 			local_irq_restore_hw(flags);
 			propagate = !evhand(event, start_domain, data);
 			local_irq_save_hw(flags);
+			/*
+			 * We may have a migration issue here, if the
+			 * current task is migrated to another CPU on
+			 * behalf of the invoked handler, usually when
+			 * a syscall event is processed. However,
+			 * ipipe_catch_event() will make sure that a
+			 * CPU that clears a handler for any given
+			 * event will not attempt to wait for itself
+			 * to clear the evsync bit for that event,
+			 * which practically plugs the hole, without
+			 * resorting to a much more complex strategy.
+			 */
 			ipipe_cpudom_var(next_domain, evsync) &= ~(1LL << event);
 			if (ipipe_current_domain != next_domain)
 				this_domain = ipipe_current_domain;
@@ -1334,6 +1346,21 @@ ipipe_event_handler_t ipipe_catch_event(struct ipipe_domain *ipd,
 		 * synchronization flag is cleared for the given event
 		 * on all CPUs.
 		 */
+		preempt_disable();
+		cpu = smp_processor_id();
+		/*
+		 * Hack: this solves the potential migration issue
+		 * raised in __ipipe_dispatch_event(). This is a
+		 * work-around which makes the assumption that other
+		 * CPUs will subsequently, either process at least one
+		 * interrupt for the target domain, or call
+		 * __ipipe_dispatch_event() without going through a
+		 * migration while running the handler at least once;
+		 * practically, this is safe on any normally running
+		 * system.
+		 */
+		ipipe_percpudom(ipd, evsync, cpu) &= ~(1LL << event);
+		preempt_enable();
 
 		for_each_online_cpu(cpu) {
 			while (ipipe_percpudom(ipd, evsync, cpu) & (1LL << event))
