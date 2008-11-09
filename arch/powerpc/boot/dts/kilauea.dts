@@ -356,16 +356,16 @@
 
 		USBOTG0: usbotg@ef6c0000 {
 			compatible = "amcc,usb-otg-405ex";
-			reg = <ef6c0000 10000>;
+			reg = <0xef6c0000 0x10000>;
 			interrupt-parent = <&USBOTG0>;
 			interrupts = <0 1 2>;
 			#interrupt-cells = <1>;
 			#address-cells = <0>;
 			#size-cells = <0>;
-			interrupt-map = </* USB-OTG */ 0 &UIC2 1e 4
-					 /* HIGH-POWER */ 1 &UIC1 1a 8
-					 /* DMA */ 2 &UIC0 c 4>;
-			interrupt-map-mask = <ffffffff>;
+			interrupt-map = </* USB-OTG */ 0 &UIC2 0x1e 4
+					 /* HIGH-POWER */ 1 &UIC1 0x1a 8
+					 /* DMA */ 2 &UIC0 0xc 4>;
+			interrupt-map-mask = <0xffffffff>;
 		};
 	};
 };
