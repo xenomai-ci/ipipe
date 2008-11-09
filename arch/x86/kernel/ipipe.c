@@ -807,7 +807,7 @@ int __ipipe_divert_exception(struct pt_regs *regs, int vector)
 #ifdef CONFIG_KGDB
 	/* catch int1 and int3 over non-root domains */
 #ifdef CONFIG_X86_32
-	if (!ipipe_root_domain_p && vector != ex_do_device_not_available) {
+	if (!ipipe_root_domain_p && vector != ex_device_not_available) {
 #else
 	if (!ipipe_root_domain_p) {
 #endif
