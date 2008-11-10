@@ -608,6 +608,8 @@ static inline void ipipe_nmi_exit(void)
 #define local_irq_restore_full(vflags, rflags)	do { (void)(vflags); local_irq_restore(rflags); } while(0)
 #define local_irq_restore_nosync(vflags)	local_irq_restore(vflags)
 
+#define ipipe_processor_id()		raw_smp_processor_id()
+
 #endif	/* CONFIG_IPIPE */
 
 #endif	/* !__LINUX_IPIPE_H */
