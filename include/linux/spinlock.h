@@ -255,6 +255,14 @@ do {									\
 		flags = _spin_lock_irqsave((spinlock_t *)(lock));	\
 	else __bad_spinlock_type();					\
 } while (0)
+#define PICK_SPINLOCK_IRQSAVE_NESTED(lock, flags, subclass)		\
+do {									\
+	if (TYPE_EQUAL((lock), __ipipe_spinlock_t)) {			\
+		(flags) = __ipipe_spin_lock_irqsave(&((__ipipe_spinlock_t *)(lock))->__raw_lock); \
+	} else if (TYPE_EQUAL(lock, spinlock_t))			\
+		flags = _spin_lock_irqsave_nested((spinlock_t *)(lock), subclass); \
+	else __bad_spinlock_type();					\
+} while (0)
 #else
 #define PICK_SPINLOCK_IRQSAVE(lock, flags)				\
 do {									\
@@ -312,13 +320,13 @@ do {									\
 #define spin_lock_irqsave_nested(lock, flags, subclass)			\
 	do {								\
 		typecheck(unsigned long, flags);			\
-		flags = _spin_lock_irqsave_nested(lock, subclass);	\
+		PICK_SPINLOCK_IRQSAVE_NESTED(lock, flags, subclass);	\
 	} while (0)
 #else
 #define spin_lock_irqsave_nested(lock, flags, subclass)			\
 	do {								\
 		typecheck(unsigned long, flags);			\
-		flags = _spin_lock_irqsave(lock);			\
+		PICK_SPINLOCK_IRQSAVE(lock, flags);			\
 	} while (0)
 #endif
 
@@ -327,7 +335,7 @@ do {									\
 #define spin_lock_irqsave(lock, flags)			\
 	do {						\
 		typecheck(unsigned long, flags);	\
-		_spin_lock_irqsave(lock, flags);	\
+		PICK_SPINLOCK_IRQSAVE(lock, flags);	\
 	} while (0)
 #define read_lock_irqsave(lock, flags)			\
 	do {						\
