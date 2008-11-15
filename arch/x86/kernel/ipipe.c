@@ -763,7 +763,7 @@ int __ipipe_handle_exception(struct pt_regs *regs, long error_code, int vector)
 	if (!ipipe_root_domain_p &&
 	    __ipipe_xlate_signo[vector] >= 0 &&
 	    !kgdb_handle_exception(vector, __ipipe_xlate_signo[vector], error_code, regs)) {
-		if (!flags)
+		if (flags & X86_EFLAGS_IF)
 			__clear_bit(IPIPE_STALL_FLAG,
 				    &ipipe_root_cpudom_var(status));
 		return 1;
@@ -771,7 +771,7 @@ int __ipipe_handle_exception(struct pt_regs *regs, long error_code, int vector)
 #endif /* CONFIG_KGDB */
 
 	if (unlikely(ipipe_trap_notify(vector, regs))) {
-		if (!flags)
+		if (flags & X86_EFLAGS_IF)
 			__clear_bit(IPIPE_STALL_FLAG,
 				    &ipipe_root_cpudom_var(status));
 		return 1;
