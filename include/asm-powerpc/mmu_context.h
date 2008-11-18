@@ -239,12 +239,6 @@ done:
 
 #define deactivate_mm(tsk,mm)	do { } while (0)
 
-/*
- * After we have set current->mm to a new value, this activates
- * the context for the new mm so we see the new mappings.
- */
-#define activate_mm(active_mm, mm)   switch_mm(active_mm, mm, current)
-
 extern void mmu_context_init(void);
 
 
@@ -350,6 +344,8 @@ static inline void switch_mm(struct mm_struct *prev, struct mm_struct *next,
 
 #define deactivate_mm(tsk,mm)	do { } while (0)
 
+#endif /* CONFIG_PPC64 */
+
 /*
  * After we have set current->mm to a new value, this activates
  * the context for the new mm so we see the new mappings.
@@ -363,6 +359,5 @@ static inline void activate_mm(struct mm_struct *prev, struct mm_struct *next)
 	local_irq_restore(flags);
 }
 
-#endif /* CONFIG_PPC64 */
 #endif /* __KERNEL__ */
 #endif /* __ASM_POWERPC_MMU_CONTEXT_H */
