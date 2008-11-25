@@ -43,12 +43,7 @@
  * miss any bits.
  */
 
-#include <linux/module.h>
-#include <linux/slab.h>
-#include <linux/highmem.h>
-#include <linux/bitops.h>
 #include <linux/kthread.h>
-#include <asm/atomic.h>
 #include "raid6.h"
 
 #include <linux/raid/bitmap.h>
@@ -100,6 +95,40 @@
 /* In .bss so it's zeroed */
 const char raid6_empty_zero_page[PAGE_SIZE] __attribute__((aligned(256)));
 #endif
+
+/*
+ * We maintain a biased count of active stripes in the bottom 16 bits of
+ * bi_phys_segments, and a count of processed stripes in the upper 16 bits
+ */
+static inline int raid5_bi_phys_segments(struct bio *bio)
+{
+	return bio->bi_phys_segments & 0xffff;
+}
+
+static inline int raid5_bi_hw_segments(struct bio *bio)
+{
+	return (bio->bi_phys_segments >> 16) & 0xffff;
+}
+
+static inline int raid5_dec_bi_phys_segments(struct bio *bio)
+{
+	--bio->bi_phys_segments;
+	return raid5_bi_phys_segments(bio);
+}
+
+static inline int raid5_dec_bi_hw_segments(struct bio *bio)
+{
+	unsigned short val = raid5_bi_hw_segments(bio);
+
+	--val;
+	bio->bi_phys_segments = (val << 16) | raid5_bi_phys_segments(bio);
+	return val;
+}
+
+static inline void raid5_set_bi_hw_segments(struct bio *bio, unsigned int cnt)
+{
+	bio->bi_phys_segments = raid5_bi_phys_segments(bio) || (cnt << 16);
+}
 
 static inline int raid6_next_disk(int disk, int raid_disks)
 {
@@ -241,7 +270,7 @@ static int grow_buffers(struct stripe_head *sh, int num)
 	return 0;
 }
 
-static void raid5_build_block (struct stripe_head *sh, int i);
+static void raid5_build_block(struct stripe_head *sh, int i);
 
 static void init_stripe(struct stripe_head *sh, sector_t sector, int pd_idx, int disks)
 {
@@ -507,7 +536,7 @@ static void ops_complete_biofill(void *stripe_head_ref)
 			while (rbi && rbi->bi_sector <
 				dev->sector + STRIPE_SECTORS) {
 				rbi2 = r5_next_bio(rbi, dev->sector);
-				if (--rbi->bi_phys_segments == 0) {
+				if (!raid5_dec_bi_phys_segments(rbi)) {
 					rbi->bi_next = return_bi;
 					return_bi = rbi;
 				}
@@ -1425,7 +1454,7 @@ static void raid5_end_read_request(struct bio * bi, int error)
 	release_stripe(sh);
 }
 
-static void raid5_end_write_request (struct bio *bi, int error)
+static void raid5_end_write_request(struct bio *bi, int error)
 {
  	struct stripe_head *sh = bi->bi_private;
 	raid5_conf_t *conf = sh->raid_conf;
@@ -1457,7 +1486,7 @@ static void raid5_end_write_request (struct bio *bi, int error)
 
 static sector_t compute_blocknr(struct stripe_head *sh, int i);
 	
-static void raid5_build_block (struct stripe_head *sh, int i)
+static void raid5_build_block(struct stripe_head *sh, int i)
 {
 	struct r5dev *dev = &sh->dev[i];
 
@@ -1495,10 +1524,10 @@ static void error(mddev_t *mddev, mdk_rdev_t *rdev)
 			set_bit(MD_RECOVERY_INTR, &mddev->recovery);
 		}
 		set_bit(Faulty, &rdev->flags);
-		printk (KERN_ALERT
-			"raid5: Disk failure on %s, disabling device.\n"
-			"raid5: Operation continuing on %d devices.\n",
-			bdevname(rdev->bdev,b), conf->raid_disks - mddev->degraded);
+		printk(KERN_ALERT
+		       "raid5: Disk failure on %s, disabling device.\n"
+		       "raid5: Operation continuing on %d devices.\n",
+		       bdevname(rdev->bdev,b), conf->raid_disks - mddev->degraded);
 	}
 }
 
@@ -1594,8 +1623,8 @@ static sector_t raid5_compute_sector(sector_t r_sector, unsigned int raid_disks,
 			*dd_idx = (*pd_idx + 2 + *dd_idx) % raid_disks;
 			break;
 		default:
-			printk (KERN_CRIT "raid6: unsupported algorithm %d\n",
-				conf->algorithm);
+			printk(KERN_CRIT "raid6: unsupported algorithm %d\n",
+			       conf->algorithm);
 		}
 		break;
 	}
@@ -1670,8 +1699,8 @@ static sector_t compute_blocknr(struct stripe_head *sh, int i)
 			}
 			break;
 		default:
-			printk (KERN_CRIT "raid6: unsupported algorithm %d\n",
-				conf->algorithm);
+			printk(KERN_CRIT "raid6: unsupported algorithm %d\n",
+			       conf->algorithm);
 		}
 		break;
 	}
@@ -1679,7 +1708,7 @@ static sector_t compute_blocknr(struct stripe_head *sh, int i)
 	chunk_number = stripe * data_disks + i;
 	r_sector = (sector_t)chunk_number * sectors_per_chunk + chunk_offset;
 
-	check = raid5_compute_sector (r_sector, raid_disks, data_disks, &dummy1, &dummy2, conf);
+	check = raid5_compute_sector(r_sector, raid_disks, data_disks, &dummy1, &dummy2, conf);
 	if (check != sh->sector || dummy1 != dd_idx || dummy2 != sh->pd_idx) {
 		printk(KERN_ERR "compute_blocknr: map not correct\n");
 		return 0;
@@ -1804,7 +1833,7 @@ static int add_stripe_bio(struct stripe_head *sh, struct bio *bi, int dd_idx, in
 	if (*bip)
 		bi->bi_next = *bip;
 	*bip = bi;
-	bi->bi_phys_segments ++;
+	bi->bi_phys_segments++;
 	spin_unlock_irq(&conf->device_lock);
 	spin_unlock(&sh->lock);
 
@@ -1891,7 +1920,7 @@ handle_failed_stripe(raid5_conf_t *conf, struct stripe_head *sh,
 			sh->dev[i].sector + STRIPE_SECTORS) {
 			struct bio *nextbi = r5_next_bio(bi, sh->dev[i].sector);
 			clear_bit(BIO_UPTODATE, &bi->bi_flags);
-			if (--bi->bi_phys_segments == 0) {
+			if (!raid5_dec_bi_phys_segments(bi)) {
 				md_write_end(conf->mddev);
 				bi->bi_next = *return_bi;
 				*return_bi = bi;
@@ -1906,7 +1935,7 @@ handle_failed_stripe(raid5_conf_t *conf, struct stripe_head *sh,
 		       sh->dev[i].sector + STRIPE_SECTORS) {
 			struct bio *bi2 = r5_next_bio(bi, sh->dev[i].sector);
 			clear_bit(BIO_UPTODATE, &bi->bi_flags);
-			if (--bi->bi_phys_segments == 0) {
+			if (!raid5_dec_bi_phys_segments(bi)) {
 				md_write_end(conf->mddev);
 				bi->bi_next = *return_bi;
 				*return_bi = bi;
@@ -1930,7 +1959,7 @@ handle_failed_stripe(raid5_conf_t *conf, struct stripe_head *sh,
 				struct bio *nextbi =
 					r5_next_bio(bi, sh->dev[i].sector);
 				clear_bit(BIO_UPTODATE, &bi->bi_flags);
-				if (--bi->bi_phys_segments == 0) {
+				if (!raid5_dec_bi_phys_segments(bi)) {
 					bi->bi_next = *return_bi;
 					*return_bi = bi;
 				}
@@ -2174,7 +2203,7 @@ static void handle_stripe_clean_event(raid5_conf_t *conf,
 				while (wbi && wbi->bi_sector <
 					dev->sector + STRIPE_SECTORS) {
 					wbi2 = r5_next_bio(wbi, dev->sector);
-					if (--wbi->bi_phys_segments == 0) {
+					if (!raid5_dec_bi_phys_segments(wbi)) {
 						md_write_end(conf->mddev);
 						wbi->bi_next = *return_bi;
 						*return_bi = wbi;
@@ -3350,8 +3379,11 @@ static struct bio *remove_bio_from_retry(raid5_conf_t *conf)
 	if(bi) {
 		conf->retry_read_aligned_list = bi->bi_next;
 		bi->bi_next = NULL;
+		/*
+		 * this sets the active strip count to 1 and the processed
+		 * strip count to zero (upper 8 bits)
+		 */
 		bi->bi_phys_segments = 1; /* biased count of active stripes */
-		bi->bi_hw_segments = 0; /* count of processed stripes */
 	}
 
 	return bi;
@@ -3401,8 +3433,7 @@ static int bio_fits_rdev(struct bio *bi)
 	if ((bi->bi_size>>9) > q->max_sectors)
 		return 0;
 	blk_recount_segments(q, bi);
-	if (bi->bi_phys_segments > q->max_phys_segments ||
-	    bi->bi_hw_segments > q->max_hw_segments)
+	if (bi->bi_phys_segments > q->max_phys_segments)
 		return 0;
 
 	if (q->merge_bvec_fn)
@@ -3546,7 +3577,7 @@ static int make_request(struct request_queue *q, struct bio * bi)
 	sector_t logical_sector, last_sector;
 	struct stripe_head *sh;
 	const int rw = bio_data_dir(bi);
-	int remaining;
+	int cpu, remaining;
 
 	if (unlikely(bio_barrier(bi))) {
 		bio_endio(bi, -EOPNOTSUPP);
@@ -3555,8 +3586,11 @@ static int make_request(struct request_queue *q, struct bio * bi)
 
 	md_write_start(mddev, bi);
 
-	disk_stat_inc(mddev->gendisk, ios[rw]);
-	disk_stat_add(mddev->gendisk, sectors[rw], bio_sectors(bi));
+	cpu = part_stat_lock();
+	part_stat_inc(cpu, &mddev->gendisk->part0, ios[rw]);
+	part_stat_add(cpu, &mddev->gendisk->part0, sectors[rw],
+		      bio_sectors(bi));
+	part_stat_unlock();
 
 	if (rw == READ &&
 	     mddev->reshape_position == MaxSector &&
@@ -3663,7 +3697,7 @@ static int make_request(struct request_queue *q, struct bio * bi)
 			
 	}
 	spin_lock_irq(&conf->device_lock);
-	remaining = --bi->bi_phys_segments;
+	remaining = raid5_dec_bi_phys_segments(bi);
 	spin_unlock_irq(&conf->device_lock);
 	if (remaining == 0) {
 
@@ -3947,7 +3981,7 @@ static int  retry_aligned_read(raid5_conf_t *conf, struct bio *raid_bio)
 		     sector += STRIPE_SECTORS,
 		     scnt++) {
 
-		if (scnt < raid_bio->bi_hw_segments)
+		if (scnt < raid5_bi_hw_segments(raid_bio))
 			/* already done this stripe */
 			continue;
 
@@ -3955,7 +3989,7 @@ static int  retry_aligned_read(raid5_conf_t *conf, struct bio *raid_bio)
 
 		if (!sh) {
 			/* failed to get a stripe - must wait */
-			raid_bio->bi_hw_segments = scnt;
+			raid5_set_bi_hw_segments(raid_bio, scnt);
 			conf->retry_read_aligned = raid_bio;
 			return handled;
 		}
@@ -3963,7 +3997,7 @@ static int  retry_aligned_read(raid5_conf_t *conf, struct bio *raid_bio)
 		set_bit(R5_ReadError, &sh->dev[dd_idx].flags);
 		if (!add_stripe_bio(sh, raid_bio, dd_idx, 0)) {
 			release_stripe(sh);
-			raid_bio->bi_hw_segments = scnt;
+			raid5_set_bi_hw_segments(raid_bio, scnt);
 			conf->retry_read_aligned = raid_bio;
 			return handled;
 		}
@@ -3973,7 +4007,7 @@ static int  retry_aligned_read(raid5_conf_t *conf, struct bio *raid_bio)
 		handled++;
 	}
 	spin_lock_irq(&conf->device_lock);
-	remaining = --raid_bio->bi_phys_segments;
+	remaining = raid5_dec_bi_phys_segments(raid_bio);
 	spin_unlock_irq(&conf->device_lock);
 	if (remaining == 0)
 		bio_endio(raid_bio, 0);
@@ -4166,6 +4200,13 @@ static int run(mddev_t *mddev)
 		printk(KERN_ERR "raid5: %s: raid level not set to 4/5/6 (%d)\n",
 		       mdname(mddev), mddev->level);
 		return -EIO;
+	}
+
+	if (mddev->chunk_size < PAGE_SIZE) {
+		printk(KERN_ERR "md/raid5: chunk_size must be at least "
+		       "PAGE_SIZE but %d < %ld\n",
+		       mddev->chunk_size, PAGE_SIZE);
+		return -EINVAL;
 	}
 
 	if (mddev->reshape_position != MaxSector) {
@@ -4445,7 +4486,7 @@ static int stop(mddev_t *mddev)
 }
 
 #ifdef DEBUG
-static void print_sh (struct seq_file *seq, struct stripe_head *sh)
+static void print_sh(struct seq_file *seq, struct stripe_head *sh)
 {
 	int i;
 
@@ -4461,7 +4502,7 @@ static void print_sh (struct seq_file *seq, struct stripe_head *sh)
 	seq_printf(seq, "\n");
 }
 
-static void printall (struct seq_file *seq, raid5_conf_t *conf)
+static void printall(struct seq_file *seq, raid5_conf_t *conf)
 {
 	struct stripe_head *sh;
 	struct hlist_node *hn;
@@ -4479,7 +4520,7 @@ static void printall (struct seq_file *seq, raid5_conf_t *conf)
 }
 #endif
 
-static void status (struct seq_file *seq, mddev_t *mddev)
+static void status(struct seq_file *seq, mddev_t *mddev)
 {
 	raid5_conf_t *conf = (raid5_conf_t *) mddev->private;
 	int i;

@@ -48,13 +48,13 @@ config AMCC_PPC440SPE_ADMA
 	  Enable support for the AMCC PPC440SPe RAID engines.
 
 config FSL_DMA
-	bool "Freescale MPC85xx/MPC83xx DMA support"
-	depends on PPC
+	tristate "Freescale Elo and Elo Plus DMA support"
+	depends on FSL_SOC
 	select DMA_ENGINE
 	---help---
-	  Enable support for the Freescale DMA engine. Now, it support
-	  MPC8560/40, MPC8555, MPC8548 and MPC8641 processors.
-	  The MPC8349, MPC8360 is also supported.
+	  Enable support for the Freescale Elo and Elo Plus DMA controllers.
+	  The Elo is the DMA controller on some 82xx and 83xx parts, and the
+	  Elo Plus is the DMA controller on 85xx and 86xx parts.
 
 config ARCH_HAS_ASYNC_TX_FIND_CHANNEL
 	bool
