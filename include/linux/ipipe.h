@@ -381,9 +381,6 @@ static inline int ipipe_schedule_irq(unsigned irq)
 
 static inline int ipipe_schedule_irq_head(unsigned irq)
 {
-#ifdef CONFIG_IPIPE_DEBUG
-	BUG_ON(!_ipipe_pipeline_head_p(&ipipe_current_domain));
-#endif
 	__ipipe_set_irq_pending(__ipipe_pipeline_head(), irq);
 	return 1;
 }
