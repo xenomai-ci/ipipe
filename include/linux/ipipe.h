@@ -379,6 +379,15 @@ static inline int ipipe_schedule_irq(unsigned irq)
 	return __ipipe_schedule_irq(irq, &ipipe_current_domain->p_link);
 }
 
+static inline int ipipe_schedule_irq_head(unsigned irq)
+{
+#ifdef CONFIG_IPIPE_DEBUG
+	BUG_ON(!_ipipe_pipeline_head_p(&ipipe_current_domain));
+#endif
+	__ipipe_set_irq_pending(__ipipe_pipeline_head(), irq);
+	return 1;
+}
+
 void ipipe_stall_pipeline_from(struct ipipe_domain *ipd);
 
 unsigned long ipipe_test_and_stall_pipeline_from(struct ipipe_domain *ipd);
