@@ -1237,25 +1237,22 @@ int __ipipe_schedule_irq(unsigned irq, struct list_head *head)
 	struct list_head *ln;
 	unsigned long flags;
 
+#ifdef CONFIG_IPIPE_DEBUG
 	if (irq >= IPIPE_NR_IRQS ||
 	    (ipipe_virtual_irq_p(irq)
 	     && !test_bit(irq - IPIPE_VIRQ_BASE, &__ipipe_virtual_irq_map)))
 		return -EINVAL;
-
+#endif
 	local_irq_save_hw(flags);
-
 	ln = head;
 
 	while (ln != &__ipipe_pipeline) {
-
 		ipd = list_entry(ln, struct ipipe_domain, p_link);
-
 		if (test_bit(IPIPE_HANDLE_FLAG, &ipd->irqs[irq].control)) {
 			__ipipe_set_irq_pending(ipd, irq);
 			local_irq_restore_hw(flags);
 			return 1;
 		}
-
 		ln = ipd->p_link.next;
 	}
 
