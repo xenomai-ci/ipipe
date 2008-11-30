@@ -557,27 +557,49 @@ void __ipipe_unlock_irq(struct ipipe_domain *ipd, unsigned irq)
 	}
 }
 
-/* __ipipe_walk_pipeline(): Plays interrupts pending in the log. Must
-   be called with local hw interrupts disabled. */
+/*
+ * __ipipe_walk_pipeline(): Plays interrupts pending in the log. Must
+ * be called with local hw interrupts disabled.
+ */
 
 void __ipipe_walk_pipeline(struct list_head *pos)
 {
 	struct ipipe_domain *this_domain = ipipe_current_domain, *next_domain;
+	struct ipipe_percpu_domain_data *p, *np;
+
+	p = ipipe_cpudom_ptr(this_domain);
 
 	while (pos != &__ipipe_pipeline) {
 
 		next_domain = list_entry(pos, struct ipipe_domain, p_link);
+		np = ipipe_cpudom_ptr(next_domain);
 
-		if (test_bit(IPIPE_STALL_FLAG, &ipipe_cpudom_var(next_domain, status)))
+		if (test_bit(IPIPE_STALL_FLAG, &np->status))
 			break;	/* Stalled stage -- do not go further. */
 
-		if (ipipe_cpudom_var(next_domain, irqpend_himask) != 0) {
+		if (next_domain == &ipipe_root) {
+			/*
+			 * Allow pending hw interrupts directed at
+			 * higher priority domains to be taken while
+			 * syncing pending IRQs from the low priority
+			 * Linux stage. This reduces interrupt latency
+			 * by shortening the masked section that
+			 * starts from __ipipe_handle_irq() in the
+			 * arch-dep section, and ends when a root
+			 * handler is fired, or at the end of this
+			 * loop walk - whichever comes first.
+			 */
+			local_irq_enable_hw();
+			cpu_relax();
+			local_irq_disable_hw();
+		}
 
+		if (np->irqpend_himask) {
 			if (next_domain == this_domain)
 				__ipipe_sync_pipeline(IPIPE_IRQMASK_ANY);
 			else {
 
-				ipipe_cpudom_var(this_domain, evsync) = 0;
+				p->evsync = 0;
 				ipipe_current_domain = next_domain;
 				ipipe_suspend_domain();	/* Sync stage and propagate interrupts. */
 
@@ -589,12 +611,10 @@ void __ipipe_walk_pipeline(struct list_head *pos)
 				 * domain.
 				 */
 
-				if (ipipe_cpudom_var(this_domain, irqpend_himask) != 0 &&
-				    !test_bit(IPIPE_STALL_FLAG,
-					      &ipipe_cpudom_var(this_domain, status)))
+				if (p->irqpend_himask &&
+				    !test_bit(IPIPE_STALL_FLAG, &p->status))
 					__ipipe_sync_pipeline(IPIPE_IRQMASK_ANY);
 			}
-
 			break;
 		} else if (next_domain == this_domain)
 			break;
@@ -981,15 +1001,18 @@ void __ipipe_dispatch_wired(struct ipipe_domain *head, unsigned irq)
  */
 void __ipipe_sync_stage(unsigned long syncmask)
 {
+	struct ipipe_percpu_domain_data *p;
 	unsigned long mask, submask;
 	struct ipipe_domain *ipd;
 	int level, rank, cpu;
 	unsigned irq;
 
-	if (__test_and_set_bit(IPIPE_SYNC_FLAG, &ipipe_this_cpudom_var(status)))
+	ipd = ipipe_current_domain;
+	p = ipipe_cpudom_ptr(ipd);
+
+	if (__test_and_set_bit(IPIPE_SYNC_FLAG, &p->status))
 		return;
 
-	ipd = ipipe_current_domain;
 	cpu = ipipe_processor_id();
 
 	/*
@@ -1000,17 +1023,17 @@ void __ipipe_sync_stage(unsigned long syncmask)
 	 * sigaction()), it will have to unstall (then stall again before
 	 * returning to us!) the stage when it sees fit.
 	 */
-	while ((mask = (ipipe_this_cpudom_var(irqpend_himask) & syncmask)) != 0) {
+	while ((mask = (p->irqpend_himask & syncmask)) != 0) {
 		level = __ipipe_ffnz(mask);
 
-		while ((submask = ipipe_this_cpudom_var(irqpend_lomask)[level]) != 0) {
+		while ((submask = p->irqpend_lomask[level]) != 0) {
 			rank = __ipipe_ffnz(submask);
 			irq = (level << IPIPE_IRQ_ISHIFT) + rank;
 
-			__clear_bit(rank, &ipipe_this_cpudom_var(irqpend_lomask)[level]);
+			__clear_bit(rank, &p->irqpend_lomask[level]);
 
-			if (ipipe_this_cpudom_var(irqpend_lomask)[level] == 0)
-				__clear_bit(level, &ipipe_this_cpudom_var(irqpend_himask));
+			if (p->irqpend_lomask[level] == 0)
+				__clear_bit(level, &p->irqpend_himask);
 			/*
 			 * Make sure the compiler will not postpone
 			 * the pending bitmask updates before calling
@@ -1025,12 +1048,13 @@ void __ipipe_sync_stage(unsigned long syncmask)
 			if (test_bit(IPIPE_LOCK_FLAG, &ipd->irqs[irq].control))
 				continue;
 
-			__set_bit(IPIPE_STALL_FLAG, &ipipe_this_cpudom_var(status));
+			__set_bit(IPIPE_STALL_FLAG, &p->status);
 
 			if (ipd == ipipe_root_domain)
 				trace_hardirqs_off();
 
 			__ipipe_run_isr(ipd, irq);
+			p = ipipe_cpudom_ptr(ipipe_current_domain);
 #ifdef CONFIG_SMP
 			{
 				int newcpu = ipipe_processor_id();
@@ -1048,20 +1072,21 @@ void __ipipe_sync_stage(unsigned long syncmask)
 					 * since it must have scheduled another task in by
 					 * now.
 					 */
-					__set_bit(IPIPE_SYNC_FLAG, &ipipe_this_cpudom_var(status));
+					__set_bit(IPIPE_SYNC_FLAG, &p->status);
 					cpu = newcpu;
 				}
 			}
 #endif	/* CONFIG_SMP */
-			if (ipd == ipipe_root_domain &&
-			    test_bit(IPIPE_STALL_FLAG, &ipipe_this_cpudom_var(status)))
+#ifdef CONFIG_TRACE_IRQFLAGS
+			if (ipipe_root_domain_p &&
+			    test_bit(IPIPE_STALL_FLAG, &p->status))
 				trace_hardirqs_on();
-
-			__clear_bit(IPIPE_STALL_FLAG, &ipipe_this_cpudom_var(status));
+#endif
+			__clear_bit(IPIPE_STALL_FLAG, &p->status);
 		}
 	}
 
-	__clear_bit(IPIPE_SYNC_FLAG, &ipipe_this_cpudom_var(status));
+	__clear_bit(IPIPE_SYNC_FLAG, &p->status);
 }
 
 /* ipipe_register_domain() -- Link a new domain to the pipeline. */
