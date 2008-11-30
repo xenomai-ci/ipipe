@@ -31,6 +31,7 @@
 #include <linux/interrupt.h>
 #include <linux/bitops.h>
 #include <linux/tick.h>
+#include <linux/prefetch.h>
 #ifdef CONFIG_PROC_FS
 #include <linux/proc_fs.h>
 #include <linux/seq_file.h>
@@ -506,7 +507,8 @@ void __ipipe_set_irq_pending(struct ipipe_domain *ipd, unsigned irq)
 	int level = irq >> IPIPE_IRQ_ISHIFT, rank = irq & IPIPE_IRQ_IMASK;
 	struct ipipe_percpu_domain_data *p = ipipe_cpudom_ptr(ipd);
 
-
+	prefetchw(p);
+	
 	if (likely(!test_bit(IPIPE_LOCK_FLAG, &ipd->irqs[irq].control))) {
 		__set_bit(rank, &p->irqpend_lomask[level]);
 		__set_bit(level, &p->irqpend_himask);
@@ -608,16 +610,17 @@ void __ipipe_walk_pipeline(struct list_head *pos)
 void ipipe_suspend_domain(void)
 {
 	struct ipipe_domain *this_domain, *next_domain;
+	struct ipipe_percpu_domain_data *p;
 	struct list_head *ln;
 	unsigned long flags;
 
 	local_irq_save_hw(flags);
 
 	this_domain = next_domain = ipipe_current_domain;
+	p = ipipe_cpudom_ptr(this_domain);
+	p->status &= ~(IPIPE_STALL_MASK|IPIPE_SYNC_MASK);
 
-	__clear_bit(IPIPE_STALL_FLAG, &ipipe_cpudom_var(this_domain, status));
-
-	if (ipipe_cpudom_var(this_domain, irqpend_himask) != 0)
+	if (p->irqpend_himask != 0)
 		goto sync_stage;
 
 	for (;;) {
@@ -627,12 +630,12 @@ void ipipe_suspend_domain(void)
 			break;
 
 		next_domain = list_entry(ln, struct ipipe_domain, p_link);
+		p = ipipe_cpudom_ptr(this_domain);
 
-		if (test_bit(IPIPE_STALL_FLAG,
-			     &ipipe_cpudom_var(next_domain, status)) != 0)
+		if (p->status & IPIPE_STALL_MASK)
 			break;
 
-		if (ipipe_cpudom_var(next_domain, irqpend_himask) == 0)
+		if (p->irqpend_himask == 0)
 			continue;
 
 		ipipe_current_domain = next_domain;
@@ -903,48 +906,63 @@ int __ipipe_dispatch_event (unsigned event, void *data)
  * consequence of what the root domain cannot handle wired
  * interrupts.
  * 4- Wired interrupts must have a valid acknowledge handler for the
- * head domain (if needed), and in any case, must not rely on handlers
- * provided by lower priority domains during the acknowledge cycle
- * (see __ipipe_handle_irq).
+ * head domain (if needed, see __ipipe_handle_irq).
  *
  * Called with hw interrupts off.
  */
 
-int __ipipe_dispatch_wired(struct ipipe_domain *head_domain, unsigned irq)
+void __ipipe_dispatch_wired_nocheck(struct ipipe_domain *head, unsigned irq)
 {
+	struct ipipe_percpu_domain_data *p = ipipe_head_cpudom_ptr();
 	struct ipipe_domain *old;
 
-	if (test_bit(IPIPE_LOCK_FLAG, &head_domain->irqs[irq].control)) {
-		/* If we can't process this IRQ right now, we must
-		 * mark it as held, so that it will get played during
-		 * normal log sync when the corresponding interrupt
-		 * source is eventually unlocked. */
-		ipipe_cpudom_var(head_domain, irqall)[irq]++;
-		__set_bit(irq & IPIPE_IRQ_IMASK, &ipipe_cpudom_var(head_domain, irqheld_mask)[irq >> IPIPE_IRQ_ISHIFT]);
-		return 0;
-	}
-
-	if (test_bit(IPIPE_STALL_FLAG, &ipipe_cpudom_var(head_domain, status))) {
-		__ipipe_set_irq_pending(head_domain, irq);
-		return 0;
-	}
+	prefetchw(p);
 
 	old = ipipe_current_domain;
-	ipipe_current_domain = head_domain; /* Switch to the head domain. */
+	ipipe_current_domain = head; /* Switch to the head domain. */
 
-	ipipe_cpudom_var(head_domain, irqall)[irq]++;
-	__set_bit(IPIPE_STALL_FLAG, &ipipe_cpudom_var(head_domain, status));
-	head_domain->irqs[irq].handler(irq, head_domain->irqs[irq].cookie); /* Call the ISR. */
+	p->irqall[irq]++;
+	p->status |= (IPIPE_STALL_MASK|IPIPE_SYNC_MASK);
+	head->irqs[irq].handler(irq, head->irqs[irq].cookie); /* Call the ISR. */
 	__ipipe_run_irqtail();
-	__clear_bit(IPIPE_STALL_FLAG, &ipipe_cpudom_var(head_domain, status));
+	p->status &= ~(IPIPE_STALL_MASK|IPIPE_SYNC_MASK);
 
-	/* We expect the caller to start a complete pipeline walk upon
-	 * return, so that propagated interrupts will get played. */
+	if (ipipe_current_domain == head) {
+		ipipe_current_domain = old;
+		if (old == head) {
+			if (p->irqpend_himask)
+				__ipipe_sync_pipeline(IPIPE_IRQMASK_ANY);
+			return;
+		}
+	}
 
-	if (ipipe_current_domain == head_domain)
-		ipipe_current_domain = old; /* Back to the preempted domain. */
+	__ipipe_walk_pipeline(&head->p_link);
+}
 
-	return 1;
+void __ipipe_dispatch_wired(struct ipipe_domain *head, unsigned irq)
+{
+	struct ipipe_percpu_domain_data *p = ipipe_head_cpudom_ptr();
+
+	prefetchw(p);
+
+	if (unlikely(test_bit(IPIPE_LOCK_FLAG, &head->irqs[irq].control))) {
+		/*
+		 * If we can't process this IRQ right now, we must
+		 * mark it as held, so that it will get played during
+		 * normal log sync when the corresponding interrupt
+		 * source is eventually unlocked.
+		 */
+		p->irqall[irq]++;
+		__set_bit(irq & IPIPE_IRQ_IMASK, &p->irqheld_mask[irq >> IPIPE_IRQ_ISHIFT]);
+		return;
+	}
+
+	if (test_bit(IPIPE_STALL_FLAG, &p->status)) {
+		__ipipe_set_irq_pending(head, irq);
+		return;
+	}
+
+	__ipipe_dispatch_wired_nocheck(head, irq);
 }
 
 /*
@@ -1230,35 +1248,25 @@ int ipipe_unregister_domain(struct ipipe_domain *ipd)
  * a running interrupt handler to the next domain down the pipeline.
  * ipipe_schedule_irq() -- Does almost the same as above, but attempts
  * to pend the interrupt for the current domain first.
+ * Must be called hw IRQs off.
  */
-int __ipipe_schedule_irq(unsigned irq, struct list_head *head)
+void __ipipe_pend_irq(unsigned irq, struct list_head *head)
 {
 	struct ipipe_domain *ipd;
 	struct list_head *ln;
-	unsigned long flags;
 
 #ifdef CONFIG_IPIPE_DEBUG
-	if (irq >= IPIPE_NR_IRQS ||
-	    (ipipe_virtual_irq_p(irq)
-	     && !test_bit(irq - IPIPE_VIRQ_BASE, &__ipipe_virtual_irq_map)))
-		return -EINVAL;
+	BUG_ON(irq >= IPIPE_NR_IRQS ||
+	       (ipipe_virtual_irq_p(irq)
+		&& !test_bit(irq - IPIPE_VIRQ_BASE, &__ipipe_virtual_irq_map)));
 #endif
-	local_irq_save_hw(flags);
-	ln = head;
-
-	while (ln != &__ipipe_pipeline) {
+	for (ln = head; ln != &__ipipe_pipeline; ln = ipd->p_link.next) {
 		ipd = list_entry(ln, struct ipipe_domain, p_link);
 		if (test_bit(IPIPE_HANDLE_FLAG, &ipd->irqs[irq].control)) {
 			__ipipe_set_irq_pending(ipd, irq);
-			local_irq_restore_hw(flags);
-			return 1;
+			return;
 		}
-		ln = ipd->p_link.next;
 	}
-
-	local_irq_restore_hw(flags);
-
-	return 0;
 }
 
 /* ipipe_free_virq() -- Release a virtual/soft interrupt. */
@@ -1685,7 +1693,7 @@ EXPORT_SYMBOL(ipipe_set_ptd);
 EXPORT_SYMBOL(ipipe_get_ptd);
 EXPORT_SYMBOL(ipipe_set_irq_affinity);
 EXPORT_SYMBOL(ipipe_send_ipi);
-EXPORT_SYMBOL(__ipipe_schedule_irq);
+EXPORT_SYMBOL(__ipipe_pend_irq);
 #ifdef CONFIG_GENERIC_CLOCKEVENTS
 EXPORT_SYMBOL(ipipe_request_tickdev);
 EXPORT_SYMBOL(ipipe_release_tickdev);
