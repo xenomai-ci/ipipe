@@ -384,7 +384,6 @@ int ipipe_trigger_irq(unsigned irq)
 	     && !test_bit(irq - IPIPE_VIRQ_BASE, &__ipipe_virtual_irq_map)))
 		return -EINVAL;
 #endif
-
 	local_irq_save_hw(flags);
 	__ipipe_handle_irq(irq, NULL);
 	local_irq_restore_hw(flags);
@@ -403,13 +402,15 @@ void __ipipe_handle_irq(int irq, struct pt_regs *regs)
 	struct list_head *head, *pos;
 	int m_ack;
 
-	m_ack = (regs == NULL);	/* Software-triggered IRQs do not need
-				 * any ack. */
+	/* Software-triggered IRQs do not need any ack. */
+	m_ack = (regs == NULL);
+
+#ifdef CONFIG_IPIPE_DEBUG
 	if (unlikely(irq >= IPIPE_NR_IRQS)) {
 		printk(KERN_ERR "I-pipe: spurious interrupt %d\n", irq);
 		return;
 	}
-
+#endif
 	this_domain = ipipe_current_domain;
 
 	if (unlikely(test_bit(IPIPE_STICKY_FLAG, &this_domain->irqs[irq].control)))
@@ -420,8 +421,7 @@ void __ipipe_handle_irq(int irq, struct pt_regs *regs)
 		if (likely(test_bit(IPIPE_WIRED_FLAG, &next_domain->irqs[irq].control))) {
 			if (!m_ack && next_domain->irqs[irq].acknowledge)
 				next_domain->irqs[irq].acknowledge(irq, irq_desc + irq);
-			if (likely(__ipipe_dispatch_wired(next_domain, irq)))
-			    goto finalize;
+			__ipipe_dispatch_wired(next_domain, irq);
 			return;
 		}
 	}
@@ -432,6 +432,7 @@ void __ipipe_handle_irq(int irq, struct pt_regs *regs)
 
 	while (pos != &__ipipe_pipeline) {
 		next_domain = list_entry(pos, struct ipipe_domain, p_link);
+		prefetch(next_domain);
 		/*
 		 * For each domain handling the incoming IRQ, mark it as
 		 * pending in its log.
@@ -461,7 +462,15 @@ void __ipipe_handle_irq(int irq, struct pt_regs *regs)
 		pos = next_domain->p_link.next;
 	}
 
-finalize:
+	/*
+	 * If the interrupt preempted the head domain, then do not
+	 * even try to walk the pipeline, unless an interrupt is
+	 * pending for it.
+	 */
+	if (test_bit(IPIPE_AHEAD_FLAG, &this_domain->flags) &&
+	    ipipe_head_cpudom_var(irqpend_himask) == 0)
+		return;
+
 	/*
 	 * Now walk the pipeline, yielding control to the highest
 	 * priority domain that has pending interrupt(s) or
@@ -479,19 +488,26 @@ int __ipipe_grab_irq(struct pt_regs *regs)
 	int irq;
 
 	irq = ppc_md.get_irq();
+	if (unlikely(irq == NO_IRQ)) {
+		ppc_spurious_interrupts++;
+		goto root_checks;
+	}
 
-	if (irq != NO_IRQ && irq != NO_IRQ_IGNORE) {
+	if (likely(irq != NO_IRQ_IGNORE)) {
 		ipipe_trace_irq_entry(irq);
 #ifdef CONFIG_SMP
-		/* check for cascaded I-pipe IPIs */
-		if (irq == __ipipe_ipi_irq)
+		/* Check for cascaded I-pipe IPIs */
+		if (irq == __ipipe_ipi_irq) {
 			__ipipe_ipi_demux(irq);
-		else
+			ipipe_trace_irq_exit(irq);
+			goto root_checks;
+		}
 #endif /* CONFIG_SMP */
-			__ipipe_handle_irq(irq, regs);
+		__ipipe_handle_irq(irq, regs);
 		ipipe_trace_irq_exit(irq);
-	} else if (irq != NO_IRQ_IGNORE)
-		ppc_spurious_interrupts++;
+	}
+
+root_checks:
 
 	if (ipipe_root_domain_p) {
 #ifdef CONFIG_PPC_970_NAP
@@ -569,21 +585,39 @@ static void __ipipe_do_timer(unsigned irq, void *cookie)
 
 int __ipipe_grab_timer(struct pt_regs *regs)
 {
-	ipipe_trace_irq_entry(IPIPE_TIMER_VIRQ);
+	struct ipipe_domain *ipd, *head;
+
+	ipd = ipipe_current_domain;
+	head = __ipipe_pipeline_head();
 
 	set_dec(DECREMENTER_MAX);
+
+	ipipe_trace_irq_entry(IPIPE_TIMER_VIRQ);
 
 	__raw_get_cpu_var(__ipipe_tick_regs).msr = regs->msr; /* for timer_interrupt() */
 	__raw_get_cpu_var(__ipipe_tick_regs).nip = regs->nip;
 
-	if (!ipipe_root_domain_p)
+	if (ipd != &ipipe_root)
 		__raw_get_cpu_var(__ipipe_tick_regs).msr &= ~MSR_EE;
 
-	__ipipe_handle_irq(IPIPE_TIMER_VIRQ, NULL);
+	if (test_bit(IPIPE_WIRED_FLAG, &head->irqs[IPIPE_TIMER_VIRQ].control))
+		/*
+		 * Finding a wired IRQ means that we do have a
+		 * registered head domain as well. The decrementer
+		 * interrupt requires no acknowledge, so we may branch
+		 * to the wired IRQ dispatcher directly. Additionally,
+		 * we may bypass checks for locked interrupts or
+		 * stalled stage (the decrementer cannot be locked and
+		 * the head domain is obviously not stalled since we
+		 * got there).
+		 */
+		__ipipe_dispatch_wired_nocheck(head, IPIPE_TIMER_VIRQ);
+	else
+		__ipipe_handle_irq(IPIPE_TIMER_VIRQ, NULL);
 
 	ipipe_trace_irq_exit(IPIPE_TIMER_VIRQ);
 
-	if (ipipe_root_domain_p) {
+	if (ipd == &ipipe_root) {
 #ifdef CONFIG_PPC_970_NAP
 		struct thread_info *ti = current_thread_info();
 		/* Emulate the napping check when 100% sure we do run
