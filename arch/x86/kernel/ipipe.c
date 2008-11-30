@@ -884,10 +884,8 @@ int __ipipe_handle_irq(struct pt_regs *regs)
 	if (likely(test_bit(IPIPE_WIRED_FLAG, &next_domain->irqs[irq].control))) {
 		if (!m_ack && next_domain->irqs[irq].acknowledge)
 			next_domain->irqs[irq].acknowledge(irq, irq_desc + irq);
-		if (likely(__ipipe_dispatch_wired(next_domain, irq))) {
-			goto finalize;
-		} else
-			goto finalize_nosync;
+		__ipipe_dispatch_wired(next_domain, irq);
+		goto finalize_nosync;
 	}
 
 	this_domain = ipipe_current_domain;
@@ -933,13 +931,25 @@ int __ipipe_handle_irq(struct pt_regs *regs)
 		pos = next_domain->p_link.next;
 	}
 
-finalize:
+	/*
+	 * Now walk the pipeline, yielding control to the highest
+	 * priority domain that has pending interrupt(s) or
+	 * immediately to the current domain if the interrupt has been
+	 * marked as 'sticky'. This search does not go beyond the
+	 * current domain in the pipeline.
+	 */
 
-	/* Given our deferred dispatching model for regular IRQs, we
+	__ipipe_walk_pipeline(head);
+
+finalize_nosync:
+
+	/*
+	 * Given our deferred dispatching model for regular IRQs, we
 	 * only record CPU regs for the last timer interrupt, so that
 	 * the timer handler charges CPU times properly. It is assumed
 	 * that other interrupt handlers don't actually care for such
-	 * information. */
+	 * information.
+	 */
 
 	if (irq == __ipipe_tick_irq) {
 		struct pt_regs *tick_regs = &__raw_get_cpu_var(__ipipe_tick_regs);
@@ -959,18 +969,6 @@ finalize:
 		if (!ipipe_root_domain_p)
 			tick_regs->flags &= ~X86_EFLAGS_IF;
 	}
-
-	/*
-	 * Now walk the pipeline, yielding control to the highest
-	 * priority domain that has pending interrupt(s) or
-	 * immediately to the current domain if the interrupt has been
-	 * marked as 'sticky'. This search does not go beyond the
-	 * current domain in the pipeline.
-	 */
-
-	__ipipe_walk_pipeline(head);
-
-finalize_nosync:
 
 	if (!ipipe_root_domain_p ||
 	    test_bit(IPIPE_STALL_FLAG, &ipipe_root_cpudom_var(status)))
