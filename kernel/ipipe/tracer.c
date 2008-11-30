@@ -95,6 +95,7 @@ enum ipipe_trace_type
 	IPIPE_TRACE_FREEZE,
 	IPIPE_TRACE_SPECIAL,
 	IPIPE_TRACE_PID,
+	IPIPE_TRACE_EVENT,
 };
 
 #define IPIPE_TYPE_MASK             0x0007
@@ -501,6 +502,16 @@ void notrace ipipe_trace_pid(pid_t pid, short prio)
 }
 EXPORT_SYMBOL(ipipe_trace_pid);
 
+void notrace ipipe_trace_event(unsigned char id, unsigned long delay_tsc)
+{
+	if (!ipipe_trace_enable)
+		return;
+	__ipipe_trace(IPIPE_TRACE_EVENT | (id << IPIPE_TYPE_BITS),
+	              __BUILTIN_RETURN_ADDRESS0,
+	              __BUILTIN_RETURN_ADDRESS1, delay_tsc);
+}
+EXPORT_SYMBOL(ipipe_trace_event);
+
 int ipipe_trace_max_reset(void)
 {
 	int cpu;
@@ -592,6 +603,27 @@ __ipipe_get_task_info(char *task_info, struct ipipe_trace_point *point,
 	strcpy(task_info + (11 - strlen(buf)), buf);
 }
 
+static void
+__ipipe_get_event_date(char *buf,struct ipipe_trace_path *path,
+		       struct ipipe_trace_point *point)
+{
+	long time;
+	int type;
+
+	time = __ipipe_signed_tsc2us(point->timestamp -
+				     path->point[path->begin].timestamp + point->v);
+	type = point->type >> IPIPE_TYPE_BITS;
+
+	if (type == 0)
+		/*
+		 * Event type #0 is predefined, stands for the next
+		 * timer tick.
+		 */
+		sprintf(buf, "tick@%-6ld", time);
+	else
+		sprintf(buf, "%3d@%-7ld", type, time);
+}
+
 #ifdef CONFIG_IPIPE_TRACE_PANIC
 void ipipe_trace_panic_freeze(void)
 {
@@ -616,7 +648,7 @@ void ipipe_trace_panic_dump(void)
 {
 	int cnt = back_trace;
 	int start, pos;
-	char task_info[12];
+	char buf[16];
 
 	if (!panic_path)
 		return;
@@ -630,7 +662,7 @@ void ipipe_trace_panic_dump(void)
 	while (cnt-- > 0) {
 		struct ipipe_trace_point *point = &panic_path->point[pos];
 		long time;
-		char buf[16];
+		char info[16];
 		int i;
 
 		printk(" %c",
@@ -648,7 +680,7 @@ void ipipe_trace_panic_dump(void)
 			printk("-<invalid>-\n");
 		else {
 			__ipipe_trace_point_type(buf, point);
-			printk(buf);
+			printk("%s", buf);
 
 			switch (point->type & IPIPE_TYPE_MASK) {
 				case IPIPE_TRACE_FUNC:
@@ -656,9 +688,15 @@ void ipipe_trace_panic_dump(void)
 					break;
 
 				case IPIPE_TRACE_PID:
-					__ipipe_get_task_info(task_info,
+					__ipipe_get_task_info(info,
 							      point, 1);
-					printk(task_info);
+					printk(info);
+					break;
+
+				case IPIPE_TRACE_EVENT:
+					__ipipe_get_event_date(info,
+							       panic_path, point);
+					printk("%s", info);
 					break;
 
 				default:
@@ -735,6 +773,10 @@ __ipipe_trace_point_type(char *buf, struct ipipe_trace_point *point)
 
 		case IPIPE_TRACE_PID:
 			sprintf(buf, "[%5d] ", (pid_t)point->v);
+			break;
+
+		case IPIPE_TRACE_EVENT:
+			sprintf(buf, "event   ");
 			break;
 	}
 }
@@ -984,6 +1026,11 @@ static int __ipipe_prtrace_show(struct seq_file *m, void *p)
 
 			case IPIPE_TRACE_PID:
 				__ipipe_get_task_info(buf, point, 0);
+				seq_puts(m, buf);
+				break;
+
+			case IPIPE_TRACE_EVENT:
+				__ipipe_get_event_date(buf, print_path, point);
 				seq_puts(m, buf);
 				break;
 
