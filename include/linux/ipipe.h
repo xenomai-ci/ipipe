@@ -393,6 +393,11 @@ static inline void __ipipe_schedule_irq_head(unsigned irq)
 	__ipipe_set_irq_pending(__ipipe_pipeline_head(), irq);
 }
 
+static inline void __ipipe_schedule_irq_root(unsigned irq)
+{
+	__ipipe_set_irq_pending(&ipipe_root, irq);
+}
+
 static inline void ipipe_propagate_irq(unsigned irq)
 {
 	unsigned long flags;
@@ -417,6 +422,15 @@ static inline void ipipe_schedule_irq_head(unsigned irq)
 
 	local_irq_save_hw(flags);
 	__ipipe_schedule_irq_head(irq);
+	local_irq_restore_hw(flags);
+}
+
+static inline void ipipe_schedule_irq_root(unsigned irq)
+{
+	unsigned long flags;
+
+	local_irq_save_hw(flags);
+	__ipipe_schedule_irq_root(irq);
 	local_irq_restore_hw(flags);
 }
 
