@@ -420,12 +420,6 @@ static inline void ipipe_schedule_irq_head(unsigned irq)
 	local_irq_restore_hw(flags);
 }
 
-static inline int ipipe_schedule_irq_head(unsigned irq)
-{
-	__ipipe_set_irq_pending(__ipipe_pipeline_head(), irq);
-	return 1;
-}
-
 void ipipe_stall_pipeline_from(struct ipipe_domain *ipd);
 
 unsigned long ipipe_test_and_stall_pipeline_from(struct ipipe_domain *ipd);
