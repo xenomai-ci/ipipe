@@ -32,18 +32,20 @@ void ipipe_trace_end(unsigned long v);
 void ipipe_trace_freeze(unsigned long v);
 void ipipe_trace_special(unsigned char special_id, unsigned long v);
 void ipipe_trace_pid(pid_t pid, short prio);
+void ipipe_trace_event(unsigned char id, unsigned long delay_tsc);
 int ipipe_trace_max_reset(void);
 int ipipe_trace_frozen_reset(void);
 
 #else /* !CONFIG_IPIPE_TRACE */
 
-#define ipipe_trace_begin(v)		do { (void)(v); } while(0)
-#define ipipe_trace_end(v)		do { (void)(v); } while(0)
-#define ipipe_trace_freeze(v)		do { (void)(v); } while(0)
-#define ipipe_trace_special(id, v)	do { (void)(id); (void)(v); } while(0)
-#define ipipe_trace_pid(pid, prio)	do { (void)(pid); (void)(prio); } while(0)
-#define ipipe_trace_max_reset()		do { } while(0)
-#define ipipe_trace_froze_reset()	do { } while(0)
+#define ipipe_trace_begin(v)			do { (void)(v); } while(0)
+#define ipipe_trace_end(v)			do { (void)(v); } while(0)
+#define ipipe_trace_freeze(v)			do { (void)(v); } while(0)
+#define ipipe_trace_special(id, v)		do { (void)(id); (void)(v); } while(0)
+#define ipipe_trace_pid(pid, prio)		do { (void)(pid); (void)(prio); } while(0)
+#define ipipe_trace_event(id, delay_tsc)	do { (void)(id); (void)(delay_tsc); } while(0)
+#define ipipe_trace_max_reset()			do { } while(0)
+#define ipipe_trace_froze_reset()		do { } while(0)
 
 #endif /* !CONFIG_IPIPE_TRACE */
 
