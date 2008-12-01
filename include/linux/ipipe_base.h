@@ -47,6 +47,7 @@
 
 #define IPIPE_STALL_MASK	(1L << IPIPE_STALL_FLAG)
 #define IPIPE_SYNC_MASK		(1L << IPIPE_SYNC_FLAG)
+#define IPIPE_NOSTACK_MASK	(1L << IPIPE_NOSTACK_FLAG)
 
 typedef void (*ipipe_irq_handler_t)(unsigned irq,
 				    void *cookie);
@@ -71,10 +72,11 @@ static inline void ipipe_check_context(struct ipipe_domain *border_ipd) { }
 /* Generic features */
 
 #ifdef CONFIG_GENERIC_CLOCKEVENTS
-#define __IPIPE_FEATURE_REQUEST_TICKDEV  1
+#define __IPIPE_FEATURE_REQUEST_TICKDEV    1
 #endif
-
-#define __IPIPE_FEATURE_DELAYED_ATOMICSW 1
+#define __IPIPE_FEATURE_DELAYED_ATOMICSW   1
+#define __IPIPE_FEATURE_FASTPEND_IRQ       1
+#define __IPIPE_FEATURE_TRACE_EVENT	   1
 
 #else /* !CONFIG_IPIPE */
 #define ipipe_preempt_disable(flags)	do { \
