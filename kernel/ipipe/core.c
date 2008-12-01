@@ -561,7 +561,6 @@ void __ipipe_unlock_irq(struct ipipe_domain *ipd, unsigned irq)
  * __ipipe_walk_pipeline(): Plays interrupts pending in the log. Must
  * be called with local hw interrupts disabled.
  */
-
 void __ipipe_walk_pipeline(struct list_head *pos)
 {
 	struct ipipe_domain *this_domain = ipipe_current_domain, *next_domain;
@@ -650,7 +649,7 @@ void ipipe_suspend_domain(void)
 			break;
 
 		next_domain = list_entry(ln, struct ipipe_domain, p_link);
-		p = ipipe_cpudom_ptr(this_domain);
+		p = ipipe_cpudom_ptr(next_domain);
 
 		if (p->status & IPIPE_STALL_MASK)
 			break;
@@ -659,7 +658,6 @@ void ipipe_suspend_domain(void)
 			continue;
 
 		ipipe_current_domain = next_domain;
-
 sync_stage:
 		__ipipe_sync_pipeline(IPIPE_IRQMASK_ANY);
 
@@ -675,6 +673,7 @@ sync_stage:
 
 	local_irq_restore_hw(flags);
 }
+
 
 /* ipipe_alloc_virq() -- Allocate a pipelined virtual/soft interrupt.
  * Virtual interrupts are handled in exactly the same way than their
@@ -931,37 +930,9 @@ int __ipipe_dispatch_event (unsigned event, void *data)
  * Called with hw interrupts off.
  */
 
-void __ipipe_dispatch_wired_nocheck(struct ipipe_domain *head, unsigned irq)
-{
-	struct ipipe_percpu_domain_data *p = ipipe_cpudom_ptr(head);
-	struct ipipe_domain *old;
-
-	prefetchw(p);
-
-	old = ipipe_current_domain;
-	ipipe_current_domain = head; /* Switch to the head domain. */
-
-	p->irqall[irq]++;
-	p->status |= (IPIPE_STALL_MASK|IPIPE_SYNC_MASK);
-	head->irqs[irq].handler(irq, head->irqs[irq].cookie); /* Call the ISR. */
-	__ipipe_run_irqtail();
-	p->status &= ~(IPIPE_STALL_MASK|IPIPE_SYNC_MASK);
-
-	if (ipipe_current_domain == head) {
-		ipipe_current_domain = old;
-		if (old == head) {
-			if (p->irqpend_himask)
-				__ipipe_sync_pipeline(IPIPE_IRQMASK_ANY);
-			return;
-		}
-	}
-
-	__ipipe_walk_pipeline(&head->p_link);
-}
-
 void __ipipe_dispatch_wired(struct ipipe_domain *head, unsigned irq)
 {
-	struct ipipe_percpu_domain_data *p = ipipe_head_cpudom_ptr();
+	struct ipipe_percpu_domain_data *p = ipipe_cpudom_ptr(head);
 
 	prefetchw(p);
 
@@ -983,6 +954,34 @@ void __ipipe_dispatch_wired(struct ipipe_domain *head, unsigned irq)
 	}
 
 	__ipipe_dispatch_wired_nocheck(head, irq);
+}
+
+void __ipipe_dispatch_wired_nocheck(struct ipipe_domain *head, unsigned irq)
+{
+	struct ipipe_percpu_domain_data *p = ipipe_cpudom_ptr(head);
+	struct ipipe_domain *old;
+
+	prefetchw(p);
+
+	old = ipipe_current_domain;
+	ipipe_current_domain = head; /* Switch to the head domain. */
+
+	p->irqall[irq]++;
+	__set_bit(IPIPE_STALL_FLAG, &p->status);
+	head->irqs[irq].handler(irq, head->irqs[irq].cookie); /* Call the ISR. */
+	__ipipe_run_irqtail();
+	__clear_bit(IPIPE_STALL_FLAG, &p->status);
+
+	if (ipipe_current_domain == head) {
+		ipipe_current_domain = old;
+		if (old == head) {
+			if (p->irqpend_himask)
+				__ipipe_sync_pipeline(IPIPE_IRQMASK_ANY);
+			return;
+		}
+	}
+
+	__ipipe_walk_pipeline(&head->p_link);
 }
 
 /*
