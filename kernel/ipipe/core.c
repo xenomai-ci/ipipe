@@ -933,7 +933,7 @@ int __ipipe_dispatch_event (unsigned event, void *data)
 
 void __ipipe_dispatch_wired_nocheck(struct ipipe_domain *head, unsigned irq)
 {
-	struct ipipe_percpu_domain_data *p = ipipe_head_cpudom_ptr();
+	struct ipipe_percpu_domain_data *p = ipipe_cpudom_ptr(head);
 	struct ipipe_domain *old;
 
 	prefetchw(p);
