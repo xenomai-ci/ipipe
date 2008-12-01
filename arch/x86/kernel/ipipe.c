@@ -506,6 +506,8 @@ asmlinkage int __ipipe_kpreempt_root(struct pt_regs regs)
 
 asmlinkage void __ipipe_unstall_iret_root(struct pt_regs regs)
 {
+	struct ipipe_percpu_domain_data *p = ipipe_root_cpudom_ptr();
+
 	/* Emulate IRET's handling of the interrupt flag. */
 
 	local_irq_disable_hw();
@@ -515,19 +517,19 @@ asmlinkage void __ipipe_unstall_iret_root(struct pt_regs regs)
 	   emulation. */
 
 	if (!(regs.flags & X86_EFLAGS_IF)) {
-		if (!__test_and_set_bit(IPIPE_STALL_FLAG, &ipipe_root_cpudom_var(status)))
+		if (!__test_and_set_bit(IPIPE_STALL_FLAG, &p->status))
 			trace_hardirqs_off();
 		regs.flags |= X86_EFLAGS_IF;
 	} else {
-		if (test_bit(IPIPE_STALL_FLAG, &ipipe_root_cpudom_var(status))) {
+		if (test_bit(IPIPE_STALL_FLAG, &p->status)) {
 			trace_hardirqs_on();
-			__clear_bit(IPIPE_STALL_FLAG, &ipipe_root_cpudom_var(status));
+			__clear_bit(IPIPE_STALL_FLAG, &p->status);
 		}
 
 		/* Only sync virtual IRQs here, so that we don't recurse
 		   indefinitely in case of an external interrupt flood. */
 
-		if ((ipipe_root_cpudom_var(irqpend_himask) & IPIPE_IRQMASK_VIRT) != 0)
+		if ((p->irqpend_himask & IPIPE_IRQMASK_VIRT) != 0)
 			__ipipe_sync_pipeline(IPIPE_IRQMASK_VIRT);
 	}
 #ifdef CONFIG_IPIPE_TRACE_IRQSOFF
@@ -589,15 +591,17 @@ asmlinkage void preempt_schedule_irq(void);
  */
 asmlinkage int __ipipe_preempt_schedule_irq(void)
 {
-	if (test_bit(IPIPE_STALL_FLAG, &ipipe_root_cpudom_var(status)))
+	struct ipipe_percpu_domain_data *p = ipipe_root_cpudom_ptr();
+
+	if (test_bit(IPIPE_STALL_FLAG, &p->status))
 		/* Root stage is stalled: rescheduling denied. */
 		return 0;
 
-	__set_bit(IPIPE_STALL_FLAG, &ipipe_root_cpudom_var(status));
+	__set_bit(IPIPE_STALL_FLAG, &p->status);
 	local_irq_enable_hw();
 	preempt_schedule_irq(); /* Ok, may reschedule now. */
 	local_irq_disable_hw();
-	__clear_bit(IPIPE_STALL_FLAG, &ipipe_root_cpudom_var(status));
+	__clear_bit(IPIPE_STALL_FLAG, &p->status);
 
 	return 1;
 }
@@ -879,19 +883,20 @@ int __ipipe_handle_irq(struct pt_regs *regs)
 	}
 
 #endif /* !CONFIG_X86_32 */
-	head = __ipipe_pipeline.next;
-	next_domain = list_entry(head, struct ipipe_domain, p_link);
-	if (likely(test_bit(IPIPE_WIRED_FLAG, &next_domain->irqs[irq].control))) {
-		if (!m_ack && next_domain->irqs[irq].acknowledge)
-			next_domain->irqs[irq].acknowledge(irq, irq_desc + irq);
-		__ipipe_dispatch_wired(next_domain, irq);
-		goto finalize_nosync;
-	}
-
 	this_domain = ipipe_current_domain;
 
 	if (test_bit(IPIPE_STICKY_FLAG, &this_domain->irqs[irq].control))
 		head = &this_domain->p_link;
+	else {
+		head = __ipipe_pipeline.next;
+		next_domain = list_entry(head, struct ipipe_domain, p_link);
+		if (likely(test_bit(IPIPE_WIRED_FLAG, &next_domain->irqs[irq].control))) {
+			if (!m_ack && next_domain->irqs[irq].acknowledge)
+				next_domain->irqs[irq].acknowledge(irq, irq_desc + irq);
+			__ipipe_dispatch_wired(next_domain, irq);
+			goto finalize_nosync;
+		}
+	}
 
 	/* Ack the interrupt. */
 
@@ -899,37 +904,26 @@ int __ipipe_handle_irq(struct pt_regs *regs)
 
 	while (pos != &__ipipe_pipeline) {
 		next_domain = list_entry(pos, struct ipipe_domain, p_link);
-
-		/*
-		 * For each domain handling the incoming IRQ, mark it
-		 * as pending in its log.
-		 */
 		if (test_bit(IPIPE_HANDLE_FLAG, &next_domain->irqs[irq].control)) {
-			/*
-			 * Domains that handle this IRQ are polled for
-			 * acknowledging it by decreasing priority
-			 * order. The interrupt must be made pending
-			 * _first_ in the domain's status flags before
-			 * the PIC is unlocked.
-			 */
 			__ipipe_set_irq_pending(next_domain, irq);
-
 			if (!m_ack && next_domain->irqs[irq].acknowledge) {
 				next_domain->irqs[irq].acknowledge(irq, irq_desc + irq);
 				m_ack = 1;
 			}
 		}
-
-		/*
-		 * If the domain does not want the IRQ to be passed
-		 * down the interrupt pipe, exit the loop now.
-		 */
-
 		if (!test_bit(IPIPE_PASS_FLAG, &next_domain->irqs[irq].control))
 			break;
-
 		pos = next_domain->p_link.next;
 	}
+
+	/*
+	 * If the interrupt preempted the head domain, then do not
+	 * even try to walk the pipeline, unless an interrupt is
+	 * pending for it.
+	 */
+	if (test_bit(IPIPE_AHEAD_FLAG, &this_domain->flags) &&
+	    ipipe_head_cpudom_var(irqpend_himask) == 0)
+		goto finalize_nosync;
 
 	/*
 	 * Now walk the pipeline, yielding control to the highest
