@@ -576,23 +576,6 @@ void __ipipe_walk_pipeline(struct list_head *pos)
 		if (test_bit(IPIPE_STALL_FLAG, &np->status))
 			break;	/* Stalled stage -- do not go further. */
 
-		if (next_domain == &ipipe_root) {
-			/*
-			 * Allow pending hw interrupts directed at
-			 * higher priority domains to be taken while
-			 * syncing pending IRQs from the low priority
-			 * Linux stage. This reduces interrupt latency
-			 * by shortening the masked section that
-			 * starts from __ipipe_handle_irq() in the
-			 * arch-dep section, and ends when a root
-			 * handler is fired, or at the end of this
-			 * loop walk - whichever comes first.
-			 */
-			local_irq_enable_hw();
-			cpu_relax();
-			local_irq_disable_hw();
-		}
-
 		if (np->irqpend_himask) {
 			if (next_domain == this_domain)
 				__ipipe_sync_pipeline(IPIPE_IRQMASK_ANY);
