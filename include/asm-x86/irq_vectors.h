@@ -80,7 +80,7 @@
 #ifdef CONFIG_IPIPE
 #define INVALIDATE_TLB_VECTOR_END	0xf2
 #define INVALIDATE_TLB_VECTOR_START	0xf0	/* f0-f2 used for TLB flush */
-#define NUM_INVALIDATE_TLB_VECTORS	4	/* f3-f7 used by I-pipe */
+#define NUM_INVALIDATE_TLB_VECTORS	3	/* f3-f7 used by I-pipe */
 #else /* !CONFIG_IPIPE */
 #define INVALIDATE_TLB_VECTOR_END	0xf7
 #define INVALIDATE_TLB_VECTOR_START	0xf0	/* f0-f7 used for TLB flush */
