@@ -575,7 +575,7 @@ static void generic_set_all(void)
 			set_bit(count, &smp_changes_mask);
 		mask >>= 1;
 	}
-	local_irq_restore_hw(flags);
+	
 }
 
 static void generic_set_mtrr(unsigned int reg, unsigned long base,
