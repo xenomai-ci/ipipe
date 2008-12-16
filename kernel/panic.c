@@ -21,6 +21,7 @@
 #include <linux/debug_locks.h>
 #include <linux/random.h>
 #include <linux/kallsyms.h>
+#include <linux/ipipe_trace.h>
 
 int panic_on_oops;
 int tainted;
