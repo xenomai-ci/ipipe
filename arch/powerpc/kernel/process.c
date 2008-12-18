@@ -398,7 +398,7 @@ struct task_struct *__switch_to(struct task_struct *prev,
 	}
 #endif
 
-	local_irq_save(flags);
+	local_irq_save_hw(flags);
 
 	account_system_vtime(current);
 	account_process_vtime(current);
@@ -417,7 +417,7 @@ struct task_struct *__switch_to(struct task_struct *prev,
 	vsid = get_vsid(current->mm->context.id, 0, ssize);
 
 	/* current is still really us, just a different us :-) */
-	if (current->mm) {
+	if (ipipe_root_domain_p && current->mm) {
 #ifdef CONFIG_PPC_64K_PAGES
 		__hash_page_64K(0, _PAGE_USER|_PAGE_RW, vsid, &current->zero_pte.pte, 0x300, 1, ssize);
 #else
@@ -426,7 +426,7 @@ struct task_struct *__switch_to(struct task_struct *prev,
 	}
 #endif
 
-	local_irq_restore(flags);
+	local_irq_restore_hw(flags);
 
 	return last;
 }
@@ -1075,7 +1075,7 @@ void dump_stack(void)
 }
 EXPORT_SYMBOL(dump_stack);
 
-#ifdef CONFIG_PPC64
+#ifdef CONFIG_RUNLATCH
 void ppc64_runlatch_on(void)
 {
 	unsigned long ctrl;

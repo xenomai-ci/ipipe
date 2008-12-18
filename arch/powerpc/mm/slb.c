@@ -106,7 +106,9 @@ void slb_flush_and_rebolt(void)
 	unsigned long linear_llp, vmalloc_llp, lflags, vflags;
 	unsigned long ksp_esid_data, ksp_vsid_data;
 
+#ifndef CONFIG_IPIPE
 	WARN_ON(!irqs_disabled());
+#endif
 
 	linear_llp = mmu_psize_defs[mmu_linear_psize].sllp;
 	vmalloc_llp = mmu_psize_defs[mmu_vmalloc_psize].sllp;

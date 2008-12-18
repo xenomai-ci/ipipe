@@ -146,8 +146,10 @@ void arch_send_call_function_ipi(cpumask_t mask)
 #ifdef CONFIG_DEBUGGER
 void smp_send_debugger_break(int cpu)
 {
-	if (likely(smp_ops))
+	if (likely(smp_ops)) {
+		cpu_set(cpu, __ipipe_dbrk_pending);
 		smp_ops->message_pass(cpu, PPC_MSG_DEBUGGER_BREAK);
+	}
 }
 #endif
 
@@ -156,6 +158,8 @@ void crash_send_ipi(void (*crash_ipi_callback)(struct pt_regs *))
 {
 	crash_ipi_function_ptr = crash_ipi_callback;
 	if (crash_ipi_callback && smp_ops) {
+		cpu_setall(__ipipe_dbrk_pending);
+		cpu_clear(ipipe_processor_id(), __ipipe_dbrk_pending);
 		mb();
 		smp_ops->message_pass(MSG_ALL_BUT_SELF, PPC_MSG_DEBUGGER_BREAK);
 	}
@@ -435,6 +439,9 @@ int __devinit start_secondary(void *unused)
 	struct device_node *l2_cache;
 	int i, base;
 
+#if defined(CONFIG_IPIPE) && defined(CONFIG_PPC64)
+	get_paca()->root_percpu = (u64)&ipipe_percpudom(&ipipe_root, status, cpu);
+#endif
 	atomic_inc(&init_mm.mm_count);
 	current->active_mm = &init_mm;
 
