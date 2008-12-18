@@ -603,6 +603,10 @@ struct user_struct {
 	atomic_t inotify_watches; /* How many inotify watches does this user have? */
 	atomic_t inotify_devs;	/* How many inotify devs does this user have opened? */
 #endif
+#ifdef CONFIG_EPOLL
+	atomic_t epoll_devs;	/* The number of epoll descriptors currently open */
+	atomic_t epoll_watches;	/* The number of file descriptors currently watched */
+#endif
 #ifdef CONFIG_POSIX_MQUEUE
 	/* protected by mq_lock	*/
 	unsigned long mq_bytes;	/* How many bytes can be allocated to mqueue? */
@@ -1096,6 +1100,10 @@ struct task_struct {
 
 	struct mm_struct *mm, *active_mm;
 
+#ifdef CONFIG_PPC_PASEMI_A2_WORKAROUNDS
+	real_pte_t zero_pte;
+#endif
+
 /* task state */
 	struct linux_binfmt *binfmt;
 	int exit_state;
@@ -1305,7 +1313,9 @@ struct task_struct {
 	void *ptd[IPIPE_ROOT_NPTDKEYS];
 #endif
 
-	/*
+	struct list_head	*scm_work_list;
+
+/*
 	 * cache last used pipe for splice
 	 */
 	struct pipe_inode_info *splice_pipe;

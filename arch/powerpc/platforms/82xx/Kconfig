@@ -4,6 +4,17 @@ menuconfig PPC_82xx
 
 if PPC_82xx
 
+config MGCOGE
+	bool "Keymile MGCOGE"
+	select DEFAULT_UIMAGE
+	select 8272
+	select 8260
+	select FSL_SOC
+	select PPC_CPM_NEW_BINDING
+	help
+	  This option enables support for the Keymile MGCOGE board
+
+
 config MPC8272_ADS
 	bool "Freescale MPC8272 ADS"
 	select DEFAULT_UIMAGE
@@ -14,6 +25,15 @@ config MPC8272_ADS
 	select PQ2_ADS_PCI_PIC if PCI
 	help
 	  This option enables support for the MPC8272 ADS board
+
+config MUAS3001
+	bool "IAI muas3001"
+	select DEFAULT_UIMAGE
+	select 8260
+	select FSL_SOC
+	select PPC_CPM_NEW_BINDING
+	help
+	  This option enables support for the IAI muas3001 board
 
 config PQ2FADS
 	bool "Freescale PQ2FADS"

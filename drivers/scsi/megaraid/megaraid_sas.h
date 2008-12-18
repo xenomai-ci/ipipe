@@ -133,6 +133,19 @@
 #define MR_DCMD_CLUSTER_RESET_LD		0x08010200
 
 /*
+ * Command codes derived from sources of megactl utility written by
+ * Jefferson Ogata
+ */
+#define MR_DCMD_MEGACTL_GET_PHYSICAL_DISK_INFO	0x02020000
+#define MR_DCMD_MEGACTL_GET_DEVICE_LIST		0x02010000
+#define MR_DCMD_MEGACTL_GET_ARRAY_CONFIG	0x04010000
+#define MR_DCMD_MEGACTL_GET_BATTERY_STATE	0x05010000
+#define MR_DCMD_MEGACTL_GET_BATTERY_CAPACITY	0x05020000
+#define MR_DCMD_MEGACTL_GET_BATTERY_DESIGN	0x05030000
+#define MR_DCMD_MEGACTL_GET_BATTERY_PROPERTIES	0x05050100
+#define MR_DCMD_MEGACTL_PING			0x04060100
+
+/*
  * MFI command completion codes
  */
 enum MFI_STAT {
@@ -1204,5 +1217,198 @@ struct megasas_mgmt_info {
 	struct megasas_instance *instance[MAX_MGMT_ADAPTERS];
 	int max_index;
 };
+
+/**
+ * Structures info taken from sources of megactl utility written by
+ * Jefferson Ogata
+ */
+struct megasas_device_entry {
+	u16	device_id;
+	u16	enclosure;
+	u8	value_1;
+	u8	slot;
+	u8	type;
+	u8	port;
+	u64	sas_address[2];
+} __attribute__ ((packed));
+
+struct megasas_device_list {
+	u32	length;
+	u16	num_devices;
+	u16	rsvd0;
+	struct megasas_device_entry device[32]; /* num_devices */
+} __attribute__ ((packed));
+
+struct megasas_array_header {
+	u32	length;
+	u16	num_span_defs;
+	u16	span_def_size;
+	u16	num_disk_defs;
+	u16	disk_def_size;
+	u16	num_hot_spares;
+	u16	value_0028;
+	u32	pad0[4];
+} __attribute__ ((packed));
+
+struct megasas_array_span_disk {
+	u16	device_id;
+	u16	sequence;
+	u8	flag_0:1;
+	u8	hotspare:1;
+	u8	rebuild:1;
+	u8	online:1;
+	u8	present:1;
+	u8	flag_1:1;
+	u8	enclosure;
+	u8	slot;
+} __attribute__ ((packed));
+
+struct megasas_array_span_def {
+	u64	sectors_per_disk;
+	u16	span_size;
+	u16	span_index;
+	u32	value_1;
+	u32	pad0[4];
+	struct megasas_array_span_disk	disk[32];
+} __attribute__ ((packed));
+
+struct megasas_array_disk_entry {
+	u64	offset;
+	u64	sectors_per_disk;
+	u16	span_index;
+	u16	pad2;
+	u32	pad3;
+} __attribute__ ((packed));
+
+struct megasas_array_disk_def {
+	u16	disk_index;
+	u16	sequence;
+	char	name[16];
+	u32	flags;
+	u32	pad0[2];
+	u8	raid_level;
+	u8	raid_level_secondary;
+	u8	raid_level_qualifier;
+	u8	stripe_size;
+	u8	disks_per_span;
+	u8	num_spans;
+	u16	state;
+	u32	value4;
+	u32	pad1[5];
+	struct megasas_array_disk_entry	span[8];
+} __attribute__ ((packed));
+
+struct megasas_array_hotspare_def {
+	u16	device_id;
+	u16	sequence;
+	u32	flags;
+	u32	array;
+	u32	pad0[7];
+} __attribute__ ((packed));
+
+struct megasas_physical_disk_info {
+	u16	device_id;
+	u16	sequence;
+	u8	inquiry_buff[96];
+	u16	value_x;
+	u16	value_y;
+	u8	mystery_data[60];
+	u16	value_0;
+	u8	port;
+	u8	value_1;
+	u32	media_errors;
+	u32	other_errors;
+	u32	predictive_failures;
+	u32	predictive_failure_event_sequence;
+	u8	failure:1;
+	u8	hotspare:1;
+	u8	rebuild:1;
+	u8	online:1;
+	u8	configured:1;
+	u8	flags_0:3;
+	u8	flags_1;
+	u16	value_4;
+	u32	value_5;
+	u32	sas_address_count;
+	u32	pad_sas_addr;
+	u64	sas_address[4];
+	u64	raw_size;
+	u64	noncoerced_size;
+	u64	coerced_size;
+	u16	enclosure;
+	u8	value_9;
+	u8	slot;
+	u8	value_10[0xFC];
+} __attribute__ ((packed));
+
+struct megasas_battery_state {
+	u8	type;
+	u8	foo;
+	u16	voltage;
+	u16	current;
+	u16	temperature;
+	u32	firmware_status;
+	u32	pad0[5];
+	u8	pad1:4;
+	u8	fully_discharged:1;
+	u8	fully_charged:1;
+	u8	discharging:1;
+	u8	initialized:1;
+
+	u8	remaining_time_alarm:1;
+	u8	remaining_capacity_alarm:1;
+	u8	pad2:1;
+	u8	discharge_terminated:1;
+
+	u8	over_temperature:1;
+	u8	pad3:1;
+	u8	charging_terminated:1;
+	u8	over_charged:1;
+
+	u16	charge;
+	u16	charger_status;
+	u16	capacity_remaining;
+	u16	capacity_full;
+	u16	health;
+	u32	pad9[5];
+} __attribute__ ((packed));
+
+struct megasas_battery_capacity {
+	u16	charge_relative;
+	u16	charge_absolute;
+	u16	capacity_remaining;
+	u16	capacity_full;
+	u16	time_empty_run;
+	u16	time_empty_average;
+	u16	time_full_average;
+	u16	cycles;
+	u16	error_max;
+	u16	alarm_capacity;
+	u16	alarm_time;
+	u16	pad0;
+	u32	pad1[6];
+} __attribute__ ((packed));
+
+struct megasas_battery_design {
+	u32	manufacture_date;
+	u16	design_capacity;
+	u16	design_voltage;
+	u16	specification_info;
+	u16	serial_number;
+	u16	pack_stat_configuration;
+	char	manufacturer[12];
+	char	device_name[8];
+	char	device_chemistry[5];
+	char	device_vendor[5];
+	u32	pad0[5];
+} __attribute__ ((packed));
+
+struct megasas_battery_properties {
+	u32	device_learn_period;
+	u32	next_learn_time;
+	u32	learn_delay_interval;
+	u32	auto_learn_mode;
+	u32	pad0[4];
+} __attribute__ ((packed));
 
 #endif				/*LSI_MEGARAID_SAS_H */

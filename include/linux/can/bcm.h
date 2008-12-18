@@ -26,12 +26,12 @@
  * @frames:    array of CAN frames.
  */
 struct bcm_msg_head {
-	__u32 opcode;
-	__u32 flags;
-	__u32 count;
+	int opcode;
+	int flags;
+	int count;
 	struct timeval ival1, ival2;
 	canid_t can_id;
-	__u32 nframes;
+	int nframes;
 	struct can_frame frames[0];
 };
 

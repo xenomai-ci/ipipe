@@ -12,7 +12,6 @@ extern void __init alloc_iobmap_l2(void);
 extern void __init pasemi_map_registers(void);
 
 /* Power savings modes, implemented in asm */
-extern void idle_spin(void);
 extern void idle_doze(void);
 
 /* Restore astate to last set */

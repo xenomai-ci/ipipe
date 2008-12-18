@@ -32,6 +32,7 @@
 #include <linux/kernel.h>
 
 #include <asm/irq_cpu.h>
+#include <asm/mach-generic/irq.h>
 #include <asm/mipsregs.h>
 #include <asm/mipsmtregs.h>
 #include <asm/system.h>
