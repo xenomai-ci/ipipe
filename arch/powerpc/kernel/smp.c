@@ -147,7 +147,9 @@ void arch_send_call_function_ipi(cpumask_t mask)
 void smp_send_debugger_break(int cpu)
 {
 	if (likely(smp_ops)) {
+#ifdef CONFIG_IPIPE
 		cpu_set(cpu, __ipipe_dbrk_pending);
+#endif
 		smp_ops->message_pass(cpu, PPC_MSG_DEBUGGER_BREAK);
 	}
 }
@@ -158,8 +160,10 @@ void crash_send_ipi(void (*crash_ipi_callback)(struct pt_regs *))
 {
 	crash_ipi_function_ptr = crash_ipi_callback;
 	if (crash_ipi_callback && smp_ops) {
+#ifdef CONFIG_IPIPE
 		cpu_setall(__ipipe_dbrk_pending);
 		cpu_clear(ipipe_processor_id(), __ipipe_dbrk_pending);
+#endif
 		mb();
 		smp_ops->message_pass(MSG_ALL_BUT_SELF, PPC_MSG_DEBUGGER_BREAK);
 	}
