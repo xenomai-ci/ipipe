@@ -1929,6 +1929,21 @@ static unsigned int startup_ioapic_irq(unsigned int irq)
 	return was_pending;
 }
 
+#if defined(CONFIG_IPIPE) && defined(CONFIG_SMP)
+static void move_apic_irq(unsigned int irq)
+{
+	struct irq_desc *desc = &irq_desc[irq];
+
+	if (desc->handle_irq == &handle_edge_irq ||
+	    desc->handle_irq == &handle_fasteoi_irq) {
+		spin_lock(&desc->lock);
+		move_native_irq(irq);
+		spin_unlock(&desc->lock);
+	} else
+		WARN_ON_ONCE(1);
+}
+#endif /* CONFIG_IPIPE && CONFIG_SMP */
+
 static void ack_ioapic_irq(unsigned int irq)
 {
 #ifndef CONFIG_IPIPE
@@ -2018,6 +2033,9 @@ static struct irq_chip ioapic_chip __read_mostly = {
 	.eoi 		= ack_ioapic_quirk_irq,
 #ifdef CONFIG_SMP
 	.set_affinity 	= set_ioapic_affinity_irq,
+#ifdef CONFIG_IPIPE
+	.move		= move_apic_irq,
+#endif
 #endif
 	.retrigger	= ioapic_retrigger_irq,
 };
@@ -2597,6 +2615,9 @@ static struct irq_chip msi_chip = {
 	.ack		= ack_ioapic_irq,
 #ifdef CONFIG_SMP
 	.set_affinity	= set_msi_irq_affinity,
+#ifdef CONFIG_IPIPE
+	.move		= move_apic_irq,
+#endif
 #endif
 	.retrigger	= ioapic_retrigger_irq,
 };
@@ -2677,6 +2698,9 @@ static struct irq_chip ht_irq_chip = {
 	.ack		= ack_ioapic_irq,
 #ifdef CONFIG_SMP
 	.set_affinity	= set_ht_irq_affinity,
+#ifdef CONFIG_IPIPE
+	.move		= move_apic_irq,
+#endif
 #endif
 	.retrigger	= ioapic_retrigger_irq,
 };

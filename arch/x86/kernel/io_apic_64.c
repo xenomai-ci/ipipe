@@ -174,7 +174,6 @@ static inline void io_apic_modify(unsigned int apic, unsigned int value)
 	writel(value, &io_apic->data);
 }
 
-#ifndef CONFIG_IPIPE
 static bool io_apic_level_ack_pending(unsigned int irq)
 {
 	struct irq_pin_list *entry;
@@ -203,7 +202,6 @@ static bool io_apic_level_ack_pending(unsigned int irq)
 
 	return false;
 }
-#endif /* !CONFIG_IPIPE */
 
 /*
  * Synchronize the IO-APIC and the CPU by doing
@@ -1436,7 +1434,6 @@ unlock:
 	irq_exit();
 }
 
-#ifndef CONFIG_IPIPE
 static void irq_complete_move(unsigned int irq)
 {
 	struct irq_cfg *cfg = irq_cfg + irq;
@@ -1456,10 +1453,33 @@ static void irq_complete_move(unsigned int irq)
 		cfg->move_in_progress = 0;
 	}
 }
-#endif
-#elif !defined(CONFIG_IPIPE)
+#else
 static inline void irq_complete_move(unsigned int irq) {}
 #endif
+
+#ifdef CONFIG_IPIPE
+static void move_apic_irq(unsigned int irq)
+{
+	struct irq_desc *desc = &irq_desc[irq];
+
+	if (desc->handle_irq == &handle_edge_irq) {
+		spin_lock(&desc->lock);
+		irq_complete_move(irq);
+		move_native_irq(irq);
+		spin_unlock(&desc->lock);
+	} else if (desc->handle_irq == &handle_fasteoi_irq) {
+		spin_lock(&desc->lock);
+		irq_complete_move(irq);
+		if (unlikely(desc->status & IRQ_MOVE_PENDING)) {
+			if (!io_apic_level_ack_pending(irq))
+				move_masked_irq(irq);
+			unmask_IO_APIC_irq(irq);
+		}
+		spin_unlock(&desc->lock);
+	} else
+		WARN_ON_ONCE(1);
+}
+#endif /* CONFIG_IPIPE */
 
 static void ack_apic_edge(unsigned int irq)
 {
@@ -1544,6 +1564,9 @@ static struct irq_chip ioapic_chip __read_mostly = {
 	.eoi 		= ack_apic_level,
 #ifdef CONFIG_SMP
 	.set_affinity 	= set_ioapic_affinity_irq,
+#ifdef CONFIG_IPIPE
+	.move		= move_apic_irq,
+#endif
 #endif
 	.retrigger	= ioapic_retrigger_irq,
 };
@@ -2087,6 +2110,9 @@ static struct irq_chip msi_chip = {
 	.ack		= ack_apic_edge,
 #ifdef CONFIG_SMP
 	.set_affinity	= set_msi_irq_affinity,
+#ifdef CONFIG_IPIPE
+	.move		= move_apic_irq,
+#endif
 #endif
 	.retrigger	= ioapic_retrigger_irq,
 };
@@ -2156,6 +2182,9 @@ struct irq_chip dmar_msi_type = {
 	.ack = ack_apic_edge,
 #ifdef CONFIG_SMP
 	.set_affinity = dmar_msi_set_affinity,
+#ifdef CONFIG_IPIPE
+	.move = move_apic_irq,
+#endif
 #endif
 	.retrigger = ioapic_retrigger_irq,
 };
@@ -2225,6 +2254,9 @@ static struct irq_chip ht_irq_chip = {
 	.ack		= ack_apic_edge,
 #ifdef CONFIG_SMP
 	.set_affinity	= set_ht_irq_affinity,
+#ifdef CONFIG_IPIPE
+	.move		= move_apic_irq,
+#endif
 #endif
 	.retrigger	= ioapic_retrigger_irq,
 };

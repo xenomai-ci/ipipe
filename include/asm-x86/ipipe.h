@@ -118,6 +118,17 @@ int __ipipe_check_tickdev(const char *devname);
 
 #define __ipipe_root_tick_p(regs)	((regs)->flags & X86_EFLAGS_IF)
 
+#ifdef CONFIG_SMP
+#define __ipipe_move_root_irq(irq)					\
+	do {								\
+		struct irq_chip *chip = irq_desc[irq].chip;		\
+		if (irq < NR_IRQS && chip->move)			\
+			chip->move(irq);				\
+	} while (0)
+#else /* !CONFIG_SMP */
+#define __ipipe_move_root_irq(irq)	do { } while (0)
+#endif /* !CONFIG_SMP */
+
 #else /* !CONFIG_IPIPE */
 
 #define ipipe_update_tick_evtdev(evtdev)	do { } while (0)

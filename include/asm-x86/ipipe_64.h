@@ -144,10 +144,11 @@ static inline void __ipipe_call_root_virq_handler(unsigned irq,
 	do {								\
 		local_irq_enable_nohead(ipd);				\
 		if (ipd == ipipe_root_domain) {				\
-			if (likely(!ipipe_virtual_irq_p(irq)))		\
+			if (likely(!ipipe_virtual_irq_p(irq))) {	\
+				__ipipe_move_root_irq(irq);		\
 				__ipipe_call_root_xirq_handler(		\
 					irq, (ipd)->irqs[irq].handler);	\
-			else						\
+			} else						\
 				__ipipe_call_root_virq_handler(		\
 					irq, (ipd)->irqs[irq].handler,	\
 					(ipd)->irqs[irq].cookie);	\
