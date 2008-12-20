@@ -172,6 +172,7 @@ int __ipipe_send_ipi(unsigned ipi, cpumask_t cpumask)
 {
 	extern void mpic_send_ipi(unsigned int ipi_no, unsigned int cpu_mask);
 	unsigned long flags;
+	cpumask_t testmask;
 	int cpu;
 
 	local_irq_save_hw(flags);
@@ -183,12 +184,19 @@ int __ipipe_send_ipi(unsigned ipi, cpumask_t cpumask)
 	}
 	mb();	 
 	
-	if (!cpus_empty(cpumask))
-#ifdef CONFIG_MPIC
-		mpic_send_ipi(0x2, cpus_addr(cpumask)[0]);
-#else
-#error "We have only MPIC support here!"
-#endif
+	if (unlikely(cpus_empty(cpumask)))
+		goto out;
+
+	cpus_setall(testmask);
+	cpu_clear(ipipe_processor_id(), testmask);
+	if (likely(cpus_equal(cpumask, testmask)))
+		smp_ops->message_pass(MSG_ALL_BUT_SELF, PPC_MSG_IPIPE_DEMUX);
+	else {
+		/* Long path. */
+		for_each_cpu_mask_nr(cpu, cpumask)
+			smp_ops->message_pass(cpu, PPC_MSG_IPIPE_DEMUX);
+	}
+out:
 	local_irq_restore_hw(flags);
 
 	return 0;

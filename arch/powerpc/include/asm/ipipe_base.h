@@ -40,9 +40,9 @@
 #ifdef CONFIG_SMP
 /* 
  * These are virtual IPI numbers. The OpenPIC supports only 4 IPIs and
- * IPIs 0x0,0x1,0x3 are already used by Linux. The virtualization
- * layer is implemented by using the free IPI 0x2 and cascading it in
- * arch/powerpc/kernel/ipipe.c.
+ * all are already used by Linux. The virtualization layer is
+ * implemented by piggybacking the debugger break IPI 0x3,
+ * which is demultiplexed in __ipipe_ipi_demux().
  */
 /* these are bit numbers in practice */
 #define IPIPE_MSG_CRITICAL_IPI	0
