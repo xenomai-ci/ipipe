@@ -810,8 +810,8 @@ EXPORT_SYMBOL_GPL(atomic_clear_mask);
 #ifndef CONFIG_SMP
 EXPORT_SYMBOL_GPL(last_task_used_math);
 #endif
+#endif	/* !CONFIG_PPC64 */
 #ifdef CONFIG_IPIPE_TRACE_MCOUNT
 void notrace _mcount(void);
 EXPORT_SYMBOL(_mcount);
 #endif /* CONFIG_IPIPE_TRACE_MCOUNT */
-#endif	/* !CONFIG_PPC64 */
