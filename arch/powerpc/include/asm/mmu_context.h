@@ -321,12 +321,16 @@ static inline void switch_mm(struct mm_struct *prev, struct mm_struct *next,
 static inline void switch_mm(struct mm_struct *prev, struct mm_struct *next,
 			     struct task_struct *tsk)
 {
+	unsigned long flags;
+
+	local_irq_save_hw(flags);
+
 	if (!cpu_isset(smp_processor_id(), next->cpu_vm_mask))
 		cpu_set(smp_processor_id(), next->cpu_vm_mask);
 
 	/* No need to flush userspace segments if the mm doesnt change */
 	if (prev == next)
-		return;
+		goto done;
 
 #ifdef CONFIG_ALTIVEC
 	if (cpu_has_feature(CPU_FTR_ALTIVEC))
@@ -337,6 +341,8 @@ static inline void switch_mm(struct mm_struct *prev, struct mm_struct *next,
 		switch_slb(tsk, next);
 	else
 		switch_stab(tsk, next);
+done:
+	local_irq_restore_hw(flags);
 }
 
 #endif /* !CONFIG_IPIPE_UNMASKED_CONTEXT_SWITCH */
