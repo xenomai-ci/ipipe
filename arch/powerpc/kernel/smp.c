@@ -161,7 +161,7 @@ void crash_send_ipi(void (*crash_ipi_callback)(struct pt_regs *))
 	crash_ipi_function_ptr = crash_ipi_callback;
 	if (crash_ipi_callback && smp_ops) {
 #ifdef CONFIG_IPIPE
-		cpu_setall(__ipipe_dbrk_pending);
+		cpus_setall(__ipipe_dbrk_pending);
 		cpu_clear(ipipe_processor_id(), __ipipe_dbrk_pending);
 #endif
 		mb();
