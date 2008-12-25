@@ -56,8 +56,6 @@ EXPORT_PER_CPU_SYMBOL(ipipe_active_mm);
 
 #ifdef CONFIG_SMP
 
-#include <asm/mpic.h>	/* We currently need a MPIC to support SMP. */
-
 static cpumask_t __ipipe_cpu_sync_map;
 
 static cpumask_t __ipipe_cpu_lock_map;
