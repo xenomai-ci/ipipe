@@ -105,6 +105,7 @@ void slb_flush_and_rebolt(void)
 	 * appropriately too. */
 	unsigned long linear_llp, vmalloc_llp, lflags, vflags;
 	unsigned long ksp_esid_data, ksp_vsid_data;
+	unsigned long flags;
 
 #ifndef CONFIG_IPIPE
 	WARN_ON(!irqs_disabled());
@@ -130,7 +131,12 @@ void slb_flush_and_rebolt(void)
 	 * We can't take a PMU exception in the following code, so hard
 	 * disable interrupts.
 	 */
+#ifdef CONFIG_IPIPE
+	local_irq_save_hw(flags);
+#else
 	hard_irq_disable();
+	(void)flags;
+#endif
 
 	/* We need to do this all in asm, so we're sure we don't touch
 	 * the stack between the slbia and rebolting it. */
@@ -156,6 +162,9 @@ void slb_flush_and_rebolt(void)
 		        "r"(ksp_vsid_data),
 		        "r"(ksp_esid_data)
 		     : "memory");
+#ifdef CONFIG_IPIPE
+	local_irq_restore_hw(flags);
+#endif
 }
 
 void slb_vmalloc_update(void)
