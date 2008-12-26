@@ -31,6 +31,7 @@
 #include <asm/hw_irq.h>
 #include <asm/irq.h>
 #include <asm/bitops.h>
+#include <asm/time.h>
 #include <linux/ipipe_percpu.h>
 #include <linux/list.h>
 #include <linux/cpumask.h>
@@ -111,7 +112,7 @@ struct mm;
 DECLARE_PER_CPU(struct mm_struct *, ipipe_active_mm);
 #endif
 
-#define ipipe_cpu_freq()	(HZ * tb_ticks_per_jiffy)
+#define ipipe_cpu_freq()	ppc_tb_freq
 #ifdef CONFIG_PPC64
 #define ipipe_read_tsc(t)	(t = mftb())
 #define ipipe_tsc2ns(t)		(((t) * 1000UL) / (ipipe_cpu_freq() / 1000000UL))
