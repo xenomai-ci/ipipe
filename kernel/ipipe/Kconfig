@@ -32,4 +32,4 @@ config IPIPE_DELAYED_ATOMICSW
 config IPIPE_UNMASKED_CONTEXT_SWITCH
        bool
        depends on IPIPE
-       default y
+       default n
