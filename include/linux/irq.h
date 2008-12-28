@@ -111,6 +111,9 @@ struct irq_chip {
 
 	void		(*end)(unsigned int irq);
 	void		(*set_affinity)(unsigned int irq, cpumask_t dest);
+#ifdef CONFIG_IPIPE
+	void		(*move)(unsigned int irq);
+#endif /* CONFIG_IPIPE */
 	int		(*retrigger)(unsigned int irq);
 	int		(*set_type)(unsigned int irq, unsigned int flow_type);
 	int		(*set_wake)(unsigned int irq, unsigned int on);
