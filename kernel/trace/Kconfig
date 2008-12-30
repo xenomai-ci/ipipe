@@ -17,7 +17,7 @@ config TRACING
 
 config FTRACE
 	bool "Kernel Function Tracer"
-	depends on HAVE_FTRACE
+	depends on HAVE_FTRACE && !IPIPE_TRACE
 	select FRAME_POINTER
 	select TRACING
 	select CONTEXT_SWITCH_TRACER
