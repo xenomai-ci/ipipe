@@ -46,7 +46,7 @@ static int __init kilauea_probe(void)
 	if (!of_flat_dt_is_compatible(root, "amcc,kilauea"))
 		return 0;
 
-	ppc_pci_flags = PPC_PCI_REASSIGN_ALL_RSRC;
+	ppc_pci_set_flags(PPC_PCI_REASSIGN_ALL_RSRC);
 
 	/*
 	 * 405EX(r) has SDR0_MFR[E0CS/E1CS] set after reset. This selects
