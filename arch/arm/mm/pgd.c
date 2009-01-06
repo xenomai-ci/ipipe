@@ -51,8 +51,8 @@ static inline void pgd_list_del(pgd_t *pgd)
 		set_page_private(next, (unsigned long)pprev);
 }
 #else /* !CONFIG_IPIPE */
-#define pgd_list_lock(flags) (flags) = (flags)
-#define pgd_list_unlock(flags) (flags) = (flags)
+#define pgd_list_lock(flags) ((void) (flags))
+#define pgd_list_unlock(flags) ((void) (flags))
 #define pgd_list_add(pgd) do { } while (0)
 #define pgd_list_del(pgd) do { } while (0)
 #endif /* !CONFIG_IPIPE */
