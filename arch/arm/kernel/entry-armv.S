@@ -266,8 +266,13 @@ svc_preempt:
 	ipipe_fast_unstall_root r4, r0
 	mov	pc, r8				@ go again
 #ifdef CONFIG_IPIPE
+#if __GNUC__ >= 4
 .LCipipe_root_status:
 	.word	__ipipe_root_status
+#else /* gcc < 4 */
+.LCipipe_root_status_addr:
+	.word	__ipipe_root_status_addr
+#endif /* gcc < 4 */
 #endif /* CONFIG_IPIPE */
 #endif /* CONFIG_PREEMPT */
 
