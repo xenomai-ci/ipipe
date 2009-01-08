@@ -69,15 +69,45 @@ static inline int
 init_new_context(struct task_struct *tsk, struct mm_struct *mm)
 {
 #ifdef CONFIG_ARM_FCSE
+	int pid;
+
 	cpus_clear(mm->context.cpu_tlb_mask);
-	mm->context.mappings_needing_flush = 0;
+#ifdef CONFIG_ARM_FCSE_BEST_EFFORT
+	if (!mm->context.big) {
+		pid = fcse_pid_alloc();
+		mm->context.pid = pid << FCSE_PID_SHIFT;
+	} else {
+		/* We are normally forking a process vith a virtual address
+		   space larger than 32 MB, so its pid should be 0. */
+		BUG_ON(mm->context.pid);
+		fcse_pid_reference(0);
+	}
+	/* If we are forking, set_pte_at will restore the correct high pages
+	   count, and shared writable pages are write-protected again. */
+	mm->context.high_pages = 0;
+	mm->context.shared_dirty_pages = 0;
+#else /* CONFIG_ARM_FCSE_GUARANTEED */
+	pid = fcse_pid_alloc();
+	if (pid < 0)
+		return pid;
+	mm->context.pid = pid << FCSE_PID_SHIFT;
+#endif /* CONFIG_ARM_FCSE_GUARANTEED */
 #endif /* CONFIG_ARM_FCSE */
 	return 0;
 }
 
 #endif
 
-#define destroy_context(mm)		do { } while(0)
+static inline void destroy_context(struct mm_struct *mm)
+{
+#ifdef CONFIG_ARM_FCSE
+#ifdef CONFIG_ARM_FCSE_BEST_EFFORT
+	BUG_ON(mm->context.high_pages);
+	BUG_ON(mm->context.shared_dirty_pages);
+#endif /* CONFIG_ARM_FCSE_BEST_EFFORT */
+	fcse_pid_free(mm->context.pid >> FCSE_PID_SHIFT);
+#endif /* CONFIG_ARM_FCSE */
+}
 
 /*
  * This is called when "tsk" is about to enter lazy TLB mode.
@@ -110,22 +140,24 @@ switch_mm(struct mm_struct *prev, struct mm_struct *next,
 		fcse_cpu_set_vm_mask(cpu, next);
 		check_context(next);
 #if defined(CONFIG_IPIPE)
-		if (ipipe_current_domain == ipipe_root_domain) {
+		if (ipipe_root_domain_p)
 			do {
-				per_cpu(ipipe_active_mm, cpu) = NULL; /* mm state is undefined. */
+				/* mark mm state as undefined. */
+				per_cpu(ipipe_active_mm, cpu) = NULL; 
 				barrier();
 				fcse_pid_set(next->context.pid);
 				cpu_switch_mm(next->pgd, next,
-					      fcse_needs_flush(next));
+					      fcse_needs_flush(prev, next));
 				barrier();
-				per_cpu(ipipe_active_mm, cpu) = next;
+				prev = xchg(&per_cpu(ipipe_active_mm, cpu),
+					    next);
 			} while (test_and_clear_thread_flag(TIF_MMSWITCH_INT));
-		} else
+		else
 #endif /* CONFIG_IPIPE */
 			{
 				fcse_pid_set(next->context.pid);
 				cpu_switch_mm(next->pgd, next,
-					      fcse_needs_flush(next));
+					      fcse_needs_flush(prev, next));
 			}
 		if (cache_is_vivt() && prev)
 			cpu_clear(cpu, fcse_tlb_mask(prev));

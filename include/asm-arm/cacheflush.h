@@ -333,8 +333,10 @@ static inline void outer_flush_range(unsigned long start, unsigned long end)
 #ifndef CONFIG_CPU_CACHE_VIPT
 static inline void flush_cache_mm(struct mm_struct *mm)
 {
-	if (cpu_isset(smp_processor_id(), mm->cpu_vm_mask))
+	if (cpu_isset(smp_processor_id(), mm->cpu_vm_mask)) {
+		fcse_notify_flush_all();
 		__cpuc_flush_user_all();
+	}
 }
 
 static inline void
@@ -397,7 +399,9 @@ extern void flush_ptrace_access(struct vm_area_struct *vma, struct page *page,
  * Perform necessary cache operations to ensure that data previously
  * stored within this range of addresses can be executed by the CPU.
  */
-#define flush_icache_range(s,e)		__cpuc_coherent_kern_range(s,e)
+#define flush_icache_range(s,e)						\
+	__cpuc_coherent_kern_range(fcse_va_to_mva(current->mm, (s)),	\
+				   fcse_va_to_mva(current->mm, (e)))
 
 /*
  * Perform necessary cache operations to ensure that the TLB will

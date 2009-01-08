@@ -41,8 +41,10 @@ static void flush_pfn_alias(unsigned long pfn, unsigned long vaddr)
 void flush_cache_mm(struct mm_struct *mm)
 {
 	if (cache_is_vivt()) {
-		if (cpu_isset(smp_processor_id(), mm->cpu_vm_mask))
+		if (cpu_isset(smp_processor_id(), mm->cpu_vm_mask)) {
+			fcse_notify_flush_all();
 			__cpuc_flush_user_all();
+		}
 		return;
 	}
 

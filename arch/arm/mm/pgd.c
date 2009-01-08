@@ -16,11 +16,7 @@
 
 #include "mm.h"
 
-#ifndef CONFIG_ARM_FCSE
 #define FIRST_KERNEL_PGD_NR	(FIRST_USER_PGD_NR + USER_PTRS_PER_PGD)
-#else /* CONFIG_ARM_FCSE */
-#define FIRST_KERNEL_PGD_NR	(MODULE_START / PGDIR_SIZE)
-#endif /* CONFIG_ARM_FCSE */
 
 #ifdef CONFIG_IPIPE
 /* Copied from arch/i386/mm/pgdtable.c, maintains the list of pgds for the
@@ -66,15 +62,6 @@ pgd_t *get_pgd_slow(struct mm_struct *mm)
 	pmd_t *new_pmd, *init_pmd;
 	pte_t *new_pte, *init_pte;
 	unsigned long flags;
-#ifdef CONFIG_ARM_FCSE
-	int pid;
-
-	pid = fcse_pid_alloc();
-	if (pid == -1)
-		goto no_pgd;
-
-	mm->context.pid = pid << FCSE_PID_SHIFT;
-#endif /* CONFIG_ARM_FCSE */
 
 	new_pgd = (pgd_t *)__get_free_pages(GFP_KERNEL, 2);
 	if (!new_pgd)
@@ -95,15 +82,15 @@ pgd_t *get_pgd_slow(struct mm_struct *mm)
 	clean_dcache_area(new_pgd, PTRS_PER_PGD * sizeof(pgd_t));
 
 	if (!vectors_high()) {
-		/* We can not use pgd_offset here since mm->pgd is not yet
-		   initialized. */
-		pgd_t *pgd = new_pgd + pgd_index(fcse_va_to_mva(mm, 0));
-
 		/*
 		 * On ARM, first page must always be allocated since it
 		 * contains the machine vectors.
 		 */
-		new_pmd = pmd_alloc(mm, pgd, 0);
+#ifdef CONFIG_ARM_FCSE
+		/* FCSE does not work without high vectors. */
+		BUG();
+#endif /* CONFIG_ARM_FCSE */
+		new_pmd = pmd_alloc(mm, new_pgd, 0);
 		if (!new_pmd)
 			goto no_pmd;
 
@@ -138,7 +125,7 @@ void free_pgd_slow(struct mm_struct *mm, pgd_t *pgd)
 		return;
 
 	/* pgd is always present and good */
-	pmd = pmd_off(pgd, 0);
+	pmd = pmd_off(pgd + pgd_index(fcse_va_to_mva(mm, 0)), 0);
 	if (pmd_none(*pmd))
 		goto free;
 	if (pmd_bad(*pmd)) {
@@ -156,7 +143,4 @@ free:
 	pgd_list_del(pgd);
 	pgd_list_unlock(flags);
 	free_pages((unsigned long) pgd, 2);
-#ifdef CONFIG_ARM_FCSE
-	fcse_pid_free(mm->context.pid >> FCSE_PID_SHIFT);
-#endif /* CONFIG_ARM_FCSE */
 }

@@ -61,16 +61,6 @@ inline long do_mmap2(
 
 	if (file)
 		fput(file);
-#ifdef CONFIG_ARM_FCSE
-	/* FIXME, this really sucks, and we should really recheck in mremap,
-	   mprotect, and munmap */
-	if (likely((unsigned) error < (unsigned)(-4096))
-	    && (flags & MAP_SHARED) && (prot & PROT_WRITE)) {
-		struct vm_area_struct *vma = find_vma(current->mm, error);
-		if (vma->vm_page_prot & (L_PTE_CACHEABLE | L_PTE_BUFFERABLE))
-			++current->mm->context.mappings_needing_flush;
-	}
-#endif
 out:
 	return error;
 }
