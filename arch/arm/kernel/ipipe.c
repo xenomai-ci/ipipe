@@ -124,28 +124,16 @@ int ipipe_get_sysinfo(struct ipipe_sysinfo *info)
 	return 0;
 }
 
-static int __ipipe_ack_irq(unsigned irq)
+static void __ipipe_ack_irq(unsigned irq, struct irq_desc *desc)
 {
-	irq_desc_t *desc = irq_desc + irq;
 	desc->ipipe_ack(irq, desc);
-#ifdef irq_finish
- 	/* AT91 specific workaround */
-        irq_finish(irq);
-#endif /* irq_finish */
-	return 1;
 }
 
-static int __ipipe_ack_timerirq(unsigned irq)
+static void __ipipe_ack_timerirq(unsigned irq, struct irq_desc *desc)
 {
-	irq_desc_t *desc = irq_desc + irq;
 	desc->ipipe_ack(irq, desc);
-#ifdef irq_finish
- 	/* AT91 specific workaround */
-	irq_finish(irq);
-#endif /* irq_finish */
 	__ipipe_mach_acktimer();
 	desc->ipipe_end(irq, desc);
-	return 1;
 }
 
 void __ipipe_enable_irqdesc(struct ipipe_domain *ipd, unsigned irq)
@@ -313,21 +301,20 @@ int __ipipe_handle_irq(int irq, struct pt_regs *regs)
 		goto finalize_nosync;
 	}
 
-	head = __ipipe_pipeline.next;
-	next_domain = list_entry(head, struct ipipe_domain, p_link);
-	if (likely(test_bit(IPIPE_WIRED_FLAG, &next_domain->irqs[irq].control))) {
-		if (!m_ack && next_domain->irqs[irq].acknowledge != NULL)
-			next_domain->irqs[irq].acknowledge(irq);
-		if (likely(__ipipe_dispatch_wired(next_domain, irq))) {
-			goto finalize;
-		} else
-			goto finalize_nosync;
-	}
-
 	this_domain = ipipe_current_domain;
 
 	if (test_bit(IPIPE_STICKY_FLAG, &this_domain->irqs[irq].control))
 		head = &this_domain->p_link;
+        else {
+                head = __ipipe_pipeline.next;
+                next_domain = list_entry(head, struct ipipe_domain, p_link);
+                if (likely(test_bit(IPIPE_WIRED_FLAG, &next_domain->irqs[irq].control))) {
+                        if (!m_ack && next_domain->irqs[irq].acknowledge != NULL)
+                                next_domain->irqs[irq].acknowledge(irq, irq_desc + irq);
+                        __ipipe_dispatch_wired(next_domain, irq);
+                        goto finalize_nosync;
+                }
+        }
 
 	/* Ack the interrupt. */
 
@@ -350,8 +337,10 @@ int __ipipe_handle_irq(int irq, struct pt_regs *regs)
 			 */
 			__ipipe_set_irq_pending(next_domain, irq);
 
-			if (!m_ack && next_domain->irqs[irq].acknowledge != NULL)
-				m_ack = next_domain->irqs[irq].acknowledge(irq);
+			if (!m_ack && next_domain->irqs[irq].acknowledge) {
+                                next_domain->irqs[irq].acknowledge(irq, irq_desc + irq);
+                                m_ack = 1;
+                        }
 		}
 
 		/*
@@ -365,7 +354,14 @@ int __ipipe_handle_irq(int irq, struct pt_regs *regs)
 		pos = next_domain->p_link.next;
 	}
 
-finalize:
+	/*
+	 * If the interrupt preempted the head domain, then do not
+	 * even try to walk the pipeline, unless an interrupt is
+	 * pending for it.
+	 */
+	if (test_bit(IPIPE_AHEAD_FLAG, &this_domain->flags) &&
+	    ipipe_head_cpudom_var(irqpend_himask) == 0)
+		goto finalize_nosync;
 
 	/*
 	 * Now walk the pipeline, yielding control to the highest
@@ -397,6 +393,11 @@ finalize_nosync:
 asmlinkage int __ipipe_grab_irq(int irq, struct pt_regs *regs)
 {
         int status;
+
+#ifdef irq_finish
+ 	/* AT91 specific workaround */
+        irq_finish(irq);
+#endif /* irq_finish */
 
 	if (irq == __ipipe_mach_timerint) {
                 /*
