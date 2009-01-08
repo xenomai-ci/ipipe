@@ -35,7 +35,12 @@
  * TASK_UNMAPPED_BASE - the lower boundary of the mmap VM area
  */
 #define TASK_SIZE		UL(0xbf000000)
+#ifdef CONFIG_ARM_FCSE
+#define TASK_UNMAPPED_BASE	UL(0x01000000)
+#define FCSE_TASK_SIZE		UL(0x02000000)
+#else /* !CONFIG_ARM_FCSE */
 #define TASK_UNMAPPED_BASE	UL(0x40000000)
+#endif /* !CONFIG_ARM_FCSE */
 #endif
 
 /*
