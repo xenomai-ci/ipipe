@@ -62,9 +62,7 @@ enum async_tx_flags {
 };
 
 #ifdef CONFIG_DMA_ENGINE
-void async_tx_issue_pending_all(void);
-enum dma_status dma_wait_for_async_tx(struct dma_async_tx_descriptor *tx);
-void async_tx_run_dependencies(struct dma_async_tx_descriptor *tx);
+#define async_tx_issue_pending_all dma_issue_pending_all
 #ifdef CONFIG_ARCH_HAS_ASYNC_TX_FIND_CHANNEL
 #include <asm/async_tx.h>
 #else
