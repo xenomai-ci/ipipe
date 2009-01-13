@@ -153,9 +153,9 @@ struct irq_chip {
 struct irq_desc {
 #ifdef CONFIG_IPIPE
 	void			(*ipipe_ack)(unsigned int irq,
-						      struct irq_desc *desc);
+					     struct irq_desc *desc);
 	void			(*ipipe_end)(unsigned int irq,
-						      struct irq_desc *desc);
+					     struct irq_desc *desc);
 #endif /* CONFIG_IPIPE */
 	irq_flow_handler_t	handle_irq;
 	struct irq_chip		*chip;

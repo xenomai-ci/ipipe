@@ -132,7 +132,9 @@ static inline void ipipe_context_check_off(void) { }
 
 #define IPIPE_SAME_HANDLER	((ipipe_irq_handler_t)(-1))
 
-typedef int (*ipipe_irq_ackfn_t)(unsigned irq);
+struct irq_desc;
+
+typedef void (*ipipe_irq_ackfn_t)(unsigned irq, struct irq_desc *desc);
 
 typedef int (*ipipe_event_handler_t)(unsigned event,
 				     struct ipipe_domain *from,
@@ -235,11 +237,13 @@ void __ipipe_flush_printk(unsigned irq, void *cookie);
 
 void __ipipe_walk_pipeline(struct list_head *pos);
 
-int __ipipe_schedule_irq(unsigned irq, struct list_head *head);
+void __ipipe_pend_irq(unsigned irq, struct list_head *head);
 
 int __ipipe_dispatch_event(unsigned event, void *data);
 
-int __ipipe_dispatch_wired(struct ipipe_domain *head_domain, unsigned irq);
+void __ipipe_dispatch_wired_nocheck(struct ipipe_domain *head, unsigned irq);
+
+void __ipipe_dispatch_wired(struct ipipe_domain *head, unsigned irq);
 
 void __ipipe_sync_stage(unsigned long syncmask);
 
@@ -277,7 +281,8 @@ static inline void ipipe_irq_unlock(unsigned irq)
  * Keep the following as a macro, so that client code could check for
  * the support of the invariant pipeline head optimization.
  */
-#define __ipipe_pipeline_head() list_entry(__ipipe_pipeline.next,struct ipipe_domain,p_link)
+#define __ipipe_pipeline_head() \
+	list_entry(__ipipe_pipeline.next, struct ipipe_domain, p_link)
 
 #define __ipipe_event_monitored_p(ev) \
 	(__ipipe_event_monitors[ev] > 0 || (ipipe_current_domain->evself & (1LL << ev)))
@@ -367,14 +372,66 @@ int ipipe_free_virq(unsigned virq);
 
 int ipipe_trigger_irq(unsigned irq);
 
-static inline int ipipe_propagate_irq(unsigned irq)
+static inline void __ipipe_propagate_irq(unsigned irq)
 {
-	return __ipipe_schedule_irq(irq, ipipe_current_domain->p_link.next);
+	struct list_head *next = ipipe_current_domain->p_link.next;
+	if (next == &ipipe_root.p_link) {
+		/* Fast path: root must handle all interrupts. */
+		__ipipe_set_irq_pending(&ipipe_root, irq);
+		return;
+	}
+	__ipipe_pend_irq(irq, next);
 }
 
-static inline int ipipe_schedule_irq(unsigned irq)
+static inline void __ipipe_schedule_irq(unsigned irq)
 {
-	return __ipipe_schedule_irq(irq, &ipipe_current_domain->p_link);
+	__ipipe_pend_irq(irq, &ipipe_current_domain->p_link);
+}
+
+static inline void __ipipe_schedule_irq_head(unsigned irq)
+{
+	__ipipe_set_irq_pending(__ipipe_pipeline_head(), irq);
+}
+
+static inline void __ipipe_schedule_irq_root(unsigned irq)
+{
+	__ipipe_set_irq_pending(&ipipe_root, irq);
+}
+
+static inline void ipipe_propagate_irq(unsigned irq)
+{
+	unsigned long flags;
+
+	local_irq_save_hw(flags);
+	__ipipe_propagate_irq(irq);
+	local_irq_restore_hw(flags);
+}
+
+static inline void ipipe_schedule_irq(unsigned irq)
+{
+	unsigned long flags;
+
+	local_irq_save_hw(flags);
+	__ipipe_schedule_irq(irq);
+	local_irq_restore_hw(flags);
+}
+
+static inline void ipipe_schedule_irq_head(unsigned irq)
+{
+	unsigned long flags;
+
+	local_irq_save_hw(flags);
+	__ipipe_schedule_irq_head(irq);
+	local_irq_restore_hw(flags);
+}
+
+static inline void ipipe_schedule_irq_root(unsigned irq)
+{
+	unsigned long flags;
+
+	local_irq_save_hw(flags);
+	__ipipe_schedule_irq_root(irq);
+	local_irq_restore_hw(flags);
 }
 
 void ipipe_stall_pipeline_from(struct ipipe_domain *ipd);

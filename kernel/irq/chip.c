@@ -714,6 +714,10 @@ __set_irq_handler(unsigned int irq, irq_flow_handler_t handle, int is_chained,
 	}
 	desc->handle_irq = handle;
 	desc->name = name;
+#ifdef CONFIG_IPIPE
+	/* Suppress intermediate trampoline routine. */
+	ipipe_root_domain->irqs[irq].acknowledge = desc->ipipe_ack;
+#endif /* CONFIG_IPIPE */
 
 	if (handle != handle_bad_irq && is_chained) {
 		desc->status &= ~IRQ_DISABLED;
