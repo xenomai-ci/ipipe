@@ -961,6 +961,10 @@ static int __devinit ace_setup(struct ace_device *ace)
 	if (ace->queue == NULL)
 		goto err_blk_initq;
 	blk_queue_hardsect_size(ace->queue, 512);
+#ifdef CONFIG_PPC_256K_PAGES
+	blk_queue_max_phys_segments(ace->queue, 1);
+	blk_queue_max_hw_segments(ace->queue, 1);
+#endif
 
 	/*
 	 * Allocate and initialize GD structure
@@ -1206,6 +1210,7 @@ static struct of_device_id ace_of_match[] __devinitdata = {
 	{ .compatible = "xlnx,opb-sysace-1.00.b", },
 	{ .compatible = "xlnx,opb-sysace-1.00.c", },
 	{ .compatible = "xlnx,xps-sysace-1.00.a", },
+	{ .compatible = "xlnx,sysace", },
 	{},
 };
 MODULE_DEVICE_TABLE(of, ace_of_match);

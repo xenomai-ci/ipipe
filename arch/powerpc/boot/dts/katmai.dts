@@ -392,6 +392,12 @@
 				0x0 0x0 0x0 0x3 &UIC3 0xa 0x4 /* swizzled int C */
 				0x0 0x0 0x0 0x4 &UIC3 0xb 0x4 /* swizzled int D */>;
 		};
+		sysacecf@4fe000000 {
+			compatible = "xlnx,sysace";
+			interrupt-parent = <&UIC2>;
+			interrupts = <0x19 4>;
+			reg = <0x00000004 0xfe000000 0x100>;
+		};
 	};
 
 	chosen {
