@@ -1487,11 +1487,12 @@ static int
 mpt_mapresources(MPT_ADAPTER *ioc)
 {
 	u8		__iomem *mem;
+	u8		__iomem *port;
 	int		 ii;
-	unsigned long	 mem_phys;
-	unsigned long	 port;
-	u32		 msize;
-	u32		 psize;
+	resource_size_t	 mem_phys;
+	resource_size_t	 port_phys;
+	resource_size_t	 msize;
+	resource_size_t	 psize;
 	u8		 revision;
 	int		 r = -ENODEV;
 	struct pci_dev *pdev;
@@ -1529,13 +1530,13 @@ mpt_mapresources(MPT_ADAPTER *ioc)
 	}
 
 	mem_phys = msize = 0;
-	port = psize = 0;
+	port_phys = psize = 0;
 	for (ii = 0; ii < DEVICE_COUNT_RESOURCE; ii++) {
 		if (pci_resource_flags(pdev, ii) & PCI_BASE_ADDRESS_SPACE_IO) {
 			if (psize)
 				continue;
 			/* Get I/O space! */
-			port = pci_resource_start(pdev, ii);
+			port_phys = pci_resource_start(pdev, ii);
 			psize = pci_resource_len(pdev, ii);
 		} else {
 			if (msize)
@@ -1545,11 +1546,8 @@ mpt_mapresources(MPT_ADAPTER *ioc)
 			msize = pci_resource_len(pdev, ii);
 		}
 	}
-	ioc->mem_size = msize;
 
-	mem = NULL;
 	/* Get logical ptr for PciMem0 space */
-	/*mem = ioremap(mem_phys, msize);*/
 	mem = ioremap(mem_phys, msize);
 	if (mem == NULL) {
 		printk(MYIOC_s_ERR_FMT ": ERROR - Unable to map adapter"
@@ -1557,14 +1555,24 @@ mpt_mapresources(MPT_ADAPTER *ioc)
 		return -EINVAL;
 	}
 	ioc->memmap = mem;
-	dinitprintk(ioc, printk(MYIOC_s_INFO_FMT "mem = %p, mem_phys = %lx\n",
-	    ioc->name, mem, mem_phys));
+	dinitprintk(ioc, printk(MYIOC_s_INFO_FMT "mem=%p, mem_phys=%llx\n",
+	    ioc->name, mem, (u64)mem_phys));
 
 	ioc->mem_phys = mem_phys;
 	ioc->chip = (SYSIF_REGS __iomem *)mem;
 
 	/* Save Port IO values in case we need to do downloadboot */
-	ioc->pio_mem_phys = port;
+	port = ioremap(port_phys, psize);
+	if (port == NULL) {
+		printk(MYIOC_s_ERR_FMT ": ERROR - Unable to map adapter"
+			" port!\n", ioc->name);
+		return -EINVAL;
+	}
+	ioc->portmap = port;
+	dinitprintk(ioc, printk(MYIOC_s_INFO_FMT "port=%p, port_phys=%llx\n",
+	    ioc->name, port, (u64)port_phys));
+
+	ioc->pio_mem_phys = port_phys;
 	ioc->pio_chip = (SYSIF_REGS __iomem *)port;
 
 	return 0;
@@ -1789,6 +1797,7 @@ mpt_attach(struct pci_dev *pdev, const struct pci_device_id *id)
 		list_del(&ioc->list);
 		if (ioc->alt_ioc)
 			ioc->alt_ioc->alt_ioc = NULL;
+		iounmap(ioc->portmap);
 		iounmap(ioc->memmap);
 		if (r != -5)
 			pci_release_selected_regions(pdev, ioc->bars);
@@ -2544,6 +2553,11 @@ mpt_adapter_dispose(MPT_ADAPTER *ioc)
 		if (ioc->msi_enable)
 			pci_disable_msi(ioc->pcidev);
 		ioc->pci_irq = -1;
+	}
+
+	if (ioc->portmap != NULL) {
+		iounmap(ioc->portmap);
+		ioc->portmap = NULL;
 	}
 
 	if (ioc->memmap != NULL) {
