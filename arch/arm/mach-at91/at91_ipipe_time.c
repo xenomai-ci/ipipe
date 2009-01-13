@@ -15,20 +15,19 @@
 #include <linux/irq.h>
 #include <linux/kernel.h>
 #include <linux/clockchips.h>
-
-#include <asm/hardware.h>
-#include <asm/io.h>
-#include <asm/mach/time.h>
-
-#include <asm/arch/at91_st.h>
-
 #include <linux/clk.h>
 #include <linux/stringify.h>
 #include <linux/err.h>
 #include <linux/console.h>
 #include <linux/module.h>
-#include <asm/arch/at91_tc.h>
-#include <asm/arch/at91_pit.h>
+
+#include <asm/io.h>
+#include <asm/mach/time.h>
+
+#include <mach/hardware.h>
+#include <mach/at91_st.h>
+#include <mach/at91_tc.h>
+#include <mach/at91_pit.h>
 #include "clock.h"
 
 #if defined(CONFIG_ARCH_AT91RM9200)

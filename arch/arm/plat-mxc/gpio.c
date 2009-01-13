@@ -28,8 +28,8 @@
 #ifdef CONFIG_IPIPE
 #include <asm/ipipe.h>
 #ifdef CONFIG_MACH_MX31ADS
-#include <asm/arch/iomux-mx3.h>
-#include <asm/arch/board-mx31ads.h>
+#include <mach/iomux-mx3.h>
+#include <mach/board-mx31ads.h>
 #endif /* CONFIG_MACH_MX31ADS */
 #endif /* CONFIG_IPIPE */
 
