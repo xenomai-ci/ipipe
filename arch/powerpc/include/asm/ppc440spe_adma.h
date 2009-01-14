@@ -39,6 +39,8 @@
 
 #define PPC440SPE_RXOR_RUN	0
 
+#define MQ0_CF2H_RXOR_BS_MASK	0x1FF
+
 #undef ADMA_LL_DEBUG
 
 /**
@@ -144,8 +146,9 @@ typedef struct ppc440spe_adma_desc_slot {
 	unsigned long reverse_flags[8];
 
 #define PPC440SPE_DESC_INT	0	/* generate interrupt on complete */
-#define PPC440SPE_ZERO_DST	1	/* this chain includes CDBs for zeroing dests */
-#define PPC440SPE_COHERENT	2	/* src/dst are coherent */
+#define PPC440SPE_ZERO_P	1	/* clear P destionaion */
+#define PPC440SPE_ZERO_Q	2	/* clear Q destination */
+#define PPC440SPE_COHERENT	3	/* src/dst are coherent */
 
 #define PPC440SPE_DESC_WXOR	4	/* WXORs are in chain */
 #define PPC440SPE_DESC_RXOR	5	/* RXOR is in chain */
@@ -154,7 +157,11 @@ typedef struct ppc440spe_adma_desc_slot {
 #define PPC440SPE_DESC_RXOR124	9	/* CDB for RXOR124 operation */
 #define PPC440SPE_DESC_RXOR125	10	/* CDB for RXOR125 operation */
 #define PPC440SPE_DESC_RXOR12	11	/* CDB for RXOR12 operation */
-#define PPC440SPE_DESC_RXOR_REV	12	/* CDB contains srcs in reversed order */
+#define PPC440SPE_DESC_RXOR_REV	12	/* CDB has srcs in reversed order */
+
+#define PPC440SPE_DESC_PCHECK	13
+#define PPC440SPE_DESC_QCHECK	14
+
 #define PPC440SPE_DESC_RXOR_MSK	0x3
 
 	ppc440spe_rxor_cursor_t rxor_cursor;

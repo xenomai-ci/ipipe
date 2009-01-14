@@ -213,13 +213,12 @@ struct stripe_head {
 	 */
 	struct stripe_operations {
 		int		   target, target2;
-		u32		   zero_sum_result, zero_qsum_result;
+		u32		   zero_sum_result;
 	} ops;
 	struct r5dev {
 		struct bio	req;
 		struct bio_vec	vec;
 		struct page	*page;
-		struct page	*dpage; /* direct pointer to a bio buffer */
 		struct bio	*toread, *read, *towrite, *written;
 		sector_t	sector;			/* sector of this page */
 		unsigned long	flags;

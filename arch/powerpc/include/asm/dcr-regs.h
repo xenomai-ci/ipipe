@@ -157,4 +157,24 @@
 #define  L2C_SNP_SSR_32G	0x0000f000
 #define  L2C_SNP_ESR		0x00000800
 
+#define DCRN_SDR_CONFIG_ADDR	0xe
+#define DCRN_SDR_CONFIG_DATA	0xf
+
+/* I2O/DMA */
+#define DCRN_I2O0_IBAL		0x066
+#define DCRN_I2O0_IBAH		0x067
+#define DCRN_SDR_SRST		0x0200
+#define DCRN_SDR_SRST_I2ODMA	(0x80000000 >> 15)	/* Reset I2O/DMA */
+
+/* 440SP/440SPe XOR DCRs */
+#define DCRN_MQ0_XORBA		0x44
+#define DCRN_MQ0_CF2H		0x46
+#define DCRN_MQ0_CFBHL		0x4f
+#define DCRN_MQ0_BAUH		0x50
+
+/* HB/LL Paths Configuration Register */
+#define MQ0_CFBHL_TPLM		28
+#define MQ0_CFBHL_HBCL		23
+#define MQ0_CFBHL_POLY		15
+
 #endif /* __DCR_REGS_H__ */

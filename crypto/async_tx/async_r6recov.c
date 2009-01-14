@@ -19,11 +19,9 @@
  * more details.
  *
  * You should have received a copy of the GNU General Public License along with
- * this program; if not, write to the Free Software Foundation, Inc., 59
- * Temple Place - Suite 330, Boston, MA  02111-1307, USA.
+ * this program; if not, write to the Free Software Foundation, Inc., 51
+ * Franklin St - Fifth Floor, Boston, MA 02110-1301 USA.
  *
- * The full GNU General Public License is included in this distribution in the
- * file called COPYING.
  */
 #include <linux/kernel.h>
 #include <linux/interrupt.h>
@@ -53,7 +51,7 @@ async_r6_dd_recov(int disks, size_t bytes, int faila, int failb,
 {
 	struct dma_async_tx_descriptor *tx = NULL;
 	struct page *lptrs[disks];
-	unsigned char lcoef[disks - 2];
+	unsigned char lcoef[disks-4];
 	int i = 0, k = 0, fc = -1;
 	uint8_t bc[2];
 	dma_async_tx_callback lcb = NULL;
@@ -66,12 +64,10 @@ async_r6_dd_recov(int disks, size_t bytes, int faila, int failb,
 		failb = fc;
 	}
 
-	/*
-	 * Try to compute missed data asynchronously.
-	 */
-
+	/* Try to compute missed data asynchronously. */
 	if (disks == 4) {
-		/* Pxy and Qxy are zero in this case so we already have
+		/*
+		 * Pxy and Qxy are zero in this case so we already have
 		 * P+Pxy and Q+Qxy in P and Q strips respectively.
 		 */
 		tx = depend_tx;
@@ -80,10 +76,11 @@ async_r6_dd_recov(int disks, size_t bytes, int faila, int failb,
 		goto do_mult;
 	}
 
-	/* (1) Calculate Qxy and Pxy:
-	 *  Qxy = A(0)*D(0) + ... + A(n-1)*D(n-1) + A(n+1)*D(n+1) + ... +
-	 *        A(m-1)*D(m-1) + A(m+1)*D(m+1) + ... + A(disks-1)*D(disks-1),
-	 *   where n = faila, m = failb.
+	/*
+	 * (1) Calculate Qxy and Pxy:
+	 * Qxy = A(0)*D(0) + ... + A(n-1)*D(n-1) + A(n+1)*D(n+1) + ... +
+	 *	 A(m-1)*D(m-1) + A(m+1)*D(m+1) + ... + A(disks-1)*D(disks-1),
+	 * where n = faila, m = failb.
 	 */
 	for (i = 0, k = 0; i < disks - 2; i++) {
 		if (i != faila && i != failb) {
@@ -93,9 +90,11 @@ async_r6_dd_recov(int disks, size_t bytes, int faila, int failb,
 		}
 	}
 
-	tx = async_pqxor(ptrs[faila], ptrs[failb], lptrs, lcoef, 0, k, bytes,
-			ASYNC_TX_XOR_ZERO_DST | ASYNC_TX_ASYNC_ONLY,
-			depend_tx, NULL, NULL);
+	lptrs[k] = ptrs[faila];
+	lptrs[k+1] = ptrs[failb];
+	tx = async_pq(lptrs, lcoef, 0, k, bytes,
+		      ASYNC_TX_PQ_ZERO_P | ASYNC_TX_PQ_ZERO_Q |
+		      ASYNC_TX_ASYNC_ONLY, depend_tx, NULL, NULL);
 	if (!tx) {
 		/* Here may go to the synchronous variant */
 		if (flags & ASYNC_TX_ASYNC_ONLY)
@@ -103,24 +102,28 @@ async_r6_dd_recov(int disks, size_t bytes, int faila, int failb,
 		goto ddr_sync;
 	}
 
-	/* The following operations will 'damage' P/Q strips;
-	 * so now we condemned to move in a asynchronous way.
+	/*
+	 * The following operations will 'damage' P/Q strips;
+	 * so now we condemned to move in an asynchronous way.
 	 */
 
-	/* (2) Calculate Q+Qxy
-	 */
+	/* (2) Calculate Q+Qxy */
 	lptrs[0] = ptrs[failb];
-	tx = async_pqxor(ptrs[disks-1], NULL, lptrs, NULL, 0, 1, bytes,
-			ASYNC_TX_DEP_ACK, tx, NULL, NULL);
+	lptrs[1] = ptrs[disks-1];
+	lptrs[2] = NULL;
+	tx = async_pq(lptrs, NULL, 0, 1, bytes, ASYNC_TX_DEP_ACK,
+		      tx, NULL, NULL);
 
-	/* (3) Calculate P+Pxy
-	 */
+	/* (3) Calculate P+Pxy */
 	lptrs[0] = ptrs[faila];
-	tx = async_pqxor(ptrs[disks-2], NULL, lptrs, NULL, 0, 1, bytes,
-			ASYNC_TX_DEP_ACK, tx, NULL, NULL);
+	lptrs[1] = ptrs[disks-2];
+	lptrs[2] = NULL;
+	tx = async_pq(lptrs, NULL, 0, 1, bytes, ASYNC_TX_DEP_ACK,
+		      tx, NULL, NULL);
 
 do_mult:
-	/* (4) Compute (P+Pxy) * Bxy. Compute (Q+Qxy) * Cxy. XOR them and get
+	/*
+	 * (4) Compute (P+Pxy) * Bxy. Compute (Q+Qxy) * Cxy. XOR them and get
 	 *  faila.
 	 * B = (2^(y-x))*((2^(y-x) + {01})^(-1))
 	 * C = (2^(-x))*((2^(y-x) + {01})^(-1))
@@ -131,38 +134,41 @@ do_mult:
 
 	lptrs[0] = ptrs[disks - 2];
 	lptrs[1] = ptrs[disks - 1];
-	tx = async_pqxor(NULL, ptrs[failb], lptrs, bc, 0, 2, bytes,
-			ASYNC_TX_DEP_ACK | ASYNC_TX_XOR_ZERO_DST,
-			tx, NULL, NULL);
+	lptrs[2] = NULL;
+	lptrs[3] = ptrs[failb];
+	tx = async_pq(lptrs, bc, 0, 2, bytes,
+		      ASYNC_TX_PQ_ZERO_Q | ASYNC_TX_DEP_ACK,
+		      tx, NULL, NULL);
 
-	/* (5) Compute failed Dy using recovered [failb] and P+Pnm in [p]
-	 */
+	/* (5) Compute failed Dy using recovered [failb] and P+Pnm in [p] */
 	lptrs[0] = ptrs[disks-2];
 	lptrs[1] = ptrs[failb];
-	tx = async_pqxor(ptrs[faila], NULL, lptrs, NULL, 0, 2, bytes,
-			ASYNC_TX_DEP_ACK | ASYNC_TX_XOR_ZERO_DST, tx, lcb,
-			lcb_param);
+	lptrs[2] = ptrs[faila];
+	lptrs[3] = NULL;
+	tx = async_pq(lptrs, NULL, 0, 2, bytes,
+		      ASYNC_TX_PQ_ZERO_P | ASYNC_TX_DEP_ACK,
+		      tx, lcb, lcb_param);
 
 	if (disks == 4)
 		return tx;
 
-	/* (6) Restore the parities back
-	 */
-	flags |= ASYNC_TX_XOR_ZERO_DST;
+	/* (6) Restore the parities back */
 	flags |= ASYNC_TX_DEP_ACK;
 
 	memcpy(lptrs, ptrs, (disks - 2) * sizeof(struct page *));
-	return async_gen_syndrome(ptrs[disks-2], ptrs[disks-1], lptrs, 0,
-			disks - 2, bytes, flags, tx, cb, cb_param);
+	lptrs[disks - 2] = ptrs[disks-2];
+	lptrs[disks - 1] = ptrs[disks-1];
+	return async_gen_syndrome(lptrs, 0, disks - 2, bytes, flags,
+				  tx, cb, cb_param);
 
 ddr_sync:
 	{
 		void **sptrs = (void **)lptrs;
-
 		/*
 		 * Failed to compute asynchronously, do it in
 		 * synchronous manner
 		 */
+
 		/* wait for any prerequisite operations */
 		async_tx_quiesce(&depend_tx);
 
@@ -196,16 +202,16 @@ async_r6_dp_recov(int disks, size_t bytes, int faila, struct page **ptrs,
 {
 	struct dma_async_tx_descriptor *tx = NULL;
 	struct page *lptrs[disks];
-	unsigned char lcoef[disks];
+	unsigned char lcoef[disks-2];
 	int i = 0, k = 0;
 
+	/* Try compute missed data asynchronously. */
+
 	/*
-	 * Try compute missed data asynchronously
-	 */
-	/* (1) Calculate Qn + Q:
-	 *  Qn = A(0)*D(0) + .. + A(n-1)*D(n-1) + A(n+1)*D(n+1) + ..,
-	 *   where n = faila;
-	 *  then subtract Qn from Q and place result to Pn.
+	 * (1) Calculate Qn + Q:
+	 * Qn = A(0)*D(0) + .. + A(n-1)*D(n-1) + A(n+1)*D(n+1) + ..,
+	 *  where n = faila;
+	 * then subtract Qn from Q and place result to Pn.
 	 */
 	for (i = 0; i < disks - 2; i++) {
 		if (i != faila) {
@@ -216,32 +222,37 @@ async_r6_dp_recov(int disks, size_t bytes, int faila, struct page **ptrs,
 	lptrs[k] = ptrs[disks-1]; /* Q-parity */
 	lcoef[k++] = 1;
 
-	tx = async_pqxor(NULL, ptrs[disks-2], lptrs, lcoef, 0, k,
-			bytes, ASYNC_TX_XOR_ZERO_DST | ASYNC_TX_ASYNC_ONLY,
-			depend_tx, NULL, NULL);
+	lptrs[k] = NULL;
+	lptrs[k+1] = ptrs[disks-2];
+
+	tx = async_pq(lptrs, lcoef, 0, k, bytes,
+		      ASYNC_TX_PQ_ZERO_Q | ASYNC_TX_ASYNC_ONLY,
+		      depend_tx, NULL, NULL);
 	if (!tx) {
 		if (flags & ASYNC_TX_ASYNC_ONLY)
 			return NULL;
 		goto dpr_sync;
 	}
 
-	/* (2) Compute missed Dn:
-	 *  Dn = (Q + Qn) * [A(n)^(-1)]
+	/*
+	 * (2) Compute missed Dn:
+	 * Dn = (Q + Qn) * [A(n)^(-1)]
 	 */
 	lptrs[0] = ptrs[disks-2];
-	return async_pqxor(NULL, ptrs[faila],
-			lptrs, (u8 *)&raid6_gfexp[faila ? 255-faila : 0],
-			0, 1, bytes, ASYNC_TX_DEP_ACK | ASYNC_TX_XOR_ZERO_DST,
+	lptrs[1] = NULL;
+	lptrs[2] = ptrs[faila];
+	return async_pq(lptrs, (u8 *)&raid6_gfexp[faila ? 255-faila : 0], 0, 1,
+			bytes, ASYNC_TX_DEP_ACK | ASYNC_TX_PQ_ZERO_Q,
 			tx, cb, cb_param);
 
 dpr_sync:
 	{
 		void **sptrs = (void **) lptrs;
-
 		/*
 		 * Failed to compute asynchronously, do it in
 		 * synchronous manner
 		 */
+
 		/* wait for any prerequisite operations */
 		async_tx_quiesce(&depend_tx);
 

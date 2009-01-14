@@ -12,11 +12,12 @@
  */
 #include <linux/init.h>
 #include <linux/module.h>
-
-#include <syslib/ppc4xx_pcie.h>
 #include <linux/async_tx.h>
 #include <linux/platform_device.h>
+
 #include <asm/ppc440spe_adma.h>
+#include <asm/dcr.h>
+#include <asm/dcr-regs.h>
 
 static u64 ppc440spe_adma_dmamask = DMA_32BIT_MASK;
 
@@ -24,43 +25,24 @@ static u64 ppc440spe_adma_dmamask = DMA_32BIT_MASK;
 static struct resource ppc440spe_dma_0_resources[] = {
 	{
 		.flags = IORESOURCE_MEM,
-	},
-	{
-		.start = DMA0_CS_FIFO_NEED_SERVICE_IRQ,
-		.end = DMA0_CS_FIFO_NEED_SERVICE_IRQ,
-		.flags = IORESOURCE_IRQ
-	},
-	{
-		.start = DMA_ERROR_IRQ,
-		.end = DMA_ERROR_IRQ,
-		.flags = IORESOURCE_IRQ
+		.start = DMA0_MMAP_BASE,
+		.end = DMA0_MMAP_BASE + DMA_MMAP_SIZE - 1
 	}
 };
 
 static struct resource ppc440spe_dma_1_resources[] = {
 	{
 		.flags = IORESOURCE_MEM,
-	},
-	{
-		.start = DMA1_CS_FIFO_NEED_SERVICE_IRQ,
-		.end = DMA1_CS_FIFO_NEED_SERVICE_IRQ,
-		.flags = IORESOURCE_IRQ
-	},
-	{
-		.start = DMA_ERROR_IRQ,
-		.end = DMA_ERROR_IRQ,
-		.flags = IORESOURCE_IRQ
+		.start = DMA1_MMAP_BASE,
+		.end = DMA1_MMAP_BASE + DMA_MMAP_SIZE - 1
 	}
 };
 
 static struct resource ppc440spe_xor_resources[] = {
 	{
 		.flags = IORESOURCE_MEM,
-	},
-	{
-		.start = XOR_IRQ,
-		.end = XOR_IRQ,
-		.flags = IORESOURCE_IRQ
+		.start = XOR_MMAP_BASE,
+		.end = XOR_MMAP_BASE + XOR_MMAP_SIZE -1
 	}
 };
 
@@ -74,7 +56,7 @@ static struct resource ppc440spe_xor_resources[] = {
  * That is
  *   CDB size = 32B;
  *   CDBs number = (DMA0_FIFO_SIZE >> 3);
- *   Pool size = CDBs number * CDB size = 
+ *   Pool size = CDBs number * CDB size =
  *      = (DMA0_FIFO_SIZE >> 3) << 5 = DMA0_FIFO_SIZE << 2.
  *
  *  As far as the XOR engine is concerned, it does not
@@ -180,8 +162,8 @@ static void ppc440spe_configure_raid_devices(void)
 	 * Configure h/w
 	 */
 	/* Reset I2O/DMA */
-	SDR_WRITE(DCRN_SDR_SRST, DCRN_SDR_SRST_I2ODMA);
-	SDR_WRITE(DCRN_SDR_SRST, 0);
+	mtdcri(SDR, DCRN_SDR_SRST, DCRN_SDR_SRST_I2ODMA);
+	mtdcri(SDR, DCRN_SDR_SRST, 0);
 
 	/* Reset XOR */
 	xor_reg->crsr = XOR_CRSR_XASR_BIT;
@@ -240,67 +222,30 @@ static void ppc440spe_configure_raid_devices(void)
 		 XOR_IE_ICBIE_BIT | XOR_IE_ICIE_BIT | XOR_IE_RPTIE_BIT;
 
 	/*
-	 * Unmap I2O registers
+	 * Unmap registers
 	 */
 	iounmap(i2o_reg);
-
-	/* Configure MQ as follows:
-	 * MQ: 0x80001C80. This means
-	 * - AddrAck First Request,
-	 * - Read Passing Limit = 1,
-	 * - Read Passing Enable,
-	 * - Read Flow Through Enable,
-	 * - MCIF Cycle Limit = 1.
-	 */
-	mask = (1 << MQ_CF1_AAFR) | ((1 & MQ_CF1_RPLM_MSK) << MQ_CF1_RPLM) |
-	       (1 << MQ_CF1_RPEN) | (1 << MQ_CF1_RFTE) |
-	       ((1 & MQ_CF1_WRCL_MSK) << MQ_CF1_WRCL);
-	mtdcr(DCRN_MQ0_CF1H, mask);
-	mtdcr(DCRN_MQ0_CF1L, mask);
-
-	/* Configure PLB as follows:
-	 * PLB: 0xDF000000. This means
-	 * - Priority level 00 fair priority,
-	 * - Priority level 01 fair priority,
-	 * - Priority level 11 fair priority,
-	 * - High Bus Utilization enabled,
-	 * - 4 Deep read pipe,
-	 * - 2 Deep write pipe.
-	 */
-	mask = (1 << PLB_ACR_PPM0) | (1 << PLB_ACR_PPM1) | (1 << PLB_ACR_PPM3) |
-	       (1 << PLB_ACR_HBU) | ((3 & PLB_ACR_RDP_MSK) << PLB_ACR_RDP) |
-	       (1 << PLB_ACR_WRP);
-	mtdcr(DCRN_PLB0_ACR, mask);
-	mtdcr(DCRN_PLB1_ACR, mask);
+	iounmap(xor_reg);
+	iounmap(dma_reg1);
+	iounmap(dma_reg0);
 
 	/*
 	 * Set resource addresses
 	 */
-	ppc440spe_dma_0_channel.resource[0].start = (resource_size_t)(dma_reg0);
-	ppc440spe_dma_0_channel.resource[0].end =
-		ppc440spe_dma_0_channel.resource[0].start+DMA_MMAP_SIZE;
 	dma_cap_set(DMA_MEMCPY, ppc440spe_dma_0_data.cap_mask);
 	dma_cap_set(DMA_INTERRUPT, ppc440spe_dma_0_data.cap_mask);
 	dma_cap_set(DMA_MEMSET, ppc440spe_dma_0_data.cap_mask);
-	dma_cap_set(DMA_PQ_XOR, ppc440spe_dma_0_data.cap_mask);
+	dma_cap_set(DMA_PQ, ppc440spe_dma_0_data.cap_mask);
 	dma_cap_set(DMA_PQ_ZERO_SUM, ppc440spe_dma_0_data.cap_mask);
 
-	ppc440spe_dma_1_channel.resource[0].start = (resource_size_t)(dma_reg1);
-	ppc440spe_dma_1_channel.resource[0].end =
-		ppc440spe_dma_1_channel.resource[0].start+DMA_MMAP_SIZE;
 	dma_cap_set(DMA_MEMCPY, ppc440spe_dma_1_data.cap_mask);
 	dma_cap_set(DMA_INTERRUPT, ppc440spe_dma_1_data.cap_mask);
 	dma_cap_set(DMA_MEMSET, ppc440spe_dma_1_data.cap_mask);
-	dma_cap_set(DMA_PQ_XOR, ppc440spe_dma_1_data.cap_mask);
+	dma_cap_set(DMA_PQ, ppc440spe_dma_1_data.cap_mask);
 	dma_cap_set(DMA_PQ_ZERO_SUM, ppc440spe_dma_1_data.cap_mask);
 
-	ppc440spe_xor_channel.resource[0].start = (resource_size_t)(xor_reg);
-	ppc440spe_xor_channel.resource[0].end =
-		ppc440spe_xor_channel.resource[0].start+XOR_MMAP_SIZE;
 	dma_cap_set(DMA_XOR, ppc440spe_xor_data.cap_mask);
-#if 0
-	dma_cap_set(DMA_PQ_XOR, ppc440spe_xor_data.cap_mask);
-#endif
+	dma_cap_set(DMA_PQ, ppc440spe_xor_data.cap_mask);
 	dma_cap_set(DMA_INTERRUPT, ppc440spe_xor_data.cap_mask);
 
 	return;
