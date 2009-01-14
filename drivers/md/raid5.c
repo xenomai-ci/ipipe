@@ -4203,9 +4203,10 @@ static struct attribute_group raid5_attrs_group = {
 static int run(mddev_t *mddev)
 {
 	raid5_conf_t *conf;
-	int raid_disk, memory;
+	int raid_disk, memory, avail_stripes;
 	mdk_rdev_t *rdev;
 	struct disk_info *disk;
+	struct sysinfo val;
 	int working_disks = 0;
 
 	if (mddev->level != 5 && mddev->level != 4 && mddev->level != 6) {
@@ -4347,7 +4348,14 @@ static int run(mddev_t *mddev)
 	else
 		conf->max_degraded = 1;
 	conf->algorithm = mddev->layout;
-	conf->max_nr_stripes = NR_STRIPES;
+
+	/* Set the safe stripe cache size */
+	si_meminfo(&val);
+	avail_stripes = ((val.freeram - val.freehigh) * val.mem_unit - (1<<26))/
+			(sizeof(struct stripe_head) + conf->raid_disks *
+			 ((sizeof(struct bio) + PAGE_SIZE))) - 1;
+	conf->max_nr_stripes = (avail_stripes < NR_STRIPES) ? avail_stripes :
+			       NR_STRIPES;
 	conf->expand_progress = mddev->reshape_position;
 
 	/* device size must be a multiple of chunk size */
