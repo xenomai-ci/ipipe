@@ -174,8 +174,11 @@ ddr_sync:
 
 		i = disks;
 		while (i--)
-			sptrs[i] = page_address(ptrs[i]);
+			sptrs[i] = kmap(ptrs[i]);
 		raid6_2data_recov(disks, bytes, faila, failb, sptrs);
+		i = disks;
+		while (i--)
+			kunmap(ptrs[i]);
 
 		async_tx_sync_epilog(cb, cb_param);
 	}
@@ -258,8 +261,11 @@ dpr_sync:
 
 		i = disks;
 		while (i--)
-			sptrs[i] = page_address(ptrs[i]);
+			sptrs[i] = kmap(ptrs[i]);
 		raid6_datap_recov(disks, bytes, faila, (void *)sptrs);
+		i = disks;
+		while (i--)
+			kunmap(ptrs[i]);
 
 		async_tx_sync_epilog(cb, cb_param);
 	}

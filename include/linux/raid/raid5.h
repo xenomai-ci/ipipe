@@ -219,6 +219,7 @@ struct stripe_head {
 		struct bio	req;
 		struct bio_vec	vec;
 		struct page	*page;
+		struct page	*dpage; /* direct pointer to a bio buffer */
 		struct bio	*toread, *read, *towrite, *written;
 		sector_t	sector;			/* sector of this page */
 		unsigned long	flags;
@@ -261,6 +262,7 @@ struct r6_state {
 				    * filling
 				    */
 #define R5_Wantdrain	13 /* dev->towrite needs to be drained */
+#define R5_Skipped	14 /* SKIP_BIO_COPY completed */
 /*
  * Write method
  */

@@ -162,9 +162,9 @@ do_sync_pq(struct page **blocks, unsigned char *scfs, unsigned int offset,
 
 	/* set destination addresses */
 	if (blocks[src_cnt])
-		p = (uint8_t *)(page_address(blocks[src_cnt]) + offset);
+		p = (uint8_t *)(kmap(blocks[src_cnt]) + offset);
 	if (blocks[src_cnt+1])
-		q = (uint8_t *)(page_address(blocks[src_cnt+1]) + offset);
+		q = (uint8_t *)(kmap(blocks[src_cnt+1]) + offset);
 
 	if (flags & ASYNC_TX_PQ_ZERO_P) {
 		BUG_ON(!p);
@@ -177,14 +177,19 @@ do_sync_pq(struct page **blocks, unsigned char *scfs, unsigned int offset,
 	}
 
 	for (i = 0; i < src_cnt; i++) {
-		src = (uint8_t *)(page_address(blocks[i]) + offset);
+		src = (uint8_t *)(kmap(blocks[i]) + offset);
 		for (pos = 0; pos < len; pos++) {
 			if (p)
 				p[pos] ^= src[pos];
 			if (q)
 				q[pos] ^= raid6_gfmul[scfs[i]][src[pos]];
 		}
+		kunmap(blocks[i]);
 	}
+	if (p)
+		kunmap(blocks[src_cnt]);
+	if (q)
+		kunmap(blocks[src_cnt+1]);
 	async_tx_sync_epilog(cb_fn, cb_param);
 }
 
@@ -292,9 +297,12 @@ do_sync_gen_syndrome(struct page **blocks, unsigned int offset, int src_cnt,
 	void *tsrc[src_cnt+2];
 
 	for (i = 0; i < src_cnt + 2; i++)
-		tsrc[i] = page_address(blocks[i]) + offset;
+		tsrc[i] = kmap(blocks[i]) + offset;
 
 	raid6_call.gen_syndrome(i, len, tsrc);
+
+	for (i = 0; i < src_cnt + 2; i++)
+		kunmap(blocks[i]);
 
 	async_tx_sync_epilog(cb_fn, cb_param);
 }
@@ -448,20 +456,22 @@ async_pq_zero_sum(struct page **blocks, unsigned char *scfs,
 		async_tx_quiesce(&tx);
 
 		if (dma_flags & DMA_PREP_HAVE_P) {
-			if (memcmp(page_address(pdest) + offset,
+			if (memcmp(kmap(pdest) + offset,
 				   page_address(spare_pages[0]) + offset,
 				   len) == 0)
 				*pqres &= ~DMA_PCHECK_FAILED;
 			else
 				*pqres |= DMA_PCHECK_FAILED;
+			kunmap(pdest);
 		}
 		if (dma_flags & DMA_PREP_HAVE_Q) {
-			if (memcmp(page_address(qdest) + offset,
+			if (memcmp(kmap(qdest) + offset,
 				   page_address(spare_pages[1]) + offset,
 				   len) == 0)
 				*pqres &= ~DMA_QCHECK_FAILED;
 			else
 				*pqres |= DMA_QCHECK_FAILED;
+			kunmap(qdest);
 		}
 		spin_unlock(&spare_lock);
 	}
@@ -556,20 +566,22 @@ async_syndrome_zero_sum(struct page **blocks, unsigned int offset,
 		async_tx_quiesce(&tx);
 
 		if (dma_flags & DMA_PREP_HAVE_P) {
-			if (memcmp(page_address(pdest) + offset,
+			if (memcmp(kmap(pdest) + offset,
 				   page_address(spare_pages[0]) + offset,
 				   len) == 0)
 				*pqres &= ~DMA_PCHECK_FAILED;
 			else
 				*pqres |= DMA_PCHECK_FAILED;
+			kunmap(pdest);
 		}
 		if (dma_flags & DMA_PREP_HAVE_Q) {
-			if (memcmp(page_address(qdest) + offset,
+			if (memcmp(kmap(qdest) + offset,
 				   page_address(spare_pages[1]) + offset,
 				   len) == 0)
 				*pqres &= ~DMA_QCHECK_FAILED;
 			else
 				*pqres |= DMA_QCHECK_FAILED;
+			kunmap(qdest);
 		}
 		spin_unlock(&spare_lock);
 	}

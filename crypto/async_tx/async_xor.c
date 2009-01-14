@@ -134,14 +134,14 @@ do_sync_xor(struct page *dest, struct page **src_list, unsigned int offset,
 	int xor_src_cnt;
 	int src_off = 0;
 	void *dest_buf;
-	void **srcs = (void **) src_list;
+	void *srcs[src_cnt];
 
 	/* reuse the 'src_list' array to convert to buffer pointers */
 	for (i = 0; i < src_cnt; i++)
-		srcs[i] = page_address(src_list[i]) + offset;
+		srcs[i] = kmap(src_list[i]) + offset;
 
 	/* set destination address */
-	dest_buf = page_address(dest) + offset;
+	dest_buf = kmap(dest) + offset;
 
 	if (flags & ASYNC_TX_XOR_ZERO_DST)
 		memset(dest_buf, 0, len);
@@ -155,6 +155,10 @@ do_sync_xor(struct page *dest, struct page **src_list, unsigned int offset,
 		src_cnt -= xor_src_cnt;
 		src_off += xor_src_cnt;
 	}
+
+	kunmap(dest);
+	for (i = 0; i < src_cnt; i++)
+		kunmap(src_list[i]);
 
 	async_tx_sync_epilog(cb_fn, cb_param);
 }
@@ -219,9 +223,13 @@ EXPORT_SYMBOL_GPL(async_xor);
 
 static int page_is_zero(struct page *p, unsigned int offset, size_t len)
 {
-	char *a = page_address(p) + offset;
-	return ((*(u32 *) a) == 0 &&
+	char *a = kmap(p) + offset;
+	int rval;
+
+	rval = ((*(u32 *) a) == 0 &&
 		memcmp(a, a + 4, len - 4) == 0);
+	kunmap(p);
+	return rval;
 }
 
 /**

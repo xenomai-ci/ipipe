@@ -599,7 +599,8 @@ static void ops_complete_compute(void *stripe_head_ref)
 		if (target < 0)
 			continue;
 		tgt = &sh->dev[target];
-		set_bit(R5_UPTODATE, &tgt->flags);
+		if (!tgt->dpage)
+			set_bit(R5_UPTODATE, &tgt->flags);
 		BUG_ON(!test_bit(R5_Wantcompute, &tgt->flags));
 		clear_bit(R5_Wantcompute, &tgt->flags);
 	}
@@ -825,9 +826,77 @@ ops_run_biodrain(struct stripe_head *sh, struct dma_async_tx_descriptor *tx)
 {
 	int disks = sh->disks;
 	int i;
+#ifdef CONFIG_MD_RAID_SKIP_BIO_COPY
+	int pd_idx = sh->pd_idx;
+	int qd_idx = sh->raid_conf->level == 6 ?
+					raid6_next_disk(pd_idx, disks) : -1;
+	int fswrite = 1;
+#endif
 
 	pr_debug("%s: stripe %llu\n", __func__,
 		(unsigned long long)sh->sector);
+
+#ifdef CONFIG_MD_RAID_SKIP_BIO_COPY
+	/* initially assume that the operation is a full-stripe write*/
+	for (i = disks; i-- ;) {
+		struct r5dev *dev = &sh->dev[i];
+
+		if (unlikely(i == pd_idx || i == qd_idx))
+			continue;
+		if (unlikely(!test_bit(R5_Wantdrain, &dev->flags)))
+			goto do_copy;
+		if ((test_bit(R5_OVERWRITE, &dev->flags)) &&
+		    !r5_next_bio(sh->dev[i].towrite, sh->dev[i].sector)) {
+			/* now check if there is only one bio_vec within
+			 * the bio covers the sh->dev[i]
+			 */
+			struct bio *pbio = sh->dev[i].towrite;
+			struct bio_vec *bvl;
+			int found = 0;
+			int bvec_page = pbio->bi_sector << 9, k;
+			int dev_page = sh->dev[i].sector << 9;
+
+			/* search for the bio_vec that covers dev[i].page */
+			bio_for_each_segment(bvl, pbio, k) {
+				if (bvec_page == dev_page &&
+				    bio_iovec_idx(pbio,k)->bv_len ==
+						  STRIPE_SIZE) {
+					/* found the vector which covers the
+					 * strip fully
+					 */
+					found = 1;
+					break;
+				}
+				bvec_page += bio_iovec_idx(pbio,k)->bv_len;
+			}
+			if (found) {
+				/* save the direct pointer to buffer */
+				BUG_ON(dev->dpage);
+				dev->dpage = bio_iovec_idx(pbio,k)->bv_page;
+				clear_bit(R5_Skipped, &dev->flags);
+				continue;
+			}
+		}
+do_copy:
+		/* come here in two cases:
+		 * - the dev[i] is not covered fully with the bio;
+		 * - there are more than one bios cover the dev[i].
+		 * in both cases do copy from bio to dev[i].page
+		 */
+		pr_debug("%s: do copy because of disk %d\n", __FUNCTION__, i);
+		do {
+			/* restore dpages set */
+			sh->dev[i].dpage = NULL;
+		} while (++i != disks);
+		fswrite = 0;
+		break;
+	}
+
+	if (fswrite) {
+		/* won't add new txs right now, so run ops currently pending */
+		async_tx_issue_pending_all();
+	}
+#endif
 
 	for (i = disks; i--; ) {
 		struct r5dev *dev = &sh->dev[i];
@@ -842,6 +911,14 @@ ops_run_biodrain(struct stripe_head *sh, struct dma_async_tx_descriptor *tx)
 			BUG_ON(dev->written);
 			wbi = dev->written = chosen;
 			spin_unlock(&sh->lock);
+
+#ifdef CONFIG_MD_RAID_SKIP_BIO_COPY
+			if (fswrite) {
+				/* just update dev bio vec pointer */
+				dev->vec.bv_page = dev->dpage;
+				continue;
+			}
+#endif
 
 			/* schedule the copy operations */
 			while (wbi && wbi->bi_sector <
@@ -868,7 +945,9 @@ static void ops_complete_postxor(void *stripe_head_ref)
 
 	for (i = disks; i--; ) {
 		struct r5dev *dev = &sh->dev[i];
-		if (dev->written || i == pd_idx || i == qd_idx)
+		if (dev->dpage)
+			set_bit(R5_Skipped, &dev->flags);
+		else if (dev->written || i == pd_idx || i == qd_idx)
 			set_bit(R5_UPTODATE, &dev->flags);
 	}
 
@@ -916,7 +995,8 @@ ops_run_postxor(struct stripe_head *sh, struct dma_async_tx_descriptor *tx)
 		for (i = disks; i--; ) {
 			struct r5dev *dev = &sh->dev[i];
 			if (dev->written)
-				srcs[count++] = dev->page;
+				srcs[count++] = dev->dpage ?
+						dev->dpage : dev->page;
 		}
 	} else {
 		xor_dest = sh->dev[pd_idx].page;
@@ -924,7 +1004,8 @@ ops_run_postxor(struct stripe_head *sh, struct dma_async_tx_descriptor *tx)
 		i = d0_idx;
 		do {
 			struct r5dev *dev = &sh->dev[i];
-			srcs[count++] = dev->page;
+			srcs[count++] = dev->dpage ?
+					dev->dpage : dev->page;
 			i = raid6_next_disk(i, disks);
 		} while (i != pd_idx);
 	}
@@ -2109,7 +2190,8 @@ static void handle_stripe_clean_event(raid5_conf_t *conf,
 		if (sh->dev[i].written) {
 			dev = &sh->dev[i];
 			if (!test_bit(R5_LOCKED, &dev->flags) &&
-				test_bit(R5_UPTODATE, &dev->flags)) {
+			    (test_bit(R5_UPTODATE, &dev->flags) ||
+			     test_bit(R5_Skipped, &dev->flags))) {
 				/* We can return any write requests */
 				struct bio *wbi, *wbi2;
 				int bitmap_end = 0;
@@ -2117,6 +2199,17 @@ static void handle_stripe_clean_event(raid5_conf_t *conf,
 				spin_lock_irq(&conf->device_lock);
 				wbi = dev->written;
 				dev->written = NULL;
+
+				if (dev->dpage) {
+					/* with direct writes the raid disk
+					 * cache actually isn't UPTODATE
+					 */
+					clear_bit(R5_Skipped, &dev->flags);
+					clear_bit(R5_OVERWRITE, &dev->flags);
+					dev->vec.bv_page = dev->page;
+					dev->dpage = NULL;
+				}
+
 				while (wbi && wbi->bi_sector <
 					dev->sector + STRIPE_SECTORS) {
 					wbi2 = r5_next_bio(wbi, dev->sector);
@@ -3019,7 +3112,8 @@ static bool handle_stripe6(struct stripe_head *sh, struct page *tmp_page)
 			    (i == sh->pd_idx || i == qd_idx ||
 			     dev->written)) {
 				pr_debug("Writing block %d\n", i);
-				BUG_ON(!test_bit(R5_UPTODATE, &dev->flags));
+				BUG_ON(!test_bit(R5_UPTODATE, &dev->flags) &&
+				       !test_bit(R5_Skipped, &dev->flags));
 				set_bit(R5_Wantwrite, &dev->flags);
 				if (!test_bit(R5_Insync, &dev->flags) ||
 				    ((i == sh->pd_idx || i == qd_idx) &&
