@@ -305,6 +305,15 @@ static inline void update_root_process_times(struct pt_regs *regs)
 }
 #endif /* CONFIG_IPIPE */
 
+#ifdef CONFIG_IPIPE
+extern void update_root_process_times(struct pt_regs *regs);
+#else  /* !CONFIG_IPIPE */
+static inline void update_root_process_times(struct pt_regs *regs)
+{
+	update_process_times(user_mode(regs));
+}
+#endif /* CONFIG_IPIPE */
+
 extern void sched_show_task(struct task_struct *p);
 
 #ifdef CONFIG_DETECT_SOFTLOCKUP
