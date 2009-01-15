@@ -1092,6 +1092,9 @@ static int __xipram do_write_oneword(struct map_info *map, struct flchip *chip, 
 	cfi_send_gen_cmd(0xAA, cfi->addr_unlock1, chip->start, map, cfi, cfi->device_type, NULL);
 	cfi_send_gen_cmd(0x55, cfi->addr_unlock2, chip->start, map, cfi, cfi->device_type, NULL);
 	cfi_send_gen_cmd(0xA0, cfi->addr_unlock1, chip->start, map, cfi, cfi->device_type, NULL);
+#if defined(CONFIG_SC3)
+	datum.x[0] = (((datum.x[0] >> 8)) + ((datum.x[0] & 0xff) << 8));
+#endif
 	map_write(map, datum, adr);
 	chip->state = FL_WRITING;
 

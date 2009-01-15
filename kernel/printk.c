@@ -32,6 +32,8 @@
 #include <linux/security.h>
 #include <linux/bootmem.h>
 #include <linux/syscalls.h>
+#include <linux/jiffies.h>
+#include <linux/logbuff.h>
 
 #include <asm/uaccess.h>
 
@@ -101,9 +103,39 @@ static DEFINE_SPINLOCK(logbuf_lock);
  * The indices into log_buf are not constrained to log_buf_len - they
  * must be masked before subscripting
  */
-static unsigned log_start;	/* Index into log_buf: next char to be read by syslog() */
-static unsigned con_start;	/* Index into log_buf: next char to be sent to consoles */
-static unsigned log_end;	/* Index into log_buf: most-recently-written-char + 1 */
+#ifdef CONFIG_LOGBUFFER
+/* Indexes to the local log buffer */
+static unsigned long _log_start;
+static unsigned long _con_start;
+static unsigned long _log_end;
+static unsigned long _logged_chars;
+/* These will be switched to the external log buffer */
+#ifndef CONFIG_ALT_LB_LOCATION
+/* usual logbuffer location */
+static unsigned long *ext_log_start = &_log_start;
+static unsigned long *ext_con_start = &_con_start;
+static unsigned long *ext_log_end = &_log_end;
+static unsigned long *ext_logged_chars = &_logged_chars;
+#define log_start	(*ext_log_start)
+#define con_start	(*ext_con_start)
+#define log_end		(*ext_log_end)
+#define logged_chars	(*ext_logged_chars)
+#else
+/* alternative logbuffer location */
+static volatile unsigned long *ext_log_start = &_log_start;
+static volatile unsigned long *ext_con_start = &_con_start;
+static volatile unsigned long *ext_log_end = &_log_end;
+static volatile unsigned long *ext_logged_chars = &_logged_chars;
+#define log_start       (*((volatile u32 *)ext_log_start))
+#define con_start       (*((volatile u32 *)ext_con_start))
+#define log_end         (*((volatile u32 *)ext_log_end))
+#define logged_chars    (*((volatile u32 *)ext_logged_chars))
+#endif
+#else
+static unsigned long log_start;	/* Index into log_buf: next char to be read by syslog() */
+static unsigned long con_start;	/* Index into log_buf: next char to be sent to consoles */
+static unsigned long log_end;	/* Index into log_buf: most-recently-written-char + 1 */
+#endif /* CONFIG_LOGBUFFER */
 
 /*
  *	Array of consoles built from command line options (console=)
@@ -134,13 +166,86 @@ static int console_may_schedule;
 static char __log_buf[__LOG_BUF_LEN];
 static char *log_buf = __log_buf;
 static int log_buf_len = __LOG_BUF_LEN;
-static unsigned logged_chars; /* Number of chars produced since last read+clear operation */
+#ifndef CONFIG_LOGBUFFER
+static unsigned long logged_chars; /* Number of chars produced since last read+clear operation */
+#endif
+
+#ifdef CONFIG_LOGBUFFER
+void __init setup_ext_logbuff(void)
+{
+#ifdef CONFIG_ALT_LB_LOCATION
+	volatile logbuff_t *log;
+#else
+	logbuff_t *log;
+#endif
+	unsigned long flags, space, start, dest_idx, offset;
+
+	if (setup_ext_logbuff_mem(&log, &log_buf)) {
+		printk("Failed to setup external logbuffer - ignoring it\n");
+		return;
+	}
+
+	/* When no properly setup buffer is found, reset pointers */
+	if (log->tag != LOGBUFF_MAGIC) {
+ 		log->start = log->end = 0;
+		printk("Properly setup external logbuffer not found - using it anyway!\n");
+	}
+	spin_lock_irqsave(&logbuf_lock, flags);
+
+	/* Limit pointers */
+	if (log->end - log->start > LOGBUFF_LEN)
+		log->start = log->end - LOGBUFF_LEN;
+
+	space = LOGBUFF_LEN - (log->end - log->start);
+
+	if (log_end - log_start > space)
+		log_start = log_end - space;
+
+	if (log_end - con_start > space)
+		con_start = log_end - space;
+
+	log->chars = logged_chars + log->end - log->start;
+	if (log->chars > LOGBUFF_LEN)
+		log->chars = LOGBUFF_LEN;
+
+	/* Chars passed by the boot loader will appear after
+	   those we already have in the local buffer
+	*/
+	offset = log->start - log_end;
+	start = min((long)con_start, (long)log_start);
+	dest_idx = start + offset;
+
+	while (start != log_end) {
+		log_buf[dest_idx & (LOGBUFF_LEN - 1)] = LOG_BUF(start);
+		start++;
+		dest_idx++;
+	}
+	log->start = log_start + offset;
+	log->con = con_start + offset;
+
+	/* Switch to the external log buffer */
+	ext_log_start = &log->start;
+	ext_con_start = &log->con;
+	ext_log_end = &log->end;
+	ext_logged_chars = &log->chars;
+	log_buf_len = LOGBUFF_LEN;
+
+	spin_unlock_irqrestore(&logbuf_lock, flags);
+
+	printk("Kernel logbuffer at 0x%p\n", log_buf);
+}
+#endif /* CONFIG_LOGBUFFER */
 
 static int __init log_buf_len_setup(char *str)
 {
 	unsigned size = memparse(str, &str);
 	unsigned long flags;
 
+#ifdef CONFIG_LOGBUFFER
+	/* Log buffer size is LOGBUFF_LEN bytes */
+	printk(KERN_NOTICE "Ignoring log_buf_len param\n");
+	return 1;
+#endif
 	if (size)
 		size = roundup_pow_of_two(size);
 	if (size > log_buf_len) {

@@ -1,7 +1,7 @@
 /*
  * An hwmon driver for the Analog Devices AD7414
  *
- * Copyright 2006 Stefan Roese <sr at denx.de>, DENX Software Engineering
+ * Copyright 2006 Stefan Roese <sr@denx.de>, DENX Software Engineering
  *
  * Copyright (c) 2008 PIKA Technologies
  *   Sean MacLennan <smaclennan@pikatech.com>

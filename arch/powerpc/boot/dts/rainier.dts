@@ -159,20 +159,16 @@
 					#address-cells = <1>;
 					#size-cells = <1>;
 					partition@0 {
-						label = "Kernel";
-						reg = <0x00000000 0x00180000>;
+						label = "kernel";
+						reg = <0x0 0x180000>;
 					};
 					partition@180000 {
-						label = "ramdisk";
-						reg = <0x00180000 0x00200000>;
+						label = "root";
+						reg = <0x180000 0x200000>;
 					};
 					partition@380000 {
-						label = "file system";
-						reg = <0x00380000 0x03aa0000>;
-					};
-					partition@3e20000 {
-						label = "kozio";
-						reg = <0x03e20000 0x00140000>;
+						label = "user";
+						reg = <0x380000 0x3ba0000>;
 					};
 					partition@3f60000 {
 						label = "env";

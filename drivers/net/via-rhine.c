@@ -33,6 +33,7 @@
 #define DRV_VERSION	"1.4.3"
 #define DRV_RELDATE	"2007-03-06"
 
+#define PKT_ALIGN 1
 
 /* A few user-configurable values.
    These may be modified when a driver module is loaded. */
@@ -40,6 +41,7 @@
 static int debug = 1;	/* 1 normal messages, 0 quiet .. 7 verbose. */
 static int max_interrupt_work = 20;
 
+#ifndef PKT_ALIGN
 /* Set the copy breakpoint for the copy-only-tiny-frames scheme.
    Setting to > 1518 effectively disables this feature. */
 #if defined(__alpha__) || defined(__arm__) || defined(__hppa__) \
@@ -106,6 +108,7 @@ static const int multicast_filter_limit = 32;
 #include <asm/io.h>
 #include <asm/irq.h>
 #include <asm/uaccess.h>
+#include <asm/unaligned.h>
 #include <linux/dmi.h>
 
 /* These identify the driver base version and may not be removed. */
@@ -125,12 +128,14 @@ MODULE_LICENSE("GPL");
 
 module_param(max_interrupt_work, int, 0);
 module_param(debug, int, 0);
-module_param(rx_copybreak, int, 0);
 module_param(avoid_D3, bool, 0);
 MODULE_PARM_DESC(max_interrupt_work, "VIA Rhine maximum events handled per interrupt");
 MODULE_PARM_DESC(debug, "VIA Rhine debug level (0-7)");
-MODULE_PARM_DESC(rx_copybreak, "VIA Rhine copy breakpoint for copy-only-tiny-frames");
 MODULE_PARM_DESC(avoid_D3, "Avoid power state D3 (work-around for broken BIOSes)");
+#ifndef PKT_ALIGN
+module_param(rx_copybreak, int, 0);
+MODULE_PARM_DESC(rx_copybreak, "VIA Rhine copy breakpoint for copy-only-tiny-frames");
+#endif
 
 /*
 		Theory of Operation
@@ -1470,6 +1475,9 @@ static int rhine_rx(struct net_device *dev, int limit)
 			/* Length should omit the CRC */
 			int pkt_len = data_size - 4;
 
+#ifdef PKT_ALIGN
+			int i;
+#else
 			/* Check if the packet is long enough to accept without
 			   copying to a minimally-sized skbuff. */
 			if (pkt_len < rx_copybreak &&
@@ -1488,7 +1496,9 @@ static int rhine_rx(struct net_device *dev, int limit)
 							       rp->rx_skbuff_dma[entry],
 							       rp->rx_buf_sz,
 							       PCI_DMA_FROMDEVICE);
-			} else {
+			} else
+#endif
+			{
 				skb = rp->rx_skbuff[entry];
 				if (skb == NULL) {
 					printk(KERN_ERR "%s: Inconsistent Rx "
@@ -1502,6 +1512,14 @@ static int rhine_rx(struct net_device *dev, int limit)
 						 rp->rx_skbuff_dma[entry],
 						 rp->rx_buf_sz,
 						 PCI_DMA_FROMDEVICE);
+#ifdef PKT_ALIGN		
+				/* align the data to the ip header - should be faster than copying the entire packet */
+				for (i = pkt_len - (pkt_len % 4); i >= 0; i -= 4) {
+					put_unaligned(*((u32 *) (skb->data + i)), (u32 *) (skb->data + i + 2));
+				}
+				skb->data += 2;
+				skb->tail += 2;
+#endif	
 			}
 			skb->protocol = eth_type_trans(skb, dev);
 			netif_receive_skb(skb);

@@ -1428,7 +1428,12 @@ static struct lm85_data *lm85_update_device(struct device *dev)
 
 		data->alarms = lm85_read_value(client, LM85_REG_ALARM1);
 
-		if (data->type == emc6d100) {
+		if ( data->type == adt7463 || data->type == adt7467 ) {
+			if( data->therm_total < ULONG_MAX - 256 ) {
+			    data->therm_total +=
+				lm85_read_value(client, ADT7463_REG_THERM );
+			}
+		} else if ( data->type == emc6d100 ) {
 			/* Three more voltage sensors */
 			for (i = 5; i <= 7; ++i) {
 				data->in[i] = lm85_read_value(client,

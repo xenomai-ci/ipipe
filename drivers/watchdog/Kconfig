@@ -45,6 +45,43 @@ comment "Watchdog Device Drivers"
 
 # Architecture Independent
 
+config WD
+	bool "Generic watchdog driver"
+	help
+	  This is a generic high-level watchdog driver. It implements
+	  platform independent front end for watchdog devices. If you
+	  say Y here, you most likely should also enable a low-level
+	  watchdog driver characteristic for installed hardware.
+
+if WD
+
+config WD_TIMEOUT
+	int "Set default timeout for generic watchdog driver (in sec.)"
+	default "300"
+	help
+	  This option sets default watchdog timeout. It can be overwritten
+	  by user using kernel command line option or write() function called
+	  on watchdog device.
+
+comment "Low-level watchdog drivers"
+
+config WD_MPC5200
+	bool "Driver for MPC5200(B) built-in watchdog"
+	depends on PPC_MPC5200
+	default n
+	help
+	  Low level functions for MPC5200(B) watchdog driver based on GPT.
+
+config WD_LWMON5
+	bool "Driver for LWMON5 board specific watchdog"
+	depends on LWMON5
+	default n
+	help
+	  Low level functions for board specific Liebherr LWMON5 watchdog
+	  driver based on GPT.
+
+endif # WD
+
 config SOFT_WATCHDOG
 	tristate "Software watchdog"
 	help
@@ -766,6 +803,17 @@ config 8xxx_WDT
 	  - MPC86xx watchdogs
 
 	  For BookE processors (MPC85xx) use the BOOKE_WDT driver instead.
+
+config WDT_CHAIN
+	tristate "WDT Chain"
+
+config WDT_CHAIN_HWL_MPC8XX
+	tristate "WDT CHAIN Hardwarelayer for MPC8xx"
+	depends on WDT_CHAIN && PPC_8xx
+
+config WDT_CHAIN_HWL_MPC82XX
+	tristate "WDT CHAIN Hardwarelayer for MPC82xx"
+	depends on WDT_CHAIN
 
 config MV64X60_WDT
 	tristate "MV64X60 (Marvell Discovery) Watchdog Timer"

@@ -104,6 +104,16 @@
 		dcr-reg = <0x00c 0x002>;
 	};
 
+	L2C0: l2c {
+		compatible = "ibm,l2-cache-460ex", "ibm,l2-cache";
+		dcr-reg = <20 8			/* Internal SRAM DCR's */
+			   30 8>;		/* L2 cache DCR's */
+		cache-line-size = <20>;		/* 32 bytes */
+		cache-size = <40000>;		/* L2, 256K */
+		interrupt-parent = <&UIC2>;
+		interrupts = <17 1>;
+	};
+
 	plb {
 		compatible = "ibm,plb-460ex", "ibm,plb4";
 		#address-cells = <2>;
@@ -129,6 +139,43 @@
 					/*SERR*/  0x3 0x4
 					/*TXDE*/  0x4 0x4
 					/*RXDE*/  0x5 0x4>;
+		};
+
+		USB0: ehci@bffd0400 {
+			compatible = "ibm,usb-ehci-460ex", "usb-ehci";
+			interrupt-parent = <&UIC2>;
+			interrupts = <0x1d 4>;
+			reg = <4 0xbffd0400 0x90 4 0xbffd0490 0x70>;
+		};
+
+		USB1: usb@bffd0000 {
+			compatible = "ohci-le";
+			reg = <4 0xbffd0000 0x60>;
+			interrupt-parent = <&UIC2>;
+			interrupts = <0x1e 4>;
+		};
+
+		USBOTG0: usbotg@bff80000 {
+			compatible = "amcc,usb-otg-460ex";
+			reg = <4 0xbff80000 0x10000>;
+			interrupt-parent = <&USBOTG0>;
+			interrupts = <0 1 2>;
+			#interrupt-cells = <1>;
+			#address-cells = <0>;
+			#size-cells = <0>;
+			interrupt-map = </* USB-OTG */ 0 &UIC2 0x1c 4
+					 /* HIGH-POWER */ 1 &UIC1 0x1a 8
+					 /* DMA */ 2 &UIC0 0xc 4>;
+			interrupt-map-mask = <0xffffffff>;
+		};
+
+		SATA0: sata@bffd1000 {
+			compatible = "amcc,sata-460ex";
+			reg = <4 0xbffd1000 0x800	/* SATA */
+			       4 0xbffd0800 0x400>;	/* AHBDMA */
+			interrupt-parent = <&UIC3>;
+			interrupts = <0 4		/* SATA */
+				      5 4>;		/* AHBDMA */
 		};
 
 		POB0: opb {
@@ -234,6 +281,12 @@
 				reg = <0xef600700 0x00000014>;
 				interrupt-parent = <&UIC0>;
 				interrupts = <0x2 0x4>;
+				#address-cells = <1>;
+				#size-cells = <0>;
+				rtc@68 {
+					compatible = "stm,m41t80";
+					reg = <68>;
+				};
 			};
 
 			IIC1: i2c@ef600800 {

@@ -141,6 +141,8 @@
 				device_type = "serial";
 				compatible = "fsl,mpc8247-smc-uart",
 				             "fsl,cpm2-smc-uart";
+				model = "SMC";
+				device-id = <2>;
 				reg = <0x11a90 0x20 0x88fc 0x02>;
 				interrupts = <5 8>;
 				interrupt-parent = <&PIC>;
@@ -162,6 +164,12 @@
 				fixed-link = <0 0 10 0 0>;
 			};
 
+			bootcount@0x80f4 {
+				device_type = "bootcount";
+				compatible = "uboot,bootcount";
+				reg = <0x80f4 0x08>;
+			};
+ 
 		};
 
 		PIC: interrupt-controller@10c00 {

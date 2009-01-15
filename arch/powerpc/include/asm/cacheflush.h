@@ -49,6 +49,7 @@ extern void flush_dcache_range(unsigned long start, unsigned long stop);
 #ifdef CONFIG_PPC32
 extern void clean_dcache_range(unsigned long start, unsigned long stop);
 extern void invalidate_dcache_range(unsigned long start, unsigned long stop);
+extern void invalidate_l2cache_range(unsigned long start, unsigned long stop);
 #endif /* CONFIG_PPC32 */
 #ifdef CONFIG_PPC64
 extern void flush_inval_dcache_range(unsigned long start, unsigned long stop);

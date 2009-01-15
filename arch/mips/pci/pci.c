@@ -65,8 +65,10 @@ pcibios_align_resource(void *data, struct resource *res,
 		/*
 		 * Put everything into 0x00-0xff region modulo 0x400
 		 */
+#ifndef CONFIG_MIKROTIK_RB500
 		if (start & 0x300)
 			start = (start + 0x3ff) & ~0x3ff;
+#endif
 	} else if (res->flags & IORESOURCE_MEM) {
 		/* Make sure we start at our min on all hoses */
 		if (start < PCIBIOS_MIN_MEM + hose->mem_resource->start)

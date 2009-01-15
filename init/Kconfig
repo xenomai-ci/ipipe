@@ -620,6 +620,18 @@ config PRINTK
 	  very difficult to diagnose system problems, saying N here is
 	  strongly discouraged.
 
+config LOGBUFFER
+	bool "External logbuffer" if PRINTK
+	default n
+	depends on PPC
+
+config ALT_LB_LOCATION
+	bool "Alternative Logbuffer" if LOGBUFFER
+	depends on LWMON5
+	default y
+	help
+	  This board may use alternative storage for log head & buffer.
+
 config BUG
 	bool "BUG() support" if EMBEDDED
 	default y

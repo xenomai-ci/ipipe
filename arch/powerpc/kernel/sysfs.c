@@ -896,6 +896,9 @@ void sysfs_remove_device_from_node(struct sys_device *dev, int nid)
 }
 EXPORT_SYMBOL_GPL(sysfs_remove_device_from_node);
 
+EXPORT_SYMBOL_GPL(sysfs_add_device_to_node);
+EXPORT_SYMBOL_GPL(sysfs_remove_device_from_node);
+
 #else
 static void register_nodes(void)
 {

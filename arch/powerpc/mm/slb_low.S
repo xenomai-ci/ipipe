@@ -258,6 +258,10 @@ _GLOBAL(slb_compare_rr_to_size)
 	 * we enter with and the rfid we exit with are context synchronizing.
 	 */
 	slbmte	r11,r10
+#ifdef CONFIG_PPC_PASEMI_A2_WORKAROUNDS
+	mfmsr	r3
+	mtmsrd	r3
+#endif
 
 	/* we're done for kernel addresses */
 	crclr	4*cr0+eq		/* set result to "success" */

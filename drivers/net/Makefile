@@ -35,6 +35,8 @@ ucc_geth_driver-objs := ucc_geth.o ucc_geth_mii.o ucc_geth_ethtool.o
 #
 obj-$(CONFIG_PLIP) += plip.o
 
+obj-$(CONFIG_KORINA) += korina.o
+
 obj-$(CONFIG_ROADRUNNER) += rrunner.o
 
 obj-$(CONFIG_HAPPYMEAL) += sunhme.o

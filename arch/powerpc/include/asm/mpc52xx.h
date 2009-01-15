@@ -111,6 +111,9 @@ struct mpc52xx_gpt {
 	u32 status;		/* GPTx + 0X0c */
 };
 
+/* Static instance of GPT0 */
+extern volatile struct mpc52xx_gpt *mpc52xx_gpt0;
+
 /* GPIO */
 struct mpc52xx_gpio {
 	u32 port_config;	/* GPIO + 0x00 */
@@ -146,6 +149,11 @@ struct mpc52xx_gpio {
 #define MPC52xx_GPIO_PSC_CONFIG_UART_WITHOUT_CD	4
 #define MPC52xx_GPIO_PSC_CONFIG_UART_WITH_CD	5
 #define MPC52xx_GPIO_PCI_DIS			(1<<15)
+
+/* Enables GPT register to operate as simple GPIO output register */
+#define MPC52xx_GPT_ENABLE_OUTPUT	0x00000024
+/* Puts 1 on GPT output pin */
+#define MPC52xx_GPT_OUTPUT_1		0x00000010
 
 /* GPIO with WakeUp*/
 struct mpc52xx_gpio_wkup {
@@ -263,6 +271,10 @@ extern unsigned int mpc52xx_get_irq(void);
 /* mpc52xx_pci.c */
 #ifdef CONFIG_PCI
 extern int __init mpc52xx_add_bridge(struct device_node *node);
+
+extern void __init mpc52xx_map_wdt(void);
+extern volatile struct mpc52xx_gpt* mpc52xx_get_wdt(void);
+extern void mpc52xx_restart(char *cmd);
 extern void __init mpc52xx_setup_pci(void);
 #else
 static inline void mpc52xx_setup_pci(void) { }

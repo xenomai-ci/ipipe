@@ -130,8 +130,14 @@ static int serial_index(struct uart_port *port)
  * We default to IRQ0 for the "no irq" hack.   Some
  * machine types want others as well - they're free
  * to redefine this in their header file.
+ * NOTE:  Some PPC4xx use IRQ0 for a UART Interrupt, so
+ * we will assume that the IRQ is always real
  */
+#ifdef CONFIG_4xx
+#define is_real_interrupt(irq)	(1)
+#else
 #define is_real_interrupt(irq)	((irq) != 0)
+#endif
 
 #ifdef CONFIG_SERIAL_8250_DETECT_IRQ
 #define CONFIG_SERIAL_DETECT_IRQ 1
@@ -239,7 +245,11 @@ static const struct serial8250_config uart_config[] = {
 		.name		= "16550A",
 		.fifo_size	= 16,
 		.tx_loadsz	= 16,
+#ifdef CONFIG_PPC_PASEMI_A2_WORKAROUNDS
+		.fcr		= UART_FCR_ENABLE_FIFO | UART_FCR_R_TRIG_11,
+#else
 		.fcr		= UART_FCR_ENABLE_FIFO | UART_FCR_R_TRIG_10,
+#endif
 		.flags		= UART_CAP_FIFO,
 	},
 	[PORT_CIRRUS] = {
@@ -408,6 +418,114 @@ static inline int map_8250_out_reg(struct uart_8250_port *up, int offset)
 
 #endif
 
+#ifdef CONFIG_PPC_PASEMI_A2_WORKAROUNDS
+extern spinlock_t lbi_lock;
+
+static unsigned int serial_in(struct uart_8250_port *up, int offset)
+{
+	unsigned int tmp;
+	int ret, flags;
+	offset = map_8250_in_reg(up, offset) << up->port.regshift;
+
+	spin_lock_irqsave(&lbi_lock, flags);
+	switch (up->port.iotype) {
+	case UPIO_HUB6:
+		outb(up->port.hub6 - 1 + offset, up->port.iobase);
+		ret = inb(up->port.iobase + 1);
+		break;
+
+	case UPIO_MEM:
+	case UPIO_DWAPB:
+		ret = readb(up->port.membase + offset);
+		break;
+
+	case UPIO_RM9000:
+	case UPIO_MEM32:
+		ret = readl(up->port.membase + offset);
+		break;
+
+#ifdef CONFIG_SERIAL_8250_AU1X00
+	case UPIO_AU:
+		ret = __raw_readl(up->port.membase + offset);
+		break;
+#endif
+
+	case UPIO_TSI:
+		if (offset == UART_IIR) {
+			tmp = readl(up->port.membase + (UART_IIR & ~3));
+			ret = (tmp >> 16) & 0xff; /* UART_IIR % 4 == 2*/
+		} else
+			ret = readb(up->port.membase + offset);
+		break;
+
+	default:
+		ret = inb(up->port.iobase + offset);
+		break;
+	}
+	spin_unlock_irqrestore(&lbi_lock, flags);
+	return ret;
+}
+
+static void
+serial_out(struct uart_8250_port *up, int offset, int value)
+{
+	/* Save the offset before it's remapped */
+	int save_offset = offset, flags;
+	offset = map_8250_out_reg(up, offset) << up->port.regshift;
+
+	spin_lock_irqsave(&lbi_lock, flags);
+	switch (up->port.iotype) {
+	case UPIO_HUB6:
+		outb(up->port.hub6 - 1 + offset, up->port.iobase);
+		outb(value, up->port.iobase + 1);
+		break;
+
+	case UPIO_MEM:
+		writeb(value, up->port.membase + offset);
+		break;
+
+	case UPIO_RM9000:
+	case UPIO_MEM32:
+		writel(value, up->port.membase + offset);
+		break;
+
+#ifdef CONFIG_SERIAL_8250_AU1X00
+	case UPIO_AU:
+		__raw_writel(value, up->port.membase + offset);
+		break;
+#endif
+	case UPIO_TSI:
+		if (!((offset == UART_IER) && (value & UART_IER_UUE)))
+			writeb(value, up->port.membase + offset);
+		break;
+
+	case UPIO_DWAPB:
+		/* Save the LCR value so it can be re-written when a
+		 * Busy Detect interrupt occurs. */
+		if (save_offset == UART_LCR)
+			up->lcr = value;
+		writeb(value, up->port.membase + offset);
+		/* Read the IER to ensure any interrupt is cleared before
+		 * returning from ISR. */
+		if (save_offset == UART_TX || save_offset == UART_IER)
+			value = serial_in(up, UART_IER);
+		break;
+
+	default:
+		outb(value, up->port.iobase + offset);
+	}
+
+#if defined(CONFIG_IDT_EB434) || defined(CONFIG_MIKROTIK_RB500)
+	__SLOW_DOWN_IO;
+	__SLOW_DOWN_IO;
+	__SLOW_DOWN_IO;
+	__SLOW_DOWN_IO;
+#endif
+	spin_unlock_irqrestore(&lbi_lock, flags);
+}
+
+#else /* CONFIG_PPC_PASEMI_A2_WORKAROUNDS */
+
 static unsigned int serial_in(struct uart_8250_port *up, int offset)
 {
 	unsigned int tmp;
@@ -490,7 +608,16 @@ serial_out(struct uart_8250_port *up, int offset, int value)
 	default:
 		outb(value, up->port.iobase + offset);
 	}
+
+#if defined(CONFIG_IDT_EB434) || defined(CONFIG_MIKROTIK_RB500)
+	__SLOW_DOWN_IO;
+	__SLOW_DOWN_IO;
+	__SLOW_DOWN_IO;
+	__SLOW_DOWN_IO;
+#endif
 }
+
+#endif /* CONFIG_PPC_PASEMI_A2_WORKAROUNDS */
 
 static void
 serial_out_sync(struct uart_8250_port *up, int offset, int value)
@@ -1152,10 +1279,18 @@ static void autoconfig(struct uart_8250_port *up, unsigned int probeflags)
 	case 1:
 		up->port.type = PORT_UNKNOWN;
 		break;
+#ifdef CONFIG_PPC_PASEMI_A2_WORKAROUNDS
+	case 3:
+#else
 	case 2:
+#endif
 		up->port.type = PORT_16550;
 		break;
+#ifdef CONFIG_PPC_PASEMI_A2_WORKAROUNDS
+	case 2:
+#else
 	case 3:
+#endif
 		autoconfig_16550a(up);
 		break;
 	}
@@ -1306,10 +1441,14 @@ static void serial8250_start_tx(struct uart_port *port)
 			lsr = serial_in(up, UART_LSR);
 			up->lsr_saved_flags |= lsr & LSR_SAVE_FLAGS;
 			iir = serial_in(up, UART_IIR) & 0x0f;
+#ifdef CONFIG_PPC_PASEMI_A2_WORKAROUNDS
+			if (lsr & UART_LSR_TEMT && !(iir & UART_IIR_NO_INT))
+#else
 			if ((up->port.type == PORT_RM9000) ?
 				(lsr & UART_LSR_THRE &&
 				(iir == UART_IIR_NO_INT || iir == UART_IIR_THRI)) :
 				(lsr & UART_LSR_TEMT && iir & UART_IIR_NO_INT))
+#endif
 				transmit_chars(up);
 		}
 	}
@@ -1536,7 +1675,11 @@ static irqreturn_t serial8250_interrupt(int irq, void *dev_id)
 		up = list_entry(l, struct uart_8250_port, list);
 
 		iir = serial_in(up, UART_IIR);
+#ifdef CONFIG_PPC_PASEMI_A2_WORKAROUNDS
+		if ((iir & UART_IIR_NO_INT)) {
+#else
 		if (!(iir & UART_IIR_NO_INT)) {
+#endif
 			serial8250_handle_port(up);
 
 			handled = 1;
@@ -1696,7 +1839,11 @@ static void serial8250_timeout(unsigned long data)
 	unsigned int iir;
 
 	iir = serial_in(up, UART_IIR);
+#ifdef CONFIG_PPC_PASEMI_A2_WORKAROUNDS
+	if ((iir & UART_IIR_NO_INT))
+#else
 	if (!(iir & UART_IIR_NO_INT))
+#endif
 		serial8250_handle_port(up);
 	mod_timer(&up->timer, jiffies + poll_timeout(up->port.timeout));
 }
@@ -2068,7 +2215,11 @@ static int serial8250_startup(struct uart_port *port)
 	iir = serial_in(up, UART_IIR);
 	serial_outp(up, UART_IER, 0);
 
+#ifdef CONFIG_PPC_PASEMI_A2_WORKAROUNDS
+	if (lsr & UART_LSR_TEMT && !(iir & UART_IIR_NO_INT)) {
+#else
 	if (lsr & UART_LSR_TEMT && iir & UART_IIR_NO_INT) {
+#endif
 		if (!(up->bugs & UART_BUG_TXEN)) {
 			up->bugs |= UART_BUG_TXEN;
 			pr_debug("ttyS%d - enabling bad tx status workarounds\n",

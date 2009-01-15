@@ -110,6 +110,12 @@
 #define gadget_is_at91(g)	0
 #endif
 
+#ifdef CONFIG_USB_GADGET_PD12
+#define gadget_is_pd12(g)	!strcmp("pd12_udc", (g)->name)
+#else
+#define gadget_is_pd12(g)	0
+#endif
+
 /* status unclear */
 #ifdef CONFIG_USB_GADGET_IMX
 #define gadget_is_imx(g)	!strcmp("imx_udc", (g)->name)
@@ -145,10 +151,22 @@
 #define gadget_is_mpc8272(g)	0
 #endif
 
+#ifdef CONFIG_USB_GADGET_DWC_OTG
+#define gadget_is_dwc_otg(g)    !strcmp("dwc_otg_pcd", (g)->name)
+#else
+#define gadget_is_dwc_otg(g)    0
+#endif
+
 #ifdef CONFIG_USB_GADGET_M66592
 #define	gadget_is_m66592(g)	!strcmp("m66592_udc", (g)->name)
 #else
 #define	gadget_is_m66592(g)	0
+#endif
+
+#ifdef CONFIG_USB_GADGET_DWC_OTG
+#define gadget_is_dwc_otg(g)    !strcmp("dwc_otg_pcd", (g)->name)
+#else
+#define gadget_is_dwc_otg(g)    0
 #endif
 
 /* Freescale CPM/QE UDC SUPPORT */
@@ -219,12 +237,16 @@ static inline int usb_gadget_controller_number(struct usb_gadget *gadget)
 		return 0x18;
 	else if (gadget_is_fsl_usb2(gadget))
 		return 0x19;
+	else if (gadget_is_dwc_otg(gadget))
+		return 0x1a;
 	else if (gadget_is_amd5536udc(gadget))
 		return 0x20;
 	else if (gadget_is_m66592(gadget))
 		return 0x21;
-	else if (gadget_is_fsl_qe(gadget))
+	else if (gadget_is_dwc_otg(gadget))
 		return 0x22;
+	else if (gadget_is_fsl_qe(gadget))
+		return 0x23;
 	return -ENOENT;
 }
 

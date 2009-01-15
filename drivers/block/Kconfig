@@ -403,6 +403,14 @@ config ATA_OVER_ETH
 	This driver provides Support for ATA over Ethernet block
 	devices like the Coraid EtherDrive (R) Storage Blade.
 
+config BLK_DEV_CF_MIPS
+	bool "CF slot of RB532 board"
+	depends on MIKROTIK_RB500
+	default y
+	help
+	  The Routerboard 532 has a CF slot on it. Enable the special block
+	  device driver for it.
+
 config SUNVDC
 	tristate "Sun Virtual Disk Client support"
 	depends on SUN_LDOMS

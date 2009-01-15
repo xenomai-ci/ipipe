@@ -13,7 +13,11 @@
  */
 
 /* Default baud base if not found in device-tree */
+#ifdef CONFIG_PPC_PASEMI_A2_WORKAROUNDS
+#define BASE_BAUD ( 133333333 / 16 )
+#else
 #define BASE_BAUD ( 1843200 / 16 )
+#endif
 
 #ifdef CONFIG_PPC_UDBG_16550
 extern void find_legacy_serial_ports(void);

@@ -6,6 +6,26 @@
 
 menu "Miscellaneous I2C Chip support"
 
+config SENSORS_24C01A
+	tristate "24C01A EEPROM driver"
+	depends on I2C && EXPERIMENTAL
+	default n
+	help
+	  If you say yes here you get support for the 24C01A EEPROM driver.
+
+	  This driver can also be built as a module.  If so, the module
+	  will be called 24c01a.
+
+config SENSORS_AD7416
+	tristate "AD7416 temperature sensor"
+	depends on I2C && EXPERIMENTAL
+	default n
+	help
+	  If you say yes here you get support for the AD7416 temperature sensor.
+
+	  This driver can also be built as a module.  If so, the module
+	  will be called ad7416.
+
 config DS1682
 	tristate "Dallas DS1682 Total Elapsed Time Recorder with Alarm"
 	depends on EXPERIMENTAL
@@ -52,6 +72,16 @@ config SENSORS_EEPROM
 
 	  This driver can also be built as a module.  If so, the module
 	  will be called eeprom.
+
+config SENSORS_MAX6900
+	tristate "Maxim MAX6900 Real Time Clock"
+	depends on I2C && EXPERIMENTAL
+	help
+	  If you say yes here you get support for Maxim MAX6900
+	  real-time clock chip.
+
+	  This driver can also be built as a module.  If so, the module
+	  will be called max6900.
 
 config SENSORS_PCF8574
 	tristate "Philips PCF8574 and PCF8574A (DEPRECATED)"
@@ -122,7 +152,7 @@ config ISP1301_OMAP
 	  USB-On-The-Go transceiver working with the OMAP OTG controller.
 	  The ISP1301 is used in products including H2 and H3 development
 	  boards for Texas Instruments OMAP processors.
-	  
+
 	  This driver can also be built as a module.  If so, the module
 	  will be called isp1301_omap.
 

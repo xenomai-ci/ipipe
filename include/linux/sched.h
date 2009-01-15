@@ -1145,6 +1145,10 @@ struct task_struct {
 
 	struct mm_struct *mm, *active_mm;
 
+#ifdef CONFIG_PPC_PASEMI_A2_WORKAROUNDS
+	real_pte_t zero_pte;
+#endif
+
 /* task state */
 	struct linux_binfmt *binfmt;
 	int exit_state;

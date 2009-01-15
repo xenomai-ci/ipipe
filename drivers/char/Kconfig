@@ -1012,6 +1012,12 @@ config MAX_RAW_DEVS
 	  Default is 256. Increase this number in case you need lots of
 	  raw devices.
 
+config BOOTCOUNT
+	tristate "UBoot Bootcount driver"
+	depends on PPC
+	help
+	  The UBoot Bootcount driver ...
+
 config HPET
 	bool "HPET - High Precision Event Timer" if (X86 || IA64)
 	default n
@@ -1065,11 +1071,44 @@ config TELCLOCK
 	  /sys/devices/platform/telco_clock, with a number of files for
 	  controlling the behavior of this hardware.
 
+config PPC405EZ_ADC
+	bool "AMCC PowerPC 405EZ ADC core support"
+	depends on 405EZ
+	help
+	  Give userspace access to the ADC controller on the
+	  AMCC PPC405EZ.
+
+	  If compiled as a module, it will be called ppc405ez_adc.
+
+config PPC405EZ_DAC
+	bool "AMCC PowerPC 405EZ DAC core support"
+	depends on 405EZ
+	help
+	  Give userspace access to the DAC controller on the
+	  AMCC PPC405EZ.
+
+	  If compiled as a module, it will be called ppc405ez_dac.
+
+config LWMON5_KBD
+	bool "Liebherr LWMON5 matrix keyboard support"
+	depends on LWMON5
+	help
+	  Give userspace access to the matrix keyboard on the
+	  Liebherr LWMON5 board.
+
+	  If compiled as a module, it will be called lwmon_kbd.
+
 config DEVPORT
 	bool
 	depends on !M68K
 	depends on ISA || PCI
 	default y
+
+config IAI_CPLD
+	bool "IAI CPLD support."
+	depends on MUAS3001
+	help
+	  Gives access to the CPLD on the MUAS3001 board from IAI.
 
 source "drivers/s390/char/Kconfig"
 

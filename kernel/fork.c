@@ -132,13 +132,28 @@ struct kmem_cache *vm_area_cachep;
 /* SLAB cache for mm_struct structures (tsk->mm) */
 static struct kmem_cache *mm_cachep;
 
+#ifdef CONFIG_PPC_PASEMI_A2_WORKAROUNDS
+static struct page *zero_page;
+#endif
+
 void free_task(struct task_struct *tsk)
 {
+#ifdef CONFIG_PPC_PASEMI_A2_WORKAROUNDS
+	unsigned long vsid;
+	int ssize;
+
+	ssize = user_segment_size(0);
+	vsid = get_vsid(current->mm->context.id, 0, ssize);
+	if (tsk->mm)
+		flush_hash_page(vsid << 28, tsk->zero_pte,
+				MMU_PAGE_4K, ssize, 0);
+#endif
 	prop_local_destroy_single(&tsk->dirties);
 	free_thread_info(tsk->stack);
 	rt_mutex_debug_task_free(tsk);
 	free_task_struct(tsk);
 }
+
 EXPORT_SYMBOL(free_task);
 
 void __put_task_struct(struct task_struct *tsk)
@@ -196,6 +211,10 @@ void __init fork_init(unsigned long mempages)
 	init_task.signal->rlim[RLIMIT_NPROC].rlim_max = max_threads/2;
 	init_task.signal->rlim[RLIMIT_SIGPENDING] =
 		init_task.signal->rlim[RLIMIT_NPROC];
+
+#ifdef CONFIG_PPC_PASEMI_A2_WORKAROUNDS
+	zero_page = alloc_page(GFP_KERNEL);
+#endif
 }
 
 int __attribute__((weak)) arch_dup_task_struct(struct task_struct *dst,
@@ -238,7 +257,13 @@ static struct task_struct *dup_task_struct(struct task_struct *orig)
 #ifdef CONFIG_CC_STACKPROTECTOR
 	tsk->stack_canary = get_random_int();
 #endif
-
+#ifdef CONFIG_PPC_PASEMI_A2_WORKAROUNDS
+#ifdef CONFIG_PPC_64K_PAGES
+	tsk->zero_pte.pte = mk_pte(zero_page,_PAGE_BASE|_PAGE_RW|_PAGE_USER|_PAGE_EXEC);
+#else
+	tsk->zero_pte = mk_pte(zero_page,_PAGE_BASE|_PAGE_RW|_PAGE_USER|_PAGE_EXEC);
+#endif
+#endif
 	/* One for us, one for whoever does the "release_task()" (usually parent) */
 	atomic_set(&tsk->usage,2);
 	atomic_set(&tsk->fs_excl, 0);

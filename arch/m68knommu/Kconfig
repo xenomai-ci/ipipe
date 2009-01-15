@@ -470,6 +470,12 @@ config MOD5272
 	help
 	  Support for the Netburner MOD-5272 board.
 
+config IDMR
+	bool "iDMR board support"
+	depends on M5271
+	help
+	  Support for the iDMR board.
+
 config SAVANTrosie1
 	bool "Savant Rosie1 board support"
 	depends on M523x
@@ -496,7 +502,7 @@ config ARNEWSH
 config FREESCALE
 	bool
 	default y
-	depends on (M5206eC3 || M5208EVB || M5235EVB || M5249C3 || M5271EVB || M5272C3 || M5275EVB || M5282EVB || M5307C3 || M5329EVB || M5407C3)
+	depends on (M5206eC3 || M5208EVB || M5235EVB || M5249C3 || M527x || M5272C3 || M5275EVB || M5282EVB || M5307C3 || M5329EVB || M5407C3)
 
 config HW_FEITH
 	bool
@@ -527,6 +533,21 @@ config AVNET
 	bool
 	default y
 	depends on (AVNET5282)
+
+config UBOOT
+	bool "Support for U-Boot command line parameters"
+	help
+	  If you say Y here kernel will try to collect a command
+	  line parameters from the initial u-boot stack.
+	default n
+
+config LARGE_ALLOCS
+	bool "Allow allocating large blocks (> 1MB) of memory"
+	help
+	  Allow the slab memory allocator to keep chains for very large
+	  memory sizes - upto 32MB. You may need this if your system has
+	  a lot of RAM, and you need to able to allocate very large
+	  contiguous chunks. If unsure, say N.
 
 config 4KSTACKS
 	bool "Use 4Kb for kernel stacks instead of 8Kb"

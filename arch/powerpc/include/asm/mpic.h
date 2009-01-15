@@ -305,6 +305,9 @@ struct mpic
 	struct msi_bitmap	msi_bitmap;
 #endif
 
+#ifdef CONFIG_PPC_PASEMI_A2_WORKAROUNDS
+	u32			ipi_reg_shadow[4];
+#endif
 #ifdef CONFIG_MPIC_BROKEN_REGREAD
 	u32			isu_reg0_shadow[MPIC_MAX_IRQ_SOURCES];
 #endif

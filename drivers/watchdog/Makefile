@@ -110,13 +110,21 @@ obj-$(CONFIG_TXX9_WDT) += txx9wdt.o
 # PARISC Architecture
 
 # POWERPC Architecture
+obj-$(CONFIG_WD_MPC5200) += wd_mpc5200.o
+obj-$(CONFIG_8xx_WDT) += mpc8xx_wdt.o
 obj-$(CONFIG_MPC5200_WDT) += mpc5200_wdt.o
 obj-$(CONFIG_8xxx_WDT) += mpc8xxx_wdt.o
 obj-$(CONFIG_MV64X60_WDT) += mv64x60_wdt.o
 obj-$(CONFIG_BOOKE_WDT) += booke_wdt.o
+obj-$(CONFIG_WDT_CHAIN) += wdt_chains.o
+obj-$(CONFIG_WDT_CHAIN_HWL_MPC8XX) += wdt_chain_hwl_mpc8xx.o
+obj-$(CONFIG_WDT_CHAIN_HWL_MPC82XX) += wdt_chain_hwl_mpc82xx.o
 
 # PPC64 Architecture
 obj-$(CONFIG_WATCHDOG_RTAS) += wdrtas.o
+
+# PPC Architecture
+obj-$(CONFIG_WD_LWMON5) += wd_lwmon5.o
 
 # S390 Architecture
 
@@ -133,4 +141,5 @@ obj-$(CONFIG_WATCHDOG_CP1XXX)		+= cpwd.o
 # XTENSA Architecture
 
 # Architecture Independant
+obj-$(CONFIG_WD) += wd.o
 obj-$(CONFIG_SOFT_WATCHDOG) += softdog.o

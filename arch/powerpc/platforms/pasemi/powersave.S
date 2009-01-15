@@ -49,9 +49,6 @@ _doze:
 	b	.
 
 
-_GLOBAL(idle_spin)
-	blr
-
 _GLOBAL(idle_doze)
 	LOAD_REG_ADDR(r3, _doze)
 	b	sleep_common

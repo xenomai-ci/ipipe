@@ -194,3 +194,7 @@ EXPORT_SYMBOL(__mtdcr);
 EXPORT_SYMBOL(__mfdcr);
 #endif
 EXPORT_SYMBOL(empty_zero_page);
+#ifdef CONFIG_CPM2
+#include <asm/immap_cpm2.h>
+EXPORT_SYMBOL(cpm2_immr);
+#endif

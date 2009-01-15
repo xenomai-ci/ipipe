@@ -100,6 +100,16 @@ config SPI_BUTTERFLY
 	  inexpensive battery powered microcontroller evaluation board.
 	  This same cable can be used to flash new firmware.
 
+config SPI_MPC52xx
+	tristate "Freescale MPC52xx SPI controller"
+	depends on SPI_MASTER && PPC_52xx && EXPERIMENTAL
+	help
+	  This enables using the Freescale MPC52xx SPI controller in master
+	  mode.
+
+	  Note: This driver is for the dedicated SPI device.  It is not
+	  for a PSC in SPI mode.
+
 config SPI_IMX
 	tristate "Freescale iMX SPI controller"
 	depends on ARCH_IMX && EXPERIMENTAL

@@ -16,6 +16,7 @@
 #include <linux/string.h>
 #include <linux/rtc.h>
 #include <linux/bcd.h>
+#include <linux/mutex.h>
 
 
 
@@ -34,6 +35,8 @@ enum ds_type {
 	// rs5c372 too?  different address...
 };
 
+static DEFINE_MUTEX(ds1307_mutex);
+static struct device *save_device = NULL;
 
 /* RTC registers don't differ much, except for the century flag */
 #define DS1307_REG_SECS		0x00	/* 00-59 */
@@ -480,6 +483,29 @@ static const struct rtc_class_ops ds13xx_rtc_ops = {
 	.ioctl		= ds1307_ioctl,
 };
 
+void ds1307_get_rtc_time(struct rtc_time *t)
+{
+	if (save_device) {
+		mutex_lock(&ds1307_mutex);
+		ds1307_get_time(save_device, t);
+		mutex_unlock(&ds1307_mutex);
+	}
+}
+
+int ds1307_set_rtc_time(struct rtc_time *t)
+{
+	int err;
+
+	if (save_device) {
+		mutex_lock(&ds1307_mutex);
+		err = ds1307_set_time(save_device, t);
+		mutex_unlock(&ds1307_mutex);
+	} else
+		err = -ENODEV;
+
+	return err;
+}
+
 /*----------------------------------------------------------------------*/
 
 #define NVRAM_SIZE	56
@@ -756,6 +782,7 @@ read_rtc:
 			"unable to register the class device\n");
 		goto exit_free;
 	}
+	save_device = &client->dev;
 
 	if (want_irq) {
 		err = request_irq(client->irq, ds1307_irq, 0,
@@ -808,6 +835,7 @@ static int __devexit ds1307_remove(struct i2c_client *client)
 
 	rtc_device_unregister(ds1307->rtc);
 	kfree(ds1307);
+	save_device = NULL;
 	return 0;
 }
 
