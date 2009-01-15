@@ -166,6 +166,8 @@ static inline void destroy_context(struct mm_struct *mm)
 	preempt_enable();
 }
 
+#ifdef CONFIG_IPIPE_UNMASKED_CONTEXT_SWITCH
+
 static inline void switch_mm(struct mm_struct *prev, struct mm_struct *next,
 			     struct task_struct *tsk)
 {
@@ -184,18 +186,57 @@ static inline void switch_mm(struct mm_struct *prev, struct mm_struct *next,
 	if (prev == next)
 		return;
 
+	if (ipipe_current_domain == ipipe_root_domain) {
+		int cpu = smp_processor_id();
+		do {
+			per_cpu(ipipe_active_mm, cpu) = NULL; /* mm state is undefined. */
+			barrier();
+			get_mmu_context(next);
+			set_context(next->context.id, next->pgd);
+			barrier();
+			per_cpu(ipipe_active_mm, cpu) = next;
+		} while (test_and_clear_thread_flag(TIF_MMSWITCH_INT));
+	} else {
+		/* Setup new userspace context */
+		get_mmu_context(next);
+		set_context(next->context.id, next->pgd);
+	}
+}
+
+#else /* !CONFIG_IPIPE_UNMASKED_CONTEXT_SWITCH */
+
+static inline void switch_mm(struct mm_struct *prev, struct mm_struct *next,
+			     struct task_struct *tsk)
+{
+	unsigned long flags;
+
+#ifdef CONFIG_ALTIVEC
+	if (cpu_has_feature(CPU_FTR_ALTIVEC))
+	asm volatile ("dssall;\n"
+#ifndef CONFIG_POWER4
+	 "sync;\n" /* G4 needs a sync here, G5 apparently not */
+#endif
+	 : : );
+#endif /* CONFIG_ALTIVEC */
+
+	local_irq_save_hw(flags);
+
+	tsk->thread.pgdir = next->pgd;
+
+	/* No need to flush userspace segments if the mm doesnt change */
+	if (prev == next)
+		goto done;
+
 	/* Setup new userspace context */
 	get_mmu_context(next);
 	set_context(next->context.id, next->pgd);
+done:
+	local_irq_restore_hw(flags);
 }
 
-#define deactivate_mm(tsk,mm)	do { } while (0)
+#endif /* !CONFIG_IPIPE_UNMASKED_CONTEXT_SWITCH */
 
-/*
- * After we have set current->mm to a new value, this activates
- * the context for the new mm so we see the new mappings.
- */
-#define activate_mm(active_mm, mm)   switch_mm(active_mm, mm, current)
+#define deactivate_mm(tsk,mm)	do { } while (0)
 
 extern void mmu_context_init(void);
 
@@ -238,11 +279,16 @@ extern void switch_slb(struct task_struct *tsk, struct mm_struct *mm);
  * switch_mm is the entry point called from the architecture independent
  * code in kernel/sched.c
  */
+
+#ifdef CONFIG_IPIPE_UNMASKED_CONTEXT_SWITCH
+
 static inline void switch_mm(struct mm_struct *prev, struct mm_struct *next,
 			     struct task_struct *tsk)
 {
-	if (!cpu_isset(smp_processor_id(), next->cpu_vm_mask))
-		cpu_set(smp_processor_id(), next->cpu_vm_mask);
+	int cpu = smp_processor_id();
+
+	if (!cpu_isset(cpu, next->cpu_vm_mask))
+		cpu_set(cpu, next->cpu_vm_mask);
 
 	/* No need to flush userspace segments if the mm doesnt change */
 	if (prev == next)
@@ -253,13 +299,57 @@ static inline void switch_mm(struct mm_struct *prev, struct mm_struct *next,
 		asm volatile ("dssall");
 #endif /* CONFIG_ALTIVEC */
 
-	if (cpu_has_feature(CPU_FTR_SLB))
+	if (ipipe_current_domain == ipipe_root_domain) {
+		do {
+			per_cpu(ipipe_active_mm, cpu) = NULL; /* mm state is undefined. */
+			barrier();
+			if (cpu_has_feature(CPU_FTR_SLB))
+				switch_slb(tsk, next);
+			else
+				switch_stab(tsk, next);
+			barrier();
+			per_cpu(ipipe_active_mm, cpu) = next;
+		} while (test_and_clear_thread_flag(TIF_MMSWITCH_INT));
+	} else if (cpu_has_feature(CPU_FTR_SLB))
 		switch_slb(tsk, next);
 	else
 		switch_stab(tsk, next);
 }
 
+#else /* !CONFIG_IPIPE_UNMASKED_CONTEXT_SWITCH */
+
+static inline void switch_mm(struct mm_struct *prev, struct mm_struct *next,
+			     struct task_struct *tsk)
+{
+	unsigned long flags;
+
+	local_irq_save_hw(flags);
+
+	if (!cpu_isset(smp_processor_id(), next->cpu_vm_mask))
+		cpu_set(smp_processor_id(), next->cpu_vm_mask);
+
+	/* No need to flush userspace segments if the mm doesnt change */
+	if (prev == next)
+		goto done;
+
+#ifdef CONFIG_ALTIVEC
+	if (cpu_has_feature(CPU_FTR_ALTIVEC))
+		asm volatile ("dssall");
+#endif /* CONFIG_ALTIVEC */
+
+	if (cpu_has_feature(CPU_FTR_SLB))
+		switch_slb(tsk, next);
+	else
+		switch_stab(tsk, next);
+done:
+	local_irq_restore_hw(flags);
+}
+
+#endif /* !CONFIG_IPIPE_UNMASKED_CONTEXT_SWITCH */
+
 #define deactivate_mm(tsk,mm)	do { } while (0)
+
+#endif /* CONFIG_PPC64 */
 
 /*
  * After we have set current->mm to a new value, this activates
@@ -274,6 +364,5 @@ static inline void activate_mm(struct mm_struct *prev, struct mm_struct *next)
 	local_irq_restore(flags);
 }
 
-#endif /* CONFIG_PPC64 */
 #endif /* __KERNEL__ */
 #endif /* __ASM_POWERPC_MMU_CONTEXT_H */

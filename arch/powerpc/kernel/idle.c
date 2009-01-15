@@ -59,6 +59,7 @@ void cpu_idle(void)
 		tick_nohz_stop_sched_tick(1);
 		while (!need_resched() && !cpu_should_die()) {
 			ppc64_runlatch_off();
+			ipipe_suspend_domain();
 
 			if (ppc_md.power_save) {
 				clear_thread_flag(TIF_POLLING_NRFLAG);
@@ -67,13 +68,13 @@ void cpu_idle(void)
 				 * is ordered w.r.t. need_resched() test.
 				 */
 				smp_mb();
-				local_irq_disable();
+				local_irq_disable_hw();
 
 				/* check again after disabling irqs */
 				if (!need_resched() && !cpu_should_die())
 					ppc_md.power_save();
 
-				local_irq_enable();
+				local_irq_enable_hw();
 				set_thread_flag(TIF_POLLING_NRFLAG);
 
 			} else {

@@ -136,6 +136,10 @@ config SYSVIPC_COMPAT
 	depends on COMPAT && SYSVIPC
 	default y
 
+config SOFTDISABLE
+	bool
+	default (PPC64 && !IPIPE)
+
 # All PPC32s use generic nvram driver through ppc_md
 config GENERIC_NVRAM
 	bool
@@ -232,6 +236,24 @@ source "arch/powerpc/sysdev/Kconfig"
 source "arch/powerpc/platforms/Kconfig"
 
 menu "Kernel options"
+
+source "kernel/ipipe/Kconfig"
+
+if IPIPE
+config RUNLATCH
+	bool "Enable RUNLATCH support"
+	depends on PPC64
+	default n if IPIPE
+	---help---
+	This option is costly latency-wise, so default is to keep
+	it off when the interrupt pipeline is enabled.
+endif
+if !IPIPE
+config RUNLATCH
+	bool
+	depends on PPC64
+	default y
+endif
 
 config HIGHMEM
 	bool "High memory support"

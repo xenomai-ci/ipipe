@@ -236,8 +236,10 @@ void early_setup_secondary(void)
 {
 	struct paca_struct *lpaca = get_paca();
 
+#ifdef CONFIG_SOFTDISABLE
 	/* Mark interrupts enabled in PACA */
 	lpaca->soft_enabled = 0;
+#endif
 
 	/* Initialize hash table for that CPU */
 	htab_initialize_secondary();
@@ -355,6 +357,12 @@ static void __init initialize_cache_info(void)
  */
 void __init setup_system(void)
 {
+#ifdef CONFIG_IPIPE
+	/* Early temporary init, before per-cpu areas are moved to
+	 * their final location. */
+	get_paca()->root_percpu = (u64)&ipipe_percpudom(&ipipe_root, status, 0);
+#endif	
+
 	DBG(" -> setup_system()\n");
 
 	/* Apply the CPUs-specific and firmware specific fixups to kernel
@@ -612,6 +620,10 @@ void __init setup_per_cpu_areas(void)
 		paca[i].data_offset = ptr - __per_cpu_start;
 		memcpy(ptr, __per_cpu_start, __per_cpu_end - __per_cpu_start);
 	}
+#ifdef CONFIG_IPIPE
+	/* Reset pointer to the relocated per-cpu root domain data. */
+	get_paca()->root_percpu = (u64)&ipipe_percpudom(&ipipe_root, status, 0);
+#endif	
 }
 #endif
 

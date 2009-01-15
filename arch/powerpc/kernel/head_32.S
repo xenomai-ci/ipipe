@@ -316,6 +316,12 @@ i##n:								\
 	EXC_XFER_TEMPLATE(n, hdlr, n, NOCOPY, transfer_to_handler_full,	\
 			  ret_from_except_full)
 
+#ifdef CONFIG_IPIPE
+#define EXC_XFER_IPIPE(n, hdlr)		\
+	EXC_XFER_TEMPLATE(n, hdlr, n+1, NOCOPY, transfer_to_handler, \
+			  __ipipe_ret_from_except)
+#endif /* CONFIG_IPIPE */
+
 #define EXC_XFER_LITE(n, hdlr)		\
 	EXC_XFER_TEMPLATE(n, hdlr, n+1, NOCOPY, transfer_to_handler, \
 			  ret_from_except)
@@ -400,7 +406,11 @@ InstructionAccess:
 	EXC_XFER_EE_LITE(0x400, handle_page_fault)
 
 /* External interrupt */
+#ifdef CONFIG_IPIPE
+	EXCEPTION(0x500, HardwareInterrupt, __ipipe_grab_irq, EXC_XFER_IPIPE)
+#else /* !CONFIG_IPIPE */
 	EXCEPTION(0x500, HardwareInterrupt, do_IRQ, EXC_XFER_LITE)
+#endif /* CONFIG_IPIPE */
 
 /* Alignment exception */
 	. = 0x600
@@ -434,7 +444,11 @@ END_FTR_SECTION_IFSET(CPU_FTR_FPU_UNAVAILABLE)
 	EXC_XFER_EE_LITE(0x800, kernel_fp_unavailable_exception)
 
 /* Decrementer */
+#ifdef CONFIG_IPIPE
+	EXCEPTION(0x900, Decrementer, __ipipe_grab_timer, EXC_XFER_IPIPE)
+#else /* !CONFIG_IPIPE */
 	EXCEPTION(0x900, Decrementer, timer_interrupt, EXC_XFER_LITE)
+#endif /* CONFIG_IPIPE */
 
 	EXCEPTION(0xa00, Trap_0a, unknown_exception, EXC_XFER_EE)
 	EXCEPTION(0xb00, Trap_0b, unknown_exception, EXC_XFER_EE)

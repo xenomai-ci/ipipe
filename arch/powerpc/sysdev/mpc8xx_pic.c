@@ -29,24 +29,30 @@ static void mpc8xx_unmask_irq(unsigned int virq)
 {
 	int	bit, word;
 	unsigned int irq_nr = (unsigned int)irq_map[virq].hwirq;
+	unsigned long flags;
 
 	bit = irq_nr & 0x1f;
 	word = irq_nr >> 5;
 
+	local_irq_save_hw_cond(flags);
 	ppc_cached_irq_mask[word] |= (1 << (31-bit));
 	out_be32(&siu_reg->sc_simask, ppc_cached_irq_mask[word]);
+	local_irq_restore_hw_cond(flags);
 }
 
 static void mpc8xx_mask_irq(unsigned int virq)
 {
 	int	bit, word;
 	unsigned int irq_nr = (unsigned int)irq_map[virq].hwirq;
+	unsigned long flags;
 
 	bit = irq_nr & 0x1f;
 	word = irq_nr >> 5;
 
+	local_irq_save_hw_cond(flags);
 	ppc_cached_irq_mask[word] &= ~(1 << (31-bit));
 	out_be32(&siu_reg->sc_simask, ppc_cached_irq_mask[word]);
+	local_irq_save_hw_cond(flags);
 }
 
 static void mpc8xx_ack(unsigned int virq)

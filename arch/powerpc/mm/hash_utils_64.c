@@ -111,7 +111,7 @@ int mmu_ci_restrictions;
 #ifdef CONFIG_DEBUG_PAGEALLOC
 static u8 *linear_map_hash_slots;
 static unsigned long linear_map_hash_count;
-static DEFINE_SPINLOCK(linear_map_hash_lock);
+static IPIPE_DEFINE_SPINLOCK(linear_map_hash_lock);
 #endif /* CONFIG_DEBUG_PAGEALLOC */
 
 /* There are definitions of page sizes arrays to be used when none
@@ -861,6 +861,7 @@ int hash_page(unsigned long ea, unsigned long access, unsigned long trap)
 	cpumask_t tmp;
 	int rc, user_region = 0, local = 0;
 	int psize, ssize;
+	unsigned long flags;
 
 	DBG_LOW("hash_page(ea=%016lx, access=%lx, trap=%lx\n",
 		ea, access, trap);
@@ -979,6 +980,9 @@ int hash_page(unsigned long ea, unsigned long access, unsigned long trap)
 #endif
 		}
 	}
+
+	local_irq_save_hw(flags);
+
 	if (user_region) {
 		if (psize != get_paca_psize(ea)) {
 			get_paca()->context = mm->context;
@@ -990,6 +994,10 @@ int hash_page(unsigned long ea, unsigned long access, unsigned long trap)
 			mmu_psize_defs[mmu_vmalloc_psize].sllp;
 		slb_vmalloc_update();
 	}
+
+	local_irq_restore_hw(flags);
+#else
+	(void)flags;
 #endif /* CONFIG_PPC_64K_PAGES */
 
 #ifdef CONFIG_PPC_HAS_HASH_64K
@@ -1124,6 +1132,10 @@ void flush_hash_range(unsigned long number, int local)
  */
 void low_hash_fault(struct pt_regs *regs, unsigned long address, int rc)
 {
+	if (ipipe_trap_notify(IPIPE_TRAP_ACCESS, regs))
+		/* Not all access faults go through do_page_fault(). */
+	    	return;
+
 	if (user_mode(regs)) {
 #ifdef CONFIG_PPC_SUBPAGE_PROT
 		if (rc == -2)

@@ -38,6 +38,12 @@ obj-$(CONFIG_PPC64)		+= setup_64.o sys_ppc32.o \
 obj64-$(CONFIG_RELOCATABLE)	+= reloc_64.o
 obj-$(CONFIG_PPC64)		+= vdso64/
 obj-$(CONFIG_ALTIVEC)		+= vecemu.o vector.o
+obj-$(CONFIG_IPIPE)		+= ipipe.o
+ifeq ($(CONFIG_PPC64),y)
+obj-$(CONFIG_IPIPE_TRACE_MCOUNT)	+= mcount_64.o
+else
+obj-$(CONFIG_IPIPE_TRACE_MCOUNT)	+= mcount_32.o
+endif
 obj-$(CONFIG_PPC_970_NAP)	+= idle_power4.o
 obj-$(CONFIG_PPC_OF)		+= of_device.o of_platform.o prom_parse.o
 obj-$(CONFIG_PPC_CLOCK)		+= clock.o

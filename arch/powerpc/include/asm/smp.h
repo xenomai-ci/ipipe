@@ -80,6 +80,7 @@ extern int cpu_to_core_id(int cpu);
 #define PPC_MSG_RESCHEDULE      1
 #define PPC_MSG_CALL_FUNC_SINGLE	2
 #define PPC_MSG_DEBUGGER_BREAK  3
+#define PPC_MSG_IPIPE_DEMUX     PPC_MSG_DEBUGGER_BREAK
 
 void smp_init_iSeries(void);
 void smp_init_pSeries(void);
