@@ -1,6 +1,7 @@
 #ifndef __ASM_GENERIC_CMPXCHG_LOCAL_H
 #define __ASM_GENERIC_CMPXCHG_LOCAL_H
 
+#include <asm/ipipe_base.h>
 #include <linux/types.h>
 
 extern unsigned long wrong_size_cmpxchg(volatile void *ptr);

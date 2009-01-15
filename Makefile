@@ -525,6 +525,10 @@ endif
 # Arch Makefiles may override this setting
 KBUILD_CFLAGS += $(call cc-option, -fno-stack-protector)
 
+ifdef CONFIG_IPIPE_TRACE_MCOUNT
+KBUILD_CFLAGS	+= -pg
+endif
+
 ifdef CONFIG_FRAME_POINTER
 KBUILD_CFLAGS	+= -fno-omit-frame-pointer -fno-optimize-sibling-calls
 else

@@ -208,6 +208,7 @@ static int create_image(int platform_mode)
 
 	device_pm_lock();
 	local_irq_disable();
+ 	local_irq_disable_hw_cond();
 	/* At this point, device_suspend() has been called, but *not*
 	 * device_power_down(). We *must* call device_power_down() now.
 	 * Otherwise, drivers for some devices (e.g. interrupt controllers)
@@ -241,6 +242,7 @@ static int create_image(int platform_mode)
 	device_power_up(in_suspend ?
 		(error ? PMSG_RECOVER : PMSG_THAW) : PMSG_RESTORE);
  Enable_irqs:
+ 	local_irq_enable_hw_cond();
 	local_irq_enable();
 	device_pm_unlock();
 	return error;
@@ -324,6 +326,7 @@ static int resume_target_kernel(void)
 
 	device_pm_lock();
 	local_irq_disable();
+ 	local_irq_disable_hw_cond();
 	error = device_power_down(PMSG_QUIESCE);
 	if (error) {
 		printk(KERN_ERR "PM: Some devices failed to power down, "
@@ -354,6 +357,7 @@ static int resume_target_kernel(void)
 	touch_softlockup_watchdog();
 	device_power_up(PMSG_RECOVER);
  Enable_irqs:
+	local_irq_enable_hw_cond();
 	local_irq_enable();
 	device_pm_unlock();
 	return error;

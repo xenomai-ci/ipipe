@@ -21,6 +21,7 @@
 #include <linux/debug_locks.h>
 #include <linux/random.h>
 #include <linux/kallsyms.h>
+#include <linux/ipipe_trace.h>
 
 int panic_on_oops;
 static unsigned long tainted_mask;
@@ -285,6 +286,8 @@ int oops_may_print(void)
  */
 void oops_enter(void)
 {
+	ipipe_trace_panic_freeze();
+	ipipe_disable_context_check(ipipe_processor_id());
 	debug_locks_off(); /* can't trust the integrity of the kernel anymore */
 	do_oops_enter_exit();
 }

@@ -161,7 +161,22 @@ extern void irq_enter(void);
  */
 extern void irq_exit(void);
 
-#define nmi_enter()		do { lockdep_off(); __irq_enter(); } while (0)
-#define nmi_exit()		do { __irq_exit(); lockdep_on(); } while (0)
+#define nmi_enter() 					\
+	do {						\
+		ipipe_nmi_enter();			\
+		if (ipipe_root_domain_p) {		\
+			lockdep_off();			\
+			__irq_enter();			\
+		}					\
+	} while (0)
+
+#define nmi_exit()					\
+	do {						\
+		if (ipipe_root_domain_p) {		\
+			__irq_exit();			\
+			lockdep_on();			\
+		}					\
+		ipipe_nmi_exit();			\
+	} while (0)
 
 #endif /* LINUX_HARDIRQ_H */

@@ -57,6 +57,51 @@ static unsigned int share_irqs = SERIAL8250_SHARE_IRQS;
 
 static unsigned int nr_uarts = CONFIG_SERIAL_8250_RUNTIME_UARTS;
 
+#ifdef CONFIG_IPIPE_DEBUG
+
+#include <stdarg.h>
+
+void __ipipe_serial_debug(const char *fmt, ...)
+{
+        struct uart_8250_port *up = &serial8250_ports[0];
+        unsigned int ier, count;
+        unsigned long flags;
+        char buf[128];
+        va_list ap;
+
+        va_start(ap, fmt);
+        vsprintf(buf, fmt, ap);
+        va_end(ap);
+        count = strlen(buf);
+
+        touch_nmi_watchdog();
+
+        local_irq_save_hw(flags);
+
+        /*
+         *      First save the IER then disable the interrupts
+        */
+        ier = serial_in(up, UART_IER);
+
+        if (up->capabilities & UART_CAP_UUE)
+                serial_out(up, UART_IER, UART_IER_UUE);
+        else
+                serial_out(up, UART_IER, 0);
+
+        uart_console_write(&up->port, buf, count, serial8250_console_putchar);
+
+        /*
+         *      Finally, wait for transmitter to become empty
+         *      and restore the IER
+         */
+        wait_for_xmitr(up, BOTH_EMPTY);
+        serial_out(up, UART_IER, ier);
+
+        local_irq_restore_hw(flags);
+}
+
+#endif
+
 static struct uart_driver serial8250_reg;
 
 static int serial_index(struct uart_port *port)

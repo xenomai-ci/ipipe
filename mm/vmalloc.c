@@ -155,7 +155,7 @@ static int vmap_page_range(unsigned long addr, unsigned long end,
 				pgprot_t prot, struct page **pages)
 {
 	pgd_t *pgd;
-	unsigned long next;
+	unsigned long next, start_addr = addr;
 	int err = 0;
 	int nr = 0;
 
@@ -171,6 +171,9 @@ static int vmap_page_range(unsigned long addr, unsigned long end,
 
 	if (unlikely(err))
 		return err;
+
+ 	__ipipe_pin_range_globally(start_addr, end);
+
 	return nr;
 }
 
