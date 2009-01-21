@@ -990,7 +990,7 @@ static void insert_mon_chain(monitored_chain_t *new)
 	for (ptr = mon_list.next; ptr != &mon_list; ptr = ptr->next) {
 		entry = list_entry(ptr, monitored_chain_t, list);
 		if (time_after_eq(entry->expires, new->expires)) {
-			list_add(&new->list, ptr);
+			list_add_tail(&new->list, ptr);
 			return;
 		}
 	}
