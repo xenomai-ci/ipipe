@@ -14,4 +14,14 @@
 #include <mach/hardware.h>
 extern void imx_irq_set_priority(unsigned char irq, unsigned char prio);
 
+#ifdef CONFIG_IPIPE
+#ifdef CONFIG_ARCH_MX3
+#define __ipipe_mach_irq_mux_p(irq)				\
+	((irq) == MXC_INT_GPIO1					\
+	 || (irq) == MXC_INT_GPIO2 || (irq) == MXC_INT_GPIO3)
+#elif CONFIG_ARCH_MX2
+#define __ipipe_mach_irq_mux_p(irq) ((irq) == MXC_INT_GPIO)
+#endif /* CONFIG_ARCH_MX2 */
+#endif /* CONFIG_IPIPE */
+
 #endif /* __ASM_ARCH_MXC_IRQS_H__ */

@@ -211,7 +211,9 @@ extern struct task_struct *__switch_to(struct task_struct *, struct thread_info 
 
 #define switch_to(prev,next,last)					\
 do {									\
-	last = __switch_to(prev,task_thread_info(prev), task_thread_info(next));	\
+	local_irq_disable_hw_cond();					\
+	last = __switch_to(prev,task_thread_info(prev), task_thread_info(next)); \
+	local_irq_enable_hw_cond();					\
 } while (0)
 
 #if defined(CONFIG_CPU_SA1100) || defined(CONFIG_CPU_SA110)
@@ -271,17 +273,17 @@ static inline unsigned long __xchg(unsigned long x, volatile void *ptr, int size
 #error SMP is not supported on this platform
 #endif
 	case 1:
-		raw_local_irq_save(flags);
+		local_irq_save_hw(flags);
 		ret = *(volatile unsigned char *)ptr;
 		*(volatile unsigned char *)ptr = x;
-		raw_local_irq_restore(flags);
+		local_irq_restore_hw(flags);
 		break;
 
 	case 4:
-		raw_local_irq_save(flags);
+		local_irq_save_hw(flags);
 		ret = *(volatile unsigned long *)ptr;
 		*(volatile unsigned long *)ptr = x;
-		raw_local_irq_restore(flags);
+		local_irq_restore_hw(flags);
 		break;
 #else
 	case 1:

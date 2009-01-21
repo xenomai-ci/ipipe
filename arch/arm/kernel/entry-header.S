@@ -49,7 +49,55 @@
 #endif
 	.endm
 
+	.macro slow_restore_user_regs
+	/* perform architecture specific actions before user return */
+	arch_ret_to_user r1, lr
+	ldr	r1, [sp, #S_PSR]		@ get calling cpsr
+	ldr	lr, [sp, #S_PC]!		@ get pc
+	msr	spsr_cxsf, r1			@ save in spsr_svc
+	ldmdb	sp, {r0 - lr}^			@ get calling r0 - lr
+	mov	r0, r0
+	add	sp, sp, #S_FRAME_SIZE - S_PC
+	movs	pc, lr				@ return & move spsr_svc into cpsr
+	.endm
 
+#if __GNUC__ >= 4
+	.macro ipipe_fast_stall_root, raddr, rtemp1
+#ifdef CONFIG_IPIPE
+	ldr	\raddr, .LCipipe_root_status
+	ldr	\rtemp1, [\raddr]
+	orr	\rtemp1, \rtemp1, #1
+	str	\rtemp1, [\raddr]
+#endif /* CONFIG_IPIPE */
+	.endm
+
+	.macro ipipe_fast_unstall_root, raddr, rtemp1
+#ifdef CONFIG_IPIPE
+	ldr	\rtemp1, [\raddr]
+	bic	\rtemp1, \rtemp1, #1
+	str	\rtemp1, [\raddr]
+#endif /* CONFIG_IPIPE */
+	.endm
+#else /* gcc < 4 */
+	.macro ipipe_fast_stall_root, raddr, rtemp1
+#ifdef CONFIG_IPIPE
+	ldr	\raddr, .LCipipe_root_status_addr
+	ldr	\raddr, [\raddr]
+	ldr	\rtemp1, [\raddr]
+	orr	\rtemp1, \rtemp1, #1
+	str	\rtemp1, [\raddr]
+#endif /* CONFIG_IPIPE */
+	.endm
+
+	.macro ipipe_fast_unstall_root, raddr, rtemp1
+#ifdef CONFIG_IPIPE
+	ldr	\rtemp1, [\raddr]
+	bic	\rtemp1, \rtemp1, #1
+	str	\rtemp1, [\raddr]
+#endif /* CONFIG_IPIPE */
+	.endm
+#endif /* gcc < 4 */
+	
 /*
  * These are the registers used in the syscall handler, and allow us to
  * have in theory up to 7 arguments to a function - r0 to r6.

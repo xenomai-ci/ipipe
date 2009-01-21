@@ -19,7 +19,7 @@
 #include "../kernel/entry-header.S"
 
 	.macro	DBGSTR, str
-#ifdef DEBUG
+#if defined(DEBUG) && !defined(CONFIG_IPIPE)
 	stmfd	sp!, {r0-r3, ip, lr}
 	add	r0, pc, #4
 	bl	printk
@@ -31,7 +31,7 @@
 	.endm
 
 	.macro  DBGSTR1, str, arg
-#ifdef DEBUG
+#if defined(DEBUG) && !defined(CONFIG_IPIPE)
 	stmfd	sp!, {r0-r3, ip, lr}
 	mov	r1, \arg
 	add	r0, pc, #4
@@ -44,7 +44,7 @@
 	.endm
 
 	.macro  DBGSTR3, str, arg1, arg2, arg3
-#ifdef DEBUG
+#if defined(DEBUG) && !defined(CONFIG_IPIPE)
 	stmfd	sp!, {r0-r3, ip, lr}
 	mov	r3, \arg3
 	mov	r2, \arg2
@@ -71,6 +71,7 @@
 ENTRY(vfp_support_entry)
 	DBGSTR3	"instr %08x pc %08x state %p", r0, r2, r10
 
+	disable_irq_cond
 	VFPFMRX	r1, FPEXC		@ Is the VFP enabled?
 	DBGSTR1	"fpexc %08x", r1
 	tst	r1, #FPEXC_EN
@@ -129,6 +130,7 @@ check_for_exception:
 					@ out before setting an FPEXC that
 					@ stops us reading stuff
 	VFPFMXR	FPEXC, r1		@ restore FPEXC last
+	enable_irq_cond
 	sub	r2, r2, #4
 	str	r2, [sp, #S_PC]		@ retry the instruction
 	mov	pc, r9			@ we think we have handled things
@@ -148,10 +150,12 @@ look_for_VFP_exceptions:
 	@ Fall into hand on to next handler - appropriate coproc instr
 	@ not recognised by VFP
 
+	enable_irq_cond
 	DBGSTR	"not VFP"
 	mov	pc, lr
 
 process_exception:
+	enable_irq_cond
 	DBGSTR	"bounce"
 	mov	r2, sp			@ nothing stacked - regdump is at TOS
 	mov	lr, r9			@ setup for a return to the user code.
