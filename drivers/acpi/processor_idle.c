@@ -219,7 +219,7 @@ static void acpi_safe_halt(void)
 	smp_mb();
 	if (!need_resched()) {
 		safe_halt();
-		local_irq_disable();
+		local_irq_disable_hw(); local_irq_disable();
 	}
 	current_thread_info()->status |= TS_POLLING;
 }
@@ -403,7 +403,7 @@ static void acpi_processor_idle(void)
 	 * Interrupts must be disabled during bus mastering calculations and
 	 * for C2/C3 transitions.
 	 */
-	local_irq_disable();
+	local_irq_disable_hw(); local_irq_disable();
 
 	pr = __get_cpu_var(processors);
 	if (!pr) {
@@ -1464,7 +1464,7 @@ static int acpi_idle_enter_c1(struct cpuidle_device *dev,
 	if (unlikely(!pr))
 		return 0;
 
-	local_irq_disable();
+	local_irq_disable_hw(); local_irq_disable();
 
 	/* Do not access any ACPI IO ports in suspend path */
 	if (acpi_idle_suspend) {
@@ -1507,7 +1507,7 @@ static int acpi_idle_enter_simple(struct cpuidle_device *dev,
 	if (acpi_idle_suspend)
 		return(acpi_idle_enter_c1(dev, state));
 
-	local_irq_disable();
+	local_irq_disable_hw(); local_irq_disable();
 	current_thread_info()->status &= ~TS_POLLING;
 	/*
 	 * TS_POLLING-cleared state must be visible before we test
@@ -1589,14 +1589,14 @@ static int acpi_idle_enter_bm(struct cpuidle_device *dev,
 		if (dev->safe_state) {
 			return dev->safe_state->enter(dev, dev->safe_state);
 		} else {
-			local_irq_disable();
+			local_irq_disable_hw(); local_irq_disable();
 			acpi_safe_halt();
 			local_irq_enable();
 			return 0;
 		}
 	}
 
-	local_irq_disable();
+	local_irq_disable_hw(); local_irq_disable();
 	current_thread_info()->status &= ~TS_POLLING;
 	/*
 	 * TS_POLLING-cleared state must be visible before we test
