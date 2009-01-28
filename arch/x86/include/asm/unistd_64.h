@@ -655,6 +655,8 @@ __SYSCALL(__NR_pipe2, sys_pipe2)
 __SYSCALL(__NR_inotify_init1, sys_inotify_init1)
 
 
+#define NR_syscalls		286
+
 #ifndef __NO_STUBS
 #define __ARCH_WANT_OLD_READDIR
 #define __ARCH_WANT_OLD_STAT

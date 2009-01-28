@@ -397,6 +397,7 @@ struct thread_struct {
 	unsigned short		ds;
 	unsigned short		fsindex;
 	unsigned short		gsindex;
+ 	unsigned long		rip;
 #endif
 	unsigned long		ip;
 	unsigned long		fs;

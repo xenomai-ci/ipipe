@@ -234,6 +234,9 @@ void show_registers(struct pt_regs *regs)
 	printk(KERN_EMERG "Process %.*s (pid: %d, ti=%p task=%p task.ti=%p)\n",
 		TASK_COMM_LEN, current->comm, task_pid_nr(current),
 		current_thread_info(), current, task_thread_info(current));
+#ifdef CONFIG_IPIPE
+	printk(KERN_EMERG "I-pipe domain %s\n", ipipe_current_domain->name);
+#endif /* CONFIG_IPIPE */
 	/*
 	 * When in-kernel, we also print out the stack and code at the
 	 * time of the fault..
@@ -418,6 +421,8 @@ die_nmi(char *str, struct pt_regs *regs, int do_panic)
 	bust_spinlocks(0);
 	do_exit(SIGSEGV);
 }
+
+EXPORT_SYMBOL_GPL(die_nmi);
 
 static int __init oops_setup(char *s)
 {

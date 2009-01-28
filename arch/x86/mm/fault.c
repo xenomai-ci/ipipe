@@ -301,6 +301,56 @@ static inline pmd_t *vmalloc_sync_one(pgd_t *pgd, unsigned long address)
 		BUG_ON(pmd_page(*pmd) != pmd_page(*pmd_k));
 	return pmd_k;
 }
+#else
+static inline int vmalloc_sync_one(pgd_t *pgd, unsigned long address)
+{
+	pgd_t *pgd_ref;
+	pud_t *pud, *pud_ref;
+	pmd_t *pmd, *pmd_ref;
+	pte_t *pte, *pte_ref;
+
+	/* Make sure we are in vmalloc area */
+	if (!(address >= VMALLOC_START && address < VMALLOC_END))
+		return -1;
+
+	/* Copy kernel mappings over when needed. This can also
+	   happen within a race in page table update. In the later
+	   case just flush. */
+
+	pgd_ref = pgd_offset_k(address);
+	if (pgd_none(*pgd_ref))
+		return -1;
+	if (pgd_none(*pgd))
+		set_pgd(pgd, *pgd_ref);
+	else
+		BUG_ON(pgd_page_vaddr(*pgd) != pgd_page_vaddr(*pgd_ref));
+
+	/* Below here mismatches are bugs because these lower tables
+	   are shared */
+
+	pud = pud_offset(pgd, address);
+	pud_ref = pud_offset(pgd_ref, address);
+	if (pud_none(*pud_ref))
+		return -1;
+	if (pud_none(*pud) || pud_page_vaddr(*pud) != pud_page_vaddr(*pud_ref))
+		BUG();
+	pmd = pmd_offset(pud, address);
+	pmd_ref = pmd_offset(pud_ref, address);
+	if (pmd_none(*pmd_ref))
+		return -1;
+	if (pmd_none(*pmd) || pmd_page(*pmd) != pmd_page(*pmd_ref))
+		BUG();
+	pte_ref = pte_offset_kernel(pmd_ref, address);
+	if (!pte_present(*pte_ref))
+		return -1;
+	pte = pte_offset_kernel(pmd, address);
+	/* Don't use pte_page here, because the mappings can point
+	   outside mem_map, and the NUMA hash lookup cannot handle
+	   that. */
+	if (!pte_present(*pte) || pte_pfn(*pte) != pte_pfn(*pte_ref))
+		BUG();
+	return 0;
+}
 #endif
 
 #ifdef CONFIG_X86_64
@@ -493,9 +543,9 @@ static int spurious_fault(unsigned long address,
  *
  * This assumes no large pages in there.
  */
+#ifdef CONFIG_X86_32
 static int vmalloc_fault(unsigned long address)
 {
-#ifdef CONFIG_X86_32
 	unsigned long pgd_paddr;
 	pmd_t *pmd_k;
 	pte_t *pte_k;
@@ -519,56 +569,14 @@ static int vmalloc_fault(unsigned long address)
 	if (!pte_present(*pte_k))
 		return -1;
 	return 0;
-#else
-	pgd_t *pgd, *pgd_ref;
-	pud_t *pud, *pud_ref;
-	pmd_t *pmd, *pmd_ref;
-	pte_t *pte, *pte_ref;
-
-	/* Make sure we are in vmalloc area */
-	if (!(address >= VMALLOC_START && address < VMALLOC_END))
-		return -1;
-
-	/* Copy kernel mappings over when needed. This can also
-	   happen within a race in page table update. In the later
-	   case just flush. */
-
-	pgd = pgd_offset(current->mm ?: &init_mm, address);
-	pgd_ref = pgd_offset_k(address);
-	if (pgd_none(*pgd_ref))
-		return -1;
-	if (pgd_none(*pgd))
-		set_pgd(pgd, *pgd_ref);
-	else
-		BUG_ON(pgd_page_vaddr(*pgd) != pgd_page_vaddr(*pgd_ref));
-
-	/* Below here mismatches are bugs because these lower tables
-	   are shared */
-
-	pud = pud_offset(pgd, address);
-	pud_ref = pud_offset(pgd_ref, address);
-	if (pud_none(*pud_ref))
-		return -1;
-	if (pud_none(*pud) || pud_page_vaddr(*pud) != pud_page_vaddr(*pud_ref))
-		BUG();
-	pmd = pmd_offset(pud, address);
-	pmd_ref = pmd_offset(pud_ref, address);
-	if (pmd_none(*pmd_ref))
-		return -1;
-	if (pmd_none(*pmd) || pmd_page(*pmd) != pmd_page(*pmd_ref))
-		BUG();
-	pte_ref = pte_offset_kernel(pmd_ref, address);
-	if (!pte_present(*pte_ref))
-		return -1;
-	pte = pte_offset_kernel(pmd, address);
-	/* Don't use pte_page here, because the mappings can point
-	   outside mem_map, and the NUMA hash lookup cannot handle
-	   that. */
-	if (!pte_present(*pte) || pte_pfn(*pte) != pte_pfn(*pte_ref))
-		BUG();
-	return 0;
-#endif
 }
+#else
+static int vmalloc_fault(unsigned long address)
+{
+	pgd_t *pgd = pgd_offset(current->mm ?: &init_mm, address);
+	return vmalloc_sync_one(pgd, address);
+}
+#endif
 
 int show_unhandled_signals = 1;
 
@@ -592,12 +600,14 @@ void __kprobes do_page_fault(struct pt_regs *regs, unsigned long error_code)
 	unsigned long flags;
 #endif
 
+	/* get the address */
+	address = read_cr2();
+
+	local_irq_enable_hw_cond();
+
 	tsk = current;
 	mm = tsk->mm;
 	prefetchw(&mm->mmap_sem);
-
-	/* get the address */
-	address = read_cr2();
 
 	si_code = SEGV_MAPERR;
 
@@ -940,3 +950,43 @@ void vmalloc_sync_all(void)
 	}
 #endif
 }
+
+#ifdef CONFIG_IPIPE
+void __ipipe_pin_range_globally(unsigned long start, unsigned long end)
+{
+#ifdef CONFIG_X86_32
+	unsigned long next, addr = start;
+
+	do {
+		unsigned long flags;
+		struct page *page;
+
+		next = pgd_addr_end(addr, end);
+		spin_lock_irqsave(&pgd_lock, flags);
+		list_for_each_entry(page, &pgd_list, lru)
+			vmalloc_sync_one(page_address(page), addr);
+		spin_unlock_irqrestore(&pgd_lock, flags);
+
+	} while (addr = next, addr != end);
+#else
+	unsigned long next, addr = start;
+	int ret = 0;
+
+	do {
+		struct page *page;
+
+		next = pgd_addr_end(addr, end);
+		spin_lock(&pgd_lock);
+		list_for_each_entry(page, &pgd_list, lru) {
+			pgd_t *pgd;
+			pgd = (pgd_t *)page_address(page) + pgd_index(addr);
+			ret = vmalloc_sync_one(pgd, addr);
+			if (ret)
+				break;
+		}
+		spin_unlock(&pgd_lock);
+		addr = next;
+	} while (!ret && addr != end);
+#endif
+}
+#endif /* CONFIG_IPIPE */

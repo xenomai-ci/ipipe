@@ -122,6 +122,9 @@ asmlinkage void smp_invalidate_interrupt(struct pt_regs *regs)
 	int cpu;
 	int sender;
 	union smp_flush_state *f;
+	unsigned long flags;
+
+ 	local_irq_save_hw_cond(flags);
 
 	cpu = smp_processor_id();
 	/*
@@ -154,6 +157,7 @@ asmlinkage void smp_invalidate_interrupt(struct pt_regs *regs)
 out:
 	ack_APIC_irq();
 	cpu_clear(cpu, f->flush_cpumask);
+  	local_irq_restore_hw_cond(flags);
 	add_pda(irq_tlb_count, 1);
 }
 
@@ -216,22 +220,27 @@ void flush_tlb_current_task(void)
 {
 	struct mm_struct *mm = current->mm;
 	cpumask_t cpu_mask;
+ 	unsigned long flags;
 
 	preempt_disable();
+ 	local_irq_save_hw_cond(flags);
 	cpu_mask = mm->cpu_vm_mask;
 	cpu_clear(smp_processor_id(), cpu_mask);
 
 	local_flush_tlb();
 	if (!cpus_empty(cpu_mask))
 		flush_tlb_others(cpu_mask, mm, TLB_FLUSH_ALL);
+ 	local_irq_restore_hw_cond(flags);
 	preempt_enable();
 }
 
 void flush_tlb_mm(struct mm_struct *mm)
 {
 	cpumask_t cpu_mask;
+	unsigned long flags;
 
 	preempt_disable();
+	local_irq_save_hw_cond(flags);
 	cpu_mask = mm->cpu_vm_mask;
 	cpu_clear(smp_processor_id(), cpu_mask);
 
@@ -241,6 +250,9 @@ void flush_tlb_mm(struct mm_struct *mm)
 		else
 			leave_mm(smp_processor_id());
 	}
+
+	local_irq_restore_hw_cond(flags);
+
 	if (!cpus_empty(cpu_mask))
 		flush_tlb_others(cpu_mask, mm, TLB_FLUSH_ALL);
 

@@ -339,6 +339,8 @@
 #define __NR_pipe2		331
 #define __NR_inotify_init1	332
 
+#define NR_syscalls		327
+
 #ifdef __KERNEL__
 
 #define __ARCH_WANT_IPC_PARSE_VERSION

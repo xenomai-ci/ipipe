@@ -74,9 +74,9 @@ static void flat_send_IPI_mask(cpumask_t cpumask, int vector)
 	unsigned long mask = cpus_addr(cpumask)[0];
 	unsigned long flags;
 
-	local_irq_save(flags);
+	local_irq_save_hw(flags);
 	__send_IPI_dest_field(mask, vector, APIC_DEST_LOGICAL);
-	local_irq_restore(flags);
+	local_irq_restore_hw(flags);
 }
 
 static void flat_send_IPI_allbutself(int vector)
