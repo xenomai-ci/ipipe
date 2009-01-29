@@ -121,9 +121,11 @@ int __ipipe_check_tickdev(const char *devname);
 #ifdef CONFIG_SMP
 #define __ipipe_move_root_irq(irq)					\
 	do {								\
-		struct irq_chip *chip = irq_desc[irq].chip;		\
-		if (irq < NR_IRQS && chip->move)			\
-			chip->move(irq);				\
+		if (irq < NR_IRQS) {					\
+			struct irq_chip *chip = irq_to_desc(irq)->chip;	\
+			if (chip->move)					\
+				chip->move(irq);			\
+		}							\
 	} while (0)
 #else /* !CONFIG_SMP */
 #define __ipipe_move_root_irq(irq)	do { } while (0)
