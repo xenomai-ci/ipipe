@@ -573,7 +573,7 @@ static int vmalloc_fault(unsigned long address)
 #else
 static int vmalloc_fault(unsigned long address)
 {
-	pgd_t *pgd = pgd_offset(current->mm ?: &init_mm, address);
+	pgd_t *pgd = pgd = pgd_offset(current->active_mm, address);
 	return vmalloc_sync_one(pgd, address);
 }
 #endif
