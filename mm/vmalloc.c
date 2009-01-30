@@ -155,7 +155,7 @@ static int vmap_page_range(unsigned long start, unsigned long end,
 				pgprot_t prot, struct page **pages)
 {
 	pgd_t *pgd;
-	unsigned long next;
+	unsigned long next, addr = start;
 	int err = 0;
 	int nr = 0;
 
