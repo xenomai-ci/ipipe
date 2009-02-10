@@ -1,7 +1,6 @@
 #ifndef __ASM_GENERIC_CMPXCHG_LOCAL_H
 #define __ASM_GENERIC_CMPXCHG_LOCAL_H
 
-#include <asm/ipipe_base.h>
 #include <linux/types.h>
 
 extern unsigned long wrong_size_cmpxchg(volatile void *ptr);
@@ -21,7 +20,7 @@ static inline unsigned long __cmpxchg_local_generic(volatile void *ptr,
 	if (size == 8 && sizeof(unsigned long) != 8)
 		wrong_size_cmpxchg(ptr);
 
-	local_irq_save(flags);
+	local_irq_save_hw(flags);
 	switch (size) {
 	case 1: prev = *(u8 *)ptr;
 		if (prev == old)
@@ -42,7 +41,7 @@ static inline unsigned long __cmpxchg_local_generic(volatile void *ptr,
 	default:
 		wrong_size_cmpxchg(ptr);
 	}
-	local_irq_restore(flags);
+	local_irq_restore_hw(flags);
 	return prev;
 }
 
@@ -55,11 +54,11 @@ static inline u64 __cmpxchg64_local_generic(volatile void *ptr,
 	u64 prev;
 	unsigned long flags;
 
-	local_irq_save(flags);
+	local_irq_save_hw(flags);
 	prev = *(u64 *)ptr;
 	if (prev == old)
 		*(u64 *)ptr = new;
-	local_irq_restore(flags);
+	local_irq_restore_hw(flags);
 	return prev;
 }
 
