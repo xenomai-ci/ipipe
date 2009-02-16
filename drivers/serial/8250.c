@@ -2880,7 +2880,7 @@ static int serial8250_resume(struct platform_device *dev)
 	return 0;
 }
 
-#ifdef CONFIG_IPIPE_DEBUG
+#if defined(CONFIG_IPIPE_DEBUG) && defined(CONFIG_SERIAL_8250_CONSOLE)
 
 #include <stdarg.h>
 
