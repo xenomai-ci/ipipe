@@ -122,7 +122,7 @@ int __ipipe_check_tickdev(const char *devname);
 #define __ipipe_move_root_irq(irq)					\
 	do {								\
 		if (irq < NR_IRQS) {					\
-			struct irq_chip *chip = irq_to_desc(irq)->chip;	\
+			struct irq_chip *chip = irq_desc[irq].chip;	\
 			if (chip->move)					\
 				chip->move(irq);			\
 		}							\
