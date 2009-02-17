@@ -657,6 +657,7 @@ static inline void __ipipe_pin_range_globally(unsigned long start,
 
 #define ipipe_root_domain_p		1
 #define ipipe_safe_current		current
+#define ipipe_processor_id()		smp_processor_id()
 
 #define ipipe_nmi_enter()		do { } while (0)
 #define ipipe_nmi_exit()		do { } while (0)
