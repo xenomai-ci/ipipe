@@ -1922,8 +1922,7 @@ bdx_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
 	struct net_device *ndev;
 	struct bdx_priv *priv;
 	int err, pci_using_dac, port;
-	unsigned long pciaddr;
-	u32 regionSize;
+	resource_size_t pciaddr, regionSize;
 	struct pci_nic *nic;
 
 	ENTER;
@@ -1962,7 +1961,8 @@ bdx_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
 	}
 	if ((regionSize = pci_resource_len(pdev, 0)) < BDX_REGS_SIZE) {
 		err = -EIO;
-		ERR("tehuti: MMIO resource (%x) too small\n", regionSize);
+		ERR("tehuti: MMIO resource (%llx) too small\n",
+				(u64)regionSize);
 		goto err_out_res;
 	}
 

@@ -55,7 +55,7 @@ enum dma_status {
 enum dma_transaction_type {
 	DMA_MEMCPY,
 	DMA_XOR,
-	DMA_PQ_XOR,
+	DMA_PQ,
 	DMA_DUAL_XOR,
 	DMA_PQ_UPDATE,
 	DMA_ZERO_SUM,
@@ -81,14 +81,27 @@ enum dma_transaction_type {
  * 	dependency chains
  * @DMA_COMPL_SKIP_SRC_UNMAP - set to disable dma-unmapping the source buffer(s)
  * @DMA_COMPL_SKIP_DEST_UNMAP - set to disable dma-unmapping the destination(s)
+ * @DMA_PREP_HAVE_P - set if the destination list includes the correct
+ * 	address of P (P-parity should be handled)
+ * @DMA_PREP_HAVE_Q - set if the destination list includes the correct
+ * 	address of Q (Q-parity should be handled)
+ * @DMA_PREP_ZERO_P - set if P has to be zeroed before proceeding
+ * @DMA_PREP_ZERO_Q - set if Q has to be zeroed before proceeding
  */
 enum dma_ctrl_flags {
 	DMA_PREP_INTERRUPT = (1 << 0),
 	DMA_CTRL_ACK = (1 << 1),
 	DMA_COMPL_SKIP_SRC_UNMAP = (1 << 2),
 	DMA_COMPL_SKIP_DEST_UNMAP = (1 << 3),
-	DMA_PREP_ZERO_DST = (1 << 4),
+
+	DMA_PREP_HAVE_P = (1 << 4),
+	DMA_PREP_HAVE_Q = (1 << 5),
+	DMA_PREP_ZERO_P = (1 << 6),
+	DMA_PREP_ZERO_Q = (1 << 7),
 };
+
+#define DMA_PCHECK_FAILED	(1 << 0)
+#define DMA_QCHECK_FAILED	(1 << 1)
 
 /**
  * dma_cap_mask_t - capabilities bitmap modeled after cpumask_t.
@@ -212,6 +225,7 @@ struct dma_async_tx_descriptor {
  * @global_node: list_head for global dma_device_list
  * @cap_mask: one or more dma_capability flags
  * @max_xor: maximum number of xor sources, 0 if no capability
+ * @max_pq: maximum number of PQ sources, 0 if no capability
  * @refcount: reference count
  * @done: IO completion struct
  * @dev_id: unique device ID
@@ -221,7 +235,7 @@ struct dma_async_tx_descriptor {
  * @device_free_chan_resources: release DMA channel's resources
  * @device_prep_dma_memcpy: prepares a memcpy operation
  * @device_prep_dma_xor: prepares a xor operation
- * @device_prep_dma_pqxor: prepares a pq-xor operation
+ * @device_prep_dma_pq: prepares a pq operation
  * @device_prep_dma_zero_sum: prepares a zero_sum operation
  * @device_prep_dma_pqzero_sum: prepares a pqzero_sum operation
  * @device_prep_dma_memset: prepares a memset operation
@@ -236,7 +250,8 @@ struct dma_device {
 	struct list_head channels;
 	struct list_head global_node;
 	dma_cap_mask_t  cap_mask;
-	int max_xor;
+	unsigned short max_xor;
+	unsigned short max_pq;
 
 	int dev_id;
 	struct device *dev;
@@ -250,17 +265,17 @@ struct dma_device {
 	struct dma_async_tx_descriptor *(*device_prep_dma_xor)(
 		struct dma_chan *chan, dma_addr_t dest, dma_addr_t *src,
 		unsigned int src_cnt, size_t len, unsigned long flags);
-	struct dma_async_tx_descriptor *(*device_prep_dma_pqxor)(
-		struct dma_chan *chan, dma_addr_t *dst, unsigned int dst_cnt,
-		dma_addr_t *src, unsigned int src_cnt, unsigned char *scf,
+	struct dma_async_tx_descriptor *(*device_prep_dma_pq)(
+		struct dma_chan *chan, dma_addr_t *dst, dma_addr_t *src,
+		unsigned int src_cnt, unsigned char *scf,
 		size_t len, unsigned long flags);
 	struct dma_async_tx_descriptor *(*device_prep_dma_zero_sum)(
 		struct dma_chan *chan, dma_addr_t *src,	unsigned int src_cnt,
 		size_t len, u32 *result, unsigned long flags);
 	struct dma_async_tx_descriptor *(*device_prep_dma_pqzero_sum)(
 		struct dma_chan *chan, dma_addr_t *src, unsigned int src_cnt,
-		unsigned char *scf,
-		size_t len, u32 *presult, u32 *qresult, unsigned long flags);
+		unsigned char *scf, size_t len, u32 *pqres,
+		unsigned long flags);
 	struct dma_async_tx_descriptor *(*device_prep_dma_memset)(
 		struct dma_chan *chan, dma_addr_t dest, int value, size_t len,
 		unsigned long flags);

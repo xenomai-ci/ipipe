@@ -14,12 +14,12 @@ config ASYNC_MEMSET
 	tristate
 	select ASYNC_CORE
 
-config ASYNC_PQXOR
+config ASYNC_PQ
 	tristate
 	select ASYNC_CORE
 
 config ASYNC_R6RECOV
 	tristate
 	select ASYNC_CORE
-	select ASYNC_PQXOR
+	select ASYNC_PQ
 

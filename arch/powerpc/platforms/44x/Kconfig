@@ -214,6 +214,18 @@ config 440SPe
 	bool
 	select IBM_NEW_EMAC_EMAC4
 
+config STDBINUTILS
+	bool "Using standard binutils settings"
+	depends on 44x
+	default y
+	help
+	  Turning this option off allows you to select 256KB PAGE_SIZE on 44x.
+	  Note, that kernel will be able to run only those applications,
+	  which had been compiled using binutils later than 2.17.50.0.3 with
+	  '-zmax-page-size' set to 256K (the default is 64K). Or, if using
+	  the older binutils, you can patch them with a trivial patch, which
+	  changes the ELF_MAXPAGESIZE definition from 0x10000 to 0x40000.
+
 config 460EX
 	bool
 	select PPC_FPU
