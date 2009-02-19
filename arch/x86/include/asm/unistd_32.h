@@ -339,7 +339,7 @@
 #define __NR_pipe2		331
 #define __NR_inotify_init1	332
 
-#define NR_syscalls		327
+#define NR_syscalls		333
 
 #ifdef __KERNEL__
 
