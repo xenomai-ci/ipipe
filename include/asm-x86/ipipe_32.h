@@ -47,7 +47,7 @@
 
 /* Private interface -- Internal use only */
 
-int __ipipe_handle_irq(struct pt_regs regs);
+int __ipipe_handle_irq(struct pt_regs *regs);
 
 static inline unsigned long __ipipe_ffnz(unsigned long ul)
 {
