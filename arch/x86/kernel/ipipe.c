@@ -712,6 +712,7 @@ int __ipipe_handle_exception(struct pt_regs *regs, long error_code, int vector)
 	}
 
 	__ipipe_std_extable[vector](regs, error_code);
+	local_irq_restore_nosync(flags);
 
 	return 0;
 }
@@ -756,7 +757,7 @@ int __ipipe_divert_exception(struct pt_regs *regs, int vector)
 int __ipipe_syscall_root(struct pt_regs *regs)
 {
 	struct ipipe_percpu_domain_data *p;
-        unsigned long flags;
+	unsigned long flags;
         int ret;
 
         /*
@@ -773,21 +774,27 @@ int __ipipe_syscall_root(struct pt_regs *regs)
                 return 0;
 
         ret = __ipipe_dispatch_event(IPIPE_EVENT_SYSCALL, regs);
-        if (!ipipe_root_domain_p)
+        if (!ipipe_root_domain_p) {
+#ifdef CONFIG_X86_64
+		local_irq_disable_hw();
+#endif
 		return 1;
+	}
 
 	p = ipipe_root_cpudom_ptr();
 	__fixup_if(test_bit(IPIPE_STALL_FLAG, &p->status), regs);
+	local_irq_save_hw(flags);
 	/*
 	 * If allowed, sync pending VIRQs before _TIF_NEED_RESCHED is
 	 * tested.
 	 */
-	if (!in_atomic()) {
-		local_irq_save_hw(flags);
-		if ((p->irqpend_himask & IPIPE_IRQMASK_VIRT) != 0)
+	if (!in_atomic() && 
+		(p->irqpend_himask & IPIPE_IRQMASK_VIRT) != 0)
 			__ipipe_sync_pipeline(IPIPE_IRQMASK_VIRT);
+#ifndef CONFIG_X86_64
+	if (!ret)
+#endif
 		local_irq_restore_hw(flags);
-	}
 
 	return -ret;
 }
