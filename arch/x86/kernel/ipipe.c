@@ -505,7 +505,7 @@ asmlinkage void __ipipe_unstall_iret_root(struct pt_regs regs)
 	 * entry. CAUTION: NMIs must *not* return through this
 	 * emulation.
 	 */
-	if (!(regs.flags & X86_EFLAGS_IF)) {
+	if (raw_irqs_disabled_flags(regs.flags)) {
 		if (!__test_and_set_bit(IPIPE_STALL_FLAG, &p->status))
 			trace_hardirqs_off();
 		regs.flags |= X86_EFLAGS_IF;
@@ -548,16 +548,14 @@ asmlinkage void preempt_schedule_irq(void);
 int __ipipe_preempt_schedule_irq(void)
 {
 	struct ipipe_percpu_domain_data *p = ipipe_root_cpudom_ptr();
+	int s;
 
-	if (test_bit(IPIPE_STALL_FLAG, &p->status))
-		/* Root stage is stalled: rescheduling denied. */
-		return 0;
-
-	__set_bit(IPIPE_STALL_FLAG, &p->status);
+	s = __test_and_set_bit(IPIPE_STALL_FLAG, &p->status);
 	local_irq_enable_hw();
 	preempt_schedule_irq(); /* Ok, may reschedule now. */
 	local_irq_disable_hw();
-	__clear_bit(IPIPE_STALL_FLAG, &p->status);
+	if (!s)
+		__clear_bit(IPIPE_STALL_FLAG, &p->status);
 
 	return 1;
 }
@@ -665,7 +663,7 @@ int __ipipe_handle_exception(struct pt_regs *regs, long error_code, int vector)
 		return 1;
 	}
 
-	__fixup_if(!(flags & X86_EFLAGS_IF), regs);
+	__fixup_if(raw_irqs_disabled_flags(flags), regs);
 
 	if (unlikely(!ipipe_root_domain_p)) {
 		/* Detect unhandled faults over non-root domains. */
@@ -733,7 +731,7 @@ int __ipipe_divert_exception(struct pt_regs *regs, int vector)
 		return 1;
 	}
 
-	__fixup_if(!(flags & X86_EFLAGS_IF), regs);
+	__fixup_if(raw_irqs_disabled_flags(flags), regs);
 
 	return 0;
 }
