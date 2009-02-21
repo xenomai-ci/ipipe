@@ -38,7 +38,7 @@ static inline unsigned __ipipe_get_irq_vector(int irq)
 #ifdef CONFIG_X86_IO_APIC
 	unsigned __ipipe_get_ioapic_irq_vector(int irq);
 	return __ipipe_get_ioapic_irq_vector(irq);
-#elif CONFIG_X86_LOCAL_APIC
+#elifdef CONFIG_X86_LOCAL_APIC
 	return irq >= IPIPE_FIRST_APIC_IRQ && irq < IPIPE_NR_XIRQS ?
 		ipipe_apic_irq_vector(irq) : irq + IRQ0_VECTOR;
 #else
