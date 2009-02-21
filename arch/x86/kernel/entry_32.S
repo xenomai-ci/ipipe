@@ -88,6 +88,7 @@
 				movl PT_EAX(%esp),%eax
 #define TEST_PREEMPTIBLE(regs)  call __ipipe_kpreempt_root ; testl %eax,%eax
 #define CATCH_ROOT_SYSCALL(bypass1,bypass2)	\
+				movl  %esp,%eax ; \
 				call __ipipe_syscall_root ; \
 				testl  %eax,%eax ; \
 				js    bypass1 ; \
