@@ -578,6 +578,39 @@ static struct x86_quirks default_x86_quirks __initdata;
 
 struct x86_quirks *x86_quirks __initdata = &default_x86_quirks;
 
+static int __init dmi_low_memory_corruption(const struct dmi_system_id *d)
+{
+	printk(KERN_NOTICE
+		"%s detected: BIOS may corrupt low RAM, working it around.\n",
+		d->ident);
+
+	e820_update_range(0, 0x10000, E820_RAM, E820_RESERVED);
+	sanitize_e820_map(e820.map, ARRAY_SIZE(e820.map), &e820.nr_map);
+
+	return 0;
+}
+
+/* List of systems that have known low memory corruption BIOS problems */
+static struct dmi_system_id __initdata bad_bios_dmi_table[] = {
+#ifdef CONFIG_X86_RESERVE_LOW_64K
+	{
+		.callback = dmi_low_memory_corruption,
+		.ident = "AMI BIOS",
+		.matches = {
+			DMI_MATCH(DMI_BIOS_VENDOR, "American Megatrends Inc."),
+		},
+	},
+	{
+		.callback = dmi_low_memory_corruption,
+		.ident = "Phoenix BIOS",
+		.matches = {
+			DMI_MATCH(DMI_BIOS_VENDOR, "Phoenix Technologies"),
+		},
+	},
+#endif
+	{}
+};
+
 /*
  * Determine if we were loaded by an EFI loader.  If so, then we have also been
  * passed the efi memmap, systab, etc., so we should use these data structures
@@ -600,6 +633,9 @@ void __init setup_arch(char **cmdline_p)
 #else
 	printk(KERN_INFO "Command line: %s\n", boot_command_line);
 #endif
+
+	/* VMI may relocate the fixmap; do this before touching ioremap area */
+	vmi_init();
 
 	early_cpu_init();
 	early_ioremap_init();
@@ -674,13 +710,8 @@ void __init setup_arch(char **cmdline_p)
 	check_efer();
 #endif
 
-#if defined(CONFIG_VMI) && defined(CONFIG_X86_32)
-	/*
-	 * Must be before kernel pagetables are setup
-	 * or fixmap area is touched.
-	 */
-	vmi_init();
-#endif
+	/* Must be before kernel pagetables are setup */
+	vmi_activate();
 
 	/* after early param, so could get panic from serial */
 	reserve_early_setup_data();
@@ -698,6 +729,10 @@ void __init setup_arch(char **cmdline_p)
 #endif
 
 	finish_e820_parsing();
+
+	dmi_scan_machine();
+
+	dmi_check_system(bad_bios_dmi_table);
 
 #ifdef CONFIG_X86_32
 	probe_roms();
@@ -780,8 +815,6 @@ void __init setup_arch(char **cmdline_p)
 #ifdef CONFIG_X86_64
 	vsmp_init();
 #endif
-
-	dmi_scan_machine();
 
 	io_delay_init();
 
@@ -885,3 +918,5 @@ void __init setup_arch(char **cmdline_p)
 #endif
 #endif
 }
+
+

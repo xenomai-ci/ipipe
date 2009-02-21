@@ -268,24 +268,39 @@ void prep_compound_page(struct page *page, unsigned long order)
 {
 	int i;
 	int nr_pages = 1 << order;
-	struct page *p = page + 1;
 
 	set_compound_page_dtor(page, free_compound_page);
 	set_compound_order(page, order);
 	__SetPageHead(page);
-	for (i = 1; i < nr_pages; i++, p++) {
-		if (unlikely((i & (MAX_ORDER_NR_PAGES - 1)) == 0))
-			p = pfn_to_page(page_to_pfn(page) + i);
+	for (i = 1; i < nr_pages; i++) {
+		struct page *p = page + i;
+
 		__SetPageTail(p);
 		p->first_page = page;
 	}
 }
 
-static void destroy_compound_page(struct page *page, unsigned long order)
+#ifdef CONFIG_HUGETLBFS
+void prep_compound_gigantic_page(struct page *page, unsigned long order)
 {
 	int i;
 	int nr_pages = 1 << order;
 	struct page *p = page + 1;
+
+	set_compound_page_dtor(page, free_compound_page);
+	set_compound_order(page, order);
+	__SetPageHead(page);
+	for (i = 1; i < nr_pages; i++, p = mem_map_next(p, page, i)) {
+		__SetPageTail(p);
+		p->first_page = page;
+	}
+}
+#endif
+
+static void destroy_compound_page(struct page *page, unsigned long order)
+{
+	int i;
+	int nr_pages = 1 << order;
 
 	if (unlikely(compound_order(page) != order))
 		bad_page(page);
@@ -293,9 +308,8 @@ static void destroy_compound_page(struct page *page, unsigned long order)
 	if (unlikely(!PageHead(page)))
 			bad_page(page);
 	__ClearPageHead(page);
-	for (i = 1; i < nr_pages; i++, p++) {
-		if (unlikely((i & (MAX_ORDER_NR_PAGES - 1)) == 0))
-			p = pfn_to_page(page_to_pfn(page) + i);
+	for (i = 1; i < nr_pages; i++) {
+		struct page *p = page + i;
 
 		if (unlikely(!PageTail(p) |
 				(p->first_page != page)))
@@ -4210,7 +4224,7 @@ void setup_per_zone_pages_min(void)
 	for_each_zone(zone) {
 		u64 tmp;
 
-		spin_lock_irqsave(&zone->lru_lock, flags);
+		spin_lock_irqsave(&zone->lock, flags);
 		tmp = (u64)pages_min * zone->present_pages;
 		do_div(tmp, lowmem_pages);
 		if (is_highmem(zone)) {
@@ -4242,7 +4256,7 @@ void setup_per_zone_pages_min(void)
 		zone->pages_low   = zone->pages_min + (tmp >> 2);
 		zone->pages_high  = zone->pages_min + (tmp >> 1);
 		setup_zone_migrate_reserve(zone);
-		spin_unlock_irqrestore(&zone->lru_lock, flags);
+		spin_unlock_irqrestore(&zone->lock, flags);
 	}
 
 	/* update totalreserve_pages */

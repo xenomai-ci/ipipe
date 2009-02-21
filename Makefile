@@ -1,8 +1,8 @@
 VERSION = 2
 PATCHLEVEL = 6
 SUBLEVEL = 27
-EXTRAVERSION =
-NAME = Rotary Wombat
+EXTRAVERSION = .19
+NAME = Trembling Tortoise
 
 # *DOCUMENTATION*
 # To see a list of typical targets execute "make help"

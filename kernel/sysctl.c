@@ -179,6 +179,9 @@ extern struct ctl_table random_table[];
 #ifdef CONFIG_INOTIFY_USER
 extern struct ctl_table inotify_table[];
 #endif
+#ifdef CONFIG_EPOLL
+extern struct ctl_table epoll_table[];
+#endif
 
 #ifdef HAVE_ARCH_PICK_MMAP_LAYOUT
 int sysctl_legacy_va_layout;
@@ -1313,6 +1316,13 @@ static struct ctl_table fs_table[] = {
 		.child		= inotify_table,
 	},
 #endif	
+#ifdef CONFIG_EPOLL
+	{
+		.procname	= "epoll",
+		.mode		= 0555,
+		.child		= epoll_table,
+	},
+#endif
 #endif
 	{
 		.ctl_name	= KERN_SETUID_DUMPABLE,
@@ -1604,7 +1614,7 @@ int do_sysctl(int __user *name, int nlen, void __user *oldval, size_t __user *ol
 	return error;
 }
 
-asmlinkage long sys_sysctl(struct __sysctl_args __user *args)
+SYSCALL_DEFINE1(sysctl, struct __sysctl_args __user *, args)
 {
 	struct __sysctl_args tmp;
 	int error;
@@ -2915,7 +2925,7 @@ int sysctl_ms_jiffies(struct ctl_table *table, int __user *name, int nlen,
 #else /* CONFIG_SYSCTL_SYSCALL */
 
 
-asmlinkage long sys_sysctl(struct __sysctl_args __user *args)
+SYSCALL_DEFINE1(sysctl, struct __sysctl_args __user *, args)
 {
 	struct __sysctl_args tmp;
 	int error;

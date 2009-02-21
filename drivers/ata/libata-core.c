@@ -551,7 +551,7 @@ u64 ata_tf_read_block(struct ata_taskfile *tf, struct ata_device *dev)
 		if (tf->flags & ATA_TFLAG_LBA48) {
 			block |= (u64)tf->hob_lbah << 40;
 			block |= (u64)tf->hob_lbam << 32;
-			block |= tf->hob_lbal << 24;
+			block |= (u64)tf->hob_lbal << 24;
 		} else
 			block |= (tf->device & 0xf) << 24;
 
@@ -1207,7 +1207,7 @@ u64 ata_tf_to_lba48(const struct ata_taskfile *tf)
 
 	sectors |= ((u64)(tf->hob_lbah & 0xff)) << 40;
 	sectors |= ((u64)(tf->hob_lbam & 0xff)) << 32;
-	sectors |= (tf->hob_lbal & 0xff) << 24;
+	sectors |= ((u64)(tf->hob_lbal & 0xff)) << 24;
 	sectors |= (tf->lbah & 0xff) << 16;
 	sectors |= (tf->lbam & 0xff) << 8;
 	sectors |= (tf->lbal & 0xff);
@@ -2426,6 +2426,13 @@ int ata_dev_configure(struct ata_device *dev)
 			ata_dev_printk(dev, KERN_WARNING,
 "fault or invalid emulation. Contact drive vendor for information.\n");
 		}
+	}
+
+	if ((dev->horkage & ATA_HORKAGE_FIRMWARE_WARN) && print_info) {
+		ata_dev_printk(dev, KERN_WARNING, "WARNING: device requires "
+			       "firmware update to be fully functional.\n");
+		ata_dev_printk(dev, KERN_WARNING, "         contact the vendor "
+			       "or visit http://ata.wiki.kernel.org.\n");
 	}
 
 	return 0;
@@ -3971,6 +3978,73 @@ static const struct ata_blacklist_entry ata_device_blacklist [] = {
 	{ "ST380817AS",		"3.42",		ATA_HORKAGE_NONCQ },
 	{ "ST3160023AS",	"3.42",		ATA_HORKAGE_NONCQ },
 
+	/* Seagate NCQ + FLUSH CACHE firmware bug */
+	{ "ST31500341AS",	"SD15",		ATA_HORKAGE_NONCQ |
+						ATA_HORKAGE_FIRMWARE_WARN },
+	{ "ST31500341AS",	"SD16",		ATA_HORKAGE_NONCQ |
+						ATA_HORKAGE_FIRMWARE_WARN },
+	{ "ST31500341AS",	"SD17",		ATA_HORKAGE_NONCQ |
+						ATA_HORKAGE_FIRMWARE_WARN },
+	{ "ST31500341AS",	"SD18",		ATA_HORKAGE_NONCQ |
+						ATA_HORKAGE_FIRMWARE_WARN },
+	{ "ST31500341AS",	"SD19",		ATA_HORKAGE_NONCQ |
+						ATA_HORKAGE_FIRMWARE_WARN },
+
+	{ "ST31000333AS",	"SD15",		ATA_HORKAGE_NONCQ |
+						ATA_HORKAGE_FIRMWARE_WARN },
+	{ "ST31000333AS",	"SD16",		ATA_HORKAGE_NONCQ |
+						ATA_HORKAGE_FIRMWARE_WARN },
+	{ "ST31000333AS",	"SD17",		ATA_HORKAGE_NONCQ |
+						ATA_HORKAGE_FIRMWARE_WARN },
+	{ "ST31000333AS",	"SD18",		ATA_HORKAGE_NONCQ |
+						ATA_HORKAGE_FIRMWARE_WARN },
+	{ "ST31000333AS",	"SD19",		ATA_HORKAGE_NONCQ |
+						ATA_HORKAGE_FIRMWARE_WARN },
+
+	{ "ST3640623AS",	"SD15",		ATA_HORKAGE_NONCQ |
+						ATA_HORKAGE_FIRMWARE_WARN },
+	{ "ST3640623AS",	"SD16",		ATA_HORKAGE_NONCQ |
+						ATA_HORKAGE_FIRMWARE_WARN },
+	{ "ST3640623AS",	"SD17",		ATA_HORKAGE_NONCQ |
+						ATA_HORKAGE_FIRMWARE_WARN },
+	{ "ST3640623AS",	"SD18",		ATA_HORKAGE_NONCQ |
+						ATA_HORKAGE_FIRMWARE_WARN },
+	{ "ST3640623AS",	"SD19",		ATA_HORKAGE_NONCQ |
+						ATA_HORKAGE_FIRMWARE_WARN },
+
+	{ "ST3640323AS",	"SD15",		ATA_HORKAGE_NONCQ |
+						ATA_HORKAGE_FIRMWARE_WARN },
+	{ "ST3640323AS",	"SD16",		ATA_HORKAGE_NONCQ |
+						ATA_HORKAGE_FIRMWARE_WARN },
+	{ "ST3640323AS",	"SD17",		ATA_HORKAGE_NONCQ |
+						ATA_HORKAGE_FIRMWARE_WARN },
+	{ "ST3640323AS",	"SD18",		ATA_HORKAGE_NONCQ |
+						ATA_HORKAGE_FIRMWARE_WARN },
+	{ "ST3640323AS",	"SD19",		ATA_HORKAGE_NONCQ |
+						ATA_HORKAGE_FIRMWARE_WARN },
+
+	{ "ST3320813AS",	"SD15",		ATA_HORKAGE_NONCQ |
+						ATA_HORKAGE_FIRMWARE_WARN },
+	{ "ST3320813AS",	"SD16",		ATA_HORKAGE_NONCQ |
+						ATA_HORKAGE_FIRMWARE_WARN },
+	{ "ST3320813AS",	"SD17",		ATA_HORKAGE_NONCQ |
+						ATA_HORKAGE_FIRMWARE_WARN },
+	{ "ST3320813AS",	"SD18",		ATA_HORKAGE_NONCQ |
+						ATA_HORKAGE_FIRMWARE_WARN },
+	{ "ST3320813AS",	"SD19",		ATA_HORKAGE_NONCQ |
+						ATA_HORKAGE_FIRMWARE_WARN },
+
+	{ "ST3320613AS",	"SD15",		ATA_HORKAGE_NONCQ |
+						ATA_HORKAGE_FIRMWARE_WARN },
+	{ "ST3320613AS",	"SD16",		ATA_HORKAGE_NONCQ |
+						ATA_HORKAGE_FIRMWARE_WARN },
+	{ "ST3320613AS",	"SD17",		ATA_HORKAGE_NONCQ |
+						ATA_HORKAGE_FIRMWARE_WARN },
+	{ "ST3320613AS",	"SD18",		ATA_HORKAGE_NONCQ |
+						ATA_HORKAGE_FIRMWARE_WARN },
+	{ "ST3320613AS",	"SD19",		ATA_HORKAGE_NONCQ |
+						ATA_HORKAGE_FIRMWARE_WARN },
+
 	/* Blacklist entries taken from Silicon Image 3124/3132
 	   Windows driver .inf file - also several Linux problem reports */
 	{ "HTS541060G9SA00",    "MB3OC60D",     ATA_HORKAGE_NONCQ, },
@@ -5259,6 +5333,8 @@ struct ata_port *ata_port_alloc(struct ata_host *host)
 
 #ifdef CONFIG_ATA_SFF
 	INIT_DELAYED_WORK(&ap->port_task, ata_pio_task);
+#else
+	INIT_DELAYED_WORK(&ap->port_task, NULL);
 #endif
 	INIT_DELAYED_WORK(&ap->hotplug_task, ata_scsi_hotplug);
 	INIT_WORK(&ap->scsi_rescan_task, ata_scsi_dev_rescan);

@@ -120,7 +120,7 @@ u16 amd_iommu_last_bdf;			/* largest PCI device id we have
 LIST_HEAD(amd_iommu_unity_map);		/* a list of required unity mappings
 					   we find in ACPI */
 unsigned amd_iommu_aperture_order = 26; /* size of aperture in power of 2 */
-int amd_iommu_isolate;			/* if 1, device isolation is enabled */
+int amd_iommu_isolate = 1;		/* if 1, device isolation is enabled */
 
 LIST_HEAD(amd_iommu_list);		/* list of all AMD IOMMUs in the
 					   system */
@@ -210,7 +210,7 @@ static void __init iommu_set_exclusion_range(struct amd_iommu *iommu)
 /* Programs the physical address of the device table into the IOMMU hardware */
 static void __init iommu_set_device_table(struct amd_iommu *iommu)
 {
-	u32 entry;
+	u64 entry;
 
 	BUG_ON(iommu->mmio_base == NULL);
 
@@ -406,6 +406,10 @@ static u8 * __init alloc_command_buffer(struct amd_iommu *iommu)
 	entry |= MMIO_CMD_SIZE_512;
 	memcpy_toio(iommu->mmio_base + MMIO_CMD_BUF_OFFSET,
 			&entry, sizeof(entry));
+
+	/* set head and tail to zero manually */
+	writel(0x00, iommu->mmio_base + MMIO_CMD_HEAD_OFFSET);
+	writel(0x00, iommu->mmio_base + MMIO_CMD_TAIL_OFFSET);
 
 	iommu_feature_enable(iommu, CONTROL_CMDBUF_EN);
 
@@ -926,7 +930,8 @@ int __init amd_iommu_init(void)
 		goto free;
 
 	/* IOMMU rlookup table - find the IOMMU for a specific device */
-	amd_iommu_rlookup_table = (void *)__get_free_pages(GFP_KERNEL,
+	amd_iommu_rlookup_table = (void *)__get_free_pages(
+			GFP_KERNEL | __GFP_ZERO,
 			get_order(rlookup_table_size));
 	if (amd_iommu_rlookup_table == NULL)
 		goto free;

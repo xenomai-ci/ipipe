@@ -351,9 +351,9 @@ static int ext4_block_to_path(struct inode *inode,
 		final = ptrs;
 	} else {
 		ext4_warning(inode->i_sb, "ext4_block_to_path",
-				"block %lu > max",
+				"block %lu > max in inode %lu",
 				i_block + direct_blocks +
-				indirect_blocks + double_blocks);
+				indirect_blocks + double_blocks, inode->i_ino);
 	}
 	if (boundary)
 		*boundary = final - 1 - (i_block & (ptrs - 1));
@@ -1370,7 +1370,7 @@ retry:
   		goto out;
 	}
 
-	page = __grab_cache_page(mapping, index);
+	page = grab_cache_page_write_begin(mapping, index, flags);
 	if (!page) {
 		ext4_journal_stop(handle);
 		ret = -ENOMEM;
@@ -1648,18 +1648,25 @@ struct mpage_da_data {
  */
 static int mpage_da_submit_io(struct mpage_da_data *mpd)
 {
-	struct address_space *mapping = mpd->inode->i_mapping;
-	int ret = 0, err, nr_pages, i;
-	unsigned long index, end;
+	long pages_skipped;
 	struct pagevec pvec;
+	unsigned long index, end;
+	int ret = 0, err, nr_pages, i;
+	struct inode *inode = mpd->inode;
+	struct address_space *mapping = inode->i_mapping;
 
 	BUG_ON(mpd->next_page <= mpd->first_page);
-	pagevec_init(&pvec, 0);
+	/*
+	 * We need to start from the first_page to the next_page - 1
+	 * to make sure we also write the mapped dirty buffer_heads.
+	 * If we look at mpd->lbh.b_blocknr we would only be looking
+	 * at the currently mapped buffer_heads.
+	 */
 	index = mpd->first_page;
 	end = mpd->next_page - 1;
 
+	pagevec_init(&pvec, 0);
 	while (index <= end) {
-		/* XXX: optimize tail */
 		nr_pages = pagevec_lookup(&pvec, mapping, index, PAGEVEC_SIZE);
 		if (nr_pages == 0)
 			break;
@@ -1671,6 +1678,10 @@ static int mpage_da_submit_io(struct mpage_da_data *mpd)
 				break;
 			index++;
 
+			BUG_ON(!PageLocked(page));
+			BUG_ON(PageWriteback(page));
+
+			pages_skipped = mpd->wbc->pages_skipped;
 			err = mapping->a_ops->writepage(page, mpd->wbc);
 			if (!err)
 				mpd->pages_written++;
@@ -1991,11 +2002,29 @@ static int __mpage_da_writepage(struct page *page,
 		bh = head;
 		do {
 			BUG_ON(buffer_locked(bh));
+			/*
+			 * We need to try to allocate
+			 * unmapped blocks in the same page.
+			 * Otherwise we won't make progress
+			 * with the page in ext4_da_writepage
+			 */
 			if (buffer_dirty(bh) &&
 				(!buffer_mapped(bh) || buffer_delay(bh))) {
 				mpage_add_bh_to_extent(mpd, logical, bh);
 				if (mpd->io_done)
 					return MPAGE_DA_EXTENT_TAIL;
+			} else if (buffer_dirty(bh) && (buffer_mapped(bh))) {
+				/*
+				 * mapped dirty buffer. We need to update
+				 * the b_state because we look at
+				 * b_state in mpage_da_map_blocks. We don't
+				 * update b_size because if we find an
+				 * unmapped buffer_head later we need to
+				 * use the b_state flag of that buffer_head.
+				 */
+				if (mpd->lbh.b_size == 0)
+					mpd->lbh.b_state =
+						bh->b_state & BH_FLAGS;
 			}
 			logical++;
 		} while ((bh = bh->b_this_page) != head);
@@ -2242,6 +2271,8 @@ static int ext4_da_writepage(struct page *page,
 			unlock_page(page);
 			return 0;
 		}
+		/* now mark the buffer_heads as dirty and uptodate */
+		block_commit_write(page, 0, PAGE_CACHE_SIZE);
 	}
 
 	if (test_opt(inode->i_sb, NOBH) && ext4_should_writeback_data(inode))
@@ -2296,6 +2327,20 @@ static int ext4_da_writepages(struct address_space *mapping,
 	 */
 	if (!mapping->nrpages || !mapping_tagged(mapping, PAGECACHE_TAG_DIRTY))
 		return 0;
+
+	/*
+	 * If the filesystem has aborted, it is read-only, so return
+	 * right away instead of dumping stack traces later on that
+	 * will obscure the real source of the problem.  We test
+	 * EXT4_MOUNT_ABORT instead of sb->s_flag's MS_RDONLY because
+	 * the latter could be true if the filesystem is mounted
+	 * read-only, and in that case, ext4_da_writepages should
+	 * *never* be called, so if that ever happens, we would want
+	 * the stack trace.
+	 */
+	if (unlikely(sbi->s_mount_opt & EXT4_MOUNT_ABORT))
+		return -EROFS;
+
 	/*
 	 * Make sure nr_to_write is >= sbi->s_mb_stream_request
 	 * This make sure small files blocks are allocated in
@@ -2334,7 +2379,7 @@ restart_loop:
 		handle = ext4_journal_start(inode, needed_blocks);
 		if (IS_ERR(handle)) {
 			ret = PTR_ERR(handle);
-			printk(KERN_EMERG "%s: jbd2_start: "
+			printk(KERN_CRIT "%s: jbd2_start: "
 			       "%ld pages, ino %lu; err %d\n", __func__,
 				wbc->nr_to_write, inode->i_ino, ret);
 			dump_stack();
@@ -2419,7 +2464,7 @@ retry:
 		goto out;
 	}
 
-	page = __grab_cache_page(mapping, index);
+	page = grab_cache_page_write_begin(mapping, index, flags);
 	if (!page) {
 		ext4_journal_stop(handle);
 		ret = -ENOMEM;
@@ -4444,9 +4489,10 @@ static int ext4_indirect_trans_blocks(struct inode *inode, int nrblocks,
 static int ext4_index_trans_blocks(struct inode *inode, int nrblocks, int chunk)
 {
 	if (!(EXT4_I(inode)->i_flags & EXT4_EXTENTS_FL))
-		return ext4_indirect_trans_blocks(inode, nrblocks, 0);
-	return ext4_ext_index_trans_blocks(inode, nrblocks, 0);
+		return ext4_indirect_trans_blocks(inode, nrblocks, chunk);
+	return ext4_ext_index_trans_blocks(inode, nrblocks, chunk);
 }
+
 /*
  * Account for index blocks, block groups bitmaps and block group
  * descriptor blocks if modify datablocks and index blocks
