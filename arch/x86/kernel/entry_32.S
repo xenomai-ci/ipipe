@@ -718,6 +718,7 @@ END(interrupt)
 common_interrupt:
 	SAVE_ALL
 	IPIPE_TRACE_IRQ_ENTER
+	movl %esp, %eax
 	call __ipipe_handle_irq
 	IPIPE_TRACE_IRQ_EXIT
 	testl %eax,%eax
@@ -734,6 +735,7 @@ ENTRY(name)				\
 	CFI_ADJUST_CFA_OFFSET 4;	\
 	SAVE_ALL;			\
 	IPIPE_TRACE_IRQ_ENTER;		\
+ 	movl %esp, %eax;		\
 	call __ipipe_handle_irq;	\
 	IPIPE_TRACE_IRQ_EXIT;		\
 	testl %eax,%eax;		\

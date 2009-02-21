@@ -67,10 +67,11 @@ static void (*__ipipe_cpu_sync) (void);
 
 #endif /* CONFIG_SMP */
 
-/* ipipe_trigger_irq() -- Push the interrupt at front of the pipeline
-   just like if it has been actually received from a hw source. Also
-   works for virtual interrupts. */
-
+/*
+ * ipipe_trigger_irq() -- Push the interrupt at front of the pipeline
+ * just like if it has been actually received from a hw source. Also
+ * works for virtual interrupts.
+ */
 int ipipe_trigger_irq(unsigned irq)
 {
 	struct pt_regs regs;
@@ -82,20 +83,10 @@ int ipipe_trigger_irq(unsigned irq)
 		return -EINVAL;
 
 	local_irq_save_hw(flags);
-
 	regs.flags = flags;
-#ifdef CONFIG_X86_32
 	regs.orig_ax = irq;	/* Positive value - IRQ won't be acked */
 	regs.cs = __KERNEL_CS;
-
-	__ipipe_handle_irq(regs);
-
-#else /* !CONFIG_X86_32 */
-	regs.orig_ax = irq;	/* Positive value - IRQ won't be acked */
-	regs.cs = __KERNEL_CS;
-
 	__ipipe_handle_irq(&regs);
-#endif /* !CONFIG_X86_32 */
 
 	local_irq_restore_hw(flags);
 
@@ -466,24 +457,20 @@ out:
 	local_irq_restore_hw(flags);
 }
 
-static inline void __fixup_if(struct pt_regs *regs)
-{
-	if (!ipipe_root_domain_p)
-		return;
+#ifdef CONFIG_X86_32
 
+static inline void __fixup_if(int s, struct pt_regs *regs)
+{
 	/*
 	 * Have the saved hw state look like the domain stall bit, so
 	 * that __ipipe_unstall_iret_root() restores the proper
 	 * pipeline state for the root stage upon exit.
 	 */
-
-	if (test_bit(IPIPE_STALL_FLAG, &ipipe_root_cpudom_var(status)))
+	if (s)
 		regs->flags &= ~X86_EFLAGS_IF;
 	else
 		regs->flags |= X86_EFLAGS_IF;
 }
-
-#ifdef CONFIG_X86_32
 
 /*
  * Check the stall bit of the root domain to make sure the existing
@@ -513,10 +500,11 @@ asmlinkage void __ipipe_unstall_iret_root(struct pt_regs regs)
 
 	local_irq_disable_hw();
 
-	/* Restore the software state as it used to be on kernel
-	   entry. CAUTION: NMIs must *not* return through this
-	   emulation. */
-
+	/*
+	 * Restore the software state as it used to be on kernel
+	 * entry. CAUTION: NMIs must *not* return through this
+	 * emulation.
+	 */
 	if (!(regs.flags & X86_EFLAGS_IF)) {
 		if (!__test_and_set_bit(IPIPE_STALL_FLAG, &p->status))
 			trace_hardirqs_off();
@@ -527,9 +515,11 @@ asmlinkage void __ipipe_unstall_iret_root(struct pt_regs regs)
 			__clear_bit(IPIPE_STALL_FLAG, &p->status);
 		}
 
-		/* Only sync virtual IRQs here, so that we don't recurse
-		   indefinitely in case of an external interrupt flood. */
-
+		/*
+		 * Only sync virtual IRQs here, so that we don't
+		 * recurse indefinitely in case of an external
+		 * interrupt flood.
+		 */
 		if ((p->irqpend_himask & IPIPE_IRQMASK_VIRT) != 0)
 			__ipipe_sync_pipeline(IPIPE_IRQMASK_VIRT);
 	}
@@ -538,46 +528,11 @@ asmlinkage void __ipipe_unstall_iret_root(struct pt_regs regs)
 #endif /* CONFIG_IPIPE_TRACE_IRQSOFF */
 }
 
-asmlinkage int __ipipe_syscall_root(struct pt_regs regs)
-{
-	unsigned long flags;
-
-	__fixup_if(&regs);
-
-	/* This routine either returns:
-	    0 -- if the syscall is to be passed to Linux;
-	   >0 -- if the syscall should not be passed to Linux, and no
-	   tail work should be performed;
-	   <0 -- if the syscall should not be passed to Linux but the
-	   tail work has to be performed (for handling signals etc). */
-
-	if (__ipipe_syscall_watched_p(current, regs.orig_ax) &&
-	    __ipipe_event_monitored_p(IPIPE_EVENT_SYSCALL) &&
-	    __ipipe_dispatch_event(IPIPE_EVENT_SYSCALL,&regs) > 0) {
-		/* We might enter here over a non-root domain and exit
-		 * over the root one as a result of the syscall
-		 * (i.e. by recycling the register set of the current
-		 * context across the migration), so we need to fixup
-		 * the interrupt flag upon return too, so that
-		 * __ipipe_unstall_iret_root() resets the correct
-		 * stall bit on exit. */
-		__fixup_if(&regs);
-
-		if (ipipe_root_domain_p && !in_atomic()) {
-			/* Sync pending VIRQs before _TIF_NEED_RESCHED is tested. */
-			local_irq_save_hw(flags);
-			if ((ipipe_root_cpudom_var(irqpend_himask) & IPIPE_IRQMASK_VIRT) != 0)
-				__ipipe_sync_pipeline(IPIPE_IRQMASK_VIRT);
-			local_irq_restore_hw(flags);
-			return -1;
-		}
-		return 1;
-	}
-
-	return 0;
-}
-
 #else /* !CONFIG_X86_32 */
+
+static inline void __fixup_if(int s, struct pt_regs *regs)
+{
+}
 
 #ifdef CONFIG_PREEMPT
 
@@ -590,7 +545,7 @@ asmlinkage void preempt_schedule_irq(void);
  * is stalled before the hw interrupts are re-enabled. This routine
  * must be called with hw interrupts off.
  */
-asmlinkage int __ipipe_preempt_schedule_irq(void)
+int __ipipe_preempt_schedule_irq(void)
 {
 	struct ipipe_percpu_domain_data *p = ipipe_root_cpudom_ptr();
 
@@ -606,51 +561,7 @@ asmlinkage int __ipipe_preempt_schedule_irq(void)
 
 	return 1;
 }
-#endif
-
-asmlinkage int __ipipe_syscall_root(struct pt_regs *regs)
-{
-	unsigned long flags;
-
-	__fixup_if(regs);
-
-	/* This routine either returns:
-	    0 -- if the syscall is to be passed to Linux;
-	   >0 -- if the syscall should not be passed to Linux, and no
-	   tail work should be performed;
-	   <0 -- if the syscall should not be passed to Linux but the
-	   tail work has to be performed (for handling signals etc). */
-
-	if (__ipipe_syscall_watched_p(current, regs->orig_ax) &&
-	    __ipipe_event_monitored_p(IPIPE_EVENT_SYSCALL) &&
-	    __ipipe_dispatch_event(IPIPE_EVENT_SYSCALL, regs) > 0) {
-		/* We might enter here over a non-root domain and exit
-		 * over the root one as a result of the syscall
-		 * (i.e. by recycling the register set of the current
-		 * context across the migration), so we need to fixup
-		 * the interrupt flag upon return too, so that
-		 * __ipipe_unstall_iret_root() resets the correct
-		 * stall bit on exit. */
-		__fixup_if(regs);
-
-		if (ipipe_root_domain_p && !in_atomic()) {
-			/* Sync pending VIRQs before _TIF_NEED_RESCHED is tested. */
-			local_irq_save_hw(flags);
-			if ((ipipe_root_cpudom_var(irqpend_himask) & IPIPE_IRQMASK_VIRT) != 0)
-				__ipipe_sync_pipeline(IPIPE_IRQMASK_VIRT);
-			local_irq_restore_hw(flags);
-			return -1;
-		}
-		/*
-		 * We are about to run the atomic syscall epilogue;
-		 * switch interrupts off before branching to it.
-		 */
-		local_irq_disable_hw();
-		return 1;
-	}
-
-    return 0;
-}
+#endif	/* CONFIG_PREEMPT */
 
 #endif /* !CONFIG_X86_32 */
 
@@ -733,39 +644,31 @@ int __ipipe_handle_exception(struct pt_regs *regs, long error_code, int vector)
 
 	local_save_flags(flags);
 
-	/* Track the hw interrupt state before calling the Linux
-	 * exception handler, replicating it into the virtual mask. */
-
-	if (irqs_disabled_hw()) {
-		/* Do not trigger the alarm in ipipe_check_context() by using
-		 * plain local_irq_disable(). */
-		__ipipe_stall_root();
-		trace_hardirqs_off();
-		barrier();
+	/*
+	 * Track the hw interrupt state before calling the I-pipe
+	 * event handler, replicating it into the virtual mask.
+	 */
+	if (ipipe_root_domain_p) {
+		if (irqs_disabled_hw())
+			local_irq_disable();
 	}
-
 #ifdef CONFIG_KGDB
 	/* catch exception KGDB is interested in over non-root domains */
-	if (!ipipe_root_domain_p &&
-	    __ipipe_xlate_signo[vector] >= 0 &&
-	    !kgdb_handle_exception(vector, __ipipe_xlate_signo[vector], error_code, regs)) {
-		if (flags & X86_EFLAGS_IF)
-			__clear_bit(IPIPE_STALL_FLAG,
-				    &ipipe_root_cpudom_var(status));
+	else if (__ipipe_xlate_signo[vector] >= 0 &&
+		 !kgdb_handle_exception(vector, __ipipe_xlate_signo[vector],
+					error_code, regs))
 		return 1;
-	}
 #endif /* CONFIG_KGDB */
 
 	if (unlikely(ipipe_trap_notify(vector, regs))) {
-		if (flags & X86_EFLAGS_IF)
-			__clear_bit(IPIPE_STALL_FLAG,
-				    &ipipe_root_cpudom_var(status));
+		local_irq_restore_nosync(flags);
 		return 1;
 	}
 
-	/* Detect unhandled faults over non-root domains. */
+	__fixup_if(!(flags & X86_EFLAGS_IF), regs);
 
 	if (unlikely(!ipipe_root_domain_p)) {
+		/* Detect unhandled faults over non-root domains. */
 		struct ipipe_domain *ipd = ipipe_current_domain;
 
 		/* Switch to root so that Linux can handle the fault cleanly. */
@@ -793,47 +696,93 @@ int __ipipe_handle_exception(struct pt_regs *regs, long error_code, int vector)
 	}
 
 	__ipipe_std_extable[vector](regs, error_code);
-	local_irq_disable_hw();
-	local_irq_restore(flags);
-	__fixup_if(regs);
 
 	return 0;
 }
 
 int __ipipe_divert_exception(struct pt_regs *regs, int vector)
 {
+	unsigned long flags;
+
+	local_save_flags(flags);
+
+	if (ipipe_root_domain_p) {
+		if (irqs_disabled_hw())
+			local_irq_disable();
+	}
 #ifdef CONFIG_KGDB
 	/* catch int1 and int3 over non-root domains */
-	if (!ipipe_root_domain_p && vector != ex_device_not_available) {
-		unsigned int condition = 0;
+	else {
+#ifdef CONFIG_X86_32
+		if (vector != ex_device_not_available)
+#endif
+		{
+			unsigned int condition = 0;
 
-		if (vector == 1)
-			get_debugreg(condition, 6);
-		if (!kgdb_handle_exception(vector, SIGTRAP, condition, regs))
-			return 1;
+			if (vector == 1)
+				get_debugreg(condition, 6);
+			if (!kgdb_handle_exception(vector, SIGTRAP, condition, regs))
+				return 1;
+		}
 	}
 #endif /* CONFIG_KGDB */
 
-	if (ipipe_trap_notify(vector, regs))
+	if (unlikely(ipipe_trap_notify(vector, regs))) {
+		local_irq_restore_nosync(flags);
 		return 1;
+	}
 
-	__fixup_if(regs);
+	__fixup_if(!(flags & X86_EFLAGS_IF), regs);
 
 	return 0;
 }
 
-/* __ipipe_handle_irq() -- IPIPE's generic IRQ handler. An optimistic
-   interrupt protection log is maintained here for each domain.  Hw
-   interrupts are off on entry. */
-
-#ifdef CONFIG_X86_32
-int __ipipe_handle_irq(struct pt_regs __regs)
+int __ipipe_syscall_root(struct pt_regs *regs)
 {
-	struct pt_regs *regs = &__regs;
-#else /* !CONFIG_X86_32 */
+	struct ipipe_percpu_domain_data *p;
+        unsigned long flags;
+        int ret;
+
+        /*
+         * This routine either returns:
+         * 0 -- if the syscall is to be passed to Linux;
+         * >0 -- if the syscall should not be passed to Linux, and no
+         * tail work should be performed;
+         * <0 -- if the syscall should not be passed to Linux but the
+         * tail work has to be performed (for handling signals etc).
+         */
+
+        if (!__ipipe_syscall_watched_p(current, regs->orig_ax) ||
+            !__ipipe_event_monitored_p(IPIPE_EVENT_SYSCALL))
+                return 0;
+
+        ret = __ipipe_dispatch_event(IPIPE_EVENT_SYSCALL, regs);
+        if (!ipipe_root_domain_p)
+		return 1;
+
+	p = ipipe_root_cpudom_ptr();
+	__fixup_if(test_bit(IPIPE_STALL_FLAG, &p->status), regs);
+	/*
+	 * If allowed, sync pending VIRQs before _TIF_NEED_RESCHED is
+	 * tested.
+	 */
+	if (!in_atomic()) {
+		local_irq_save_hw(flags);
+		if ((p->irqpend_himask & IPIPE_IRQMASK_VIRT) != 0)
+			__ipipe_sync_pipeline(IPIPE_IRQMASK_VIRT);
+		local_irq_restore_hw(flags);
+	}
+
+	return -ret;
+}
+
+/*
+ * __ipipe_handle_irq() -- IPIPE's generic IRQ handler. An optimistic
+ * interrupt protection log is maintained here for each domain.  Hw
+ * interrupts are off on entry.
+ */
 int __ipipe_handle_irq(struct pt_regs *regs)
 {
-#endif /* !CONFIG_X86_32 */
 	struct ipipe_domain *this_domain, *next_domain;
 	unsigned vector = regs->orig_ax, irq;
 	struct list_head *head, *pos;
