@@ -786,9 +786,9 @@ int __ipipe_syscall_root(struct pt_regs *regs)
 	 * If allowed, sync pending VIRQs before _TIF_NEED_RESCHED is
 	 * tested.
 	 */
-	if (!in_atomic() && 
-		(p->irqpend_himask & IPIPE_IRQMASK_VIRT) != 0)
-			__ipipe_sync_pipeline(IPIPE_IRQMASK_VIRT);
+	WARN_ON_ONCE(in_atomic());
+	if ((p->irqpend_himask & IPIPE_IRQMASK_VIRT) != 0)
+		__ipipe_sync_pipeline(IPIPE_IRQMASK_VIRT);
 #ifndef CONFIG_X86_64
 	if (!ret)
 #endif
