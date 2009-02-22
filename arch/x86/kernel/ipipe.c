@@ -87,7 +87,6 @@ int ipipe_trigger_irq(unsigned irq)
 	regs.orig_ax = irq;	/* Positive value - IRQ won't be acked */
 	regs.cs = __KERNEL_CS;
 	__ipipe_handle_irq(&regs);
-
 	local_irq_restore_hw(flags);
 
 	return 1;
@@ -773,7 +772,7 @@ int __ipipe_syscall_root(struct pt_regs *regs)
 	WARN_ON_ONCE(in_atomic());
 	if ((p->irqpend_himask & IPIPE_IRQMASK_VIRT) != 0)
 		__ipipe_sync_pipeline(IPIPE_IRQMASK_VIRT);
-#ifndef CONFIG_X86_64
+#ifdef CONFIG_X86_64
 	if (!ret)
 #endif
 		local_irq_restore_hw(flags);
