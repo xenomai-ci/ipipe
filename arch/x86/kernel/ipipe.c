@@ -537,26 +537,18 @@ static inline void __fixup_if(int s, struct pt_regs *regs)
 
 asmlinkage void preempt_schedule_irq(void);
 
-/*
- * Check the stall bit of the root domain to make sure the existing
- * preemption opportunity upon in-kernel resumption could be
- * exploited. In case a rescheduling could take place, the root stage
- * is stalled before the hw interrupts are re-enabled. This routine
- * must be called with hw interrupts off.
- */
-int __ipipe_preempt_schedule_irq(void)
+void __ipipe_preempt_schedule_irq(void)
 {
 	struct ipipe_percpu_domain_data *p = ipipe_root_cpudom_ptr();
 	int s;
 
+	local_irq_disable_hw();
 	s = __test_and_set_bit(IPIPE_STALL_FLAG, &p->status);
 	local_irq_enable_hw();
 	preempt_schedule_irq(); /* Ok, may reschedule now. */
 	local_irq_disable_hw();
 	if (!s)
 		__clear_bit(IPIPE_STALL_FLAG, &p->status);
-
-	return 1;
 }
 #endif	/* CONFIG_PREEMPT */
 
@@ -769,7 +761,6 @@ int __ipipe_syscall_root(struct pt_regs *regs)
 	 * If allowed, sync pending VIRQs before _TIF_NEED_RESCHED is
 	 * tested.
 	 */
-	WARN_ON_ONCE(in_atomic());
 	if ((p->irqpend_himask & IPIPE_IRQMASK_VIRT) != 0)
 		__ipipe_sync_pipeline(IPIPE_IRQMASK_VIRT);
 #ifdef CONFIG_X86_64

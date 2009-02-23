@@ -66,9 +66,6 @@
 #endif
 	
 #ifdef CONFIG_IPIPE
-#ifdef CONFIG_PREEMPT
-	thunk_retrax __ipipe_preempt_schedule_irq_thunk,__ipipe_preempt_schedule_irq
-#endif	
 	thunk_retrax __ipipe_syscall_root_thunk,__ipipe_syscall_root
 #endif
 	

@@ -63,9 +63,7 @@
 	.code64
 
 #ifdef CONFIG_IPIPE
-#define PREEMPT_SCHEDULE_IRQ		call __ipipe_preempt_schedule_irq_thunk;  \
-					testl %eax, %eax; \
-					jz retint_restore_args
+#define PREEMPT_SCHEDULE_IRQ		call __ipipe_preempt_schedule_irq
 #else /* !CONFIG_IPIPE */
 #define PREEMPT_SCHEDULE_IRQ		call preempt_schedule_irq
 #endif /* !CONFIG_IPIPE */
