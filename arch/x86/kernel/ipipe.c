@@ -631,13 +631,15 @@ int __ipipe_handle_exception(struct pt_regs *regs, long error_code, int vector)
 {
 	unsigned long flags;
 
+	/* Pick up the root domain state of the interrupted context. */
 	local_save_flags(flags);
 
-	/*
-	 * Track the hw interrupt state before calling the I-pipe
-	 * event handler, replicating it into the virtual mask.
-	 */
 	if (ipipe_root_domain_p) {
+		/*
+		 * Replicate hw interrupt state into the virtual mask before
+		 * calling the I-pipe event handler over the root domain. Also
+		 * required later when calling the Linux exception handler.
+		 */
 		if (irqs_disabled_hw())
 			local_irq_disable();
 	}
@@ -654,6 +656,11 @@ int __ipipe_handle_exception(struct pt_regs *regs, long error_code, int vector)
 		return 1;
 	}
 
+	/*
+	 * 32-bit: In case we migrated to root domain inside the event
+	 * handler, restore the original IF from exception entry as the
+	 * low-level return code will evaluate it.
+	 */
 	__fixup_if(raw_irqs_disabled_flags(flags), regs);
 
 	if (unlikely(!ipipe_root_domain_p)) {
@@ -685,6 +692,11 @@ int __ipipe_handle_exception(struct pt_regs *regs, long error_code, int vector)
 	}
 
 	__ipipe_std_extable[vector](regs, error_code);
+
+	/*
+	 * Relevant for 64-bit: Restore root domain state as the low-level
+	 * return code will not align it to regs.flags.
+	 */
 	local_irq_restore_nosync(flags);
 
 	return 0;
@@ -694,6 +706,7 @@ int __ipipe_divert_exception(struct pt_regs *regs, int vector)
 {
 	unsigned long flags;
 
+	/* Same root state handling as in __ipipe_handle_exception. */
 	local_save_flags(flags);
 
 	if (ipipe_root_domain_p) {
@@ -722,6 +735,11 @@ int __ipipe_divert_exception(struct pt_regs *regs, int vector)
 		return 1;
 	}
 
+	/*
+	 * 32-bit: Due to possible migration inside the event handler, we have
+	 * to restore IF so that low-level return code sets the root domain
+	 * state correctly.
+	 */
 	__fixup_if(raw_irqs_disabled_flags(flags), regs);
 
 	return 0;
