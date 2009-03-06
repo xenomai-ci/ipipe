@@ -717,7 +717,7 @@ int __ipipe_divert_exception(struct pt_regs *regs, int vector)
 	/* catch int1 and int3 over non-root domains */
 	else {
 #ifdef CONFIG_X86_32
-		if (vector != ex_device_not_available)
+		if (vector != ex_do_device_not_available)
 #endif
 		{
 			unsigned int condition = 0;
