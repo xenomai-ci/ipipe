@@ -4101,6 +4101,7 @@ static int ppc440spe_r6ena_write (struct file *file, const char __user *buffer,
 
 	/* Write a key */
 	val = simple_strtoul(tmp, NULL, 16);
+	val = (val & ~DMA_CUED_XOR_WIN_MSK) | DMA_CUED_XOR_BASE;
 	mtdcr(DCRN_MQ0_XORBA, val);
 	isync();
 
