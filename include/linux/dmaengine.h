@@ -223,6 +223,7 @@ struct dma_async_tx_descriptor {
  * @global_node: list_head for global dma_device_list
  * @cap_mask: one or more dma_capability flags
  * @max_xor: maximum number of xor sources, 0 if no capability
+ * @max_pq: maximum number of PQ sources, 0 if no capability
  * @dev_id: unique device ID
  * @dev: struct device reference for dma mapping api
  * @device_alloc_chan_resources: allocate resources and return the
@@ -247,6 +248,7 @@ struct dma_device {
 	struct list_head global_node;
 	dma_cap_mask_t  cap_mask;
 	unsigned short max_xor;
+	unsigned short max_pq;
 
 	int dev_id;
 	struct device *dev;
