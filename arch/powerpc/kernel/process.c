@@ -91,7 +91,11 @@ void flush_fp_to_thread(struct task_struct *tsk)
 
 void enable_kernel_fp(void)
 {
+	unsigned long flags;
+
 	WARN_ON(preemptible());
+
+	local_irq_save_hw_cond(flags);
 
 #ifdef CONFIG_SMP
 	if (current->thread.regs && (current->thread.regs->msr & MSR_FP))
@@ -101,6 +105,7 @@ void enable_kernel_fp(void)
 #else
 	giveup_fpu(last_task_used_math);
 #endif /* CONFIG_SMP */
+	local_irq_restore_hw_cond(flags);
 }
 EXPORT_SYMBOL(enable_kernel_fp);
 
