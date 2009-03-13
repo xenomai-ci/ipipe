@@ -596,7 +596,7 @@ int ipipe_disable_ondemand_mappings(struct task_struct *tsk);
 
 static inline void local_irq_restore_nosync(unsigned long x)
 {
-	if (x)
+	if (raw_irqs_disabled_flags(x))
 		set_bit(IPIPE_STALL_FLAG, &ipipe_cpudom_var(ipipe_root_domain, status));
 	else
 		clear_bit(IPIPE_STALL_FLAG, &ipipe_cpudom_var(ipipe_root_domain, status));
