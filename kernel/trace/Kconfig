@@ -49,7 +49,7 @@ menu "Tracers"
 
 config FUNCTION_TRACER
 	bool "Kernel Function Tracer"
-	depends on HAVE_FUNCTION_TRACER
+	depends on HAVE_FUNCTION_TRACER && !IPIPE_TRACE
 	depends on DEBUG_KERNEL
 	select FRAME_POINTER
 	select KALLSYMS
