@@ -869,6 +869,7 @@ asmlinkage void math_state_restore(void)
 {
 	struct thread_info *thread = current_thread_info();
 	struct task_struct *tsk = thread->task;
+	unsigned long flags;
 
 	if (!tsk_used_math(tsk)) {
 		local_irq_enable();
@@ -885,6 +886,7 @@ asmlinkage void math_state_restore(void)
 		local_irq_disable();
 	}
 
+ 	local_irq_save_hw_cond(flags);
 	clts();				/* Allow maths ops (or we recurse) */
 #ifdef CONFIG_X86_32
 	restore_fpu(tsk);
@@ -894,12 +896,14 @@ asmlinkage void math_state_restore(void)
 	 */
 	if (unlikely(restore_fpu_checking(tsk))) {
 		stts();
+		local_irq_restore_hw_cond(flags);
 		force_sig(SIGSEGV, tsk);
 		return;
 	}
 #endif
 	thread->status |= TS_USEDFPU;	/* So we fnsave on switch_to() */
 	tsk->fpu_counter++;
+	local_irq_restore_hw_cond(flags);
 }
 EXPORT_SYMBOL_GPL(math_state_restore);
 
@@ -914,19 +918,19 @@ void math_emulate(struct math_emu_info *info)
 }
 #endif /* CONFIG_MATH_EMULATION */
 
-dotraplinkage void __kprobes do_device_not_available(struct pt_regs regs)
+dotraplinkage void __kprobes do_device_not_available(struct pt_regs *regs, long error_code)
 {
 #ifdef CONFIG_X86_32
 	if (read_cr0() & X86_CR0_EM) {
 		struct math_emu_info info = { };
 
-		conditional_sti(&regs);
+		conditional_sti(regs);
 
-		info.regs = &regs;
+		info.regs = regs;
 		math_emulate(&info);
 	} else {
 		math_state_restore(); /* interrupts still off */
-		conditional_sti(&regs);
+		conditional_sti(regs);
 	}
 #else
 	math_state_restore();

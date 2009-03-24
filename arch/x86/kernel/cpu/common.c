@@ -884,7 +884,7 @@ struct desc_ptr idt_descr = { 256 * 16 - 1, (unsigned long) idt_table };
 
 static char boot_cpu_stack[IRQSTACKSIZE] __page_aligned_bss;
 
-void __cpuinit pda_init(int cpu)
+void notrace __cpuinit pda_init(int cpu)
 {
 	struct x8664_pda *pda = cpu_pda(cpu);
 
@@ -976,7 +976,7 @@ struct pt_regs * __cpuinit idle_regs(struct pt_regs *regs)
  * A lot of state is already set up in PDA init for 64 bit
  */
 #ifdef CONFIG_X86_64
-void __cpuinit cpu_init(void)
+void notrace __cpuinit cpu_init(void)
 {
 	int cpu = stack_smp_processor_id();
 	struct tss_struct *t = &per_cpu(init_tss, cpu);
@@ -1096,7 +1096,7 @@ void __cpuinit cpu_init(void)
 
 #else
 
-void __cpuinit cpu_init(void)
+void notrace __cpuinit cpu_init(void)
 {
 	int cpu = smp_processor_id();
 	struct task_struct *curr = current;

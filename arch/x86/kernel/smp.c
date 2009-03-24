@@ -159,9 +159,9 @@ static void native_smp_send_stop(void)
 		return;
 
 	smp_call_function(stop_this_cpu, NULL, 0);
-	local_irq_save(flags);
+	local_irq_save_hw(flags);
 	disable_local_APIC();
-	local_irq_restore(flags);
+	local_irq_restore_hw(flags);
 }
 
 /*

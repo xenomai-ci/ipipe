@@ -32,7 +32,7 @@ void ack_bad_irq(unsigned int irq)
 	 * But only ack when the APIC is enabled -AK
 	 */
 	if (cpu_has_apic)
-		ack_APIC_irq();
+		__ack_APIC_irq();
 #endif
 }
 

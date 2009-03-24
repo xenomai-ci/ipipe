@@ -72,12 +72,19 @@
 #define THERMAL_APIC_VECTOR		0xfa
 #define THRESHOLD_APIC_VECTOR		0xf9
 #define UV_BAU_MESSAGE			0xf8
+#ifdef CONFIG_IPIPE
+#define INVALIDATE_TLB_VECTOR_END	0xf2
+#define INVALIDATE_TLB_VECTOR_START	0xf0	/* f0-f2 used for TLB flush */
+#define NUM_INVALIDATE_TLB_VECTORS	3	/* f3-f7 used by I-pipe */
+#else /* !CONFIG_IPIPE */
 #define INVALIDATE_TLB_VECTOR_END	0xf7
 #define INVALIDATE_TLB_VECTOR_START	0xf0	/* f0-f7 used for TLB flush */
-
 #define NUM_INVALIDATE_TLB_VECTORS	8
+#endif
 
 #endif
+
+#define FIRST_SYSTEM_VECTOR		0xef
 
 /*
  * Local APIC timer IRQ vector is on a different priority level,
