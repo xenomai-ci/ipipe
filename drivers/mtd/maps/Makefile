@@ -68,3 +68,4 @@ obj-$(CONFIG_MTD_TAIHU)		+= taihu.o
 obj-$(CONFIG_MTD_ALPR)		+= alpr.o
 obj-$(CONFIG_MTD_SC3)		+= sc3.o
 obj-$(CONFIG_MTD_BFIN_ASYNC)	+= bfin-async-flash.o
+obj-$(CONFIG_MTD_VMU)		+= vmu-flash.o

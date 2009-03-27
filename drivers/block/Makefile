@@ -6,6 +6,7 @@
 # 
 
 obj-$(CONFIG_MAC_FLOPPY)	+= swim3.o
+obj-$(CONFIG_BLK_DEV_SWIM)	+= swim_mod.o
 obj-$(CONFIG_BLK_DEV_FD)	+= floppy.o
 obj-$(CONFIG_AMIGA_FLOPPY)	+= amiflop.o
 obj-$(CONFIG_PS3_DISK)		+= ps3disk.o
@@ -34,3 +35,5 @@ obj-$(CONFIG_BLK_DEV_HD)	+= hd.o
 obj-$(CONFIG_XILINX_SYSACE)	+= xsysace.o
 
 obj-$(CONFIG_XEN_BLKDEV_FRONTEND)	+= xen-blkfront.o
+
+swim_mod-objs	:= swim.o swim_asm.o
