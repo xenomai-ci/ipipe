@@ -42,18 +42,20 @@ __dma_alloc_coherent(size_t size, dma_addr_t *handle, gfp_t gfp)
 {
 	struct page *page;
 	unsigned long order;
-	void *v;
 	int i;
-	struct page *pages[PAGE_ALIGN(size)>>PAGE_SHIFT];
+	unsigned int nr_pages = PAGE_ALIGN(size)>>PAGE_SHIFT;
+	unsigned int array_size = nr_pages * sizeof(struct page *);
+	struct page **pages;
 	struct page *end;
 	u64 mask = 0x00ffffff, limit; /* ISA default */
+	struct vm_struct *area;
 
 	BUG_ON(!mem_init_done);
 	size = PAGE_ALIGN(size);
 	limit = (mask + 1) & ~mask;
 	if (limit && size >= limit) {
-		printk(KERN_WARNING "coherent allocation too big (requested %#x mask %#Lx)\n",
-		       size, mask);
+		printk(KERN_WARNING "coherent allocation too big (requested "
+				"%#x mask %#Lx)\n", size, mask);
 		return NULL;
 	}
 
@@ -84,31 +86,53 @@ __dma_alloc_coherent(size_t size, dma_addr_t *handle, gfp_t gfp)
 	 * Set the "dma handle"
 	 */
 	*handle = page_to_phys(page);
-	for (i = 0; i < size>>PAGE_SHIFT; i++)
-		pages[i] = page + i;
-	v = vmap(pages, size>>PAGE_SHIFT, VM_IOREMAP,
-			pgprot_noncached(PAGE_KERNEL));
-	if (!v)
-		goto out;
 
-	do {
-		SetPageReserved(page);
-		page++;
-	} while (size -= PAGE_SIZE);
+	area = get_vm_area_caller(size, VM_IOREMAP,
+			__builtin_return_address(1));
+	if (!area)
+		goto out_free_pages;
+
+	if (array_size > PAGE_SIZE) {
+		pages = vmalloc(array_size);
+		area->flags |= VM_VPAGES;
+	} else {
+		pages = kmalloc(array_size, GFP_KERNEL);
+	}
+	if (!pages)
+		goto out_free_area;
+
+	area->pages = pages;
+	area->nr_pages = nr_pages;
+
+	for (i = 0; i < nr_pages; i++)
+		pages[i] = page + i;
+
+	if (map_vm_area(area, pgprot_noncached(PAGE_KERNEL), &pages))
+		goto out_unmap;
 
 	/*
 	 * Free the otherwise unused pages.
 	 */
+	page += nr_pages;
 	while (page < end) {
 		__free_page(page);
 		page++;
 	}
 
-	return v;
- out:
+	return area->addr;
+out_unmap:
+	vunmap(area->addr);
+	if (array_size > PAGE_SIZE)
+		vfree(pages);
+	else
+		kfree(pages);
+	goto out_free_pages;
+out_free_area:
+	free_vm_area(area);
+out_free_pages:
 	if (page)
 		__free_pages(page, order);
- no_page:
+no_page:
 	return NULL;
 }
 EXPORT_SYMBOL(__dma_alloc_coherent);
@@ -118,18 +142,8 @@ EXPORT_SYMBOL(__dma_alloc_coherent);
  */
 void __dma_free_coherent(size_t size, void *vaddr)
 {
-	struct page *page;
+	vfree(vaddr);
 
-	size = PAGE_ALIGN(size);
-	page = vmalloc_to_page(vaddr);
-
-	vunmap(vaddr);
-
-	do {
-		ClearPageReserved(page);
-		__free_page(page);
-		page++;
-	} while (size -= PAGE_SIZE);
 }
 EXPORT_SYMBOL(__dma_free_coherent);
 
