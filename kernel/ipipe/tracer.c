@@ -32,6 +32,7 @@
 #include <linux/utsrelease.h>
 #include <linux/sched.h>
 #include <linux/ipipe.h>
+#include <linux/ftrace.h>
 #include <asm/uaccess.h>
 
 #define IPIPE_TRACE_PATHS           4 /* <!> Do not lower below 3 */
@@ -690,7 +691,7 @@ void ipipe_trace_panic_dump(void)
 				case IPIPE_TRACE_PID:
 					__ipipe_get_task_info(info,
 							      point, 1);
-					printk(info);
+					printk("%s", info);
 					break;
 
 				case IPIPE_TRACE_EVENT:
@@ -1292,9 +1293,57 @@ static int __ipipe_wr_trigger(struct file *file, const char __user *buffer,
 	return count;
 }
 
+#ifdef CONFIG_IPIPE_TRACE_MCOUNT
+static void notrace
+ipipe_trace_function(unsigned long ip, unsigned long parent_ip)
+{
+	if (!ipipe_trace_enable)
+		return;
+	__ipipe_trace(IPIPE_TRACE_FUNC, ip, parent_ip, 0);
+}
+
+static struct ftrace_ops ipipe_trace_ops = {
+	.func = ipipe_trace_function
+};
+
+static int __ipipe_wr_enable(struct file *file, const char __user *buffer,
+			     unsigned long count, void *data)
+{
+	char *end, buf[16];
+	int val;
+	int n;
+
+	n = (count > sizeof(buf) - 1) ? sizeof(buf) - 1 : count;
+
+	if (copy_from_user(buf, buffer, n))
+		return -EFAULT;
+
+	buf[n] = '\0';
+	val = simple_strtol(buf, &end, 0);
+
+	if (((*end != '\0') && !isspace(*end)) || (val < 0))
+		return -EINVAL;
+
+	mutex_lock(&out_mutex);
+
+	if (ipipe_trace_enable) {
+		if (!val)
+			unregister_ftrace_function(&ipipe_trace_ops);
+	} else if (val) {
+		ftrace_enabled = 1;
+		register_ftrace_function(&ipipe_trace_ops);
+	}
+	ipipe_trace_enable = val;
+
+	mutex_unlock(&out_mutex);
+
+	return count;
+}
+#endif /* CONFIG_IPIPE_TRACE_MCOUNT */
+
 extern struct proc_dir_entry *ipipe_proc_root;
 
-static void __init
+static struct proc_dir_entry * __init
 __ipipe_create_trace_proc_val(struct proc_dir_entry *trace_dir,
                               const char *name, int *value_ptr)
 {
@@ -1307,6 +1356,7 @@ __ipipe_create_trace_proc_val(struct proc_dir_entry *trace_dir,
 		entry->write_proc = __ipipe_wr_proc_val;
 		entry->owner = THIS_MODULE;
 	}
+	return entry;
 }
 
 void __init __ipipe_init_tracer(void)
@@ -1337,7 +1387,6 @@ void __init __ipipe_init_tracer(void)
 		per_cpu(trace_path, cpu) = tp_buf;
 	}
 #endif /* CONFIG_IPIPE_TRACE_VMALLOC */
-	ipipe_trace_enable = CONFIG_IPIPE_TRACE_ENABLE_VALUE;
 
 	/* Calculate minimum overhead of __ipipe_trace() */
 	local_irq_disable_hw();
@@ -1353,6 +1402,14 @@ void __init __ipipe_init_tracer(void)
 	}
 	local_irq_enable_hw();
 	trace_overhead = ipipe_tsc2ns(min);
+
+#ifdef CONFIG_IPIPE_TRACE_ENABLE
+	ipipe_trace_enable = 1;
+#ifdef CONFIG_IPIPE_TRACE_MCOUNT
+	ftrace_enabled = 1;
+	register_ftrace_function(&ipipe_trace_ops);
+#endif /* CONFIG_IPIPE_TRACE_MCOUNT */
+#endif /* CONFIG_IPIPE_TRACE_ENABLE */
 
 	trace_dir = create_proc_entry("trace", S_IFDIR, ipipe_proc_root);
 
@@ -1379,6 +1436,10 @@ void __init __ipipe_init_tracer(void)
 	                              &back_trace);
 	__ipipe_create_trace_proc_val(trace_dir, "verbose",
 	                              &verbose_trace);
-	__ipipe_create_trace_proc_val(trace_dir, "enable",
-	                              &ipipe_trace_enable);
+	entry = __ipipe_create_trace_proc_val(trace_dir, "enable",
+					      &ipipe_trace_enable);
+#ifdef CONFIG_IPIPE_TRACE_MCOUNT
+	if (entry)
+		entry->write_proc = __ipipe_wr_enable;
+#endif /* CONFIG_IPIPE_TRACE_MCOUNT */
 }
