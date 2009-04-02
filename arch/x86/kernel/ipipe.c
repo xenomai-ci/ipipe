@@ -935,8 +935,3 @@ EXPORT_PER_CPU_SYMBOL_GPL(cpu_tlbstate);
 #if defined(CONFIG_SMP) || defined(CONFIG_DEBUG_SPINLOCK)
 EXPORT_SYMBOL(tasklist_lock);
 #endif /* CONFIG_SMP || CONFIG_DEBUG_SPINLOCK */
-
-#ifdef CONFIG_IPIPE_TRACE_MCOUNT
-void notrace mcount(void);
-EXPORT_SYMBOL(mcount);
-#endif /* CONFIG_IPIPE_TRACE_MCOUNT */

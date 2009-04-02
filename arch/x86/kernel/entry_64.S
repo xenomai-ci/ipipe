@@ -855,6 +855,7 @@ END(interrupt)
 	call save_args
 	PARTIAL_FRAME 0
 #ifdef CONFIG_IPIPE_TRACE_IRQSOFF
+	pushq %rbp
 	leaq RIP-8(%rdi), %rbp	# make interrupted address show up in trace
 	pushq %rdi
 	movq ORIG_RAX(%rdi), %rdi	# IRQ number
@@ -862,11 +863,9 @@ END(interrupt)
 	call ipipe_trace_begin
 	popq %rdi
 	popq %rbp
-	pushq %rbp
 
 	call \func
 
-	popq %rbp
 	pushq %rbp
 	pushq %rax
 	movq 8-ARGOFFSET+ORIG_RAX(%rbp), %rdi
@@ -875,7 +874,6 @@ END(interrupt)
 	call ipipe_trace_end
 	popq %rax
 	popq %rbp
-	pushq %rbp
 #else
 	call \func
 #endif
