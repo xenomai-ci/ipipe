@@ -39,6 +39,7 @@ config IPIPE_TRACE_ENABLE
 config IPIPE_TRACE_MCOUNT
 	bool "Instrument function entries"
 	default y
+	select FUNCTION_TRACER
 	---help---
 	  When enabled, records every kernel function entry in the tracer
 	  log. While this slows down the system noticeably, it provides
@@ -79,10 +80,5 @@ config IPIPE_TRACE_PANIC
 	  situations. This is used on IPIPE_DEBUG_CONTEXT exceptions
 	  as well as ordinary kernel oopses. You can control the number
 	  of printed back trace points via /proc/ipipe/trace.
-
-config IPIPE_TRACE_ENABLE_VALUE
-	int
-	default 0 if !IPIPE_TRACE_ENABLE
-	default 1 if IPIPE_TRACE_ENABLE
 
 endif
