@@ -538,10 +538,11 @@ asmlinkage void preempt_schedule_irq(void);
 
 void __ipipe_preempt_schedule_irq(void)
 {
-	struct ipipe_percpu_domain_data *p = ipipe_root_cpudom_ptr();
+	struct ipipe_percpu_domain_data *p;
 	int s;
 
 	local_irq_disable_hw();
+	p = ipipe_root_cpudom_ptr();
 	s = __test_and_set_bit(IPIPE_STALL_FLAG, &p->status);
 	local_irq_enable_hw();
 	preempt_schedule_irq(); /* Ok, may reschedule now. */
