@@ -897,8 +897,7 @@ common_interrupt:
 	CFI_ADJUST_CFA_OFFSET	-8
 	testl $3,CS-ARGOFFSET(%rsp)
 	jz restore_args
-	swapgs
-	jmp restore_args
+	jmp retint_swapgs_notrace
 #else /* !CONFIG_IPIPE */
 	XCPT_FRAME
 	addq $-0x80,(%rsp)		/* Adjust vector to [-256,-1] range */
@@ -1052,8 +1051,7 @@ ENTRY(\sym)
 	CFI_ADJUST_CFA_OFFSET	-8
 	testl $3,CS-ARGOFFSET(%rsp)
 	jz restore_args
-	swapgs
-	jmp restore_args
+	jmp retint_swapgs_notrace
 	CFI_ENDPROC
 	.endm
 #else /* !CONFIG_IPIPE */	
@@ -1135,6 +1133,7 @@ ENTRY(\sym)
 	jz error_exit
 	movl %ebx,%eax
 	RESTORE_REST
+	DISABLE_INTERRUPTS(CLBR_NONE)
 	testl %eax,%eax
 	jne retint_noswapgs
 	jmp retint_swapgs_notrace
@@ -1168,9 +1167,7 @@ ENTRY(\sym)
 	xorl %esi,%esi		/* no error code */
 	call \do_sym
 #ifdef CONFIG_IPIPE	
-	xorl %eax,%eax
-	/* WARNING: paranoid_exit will check %eax to decide whether the
-	exception has to be propagated or not. */
+	xorl %eax,%eax		/* tell paranoid_exit to propagate the exception */
 1:	
 #endif	
 	jmp paranoid_exit	/* %ebx: no swapgs flag */
@@ -1203,9 +1200,7 @@ ENTRY(\sym)
 	call \do_sym
 	addq $EXCEPTION_STKSZ, per_cpu__init_tss + TSS_ist + (\ist - 1) * 8(%rbp)
 #ifdef CONFIG_IPIPE	
-	xorl %eax,%eax
-	/* WARNING: paranoid_exit will check %eax to decide whether the
-	exception has to be propagated or not. */
+	xorl %eax,%eax		/* tell paranoid_exit to propagate the exception */
 1:	
 #endif	
 	jmp paranoid_exit	/* %ebx: no swapgs flag */
@@ -1231,6 +1226,7 @@ ENTRY(\sym)
 	jz error_exit
 	movl %ebx,%eax
 	RESTORE_REST
+	DISABLE_INTERRUPTS(CLBR_NONE)
 	testl %eax,%eax
 	jne retint_noswapgs
 	jmp retint_swapgs_notrace
@@ -1266,9 +1262,7 @@ ENTRY(\sym)
 	movq $-1,ORIG_RAX(%rsp)		/* no syscall to restart */
 	call \do_sym
 #ifdef CONFIG_IPIPE	
-	xorl %eax,%eax
-	/* WARNING: paranoid_exit will check %eax to decide whether the
-	exception has to be propagated or not. */
+	xorl %eax,%eax			/* tell paranoid_exit to propagate the exception */
 1:	
 #endif	
 	jmp paranoid_exit		/* %ebx: no swapgs flag */
