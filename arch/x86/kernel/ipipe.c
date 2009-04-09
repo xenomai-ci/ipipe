@@ -538,18 +538,20 @@ asmlinkage void preempt_schedule_irq(void);
 
 void __ipipe_preempt_schedule_irq(void)
 {
-	struct ipipe_percpu_domain_data *p;
-	int s;
-
-	local_irq_disable_hw();
-	p = ipipe_root_cpudom_ptr();
-	s = __test_and_set_bit(IPIPE_STALL_FLAG, &p->status);
-	local_irq_enable_hw();
-	preempt_schedule_irq(); /* Ok, may reschedule now. */
-	local_irq_disable_hw();
-	if (!s)
-		__clear_bit(IPIPE_STALL_FLAG, &p->status);
+	unsigned long flags; 
+	/* 
+	 * We have no IRQ state fixup on entry to exceptions in
+	 * x86_64, so we have to stall the root stage before
+	 * rescheduling.
+	 */ 
+	BUG_ON(!irqs_disabled_hw()); 
+	local_irq_save(flags); 
+	local_irq_enable_hw(); 
+	preempt_schedule_irq(); /* Ok, may reschedule now. */ 
+	local_irq_disable_hw(); 
+	local_irq_restore_nosync(flags); 
 }
+
 #endif	/* CONFIG_PREEMPT */
 
 #endif /* !CONFIG_X86_32 */

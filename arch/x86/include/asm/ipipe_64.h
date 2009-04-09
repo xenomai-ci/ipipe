@@ -85,6 +85,7 @@ static inline void __ipipe_call_root_xirq_handler(unsigned irq,
 			     "movq  %%r10,1*8(%%rsp)\n\t"
 			     "movq  %%r11,(%%rsp)\n\t"
 			     "call  *%[handler]\n\t"
+			     "cli\n\t"
 			     "jmp exit_intr\n\t"
 			     "__xirq_end: cli\n"
 			     : /* no output */
@@ -125,7 +126,8 @@ static inline void __ipipe_call_root_virq_handler(unsigned irq,
 			       [handler] "r" (handler), "D" (irq), "S" (cookie)
 			     : "rax");
 	irq_exit();
-	__asm__ __volatile__("jmp exit_intr\n\t"
+	__asm__ __volatile__("cli\n\t"
+			     "jmp exit_intr\n\t"
 			     "__virq_end: cli\n"
 			     : /* no output */
 			     : /* no input */);
