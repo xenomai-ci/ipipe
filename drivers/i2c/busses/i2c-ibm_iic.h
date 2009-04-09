@@ -50,6 +50,8 @@ struct ibm_iic_private {
 	int irq;
 	int fast_mode;
 	u8  clckdiv;
+	struct device_node *np;
+	phys_addr_t paddr;
 };
 
 /* IICx_CNTL register */

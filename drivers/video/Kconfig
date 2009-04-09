@@ -237,6 +237,43 @@ config FB_TILEBLITTING
 comment "Frame buffer hardware drivers"
 	depends on FB
 
+config FB_MB86290
+	tristate "Fujitsu CoralP/Lime support"
+	depends on FB
+	select FB_CFB_FILLRECT
+	select FB_CFB_COPYAREA
+	select FB_CFB_IMAGEBLIT
+	---help---
+	  This framebuffer device driver is for the Fujitsu CoralP/Lime
+	  graphics controller. Default resolution is 1024x768.
+
+config FB_MB86290_640X480_16BPP
+	bool "Resolution is 640x480 (rather than 1024x768)"
+	depends on FB_MB86290
+	default y
+	---help---
+	  Change resolution to 640x480 for Fujitsu CoralP/Lime framebuffer device.
+
+config FB_MB86290_CORALP
+	bool "CoralP GDC"
+	depends on FB_MB86290
+	---help---
+	  Builds Fujitsu CoralP framebuffer driver.
+
+config FB_MB86290_LIME
+	bool "Lime GDC"
+	depends on FB_MB86290 # && !FB_MB86290_CORALP
+	---help---
+	  Builds Fujitsu Lime framebuffer driver.
+
+config FB_PRE_INIT_FB
+	bool "Don't reinitialize GDC, use bootloader's display configuration"
+	depends on FB_MB86290_LIME
+	default y
+	---help---
+	  Select this option if display contents should be inherited as set by
+	  the bootloader.
+
 config FB_CIRRUS
 	tristate "Cirrus Logic support"
 	depends on FB && (ZORRO || PCI)

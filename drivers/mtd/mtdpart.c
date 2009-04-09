@@ -19,6 +19,10 @@
 #include <linux/mtd/partitions.h>
 #include <linux/mtd/compatmac.h>
 
+#ifdef CONFIG_PPC_MERGE
+#include <asm/prom.h>
+#endif
+
 /* Our partition linked list */
 static LIST_HEAD(mtd_partitions);
 

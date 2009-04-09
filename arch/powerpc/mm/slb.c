@@ -136,8 +136,18 @@ void slb_flush_and_rebolt(void)
 		     "slbia\n"
 		     /* Slot 1 - first VMALLOC segment */
 		     "slbmte	%0,%1\n"
+#ifdef CONFIG_PPC_PASEMI_A2_WORKAROUNDS
+		     /* PA6T Ax workaround */
+		     "mfmsr	%0\n"
+		     "mtmsrd	%0\n"
+#endif
 		     /* Slot 2 - kernel stack */
 		     "slbmte	%2,%3\n"
+#ifdef CONFIG_PPC_PASEMI_A2_WORKAROUNDS
+		     /* PA6T Ax workaround */
+		     "mfmsr	%0\n"
+		     "mtmsrd	%0\n"
+#endif
 		     "isync"
 		     :: "r"(mk_vsid_data(VMALLOC_START, mmu_kernel_ssize, vflags)),
 		        "r"(mk_esid_data(VMALLOC_START, mmu_kernel_ssize, 1)),

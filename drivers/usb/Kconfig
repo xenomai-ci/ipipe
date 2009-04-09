@@ -41,6 +41,9 @@ config USB_ARCH_HAS_OHCI
 	# PPC:
 	default y if STB03xxx
 	default y if PPC_MPC52xx
+	default y if 405EZ
+	default y if 440EP
+	default y if 440EPX
 	# MIPS:
 	default y if SOC_AU1X00
 	# SH:
@@ -55,6 +58,7 @@ config USB_ARCH_HAS_EHCI
 	boolean
 	default y if PPC_83xx
 	default y if SOC_AU1200
+	default y if 440EPX
 	default y if ARCH_IXP4XX
 	default PCI
 
@@ -68,7 +72,7 @@ config USB
 	  traditional PC serial port.  The bus supplies power to peripherals
 	  and allows for hot swapping.  Up to 127 USB peripherals can be
 	  connected to a single USB host in a tree structure.
-	  
+
 	  The USB host is the root of the tree, the peripherals are the
 	  leaves and the inner nodes are special USB devices called hubs.
 	  Most PCs now have USB host ports, used to connect peripherals

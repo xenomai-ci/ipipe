@@ -86,9 +86,18 @@ void udbg_init_uart(void __iomem *comport, unsigned int speed,
 	unsigned int dll, base_bauds;
 
 	if (clock == 0)
+#ifdef CONFIG_PPC_PASEMI_A2_WORKAROUNDS
+		clock = 133333333;
+#else
 		clock = 1843200;
+#endif
+
 	if (speed == 0)
+#ifdef CONFIG_PPC_PASEMI_A2_WORKAROUNDS
+		speed = 115200;
+#else
 		speed = 9600;
+#endif
 
 	base_bauds = clock / 16;
 	dll = base_bauds / speed;
@@ -143,7 +152,11 @@ unsigned int udbg_probe_uart_speed(void __iomem *comport, unsigned int clock)
 
 	/* sanity check */
 	if (speed > (clock / 16))
+#ifdef CONFIG_PPC_PASEMI_A2_WORKAROUNDS
+		speed = 115200;
+#else
 		speed = 9600;
+#endif
 
 	return speed;
 }
