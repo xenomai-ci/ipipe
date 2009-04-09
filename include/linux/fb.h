@@ -900,6 +900,53 @@ struct fb_info {
 #define fb_writeq __raw_writeq
 #define fb_memset memset_io
 
+static inline void fb_writel_swapped(u32 data, volatile void __iomem *addr) {
+#if 0
+#if defined(__powerpc__)
+	volatile u16 *sp = (volatile u16 *)&data;
+
+	st_le16((volatile u16*)addr, *sp);
+	st_le16(((volatile u16*)addr + 1), *(sp+1));
+#else
+#endif
+#endif
+	volatile u32 rd_l,val_l;
+	volatile u8 *rd_b, *val_b;
+
+	val_b=(u8*)&val_l;
+	rd_b=(u8*)&rd_l;
+	rd_l=data;
+	val_b[0]=rd_b[2];
+	val_b[1]=rd_b[3];
+	val_b[2]=rd_b[0];
+	val_b[3]=rd_b[1];
+	__raw_writel(val_l,addr);
+/* #endif */
+};
+
+static inline u32 fb_readl_swapped(const volatile void __iomem *addr) {
+#if 0
+#if defined(__powerpc__)
+	volatile u16 *sp = (volatile u16 *)addr;
+
+	return (ld_le16(sp) << 16 | ld_le16(sp+1));
+#else
+#endif
+#endif
+	volatile u32 rd_l,val_l;
+	volatile u8 *rd_b, *val_b;
+
+	val_b=(u8*)&val_l;
+	rd_b=(u8*)&rd_l;
+	rd_l=__raw_readl(addr);
+	val_b[0]=rd_b[2];
+	val_b[1]=rd_b[3];
+	val_b[2]=rd_b[0];
+	val_b[3]=rd_b[1];
+	return val_l;
+/* #endif */
+};
+
 #else
 
 #define fb_readb(addr) (*(volatile u8 *) (addr))

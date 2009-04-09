@@ -69,13 +69,14 @@ async_memset(struct page *dest, int val, unsigned int offset,
 		void *dest_buf;
 		pr_debug("%s: (sync) len: %zu\n", __func__, len);
 
-		dest_buf = (void *) (((char *) page_address(dest)) + offset);
+		dest_buf = (void *) (((char *) kmap(dest)) + offset);
 
 		/* wait for any prerequisite operations */
 		async_tx_quiesce(&depend_tx);
 
 		memset(dest_buf, val, len);
 
+		kunmap(dest);
 		async_tx_sync_epilog(cb_fn, cb_param);
 	}
 

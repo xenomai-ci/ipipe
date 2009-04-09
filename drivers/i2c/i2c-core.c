@@ -1129,7 +1129,7 @@ static int i2c_probe_address(struct i2c_adapter *adapter, int addr, int kind,
 	int err;
 
 	/* Make sure the address is valid */
-	if (addr < 0x03 || addr > 0x77) {
+	if (addr < 0x03 || addr > 0x7f) {
 		dev_warn(&adapter->dev, "Invalid probe address 0x%02x\n",
 			 addr);
 		return -EINVAL;

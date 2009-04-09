@@ -209,6 +209,26 @@ config SATA_INIC162X
 	help
 	  This option enables support for Initio 162x Serial ATA.
 
+config SATA_DWC
+	tristate "DesignWare Cores SATA support"
+	depends on 460EX
+	help
+	  This option enables support for the Synopsys DesignWare Cores SATA
+	  controller.
+	  It can be found on the AMCC 460EX.
+
+	  If unsure, say N.
+
+config SATA_DWC_DEBUG
+	bool "Enable debug output"
+	depends on SATA_DWC
+	default n
+
+config SATA_DWC_VDEBUG
+	bool "Enable verbose debug output"
+	depends on SATA_DWC && SATA_DWC_DEBUG
+	default n
+
 config PATA_ACPI
 	tristate "ACPI firmware driver for PATA"
 	depends on ATA_ACPI

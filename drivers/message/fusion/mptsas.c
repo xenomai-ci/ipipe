@@ -1000,6 +1000,7 @@ mptsas_slave_alloc(struct scsi_device *sdev)
 	return -ENXIO;
 
  out:
+	blk_queue_update_dma_alignment(sdev->request_queue, 511);
 	vdevice->vtarget->num_luns++;
 	sdev->hostdata = vdevice;
 	return 0;

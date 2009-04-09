@@ -124,6 +124,11 @@ struct nand_flash_dev nand_flash_ids[] = {
 	 BBT_AUTO_REFRESH
 	},
 
+	/* Micron MT29F4G08BABWP 4 Gigabit device */
+	{"NAND 512MiB 3,3V 8-bit",	0xDC, 0, 512, 0,
+	 NAND_NO_AUTOINCR | NAND_CACHEPRG | NAND_NO_READRDY
+	},
+
 	{NULL,}
 };
 
