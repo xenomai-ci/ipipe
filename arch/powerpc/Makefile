@@ -239,4 +239,3 @@ checkbin:
 	fi
 
 CLEAN_FILES += $(TOUT)
-

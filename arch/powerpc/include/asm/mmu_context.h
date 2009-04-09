@@ -30,8 +30,14 @@ extern void set_context(unsigned long id, pgd_t *pgd);
 static inline void switch_mm(struct mm_struct *prev, struct mm_struct *next,
 			     struct task_struct *tsk)
 {
+	int cpu = smp_processor_id();
+#ifndef CONFIG_IPIPE_UNMASKED_CONTEXT_SWITCH
+	unsigned long flags;
+
+	local_irq_save_hw(flags);
+#endif /* !CONFIG_IPIPE_UNMASKED_CONTEXT_SWITCH */
 	/* Mark this context has been used on the new CPU */
-	cpu_set(smp_processor_id(), next->cpu_vm_mask);
+	cpu_set(cpu, next->cpu_vm_mask);
 
 	/* 32-bit keeps track of the current PGDIR in the thread struct */
 #ifdef CONFIG_PPC32
@@ -40,7 +46,7 @@ static inline void switch_mm(struct mm_struct *prev, struct mm_struct *next,
 
 	/* Nothing else to do if we aren't actually switching */
 	if (prev == next)
-		return;
+		goto done;
 
 	/* We must stop all altivec streams before changing the HW
 	 * context
@@ -53,6 +59,36 @@ static inline void switch_mm(struct mm_struct *prev, struct mm_struct *next,
 	/* The actual HW switching method differs between the various
 	 * sub architectures.
 	 */
+#ifdef CONFIG_IPIPE_UNMASKED_CONTEXT_SWITCH
+#ifdef CONFIG_PPC_STD_MMU_64
+	if (ipipe_current_domain == ipipe_root_domain) {
+		do {
+			per_cpu(ipipe_active_mm, cpu) = NULL; /* mm state is undefined. */
+			barrier();
+			if (cpu_has_feature(CPU_FTR_SLB))
+				switch_slb(tsk, next);
+			else
+				switch_stab(tsk, next);
+			barrier();
+			per_cpu(ipipe_active_mm, cpu) = next;
+		} while (test_and_clear_thread_flag(TIF_MMSWITCH_INT));
+	} else if (cpu_has_feature(CPU_FTR_SLB))
+		switch_slb(tsk, next);
+	else
+		switch_stab(tsk, next);
+#else
+	if (ipipe_current_domain == ipipe_root_domain) {
+		do {
+			per_cpu(ipipe_active_mm, cpu) = NULL; /* mm state is undefined. */
+			barrier();
+			switch_mmu_context(prev, next);
+			barrier();
+			per_cpu(ipipe_active_mm, cpu) = next;
+		} while (test_and_clear_thread_flag(TIF_MMSWITCH_INT));
+	} else
+		switch_mmu_context(prev, next);
+#endif
+#else /* !CONFIG_IPIPE_UNMASKED_CONTEXT_SWITCH */
 #ifdef CONFIG_PPC_STD_MMU_64
 	if (cpu_has_feature(CPU_FTR_SLB))
 		switch_slb(tsk, next);
@@ -62,7 +98,12 @@ static inline void switch_mm(struct mm_struct *prev, struct mm_struct *next,
 	/* Out of line for now */
 	switch_mmu_context(prev, next);
 #endif
-
+#endif /* !CONFIG_IPIPE_UNMASKED_CONTEXT_SWITCH */
+done:
+#ifndef CONFIG_IPIPE_UNMASKED_CONTEXT_SWITCH
+	local_irq_restore_hw(flags);
+#endif /* !CONFIG_IPIPE_UNMASKED_CONTEXT_SWITCH */
+	return;
 }
 
 #define deactivate_mm(tsk,mm)	do { } while (0)

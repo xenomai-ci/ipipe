@@ -105,6 +105,7 @@ system_call_common:
 	addi	r9,r1,STACK_FRAME_OVERHEAD
 	ld	r12,_MSR(r1)
 #endif /* CONFIG_TRACE_IRQFLAGS */
+#ifdef CONFIG_SOFTDISABLE	
 	li	r10,1
 	stb	r10,PACASOFTIRQEN(r13)
 	stb	r10,PACAHARDIRQEN(r13)
@@ -120,9 +121,28 @@ BEGIN_FW_FTR_SECTION
 2:
 END_FW_FTR_SECTION_IFSET(FW_FEATURE_ISERIES)
 #endif /* CONFIG_PPC_ISERIES */
+#endif /* CONFIG_SOFTDISABLE */
+
+#ifdef CONFIG_IPIPE
+	addi	r3,r1,GPR0
+	bl	.__ipipe_syscall_root
+	cmpwi	r3,0
+	ld	r0,GPR0(r1)
+	ld	r3,GPR3(r1)
+	ld	r4,GPR4(r1)
+	ld	r5,GPR5(r1)
+	ld	r6,GPR6(r1)
+	ld	r7,GPR7(r1)
+	ld	r8,GPR8(r1)
+	ld	r9,GPR9(r1)
+	bgt	ipipe_end_syscall
+	blt	syscall_exit
+	addi	r9,r1,STACK_FRAME_OVERHEAD
+#else	/* !CONFIG_IPIPE */
 	mfmsr	r11
 	ori	r11,r11,MSR_EE
 	mtmsrd	r11,1
+#endif /* CONFIG_IPIPE */
 
 #ifdef SHOW_SYSCALLS
 	bl	.do_show_syscall
@@ -174,7 +194,7 @@ syscall_exit:
 	andi.	r10,r8,MSR_RI
 	beq-	unrecov_restore
 	mfmsr	r10
-	rldicl	r10,r10,48,1
+	rldicl	r10,r10,48,1		/* clear MSR_EE */
 	rotldi	r10,r10,16
 	mtmsrd	r10,1
 	ld	r9,TI_FLAGS(r12)
@@ -237,6 +257,35 @@ syscall_dotrace:
 	ld	r10,TI_FLAGS(r10)
 	b	syscall_dotrace_cont
 
+#ifdef CONFIG_IPIPE
+	.globl  ipipe_end_syscall
+ipipe_end_syscall:
+	mfmsr	r10
+	rldicl	r10,r10,48,1		/* clear MSR_EE - we don't trace this */
+	rotldi	r10,r10,16		/* short IRQs off section, since our caller */
+	mtmsrd	r10,1			/* did branch here with IRQs on. */
+	ld	r5,_CCR(r1)
+	ld	r8,_MSR(r1)
+	ld	r7,_NIP(r1)
+	stdcx.	r0,0,r1			/* to clear pending reservations */
+	andi.	r6,r8,MSR_PR
+	ld	r4,_LINK(r1)
+	beq-	1f			/* only restore r13 if */
+	ld	r13,GPR13(r1)		/* returning to usermode */
+1:	ld	r2,GPR2(r1)
+	li	r12,MSR_RI
+	mfmsr	r10
+	andc	r10,r10,r12
+	mtmsrd	r10,1			/* clear MSR.RI */
+	ld	r1,GPR1(r1)
+	mtlr	r4
+	mtcr	r5
+	mtspr	SPRN_SRR0,r7
+	mtspr	SPRN_SRR1,r8
+	rfid
+	b	.			/* prevent speculative execution */
+#endif /* CONFIG_IPIPE */
+
 syscall_enosys:
 	li	r3,-ENOSYS
 	b	syscall_exit
@@ -275,12 +324,21 @@ syscall_exit_work:
 	andi.	r0,r9,(_TIF_SYSCALL_T_OR_A|_TIF_SINGLESTEP)
 	beq	.ret_from_except_lite
 
+#ifdef CONFIG_IPIPE_TRACE_IRQSOFF
+	bl	.save_nvgprs
+	bl	__ipipe_trace_irqson
 	/* Re-enable interrupts */
 	mfmsr	r10
 	ori	r10,r10,MSR_EE
 	mtmsrd	r10,1
-
+#else
+	/* Re-enable interrupts */
+	mfmsr	r10
+	ori	r10,r10,MSR_EE
+	mtmsrd	r10,1
 	bl	.save_nvgprs
+#endif		
+
 	addi	r3,r1,STACK_FRAME_OVERHEAD
 	bl	.do_syscall_trace_leave
 	b	.ret_from_except
@@ -331,6 +389,18 @@ _GLOBAL(ppc64_swapcontext)
 	b	syscall_exit
 
 _GLOBAL(ret_from_fork)
+#ifdef CONFIG_IPIPE
+#ifdef CONFIG_IPIPE_TRACE_IRQSOFF
+	stdu	r1,-8(r1)
+	std	r3,0(r1)
+	bl	__ipipe_trace_irqson
+	ld	r3,0(r1)
+	addi	r1,r1,8
+#endif /* CONFIG_IPIPE_TRACE_IRQSOFF */
+	mfmsr	r10
+	ori	r10,r10,MSR_EE
+	mtmsrd	r10,1
+#endif /* CONFIG_IPIPE */		
 	bl	.schedule_tail
 	REST_NVGPRS(r1)
 	li	r3,0
@@ -482,6 +552,14 @@ END_FTR_SECTION_IFSET(CPU_FTR_ALTIVEC)
 	blr
 
 	.align	7
+
+#ifdef CONFIG_IPIPE
+_GLOBAL(__ipipe_ret_from_except_lite)
+	cmpwi	r3,0
+	bne+	.ret_from_except_lite /* FIXME:	branching to __ipipe_check_root is useless here */
+	b	restore
+#endif /* CONFIG_IPIPE */
+
 _GLOBAL(ret_from_except)
 	ld	r11,_TRAP(r1)
 	andi.	r0,r11,1
@@ -494,10 +572,20 @@ _GLOBAL(ret_from_except_lite)
 	 * can't change between when we test it and when we return
 	 * from the interrupt.
 	 */
+#ifdef CONFIG_IPIPE_TRACE_IRQSOFF
+	bl	__ipipe_trace_irqsoff
+#endif	
 	mfmsr	r10		/* Get current interrupt state */
 	rldicl	r9,r10,48,1	/* clear MSR_EE */
 	rotldi	r9,r9,16
 	mtmsrd	r9,1		/* Update machine state */
+
+#ifdef CONFIG_IPIPE
+	bl	.__ipipe_check_root
+	cmpwi	r3,0
+	mfmsr	r10		/* this is used later, might be messed */
+	beq-	restore
+#endif /* CONFIG_IPIPE */
 
 #ifdef CONFIG_PREEMPT
 	clrrdi	r9,r1,THREAD_SHIFT	/* current_thread_info() */
@@ -522,6 +610,7 @@ _GLOBAL(ret_from_except_lite)
 #endif
 
 restore:
+#ifdef CONFIG_SOFTDISABLE
 BEGIN_FW_FTR_SECTION
 	ld	r5,SOFTE(r1)
 FW_FTR_SECTION_ELSE
@@ -534,6 +623,22 @@ ALT_FW_FTR_SECTION_END_IFCLR(FW_FEATURE_ISERIES)
 	ld	r3,_MSR(r1)
 	rldicl	r4,r3,49,63		/* r0 = (r3 >> 15) & 1 */
 	stb	r4,PACAHARDIRQEN(r13)
+#else	/* !CONFIG_SOFTDISABLE */
+#ifdef CONFIG_IPIPE
+#ifdef CONFIG_IPIPE_TRACE_IRQSOFF
+	ld	r3,_MSR(r1)
+	rldicl	r3,r3,49,63		/* r0 = (r3 >> 15) & 1 */
+	bl	__ipipe_trace_irqsx
+#endif
+	ld	r3,SOFTE(r1)		/* currently hard-disabled, so this is safe */
+	nor	r3,r3,r3
+	ld	r4,PACAROOTPCPU(r13)
+	ld	r5,0(r4)
+	insrdi	r5,r3,1,63
+	std	r5,0(r4)
+	ld	r3,_MSR(r1)
+#endif	
+#endif	/* !CONFIG_SOFTDISABLE */
 
 	ld	r4,_CTR(r1)
 	ld	r0,_LINK(r1)
@@ -630,17 +735,33 @@ do_work:
 	 */
 	mfmsr	r10
 #endif /* CONFIG_TRACE_IRQFLAGS */
+#ifdef CONFIG_SOFTDISABLE
 	li	r0,1
 	stb	r0,PACASOFTIRQEN(r13)
 	stb	r0,PACAHARDIRQEN(r13)
+#else
+#ifdef CONFIG_IPIPE
+        ld      r10,PACAROOTPCPU(r13)
+        ld      r0,0(r10)
+        clrrdi  r0,r0,1
+        std     r0,0(r10)
+#endif /* CONFIG_IPIPE */
+#ifdef CONFIG_IPIPE_TRACE_IRQSOFF
+	bl	__ipipe_trace_irqson
+#endif /* CONFIG_IPIPE_TRACE_IRQSOFF */
+	mfmsr	r10
+#endif /* !CONFIG_SOFTDISABLE */
 	ori	r10,r10,MSR_EE
 	mtmsrd	r10,1		/* reenable interrupts */
 	bl	.preempt_schedule
+#ifdef CONFIG_IPIPE_TRACE_IRQSOFF
+	bl	__ipipe_trace_irqsoff
+#endif /* CONFIG_IPIPE_TRACE_IRQSOFF */
 	mfmsr	r10
-	clrrdi	r9,r1,THREAD_SHIFT
 	rldicl	r10,r10,48,1	/* disable interrupts again */
 	rotldi	r10,r10,16
 	mtmsrd	r10,1
+	clrrdi	r9,r1,THREAD_SHIFT
 	ld	r4,TI_FLAGS(r9)
 	andi.	r0,r4,_TIF_NEED_RESCHED
 	bne	1b
@@ -648,6 +769,12 @@ do_work:
 
 user_work:
 #endif
+#ifdef CONFIG_IPIPE_TRACE_IRQSOFF
+	bl	__ipipe_trace_irqson
+	clrrdi	r9,r1,THREAD_SHIFT
+	ld	r4,TI_FLAGS(r9)
+	mfmsr	r10
+#endif /* CONFIG_IPIPE_TRACE_IRQSOFF */
 	/* Enable interrupts */
 	ori	r10,r10,MSR_EE
 	mtmsrd	r10,1
@@ -707,7 +834,7 @@ _GLOBAL(enter_rtas)
 	li	r0,0
 	mtcr	r0
 
-#ifdef CONFIG_BUG	
+#ifdef CONFIG_BUG && CONFIG_SOFTDISABLE
 	/* There is no way it is acceptable to get here with interrupts enabled,
 	 * check it with the asm equivalent of WARN_ON
 	 */
