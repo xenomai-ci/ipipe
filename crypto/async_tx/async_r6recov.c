@@ -28,8 +28,7 @@
 #include <linux/dma-mapping.h>
 #include <linux/raid/xor.h>
 #include <linux/async_tx.h>
-
-#include "../drivers/md/raid6.h"
+#include <linux/raid/pq.h>
 
 /**
  * async_r6_dd_recov - attempt to calculate two data misses using dma engines.

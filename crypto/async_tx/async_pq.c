@@ -30,8 +30,9 @@
 #include <linux/dma-mapping.h>
 #include <linux/raid/xor.h>
 #include <linux/async_tx.h>
+#include <linux/raid/pq.h>
 
-#include "../drivers/md/raid6.h"
+#include "../drivers/md/md.h"
 
 /**
  *  The following static variables are used in cases of synchronous
