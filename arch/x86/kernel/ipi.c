@@ -160,12 +160,12 @@ void send_IPI_mask_allbutself(const struct cpumask *mask, int vector)
 
 	/* See Hack comment above */
 
-	local_irq_save(flags);
+	local_irq_save_hw(flags);
 	for_each_cpu(query_cpu, mask)
 		if (query_cpu != this_cpu)
 			__send_IPI_dest_field(cpu_to_logical_apicid(query_cpu),
 					      vector);
-	local_irq_restore(flags);
+	local_irq_restore_hw(flags);
 }
 
 /* must come after the send_IPI functions above for inlining */
