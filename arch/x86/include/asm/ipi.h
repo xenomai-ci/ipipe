@@ -95,8 +95,9 @@ static inline void __send_IPI_shortcut(unsigned int shortcut, int vector,
 static inline void __send_IPI_dest_field(unsigned int mask, int vector,
 					 unsigned int dest)
 {
-	unsigned long cfg;
+	unsigned long cfg, flags;
 
+	local_irq_save_hw(flags);
 	/*
 	 * Wait for idle.
 	 */
@@ -120,6 +121,8 @@ static inline void __send_IPI_dest_field(unsigned int mask, int vector,
 	 * Send the IPI. The write to APIC_ICR fires this off.
 	 */
 	native_apic_mem_write(APIC_ICR, cfg);
+
+	local_irq_restore_hw(flags);
 }
 
 static inline void send_IPI_mask_sequence(cpumask_t mask, int vector)
@@ -132,12 +135,10 @@ static inline void send_IPI_mask_sequence(cpumask_t mask, int vector)
 	 * to an arbitrary mask, so I do a unicast to each CPU instead.
 	 * - mbligh
 	 */
-	local_irq_save_hw(flags);
 	for_each_cpu_mask_nr(query_cpu, mask) {
 		__send_IPI_dest_field(per_cpu(x86_cpu_to_apicid, query_cpu),
 				      vector, APIC_DEST_PHYSICAL);
 	}
-	local_irq_restore_hw(flags);
 }
 
 #endif /* _ASM_X86_IPI_H */
