@@ -88,9 +88,7 @@ EXPORT_SYMBOL_GPL(leave_mm);
 
 void smp_invalidate_interrupt(struct pt_regs *regs)
 {
-	unsigned long cpu, flags;
-
-  	local_irq_save_hw_cond(flags);
+	unsigned long cpu;
 
 	cpu = get_cpu();
 
@@ -120,7 +118,6 @@ void smp_invalidate_interrupt(struct pt_regs *regs)
 	smp_mb__after_clear_bit();
 out:
 	put_cpu_no_resched();
-    	local_irq_restore_hw_cond(flags);
 	inc_irq_stat(irq_tlb_count);
 }
 
@@ -168,6 +165,10 @@ void native_flush_tlb_others(const cpumask_t *cpumaskp, struct mm_struct *mm,
 	 */
 	send_IPI_mask(&cpumask, INVALIDATE_TLB_VECTOR);
 
+#ifdef CONFIG_IPIPE
+	WARN_ON_ONCE(irqs_disabled_hw()); 
+#endif
+
 	while (!cpus_empty(flush_cpumask))
 		/* nothing. lockup detection does not belong here */
 		cpu_relax();
@@ -180,18 +181,15 @@ void native_flush_tlb_others(const cpumask_t *cpumaskp, struct mm_struct *mm,
 void flush_tlb_current_task(void)
 {
 	struct mm_struct *mm = current->mm;
- 	unsigned long flags;
 	cpumask_t cpu_mask;
 
 	preempt_disable();
-	local_irq_save_hw_cond(flags);
 	cpu_mask = mm->cpu_vm_mask;
 	cpu_clear(smp_processor_id(), cpu_mask);
 
 	local_flush_tlb();
 	if (!cpus_empty(cpu_mask))
 		flush_tlb_others(cpu_mask, mm, TLB_FLUSH_ALL);
- 	local_irq_restore_hw_cond(flags);
 	preempt_enable();
 }
 
@@ -219,11 +217,8 @@ void flush_tlb_page(struct vm_area_struct *vma, unsigned long va)
 {
 	struct mm_struct *mm = vma->vm_mm;
 	cpumask_t cpu_mask;
-	unsigned long flags;
 
 	preempt_disable();
-	local_irq_save_hw_cond(flags);
-
 	cpu_mask = mm->cpu_vm_mask;
 	cpu_clear(smp_processor_id(), cpu_mask);
 
@@ -236,8 +231,6 @@ void flush_tlb_page(struct vm_area_struct *vma, unsigned long va)
 
 	if (!cpus_empty(cpu_mask))
 		flush_tlb_others(cpu_mask, mm, va);
-
-	local_irq_restore_hw_cond(flags);
 
 	preempt_enable();
 }
