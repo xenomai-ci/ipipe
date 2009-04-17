@@ -690,7 +690,7 @@ void ipipe_trace_panic_dump(void)
 				case IPIPE_TRACE_PID:
 					__ipipe_get_task_info(info,
 							      point, 1);
-					printk(info);
+					printk("%s", info);
 					break;
 
 				case IPIPE_TRACE_EVENT:

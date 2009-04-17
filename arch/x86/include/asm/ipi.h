@@ -127,7 +127,6 @@ static inline void __send_IPI_dest_field(unsigned int mask, int vector,
 
 static inline void send_IPI_mask_sequence(cpumask_t mask, int vector)
 {
-	unsigned long flags;
 	unsigned long query_cpu;
 
 	/*
