@@ -690,6 +690,7 @@ int ipipe_virtualize_irq(struct ipipe_domain *ipd,
 			 ipipe_irq_ackfn_t acknowledge,
 			 unsigned modemask)
 {
+	ipipe_irq_handler_t old_handler;
 	unsigned long flags;
 	int err;
 
@@ -705,9 +706,11 @@ int ipipe_virtualize_irq(struct ipipe_domain *ipd,
 
 	spin_lock_irqsave(&__ipipe_pipelock, flags);
 
+	old_handler = ipd->irqs[irq].handler;
+
 	if (handler != NULL) {
 		if (handler == IPIPE_SAME_HANDLER) {
-			handler = ipd->irqs[irq].handler;
+			handler = old_handler;
 			cookie = ipd->irqs[irq].cookie;
 
 			if (handler == NULL) {
@@ -715,7 +718,7 @@ int ipipe_virtualize_irq(struct ipipe_domain *ipd,
 				goto unlock_and_exit;
 			}
 		} else if ((modemask & IPIPE_EXCLUSIVE_MASK) != 0 &&
-			   ipd->irqs[irq].handler != NULL) {
+			   old_handler != NULL) {
 			err = -EBUSY;
 			goto unlock_and_exit;
 		}
@@ -740,8 +743,10 @@ int ipipe_virtualize_irq(struct ipipe_domain *ipd,
 		      IPIPE_EXCLUSIVE_MASK | IPIPE_WIRED_MASK);
 
 	if (acknowledge == NULL && !ipipe_virtual_irq_p(irq))
-		/* Acknowledge handler unspecified for a hw interrupt:
-		   use the Linux-defined handler instead. */
+		/*
+		 * Acknowledge handler unspecified for a hw interrupt:
+		 * use the Linux-defined handler instead.
+		 */
 		acknowledge = ipipe_root_domain->irqs[irq].acknowledge;
 
 	ipd->irqs[irq].handler = handler;
@@ -749,21 +754,27 @@ int ipipe_virtualize_irq(struct ipipe_domain *ipd,
 	ipd->irqs[irq].acknowledge = acknowledge;
 	ipd->irqs[irq].control = modemask;
 
-	if (irq < NR_IRQS && handler != NULL && !ipipe_virtual_irq_p(irq)) {
-		__ipipe_enable_irqdesc(ipd, irq);
+	if (irq < NR_IRQS && !ipipe_virtual_irq_p(irq)) {
+		if (handler != NULL) {
+			__ipipe_enable_irqdesc(ipd, irq);
 
-		if ((modemask & IPIPE_ENABLE_MASK) != 0) {
-			if (ipd != ipipe_current_domain) {
-				/* IRQ enable/disable state is domain-sensitive, so we may
-				   not change it for another domain. What is allowed
-				   however is forcing some domain to handle an interrupt
-				   source, by passing the proper 'ipd' descriptor which
-				   thus may be different from ipipe_current_domain. */
-				err = -EPERM;
-				goto unlock_and_exit;
+			if ((modemask & IPIPE_ENABLE_MASK) != 0) {
+				if (ipd != ipipe_current_domain) {
+		/*
+		 * IRQ enable/disable state is domain-sensitive, so we
+		 * may not change it for another domain. What is
+		 * allowed however is forcing some domain to handle an
+		 * interrupt source, by passing the proper 'ipd'
+		 * descriptor which thus may be different from
+		 * ipipe_current_domain.
+		 */
+					err = -EPERM;
+					goto unlock_and_exit;
+				}
+				__ipipe_enable_irq(irq);
 			}
-			__ipipe_enable_irq(irq);
-		}
+		} else if (old_handler != NULL)
+				__ipipe_disable_irqdesc(ipd, irq);
 	}
 
 	err = 0;
