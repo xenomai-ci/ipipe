@@ -767,6 +767,7 @@ ret_from_except:
 #ifdef CONFIG_IPIPE
         bl __ipipe_check_root
         cmpwi   r3, 0
+	mfmsr	r10		/* this is used later, might be messed */
         beq- restore
 #endif /* CONFIG_IPIPE */
 	lwz	r3,_MSR(r1)	/* Returning to user mode? */
