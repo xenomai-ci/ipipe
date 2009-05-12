@@ -136,7 +136,7 @@ switch_mm(struct mm_struct *prev, struct mm_struct *next,
 	  struct task_struct *tsk)
 {
 #ifdef CONFIG_MMU
-	unsigned int cpu = smp_processor_id();
+	unsigned int cpu = smp_processor_id_hw();
 
 #ifdef CONFIG_SMP
 	/* check for possible thread migration */
@@ -146,9 +146,27 @@ switch_mm(struct mm_struct *prev, struct mm_struct *next,
 	if (!cpu_test_and_set(cpu, fcse_tlb_mask(next)) || prev != next) {
 		fcse_cpu_set_vm_mask(cpu, next);
 		check_context(next);
-		fcse_pid_set(next->context.pid);
-		cpu_switch_mm(next->pgd, next, fcse_needs_flush(prev, next));
-		if (cache_is_vivt())
+#if defined(CONFIG_IPIPE)
+		if (ipipe_root_domain_p)
+			do {
+				/* mark mm state as undefined. */
+				per_cpu(ipipe_active_mm, cpu) = NULL;
+				barrier();
+				fcse_pid_set(next->context.pid);
+				cpu_switch_mm(next->pgd, next,
+					      fcse_needs_flush(prev, next));
+				barrier();
+				prev = xchg(&per_cpu(ipipe_active_mm, cpu),
+					    next);
+			} while (test_and_clear_thread_flag(TIF_MMSWITCH_INT));
+		else
+#endif /* CONFIG_IPIPE */
+			{
+				fcse_pid_set(next->context.pid);
+				cpu_switch_mm(next->pgd, next,
+					      fcse_needs_flush(prev, next));
+			}
+		if (cache_is_vivt() && prev)
 			cpu_clear(cpu, fcse_tlb_mask(prev));
 	}
 #endif

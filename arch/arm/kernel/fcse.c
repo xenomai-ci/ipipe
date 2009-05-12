@@ -10,7 +10,7 @@
 #define NR_PIDS (TASK_SIZE / FCSE_PID_TASK_SIZE)
 #define PIDS_LONGS ((NR_PIDS + BITS_PER_LONG - 1) / BITS_PER_LONG)
 
-static DEFINE_SPINLOCK(fcse_lock);
+static IPIPE_DEFINE_SPINLOCK(fcse_lock);
 static unsigned long fcse_pids_bits[PIDS_LONGS];
 #ifdef CONFIG_ARM_FCSE_BEST_EFFORT
 static unsigned long fcse_pids_cache_dirty[PIDS_LONGS];
@@ -126,9 +126,10 @@ int fcse_needs_flush(struct mm_struct *prev, struct mm_struct *next)
 	spin_unlock_irqrestore(&fcse_lock, flags);
 
 	res = reused_pid
+		|| next->context.high_pages
+		|| !prev
 		|| prev->context.shared_dirty_pages
-		|| prev->context.high_pages
-		|| next->context.high_pages;
+		|| prev->context.high_pages;
 
 	if (res)
 		fcse_notify_flush_all_inner(next);
