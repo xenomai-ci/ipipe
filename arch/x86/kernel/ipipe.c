@@ -512,14 +512,14 @@ asmlinkage void __ipipe_unstall_iret_root(struct pt_regs regs)
 			trace_hardirqs_on();
 			__clear_bit(IPIPE_STALL_FLAG, &p->status);
 		}
-
 		/*
-		 * Only sync virtual IRQs here, so that we don't
-		 * recurse indefinitely in case of an external
-		 * interrupt flood.
+		 * We could have received and logged interrupts while
+		 * stalled in the syscall path: play the log now to
+		 * release any pending event. The SYNC_BIT prevents
+		 * infinite recursion in case of flooding.
 		 */
-		if ((p->irqpend_himask & IPIPE_IRQMASK_VIRT) != 0)
-			__ipipe_sync_pipeline(IPIPE_IRQMASK_VIRT);
+		if (p->irqpend_himask != 0)
+			__ipipe_sync_pipeline(IPIPE_IRQMASK_ANY);
 	}
 #ifdef CONFIG_IPIPE_TRACE_IRQSOFF
 	ipipe_trace_end(0x8000000D);
