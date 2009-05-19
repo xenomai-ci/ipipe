@@ -3143,44 +3143,27 @@ static int serial8250_resume(struct platform_device *dev)
 
 #include <stdarg.h>
 
+static IPIPE_DEFINE_SPINLOCK(serial_lock);
+
 void __ipipe_serial_debug(const char *fmt, ...)
 {
         struct uart_8250_port *up = &serial8250_ports[0];
-        unsigned int ier, count;
         unsigned long flags;
+        unsigned int count;
         char buf[128];
         va_list ap;
 
         va_start(ap, fmt);
-        vsprintf(buf, fmt, ap);
+        vsnprintf(buf, sizeof(buf), fmt, ap);
         va_end(ap);
         count = strlen(buf);
 
-        touch_nmi_watchdog();
-
-        local_irq_save_hw(flags);
-
-        /*
-         *      First save the IER then disable the interrupts
-        */
-        ier = serial_in(up, UART_IER);
-
-        if (up->capabilities & UART_CAP_UUE)
-                serial_out(up, UART_IER, UART_IER_UUE);
-        else
-                serial_out(up, UART_IER, 0);
-
-        uart_console_write(&up->port, buf, count, serial8250_console_putchar);
-
-        /*
-         *      Finally, wait for transmitter to become empty
-         *      and restore the IER
-         */
-        wait_for_xmitr(up, BOTH_EMPTY);
-        serial_out(up, UART_IER, ier);
-
-        local_irq_restore_hw(flags);
+        spin_lock_irqsave(&serial_lock, flags);
+	uart_console_write(&up->port, buf, count, serial8250_console_putchar);
+        spin_unlock_irqrestore(&serial_lock, flags);
 }
+
+EXPORT_SYMBOL_GPL(__ipipe_serial_debug);
 
 #endif
 
