@@ -62,6 +62,9 @@ struct mtd_part_parser {
 	int (*parse_fn)(struct mtd_info *, struct mtd_partition **, unsigned long);
 };
 
+struct device;
+struct device_node;
+
 extern int register_mtd_parser(struct mtd_part_parser *parser);
 extern int deregister_mtd_parser(struct mtd_part_parser *parser);
 extern int parse_mtd_partitions(struct mtd_info *master, const char **types,
@@ -70,9 +73,6 @@ extern int of_parse_flash_partitions(struct device_node *node,
 		struct mtd_partition **parts);
 
 #define put_partition_parser(p) do { module_put((p)->owner); } while(0)
-
-struct device;
-struct device_node;
 
 int __devinit of_mtd_parse_partitions(struct device *dev,
                                       struct device_node *node,
