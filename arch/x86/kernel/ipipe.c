@@ -518,7 +518,7 @@ asmlinkage void __ipipe_unstall_iret_root(struct pt_regs regs)
 		 * release any pending event. The SYNC_BIT prevents
 		 * infinite recursion in case of flooding.
 		 */
-		if (p->irqpend_himask != 0)
+		if (unlikely(p->irqpend_himask != 0))
 			__ipipe_sync_pipeline(IPIPE_IRQMASK_ANY);
 	}
 #ifdef CONFIG_IPIPE_TRACE_IRQSOFF
@@ -538,18 +538,29 @@ asmlinkage void preempt_schedule_irq(void);
 
 void __ipipe_preempt_schedule_irq(void)
 {
-	unsigned long flags; 
-	/* 
-	 * We have no IRQ state fixup on entry to exceptions in
-	 * x86_64, so we have to stall the root stage before
-	 * rescheduling.
-	 */ 
-	BUG_ON(!irqs_disabled_hw()); 
-	local_irq_save(flags); 
-	local_irq_enable_hw(); 
-	preempt_schedule_irq(); /* Ok, may reschedule now. */ 
+	struct ipipe_percpu_domain_data *p; 
+	unsigned long flags;  
+	/*  
+	 * We have no IRQ state fixup on entry to exceptions in 
+	 * x86_64, so we have to stall the root stage before 
+	 * rescheduling. 
+	 */  
+	BUG_ON(!irqs_disabled_hw());  
+	local_irq_save(flags);	
+	local_irq_enable_hw();	
+	preempt_schedule_irq(); /* Ok, may reschedule now. */  
 	local_irq_disable_hw(); 
-	local_irq_restore_nosync(flags); 
+	/*
+	 * Flush any pending interrupt that may have been logged after
+	 * preempt_schedule_irq() stalled the root stage before
+	 * returning to us, and now.
+	 */
+	p = ipipe_root_cpudom_ptr(); 
+	if (unlikely(p->irqpend_himask != 0)) { 
+		__clear_bit(IPIPE_STALL_FLAG, &p->status); 
+		__ipipe_sync_pipeline(IPIPE_IRQMASK_ANY); 
+	} 
+	local_irq_restore_nosync(flags);  
 }
 
 #endif	/* CONFIG_PREEMPT */
