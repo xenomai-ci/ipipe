@@ -693,15 +693,34 @@ notrace void __ipipe_restore_if_root(unsigned long x)
 
 #else
 
-notrace void __ipipe_fast_stall_root(void)
+#ifdef CONFIG_PREEMPT
+
+asmlinkage void __sched preempt_schedule_irq(void);
+
+void __sched  __ipipe_preempt_schedule_irq(void)
 {
-	set_bit_safe(IPIPE_STALL_FLAG, &ipipe_root_cpudom_var(status));
+	struct ipipe_percpu_domain_data *p; 
+	unsigned long flags;  
+
+	BUG_ON(!irqs_disabled_hw());  
+	local_irq_save(flags);	
+	local_irq_enable_hw();	
+	preempt_schedule_irq(); /* Ok, may reschedule now. */  
+	local_irq_disable_hw(); 
+	/*
+	 * Flush any pending interrupt that may have been logged after
+	 * preempt_schedule_irq() stalled the root stage before
+	 * returning to us, and now.
+	 */
+	p = ipipe_root_cpudom_ptr(); 
+	if (unlikely(p->irqpend_himask != 0)) { 
+		__clear_bit(IPIPE_STALL_FLAG, &p->status); 
+		__ipipe_sync_pipeline(IPIPE_IRQMASK_ANY); 
+	} 
+	local_irq_restore_nosync(flags);  
 }
 
-notrace void __ipipe_fast_unstall_root(void)
-{
-	clear_bit_safe(IPIPE_STALL_FLAG, &ipipe_root_cpudom_var(status));
-}
+#endif /* CONFIG_PREEMPT */
 
 #endif
 

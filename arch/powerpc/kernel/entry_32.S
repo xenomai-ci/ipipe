@@ -793,6 +793,12 @@ restore_user:
 #ifdef CONFIG_PREEMPT
 	b	restore
 
+#ifdef CONFIG_IPIPE
+#define PREEMPT_SCHEDULE_IRQ	__ipipe_preempt_schedule_irq
+#else
+#define PREEMPT_SCHEDULE_IRQ	preempt_schedule_irq
+#endif
+
 /* N.B. the only way to get here is from the beq following ret_from_except. */
 resume_kernel:
 	/* check current_thread_info->preempt_count */
@@ -805,37 +811,11 @@ resume_kernel:
 	beq+	restore
 	andi.	r0,r3,MSR_EE	/* interrupts off? */
 	beq	restore		/* don't schedule if so */
-#ifdef CONFIG_IPIPE	
-#ifdef CONFIG_IPIPE_TRACE_IRQSOFF
-	lis	r3,(0x80000000)@h
-	ori	r3,r3,(0x80000000)@l
-	bl	ipipe_trace_end
-#endif /* CONFIG_IPIPE_TRACE_IRQSOFF */
-	LOAD_MSR_KERNEL(r10,MSR_KERNEL)
-	ori	r10,r10,MSR_EE
-	SYNC
-	MTMSRD(r10)
-	bl	__ipipe_fast_stall_root
-#endif /* CONFIG_IPIPE */	
-1:	bl	preempt_schedule_irq
+1:	bl	PREEMPT_SCHEDULE_IRQ
 	rlwinm	r9,r1,0,0,(31-THREAD_SHIFT)
 	lwz	r3,TI_FLAGS(r9)
 	andi.	r0,r3,_TIF_NEED_RESCHED
 	bne-	1b
-#ifdef CONFIG_IPIPE	
-	bl	__ipipe_fast_unstall_root
-	LOAD_MSR_KERNEL(r10,MSR_KERNEL)
-	SYNC
-	MTMSRD(r10)
-#ifdef CONFIG_IPIPE_TRACE_IRQSOFF
-	lwz	r3,_MSR(r1)
-	andi.	r0,r3,MSR_EE
-	bne	restore
-	lis	r3,(0x80000000)@h
-	ori	r3,r3,(0x80000000)@l
-	bl	ipipe_trace_begin
-#endif /* CONFIG_IPIPE_TRACE_IRQSOFF */
-#endif /* CONFIG_IPIPE */	
 #else
 resume_kernel:
 #endif /* CONFIG_PREEMPT */
