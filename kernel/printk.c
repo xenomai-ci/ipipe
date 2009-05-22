@@ -592,12 +592,14 @@ void __ipipe_flush_printk (unsigned virq, void *cookie)
 asmlinkage int printk(const char *fmt, ...)
 {
 	int r, fbytes, oldcount;
+	unsigned long flags;
 	int sprintk = 1;
 	int cs = -1;
-	unsigned long flags;
 	va_list args;
 
 	va_start(args, fmt);
+
+	local_irq_save_hw(flags);
 
 	if (test_bit(IPIPE_SPRINTK_FLAG, &ipipe_current_domain->flags) ||
 	    oops_in_progress)
@@ -605,7 +607,6 @@ asmlinkage int printk(const char *fmt, ...)
 	else if (ipipe_current_domain == ipipe_root_domain) {
 		struct ipipe_domain *dom;
 
-		local_irq_save_hw(flags);
 		list_for_each_entry(dom, &__ipipe_pipeline, p_link) {
 			if (dom == ipipe_root_domain)
 				break;
@@ -613,9 +614,10 @@ asmlinkage int printk(const char *fmt, ...)
 				     &ipipe_cpudom_var(dom, status)))
 				sprintk = 0;
 		}
-		local_irq_restore_hw(flags);
 	} else
 		sprintk = 0;
+
+	local_irq_restore_hw(flags);
 
 	if (sprintk) {
 		r = vprintk(fmt, args);
