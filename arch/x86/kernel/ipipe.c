@@ -785,9 +785,9 @@ int __ipipe_syscall_root(struct pt_regs *regs)
 		return 1;
 	}
 
+	local_irq_save_hw(flags);
 	p = ipipe_root_cpudom_ptr();
 	__fixup_if(test_bit(IPIPE_STALL_FLAG, &p->status), regs);
-	local_irq_save_hw(flags);
 	/*
 	 * If allowed, sync pending VIRQs before _TIF_NEED_RESCHED is
 	 * tested.
