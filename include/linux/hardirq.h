@@ -167,7 +167,7 @@ extern void irq_exit(void);
 #define nmi_enter()				\
 	do {					\
  		ipipe_nmi_enter();		\
- 		if (ipipe_root_domain_p) {	\
+ 		if (__ipipe_root_domain_p) {	\
 			ftrace_nmi_enter();	\
 			lockdep_off();		\
 			rcu_nmi_enter();	\
@@ -177,7 +177,7 @@ extern void irq_exit(void);
 
 #define nmi_exit()				\
 	do {					\
- 		if (ipipe_root_domain_p) {	\
+ 		if (__ipipe_root_domain_p) {	\
 			__irq_exit();		\
 			rcu_nmi_exit();		\
 			lockdep_on();		\

@@ -596,12 +596,14 @@ static inline void local_irq_restore_nosync(unsigned long x) /* Must be called h
 		clear_bit(IPIPE_STALL_FLAG, &ipipe_cpudom_var(ipipe_root_domain, status));
 }
 
+#define __ipipe_root_domain_p	(ipipe_current_domain == ipipe_root_domin)
+
 #define ipipe_root_domain_p			\
 ({						\
 	unsigned long __flags__;		\
 	int __x__;				\
 	local_irq_save_hw_smp(__flags__);	\
-	__x__ = ipipe_current_domain == ipipe_root_domain;	\
+	__x__ = __ipipe_root_domain_p;		\
 	local_irq_restore_hw_smp(__flags__);	\
 	__x__;					\
 })
@@ -659,6 +661,7 @@ static inline void __ipipe_pin_range_globally(unsigned long start,
 #define ipipe_irq_lock(irq)		do { } while(0)
 #define ipipe_irq_unlock(irq)		do { } while(0)
 
+#define __ipipe_root_domain_p		1
 #define ipipe_root_domain_p		1
 #define ipipe_safe_current		current
 #define ipipe_processor_id()		smp_processor_id()

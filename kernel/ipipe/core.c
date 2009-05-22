@@ -308,12 +308,14 @@ void __ipipe_unstall_root(void)
 {
 	struct ipipe_percpu_domain_data *p;
 
+        local_irq_disable_hw();
+
 #ifdef CONFIG_IPIPE_DEBUG
 	/* This helps catching bad usage from assembly call sites. */
-	BUG_ON(!ipipe_root_domain_p);
+	BUG_ON(!__ipipe_root_domain_p);
 #endif
 
-        local_irq_disable_hw();
+	p = ipipe_root_cpudom_ptr();
 
 	p = ipipe_root_cpudom_ptr();
 
@@ -327,7 +329,7 @@ void __ipipe_unstall_root(void)
 
 void __ipipe_restore_root(unsigned long x)
 {
-#ifndef CONFIG_IPIPE_DEBUG_CONTEXT
+#ifdef CONFIG_IPIPE_DEBUG
 	BUG_ON(!ipipe_root_domain_p);
 #endif
 
@@ -1076,7 +1078,7 @@ void __ipipe_sync_stage(unsigned long syncmask)
 			}
 #endif	/* CONFIG_SMP */
 #ifdef CONFIG_TRACE_IRQFLAGS
-			if (ipipe_root_domain_p &&
+			if (__ipipe_root_domain_p &&
 			    test_bit(IPIPE_STALL_FLAG, &p->status))
 				trace_hardirqs_on();
 #endif
