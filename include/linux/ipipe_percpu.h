@@ -36,6 +36,11 @@ struct ipipe_percpu_domain_data {
 	u64 evsync;
 };
 
+/*
+ * CAREFUL: all accessors based on __raw_get_cpu_var() you may find in
+ * this file should be used only while hw interrupts are off, to
+ * prevent from CPU migration regardless of the running domain.
+ */
 #ifdef CONFIG_SMP
 #define ipipe_percpudom_ptr(ipd, cpu)	\
 	(&per_cpu(ipipe_percpu_darray, cpu)[(ipd)->slot])
