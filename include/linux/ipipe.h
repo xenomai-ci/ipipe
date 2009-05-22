@@ -172,30 +172,6 @@ struct ipipe_domain_attr {
 	void *pdd;		/* Per-domain (opaque) data pointer */
 };
 
-#ifdef CONFIG_SMP
-/* These ops must start and complete on the same CPU: care for
- * migration. */
-#define set_bit_safe(b, a)						\
-		({ unsigned long __flags;				\
-		local_irq_save_hw_notrace(__flags);			\
-		__set_bit(b, a);					\
-		local_irq_restore_hw_notrace(__flags); })
-#define test_and_set_bit_safe(b, a)					\
-		({ unsigned long __flags, __x;				\
-		local_irq_save_hw_notrace(__flags);			\
-		__x = __test_and_set_bit(b, a);				\
-		local_irq_restore_hw_notrace(__flags); __x; })
-#define clear_bit_safe(b, a)						\
-		({ unsigned long __flags;				\
-		local_irq_save_hw_notrace(__flags);			\
-		__clear_bit(b, a);					\
-		local_irq_restore_hw_notrace(__flags); })
-#else
-#define set_bit_safe(b, a)		set_bit(b, a)
-#define test_and_set_bit_safe(b, a)	test_and_set_bit(b, a)
-#define clear_bit_safe(b, a)		clear_bit(b, a)
-#endif
-
 #define __ipipe_irq_cookie(ipd, irq)		(ipd)->irqs[irq].cookie
 #define __ipipe_irq_handler(ipd, irq)		(ipd)->irqs[irq].handler
 #define __ipipe_cpudata_irq_hits(ipd, cpu, irq)	ipipe_percpudom(ipd, irqall, cpu)[irq]
@@ -284,7 +260,7 @@ static inline void ipipe_irq_unlock(unsigned irq)
 #define __ipipe_pipeline_head() \
 	list_entry(__ipipe_pipeline.next, struct ipipe_domain, p_link)
 
-#define __ipipe_event_monitored_p(ev) \
+#define __ipipe_event_monitored_p(ev)  /* Must be used hw interrupts off on SMP */ \
 	(__ipipe_event_monitors[ev] > 0 || (ipipe_current_domain->evself & (1LL << ev)))
 
 #ifdef CONFIG_SMP
@@ -324,11 +300,16 @@ do {									\
 
 #define ipipe_trap_notify(ex, regs)		\
 ({						\
+	unsigned long flags;			\
 	int ret = 0;				\
+	local_irq_save_hw_smp(flags);		\
 	if ((test_bit(IPIPE_NOSTACK_FLAG, &ipipe_this_cpudom_var(status)) || \
 	     ((current)->flags & PF_EVNOTIFY)) &&			\
-	    __ipipe_event_monitored_p(ex))				\
+	    __ipipe_event_monitored_p(ex)) {				\
+		local_irq_restore_hw_smp(flags);			\
 		ret = __ipipe_dispatch_event(ex, regs);			\
+	} else								\
+		local_irq_restore_hw_smp(flags);			\
 	ret;								\
 })
 
@@ -438,9 +419,12 @@ void ipipe_stall_pipeline_from(struct ipipe_domain *ipd);
 
 unsigned long ipipe_test_and_stall_pipeline_from(struct ipipe_domain *ipd);
 
-void ipipe_unstall_pipeline_from(struct ipipe_domain *ipd);
-
 unsigned long ipipe_test_and_unstall_pipeline_from(struct ipipe_domain *ipd);
+
+static inline void ipipe_unstall_pipeline_from(struct ipipe_domain *ipd)
+{
+	ipipe_test_and_unstall_pipeline_from(ipd);
+}
 
 void ipipe_restore_pipeline_from(struct ipipe_domain *ipd,
 					  unsigned long x);
@@ -530,8 +514,11 @@ static inline void ipipe_clear_foreign_stack(struct ipipe_domain *ipd)
 #define ipipe_safe_current()					\
 ({								\
 	struct task_struct *p;					\
+	unsigned long flags;					\
+	local_irq_save_hw_smp(flags);				\
 	p = test_bit(IPIPE_NOSTACK_FLAG,			\
 		     &ipipe_this_cpudom_var(status)) ? &init_task : current; \
+	local_irq_restore_hw_smp(flags);			\
 	p; \
 })
 #endif
@@ -569,6 +556,13 @@ int ipipe_disable_ondemand_mappings(struct task_struct *tsk);
 #define local_irq_disable_hw_cond()		local_irq_disable_hw()
 #define local_irq_save_hw_cond(flags)		local_irq_save_hw(flags)
 #define local_irq_restore_hw_cond(flags)	local_irq_restore_hw(flags)
+#ifdef CONFIG_SMP
+#define local_irq_save_hw_smp(flags)		local_irq_save_hw(flags)
+#define local_irq_restore_hw_smp(flags)		local_irq_restore_hw(flags)
+#else
+#define local_irq_save_hw_smp(flags)		do { (void)(flags); } while(0)
+#define local_irq_restore_hw_smp(flags)		do { } while(0)
+#endif
 
 #define local_irq_enable_nohead(ipd)			\
 	do {						\
@@ -594,7 +588,7 @@ int ipipe_disable_ondemand_mappings(struct task_struct *tsk);
 		local_irq_restore(vflags);		\
 	} while(0)
 
-static inline void local_irq_restore_nosync(unsigned long x)
+static inline void local_irq_restore_nosync(unsigned long x) /* Must be called hw IRQs off on SMP */
 {
 	if (raw_irqs_disabled_flags(x))
 		set_bit(IPIPE_STALL_FLAG, &ipipe_cpudom_var(ipipe_root_domain, status));
@@ -602,7 +596,15 @@ static inline void local_irq_restore_nosync(unsigned long x)
 		clear_bit(IPIPE_STALL_FLAG, &ipipe_cpudom_var(ipipe_root_domain, status));
 }
 
-#define ipipe_root_domain_p		(ipipe_current_domain == ipipe_root_domain)
+#define ipipe_root_domain_p			\
+({						\
+	unsigned long __flags__;		\
+	int __x__;				\
+	local_irq_save_hw_smp(__flags__);	\
+	__x__ = ipipe_current_domain == ipipe_root_domain;	\
+	local_irq_restore_hw_smp(__flags__);	\
+	__x__;					\
+})
 
 static inline void ipipe_nmi_enter(void)
 {
@@ -651,6 +653,8 @@ static inline void __ipipe_pin_range_globally(unsigned long start,
 #define local_irq_disable_hw_cond()		do { } while(0)
 #define local_irq_save_hw_cond(flags)		do { (void)(flags); } while(0)
 #define local_irq_restore_hw_cond(flags)	do { } while(0)
+#define local_irq_save_hw_smp(flags)		do { (void)(flags); } while(0)
+#define local_irq_restore_hw_smp(flags)		do { } while(0)
 
 #define ipipe_irq_lock(irq)		do { } while(0)
 #define ipipe_irq_unlock(irq)		do { } while(0)
