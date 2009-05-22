@@ -900,11 +900,11 @@ finalize_nosync:
 		tick_regs->ss = regs->ss;
 		tick_regs->sp = regs->sp;
 #endif
-		if (!ipipe_root_domain_p)
+		if (!__ipipe_root_domain_p)
 			tick_regs->flags &= ~X86_EFLAGS_IF;
 	}
 
-	if (!ipipe_root_domain_p ||
+	if (!__ipipe_root_domain_p ||
 	    test_bit(IPIPE_STALL_FLAG, &ipipe_root_cpudom_var(status)))
 		return 0;
 

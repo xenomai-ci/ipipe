@@ -66,7 +66,7 @@ do {						\
 } while(0)
 
 #define task_hijacked(p)						\
-	({ int x = !ipipe_root_domain_p; \
+	({ int x = __ipipe_root_domain_p;				\
 	__clear_bit(IPIPE_SYNC_FLAG, &ipipe_root_cpudom_var(status));	\
 	if (!x) local_irq_enable_hw(); x; })
 
