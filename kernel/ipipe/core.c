@@ -1042,11 +1042,13 @@ void __ipipe_sync_stage(unsigned long syncmask)
 				continue;
 
 			__set_bit(IPIPE_STALL_FLAG, &p->status);
+			barrier();
 
 			if (ipd == ipipe_root_domain)
 				trace_hardirqs_off();
 
 			__ipipe_run_isr(ipd, irq);
+			barrier();
 			p = ipipe_cpudom_ptr(ipipe_current_domain);
 #ifdef CONFIG_SMP
 			{
