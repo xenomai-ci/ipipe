@@ -285,7 +285,11 @@ int __init mxc_gpio_init(struct mxc_gpio_port *port, int cnt)
 		for (j = port[i].virtual_irq_start;
 			j < port[i].virtual_irq_start + 32; j++) {
 			set_irq_chip(j, &gpio_irq_chip);
+#ifndef CONFIG_IPIPE
 			set_irq_handler(j, handle_edge_irq);
+#else /* CONFIG_IPIPE */
+			set_irq_handler(j, handle_level_irq);
+#endif /* CONFIG_IPIPE */
 			set_irq_flags(j, IRQF_VALID);
 		}
 
