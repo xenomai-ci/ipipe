@@ -492,11 +492,13 @@ asmlinkage int __ipipe_kpreempt_root(struct pt_regs regs)
 
 asmlinkage void __ipipe_unstall_iret_root(struct pt_regs regs)
 {
-	struct ipipe_percpu_domain_data *p = ipipe_root_cpudom_ptr();
+	struct ipipe_percpu_domain_data *p;
 
 	/* Emulate IRET's handling of the interrupt flag. */
 
 	local_irq_disable_hw();
+
+	p = ipipe_root_cpudom_ptr();
 
 	/*
 	 * Restore the software state as it used to be on kernel
