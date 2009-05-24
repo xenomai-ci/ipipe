@@ -152,7 +152,7 @@ __ipipe_store_domain_states(struct ipipe_trace_point *point)
 		if (test_bit(IPIPE_STALL_FLAG, &ipipe_cpudom_var(ipd, status)))
 			point->flags |= 1 << (i + IPIPE_TFLG_DOMSTATE_SHIFT);
 
-		if (ipd == ipipe_current_domain)
+		if (ipd == __ipipe_current_domain)
 			point->flags |= i << IPIPE_TFLG_CURRDOM_SHIFT;
 
 		if (++i > IPIPE_TFLG_DOMSTATE_BITS)

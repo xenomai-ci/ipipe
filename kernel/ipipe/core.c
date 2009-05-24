@@ -306,13 +306,16 @@ void __ipipe_cleanup_domain(struct ipipe_domain *ipd)
 
 void __ipipe_unstall_root(void)
 {
-	struct ipipe_percpu_domain_data *p = ipipe_root_cpudom_ptr();
-
-#ifndef CONFIG_IPIPE_DEBUG_CONTEXT
-	BUG_ON(!ipipe_root_domain_p);
-#endif
+	struct ipipe_percpu_domain_data *p;
 
         local_irq_disable_hw();
+
+#ifdef CONFIG_IPIPE_DEBUG
+	/* This helps catching bad usage from assembly call sites. */
+	BUG_ON(!__ipipe_root_domain_p);
+#endif
+
+	p = ipipe_root_cpudom_ptr();
 
         __clear_bit(IPIPE_STALL_FLAG, &p->status);
 
@@ -324,7 +327,7 @@ void __ipipe_unstall_root(void)
 
 void __ipipe_restore_root(unsigned long x)
 {
-#ifndef CONFIG_IPIPE_DEBUG_CONTEXT
+#ifdef CONFIG_IPIPE_DEBUG
 	BUG_ON(!ipipe_root_domain_p);
 #endif
 
@@ -336,39 +339,45 @@ void __ipipe_restore_root(unsigned long x)
 
 void ipipe_stall_pipeline_from(struct ipipe_domain *ipd)
 {
-	set_bit_safe(IPIPE_STALL_FLAG, &ipipe_cpudom_var(ipd, status));
+	unsigned long flags;
+	/*
+	 * We have to prevent against race on updating the status
+	 * variable _and_ CPU migration at the same time, so disable
+	 * hw IRQs here.
+	 */
+	local_irq_save_hw(flags);
 
-	if (__ipipe_pipeline_head_p(ipd))
-		local_irq_disable_hw();
+	__set_bit(IPIPE_STALL_FLAG, &ipipe_cpudom_var(ipd, status));
+
+	if (!__ipipe_pipeline_head_p(ipd))
+		local_irq_restore_hw(flags);
 }
 
 unsigned long ipipe_test_and_stall_pipeline_from(struct ipipe_domain *ipd)
 {
-	unsigned long x;
+	unsigned long flags, x;
 
-	x = test_and_set_bit_safe(IPIPE_STALL_FLAG, &ipipe_cpudom_var(ipd, status));
+	/* See ipipe_stall_pipeline_from() */
+	local_irq_save_hw(flags);
 
-	if (__ipipe_pipeline_head_p(ipd))
-		local_irq_disable_hw();
+	x = __test_and_set_bit(IPIPE_STALL_FLAG, &ipipe_cpudom_var(ipd, status));
+
+	if (!__ipipe_pipeline_head_p(ipd))
+		local_irq_restore_hw(flags);
 
 	return x;
 }
 
-/*
- * ipipe_unstall_pipeline_from() -- Unstall the pipeline and
- * synchronize pending interrupts for a given domain. See
- * __ipipe_walk_pipeline() for more information.
- */
-void ipipe_unstall_pipeline_from(struct ipipe_domain *ipd)
+unsigned long ipipe_test_and_unstall_pipeline_from(struct ipipe_domain *ipd)
 {
+	unsigned long flags, x;
 	struct list_head *pos;
-	unsigned long flags;
 
 	local_irq_save_hw(flags);
 
-	__clear_bit(IPIPE_STALL_FLAG, &ipipe_cpudom_var(ipd, status));
+	x = __test_and_clear_bit(IPIPE_STALL_FLAG, &ipipe_cpudom_var(ipd, status));
 
-	if (ipd == ipipe_current_domain)
+	if (ipd == __ipipe_current_domain)
 		pos = &ipd->p_link;
 	else
 		pos = __ipipe_pipeline.next;
@@ -379,14 +388,6 @@ void ipipe_unstall_pipeline_from(struct ipipe_domain *ipd)
 		local_irq_enable_hw();
 	else
 		local_irq_restore_hw(flags);
-}
-
-unsigned long ipipe_test_and_unstall_pipeline_from(struct ipipe_domain *ipd)
-{
-	unsigned long x;
-
-	x = test_bit(IPIPE_STALL_FLAG, &ipipe_cpudom_var(ipd, status));
-	ipipe_unstall_pipeline_from(ipd);
 
 	return x;
 }
@@ -410,7 +411,7 @@ void ipipe_unstall_pipeline_head(void)
 
 	if (unlikely(p->irqpend_himask != 0)) {
 		struct ipipe_domain *head_domain = __ipipe_pipeline_head();
-		if (likely(head_domain == ipipe_current_domain))
+		if (likely(head_domain == __ipipe_current_domain))
 			__ipipe_sync_pipeline(IPIPE_IRQMASK_ANY);
 		else
 			__ipipe_walk_pipeline(&head_domain->p_link);
@@ -446,7 +447,7 @@ void __ipipe_restore_pipeline_head(unsigned long x)
 		__clear_bit(IPIPE_STALL_FLAG, &p->status);
 		if (unlikely(p->irqpend_himask != 0)) {
 			struct ipipe_domain *head_domain = __ipipe_pipeline_head();
-			if (likely(head_domain == ipipe_current_domain))
+			if (likely(head_domain == __ipipe_current_domain))
 				__ipipe_sync_pipeline(IPIPE_IRQMASK_ANY);
 			else
 				__ipipe_walk_pipeline(&head_domain->p_link);
@@ -563,7 +564,7 @@ void __ipipe_unlock_irq(struct ipipe_domain *ipd, unsigned irq)
  */
 void __ipipe_walk_pipeline(struct list_head *pos)
 {
-	struct ipipe_domain *this_domain = ipipe_current_domain, *next_domain;
+	struct ipipe_domain *this_domain = __ipipe_current_domain, *next_domain;
 	struct ipipe_percpu_domain_data *p, *np;
 
 	p = ipipe_cpudom_ptr(this_domain);
@@ -582,11 +583,11 @@ void __ipipe_walk_pipeline(struct list_head *pos)
 			else {
 
 				p->evsync = 0;
-				ipipe_current_domain = next_domain;
+				__ipipe_current_domain = next_domain;
 				ipipe_suspend_domain();	/* Sync stage and propagate interrupts. */
 
-				if (ipipe_current_domain == next_domain)
-					ipipe_current_domain = this_domain;
+				if (__ipipe_current_domain == next_domain)
+					__ipipe_current_domain = this_domain;
 				/*
 				 * Otherwise, something changed the current domain under our
 				 * feet recycling the register set; do not override the new
@@ -618,7 +619,7 @@ void ipipe_suspend_domain(void)
 
 	local_irq_save_hw(flags);
 
-	this_domain = next_domain = ipipe_current_domain;
+	this_domain = next_domain = __ipipe_current_domain;
 	p = ipipe_cpudom_ptr(this_domain);
 	p->status &= ~(IPIPE_STALL_MASK|IPIPE_SYNC_MASK);
 
@@ -640,19 +641,19 @@ void ipipe_suspend_domain(void)
 		if (p->irqpend_himask == 0)
 			continue;
 
-		ipipe_current_domain = next_domain;
+		__ipipe_current_domain = next_domain;
 sync_stage:
 		__ipipe_sync_pipeline(IPIPE_IRQMASK_ANY);
 
-		if (ipipe_current_domain != next_domain)
+		if (__ipipe_current_domain != next_domain)
 			/*
 			 * Something has changed the current domain under our
 			 * feet, recycling the register set; take note.
 			 */
-			this_domain = ipipe_current_domain;
+			this_domain = __ipipe_current_domain;
 	}
 
-	ipipe_current_domain = this_domain;
+	__ipipe_current_domain = this_domain;
 
 	local_irq_restore_hw(flags);
 }
@@ -690,6 +691,7 @@ int ipipe_virtualize_irq(struct ipipe_domain *ipd,
 			 ipipe_irq_ackfn_t acknowledge,
 			 unsigned modemask)
 {
+	ipipe_irq_handler_t old_handler;
 	unsigned long flags;
 	int err;
 
@@ -705,9 +707,11 @@ int ipipe_virtualize_irq(struct ipipe_domain *ipd,
 
 	spin_lock_irqsave(&__ipipe_pipelock, flags);
 
+	old_handler = ipd->irqs[irq].handler;
+
 	if (handler != NULL) {
 		if (handler == IPIPE_SAME_HANDLER) {
-			handler = ipd->irqs[irq].handler;
+			handler = old_handler;
 			cookie = ipd->irqs[irq].cookie;
 
 			if (handler == NULL) {
@@ -715,7 +719,7 @@ int ipipe_virtualize_irq(struct ipipe_domain *ipd,
 				goto unlock_and_exit;
 			}
 		} else if ((modemask & IPIPE_EXCLUSIVE_MASK) != 0 &&
-			   ipd->irqs[irq].handler != NULL) {
+			   old_handler != NULL) {
 			err = -EBUSY;
 			goto unlock_and_exit;
 		}
@@ -740,8 +744,10 @@ int ipipe_virtualize_irq(struct ipipe_domain *ipd,
 		      IPIPE_EXCLUSIVE_MASK | IPIPE_WIRED_MASK);
 
 	if (acknowledge == NULL && !ipipe_virtual_irq_p(irq))
-		/* Acknowledge handler unspecified for a hw interrupt:
-		   use the Linux-defined handler instead. */
+		/*
+		 * Acknowledge handler unspecified for a hw interrupt:
+		 * use the Linux-defined handler instead.
+		 */
 		acknowledge = ipipe_root_domain->irqs[irq].acknowledge;
 
 	ipd->irqs[irq].handler = handler;
@@ -749,21 +755,27 @@ int ipipe_virtualize_irq(struct ipipe_domain *ipd,
 	ipd->irqs[irq].acknowledge = acknowledge;
 	ipd->irqs[irq].control = modemask;
 
-	if (irq < NR_IRQS && handler != NULL && !ipipe_virtual_irq_p(irq)) {
-		__ipipe_enable_irqdesc(ipd, irq);
+	if (irq < NR_IRQS && !ipipe_virtual_irq_p(irq)) {
+		if (handler != NULL) {
+			__ipipe_enable_irqdesc(ipd, irq);
 
-		if ((modemask & IPIPE_ENABLE_MASK) != 0) {
-			if (ipd != ipipe_current_domain) {
-				/* IRQ enable/disable state is domain-sensitive, so we may
-				   not change it for another domain. What is allowed
-				   however is forcing some domain to handle an interrupt
-				   source, by passing the proper 'ipd' descriptor which
-				   thus may be different from ipipe_current_domain. */
-				err = -EPERM;
-				goto unlock_and_exit;
+			if ((modemask & IPIPE_ENABLE_MASK) != 0) {
+				if (ipd != __ipipe_current_domain) {
+		/*
+		 * IRQ enable/disable state is domain-sensitive, so we
+		 * may not change it for another domain. What is
+		 * allowed however is forcing some domain to handle an
+		 * interrupt source, by passing the proper 'ipd'
+		 * descriptor which thus may be different from
+		 * __ipipe_current_domain.
+		 */
+					err = -EPERM;
+					goto unlock_and_exit;
+				}
+				__ipipe_enable_irq(irq);
 			}
-			__ipipe_enable_irq(irq);
-		}
+		} else if (old_handler != NULL)
+				__ipipe_disable_irqdesc(ipd, irq);
 	}
 
 	err = 0;
@@ -786,10 +798,14 @@ int ipipe_control_irq(unsigned irq, unsigned clrmask, unsigned setmask)
 	if (irq >= IPIPE_NR_IRQS)
 		return -EINVAL;
 
-	ipd = ipipe_current_domain;
+	spin_lock_irqsave(&__ipipe_pipelock, flags);
 
-	if (ipd->irqs[irq].control & IPIPE_SYSTEM_MASK)
+	ipd = __ipipe_current_domain;
+
+	if (ipd->irqs[irq].control & IPIPE_SYSTEM_MASK) {
+		spin_unlock_irqrestore(&__ipipe_pipelock, flags);
 		return -EPERM;
+	}
 
 	if (ipd->irqs[irq].handler == NULL)
 		setmask &= ~(IPIPE_HANDLE_MASK | IPIPE_STICKY_MASK);
@@ -799,8 +815,6 @@ int ipipe_control_irq(unsigned irq, unsigned clrmask, unsigned setmask)
 
 	if ((clrmask & (IPIPE_HANDLE_MASK | IPIPE_STICKY_MASK)) != 0)	/* If one goes, both go. */
 		clrmask |= (IPIPE_HANDLE_MASK | IPIPE_STICKY_MASK);
-
-	spin_lock_irqsave(&__ipipe_pipelock, flags);
 
 	ipd->irqs[irq].control &= ~clrmask;
 	ipd->irqs[irq].control |= setmask;
@@ -827,7 +841,7 @@ int __ipipe_dispatch_event (unsigned event, void *data)
 
 	local_irq_save_hw(flags);
 
-	start_domain = this_domain = ipipe_current_domain;
+	start_domain = this_domain = __ipipe_current_domain;
 
 	list_for_each_safe(pos, npos, &__ipipe_pipeline) {
 		/*
@@ -847,7 +861,7 @@ int __ipipe_dispatch_event (unsigned event, void *data)
 		evhand = next_domain->evhand[event];
 
 		if (evhand != NULL) {
-			ipipe_current_domain = next_domain;
+			__ipipe_current_domain = next_domain;
 			ipipe_cpudom_var(next_domain, evsync) |= (1LL << event);
 			local_irq_restore_hw(flags);
 			propagate = !evhand(event, start_domain, data);
@@ -865,20 +879,20 @@ int __ipipe_dispatch_event (unsigned event, void *data)
 			 * resorting to a much more complex strategy.
 			 */
 			ipipe_cpudom_var(next_domain, evsync) &= ~(1LL << event);
-			if (ipipe_current_domain != next_domain)
-				this_domain = ipipe_current_domain;
+			if (__ipipe_current_domain != next_domain)
+				this_domain = __ipipe_current_domain;
 		}
 
 		if (next_domain != ipipe_root_domain &&	/* NEVER sync the root stage here. */
 		    ipipe_cpudom_var(next_domain, irqpend_himask) != 0 &&
 		    !test_bit(IPIPE_STALL_FLAG, &ipipe_cpudom_var(next_domain, status))) {
-			ipipe_current_domain = next_domain;
+			__ipipe_current_domain = next_domain;
 			__ipipe_sync_pipeline(IPIPE_IRQMASK_ANY);
-			if (ipipe_current_domain != next_domain)
-				this_domain = ipipe_current_domain;
+			if (__ipipe_current_domain != next_domain)
+				this_domain = __ipipe_current_domain;
 		}
 
-		ipipe_current_domain = this_domain;
+		__ipipe_current_domain = this_domain;
 
 		if (next_domain == this_domain || !propagate)
 			break;
@@ -939,15 +953,15 @@ void __ipipe_dispatch_wired(struct ipipe_domain *head, unsigned irq)
 	__ipipe_dispatch_wired_nocheck(head, irq);
 }
 
-void __ipipe_dispatch_wired_nocheck(struct ipipe_domain *head, unsigned irq)
+void __ipipe_dispatch_wired_nocheck(struct ipipe_domain *head, unsigned irq) /* hw interrupts off */
 {
 	struct ipipe_percpu_domain_data *p = ipipe_cpudom_ptr(head);
 	struct ipipe_domain *old;
 
 	prefetchw(p);
 
-	old = ipipe_current_domain;
-	ipipe_current_domain = head; /* Switch to the head domain. */
+	old = __ipipe_current_domain;
+	__ipipe_current_domain = head; /* Switch to the head domain. */
 
 	p->irqall[irq]++;
 	__set_bit(IPIPE_STALL_FLAG, &p->status);
@@ -955,8 +969,8 @@ void __ipipe_dispatch_wired_nocheck(struct ipipe_domain *head, unsigned irq)
 	__ipipe_run_irqtail();
 	__clear_bit(IPIPE_STALL_FLAG, &p->status);
 
-	if (ipipe_current_domain == head) {
-		ipipe_current_domain = old;
+	if (__ipipe_current_domain == head) {
+		__ipipe_current_domain = old;
 		if (old == head) {
 			if (p->irqpend_himask)
 				__ipipe_sync_pipeline(IPIPE_IRQMASK_ANY);
@@ -989,7 +1003,7 @@ void __ipipe_sync_stage(unsigned long syncmask)
 	int level, rank, cpu;
 	unsigned irq;
 
-	ipd = ipipe_current_domain;
+	ipd = __ipipe_current_domain;
 	p = ipipe_cpudom_ptr(ipd);
 
 	if (__test_and_set_bit(IPIPE_SYNC_FLAG, &p->status))
@@ -1031,12 +1045,14 @@ void __ipipe_sync_stage(unsigned long syncmask)
 				continue;
 
 			__set_bit(IPIPE_STALL_FLAG, &p->status);
+			barrier();
 
 			if (ipd == ipipe_root_domain)
 				trace_hardirqs_off();
 
 			__ipipe_run_isr(ipd, irq);
-			p = ipipe_cpudom_ptr(ipipe_current_domain);
+			barrier();
+			p = ipipe_cpudom_ptr(__ipipe_current_domain);
 #ifdef CONFIG_SMP
 			{
 				int newcpu = ipipe_processor_id();
@@ -1060,7 +1076,7 @@ void __ipipe_sync_stage(unsigned long syncmask)
 			}
 #endif	/* CONFIG_SMP */
 #ifdef CONFIG_TRACE_IRQFLAGS
-			if (ipipe_root_domain_p &&
+			if (__ipipe_root_domain_p &&
 			    test_bit(IPIPE_STALL_FLAG, &p->status))
 				trace_hardirqs_on();
 #endif
@@ -1164,11 +1180,12 @@ int ipipe_register_domain(struct ipipe_domain *ipd,
 	 */
 
 	if (attr->entry != NULL) {
-		ipipe_current_domain = ipd;
+		local_irq_save_hw_smp(flags);
+		__ipipe_current_domain = ipd;
+		local_irq_restore_hw_smp(flags);
 		attr->entry();
-		ipipe_current_domain = ipipe_root_domain;
-
 		local_irq_save_hw(flags);
+		__ipipe_current_domain = ipipe_root_domain;
 
 		if (ipipe_root_cpudom_var(irqpend_himask) != 0 &&
 		    !test_bit(IPIPE_STALL_FLAG, &ipipe_root_cpudom_var(status)))
@@ -1632,28 +1649,41 @@ void __init ipipe_init_proc(void)
 DEFINE_PER_CPU(int, ipipe_percpu_context_check) = { 1 };
 DEFINE_PER_CPU(int, ipipe_saved_context_check_state);
 
-void ipipe_check_context(struct ipipe_domain *border_ipd)
+void ipipe_check_context(struct ipipe_domain *border_domain)
 {
-	/* Note: We don't make the per_cpu access atomic. We assume that code
-	   which temporarily disables the check does this in atomic context
-	   only. */
-	if (likely(ipipe_current_domain->priority <= border_ipd->priority &&
-		   !test_bit(IPIPE_STALL_FLAG,
-			     &ipipe_head_cpudom_var(status))) ||
-	    !per_cpu(ipipe_percpu_context_check, ipipe_processor_id()))
-		return;
+        struct ipipe_percpu_domain_data *p; 
+        struct ipipe_domain *this_domain; 
+        unsigned long flags;
+	int cpu;
+ 
+        local_irq_save_hw_smp(flags); 
+
+        this_domain = __ipipe_current_domain; 
+        p = ipipe_head_cpudom_ptr(); 
+        if (likely(this_domain->priority <= border_domain->priority && 
+		   !test_bit(IPIPE_STALL_FLAG, &p->status))) { 
+                local_irq_restore_hw_smp(flags); 
+                return; 
+        } 
+ 
+	cpu = ipipe_processor_id();
+        if (!per_cpu(ipipe_percpu_context_check, cpu)) { 
+                local_irq_restore_hw_smp(flags); 
+                return; 
+        } 
+ 
+        local_irq_restore_hw_smp(flags); 
 
 	ipipe_context_check_off();
-
 	ipipe_trace_panic_freeze();
-	ipipe_set_printk_sync(ipipe_current_domain);
+	ipipe_set_printk_sync(__ipipe_current_domain);
 
-	if (ipipe_current_domain->priority > border_ipd->priority)
+	if (this_domain->priority > border_domain->priority)
 		printk(KERN_ERR "I-pipe: Detected illicit call from domain "
 				"'%s'\n"
 		       KERN_ERR "        into a service reserved for domain "
 				"'%s' and below.\n",
-		       ipipe_current_domain->name, border_ipd->name);
+		       this_domain->name, border_domain->name);
 	else
 		printk(KERN_ERR "I-pipe: Detected stalled topmost domain, "
 				"probably caused by a bug.\n"
@@ -1664,7 +1694,56 @@ void ipipe_check_context(struct ipipe_domain *border_ipd)
 }
 
 EXPORT_SYMBOL(ipipe_check_context);
+
 #endif /* CONFIG_IPIPE_DEBUG_CONTEXT */
+
+#if defined(CONFIG_IPIPE_DEBUG) && defined(CONFIG_SMP)
+
+int __ipipe_check_percpu_access(void)
+{
+	struct ipipe_percpu_domain_data *p;
+	struct ipipe_domain *this_domain;
+	unsigned long flags;
+	int ret = 0;
+
+	local_irq_save_hw(flags);
+
+	this_domain = __raw_get_cpu_var(ipipe_percpu_domain);
+
+	/*
+	 * Only the root domain may implement preemptive CPU migration
+	 * of tasks, so anything above in the pipeline should be fine.
+	 */
+	if (this_domain->priority > IPIPE_ROOT_PRIO)
+		goto out;
+
+	if (raw_irqs_disabled_flags(flags))
+		goto out;
+
+	/*
+	 * Last chance: hw interrupts were enabled on entry while
+	 * running over the root domain, but the root stage might be
+	 * currently stalled, in which case preemption would be
+	 * disabled, and no migration could occur.
+	 */
+	if (this_domain == ipipe_root_domain) {
+		p = ipipe_root_cpudom_ptr(); 
+		if (test_bit(IPIPE_STALL_FLAG, &p->status))
+			goto out;
+	}
+	/*
+	 * Our caller may end up accessing the wrong per-cpu variable
+	 * instance due to CPU migration; tell it to complain about
+	 * this.
+	 */
+	ret = 1;
+out:
+	local_irq_restore_hw(flags);
+
+	return ret;
+}
+
+#endif /* CONFIG_IPIPE_DEBUG && CONFIG_SMP */
 
 EXPORT_SYMBOL(ipipe_virtualize_irq);
 EXPORT_SYMBOL(ipipe_control_irq);
@@ -1702,6 +1781,9 @@ EXPORT_SYMBOL(ipipe_set_irq_affinity);
 EXPORT_SYMBOL(ipipe_send_ipi);
 EXPORT_SYMBOL(__ipipe_pend_irq);
 EXPORT_SYMBOL(__ipipe_set_irq_pending);
+#if defined(CONFIG_IPIPE_DEBUG) && defined(CONFIG_SMP)
+EXPORT_SYMBOL(__ipipe_check_percpu_access);
+#endif
 #ifdef CONFIG_GENERIC_CLOCKEVENTS
 EXPORT_SYMBOL(ipipe_request_tickdev);
 EXPORT_SYMBOL(ipipe_release_tickdev);
