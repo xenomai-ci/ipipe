@@ -36,7 +36,7 @@
 
 #include <asm/mach/irq.h>
 
-#include <asm/arch/imx-regs.h>
+#include <mach/imx-regs.h>
 
 
 /* Used for IMX INTERRUPT priority: Still Experimental */
