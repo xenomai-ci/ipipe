@@ -42,11 +42,37 @@
 
 #define smp_processor_id_hw() ipipe_processor_id()
 
-#define prepare_arch_switch(next) ipipe_schedule_notify(current, next)
+#ifdef CONFIG_IPIPE_WANT_PREEMPTIBLE_SWITCH
 
-/* We would need to clear the SYNC flag for the root domain */
-/* over the current processor in SMP mode. */
-#define task_hijacked(p) !ipipe_root_domain_p
+#define prepare_arch_switch(next)			\
+	do {						\
+		local_irq_enable_hw();			\
+		ipipe_schedule_notify(current, next);	\
+	} while(0)
+
+#define task_hijacked(p)						\
+	({								\
+		int x = !ipipe_root_domain_p;				\
+		clear_bit(IPIPE_SYNC_FLAG, &ipipe_root_cpudom_var(status)); \
+		x;							\
+	})
+
+#else /* !CONFIG_IPIPE_WANT_PREEMPTIBLE_SWITCH */
+
+#define prepare_arch_switch(next)			\
+	do {                                            \
+		ipipe_schedule_notify(current ,next);   \
+		local_irq_disable_hw();                 \
+	} while(0)
+
+#define task_hijacked(p)						\
+	({								\
+		int x = !ipipe_root_domain_p;                           \
+		__clear_bit(IPIPE_SYNC_FLAG, &ipipe_root_cpudom_var(status)); \
+		local_irq_enable_hw(); x;                               \
+	})
+
+#endif /* !CONFIG_IPIPE_WANT_PREEMPTIBLE_SWITCH */
 
 extern unsigned long arm_return_addr(int level);
 
