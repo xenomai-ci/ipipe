@@ -701,8 +701,13 @@ void __sched  __ipipe_preempt_schedule_irq(void)
 {
 	struct ipipe_percpu_domain_data *p; 
 	unsigned long flags;  
-
-	BUG_ON(!irqs_disabled_hw());  
+	/*
+	 * We have no IRQ state fixup on entry to exceptions, so we
+	 * have to stall the root stage before rescheduling.
+	 */  
+#ifdef CONFIG_IPIPE_DEBUG
+	BUG_ON(!irqs_disabled_hw());
+#endif
 	local_irq_save(flags);	
 	local_irq_enable_hw();	
 	preempt_schedule_irq(); /* Ok, may reschedule now. */  
@@ -714,10 +719,11 @@ void __sched  __ipipe_preempt_schedule_irq(void)
 	 */
 	p = ipipe_root_cpudom_ptr(); 
 	if (unlikely(p->irqpend_himask != 0)) { 
-		__clear_bit(IPIPE_STALL_FLAG, &p->status); 
+		clear_bit(IPIPE_STALL_FLAG, &p->status); 
 		__ipipe_sync_pipeline(IPIPE_IRQMASK_ANY); 
 	} 
-	local_irq_restore_nosync(flags);  
+
+	__local_irq_restore_nosync(flags);  
 }
 
 #endif /* CONFIG_PREEMPT */
