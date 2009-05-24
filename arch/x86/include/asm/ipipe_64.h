@@ -140,7 +140,8 @@ static inline void __ipipe_call_root_virq_handler(unsigned irq,
  */
 #define __ipipe_run_isr(ipd, irq)					\
 	do {								\
-		local_irq_enable_nohead(ipd);				\
+		if (!__ipipe_pipeline_head_p(ipd))			\
+			local_irq_enable_hw();				\
 		if (ipd == ipipe_root_domain) {				\
 			if (likely(!ipipe_virtual_irq_p(irq))) {	\
 				__ipipe_move_root_irq(irq);		\
@@ -155,7 +156,7 @@ static inline void __ipipe_call_root_virq_handler(unsigned irq,
 			ipd->irqs[irq].handler(irq, ipd->irqs[irq].cookie); \
 			__set_bit(IPIPE_SYNC_FLAG, &ipipe_cpudom_var(ipd, status)); \
 		}							\
-		local_irq_disable_nohead(ipd);				\
+		local_irq_disable_hw();					\
 	} while(0)
 
 #endif	/* !__X86_IPIPE_64_H */
