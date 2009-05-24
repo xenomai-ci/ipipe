@@ -294,6 +294,7 @@ struct sys_timer imx_timer = {
 #ifdef CONFIG_IPIPE
 void __ipipe_mach_acktimer(void)
 {
+	unsigned tstat = IMX_TSTAT(TIMER_BASE);
 	IMX_TSTAT(TIMER_BASE) = 0;
 }
 
