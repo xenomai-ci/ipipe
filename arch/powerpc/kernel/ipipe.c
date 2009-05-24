@@ -202,17 +202,35 @@ out:
 
 void __ipipe_stall_root(void)
 {
-	set_bit_safe(IPIPE_STALL_FLAG, &ipipe_root_cpudom_var(status));
+	unsigned long flags;
+
+	local_irq_save_hw(flags);
+	set_bit(IPIPE_STALL_FLAG, &ipipe_root_cpudom_var(status));
+	local_irq_restore_hw(flags);
 }
 
 unsigned long __ipipe_test_and_stall_root(void)
 {
-	return test_and_set_bit_safe(IPIPE_STALL_FLAG, &ipipe_root_cpudom_var(status));
+	unsigned long flags;
+	int x;
+
+	local_irq_save_hw(flags);
+	x = test_and_set_bit(IPIPE_STALL_FLAG, &ipipe_root_cpudom_var(status));
+	local_irq_restore_hw(flags);
+
+	return x;
 }
 
 unsigned long __ipipe_test_root(void)
 {
-	return test_bit(IPIPE_STALL_FLAG, &ipipe_root_cpudom_var(status));
+	unsigned long flags;
+	int x;
+
+	local_irq_save_hw(flags);
+	x = test_bit(IPIPE_STALL_FLAG, &ipipe_root_cpudom_var(status));
+	local_irq_restore_hw(flags);
+
+	return x;
 }
 
 #endif	/* CONFIG_SMP */
