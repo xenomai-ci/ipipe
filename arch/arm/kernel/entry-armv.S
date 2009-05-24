@@ -262,15 +262,15 @@ ENDPROC(__irq_svc)
 #ifdef CONFIG_PREEMPT
 svc_preempt:
 	mov	r8, lr
-	ipipe_fast_stall_root r4, r0		@ r4 must be preserved
-	enable_irq_cond				@ reused by unstall
+#ifndef CONFIG_IPIPE
 1:	bl	preempt_schedule_irq		@ irq en/disable is done inside
+#else /* CONFIG_IPIPE */
+1:	bl	__ipipe_preempt_schedule_irq	@ irq en/disable is done inside
+#endif /* CONFIG_IPIPE */
 	ldr	r0, [tsk, #TI_FLAGS]		@ get new tasks TI_FLAGS
 	tst	r0, #_TIF_NEED_RESCHED
-	bne	1b
-	disable_irq_cond
-	ipipe_fast_unstall_root r4, r0
-	mov	pc, r8				@ go again
+	moveq	pc, r8				@ go again
+	b	1b
 #ifdef CONFIG_IPIPE
 #if __GNUC__ >= 4
 .LCipipe_root_status:

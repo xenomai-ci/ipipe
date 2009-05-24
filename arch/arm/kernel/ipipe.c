@@ -235,6 +235,36 @@ void ipipe_critical_exit(unsigned long flags)
 	local_irq_restore_hw(flags);
 }
 
+asmlinkage void __sched __ipipe_preempt_schedule_irq(void)
+{
+	extern asmlinkage void __sched preempt_schedule_irq(void);
+	struct ipipe_percpu_domain_data *p;
+	unsigned long flags;
+	/*
+	 * preempt_schedule_irq expects the root stage to be stalled.
+	 */
+	BUG_ON(!irqs_disabled_hw());
+	local_irq_save(flags);
+	local_irq_enable_hw();
+	preempt_schedule_irq(); /* Ok, may reschedule now. */
+	local_irq_disable_hw();
+
+	/*
+	 * Flush any pending interrupt that may have been logged after
+	 * preempt_schedule_irq() stalled the root stage before
+	 * returning to us, and now.
+	 */
+	p = ipipe_root_cpudom_ptr();
+	if (unlikely(p->irqpend_himask != 0)) {
+		add_preempt_count(PREEMPT_ACTIVE);
+		clear_bit(IPIPE_STALL_FLAG, &p->status);
+		__ipipe_sync_pipeline(IPIPE_IRQMASK_ANY);
+		sub_preempt_count(PREEMPT_ACTIVE);
+	}
+
+	local_irq_restore_nosync(flags);
+}
+
 asmlinkage int __ipipe_check_root(void)
 {
 	return ipipe_root_domain_p;
@@ -440,8 +470,3 @@ EXPORT_SYMBOL_GPL(__check_kvm_seq);
 #if defined(CONFIG_SMP) || defined(CONFIG_DEBUG_SPINLOCK)
 EXPORT_SYMBOL(tasklist_lock);
 #endif /* CONFIG_SMP || CONFIG_DEBUG_SPINLOCK */
-
-#ifdef CONFIG_IPIPE_TRACE_MCOUNT
-void notrace mcount(void);
-EXPORT_SYMBOL(mcount);
-#endif /* CONFIG_IPIPE_TRACE_MCOUNT */
