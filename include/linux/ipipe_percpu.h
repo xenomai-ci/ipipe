@@ -45,13 +45,13 @@ struct ipipe_percpu_domain_data {
 #define ipipe_percpudom_ptr(ipd, cpu)	\
 	(&per_cpu(ipipe_percpu_darray, cpu)[(ipd)->slot])
 #define ipipe_cpudom_ptr(ipd)	\
-	(&__raw_get_cpu_var(ipipe_percpu_darray)[(ipd)->slot])
+	(&__ipipe_get_cpu_var(ipipe_percpu_darray)[(ipd)->slot])
 #else
 DECLARE_PER_CPU(struct ipipe_percpu_domain_data *, ipipe_percpu_daddr[CONFIG_IPIPE_DOMAINS]);
 #define ipipe_percpudom_ptr(ipd, cpu)	\
 	(per_cpu(ipipe_percpu_daddr, cpu)[(ipd)->slot])
 #define ipipe_cpudom_ptr(ipd)	\
-	(__raw_get_cpu_var(ipipe_percpu_daddr)[(ipd)->slot])
+	(__ipipe_get_cpu_var(ipipe_percpu_daddr)[(ipd)->slot])
 #endif
 #define ipipe_percpudom(ipd, var, cpu)	(ipipe_percpudom_ptr(ipd, cpu)->var)
 #define ipipe_cpudom_var(ipd, var)	(ipipe_cpudom_ptr(ipd)->var)
@@ -70,19 +70,16 @@ DECLARE_PER_CPU(int, ipipe_percpu_context_check);
 DECLARE_PER_CPU(int, ipipe_saved_context_check_state);
 #endif
 
-#define ipipe_percpu(var, cpu)		per_cpu(var, cpu)
-#define ipipe_cpu_var(var)		__raw_get_cpu_var(var)
-
 #define ipipe_root_cpudom_ptr(var)	\
-	(&__raw_get_cpu_var(ipipe_percpu_darray)[IPIPE_ROOT_SLOT])
+	(&__ipipe_get_cpu_var(ipipe_percpu_darray)[IPIPE_ROOT_SLOT])
 
 #define ipipe_root_cpudom_var(var)	ipipe_root_cpudom_ptr()->var
 
 #define ipipe_this_cpudom_var(var)	\
-	ipipe_cpudom_var(ipipe_current_domain, var)
+	ipipe_cpudom_var(__ipipe_current_domain, var)
 
 #define ipipe_head_cpudom_ptr()		\
-	(&__raw_get_cpu_var(ipipe_percpu_darray)[IPIPE_HEAD_SLOT])
+	(&__ipipe_get_cpu_var(ipipe_percpu_darray)[IPIPE_HEAD_SLOT])
 
 #define ipipe_head_cpudom_var(var)	ipipe_head_cpudom_ptr()->var
 
