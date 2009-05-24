@@ -197,12 +197,15 @@ static inline unsigned long __ipipe_ffnz(unsigned long ul)
 #endif
 }
 
-/* When running handlers, enable hw interrupts for all domains but the
+/*
+ * When running handlers, enable hw interrupts for all domains but the
  * one heading the pipeline, so that IRQs can never be significantly
- * deferred for the latter. */
+ * deferred for the latter.
+ */
 #define __ipipe_run_isr(ipd, irq)					\
 do {									\
-	local_irq_enable_nohead(ipd);					\
+	if (!__ipipe_pipeline_head_p(ipd))				\
+		local_irq_enable_hw();					\
 	if (ipd == ipipe_root_domain)					\
 		if (likely(!ipipe_virtual_irq_p(irq)))			\
 			ipd->irqs[irq].handler(irq, NULL);		\
@@ -216,7 +219,7 @@ do {									\
 		ipd->irqs[irq].handler(irq, ipd->irqs[irq].cookie);	\
 		__set_bit(IPIPE_SYNC_FLAG, &ipipe_cpudom_var(ipd, status)); \
 	}								\
-	local_irq_disable_nohead(ipd);					\
+	local_irq_disable_hw();						\
 } while(0)
 
 #define __ipipe_syscall_watched_p(p, sc)	\
