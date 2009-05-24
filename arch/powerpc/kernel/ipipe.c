@@ -432,7 +432,7 @@ void __ipipe_handle_irq(int irq, struct pt_regs *regs)
 		return;
 	}
 #endif
-	this_domain = ipipe_current_domain;
+	this_domain = __ipipe_current_domain;
 
 	if (unlikely(test_bit(IPIPE_STICKY_FLAG, &this_domain->irqs[irq].control)))
 		head = &this_domain->p_link;
@@ -530,7 +530,7 @@ int __ipipe_grab_irq(struct pt_regs *regs)
 
 root_checks:
 
-	if (ipipe_root_domain_p) {
+	if (__ipipe_root_domain_p) {
 #ifdef CONFIG_PPC_970_NAP
 		struct thread_info *ti = current_thread_info();
 		/* Emulate the napping check when 100% sure we do run
@@ -608,7 +608,7 @@ int __ipipe_grab_timer(struct pt_regs *regs)
 {
 	struct ipipe_domain *ipd, *head;
 
-	ipd = ipipe_current_domain;
+	ipd = __ipipe_current_domain;
 	head = __ipipe_pipeline_head();
 
 	set_dec(DECREMENTER_MAX);
@@ -656,9 +656,9 @@ int __ipipe_grab_timer(struct pt_regs *regs)
 	return 0;
 }
 
-notrace int __ipipe_check_root(void)
+notrace int __ipipe_check_root(void) /* hw IRQs off */
 {
-	return ipipe_root_domain_p;
+	return __ipipe_root_domain_p;
 }
 
 #ifdef CONFIG_PPC64
@@ -666,9 +666,9 @@ notrace int __ipipe_check_root(void)
 #include <asm/firmware.h>
 #include <asm/lv1call.h>
 
-notrace void __ipipe_restore_if_root(unsigned long x)
+notrace void __ipipe_restore_if_root(unsigned long x) /* hw IRQs off */
 {
-	if (likely(!ipipe_root_domain_p))
+	if (likely(!__ipipe_root_domain_p))
 		return;
 
 	if (x)
@@ -746,16 +746,17 @@ notrace void __ipipe_trace_irqsx(unsigned long msr_ee)
 
 #endif
 
-int __ipipe_syscall_root(struct pt_regs *regs) /* HW interrupts off */
+int __ipipe_syscall_root(struct pt_regs *regs)
 {
 #ifdef CONFIG_PPC64
+	/* Unlike ppc32, hw interrupts are off on entry. */
 	/* We did not copy the stall state on entry yet, so do it now. */
 	regs->softe = !test_bit(IPIPE_STALL_FLAG, &ipipe_root_cpudom_var(status));
 
 	/* We ran DISABLE_INTS before being sent to the syscall
 	 * dispatcher, so we need to unstall the root stage, unless
 	 * the root domain is not current. */
-	if (ipipe_root_domain_p)
+	if (__ipipe_root_domain_p)
 		__clear_bit(IPIPE_STALL_FLAG, &ipipe_root_cpudom_var(status));
 
 	local_irq_enable_hw();

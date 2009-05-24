@@ -423,7 +423,7 @@ struct task_struct *__switch_to(struct task_struct *prev,
 	vsid = get_vsid(current->mm->context.id, 0, ssize);
 
 	/* current is still really us, just a different us :-) */
-	if (ipipe_root_domain_p && current->mm) {
+	if (__ipipe_root_domain_p && current->mm) {
 #ifdef CONFIG_PPC_64K_PAGES
 		__hash_page_64K(0, _PAGE_USER|_PAGE_RW, vsid, &current->zero_pte.pte, 0x300, 1, ssize);
 #else

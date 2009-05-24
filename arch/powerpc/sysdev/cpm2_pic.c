@@ -127,14 +127,15 @@ static void cpm2_end_irq(unsigned int virq)
 	unsigned int irq_nr = virq_to_hw(virq);
 	unsigned long flags;
 
-	if (!ipipe_root_domain_p ||
+	local_irq_save_hw_cond(flags);
+	
+	if (!__ipipe_root_domain_p ||
 	    (!(irq_desc[irq_nr].status & (IRQ_DISABLED|IRQ_INPROGRESS))
 	     && irq_desc[irq_nr].action)) {
 
 		bit = irq_to_siubit[irq_nr];
 		word = irq_to_siureg[irq_nr];
 
-		local_irq_save_hw_cond(flags);
 		ppc_cached_irq_mask[word] |= 1 << bit;
 		out_be32(&cpm2_intctl->ic_simrh + word, ppc_cached_irq_mask[word]);
 		ipipe_irq_unlock(irq_nr);
@@ -144,8 +145,9 @@ static void cpm2_end_irq(unsigned int virq)
 		 * systems.
 		 */
 		mb();
-		local_irq_restore_hw_cond(flags);
 	}
+
+	local_irq_restore_hw_cond(flags);
 }
 
 static int cpm2_set_irq_type(unsigned int virq, unsigned int flow_type)
