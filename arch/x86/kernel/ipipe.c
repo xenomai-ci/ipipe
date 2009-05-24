@@ -560,8 +560,10 @@ void __ipipe_preempt_schedule_irq(void)
 	 */
 	p = ipipe_root_cpudom_ptr(); 
 	if (unlikely(p->irqpend_himask != 0)) { 
+		add_preempt_count(PREEMPT_ACTIVE);
 		clear_bit(IPIPE_STALL_FLAG, &p->status); 
 		__ipipe_sync_pipeline(IPIPE_IRQMASK_ANY); 
+		sub_preempt_count(PREEMPT_ACTIVE);
 	} 
 
 	__local_irq_restore_nosync(flags);  
