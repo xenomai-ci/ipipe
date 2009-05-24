@@ -601,10 +601,10 @@ asmlinkage int printk(const char *fmt, ...)
 
 	local_irq_save_hw(flags);
 
-	if (test_bit(IPIPE_SPRINTK_FLAG, &ipipe_current_domain->flags) ||
+	if (test_bit(IPIPE_SPRINTK_FLAG, &__ipipe_current_domain->flags) ||
 	    oops_in_progress)
 		cs = ipipe_disable_context_check(ipipe_processor_id());
-	else if (ipipe_current_domain == ipipe_root_domain) {
+	else if (__ipipe_current_domain == ipipe_root_domain) {
 		struct ipipe_domain *dom;
 
 		list_for_each_entry(dom, &__ipipe_pipeline, p_link) {
