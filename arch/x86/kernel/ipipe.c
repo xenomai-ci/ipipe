@@ -550,6 +550,7 @@ void __ipipe_preempt_schedule_irq(void)
 	local_irq_enable_hw();	
 	preempt_schedule_irq(); /* Ok, may reschedule now. */  
 	local_irq_disable_hw(); 
+
 	/*
 	 * Flush any pending interrupt that may have been logged after
 	 * preempt_schedule_irq() stalled the root stage before
@@ -557,10 +558,11 @@ void __ipipe_preempt_schedule_irq(void)
 	 */
 	p = ipipe_root_cpudom_ptr(); 
 	if (unlikely(p->irqpend_himask != 0)) { 
-		__clear_bit(IPIPE_STALL_FLAG, &p->status); 
+		clear_bit(IPIPE_STALL_FLAG, &p->status); 
 		__ipipe_sync_pipeline(IPIPE_IRQMASK_ANY); 
 	} 
-	local_irq_restore_nosync(flags);  
+
+	__local_irq_restore_nosync(flags);  
 }
 
 #endif	/* CONFIG_PREEMPT */
@@ -681,7 +683,7 @@ int __ipipe_handle_exception(struct pt_regs *regs, long error_code, int vector)
 		struct ipipe_domain *ipd = ipipe_current_domain;
 
 		/* Switch to root so that Linux can handle the fault cleanly. */
-		ipipe_current_domain = ipipe_root_domain;
+		__ipipe_current_domain = ipipe_root_domain;
 
 		ipipe_trace_panic_freeze();
 
@@ -900,11 +902,11 @@ finalize_nosync:
 		tick_regs->ss = regs->ss;
 		tick_regs->sp = regs->sp;
 #endif
-		if (!__ipipe_root_domain_p)
+		if (!ipipe_root_domain_p)
 			tick_regs->flags &= ~X86_EFLAGS_IF;
 	}
 
-	if (!__ipipe_root_domain_p ||
+	if (!ipipe_root_domain_p ||
 	    test_bit(IPIPE_STALL_FLAG, &ipipe_root_cpudom_var(status)))
 		return 0;
 
