@@ -317,8 +317,6 @@ void __ipipe_unstall_root(void)
 
 	p = ipipe_root_cpudom_ptr();
 
-	p = ipipe_root_cpudom_ptr();
-
         __clear_bit(IPIPE_STALL_FLAG, &p->status);
 
         if (unlikely(p->irqpend_himask != 0))
