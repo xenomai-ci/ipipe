@@ -69,7 +69,7 @@
 	({								\
 		int x = !ipipe_root_domain_p;                           \
 		__clear_bit(IPIPE_SYNC_FLAG, &ipipe_root_cpudom_var(status)); \
-		local_irq_enable_hw(); x;                               \
+		if (!x) local_irq_enable_hw(); x;			\
 	})
 
 #endif /* !CONFIG_IPIPE_WANT_PREEMPTIBLE_SWITCH */
