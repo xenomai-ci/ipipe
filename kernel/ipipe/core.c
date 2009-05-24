@@ -1736,7 +1736,6 @@ int __ipipe_check_percpu_access(void)
 	 * instance due to CPU migration; tell it to complain about
 	 * this.
 	 */
-	printk(KERN_ERR "I-pipe: unsafe per-CPU variable access detected.\n");
 	ret = 1;
 out:
 	local_irq_restore_hw(flags);
