@@ -51,6 +51,7 @@ static int rx_copybreak = 1518;
 #else
 static int rx_copybreak;
 #endif
+#endif
 
 /* Work-around for broken BIOSes: they are unable to get the chip back out of
    power state D3 so PXE booting fails. bootparam(7): via-rhine.avoid_D3=1 */
