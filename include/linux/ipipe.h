@@ -286,18 +286,6 @@ int __ipipe_send_ipi(unsigned ipi, cpumask_t cpumask);
 #define local_irq_restore_hw_smp(flags)		do { } while(0)
 #endif /* CONFIG_SMP */
 
-#define local_irq_enable_nohead(ipd)			\
-	do {						\
-		if (!__ipipe_pipeline_head_p(ipd))	\
-			local_irq_enable_hw();		\
-	} while(0)
-
-#define local_irq_disable_nohead(ipd)		\
-	do {						\
-		if (!__ipipe_pipeline_head_p(ipd))	\
-			local_irq_disable_hw();		\
-	} while(0)
-
 #define local_irq_save_full(vflags, rflags)		\
 	do {						\
 		local_irq_save(vflags);			\
