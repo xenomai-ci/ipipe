@@ -169,9 +169,11 @@ int smp_request_message_ipi(int virq, int msg)
 		return 1;
 	}
 #endif
+#ifdef CONFIG_IPIPE
 	if (msg == PPC_MSG_DEBUGGER_BREAK)
 		/* Piggyback the debugger IPI for the I-pipe. */
 		__ipipe_register_ipi(virq);
+#endif
 
 	err = request_irq(virq, smp_ipi_action[msg], IRQF_DISABLED|IRQF_PERCPU,
 			  smp_ipi_name[msg], 0);
