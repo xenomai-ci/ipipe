@@ -59,11 +59,15 @@
 	} while(0)
 
 #define task_hijacked(p)						\
-	( {								\
-		int x = __ipipe_root_domain_p;				\
-		clear_bit(IPIPE_SYNC_FLAG, &ipipe_root_cpudom_var(status)); \
-		!x;							\
-	} )
+	({								\
+		unsigned long __flags__;				\
+		int __x__;						\
+		local_irq_save_hw_smp(__flags__);			\
+		__x__ = __ipipe_root_domain_p;				\
+		__clear_bit(IPIPE_SYNC_FLAG, &ipipe_root_cpudom_var(status)); \
+		local_irq_restore_hw_smp(__flags__);			\
+		!__x__;							\
+	})
 
 #else /* !CONFIG_IPIPE_UNMASKED_CONTEXT_SWITCH */
 
@@ -74,11 +78,11 @@
 	} while(0)
 
 #define task_hijacked(p)						\
-	( {								\
-		int x = __ipipe_root_domain_p;				\
+	({								\
+		int __x__ = __ipipe_root_domain_p;			\
 		__clear_bit(IPIPE_SYNC_FLAG, &ipipe_root_cpudom_var(status)); \
-		if (x) local_irq_enable_hw(); !x;			\
-	} )
+		if (__x__) local_irq_enable_hw(); !__x__;		\
+	})
 
 #endif /* !CONFIG_IPIPE_UNMASKED_CONTEXT_SWITCH */
 
