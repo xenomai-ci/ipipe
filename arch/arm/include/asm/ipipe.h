@@ -191,7 +191,8 @@ static inline unsigned long __ipipe_ffnz(unsigned long ul)
  * deferred for the latter. */
 #define __ipipe_run_isr(ipd, irq)					\
 do {									\
-	local_irq_enable_nohead(ipd);					\
+	if (!__ipipe_pipeline_head_p(ipd))				\
+		local_irq_enable_hw();					\
 	if (ipd == ipipe_root_domain) {					\
 		if (likely(!ipipe_virtual_irq_p(irq)))			\
 			((void (*)(unsigned, struct pt_regs *))		\

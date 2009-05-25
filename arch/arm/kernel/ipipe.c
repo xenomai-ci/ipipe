@@ -235,6 +235,8 @@ void ipipe_critical_exit(unsigned long flags)
 	local_irq_restore_hw(flags);
 }
 
+#ifdef CONFIG_PREEMPT
+
 asmlinkage void __sched __ipipe_preempt_schedule_irq(void)
 {
 	extern asmlinkage void __sched preempt_schedule_irq(void);
@@ -262,8 +264,10 @@ asmlinkage void __sched __ipipe_preempt_schedule_irq(void)
 		sub_preempt_count(PREEMPT_ACTIVE);
 	}
 
-	local_irq_restore_nosync(flags);
+	__local_irq_restore_nosync(flags);
 }
+
+#endif	/* CONFIG_PREEMPT */
 
 asmlinkage int __ipipe_check_root(void)
 {
