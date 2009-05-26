@@ -1253,6 +1253,14 @@ _GLOBAL(ftrace_caller)
 	/* Based off of objdump optput from glibc */
 	stwu	r1,-48(r1)
 	stw	r3, 12(r1)
+        LOAD_REG_IMMEDIATE(r3, function_trace_stop)
+        lwz     r3, 0(r3)
+        cmpwi   r3, 0
+	lwz	r3, 12(r1)
+        beq     1f
+	addi	r1, r1, 48
+	blr
+1:
 	stw	r4, 16(r1)
 	stw	r5, 20(r1)
 	stw	r6, 24(r1)
@@ -1291,6 +1299,14 @@ _GLOBAL(mcount)
 _GLOBAL(_mcount)
 	stwu	r1,-48(r1)
 	stw	r3, 12(r1)
+        LOAD_REG_IMMEDIATE(r3, function_trace_stop)
+        lwz     r3, 0(r3)
+        cmpwi   r3, 0
+	lwz	r3, 12(r1)
+        beq     1f
+	addi	r1, r1, 48
+	blr
+1:
 	stw	r4, 16(r1)
 	stw	r5, 20(r1)
 	stw	r6, 24(r1)
