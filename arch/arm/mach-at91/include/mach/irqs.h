@@ -74,6 +74,8 @@ extern unsigned __ipipe_at91_gpio_banks;
 
 #endif /* CONFIG_ARCH_AT91X40 */
 
+/* #define __IPIPE_FEATURE_PIC_MUTE */
+
 #endif /* CONFIG_IPIPE && !__ASSEMBLY__ */
 
 #endif
