@@ -40,6 +40,8 @@ config IPIPE_TRACE_MCOUNT
 	bool "Instrument function entries"
 	default y
 	select FUNCTION_TRACER
+	select TRACING
+	select CONTEXT_SWITCH_TRACER
 	---help---
 	  When enabled, records every kernel function entry in the tracer
 	  log. While this slows down the system noticeably, it provides
