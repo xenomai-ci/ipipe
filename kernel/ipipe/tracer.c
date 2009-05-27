@@ -1329,10 +1329,9 @@ static int __ipipe_wr_enable(struct file *file, const char __user *buffer,
 	if (ipipe_trace_enable) {
 		if (!val)
 			unregister_ftrace_function(&ipipe_trace_ops);
-	} else if (val) {
-		ftrace_enabled = 1;
+	} else if (val)
 		register_ftrace_function(&ipipe_trace_ops);
-	}
+
 	ipipe_trace_enable = val;
 
 	mutex_unlock(&out_mutex);
@@ -1406,7 +1405,6 @@ void __init __ipipe_init_tracer(void)
 #ifdef CONFIG_IPIPE_TRACE_ENABLE
 	ipipe_trace_enable = 1;
 #ifdef CONFIG_IPIPE_TRACE_MCOUNT
-	ftrace_enabled = 1;
 	register_ftrace_function(&ipipe_trace_ops);
 #endif /* CONFIG_IPIPE_TRACE_MCOUNT */
 #endif /* CONFIG_IPIPE_TRACE_ENABLE */
