@@ -61,32 +61,24 @@ static inline void switch_mm(struct mm_struct *prev, struct mm_struct *next,
 	 */
 #ifdef CONFIG_IPIPE_UNMASKED_CONTEXT_SWITCH
 #ifdef CONFIG_PPC_STD_MMU_64
-	if (ipipe_root_domain_p) {
-		do {
-			per_cpu(ipipe_active_mm, cpu) = NULL; /* mm state is undefined. */
-			barrier();
-			if (cpu_has_feature(CPU_FTR_SLB))
-				switch_slb(tsk, next);
-			else
-				switch_stab(tsk, next);
-			barrier();
-			per_cpu(ipipe_active_mm, cpu) = next;
-		} while (test_and_clear_thread_flag(TIF_MMSWITCH_INT));
-	} else if (cpu_has_feature(CPU_FTR_SLB))
-		switch_slb(tsk, next);
-	else
-		switch_stab(tsk, next);
+	do {
+		per_cpu(ipipe_active_mm, cpu) = NULL; /* mm state is undefined. */
+		barrier();
+		if (cpu_has_feature(CPU_FTR_SLB))
+			switch_slb(tsk, next);
+		else
+			switch_stab(tsk, next);
+		barrier();
+		per_cpu(ipipe_active_mm, cpu) = next;
+	} while (test_and_clear_thread_flag(TIF_MMSWITCH_INT));
 #else
-	if (ipipe_root_domain_p) {
-		do {
-			per_cpu(ipipe_active_mm, cpu) = NULL; /* mm state is undefined. */
-			barrier();
-			switch_mmu_context(prev, next);
-			barrier();
-			per_cpu(ipipe_active_mm, cpu) = next;
-		} while (test_and_clear_thread_flag(TIF_MMSWITCH_INT));
-	} else
+	do {
+		per_cpu(ipipe_active_mm, cpu) = NULL; /* mm state is undefined. */
+		barrier();
 		switch_mmu_context(prev, next);
+		barrier();
+		per_cpu(ipipe_active_mm, cpu) = next;
+	} while (test_and_clear_thread_flag(TIF_MMSWITCH_INT));
 #endif
 #else /* !CONFIG_IPIPE_UNMASKED_CONTEXT_SWITCH */
 #ifdef CONFIG_PPC_STD_MMU_64
