@@ -27,6 +27,7 @@
 #ifdef CONFIG_IPIPE
 
 #include <linux/ipipe_percpu.h>
+#include <mach/irqs.h>		/* For __IPIPE_FEATURE_PIC_MUTE */
 
 #define IPIPE_ARCH_STRING	"1.12-00"
 #define IPIPE_MAJOR_NUMBER	1
@@ -165,7 +166,20 @@ int __ipipe_check_tickdev(const char *devname);
 
 void __ipipe_enable_irqdesc(struct ipipe_domain *ipd, unsigned irq);
 
+#ifndef __IPIPE_FEATURE_PIC_MUTE
 #define __ipipe_disable_irqdesc(ipd, irq) do { } while (0)
+#else /* __IPIPE_FEATURE_PIC_MUTE */
+
+typedef unsigned long
+__ipipe_irqbits_t[(NR_IRQS + BITS_PER_LONG - 1) / BITS_PER_LONG];
+extern __ipipe_irqbits_t __ipipe_irqbits;
+
+void __ipipe_disable_irqdesc(struct ipipe_domain *ipd, unsigned irq);
+
+void ipipe_mute_pic(void);
+
+void ipipe_unmute_pic(void);
+#endif /* __IPIPE_FEATURE_PIC_MUTE */
 
 void __ipipe_enable_pipeline(void);
 

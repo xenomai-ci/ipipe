@@ -47,6 +47,10 @@
 DEFINE_PER_CPU(struct pt_regs, __ipipe_tick_regs);
 DEFINE_PER_CPU(struct mm_struct *,ipipe_active_mm);
 EXPORT_PER_CPU_SYMBOL(ipipe_active_mm);
+#ifdef __IPIPE_FEATURE_PIC_MUTE
+__ipipe_irqbits_t __ipipe_irqbits;
+IPIPE_DEFINE_SPINLOCK(__ipipe_irqbits_lock);
+#endif /* __IPIPE_FEATURE_PIC_MUTE */
 
 extern struct irq_desc irq_desc[];
 asmlinkage void asm_do_IRQ(unsigned int irq, struct pt_regs *regs);
@@ -64,6 +68,7 @@ static atomic_t __ipipe_critical_count = ATOMIC_INIT(0);
 static void (*__ipipe_cpu_sync) (void);
 
 /* Always called with hw interrupts off. */
+
 
 void __ipipe_do_critical_sync(unsigned irq)
 {
@@ -139,8 +144,39 @@ static void __ipipe_ack_timerirq(unsigned irq, struct irq_desc *desc)
 
 void __ipipe_enable_irqdesc(struct ipipe_domain *ipd, unsigned irq)
 {
+	unsigned long flags;
 	irq_desc[irq].status &= ~IRQ_DISABLED;
+#ifdef __IPIPE_FEATURE_PIC_MUTE
+	if (ipd == &ipipe_root)
+		return;
+	
+	spin_lock_irqsave(&__ipipe_irqbits_lock, flags);
+	__ipipe_irqbits[irq / BITS_PER_LONG] &= ~(1 << (irq % BITS_PER_LONG));
+	spin_unlock_irqrestore(&__ipipe_irqbits_lock, flags);
+	printk("__ipipe_irqbits(after en)[%u]: 0x%08lx\n",
+	       irq / BITS_PER_LONG, __ipipe_irqbits[irq / BITS_PER_LONG]);
+#else
+	(void) flags;
+#endif /* __IPIPE_FEATURE_PIC_MUTE */
 }
+EXPORT_SYMBOL(__ipipe_enable_irqdesc);
+
+#ifdef __IPIPE_FEATURE_PIC_MUTE
+void __ipipe_disable_irqdesc(struct ipipe_domain *ipd, unsigned irq)
+{
+	unsigned long flags;
+
+	if (ipd == &ipipe_root)
+		return;
+	
+	spin_lock_irqsave(&__ipipe_irqbits_lock, flags);
+	__ipipe_irqbits[irq / BITS_PER_LONG] |= 1 << (irq % BITS_PER_LONG);
+	spin_unlock_irqrestore(&__ipipe_irqbits_lock, flags);
+	printk("__ipipe_irqbits(after dis)[%u]: 0x%08lx\n",
+	       irq / BITS_PER_LONG, __ipipe_irqbits[irq / BITS_PER_LONG]);
+}
+EXPORT_SYMBOL(__ipipe_disable_irqdesc);
+#endif /* __IPIPE_FEATURE_PIC_MUTE */
 
 /*
  * __ipipe_enable_pipeline() -- We are running on the boot CPU, hw
