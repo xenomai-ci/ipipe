@@ -53,6 +53,7 @@ extern void imx_irq_set_priority(unsigned char irq, unsigned char prio);
 extern int mxc_set_irq_fiq(unsigned int irq, unsigned int type);
 
 #ifdef CONFIG_IPIPE
+#include <mach/hardware.h>
 #ifdef CONFIG_ARCH_MX3
 #define __ipipe_mach_irq_mux_p(irq)				\
 	((irq) == MXC_INT_GPIO1					\
