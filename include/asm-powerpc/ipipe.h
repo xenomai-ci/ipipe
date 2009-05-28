@@ -49,11 +49,12 @@
 	} while(0)
 
 #define task_hijacked(p)						\
-	( {								\
-		int x = !ipipe_root_domain_p;				\
+	({								\
+		int __x__ = ipipe_root_domain_p;			\
 		__clear_bit(IPIPE_SYNC_FLAG, &ipipe_root_cpudom_var(status)); \
-		if (!x) local_irq_enable_hw(); x;			\
-	} )
+		if (__x__) local_irq_enable_hw();			\
+		!__x__;							\
+	})
 
 struct ipipe_domain;
 
