@@ -473,7 +473,11 @@ found_slot:
  *
  * We assume that there is a hash table in use (Hash != 0).
  */
+#ifdef CONFIG_IPIPE
+_GLOBAL(__flush_hash_pages)
+#else	
 _GLOBAL(flush_hash_pages)
+#endif	
 	tophys(r7,0)
 
 	/*
@@ -601,5 +605,5 @@ _GLOBAL(flush_hash_patch_B)
 
 19:	mtmsr	r10
 	SYNC_601
-	isync
+	sync
 	blr
