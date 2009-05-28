@@ -116,6 +116,10 @@ extern unsigned long disarm_decr[];
 
 void __ipipe_enable_irqdesc(struct ipipe_domain *ipd, unsigned irq);
 
+static inline void __ipipe_disable_irqdesc(struct ipipe_domain *ipd, unsigned irq)
+{
+}
+
 void __ipipe_init_platform(void);
 
 void __ipipe_enable_pipeline(void);
