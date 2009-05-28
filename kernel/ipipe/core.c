@@ -875,11 +875,13 @@ void fastcall __ipipe_sync_stage(unsigned long syncmask)
 				continue;
 
 			__set_bit(IPIPE_STALL_FLAG, &ipipe_this_cpudom_var(status));
+			barrier();
 
 			if (ipd == ipipe_root_domain)
 				trace_hardirqs_off();
 
 			__ipipe_run_isr(ipd, irq);
+			barrier();
 #ifdef CONFIG_SMP
 			{
 				int newcpu = ipipe_processor_id();
