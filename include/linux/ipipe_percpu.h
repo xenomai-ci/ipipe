@@ -60,6 +60,9 @@ DECLARE_PER_CPU(int, ipipe_percpu_context_check);
 #define ipipe_percpu(var, cpu)		per_cpu(var, cpu)
 #define ipipe_cpu_var(var)		__raw_get_cpu_var(var)
 
+#define ipipe_root_cpudom_ptr(var)	\
+	(&__raw_get_cpu_var(ipipe_percpu_darray)[0])
+
 #define ipipe_root_cpudom_var(var)	\
 	__raw_get_cpu_var(ipipe_percpu_darray)[0].var
 
