@@ -88,7 +88,7 @@ static void cpm2_mask_irq(unsigned int virq)
 	word = irq_to_siureg[irq_nr];
 
 	local_irq_save_hw_cond(flags);
-	ipipe_irq_lock(irq_nr);
+	ipipe_irq_lock(virq);
 	ppc_cached_irq_mask[word] &= ~(1 << bit);
 	out_be32(&cpm2_intctl->ic_simrh + word, ppc_cached_irq_mask[word]);
 	local_irq_restore_hw_cond(flags);
@@ -106,19 +106,24 @@ static void cpm2_unmask_irq(unsigned int virq)
 	local_irq_save_hw_cond(flags);
 	ppc_cached_irq_mask[word] |= 1 << bit;
 	out_be32(&cpm2_intctl->ic_simrh + word, ppc_cached_irq_mask[word]);
-	ipipe_irq_unlock(irq_nr);
+	ipipe_irq_unlock(virq);
 	local_irq_restore_hw_cond(flags);
 }
 
-static void cpm2_ack(unsigned int virq)
+static void cpm2_mask_ack(unsigned int virq)
 {
 	int	bit, word;
 	unsigned int irq_nr = virq_to_hw(virq);
+	unsigned long flags;
 
 	bit = irq_to_siubit[irq_nr];
 	word = irq_to_siureg[irq_nr];
 
+	local_irq_save_hw_cond(flags);
+	ppc_cached_irq_mask[word] &= ~(1 << bit);
+	out_be32(&cpm2_intctl->ic_simrh + word, ppc_cached_irq_mask[word]);
 	out_be32(&cpm2_intctl->ic_sipnrh + word, 1 << bit);
+	local_irq_restore_hw_cond(flags);
 }
 
 static void cpm2_end_irq(unsigned int virq)
@@ -138,7 +143,6 @@ static void cpm2_end_irq(unsigned int virq)
 
 		ppc_cached_irq_mask[word] |= 1 << bit;
 		out_be32(&cpm2_intctl->ic_simrh + word, ppc_cached_irq_mask[word]);
-		ipipe_irq_unlock(irq_nr);
 
 		/*
 		 * Work around large numbers of spurious IRQs on PowerPC 82xx
@@ -200,7 +204,7 @@ static struct irq_chip cpm2_pic = {
 	.typename = " CPM2 SIU ",
 	.mask = cpm2_mask_irq,
 	.unmask = cpm2_unmask_irq,
-	.ack = cpm2_ack,
+	.mask_ack = cpm2_mask_ack,
 	.eoi = cpm2_end_irq,
 	.set_type = cpm2_set_irq_type,
 };
