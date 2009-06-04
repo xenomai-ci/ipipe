@@ -34,7 +34,7 @@
 #define AT91_ID_TC0 AT91RM9200_ID_TC0
 #define AT91_ID_TC1 AT91RM9200_ID_TC1
 #define AT91_ID_TC2 AT91RM9200_ID_TC2
-#elif defined(CONFIG_ARCH_AT91SAM9260)
+#elif defined(CONFIG_ARCH_AT91SAM9260) || defined(CONFIG_ARCH_AT91SAM9G20)
 #define AT91_ID_TC0 AT91SAM9260_ID_TC0
 #define AT91_ID_TC1 AT91SAM9260_ID_TC1
 #define AT91_ID_TC2 AT91SAM9260_ID_TC2
@@ -338,7 +338,8 @@ void __init at91_timer_init(void)
 	at91_sys_write(AT91_ST_IDR, AT91_ST_PITS | AT91_ST_WDOVF | AT91_ST_RTTINC | AT91_ST_ALMS);
 	(void) at91_sys_read(AT91_ST_SR);	/* Clear any pending interrupts */
 #elif defined(CONFIG_ARCH_AT91SAM9260) || defined(CONFIG_ARCH_AT91SAM9261) \
-	|| defined(CONFIG_ARCH_AT91SAM9263) || defined(CONFIG_ARCH_AT91SAM9RL)
+	|| defined(CONFIG_ARCH_AT91SAM9263) || defined(CONFIG_ARCH_AT91SAM9RL) \
+	|| defined(CONFIG_ARCH_AT91SAM9G20)
 	at91_sys_write(AT91_PIT_MR, 0);
 
 	/* Clear any pending interrupts */
@@ -398,7 +399,8 @@ void __init at91_timer_init(void)
 #ifdef CONFIG_ARCH_AT91RM9200
 struct sys_timer at91rm9200_timer = {
 #elif defined(CONFIG_ARCH_AT91SAM9260) || defined(CONFIG_ARCH_AT91SAM9261) \
-	|| defined(CONFIG_ARCH_AT91SAM9263) || defined(CONFIG_ARCH_AT91SAM9RL)
+	|| defined(CONFIG_ARCH_AT91SAM9263) || defined(CONFIG_ARCH_AT91SAM9RL) \
+	|| defined(CONFIG_ARCH_AT91SAM9RL) || defined(CONFIG_ARCH_AT91SAM9G20)
 struct sys_timer at91sam926x_timer = {
 #elif defined(CONFIG_ARCH_AT91X40)
 struct sys_timer at91x40_timer = {
