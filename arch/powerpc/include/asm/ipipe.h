@@ -180,6 +180,15 @@ DECLARE_PER_CPU(struct pt_regs, __ipipe_tick_regs);
 
 void __ipipe_handle_irq(int irq, struct pt_regs *regs);
 
+static inline void ipipe_handle_chained_irq(unsigned int irq)
+{
+	struct pt_regs regs;	/* dummy */
+
+	ipipe_trace_irq_entry(irq);
+	__ipipe_handle_irq(irq, &regs);
+	ipipe_trace_irq_exit(irq);
+}
+
 struct irq_desc;
 void __ipipe_ack_level_irq(unsigned irq, struct irq_desc *desc);
 void __ipipe_end_level_irq(unsigned irq, struct irq_desc *desc);
@@ -234,6 +243,8 @@ do {									\
 #else /* !CONFIG_IPIPE */
 
 #define task_hijacked(p)	0
+
+#define ipipe_handle_chained_irq(irq)	generic_handle_irq(irq)
 
 #endif /* CONFIG_IPIPE */
 
