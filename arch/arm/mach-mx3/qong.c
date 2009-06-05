@@ -217,7 +217,7 @@ static void __init qong_init_nand_mtd(void)
 	/* write protect pin */
 	mxc_iomux_mode(IOMUX_MODE(MX31_PIN_NFWP_B, IOMUX_CONFIG_GPIO));
 	if (!gpio_request(IOMUX_TO_GPIO(MX31_PIN_NFWP_B), "nand_wp"))
-		gpio_direction_input(IOMUX_TO_GPIO(MX31_PIN_NFWP_B));
+		gpio_direction_out(IOMUX_TO_GPIO(MX31_PIN_NFWP_B), 1);
 
 	platform_device_register(&qong_nand_device);
 }
