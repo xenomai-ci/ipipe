@@ -1,7 +1,7 @@
 /*
  * linux/arch/arm/mach-at91/at91_ipipe_time.c
  *
- * Copyright (C) 2007 Gilles Chanteperdrix <gilles.chanteperdrix@laposte.net>
+ * Copyright (C) 2007 Gilles Chanteperdrix <gilles.chanteperdrix@xenomai.org>
  *
  * Adaptation to AT91SAM926x:
  * Copyright (C) 2007 Gregory CLEMENT, Adeneo
