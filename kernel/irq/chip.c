@@ -665,12 +665,10 @@ __set_irq_handler(unsigned int irq, irq_flow_handler_t handle, int is_chained,
 		desc->ipipe_ack = &__ipipe_ack_fasteoi_irq;
 		desc->ipipe_end = &__ipipe_end_fasteoi_irq;
 	}
-#ifdef CONFIG_SMP
 	else if (handle == &handle_percpu_irq) {
 		desc->ipipe_ack = &__ipipe_ack_percpu_irq;
 		desc->ipipe_end = &__ipipe_end_percpu_irq;
 	}
-#endif /* CONFIG_SMP */
 #endif /* CONFIG_IPIPE */
 	else if (desc->chip == &no_irq_chip) {
 		printk(KERN_WARNING "Trying to install %sinterrupt handler "
