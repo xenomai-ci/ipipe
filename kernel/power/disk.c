@@ -238,6 +238,7 @@ static int create_image(int platform_mode)
 		goto Enable_cpus;
 
 	local_irq_disable();
+	local_irq_disable_hw();
 
 	error = sysdev_suspend(PMSG_FREEZE);
 	if (error) {
@@ -267,6 +268,7 @@ static int create_image(int platform_mode)
 	 */
 
  Enable_irqs:
+	local_irq_enable_hw();
 	local_irq_enable();
 
  Enable_cpus:
