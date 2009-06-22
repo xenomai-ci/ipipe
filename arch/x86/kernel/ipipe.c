@@ -116,6 +116,9 @@ void smp_invalidate_interrupt(struct pt_regs *regs);
 void smp_call_function_interrupt(struct pt_regs *regs);
 void smp_call_function_single_interrupt(struct pt_regs *regs);
 void uv_bau_message_interrupt(struct pt_regs *regs);
+#ifdef CONFIG_X86_32
+void smp_thermal_interrupt(struct pt_regs *regs);
+#endif
 
 static void __ipipe_ack_irq(unsigned irq, struct irq_desc *desc)
 {
