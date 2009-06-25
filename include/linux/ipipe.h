@@ -654,6 +654,11 @@ static inline void __ipipe_pin_range_globally(unsigned long start,
 {
 }
 
+static inline int ipipe_test_foreign_stack(void)
+{
+	return 0;
+}
+
 #define local_irq_enable_hw_cond()		do { } while(0)
 #define local_irq_disable_hw_cond()		do { } while(0)
 #define local_irq_save_hw_cond(flags)		do { (void)(flags); } while(0)
