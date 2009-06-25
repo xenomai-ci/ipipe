@@ -567,7 +567,7 @@ static inline void ipipe_clear_foreign_stack(struct ipipe_domain *ipd)
 static inline int ipipe_test_foreign_stack(void)
 {
 	/* Must be called hw interrupts off. */
-	return __test_bit(IPIPE_NOSTACK_FLAG, &ipipe_this_cpudom_var(status));
+	return test_bit(IPIPE_NOSTACK_FLAG, &ipipe_this_cpudom_var(status));
 }
 
 #ifndef ipipe_safe_current
