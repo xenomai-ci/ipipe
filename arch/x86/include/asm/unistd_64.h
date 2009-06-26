@@ -658,6 +658,7 @@ __SYSCALL(__NR_preadv, sys_preadv)
 #define __NR_pwritev				296
 __SYSCALL(__NR_pwritev, sys_pwritev)
 
+#define NR_syscalls		297
 
 #ifndef __NO_STUBS
 #define __ARCH_WANT_OLD_READDIR

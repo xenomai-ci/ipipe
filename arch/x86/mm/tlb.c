@@ -193,6 +193,9 @@ static void flush_tlb_others_ipi(const struct cpumask *cpumask,
 	apic->send_IPI_mask(to_cpumask(f->flush_cpumask),
 		      INVALIDATE_TLB_VECTOR_START + sender);
 
+#ifdef CONFIG_IPIPE
+	WARN_ON_ONCE(irqs_disabled_hw()); 
+#endif
 	while (!cpumask_empty(to_cpumask(f->flush_cpumask)))
 		cpu_relax();
 

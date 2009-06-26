@@ -341,6 +341,8 @@
 #define __NR_preadv		333
 #define __NR_pwritev		334
 
+#define NR_syscalls		335
+
 #ifdef __KERNEL__
 
 #define __ARCH_WANT_IPC_PARSE_VERSION

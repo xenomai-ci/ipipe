@@ -32,6 +32,13 @@ extern void error_interrupt(void);
 extern void spurious_interrupt(void);
 extern void thermal_interrupt(void);
 extern void reschedule_interrupt(void);
+#ifdef CONFIG_IPIPE
+void ipipe_ipi0(void);
+void ipipe_ipi1(void);
+void ipipe_ipi2(void);
+void ipipe_ipi3(void);
+void ipipe_ipiX(void);
+#endif
 
 extern void invalidate_interrupt(void);
 extern void invalidate_interrupt0(void);
@@ -79,6 +86,7 @@ extern void eisa_set_level_irq(unsigned int irq);
 extern void smp_apic_timer_interrupt(struct pt_regs *);
 extern void smp_spurious_interrupt(struct pt_regs *);
 extern void smp_error_interrupt(struct pt_regs *);
+extern void smp_generic_interrupt(struct pt_regs *regs);
 #ifdef CONFIG_SMP
 extern void smp_reschedule_interrupt(struct pt_regs *);
 extern void smp_call_function_interrupt(struct pt_regs *);

@@ -59,13 +59,13 @@ static void x2apic_send_IPI_mask(const struct cpumask *mask, int vector)
 
 	x2apic_wrmsr_fence();
 
-	local_irq_save(flags);
+	local_irq_save_hw(flags);
 	for_each_cpu(query_cpu, mask) {
 		__x2apic_send_IPI_dest(
 			per_cpu(x86_cpu_to_logical_apicid, query_cpu),
 			vector, apic->dest_logical);
 	}
-	local_irq_restore(flags);
+	local_irq_restore_hw(flags);
 }
 
 static void
@@ -77,7 +77,7 @@ static void
 
 	x2apic_wrmsr_fence();
 
-	local_irq_save(flags);
+	local_irq_save_hw(flags);
 	for_each_cpu(query_cpu, mask) {
 		if (query_cpu == this_cpu)
 			continue;
@@ -85,7 +85,7 @@ static void
 				per_cpu(x86_cpu_to_logical_apicid, query_cpu),
 				vector, apic->dest_logical);
 	}
-	local_irq_restore(flags);
+	local_irq_restore_hw(flags);
 }
 
 static void x2apic_send_IPI_allbutself(int vector)
@@ -96,7 +96,7 @@ static void x2apic_send_IPI_allbutself(int vector)
 
 	x2apic_wrmsr_fence();
 
-	local_irq_save(flags);
+	local_irq_save_hw(flags);
 	for_each_online_cpu(query_cpu) {
 		if (query_cpu == this_cpu)
 			continue;
@@ -104,7 +104,7 @@ static void x2apic_send_IPI_allbutself(int vector)
 				per_cpu(x86_cpu_to_logical_apicid, query_cpu),
 				vector, apic->dest_logical);
 	}
-	local_irq_restore(flags);
+	local_irq_restore_hw(flags);
 }
 
 static void x2apic_send_IPI_all(int vector)

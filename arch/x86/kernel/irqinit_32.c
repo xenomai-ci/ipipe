@@ -151,11 +151,13 @@ void __init native_init_IRQ(void)
 	alloc_intr_gate(INVALIDATE_TLB_VECTOR_START+0, invalidate_interrupt0);
 	alloc_intr_gate(INVALIDATE_TLB_VECTOR_START+1, invalidate_interrupt1);
 	alloc_intr_gate(INVALIDATE_TLB_VECTOR_START+2, invalidate_interrupt2);
+#ifndef CONFIG_IPIPE
 	alloc_intr_gate(INVALIDATE_TLB_VECTOR_START+3, invalidate_interrupt3);
 	alloc_intr_gate(INVALIDATE_TLB_VECTOR_START+4, invalidate_interrupt4);
 	alloc_intr_gate(INVALIDATE_TLB_VECTOR_START+5, invalidate_interrupt5);
 	alloc_intr_gate(INVALIDATE_TLB_VECTOR_START+6, invalidate_interrupt6);
 	alloc_intr_gate(INVALIDATE_TLB_VECTOR_START+7, invalidate_interrupt7);
+#endif
 
 	/* IPI for generic function call */
 	alloc_intr_gate(CALL_FUNCTION_VECTOR, call_function_interrupt);
@@ -167,6 +169,10 @@ void __init native_init_IRQ(void)
 	/* Low priority IPI to cleanup after moving an irq */
 	set_intr_gate(IRQ_MOVE_CLEANUP_VECTOR, irq_move_cleanup_interrupt);
 	set_bit(IRQ_MOVE_CLEANUP_VECTOR, used_vectors);
+#ifdef CONFIG_IPIPE
+	/* IPI for critical lock */
+	set_intr_gate(IPIPE_CRITICAL_VECTOR, ipipe_ipiX);
+#endif
 #endif
 
 #ifdef CONFIG_X86_LOCAL_APIC
@@ -179,6 +185,12 @@ void __init native_init_IRQ(void)
 	/* IPI vectors for APIC spurious and error interrupts */
 	alloc_intr_gate(SPURIOUS_APIC_VECTOR, spurious_interrupt);
 	alloc_intr_gate(ERROR_APIC_VECTOR, error_interrupt);
+#ifdef CONFIG_IPIPE
+	set_intr_gate(IPIPE_SERVICE_VECTOR0, ipipe_ipi0);
+	set_intr_gate(IPIPE_SERVICE_VECTOR1, ipipe_ipi1);
+	set_intr_gate(IPIPE_SERVICE_VECTOR2, ipipe_ipi2);
+	set_intr_gate(IPIPE_SERVICE_VECTOR3, ipipe_ipi3);
+#endif
 #endif
 
 #if defined(CONFIG_X86_LOCAL_APIC) && defined(CONFIG_X86_MCE_P4THERMAL)
