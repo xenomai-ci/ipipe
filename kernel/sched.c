@@ -4874,6 +4874,7 @@ notrace unsigned long get_parent_ip(unsigned long addr)
 
 void __kprobes add_preempt_count(int val)
 {
+ 	ipipe_check_context(ipipe_root_domain);
 #ifdef CONFIG_DEBUG_PREEMPT
 	/*
 	 * Underflow?
@@ -5022,7 +5023,7 @@ pick_next_task(struct rq *rq)
 /*
  * schedule() is the main scheduler function.
  */
-asmlinkage void __sched __schedule(void)
+asmlinkage int __sched __schedule(void)
 {
 	struct task_struct *prev, *next;
 	unsigned long *switch_count;
@@ -5076,8 +5077,8 @@ need_resched_nonpreemptible:
 		rq->curr = next;
 		++*switch_count;
 
-		if (context_switch(rq, prev, next)) /* unlocks the rq unless hijacked */
-			return;
+		if (context_switch(rq, prev, next))
+			return 1; /* task hijacked by higher domain */
 		/*
 		 * the context switch might have flipped the stack from under
 		 * us, hence refresh the local variables.
@@ -5091,13 +5092,16 @@ need_resched_nonpreemptible:
 
 	if (unlikely(reacquire_kernel_lock(current) < 0))
 		goto need_resched_nonpreemptible;
+
+	return 0;
 }
 
 asmlinkage void __sched schedule(void)
 {
 need_resched:
 	preempt_disable();
-	__schedule();
+	if (__schedule())
+		return;
 	preempt_enable_no_resched();
 	if (unlikely(test_thread_flag(TIF_NEED_RESCHED)))
 		goto need_resched;
