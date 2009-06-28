@@ -42,6 +42,7 @@ config IPIPE_TRACE_MCOUNT
 	select FUNCTION_TRACER
 	select TRACING
 	select CONTEXT_SWITCH_TRACER
+ 	select DYNAMIC_FTRACE
 	---help---
 	  When enabled, records every kernel function entry in the tracer
 	  log. While this slows down the system noticeably, it provides

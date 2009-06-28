@@ -1699,14 +1699,14 @@ EXPORT_SYMBOL(ipipe_check_context);
 
 #if defined(CONFIG_IPIPE_DEBUG) && defined(CONFIG_SMP)
 
-int __ipipe_check_percpu_access(void)
+int notrace __ipipe_check_percpu_access(void)
 {
 	struct ipipe_percpu_domain_data *p;
 	struct ipipe_domain *this_domain;
 	unsigned long flags;
 	int ret = 0;
 
-	local_irq_save_hw(flags);
+	local_irq_save_hw_notrace(flags);
 
 	this_domain = __raw_get_cpu_var(ipipe_percpu_domain);
 
@@ -1738,7 +1738,7 @@ int __ipipe_check_percpu_access(void)
 	 */
 	ret = 1;
 out:
-	local_irq_restore_hw(flags);
+	local_irq_restore_hw_notrace(flags);
 
 	return ret;
 }
