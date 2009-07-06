@@ -15,7 +15,6 @@
 #include <linux/kernel.h>
 #include <linux/param.h>
 #include <linux/init.h>
-#include <linux/interrupt.h>
 #include <linux/io.h>
 #include <asm/machdep.h>
 #include <asm/coldfire.h>
@@ -230,6 +229,14 @@ void mcf_autovector(unsigned int vec)
 
 /***************************************************************************/
 
+static void m527x_cpu_reset(void)
+{
+	local_irq_disable();
+	__raw_writeb(MCF_RCR_SWRESET, MCF_IPSBAR + MCF_RCR);
+}
+
+/***************************************************************************/
+
 void __init config_BSP(char *commandp, int size)
 {
 	mcf_disableall();
@@ -243,10 +250,7 @@ void __init config_BSP(char *commandp, int size)
 	memset(commandp, 0, size);
 #endif
 
-	mach_sched_init = coldfire_pit_init;
-	mach_tick = coldfire_pit_tick;
-	mach_gettimeoffset = coldfire_pit_offset;
-	mach_reset = coldfire_reset;
+	mach_reset = m527x_cpu_reset;
 	m527x_uarts_init();
 	m527x_fec_init();
 }

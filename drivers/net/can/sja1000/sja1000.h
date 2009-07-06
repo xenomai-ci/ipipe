@@ -44,16 +44,13 @@
  *
  */
 
-#ifndef SJA1000DEV_H
-#define SJA1000DEV_H
+#ifndef SJA1000_DEV_H
+#define SJA1000_DEV_H
 
 #include <linux/can/dev.h>
+#include <linux/can/platform/sja1000.h>
 
-#define CHIP_NAME	"SJA1000"
-
-#define TX_TIMEOUT      (50*HZ/1000)	/* 50ms */
-#define RESTART_MS      100	/* restart chip on persistent errors in 100ms */
-#define MAX_BUS_ERRORS  200	/* prevent from flooding bus error interrupts */
+#define SJA1000_MAX_IRQ 20	/* max. number of interrupts handled in ISR */
 
 /* SJA1000 registers - manual section 6.4 (Pelican Mode) */
 #define REG_MOD		0x00
@@ -144,42 +141,34 @@
 #define ECC_STUFF	0x80
 #define ECC_MASK	0xc0
 
-/* clock divider register */
-#define CDR_CLKOUT_MASK 0x07
-#define CDR_CLK_OFF	0x08 /* Clock off (CLKOUT pin) */
-#define CDR_RXINPEN	0x20 /* TX1 output is RX irq output */
-#define CDR_CBP		0x40 /* CAN input comparator bypass */
-#define CDR_PELICAN	0x80 /* PeliCAN mode */
-
-/* output control register */
-#define OCR_MODE_BIPHASE  0x00
-#define OCR_MODE_TEST     0x01
-#define OCR_MODE_NORMAL   0x02
-#define OCR_MODE_CLOCK    0x03
-#define OCR_TX0_INVERT    0x04
-#define OCR_TX0_PULLDOWN  0x08
-#define OCR_TX0_PULLUP    0x10
-#define OCR_TX0_PUSHPULL  0x18
-#define OCR_TX1_INVERT    0x20
-#define OCR_TX1_PULLDOWN  0x40
-#define OCR_TX1_PULLUP    0x80
-#define OCR_TX1_PUSHPULL  0xc0
+/*
+ * Flags for sja1000priv.flags
+ */
+#define SJA1000_CUSTOM_IRQ_HANDLER 0x1
 
 /*
  * SJA1000 private data structure
  */
 struct sja1000_priv {
-	struct can_priv can;	/* must be the first member! */
-	long open_time;
+	struct can_priv can;	/* must be the first member */
+	int open_time;
 	struct sk_buff *echo_skb;
-	u8 (*read_reg) (struct net_device * dev, int reg);
-	void (*write_reg) (struct net_device * dev, int reg, u8 val);
-	void (*pre_irq) (struct net_device * dev);
-	void (*post_irq) (struct net_device * dev);
+
+	/* the lower-layer is responsible for appropriate locking */
+	u8 (*read_reg) (const struct sja1000_priv *priv, int reg);
+	void (*write_reg) (const struct sja1000_priv *priv, int reg, u8 val);
+	void (*pre_irq) (const struct sja1000_priv *priv);
+	void (*post_irq) (const struct sja1000_priv *priv);
+
 	void *priv;		/* for board-specific data */
 	struct net_device *dev;
-	u8 ocr;
-	u8 cdr;
+
+	void __iomem *reg_base;	 /* ioremap'ed address to registers */
+	unsigned long irq_flags; /* for request_irq() */
+
+	u16 flags;		/* custom mode flags */
+	u8 ocr;			/* output control register */
+	u8 cdr;			/* clock divider register */
 };
 
 struct net_device *alloc_sja1000dev(int sizeof_priv);
@@ -187,9 +176,6 @@ void free_sja1000dev(struct net_device *dev);
 int register_sja1000dev(struct net_device *dev);
 void unregister_sja1000dev(struct net_device *dev);
 
-#if 0
-void can_proc_create(const char *drv_name);
-void can_proc_remove(const char *drv_name);
-#endif
+irqreturn_t sja1000_interrupt(int irq, void *dev_id);
 
 #endif /* SJA1000_DEV_H */

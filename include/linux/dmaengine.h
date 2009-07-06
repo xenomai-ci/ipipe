@@ -90,11 +90,13 @@ enum dma_ctrl_flags {
 	DMA_CTRL_ACK = (1 << 1),
 	DMA_COMPL_SKIP_SRC_UNMAP = (1 << 2),
 	DMA_COMPL_SKIP_DEST_UNMAP = (1 << 3),
+	DMA_COMPL_SRC_UNMAP_SINGLE = (1 << 4),
+	DMA_COMPL_DEST_UNMAP_SINGLE = (1 << 5),
 
-	DMA_PREP_HAVE_P = (1 << 4),
-	DMA_PREP_HAVE_Q = (1 << 5),
-	DMA_PREP_ZERO_P = (1 << 6),
-	DMA_PREP_ZERO_Q = (1 << 7),
+	DMA_PREP_HAVE_P = (1 << 6),
+	DMA_PREP_HAVE_Q = (1 << 7),
+	DMA_PREP_ZERO_P = (1 << 8),
+	DMA_PREP_ZERO_Q = (1 << 9),
 };
 
 #define DMA_PCHECK_FAILED	(1 << 0)

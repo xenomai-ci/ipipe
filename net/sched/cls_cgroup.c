@@ -62,13 +62,7 @@ static u64 read_classid(struct cgroup *cgrp, struct cftype *cft)
 
 static int write_classid(struct cgroup *cgrp, struct cftype *cft, u64 value)
 {
-	if (!cgroup_lock_live_group(cgrp))
-		return -ENODEV;
-
 	cgrp_cls_state(cgrp)->classid = (u32) value;
-
-	cgroup_unlock();
-
 	return 0;
 }
 
@@ -166,6 +160,9 @@ static int cls_cgroup_change(struct tcf_proto *tp, unsigned long base,
 	struct tcf_ematch_tree t;
 	struct tcf_exts e;
 	int err;
+
+	if (!tca[TCA_OPTIONS])
+		return -EINVAL;
 
 	if (head == NULL) {
 		if (!handle)
