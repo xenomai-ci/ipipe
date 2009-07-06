@@ -31,9 +31,7 @@ struct mtd_part {
 	struct mtd_info mtd;
 	struct mtd_info *master;
 	uint64_t offset;
-	int index;
 	struct list_head list;
-	int registered;
 };
 
 /*
@@ -325,8 +323,7 @@ int del_mtd_partitions(struct mtd_info *master)
 	list_for_each_entry_safe(slave, next, &mtd_partitions, list)
 		if (slave->master == master) {
 			list_del(&slave->list);
-			if (slave->registered)
-				del_mtd_device(&slave->mtd);
+			del_mtd_device(&slave->mtd);
 			kfree(slave);
 		}
 
@@ -399,7 +396,7 @@ static struct mtd_part *add_one_partition(struct mtd_info *master,
 		slave->mtd.get_fact_prot_info = part_get_fact_prot_info;
 	if (master->sync)
 		slave->mtd.sync = part_sync;
-	if (!partno && master->suspend && master->resume) {
+	if (!partno && !master->dev.class && master->suspend && master->resume) {
 			slave->mtd.suspend = part_suspend;
 			slave->mtd.resume = part_resume;
 	}
@@ -416,7 +413,6 @@ static struct mtd_part *add_one_partition(struct mtd_info *master,
 	slave->mtd.erase = part_erase;
 	slave->master = master;
 	slave->offset = part->offset;
-	slave->index = partno;
 
 	if (slave->offset == MTDPART_OFS_APPEND)
 		slave->offset = cur_offset;
@@ -504,15 +500,9 @@ static struct mtd_part *add_one_partition(struct mtd_info *master,
 	}
 
 out_register:
-	if (part->mtdp) {
-		/* store the object pointer (caller may or may not register it*/
-		*part->mtdp = &slave->mtd;
-		slave->registered = 0;
-	} else {
-		/* register our partition */
-		add_mtd_device(&slave->mtd);
-		slave->registered = 1;
-	}
+	/* register our partition */
+	add_mtd_device(&slave->mtd);
+
 	return slave;
 }
 
