@@ -172,12 +172,11 @@ int console_blanked;
 
 static int vesa_blank_mode; /* 0:none 1:suspendV 2:suspendH 3:powerdown */
 #ifndef CONFIG_FB_PRE_INIT_FB
-static int blankinterval = 10*60*HZ;
+static int blankinterval = 10*60;
 #else
 static int blankinterval = 0;
 #endif
 static int vesa_off_interval;
-static int blankinterval = 10*60;
 core_param(consoleblank, blankinterval, int, 0444);
 
 static DECLARE_WORK(console_work, console_callback);
