@@ -57,10 +57,14 @@ static union smp_flush_state flush_state[NUM_INVALIDATE_TLB_VECTORS];
  */
 void leave_mm(int cpu)
 {
+	unsigned long flags;
+
 	if (percpu_read(cpu_tlbstate.state) == TLBSTATE_OK)
 		BUG();
+	local_irq_save_hw_cond(flags);
 	cpu_clear(cpu, percpu_read(cpu_tlbstate.active_mm)->cpu_vm_mask);
 	load_cr3(swapper_pg_dir);
+	local_irq_restore_hw_cond(flags);
 }
 EXPORT_SYMBOL_GPL(leave_mm);
 
