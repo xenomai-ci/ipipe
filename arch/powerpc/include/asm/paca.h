@@ -96,8 +96,12 @@ struct paca_struct {
 	u64 saved_r1;			/* r1 save for RTAS calls */
 	u64 saved_msr;			/* MSR saved here by enter_rtas */
 	u16 trap_save;			/* Used when bad stack is encountered */
+#ifdef CONFIG_SOFTDISABLE
 	u8 soft_enabled;		/* irq soft-enable flag */
 	u8 hard_enabled;		/* set if irqs are enabled in MSR */
+#elif CONFIG_IPIPE
+	u64 root_percpu;		/* Address of per_cpu data for the root domain */
+#endif
 	u8 io_sync;			/* writel() needs spin_unlock sync */
 
 	/* Stuff for accurate time accounting */
