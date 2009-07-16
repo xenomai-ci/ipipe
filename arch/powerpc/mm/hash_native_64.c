@@ -37,9 +37,9 @@
 #define HPTE_LOCK_BIT 3
 
 #ifdef CONFIG_PPC_PASEMI_A2_WORKAROUNDS
-DEFINE_SPINLOCK(native_tlbie_lock);
+IPIPE_DEFINE_SPINLOCK(native_tlbie_lock);
 #else
-static DEFINE_SPINLOCK(native_tlbie_lock);
+static IPIPE_DEFINE_SPINLOCK(native_tlbie_lock);
 #endif
 
 static inline void __tlbie(unsigned long va, int psize, int ssize)
@@ -137,7 +137,7 @@ static long native_hpte_insert(unsigned long hpte_group, unsigned long va,
 			unsigned long vflags, int psize, int ssize)
 {
 	struct hash_pte *hptep = htab_address + hpte_group;
-	unsigned long hpte_v, hpte_r;
+	unsigned long hpte_v, hpte_r, flags;
 	int i;
 
 	if (!(vflags & HPTE_V_BOLTED)) {
@@ -145,6 +145,8 @@ static long native_hpte_insert(unsigned long hpte_group, unsigned long va,
 			" rflags=%lx, vflags=%lx, psize=%d)\n",
 			hpte_group, va, pa, rflags, vflags, psize);
 	}
+
+	local_irq_save_hw(flags);
 
 	for (i = 0; i < HPTES_PER_GROUP; i++) {
 		if (! (hptep->v & HPTE_V_VALID)) {
@@ -158,8 +160,10 @@ static long native_hpte_insert(unsigned long hpte_group, unsigned long va,
 		hptep++;
 	}
 
-	if (i == HPTES_PER_GROUP)
+	if (i == HPTES_PER_GROUP) {
+		local_irq_restore_hw(flags);
 		return -1;
+	}
 
 #ifdef CONFIG_PPC_PASEMI_A2_WORKAROUNDS
 	/* Workaround for bug 4910: No non-guarded access over IOB */
@@ -184,6 +188,8 @@ static long native_hpte_insert(unsigned long hpte_group, unsigned long va,
 	 */
 	hptep->v = hpte_v;
 
+	local_irq_restore_hw(flags);
+
 	__asm__ __volatile__ ("ptesync" : : : "memory");
 
 	return i | (!!(vflags & HPTE_V_SECONDARY) << 3);
@@ -194,12 +200,14 @@ static long native_hpte_remove(unsigned long hpte_group)
 	struct hash_pte *hptep;
 	int i;
 	int slot_offset;
-	unsigned long hpte_v;
+	unsigned long hpte_v, flags;
 
 	DBG_LOW("    remove(group=%lx)\n", hpte_group);
 
 	/* pick a random entry to start at */
 	slot_offset = mftb() & 0x7;
+
+	local_irq_save_hw(flags);
 
 	for (i = 0; i < HPTES_PER_GROUP; i++) {
 		hptep = htab_address + hpte_group + slot_offset;
@@ -219,11 +227,15 @@ static long native_hpte_remove(unsigned long hpte_group)
 		slot_offset &= 0x7;
 	}
 
-	if (i == HPTES_PER_GROUP)
+	if (i == HPTES_PER_GROUP) {
+		local_irq_restore_hw(flags);
 		return -1;
+	}
 
 	/* Invalidate the hpte. NOTE: this also unlocks it */
 	hptep->v = 0;
+
+	local_irq_restore_hw(flags);
 
 	return i;
 }
@@ -233,13 +245,15 @@ static long native_hpte_updatepp(unsigned long slot, unsigned long newpp,
 				 int local)
 {
 	struct hash_pte *hptep = htab_address + slot;
-	unsigned long hpte_v, want_v;
+	unsigned long hpte_v, want_v, flags;
 	int ret = 0;
 
 	want_v = hpte_encode_v(va, psize, ssize);
 
 	DBG_LOW("    update(va=%016lx, avpnv=%016lx, hash=%016lx, newpp=%x)",
 		va, want_v & HPTE_V_AVPN, slot, newpp);
+
+	local_irq_save_hw(flags);
 
 	native_lock_hpte(hptep);
 
@@ -256,6 +270,8 @@ static long native_hpte_updatepp(unsigned long slot, unsigned long newpp,
 			(newpp & (HPTE_R_PP | HPTE_R_N | HPTE_R_C));
 	}
 	native_unlock_hpte(hptep);
+
+	local_irq_restore_hw(flags);
 
 	/* Ensure it is out of the tlb too. */
 	tlbie(va, psize, ssize, local);
@@ -327,9 +343,9 @@ static void native_hpte_invalidate(unsigned long slot, unsigned long va,
 	unsigned long want_v;
 	unsigned long flags;
 
-	local_irq_save(flags);
-
 	DBG_LOW("    invalidate(va=%016lx, hash: %x)\n", va, slot);
+
+	local_irq_save(flags);
 
 	want_v = hpte_encode_v(va, psize, ssize);
 	native_lock_hpte(hptep);

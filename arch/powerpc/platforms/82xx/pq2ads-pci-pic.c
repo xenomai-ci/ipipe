@@ -24,7 +24,7 @@
 
 #include "pq2.h"
 
-static DEFINE_SPINLOCK(pci_pic_lock);
+static IPIPE_DEFINE_SPINLOCK(pci_pic_lock);
 
 struct pq2ads_pci_pic {
 	struct device_node *node;
@@ -38,7 +38,34 @@ struct pq2ads_pci_pic {
 
 #define NUM_IRQS 32
 
+static inline void __pq2ads_pci_mask_irq(struct pq2ads_pci_pic *priv,
+					 unsigned int irq)
+{
+	setbits32(&priv->regs->mask, 1 << irq);
+	mb();
+}
+
+static inline void __pq2ads_pci_unmask_irq(struct pq2ads_pci_pic *priv,
+					   unsigned int irq)
+{
+	clrbits32(&priv->regs->mask, 1 << irq);
+}
+
 static void pq2ads_pci_mask_irq(unsigned int virq)
+{
+	struct pq2ads_pci_pic *priv = get_irq_chip_data(virq);
+	int irq = NUM_IRQS - virq_to_hw(virq) - 1;
+	unsigned long flags;
+
+	if (irq != -1) {
+		spin_lock_irqsave(&pci_pic_lock, flags);
+		__pq2ads_pci_mask_irq(priv, irq);
+		ipipe_irq_lock(virq);
+		spin_unlock_irqrestore(&pci_pic_lock, flags);
+	}
+}
+
+static void pq2ads_pci_mask_ack_irq(unsigned int virq)
 {
 	struct pq2ads_pci_pic *priv = get_irq_chip_data(virq);
 	int irq = NUM_IRQS - virq_to_hw(virq) - 1;
@@ -46,10 +73,7 @@ static void pq2ads_pci_mask_irq(unsigned int virq)
 	if (irq != -1) {
 		unsigned long flags;
 		spin_lock_irqsave(&pci_pic_lock, flags);
-
-		setbits32(&priv->regs->mask, 1 << irq);
-		mb();
-
+		__pq2ads_pci_mask_irq(priv, irq);
 		spin_unlock_irqrestore(&pci_pic_lock, flags);
 	}
 }
@@ -58,12 +82,12 @@ static void pq2ads_pci_unmask_irq(unsigned int virq)
 {
 	struct pq2ads_pci_pic *priv = get_irq_chip_data(virq);
 	int irq = NUM_IRQS - virq_to_hw(virq) - 1;
+	unsigned long flags;
 
 	if (irq != -1) {
-		unsigned long flags;
-
 		spin_lock_irqsave(&pci_pic_lock, flags);
-		clrbits32(&priv->regs->mask, 1 << irq);
+		__pq2ads_pci_unmask_irq(priv, irq);
+		ipipe_irq_unlock(virq);
 		spin_unlock_irqrestore(&pci_pic_lock, flags);
 	}
 }
@@ -73,7 +97,7 @@ static struct irq_chip pq2ads_pci_ic = {
 	.name = "PQ2 ADS PCI",
 	.end = pq2ads_pci_unmask_irq,
 	.mask = pq2ads_pci_mask_irq,
-	.mask_ack = pq2ads_pci_mask_irq,
+	.mask_ack = pq2ads_pci_mask_ack_irq,
 	.ack = pq2ads_pci_mask_irq,
 	.unmask = pq2ads_pci_unmask_irq,
 	.enable = pq2ads_pci_unmask_irq,
@@ -98,7 +122,7 @@ static void pq2ads_pci_irq_demux(unsigned int irq, struct irq_desc *desc)
 		for (bit = 0; pend != 0; ++bit, pend <<= 1) {
 			if (pend & 0x80000000) {
 				int virq = irq_linear_revmap(priv->host, bit);
-				generic_handle_irq(virq);
+				ipipe_handle_chained_irq(virq);
 			}
 		}
 	}

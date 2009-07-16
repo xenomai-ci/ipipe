@@ -49,7 +49,7 @@ struct uic {
 	int index;
 	int dcrbase;
 
-	spinlock_t lock;
+	ipipe_spinlock_t lock;
 
 	/* The remapper for this UIC */
 	struct irq_host	*irqhost;
@@ -71,6 +71,7 @@ static void uic_unmask_irq(unsigned int virq)
 	er = mfdcr(uic->dcrbase + UIC_ER);
 	er |= sr;
 	mtdcr(uic->dcrbase + UIC_ER, er);
+	ipipe_irq_unlock(virq);
 	spin_unlock_irqrestore(&uic->lock, flags);
 }
 
@@ -82,6 +83,7 @@ static void uic_mask_irq(unsigned int virq)
 	u32 er;
 
 	spin_lock_irqsave(&uic->lock, flags);
+	ipipe_irq_lock(virq);
 	er = mfdcr(uic->dcrbase + UIC_ER);
 	er &= ~(1 << (31 - src));
 	mtdcr(uic->dcrbase + UIC_ER, er);
@@ -239,7 +241,16 @@ void uic_irq_cascade(unsigned int virq, struct irq_desc *desc)
 	src = 32 - ffs(msr);
 
 	subvirq = irq_linear_revmap(uic->irqhost, src);
+#ifdef CONFIG_IPIPE
+	{
+		struct pt_regs regs;    /* Contents not used. */
+		ipipe_trace_irq_entry(subvirq);
+		__ipipe_handle_irq(subvirq, &regs);
+		ipipe_trace_irq_exit(subvirq);
+	}
+#else
 	generic_handle_irq(subvirq);
+#endif
 
 uic_irq_ret:
 	spin_lock(&desc->lock);
