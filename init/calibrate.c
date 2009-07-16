@@ -8,6 +8,7 @@
 #include <linux/delay.h>
 #include <linux/init.h>
 #include <linux/timex.h>
+#include <linux/nmi.h>
 #include <linux/smp.h>
 
 unsigned long lpj_fine;
@@ -139,6 +140,7 @@ void __cpuinit calibrate_delay(void)
 	} else {
 		loops_per_jiffy = (1<<12);
 
+		touch_nmi_watchdog();
 		printk(KERN_INFO "Calibrating delay loop... ");
 		while ((loops_per_jiffy <<= 1) != 0) {
 			/* wait for "start of" clock tick */
@@ -159,6 +161,7 @@ void __cpuinit calibrate_delay(void)
 		 */
 		loops_per_jiffy >>= 1;
 		loopbit = loops_per_jiffy;
+		touch_nmi_watchdog();
 		while (lps_precision-- && (loopbit >>= 1)) {
 			loops_per_jiffy |= loopbit;
 			ticks = jiffies;

@@ -15,6 +15,13 @@
 #include <linux/pci.h>
 #include <asm/pci-bridge.h>
 
+struct ranges_pci {
+	unsigned int pci_space;
+	u64 pci_addr;
+	phys_addr_t phys_addr;
+	u64 size;
+} __attribute__((packed));
+
 extern unsigned long isa_io_base;
 
 extern void pci_setup_phb_io(struct pci_controller *hose, int primary);

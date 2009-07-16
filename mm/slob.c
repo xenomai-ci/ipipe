@@ -60,7 +60,6 @@
 #include <linux/kernel.h>
 #include <linux/slab.h>
 #include <linux/mm.h>
-#include <linux/swap.h> /* struct reclaim_state */
 #include <linux/cache.h>
 #include <linux/init.h>
 #include <linux/module.h>
@@ -256,8 +255,6 @@ static void *slob_new_pages(gfp_t gfp, int order, int node)
 
 static void slob_free_pages(void *b, int order)
 {
-	if (current->reclaim_state)
-		current->reclaim_state->reclaimed_slab += 1 << order;
 	free_pages((unsigned long)b, order);
 }
 
@@ -410,7 +407,7 @@ static void slob_free(void *block, int size)
 		spin_unlock_irqrestore(&slob_lock, flags);
 		clear_slob_page(sp);
 		free_slob_page(sp);
-		slob_free_pages(b, 0);
+		free_page((unsigned long)b);
 		return;
 	}
 

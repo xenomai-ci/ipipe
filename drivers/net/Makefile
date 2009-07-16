@@ -39,6 +39,8 @@ obj-$(CONFIG_FSL_PQ_MDIO) += fsl_pq_mdio.o
 #
 obj-$(CONFIG_PLIP) += plip.o
 
+obj-$(CONFIG_KORINA) += korina.o
+
 obj-$(CONFIG_ROADRUNNER) += rrunner.o
 
 obj-$(CONFIG_HAPPYMEAL) += sunhme.o

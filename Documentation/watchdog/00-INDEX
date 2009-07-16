@@ -8,3 +8,5 @@ watchdog-api.txt
 	- description of the Linux Watchdog driver API.
 wdt.txt
 	- description of the Watchdog Timer Interfaces for Linux.
+wdt_chain.txt
+	- description of the Watchdog Chain Timer Interfaces for Linux.

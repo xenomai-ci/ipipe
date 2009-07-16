@@ -125,8 +125,12 @@
 	/*
 	 * Reserved space for exception handlers.
 	 * Necessary for machines which link their kernels at KSEG0.
+ 	 * Use as temporary storage for the kernel command line, so that it
+ 	 * can be updated easily without having to relink the kernel.
 	 */
-	.fill	0x400
+EXPORT(_image_cmdline)
+	.ascii "CMDLINE:"
+	.fill	0x3ec
 #endif
 
 EXPORT(_stext)

@@ -6,6 +6,26 @@
 
 menu "Miscellaneous I2C Chip support"
 
+config SENSORS_24C01A
+	tristate "24C01A EEPROM driver"
+	depends on I2C && EXPERIMENTAL
+	default n
+	help
+	  If you say yes here you get support for the 24C01A EEPROM driver.
+
+	  This driver can also be built as a module.  If so, the module
+	  will be called 24c01a.
+
+config SENSORS_AD7416
+	tristate "AD7416 temperature sensor"
+	depends on I2C && EXPERIMENTAL
+	default n
+	help
+	  If you say yes here you get support for the AD7416 temperature sensor.
+
+	  This driver can also be built as a module.  If so, the module
+	  will be called ad7416.
+
 config DS1682
 	tristate "Dallas DS1682 Total Elapsed Time Recorder with Alarm"
 	depends on EXPERIMENTAL

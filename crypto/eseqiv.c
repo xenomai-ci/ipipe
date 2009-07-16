@@ -153,8 +153,7 @@ static int eseqiv_givencrypt(struct skcipher_givcrypt_request *req)
 	if (err)
 		goto out;
 
-	if (giv != req->giv)
-		eseqiv_complete2(req);
+	eseqiv_complete2(req);
 
 out:
 	return err;

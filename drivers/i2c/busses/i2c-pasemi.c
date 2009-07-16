@@ -60,17 +60,37 @@ struct pasemi_smbus {
 #define CLK_100K_DIV	84
 #define CLK_400K_DIV	21
 
+#ifdef CONFIG_PPC_PASEMI_A2_WORKAROUNDS
+extern spinlock_t lbi_lock;
+#endif
+
 static inline void reg_write(struct pasemi_smbus *smbus, int reg, int val)
 {
+#ifdef CONFIG_PPC_PASEMI_A2_WORKAROUNDS
+	int flags;
+	dev_dbg(&smbus->dev->dev, "smbus write reg %lx val %08x\n",
+		smbus->base + reg, val);
+	spin_lock_irqsave(&lbi_lock, flags);
+	outl(val, smbus->base + reg);
+	spin_unlock_irqrestore(&lbi_lock, flags);
+#else
 	dev_dbg(&smbus->dev->dev, "smbus write reg %lx val %08x\n",
 		smbus->base + reg, val);
 	outl(val, smbus->base + reg);
+#endif
 }
 
 static inline int reg_read(struct pasemi_smbus *smbus, int reg)
 {
 	int ret;
+#ifdef CONFIG_PPC_PASEMI_A2_WORKAROUNDS
+	int flags;
+	spin_lock_irqsave(&lbi_lock, flags);
 	ret = inl(smbus->base + reg);
+	spin_unlock_irqrestore(&lbi_lock, flags);
+#else
+	ret = inl(smbus->base + reg);
+#endif
 	dev_dbg(&smbus->dev->dev, "smbus read reg %lx val %08x\n",
 		smbus->base + reg, ret);
 	return ret;

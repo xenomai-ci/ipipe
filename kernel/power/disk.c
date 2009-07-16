@@ -240,9 +240,9 @@ static int create_image(int platform_mode)
 	local_irq_disable();
 	local_irq_disable_hw_cond();
 
-	error = sysdev_suspend(PMSG_FREEZE);
+	sysdev_suspend(PMSG_FREEZE);
 	if (error) {
-		printk(KERN_ERR "PM: Some system devices failed to power down, "
+		printk(KERN_ERR "PM: Some devices failed to power down, "
 			"aborting hibernation\n");
 		goto Enable_irqs;
 	}

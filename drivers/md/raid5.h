@@ -215,13 +215,14 @@ struct stripe_head {
 	 * @target - STRIPE_OP_COMPUTE_BLK target
 	 */
 	struct stripe_operations {
-		int		   target;
+		int		   target, target2;
 		u32		   zero_sum_result;
 	} ops;
 	struct r5dev {
 		struct bio	req;
 		struct bio_vec	vec;
 		struct page	*page;
+		struct page	*dpage; /* direct pointer to a bio buffer */
 		struct bio	*toread, *read, *towrite, *written;
 		sector_t	sector;			/* sector of this page */
 		unsigned long	flags;
@@ -241,7 +242,7 @@ struct stripe_head_state {
 
 /* r6_state - extra state data only relevant to r6 */
 struct r6_state {
-	int p_failed, q_failed, failed_num[2];
+	int p_failed, q_failed, qd_idx, failed_num[2];
 };
 
 /* Flags */
@@ -264,6 +265,7 @@ struct r6_state {
 				    * filling
 				    */
 #define R5_Wantdrain	13 /* dev->towrite needs to be drained */
+#define R5_Skipped	14 /* SKIP_BIO_COPY completed */
 /*
  * Write method
  */
@@ -300,6 +302,8 @@ struct r6_state {
 #define STRIPE_OP_BIODRAIN	3
 #define STRIPE_OP_POSTXOR	4
 #define STRIPE_OP_CHECK	5
+#define STRIPE_OP_CHECK_PP	6
+#define STRIPE_OP_CHECK_QP	7
 
 /*
  * Plugging:

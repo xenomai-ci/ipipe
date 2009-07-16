@@ -26,6 +26,8 @@
 
 #include "fs_enet.h"
 
+MODULE_LICENSE("GPL");
+
 struct bb_info {
 	struct mdiobb_ctrl ctrl;
 	__be32 __iomem *dir;
