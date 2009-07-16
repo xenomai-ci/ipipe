@@ -1042,6 +1042,39 @@ mpc52xx_console_setup(struct console *co, char *options)
 	return uart_set_options(port, co, baud, parity, bits, flow);
 }
 
+#if defined(CONFIG_IPIPE_DEBUG) && defined(CONFIG_SERIAL_MPC52xx_CONSOLE)
+
+#include <stdarg.h>
+
+void __ipipe_serial_debug(const char *fmt, ...)
+{
+	struct uart_port *port = &mpc52xx_uart_ports[0];
+        unsigned long flags;
+        char buf[128], *p;
+        va_list ap;
+
+	if (!uart_console(port))
+		return;
+
+        va_start(ap, fmt);
+        vsnprintf(buf, sizeof(buf), fmt, ap);
+        va_end(ap);
+
+        local_irq_save_hw(flags);
+
+	mpc52xx_psc_raw_tx_rdy(port);
+
+	for (p = buf; *p; p++) {
+		if (*p == '\n')
+			mpc52xx_psc_write_char(port, '\r');
+		mpc52xx_psc_write_char(port, *p);
+	}
+
+        local_irq_restore_hw(flags);
+}
+EXPORT_SYMBOL(__ipipe_serial_debug);
+
+#endif
 
 static struct uart_driver mpc52xx_uart_driver;
 
