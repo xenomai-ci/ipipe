@@ -158,7 +158,6 @@ enum { KE_KEY, KE_END };
 static struct key_entry eeepc_keymap[] = {
 	/* Sleep already handled via generic ACPI code */
 	{KE_KEY, 0x10, KEY_WLAN },
-	{KE_KEY, 0x11, KEY_WLAN },
 	{KE_KEY, 0x12, KEY_PROG1 },
 	{KE_KEY, 0x13, KEY_MUTE },
 	{KE_KEY, 0x14, KEY_VOLUMEDOWN },
@@ -167,8 +166,6 @@ static struct key_entry eeepc_keymap[] = {
 	{KE_KEY, 0x1b, KEY_ZOOM },
 	{KE_KEY, 0x1c, KEY_PROG2 },
 	{KE_KEY, 0x1d, KEY_PROG3 },
-	{KE_KEY, NOTIFY_BRN_MIN,     KEY_BRIGHTNESSDOWN },
-	{KE_KEY, NOTIFY_BRN_MIN + 2, KEY_BRIGHTNESSUP },
 	{KE_KEY, 0x30, KEY_SWITCHVIDEOMODE },
 	{KE_KEY, 0x31, KEY_SWITCHVIDEOMODE },
 	{KE_KEY, 0x32, KEY_SWITCHVIDEOMODE },
@@ -384,13 +381,11 @@ static ssize_t show_sys_acpi(int cm, char *buf)
 EEEPC_CREATE_DEVICE_ATTR(camera, CM_ASL_CAMERA);
 EEEPC_CREATE_DEVICE_ATTR(cardr, CM_ASL_CARDREADER);
 EEEPC_CREATE_DEVICE_ATTR(disp, CM_ASL_DISPLAYSWITCH);
-EEEPC_CREATE_DEVICE_ATTR(cpufv, CM_ASL_CPUFV);
 
 static struct attribute *platform_attributes[] = {
 	&dev_attr_camera.attr,
 	&dev_attr_cardr.attr,
 	&dev_attr_disp.attr,
-	&dev_attr_cpufv.attr,
 	NULL
 };
 
@@ -517,21 +512,15 @@ static int eeepc_hotk_check(void)
 	return 0;
 }
 
-static int notify_brn(void)
+static void notify_brn(void)
 {
-	/* returns the *previous* brightness, or -1 */
 	struct backlight_device *bd = eeepc_backlight_device;
-	if (bd) {
-		int old = bd->props.brightness;
+	if (bd)
 		bd->props.brightness = read_brightness(bd);
-		return old;
-	}
-	return -1;
 }
 
 static void eeepc_rfkill_notify(acpi_handle handle, u32 event, void *data)
 {
-	enum rfkill_state state;
 	struct pci_dev *dev;
 	struct pci_bus *bus = pci_find_bus(0, 1);
 
@@ -543,9 +532,7 @@ static void eeepc_rfkill_notify(acpi_handle handle, u32 event, void *data)
 		return;
 	}
 
-	eeepc_wlan_rfkill_state(ehotk->eeepc_wlan_rfkill, &state);
-
-	if (state == RFKILL_STATE_UNBLOCKED) {
+	if (get_acpi(CM_ASL_WLAN) == 1) {
 		dev = pci_get_slot(bus, 0);
 		if (dev) {
 			/* Device already present */
@@ -565,41 +552,23 @@ static void eeepc_rfkill_notify(acpi_handle handle, u32 event, void *data)
 			pci_dev_put(dev);
 		}
 	}
-
-	rfkill_force_state(ehotk->eeepc_wlan_rfkill, state);
 }
 
 static void eeepc_hotk_notify(acpi_handle handle, u32 event, void *data)
 {
 	static struct key_entry *key;
 	u16 count;
-	int brn = -ENODEV;
 
 	if (!ehotk)
 		return;
 	if (event >= NOTIFY_BRN_MIN && event <= NOTIFY_BRN_MAX)
-		brn = notify_brn();
+		notify_brn();
 	count = ehotk->event_count[event % 128]++;
 	acpi_bus_generate_proc_event(ehotk->device, event, count);
 	acpi_bus_generate_netlink_event(ehotk->device->pnp.device_class,
 					dev_name(&ehotk->device->dev), event,
 					count);
 	if (ehotk->inputdev) {
-		if (brn != -ENODEV) {
-			/* brightness-change events need special
-			 * handling for conversion to key events
-			 */
-			if (brn < 0)
-				brn = event;
-			else
-				brn += NOTIFY_BRN_MIN;
-			if (event < brn)
-				event = NOTIFY_BRN_MIN; /* brightness down */
-			else if (event > brn)
-				event = NOTIFY_BRN_MIN + 2; /* ... up */
-			else
-				event = NOTIFY_BRN_MIN + 1; /* ... unchanged */
-		}
 		key = eepc_get_entry_by_scancode(event);
 		if (key) {
 			switch (key->type) {
@@ -680,9 +649,6 @@ static int eeepc_hotk_add(struct acpi_device *device)
 	if (ACPI_FAILURE(status))
 		printk(EEEPC_ERR "Error installing notify handler\n");
 
-	eeepc_register_rfkill_notifier("\\_SB.PCI0.P0P6");
-	eeepc_register_rfkill_notifier("\\_SB.PCI0.P0P7");
-
 	if (get_acpi(CM_ASL_WLAN) != -1) {
 		ehotk->eeepc_wlan_rfkill = rfkill_allocate(&device->dev,
 							   RFKILL_TYPE_WLAN);
@@ -738,6 +704,9 @@ static int eeepc_hotk_add(struct acpi_device *device)
 			goto bluetooth_fail;
 	}
 
+	eeepc_register_rfkill_notifier("\\_SB.PCI0.P0P6");
+	eeepc_register_rfkill_notifier("\\_SB.PCI0.P0P7");
+
 	return 0;
 
  bluetooth_fail:
@@ -748,8 +717,6 @@ static int eeepc_hotk_add(struct acpi_device *device)
  wlan_fail:
 	if (ehotk->eeepc_wlan_rfkill)
 		rfkill_free(ehotk->eeepc_wlan_rfkill);
-	eeepc_unregister_rfkill_notifier("\\_SB.PCI0.P0P6");
-	eeepc_unregister_rfkill_notifier("\\_SB.PCI0.P0P7");
  ehotk_fail:
 	kfree(ehotk);
 	ehotk = NULL;

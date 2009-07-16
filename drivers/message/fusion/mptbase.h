@@ -584,8 +584,8 @@ typedef struct _MPT_ADAPTER
 	SYSIF_REGS __iomem	*chip;		/* == c8817000 (mmap) */
 	SYSIF_REGS __iomem	*pio_chip;	/* Programmed IO (downloadboot) */
 	u8			 bus_type;
-	u32			 mem_phys;	/* == f4020000 (mmap) */
-	u32			 pio_mem_phys;	/* Programmed IO (downloadboot) */
+	resource_size_t		 mem_phys;	/* == f4020000 (mmap) */
+	resource_size_t		 pio_mem_phys;	/* Programmed IO (downloadboot) */
 	int			 mem_size;	/* mmap memory size */
 	int			 number_of_buses;
 	int			 devices_per_bus;
@@ -635,6 +635,7 @@ typedef struct _MPT_ADAPTER
 	int			bars;		/* bitmask of BAR's that must be configured */
 	int			msi_enable;
 	u8			__iomem *memmap;	/* mmap address */
+	u8			__iomem *portmap;	/* mmap address */
 	struct Scsi_Host	*sh;		/* Scsi Host pointer */
 	SpiCfgData		spi_data;	/* Scsi config. data */
 	RaidCfgData		raid_data;	/* Raid config. data */

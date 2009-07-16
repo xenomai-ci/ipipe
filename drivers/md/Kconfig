@@ -124,6 +124,8 @@ config MD_RAID456
 	select MD_RAID6_PQ
 	select ASYNC_MEMCPY
 	select ASYNC_XOR
+	select ASYNC_PQ
+	select ASYNC_R6RECOV
 	---help---
 	  A RAID-5 set of N drives with a capacity of C MB per drive provides
 	  the capacity of C * (N - 1) MB, and protects against a failure
@@ -151,6 +153,19 @@ config MD_RAID456
 	  will be called raid456.
 
 	  If unsure, say Y.
+
+config MD_RAID_SKIP_BIO_COPY
+	bool "Skip intermediate bio->cache copy"
+	depends on MD_RAID456
+	default n
+	---help---
+	  Skip intermediate data copying between the bio requested to write and
+	  the disk cache in <sh> if the full-stripe write operation is on the
+	  way. This might improve the performance of write operations in some
+	  dedicated cases but generally eliminating disk cache slows the
+	  performance down.
+
+	  If unsure, say N.
 
 config MD_RAID6_PQ
 	tristate

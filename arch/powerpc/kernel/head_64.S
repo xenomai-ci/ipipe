@@ -145,10 +145,32 @@ __secondary_hold:
 	std	r24,__secondary_hold_acknowledge-_stext(0)
 	sync
 
+#ifndef CONFIG_PPC_PASEMI_A2_WORKAROUNDS
+
 	/* All secondary cpus wait here until told to start. */
 100:	ld	r4,__secondary_hold_spinloop-_stext(0)
 	cmpdi	0,r4,0
 	beq	100b
+
+#else /* CONFIG_PPC_PASEMI_A2_WORKAROUNDS */
+
+#ifdef CONFIG_SMP
+	/* All secondary cpus wait here until told to start. */
+100:	ld	r4,__secondary_hold_spinloop@l(0)
+	cmpdi	0,r4,1
+	bne	100b
+#else
+	lis	r3, 0x40
+	mtctr	r3
+100:	bdnz	.
+	ptesync
+	ptesync
+	lis	r3, 0x40
+	mtctr	r3
+	b	100b
+#endif
+
+#endif /* CONFIG_PPC_PASEMI_A2_WORKAROUNDS */
 
 #if defined(CONFIG_SMP) || defined(CONFIG_KEXEC)
 	ld	r4,0(r4)		/* deref function descriptor */
@@ -1260,15 +1282,41 @@ _GLOBAL(generic_secondary_smp_init)
 2:	mtspr	SPRN_SPRG3,r13		/* Save vaddr of paca in SPRG3	 */
 	/* From now on, r24 is expected to be logical cpuid */
 	mr	r24,r5
+
+#ifdef CONFIG_PPC_PASEMI_A2_WORKAROUNDS
+	lis	r23, 0x40
+	mtctr	r23
+#endif
+
 3:	HMT_LOW
 	lbz	r23,PACAPROCSTART(r13)	/* Test if this processor should */
 					/* start.			 */
+#ifndef CONFIG_PPC_PASEMI_A2_WORKAROUNDS
+	sync
+#endif
 
 #ifndef CONFIG_SMP
 	b	3b			/* Never go on non-SMP		 */
 #else
 	cmpwi	0,r23,0
-	beq	3b			/* Loop until told to go	 */
+
+#ifndef CONFIG_PPC_PASEMI_A2_WORKAROUNDS
+	beq	3b			/* Loop until told to go	*/
+#else /* CONFIG_PPC_PASEMI_A2_WORKAROUNDS */
+	bne	5f			/* Loop until told to go	 */
+	isync
+
+4:	bdnz	3b
+	ptesync
+	isync
+	sync
+	ptesync
+	lis	r23, 0x40
+	mtctr	r23
+	b	3b
+
+5:
+#endif  /* CONFIG_PPC_PASEMI_A2_WORKAROUNDS */
 
 	sync				/* order paca.run and cur_cpu_spec */
 
