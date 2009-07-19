@@ -52,7 +52,7 @@ extern unsigned __ipipe_at91_gpio_banks;
 #define __ipipe_mach_irq_mux_p(irq)					\
 	((unsigned) (irq - AT91RM9200_ID_PIOA) < __ipipe_at91_gpio_banks)
 
-#elif defined(CONFIG_ARCH_AT91SAM9260)
+#elif defined(CONFIG_ARCH_AT91SAM9260) || defined(CONFIG_ARCH_AT91SAM9G20)
 #define __ipipe_mach_irq_mux_p(irq)					\
 	((unsigned) (irq - AT91SAM9260_ID_PIOA) < __ipipe_at91_gpio_banks)
 
