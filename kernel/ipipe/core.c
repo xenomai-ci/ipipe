@@ -310,7 +310,7 @@ void __ipipe_unstall_root(void)
 
         local_irq_disable_hw();
 
-#ifdef CONFIG_IPIPE_DEBUG
+#ifdef CONFIG_IPIPE_DEBUG_INTERNAL
 	/* This helps catching bad usage from assembly call sites. */
 	BUG_ON(!__ipipe_root_domain_p);
 #endif
@@ -327,7 +327,7 @@ void __ipipe_unstall_root(void)
 
 void __ipipe_restore_root(unsigned long x)
 {
-#ifdef CONFIG_IPIPE_DEBUG
+#ifdef CONFIG_IPIPE_DEBUG_INTERNAL
 	BUG_ON(!ipipe_root_domain_p);
 #endif
 
@@ -1697,7 +1697,7 @@ EXPORT_SYMBOL(ipipe_check_context);
 
 #endif /* CONFIG_IPIPE_DEBUG_CONTEXT */
 
-#if defined(CONFIG_IPIPE_DEBUG) && defined(CONFIG_SMP)
+#if defined(CONFIG_IPIPE_DEBUG_INTERNAL) && defined(CONFIG_SMP)
 
 int notrace __ipipe_check_percpu_access(void)
 {
@@ -1743,7 +1743,7 @@ out:
 	return ret;
 }
 
-#endif /* CONFIG_IPIPE_DEBUG && CONFIG_SMP */
+#endif /* CONFIG_IPIPE_DEBUG_INTERNAL && CONFIG_SMP */
 
 EXPORT_SYMBOL(ipipe_virtualize_irq);
 EXPORT_SYMBOL(ipipe_control_irq);
@@ -1780,7 +1780,7 @@ EXPORT_SYMBOL(ipipe_set_irq_affinity);
 EXPORT_SYMBOL(ipipe_send_ipi);
 EXPORT_SYMBOL(__ipipe_pend_irq);
 EXPORT_SYMBOL(__ipipe_set_irq_pending);
-#if defined(CONFIG_IPIPE_DEBUG) && defined(CONFIG_SMP)
+#if defined(CONFIG_IPIPE_DEBUG_INTERNAL) && defined(CONFIG_SMP)
 EXPORT_SYMBOL(__ipipe_check_percpu_access);
 #endif
 #ifdef CONFIG_GENERIC_CLOCKEVENTS

@@ -12,6 +12,15 @@ config IPIPE_DEBUG_CONTEXT
 	  Linux services a warning is issued if the caller is not
 	  running over the root domain.
 
+config IPIPE_DEBUG_INTERNAL
+	bool "Enable internal debug checks"
+	depends on IPIPE_DEBUG
+	default y
+	---help---
+	  When this feature is enabled, I-pipe will perform internal
+	  consistency checks of its subsystems, e.g. on per-cpu variable
+	  access.
+
 config IPIPE_TRACE
 	bool "Latency tracing"
 	depends on IPIPE_DEBUG

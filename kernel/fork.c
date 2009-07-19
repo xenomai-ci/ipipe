@@ -1670,11 +1670,14 @@ SYSCALL_DEFINE1(unshare, unsigned long, unshare_flags)
 		}
 
 		if (new_mm) {
+			unsigned long flags;
 			mm = current->mm;
 			active_mm = current->active_mm;
 			current->mm = new_mm;
+			ipipe_mm_switch_protect(flags);
 			current->active_mm = new_mm;
 			activate_mm(active_mm, new_mm);
+			ipipe_mm_switch_unprotect(flags);
 			new_mm = mm;
 		}
 

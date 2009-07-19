@@ -57,7 +57,7 @@ extern unsigned long __per_cpu_offset[NR_CPUS];
 	(*SHIFT_PERCPU_PTR(&per_cpu_var(var), __my_cpu_offset))
 
 #ifdef CONFIG_IPIPE
-#if defined(CONFIG_IPIPE_DEBUG) && defined(CONFIG_SMP)
+#if defined(CONFIG_IPIPE_DEBUG_INTERNAL) && defined(CONFIG_SMP)
 extern int __ipipe_check_percpu_access(void);
 #define __ipipe_local_cpu_offset				\
 	({							\
