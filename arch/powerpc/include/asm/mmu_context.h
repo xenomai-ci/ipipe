@@ -27,15 +27,15 @@ extern void set_context(unsigned long id, pgd_t *pgd);
  * switch_mm is the entry point called from the architecture independent
  * code in kernel/sched.c
  */
-static inline void switch_mm(struct mm_struct *prev, struct mm_struct *next,
-			     struct task_struct *tsk)
+static inline void __switch_mm(struct mm_struct *prev, struct mm_struct *next,
+			       struct task_struct *tsk)
 {
 	int cpu = smp_processor_id();
-#ifndef CONFIG_IPIPE_UNMASKED_CONTEXT_SWITCH
-	unsigned long flags;
 
-	local_irq_save_hw(flags);
-#endif /* !CONFIG_IPIPE_UNMASKED_CONTEXT_SWITCH */
+#if defined(CONFIG_IPIPE_DEBUG_INTERNAL) && \
+	!defined(CONFIG_IPIPE_UNMASKED_CONTEXT_SWITCH)
+	WARN_ON_ONCE(!irqs_disabled_hw());
+#endif
 	/* Mark this context has been used on the new CPU */
 	cpumask_set_cpu(cpu, mm_cpumask(next));
 
@@ -46,7 +46,7 @@ static inline void switch_mm(struct mm_struct *prev, struct mm_struct *next,
 
 	/* Nothing else to do if we aren't actually switching */
 	if (prev == next)
-		goto done;
+		return;
 
 	/* We must stop all altivec streams before changing the HW
 	 * context
@@ -91,7 +91,16 @@ static inline void switch_mm(struct mm_struct *prev, struct mm_struct *next,
 	switch_mmu_context(prev, next);
 #endif
 #endif /* !CONFIG_IPIPE_UNMASKED_CONTEXT_SWITCH */
-done:
+}
+
+static inline void switch_mm(struct mm_struct *prev, struct mm_struct *next,
+			     struct task_struct *tsk)
+{
+#ifndef CONFIG_IPIPE_UNMASKED_CONTEXT_SWITCH
+	unsigned long flags;
+	local_irq_save_hw(flags);
+#endif /* !CONFIG_IPIPE_UNMASKED_CONTEXT_SWITCH */
+	__switch_mm(prev, next, tsk);
 #ifndef CONFIG_IPIPE_UNMASKED_CONTEXT_SWITCH
 	local_irq_restore_hw(flags);
 #endif /* !CONFIG_IPIPE_UNMASKED_CONTEXT_SWITCH */
@@ -109,7 +118,7 @@ static inline void activate_mm(struct mm_struct *prev, struct mm_struct *next)
 	unsigned long flags;
 
 	local_irq_save(flags);
-	switch_mm(prev, next, current);
+	__switch_mm(prev, next, current);
 	local_irq_restore(flags);
 }
 
