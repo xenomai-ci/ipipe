@@ -124,7 +124,12 @@ END_FTR_SECTION_IFSET(CPU_FTR_VSX)
 _GLOBAL(giveup_fpu)
 #ifdef CONFIG_IPIPE
 	mfmsr	r6
+#ifdef CONFIG_PPC64	
+	rldicl	r5,r6,48,1		/* clear MSR_EE */
+	rotldi	r5,r5,16
+#else
 	rlwinm	r5,r6,0,17,15		/* clear MSR_EE */
+#endif	
 #else	
 	mfmsr	r5
 #endif	
@@ -171,7 +176,7 @@ END_FTR_SECTION_IFSET(CPU_FTR_VSX)
 	ori	r5,r5,MSR_EE
 	SYNC_601
 	ISYNC_601
-	mtmsr	r5
+	MTMSRD(r5)
 	SYNC_601
 	isync
 #endif
