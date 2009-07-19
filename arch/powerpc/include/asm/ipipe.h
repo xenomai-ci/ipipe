@@ -108,6 +108,21 @@ extern cpumask_t __ipipe_dbrk_pending;
 #ifdef CONFIG_IPIPE_UNMASKED_CONTEXT_SWITCH
 struct mm;
 DECLARE_PER_CPU(struct mm_struct *, ipipe_active_mm);
+#define ipipe_mm_switch_protect(flags)					\
+	do {								\
+		preempt_disable();					\
+		per_cpu(ipipe_active_mm, smp_processor_id()) = NULL;	\
+		barrier();						\
+		(void)(flags);						\
+	} while(0)
+#define ipipe_mm_switch_unprotect(flags)				\
+	do {								\
+		preempt_enable();					\
+		(void)(flags);						\
+	} while(0)
+#else
+#define ipipe_mm_switch_protect(flags)		local_irq_save_hw_cond(flags)
+#define ipipe_mm_switch_unprotect(flags)	local_irq_restore_hw_cond(flags)
 #endif
 
 #define ipipe_cpu_freq()	ppc_tb_freq
@@ -245,6 +260,9 @@ do {									\
 #define task_hijacked(p)	0
 
 #define ipipe_handle_chained_irq(irq)	generic_handle_irq(irq)
+
+#define ipipe_mm_switch_protect(flags)		do { (void)(flags); } while(0)
+#define ipipe_mm_switch_unprotect(flags)	do { (void)(flags); } while(0)
 
 #endif /* CONFIG_IPIPE */
 
