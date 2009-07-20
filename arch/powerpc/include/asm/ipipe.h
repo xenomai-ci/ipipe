@@ -50,7 +50,7 @@
 #define IPIPE_MINOR_NUMBER	6
 #define IPIPE_PATCH_NUMBER	3
 
-#ifdef CONFIG_IPIPE_UNMASKED_CONTEXT_SWITCH
+#ifdef CONFIG_IPIPE_WANT_PREEMPTIBLE_SWITCH
 
 #define prepare_arch_switch(next)			\
 	do {						\
@@ -69,7 +69,7 @@
 		!__x__;							\
 	})
 
-#else /* !CONFIG_IPIPE_UNMASKED_CONTEXT_SWITCH */
+#else /* !CONFIG_IPIPE_WANT_PREEMPTIBLE_SWITCH */
 
 #define prepare_arch_switch(next)			\
 	do {						\
@@ -84,7 +84,7 @@
 		if (__x__) local_irq_enable_hw(); !__x__;		\
 	})
 
-#endif /* !CONFIG_IPIPE_UNMASKED_CONTEXT_SWITCH */
+#endif /* !CONFIG_IPIPE_WANT_PREEMPTIBLE_SWITCH */
 
 struct ipipe_domain;
 
@@ -105,7 +105,7 @@ struct ipipe_sysinfo {
 extern cpumask_t __ipipe_dbrk_pending;
 #endif
 
-#ifdef CONFIG_IPIPE_UNMASKED_CONTEXT_SWITCH
+#ifdef CONFIG_IPIPE_WANT_PREEMPTIBLE_SWITCH
 struct mm;
 DECLARE_PER_CPU(struct mm_struct *, ipipe_active_mm);
 #define ipipe_mm_switch_protect(flags)					\
