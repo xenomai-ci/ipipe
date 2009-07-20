@@ -147,7 +147,7 @@ static __inline__ unsigned long __ipipe_test_root(void)
 
 #endif /* !__ASSEMBLY__ */
 
-#define __IPIPE_FEATURE_UNMASKED_CONTEXT_SWITCH  1
+#define __IPIPE_FEATURE_PREEMPTIBLE_SWITCH  1
 
 #endif /* CONFIG_IPIPE */
 

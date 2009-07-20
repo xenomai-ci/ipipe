@@ -33,7 +33,7 @@ static inline void __switch_mm(struct mm_struct *prev, struct mm_struct *next,
 	int cpu = smp_processor_id();
 
 #if defined(CONFIG_IPIPE_DEBUG_INTERNAL) && \
-	!defined(CONFIG_IPIPE_UNMASKED_CONTEXT_SWITCH)
+	!defined(CONFIG_IPIPE_WANT_PREEMPTIBLE_SWITCH)
 	WARN_ON_ONCE(!irqs_disabled_hw());
 #endif
 	/* Mark this context has been used on the new CPU */
@@ -59,7 +59,7 @@ static inline void __switch_mm(struct mm_struct *prev, struct mm_struct *next,
 	/* The actual HW switching method differs between the various
 	 * sub architectures.
 	 */
-#ifdef CONFIG_IPIPE_UNMASKED_CONTEXT_SWITCH
+#ifdef CONFIG_IPIPE_WANT_PREEMPTIBLE_SWITCH
 #ifdef CONFIG_PPC_STD_MMU_64
 	do {
 		per_cpu(ipipe_active_mm, cpu) = NULL; /* mm state is undefined. */
@@ -80,7 +80,7 @@ static inline void __switch_mm(struct mm_struct *prev, struct mm_struct *next,
 		per_cpu(ipipe_active_mm, cpu) = next;
 	} while (test_and_clear_thread_flag(TIF_MMSWITCH_INT));
 #endif
-#else /* !CONFIG_IPIPE_UNMASKED_CONTEXT_SWITCH */
+#else /* !CONFIG_IPIPE_WANT_PREEMPTIBLE_SWITCH */
 #ifdef CONFIG_PPC_STD_MMU_64
 	if (cpu_has_feature(CPU_FTR_SLB))
 		switch_slb(tsk, next);
@@ -90,20 +90,20 @@ static inline void __switch_mm(struct mm_struct *prev, struct mm_struct *next,
 	/* Out of line for now */
 	switch_mmu_context(prev, next);
 #endif
-#endif /* !CONFIG_IPIPE_UNMASKED_CONTEXT_SWITCH */
+#endif /* !CONFIG_IPIPE_WANT_PREEMPTIBLE_SWITCH */
 }
 
 static inline void switch_mm(struct mm_struct *prev, struct mm_struct *next,
 			     struct task_struct *tsk)
 {
-#ifndef CONFIG_IPIPE_UNMASKED_CONTEXT_SWITCH
+#ifndef CONFIG_IPIPE_WANT_PREEMPTIBLE_SWITCH
 	unsigned long flags;
 	local_irq_save_hw(flags);
-#endif /* !CONFIG_IPIPE_UNMASKED_CONTEXT_SWITCH */
+#endif /* !CONFIG_IPIPE_WANT_PREEMPTIBLE_SWITCH */
 	__switch_mm(prev, next, tsk);
-#ifndef CONFIG_IPIPE_UNMASKED_CONTEXT_SWITCH
+#ifndef CONFIG_IPIPE_WANT_PREEMPTIBLE_SWITCH
 	local_irq_restore_hw(flags);
-#endif /* !CONFIG_IPIPE_UNMASKED_CONTEXT_SWITCH */
+#endif /* !CONFIG_IPIPE_WANT_PREEMPTIBLE_SWITCH */
 	return;
 }
 

@@ -251,6 +251,11 @@ menu "Kernel options"
 
 source "kernel/ipipe/Kconfig"
 
+config IPIPE_HAVE_PREEMPTIBLE_SWITCH
+       bool
+       depends on IPIPE
+       default y
+
 if IPIPE
 config RUNLATCH
 	bool "Enable RUNLATCH support"

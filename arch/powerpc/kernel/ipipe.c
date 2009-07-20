@@ -47,7 +47,7 @@ static void __ipipe_do_IRQ(unsigned irq, void *cookie);
 static void __ipipe_do_timer(unsigned irq, void *cookie);
 
 DEFINE_PER_CPU(struct pt_regs, __ipipe_tick_regs);
-#ifdef CONFIG_IPIPE_UNMASKED_CONTEXT_SWITCH
+#ifdef CONFIG_IPIPE_WANT_PREEMPTIBLE_SWITCH
 DEFINE_PER_CPU(struct mm_struct *, ipipe_active_mm);
 EXPORT_PER_CPU_SYMBOL(ipipe_active_mm);
 #endif
