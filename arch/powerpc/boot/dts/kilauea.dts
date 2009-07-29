@@ -229,7 +229,7 @@
 				#size-cells = <0>;
 				rtc@68 {
 					compatible = "dallas,ds1338";
-					reg = <68>;
+					reg = <0x68>;
 				};
 			};
 
