@@ -309,6 +309,16 @@ EXPORT_SYMBOL_GPL(async_xor_zero_sum);
 
 static int __init async_xor_init(void)
 {
+	#ifdef CONFIG_ASYNC_TX_DMA
+	/* To conserve stack space the input src_list (array of page pointers)
+	 * is reused to hold the array of dma addresses passed to the driver.
+	 * This conversion is only possible when dma_addr_t is less than the
+	 * the size of a pointer.  HIGHMEM64G is known to violate this
+	 * assumption.
+	 */
+	BUILD_BUG_ON(sizeof(dma_addr_t) > sizeof(struct page *));
+	#endif
+
 	return 0;
 }
 
