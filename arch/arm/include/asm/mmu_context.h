@@ -132,8 +132,8 @@ enter_lazy_tlb(struct mm_struct *mm, struct task_struct *tsk)
  * actually changed.
  */
 static inline void
-switch_mm(struct mm_struct *prev, struct mm_struct *next,
-	  struct task_struct *tsk)
+__switch_mm(struct mm_struct *prev, struct mm_struct *next,
+	    struct task_struct *tsk)
 {
 #ifdef CONFIG_MMU
 	unsigned int cpu = smp_processor_id_hw();
@@ -170,6 +170,20 @@ switch_mm(struct mm_struct *prev, struct mm_struct *next,
 			cpu_clear(cpu, fcse_tlb_mask(prev));
 	}
 #endif
+}
+
+static inline void
+switch_mm(struct mm_struct *prev, struct mm_struct *next,
+	  struct task_struct *tsk)
+{
+#ifndef CONFIG_IPIPE_WANT_PREEMPTIBLE_SWITCH
+	unsigned long flags;
+	local_irq_save_hw(flags);
+#endif /* !CONFIG_IPIPE_WANT_PREEMPTIBLE_SWITCH */
+	__switch_mm(prev, next, tsk);
+#ifndef CONFIG_IPIPE_WANT_PREEMPTIBLE_SWITCH
+	local_irq_restore_hw(flags);
+#endif /* !CONFIG_IPIPE_WANT_PREEMPTIBLE_SWITCH */
 }
 
 #define deactivate_mm(tsk,mm)	do { } while (0)

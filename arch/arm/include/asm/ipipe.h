@@ -58,6 +58,20 @@
 		x;							\
 	})
 
+#define ipipe_mm_switch_protect(flags)					\
+	do {								\
+		preempt_disable();					\
+		per_cpu(ipipe_active_mm, smp_processor_id()) = NULL;    \
+		barrier();						\
+		(void)(flags);						\
+	} while(0)
+
+#define ipipe_mm_switch_unprotect(flags)	\
+	do {					\
+		preempt_enable();		\
+		(void)(flags);			\
+	} while(0)
+
 #else /* !CONFIG_IPIPE_WANT_PREEMPTIBLE_SWITCH */
 
 #define prepare_arch_switch(next)			\
@@ -72,6 +86,12 @@
 		__clear_bit(IPIPE_SYNC_FLAG, &ipipe_root_cpudom_var(status)); \
 		if (!x) local_irq_enable_hw(); x;			\
 	})
+
+#define ipipe_mm_switch_protect(flags) \
+        local_irq_save_hw_cond(flags)
+
+#define ipipe_mm_switch_unprotect(flags) \
+	local_irq_restore_hw_cond(flags)
 
 #endif /* !CONFIG_IPIPE_WANT_PREEMPTIBLE_SWITCH */
 
@@ -237,6 +257,16 @@ do {									\
 #define ipipe_update_tick_evtdev(evtdev)	do { } while (0)
 
 #define smp_processor_id_hw()		smp_processor_id()
+
+#define ipipe_mm_switch_protect(flags) \
+	do {					\
+		(void) (flags);			\
+	} while (0)
+
+#define ipipe_mm_switch_unprotect(flags)	\
+	do {					\
+		(void) (flags);			\
+	} while (0)
 
 #endif /* CONFIG_IPIPE */
 
