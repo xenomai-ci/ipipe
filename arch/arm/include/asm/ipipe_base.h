@@ -23,6 +23,7 @@
 #define __ARM_IPIPE_BASE_H
 
 #include <linux/threads.h>
+#include <asm/ptrace.h>
 #include <asm/irq.h>
 
 #define IPIPE_NR_XIRQS		NR_IRQS
