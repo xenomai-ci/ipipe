@@ -236,27 +236,26 @@ static void pxa_gpio_demux_handler(unsigned int irq, struct irq_desc *desc)
 #ifdef CONFIG_IPIPE
 void __ipipe_mach_demux_irq(unsigned irq, struct pt_regs *regs)
 {
-	int loop, bit, n;
-	unsigned long gedr[4];
+	struct pxa_gpio_chip *c;
+	int loop, gpio, gpio_base, n;
+	unsigned long gedr;
 
 	do {
-		gedr[0] = GEDR0 & GPIO_IRQ_mask[0] & ~3;
-		gedr[1] = GEDR1 & GPIO_IRQ_mask[1];
-		gedr[2] = GEDR2 & GPIO_IRQ_mask[2];
-		gedr[3] = GEDR3 & GPIO_IRQ_mask[3];
-
-		GEDR0 = gedr[0]; GEDR1 = gedr[1];
-		GEDR2 = gedr[2]; GEDR3 = gedr[3];
-
 		loop = 0;
-		bit = find_first_bit(gedr, GEDR_BITS);
-		while (bit < GEDR_BITS) {
-			loop = 1;
+		for_each_gpio_chip(gpio, c) {
+			gpio_base = c->chip.base;
 
-			n = PXA_GPIO_IRQ_BASE + bit;
-			__ipipe_handle_irq(n, regs);
+			gedr = __raw_readl(c->regbase + GEDR_OFFSET);
+			gedr = gedr & c->irq_mask;
+			__raw_writel(gedr, c->regbase + GEDR_OFFSET);
 
-			bit = find_next_bit(gedr, GEDR_BITS, bit + 1);
+			n = find_first_bit(&gedr, BITS_PER_LONG);
+			while (n < BITS_PER_LONG) {
+				loop = 1;
+
+				__ipipe_handle_irq(gpio_base + n, regs);
+				n = find_next_bit(&gedr, BITS_PER_LONG, n + 1);
+			}
 		}
 	} while (loop);
 }
