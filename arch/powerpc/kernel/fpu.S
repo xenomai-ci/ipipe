@@ -94,7 +94,17 @@ _GLOBAL(load_up_fpu)
  * Enables the FPU for use in the kernel on return.
  */
 _GLOBAL(giveup_fpu)
+#ifdef CONFIG_IPIPE
+	mfmsr	r6
+#ifdef CONFIG_PPC64	
+	rldicl	r5,r6,48,1		/* clear MSR_EE */
+	rotldi	r5,r5,16
+#else
+	rlwinm	r5,r6,0,17,15		/* clear MSR_EE */
+#endif	
+#else	
 	mfmsr	r5
+#endif	
 	ori	r5,r5,MSR_FP
 	SYNC_601
 	ISYNC_601
@@ -102,7 +112,7 @@ _GLOBAL(giveup_fpu)
 	SYNC_601
 	isync
 	PPC_LCMPI	0,r3,0
-	beqlr-				/* if no previous owner, done */
+	beq-	2f			/* if no previous owner, done */
 	addi	r3,r3,THREAD	        /* want THREAD of task */
 	PPC_LL	r5,PT_REGS(r3)
 	PPC_LCMPI	0,r5,0
@@ -120,6 +130,18 @@ _GLOBAL(giveup_fpu)
 	LOAD_REG_ADDRBASE(r4,last_task_used_math)
 	PPC_STL	r5,ADDROFF(last_task_used_math)(r4)
 #endif /* CONFIG_SMP */
+2:
+#ifdef CONFIG_IPIPE		/* restore interrupt state */
+	andi.	r6,r6,MSR_EE
+	beqlr
+	mfmsr	r5
+	ori	r5,r5,MSR_EE
+	SYNC_601
+	ISYNC_601
+	MTMSRD(r5)
+	SYNC_601
+	isync
+#endif
 	blr
 
 /*
