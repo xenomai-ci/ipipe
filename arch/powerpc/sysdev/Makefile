@@ -61,3 +61,7 @@ ifeq ($(CONFIG_USB_DWC_OTG),y)
 obj-$(CONFIG_CANYONLANDS)	+= amcc-usbotg.o
 obj-$(CONFIG_KILAUEA)		+= amcc-usbotg.o
 endif
+
+ifeq ($(CONFIG_SATA_DWC),y)
+obj-$(CONFIG_CANYONLANDS)	+= amcc-sata.o
+endif
