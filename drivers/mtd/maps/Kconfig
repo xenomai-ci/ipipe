@@ -284,19 +284,6 @@ config MTD_L440GX
 
 	  BE VERY CAREFUL.
 
-config MTD_SBC8240
-	tristate "Flash device on SBC8240"
-	depends on MTD_JEDECPROBE && 8260
-	help
-          Flash access on the SBC8240 board from Wind River.  See
-          <http://www.windriver.com/products/sbc8240/>
-
-config MTD_PM82X
-        tristate "Flash device on PM82X Boards"
-        depends on PPC32 && 6xx && 8260 && MTD_COMPLEX_MAPPINGS && MTD_PARTITIONS
-        help
-          Flash access on the PM82X boards from Microsys.
-
 config MTD_TQM8XXL
 	tristate "CFI Flash device mapped on TQM8XXL"
 	depends on MTD_CFI && TQM8xxL
