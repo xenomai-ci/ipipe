@@ -56,3 +56,8 @@ obj-$(CONFIG_PPC_MPC52xx)	+= mpc5xxx_clocks.o
 ifeq ($(CONFIG_SUSPEND),y)
 obj-$(CONFIG_6xx)		+= 6xx-suspend.o
 endif
+
+ifeq ($(CONFIG_USB_DWC_OTG),y)
+obj-$(CONFIG_CANYONLANDS)	+= amcc-usbotg.o
+obj-$(CONFIG_KILAUEA)		+= amcc-usbotg.o
+endif
