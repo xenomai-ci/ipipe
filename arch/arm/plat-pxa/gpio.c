@@ -253,7 +253,8 @@ void __ipipe_mach_demux_irq(unsigned irq, struct pt_regs *regs)
 			while (n < BITS_PER_LONG) {
 				loop = 1;
 
-				__ipipe_handle_irq(gpio_base + n, regs);
+				__ipipe_handle_irq(
+					gpio_to_irq(gpio_base + n), regs);
 				n = find_next_bit(&gedr, BITS_PER_LONG, n + 1);
 			}
 		}
