@@ -296,6 +296,7 @@ void __ipipe_mach_acktimer(void)
 {
 	unsigned tstat = IMX_TSTAT(TIMER_BASE);
 	IMX_TSTAT(TIMER_BASE) = 0;
+	(void) tstat;
 }
 
 static void ipipe_mach_update_tsc(void)
