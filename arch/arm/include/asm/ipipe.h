@@ -29,10 +29,10 @@
 #include <linux/ipipe_percpu.h>
 #include <mach/irqs.h>		/* For __IPIPE_FEATURE_PIC_MUTE */
 
-#define IPIPE_ARCH_STRING	"1.14-01"
+#define IPIPE_ARCH_STRING	"1.14-02"
 #define IPIPE_MAJOR_NUMBER	1
 #define IPIPE_MINOR_NUMBER	14
-#define IPIPE_PATCH_NUMBER	1
+#define IPIPE_PATCH_NUMBER	2
 
 #ifdef CONFIG_SMP
 #error "I-pipe/arm: SMP not yet implemented"
