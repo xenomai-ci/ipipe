@@ -63,6 +63,8 @@ struct task_struct *last_task_used_spe = NULL;
  */
 void flush_fp_to_thread(struct task_struct *tsk)
 {
+	unsigned long flags;
+
 	if (tsk->thread.regs) {
 		/*
 		 * We need to disable preemption here because if we didn't,
@@ -72,7 +74,7 @@ void flush_fp_to_thread(struct task_struct *tsk)
 		 * FPU, and then when we get scheduled again we would store
 		 * bogus values for the remaining FP registers.
 		 */
-		preempt_disable();
+		ipipe_preempt_disable(flags);
 		if (tsk->thread.regs->msr & MSR_FP) {
 #ifdef CONFIG_SMP
 			/*
@@ -86,13 +88,13 @@ void flush_fp_to_thread(struct task_struct *tsk)
 #endif
 			giveup_fpu(current);
 		}
-		preempt_enable();
+		ipipe_preempt_enable(flags);
 	}
 }
 
 void enable_kernel_fp(void)
 {
-	WARN_ON(preemptible());
+	WARN_ON(ipipe_root_domain_p && preemptible());
 
 #ifdef CONFIG_SMP
 	if (current->thread.regs && (current->thread.regs->msr & MSR_FP))
@@ -177,15 +179,17 @@ EXPORT_SYMBOL(enable_kernel_spe);
 
 void flush_spe_to_thread(struct task_struct *tsk)
 {
+ 	unsigned long flags;
+ 
 	if (tsk->thread.regs) {
-		preempt_disable();
+		ipipe_preempt_disable(flags);
 		if (tsk->thread.regs->msr & MSR_SPE) {
 #ifdef CONFIG_SMP
 			BUG_ON(tsk != current);
 #endif
 			giveup_spe(current);
 		}
-		preempt_enable();
+ 		ipipe_preempt_enable(flags);
 	}
 }
 
