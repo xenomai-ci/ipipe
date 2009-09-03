@@ -296,6 +296,7 @@ int32_t dwc_otg_pcd_handle_rx_status_q_level_intr(dwc_otg_pcd_t * _pcd)
 				__le16_to_cpu(_pcd->setup_pkt->req.wLength));
 
 #endif	/*  */
+
 		ep->dwc_ep.xfer_count += status.b.bcnt;
 		break;
 	default:
@@ -478,7 +479,15 @@ int32_t dwc_otg_pcd_handle_np_tx_fifo_empty_intr(dwc_otg_pcd_t * _pcd)
 	gintsts.d32 = 0;
 	gintsts.b.nptxfempty = 1;
 	dwc_write_reg32(&global_regs->gintsts, gintsts.d32);
+
+	/*
+	 * Re-enable tx-fifo empty interrupt, if packets are still
+	 * pending
+	 */
+	if (len)
+		dwc_modify_reg32(&global_regs->gintmsk, 0, gintsts.d32);
 #endif
+
 	return 1;
 }
 

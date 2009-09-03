@@ -96,6 +96,22 @@ void request_done(dwc_otg_pcd_ep_t * _ep, dwc_otg_pcd_request_t * _req,
 {
 	unsigned stopped = _ep->stopped;
 	DWC_DEBUGPL(DBG_PCDV, "%s(%p)\n", __func__, _ep);
+
+	if (_req->mapped) {
+		dma_unmap_single(_ep->pcd->gadget.dev.parent,
+			_req->req.dma, _req->req.length,
+			_ep->dwc_ep.is_in
+				? DMA_TO_DEVICE
+				: DMA_FROM_DEVICE);
+		_req->req.dma = DMA_ADDR_INVALID;
+		_req->mapped = 0;
+	} else
+		dma_sync_single_for_cpu(_ep->pcd->gadget.dev.parent,
+			_req->req.dma, _req->req.length,
+			_ep->dwc_ep.is_in
+				? DMA_TO_DEVICE
+				: DMA_FROM_DEVICE);
+
 	list_del_init(&_req->queue);
 	if (_req->req.status == -EINPROGRESS) {
 		_req->req.status = _status;
@@ -393,6 +409,7 @@ static int dwc_otg_pcd_ep_queue(struct usb_ep *_ep, struct usb_request *_req,
 	dwc_otg_pcd_ep_t * ep;
 	dwc_otg_pcd_t * pcd;
 	unsigned long flags = 0;
+
 	DWC_DEBUGPL(DBG_PCDV, "%s(%p,%p,%d)\n", __func__, _ep, _req,
 		      _gfp_flags);
 	req = container_of(_req, dwc_otg_pcd_request_t, req);
@@ -435,6 +452,24 @@ static int dwc_otg_pcd_ep_queue(struct usb_ep *_ep, struct usb_request *_req,
 	if (ep->dwc_ep.num == 0 && ep->dwc_ep.is_in) {
 		DWC_DEBUGPL(DBG_PCDV, "%s-OUT ZLP\n", _ep->name);
 	    //_req->zero = 1;
+	}
+
+	/* map virtual address to hardware */
+	if (_req->dma == DMA_ADDR_INVALID) {
+		_req->dma = dma_map_single(ep->pcd->gadget.dev.parent,
+					  _req->buf,
+					  _req->length,
+					  ep->dwc_ep.is_in
+					  ? DMA_TO_DEVICE :
+					  DMA_FROM_DEVICE);
+		req->mapped = 1;
+	} else {
+		dma_sync_single_for_device(ep->pcd->gadget.dev.parent,
+					   _req->dma, _req->length,
+					   ep->dwc_ep.is_in
+					   ? DMA_TO_DEVICE :
+					   DMA_FROM_DEVICE);
+		req->mapped = 0;
 	}
 
 	/* Start the transfer */
@@ -1156,7 +1191,7 @@ int  __init  dwc_otg_pcd_init(struct device *_dev)
 	otg_dev->pcd = pcd;
 	s_pcd = pcd;
 	pcd->gadget.name = pcd_name;
-	strcpy(pcd->gadget.dev.bus_id, "gadget");
+	dev_set_name(&pcd->gadget.dev, "gadget");
 	pcd->otg_dev = dev_get_drvdata(_dev);
 	pcd->gadget.dev.parent = _dev;
 	pcd->gadget.dev.release = dwc_otg_pcd_gadget_release;
@@ -1230,9 +1265,9 @@ int  __init  dwc_otg_pcd_init(struct device *_dev)
 	 * Initialize the DMA buffer for SETUP packets
 	 */
 	if (GET_CORE_IF(pcd)->dma_enable) {
-		pcd->setup_pkt = dma_alloc_coherent(NULL, sizeof(*pcd->setup_pkt) * 5,
+		pcd->setup_pkt = dma_alloc_coherent(_dev, sizeof(*pcd->setup_pkt) * 5,
 				       &pcd->setup_pkt_dma_handle, 0);
-		pcd->status_buf = dma_alloc_coherent(NULL, sizeof(uint16_t),
+		pcd->status_buf = dma_alloc_coherent(_dev, sizeof(uint16_t),
 				       &pcd->status_buf_dma_handle, 0);
 	} else {
 		pcd->setup_pkt =  kmalloc(sizeof(*pcd->setup_pkt) * 5, GFP_KERNEL);
@@ -1301,8 +1336,7 @@ int usb_gadget_register_driver(struct usb_gadget_driver *_driver)
 	DWC_DEBUGPL(DBG_PCD, "registering gadget driver '%s'\n",
 		      _driver->driver.name);
 	if (!_driver || _driver->speed == USB_SPEED_UNKNOWN || !_driver->bind
-	      || !_driver->unbind || !_driver->disconnect
-	      || !_driver->setup) {
+	      || !_driver->disconnect || !_driver->setup) {
 		DWC_DEBUGPL(DBG_PCDV, "EINVAL\n");
 #if 1
 		printk("_driver=0x%p speed=0x%x bind=0x%p unbind=0x%p disconnect=0x%p setup=0x%p\n", _driver,  _driver->speed, _driver->bind, _driver->unbind, _driver->disconnect,  _driver->setup);

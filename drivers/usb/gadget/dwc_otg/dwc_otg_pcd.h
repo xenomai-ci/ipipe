@@ -192,6 +192,7 @@ typedef struct dwc_otg_pcd {
 typedef struct dwc_otg_pcd_request {
 	struct usb_request	req; /**< USB Request. */
 	struct list_head	queue;	/**< queue of these requests. */
+	unsigned mapped:1;
 } dwc_otg_pcd_request_t;
 
 

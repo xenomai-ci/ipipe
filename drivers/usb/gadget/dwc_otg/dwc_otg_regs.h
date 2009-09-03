@@ -431,7 +431,7 @@ typedef union gintmsk_data                  //*
                 unsigned ptxfempty : 1;
                 unsigned hcintr : 1;
                 unsigned portintr : 1;
-                unsigned reserved23_22 : 2;
+                unsigned reserved22_23 : 2;
                 unsigned incomplisoout : 1;
                 unsigned incomplisoin : 1;
                 unsigned outepintr : 1;
