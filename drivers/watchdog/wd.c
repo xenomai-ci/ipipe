@@ -883,13 +883,13 @@ static int process_mon_chains(void)
 					"%d...\n", entry->chainid);
 				sig = (entry->signal) ? entry->signal : SIGTERM;
 				if (entry->pid)
-					kill_proc(entry->pid, sig, 1);
+					kill_proc_info(sig, SEND_SIG_PRIV, entry->pid);
 				break;
 			case WD_ACTION_KILL:
 				debugk("WD: sending KILL signal for key "
 					"%d...\n", entry->chainid);
 				if (entry->pid)
-					kill_proc(entry->pid, SIGKILL, 1);
+					kill_proc_info(SIGKILL, SEND_SIG_PRIV, entry->pid);
 				break;
 			case WD_ACTION_REBOOT:
 				spin_unlock(&mon_lock);
