@@ -1073,6 +1073,12 @@ config MUCMC52_IO
 	help
 	  driver for the GPIOs on the mucmc52 board.
 
+config UC101_IO
+	tristate "UC101 IO driver"
+	depends on PPC32
+	help
+	  driver for the GPIOs on the UC101 board.
+
 config SRAM
 	tristate "SRAM driver"
 	depends on PPC32
