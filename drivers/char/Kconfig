@@ -1055,6 +1055,12 @@ config BOOTCOUNT
 	help
 	  The UBoot Bootcount driver ...
 
+config DISPLAY_PDSP1880
+	tristate "PDSP1880 Display driver"
+	depends on PPC32
+	help
+	  driver for the PDSP1880 Display on manroland boards
+
 config MUCMC52_IO
 	tristate "MUCMC52 IO driver"
 	depends on PPC32
