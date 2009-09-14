@@ -343,6 +343,8 @@
 #define __NR_rt_tgsigqueueinfo	335
 #define __NR_perf_counter_open	336
 
+#define NR_syscalls		338
+
 #ifdef __KERNEL__
 
 #define __ARCH_WANT_IPC_PARSE_VERSION

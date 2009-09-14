@@ -84,8 +84,8 @@ void math_emulate(struct math_emu_info *);
 #ifdef CONFIG_X86_32
 unsigned long patch_espfix_desc(unsigned long, unsigned long);
 #else
-asmlinkage void smp_thermal_interrupt(void);
 asmlinkage void mce_threshold_interrupt(void);
 #endif
+asmlinkage void smp_thermal_interrupt(void);
 
 #endif /* _ASM_X86_TRAPS_H */
