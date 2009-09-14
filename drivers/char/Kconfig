@@ -1067,6 +1067,12 @@ config MUCMC52_IO
 	help
 	  driver for the GPIOs on the mucmc52 board.
 
+config SRAM
+	tristate "SRAM driver"
+	depends on PPC32
+	help
+	  driver to access a SRAM.
+
 config HPET
 	bool "HPET - High Precision Event Timer" if (X86 || IA64)
 	default n

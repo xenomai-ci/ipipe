@@ -100,6 +100,7 @@ obj-$(CONFIG_TELCLOCK)		+= tlclk.o
 obj-$(CONFIG_BOOTCOUNT)		+= bootcount.o
 obj-$(CONFIG_MUCMC52_IO)	+= mucmc52_io.o
 obj-$(CONFIG_DISPLAY_PDSP1880)	+= display_pdsp1880.o
+obj-$(CONFIG_SRAM)		+= sram.o
 
 obj-$(CONFIG_PPC405EZ_ADC)	+= ppc405ez_adc.o
 obj-$(CONFIG_PPC405EZ_DAC)	+= ppc405ez_dac.o
