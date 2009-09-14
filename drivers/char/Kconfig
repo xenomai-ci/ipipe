@@ -1061,6 +1061,12 @@ config DISPLAY_PDSP1880
 	help
 	  driver for the PDSP1880 Display on manroland boards
 
+config	PROCNAME_ON_PDSP1880
+	tristate "Process Name on PDSP1880 Display"
+	depends on DISPLAY_PDSP1880
+	help
+	  shows actual Process Name on the PDSP1880 Display
+
 config MUCMC52_IO
 	tristate "MUCMC52 IO driver"
 	depends on PPC32

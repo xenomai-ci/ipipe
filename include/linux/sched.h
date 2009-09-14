@@ -1511,6 +1511,9 @@ struct task_struct {
 	/* bitmask of trace recursion */
 	unsigned long trace_recursion;
 #endif /* CONFIG_TRACING */
+#if defined(CONFIG_PROCNAME_ON_PDSP1880)
+	char pname[8]; /* 8 characters from the ProcessName for the Display */
+#endif
 };
 
 /* Future-safe accessor for struct task_struct's cpus_allowed. */

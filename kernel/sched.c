@@ -80,6 +80,9 @@
 #define CREATE_TRACE_POINTS
 #include <trace/events/sched.h>
 
+#if defined(CONFIG_PROCNAME_ON_PDSP1880)
+extern char *display_buf;
+#endif
 /*
  * Convert user-nice values [ -20 ... 0 ... 19 ]
  * to static priority [ MAX_RT_PRIO..MAX_PRIO-1 ],
@@ -2837,6 +2840,15 @@ context_switch(struct rq *rq, struct task_struct *prev,
 	spin_release(&rq->lock.dep_map, 1, _THIS_IP_);
 #endif
 
+#if defined(CONFIG_PROCNAME_ON_PDSP1880)
+	if (display_buf != NULL) {
+		if (next->mm == NULL) {
+			display_buf[0] = 'K';
+		} else {
+			memcpy (display_buf, next->pname, 8);
+		}
+	}
+#endif
 	/* Here we just switch the register state and the stack. */
 	switch_to(prev, next, prev);
 

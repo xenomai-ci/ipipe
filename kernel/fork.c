@@ -72,6 +72,10 @@
 
 #include <trace/events/sched.h>
 
+#if defined(CONFIG_PROCNAME_ON_PDSP1880)
+int proc_pid_cmdline(struct task_struct *task, char * buffer);
+#endif
+
 /*
  * Protected counters by write_lock_irq(&tasklist_lock)
  */
@@ -1451,6 +1455,17 @@ long do_fork(unsigned long clone_flags,
 			freezer_count();
 			tracehook_report_vfork_done(p, nr);
 		}
+#if defined(CONFIG_PROCNAME_ON_PDSP1880)
+		{
+			char    temp[400];
+			temp[0] = 0;
+			proc_pid_cmdline (p, temp);
+			if (temp[0] != 0) {
+				p->pname[0] = 'U';
+				memcpy (&p->pname[1], temp, 7);
+			}
+		}
+#endif
 	} else {
 		nr = PTR_ERR(p);
 	}

@@ -1289,6 +1289,10 @@ int do_execve(char * filename,
 	struct files_struct *displaced;
 	bool clear_in_exec;
 	int retval;
+#if defined(CONFIG_PROCNAME_ON_PDSP1880)
+	char    *p;
+	int     i;
+#endif
 
 	retval = unshare_files(&displaced);
 	if (retval)
@@ -1359,6 +1363,23 @@ int do_execve(char * filename,
 	current->in_execve = 0;
 	acct_update_integrals(current);
 	free_bprm(bprm);
+#if defined(CONFIG_PROCNAME_ON_PDSP1880)
+	if ((p = strrchr (filename, '/')) != NULL) {
+		++p;
+	} else {
+		p = filename;
+	}
+	if (*p) {
+		current->pname[0] = 'U';
+		for (i = 1; i < 8; ++i) {
+			if (*p) {
+				current->pname[i] = *p++;
+			} else {
+				current->pname[i] = ' ';
+			}
+		}
+	}
+#endif
 	if (displaced)
 		put_files_struct(displaced);
 	return retval;
