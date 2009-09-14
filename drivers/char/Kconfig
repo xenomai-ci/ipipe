@@ -1055,6 +1055,12 @@ config BOOTCOUNT
 	help
 	  The UBoot Bootcount driver ...
 
+config MUCMC52_IO
+	tristate "MUCMC52 IO driver"
+	depends on PPC32
+	help
+	  driver for the GPIOs on the mucmc52 board.
+
 config HPET
 	bool "HPET - High Precision Event Timer" if (X86 || IA64)
 	default n
