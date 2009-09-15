@@ -689,3 +689,8 @@ void __init kmem_cache_init(void)
 {
 	slob_ready = 1;
 }
+
+void __init kmem_cache_init_late(void)
+{
+	/* Nothing to do */
+}

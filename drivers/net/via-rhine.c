@@ -413,7 +413,8 @@ static int  mdio_read(struct net_device *dev, int phy_id, int location);
 static void mdio_write(struct net_device *dev, int phy_id, int location, int value);
 static int  rhine_open(struct net_device *dev);
 static void rhine_tx_timeout(struct net_device *dev);
-static int  rhine_start_tx(struct sk_buff *skb, struct net_device *dev);
+static netdev_tx_t rhine_start_tx(struct sk_buff *skb,
+				  struct net_device *dev);
 static irqreturn_t rhine_interrupt(int irq, void *dev_instance);
 static void rhine_tx(struct net_device *dev);
 static int rhine_rx(struct net_device *dev, int limit);
@@ -1218,7 +1219,8 @@ static void rhine_tx_timeout(struct net_device *dev)
 	netif_wake_queue(dev);
 }
 
-static int rhine_start_tx(struct sk_buff *skb, struct net_device *dev)
+static netdev_tx_t rhine_start_tx(struct sk_buff *skb,
+				  struct net_device *dev)
 {
 	struct rhine_private *rp = netdev_priv(dev);
 	void __iomem *ioaddr = rp->base;
@@ -1232,7 +1234,7 @@ static int rhine_start_tx(struct sk_buff *skb, struct net_device *dev)
 	entry = rp->cur_tx % TX_RING_SIZE;
 
 	if (skb_padto(skb, ETH_ZLEN))
-		return 0;
+		return NETDEV_TX_OK;
 
 	rp->tx_skbuff[entry] = skb;
 
@@ -1244,7 +1246,7 @@ static int rhine_start_tx(struct sk_buff *skb, struct net_device *dev)
 			dev_kfree_skb(skb);
 			rp->tx_skbuff[entry] = NULL;
 			dev->stats.tx_dropped++;
-			return 0;
+			return NETDEV_TX_OK;
 		}
 
 		/* Padding is not copied and so must be redone. */
@@ -1292,7 +1294,7 @@ static int rhine_start_tx(struct sk_buff *skb, struct net_device *dev)
 		printk(KERN_DEBUG "%s: Transmit frame #%d queued in slot %d.\n",
 		       dev->name, rp->cur_tx-1, entry);
 	}
-	return 0;
+	return NETDEV_TX_OK;
 }
 
 /* The interrupt handler does all of the Rx thread work and cleans up
