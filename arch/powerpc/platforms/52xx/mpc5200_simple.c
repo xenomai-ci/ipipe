@@ -52,6 +52,7 @@ static void __init mpc5200_simple_setup_arch(void)
 static char *board[] __initdata = {
 	"intercontrol,digsy-mtc",
 	"manroland,mucmc52",
+	"manroland,uc101",
 	"phytec,pcm030",
 	"phytec,pcm032",
 	"promess,motionpro",
