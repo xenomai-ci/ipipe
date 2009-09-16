@@ -14,7 +14,7 @@
  * may be used to reset the timeout - for code which intentionally
  * disables interrupts for a long time. This call is stateless.
  */
-#ifdef ARCH_HAS_NMI_WATCHDOG
+#ifdef CONFIG_ARCH_HAS_NMI_WATCHDOG
 #include <asm/nmi.h>
 extern void touch_nmi_watchdog(void);
 extern void acpi_nmi_disable(void);

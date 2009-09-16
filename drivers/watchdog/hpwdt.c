@@ -631,7 +631,7 @@ static struct notifier_block die_notifier = {
  *	Init & Exit
  */
 
-#ifdef ARCH_HAS_NMI_WATCHDOG
+#ifdef CONFIG_ARCH_HAS_NMI_WATCHDOG
 static void __devinit hpwdt_check_nmi_sourcing(struct pci_dev *dev)
 {
 	/*

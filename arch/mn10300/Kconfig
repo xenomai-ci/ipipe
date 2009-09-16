@@ -55,6 +55,10 @@ config QUICKLIST
 config ARCH_HAS_ILOG2_U32
 	def_bool y
 
+config ARCH_HAS_NMI_WATCHDOG
+	def_bool y
+	depends on MN10300_WD_TIMER
+
 # Use the generic interrupt handling code in kernel/irq/
 config GENERIC_HARDIRQS
 	def_bool y
