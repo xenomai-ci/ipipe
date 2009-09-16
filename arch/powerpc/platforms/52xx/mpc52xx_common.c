@@ -227,9 +227,11 @@ mpc52xx_restart(char *cmd)
 		out_be32(&mpc52xx_wdt->count, 0x000000ff);
 		out_be32(&mpc52xx_wdt->mode, 0x00009004);
 	} else
+#if !defined(CONFIG_WD)
 		printk(KERN_ERR __FILE__ ": "
 			"mpc52xx_restart: Can't access wdt. "
 			"Restart impossible, system halted.\n");
+#endif
 
 	while (1);
 }
