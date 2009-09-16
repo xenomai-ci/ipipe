@@ -65,6 +65,15 @@ config WD_TIMEOUT
 
 comment "Low-level watchdog drivers"
 
+config WD_GPIO
+	bool "Driver for triggering ext. WDT through a GPIO pin"
+	depends on WD
+	default n
+	select ARCH_HAS_NMI_WATCHDOG
+	help
+	  Low level functions for triggering an external WDT through
+	  a GPIO pin.
+
 config WD_MPC5200
 	bool "Driver for MPC5200(B) built-in watchdog"
 	depends on PPC_MPC5200

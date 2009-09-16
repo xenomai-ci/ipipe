@@ -44,6 +44,13 @@
  * is name of option added to drivers/char/watchdog/Kconfig. Additional
  * informations about wd_*_t functions are in include/linux/wd.h.
  */
+#ifdef CONFIG_WD_GPIO
+/* Extern declarations of low-level GPIO watchdog functions */
+extern int wd_gpio_init(unsigned long *);
+extern void wd_gpio_kick(void);
+extern void wd_gpio_delete(void);
+extern void wd_gpio_machine_restart(void);
+#endif /* CONFIG_WD_MPC5200_GPT */
 
 #ifdef CONFIG_WD_MPC5200
 /* Extern declarations of low-level MPC5200 watchdog functions */

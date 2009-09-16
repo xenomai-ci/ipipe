@@ -14,6 +14,7 @@
 obj-$(CONFIG_PCWATCHDOG) += pcwd.o
 obj-$(CONFIG_MIXCOMWD) += mixcomwd.o
 obj-$(CONFIG_WDT) += wdt.o
+obj-$(CONFIG_WD_GPIO) += wd_gpio.o
 obj-$(CONFIG_WD) += wd.o
 
 # PCI-based Watchdog Cards
