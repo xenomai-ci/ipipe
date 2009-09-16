@@ -569,6 +569,12 @@ config EXTRA_TARGETS
 
 	  If unsure, leave blank
 
+config ARCH_HAS_NMI_WATCHDOG
+	bool "support NMI watchdog"
+	default n
+	help
+	  support NMI Watchdog
+
 if !44x || BROKEN
 config ARCH_WANTS_FREEZER_CONTROL
 	def_bool y
