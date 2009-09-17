@@ -72,6 +72,7 @@
 #include <linux/console.h>
 #include <linux/delay.h>
 #include <linux/io.h>
+#include <linux/nmi.h>
 #include <linux/of.h>
 #include <linux/of_platform.h>
 
@@ -945,6 +946,7 @@ mpc52xx_console_write(struct console *co, const char *s, unsigned int count)
 	/* Disable interrupts */
 	psc_ops->cw_disable_ints(port);
 
+	touch_nmi_watchdog();
 	/* Wait the TX buffer to be empty */
 	j = 5000000;	/* Maximum wait */
 	while (!mpc52xx_uart_tx_empty(port) && --j)
