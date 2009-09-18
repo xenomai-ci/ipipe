@@ -37,12 +37,6 @@ jiffies = jiffies_64 + 4;
 #endif
 SECTIONS
 {
-	/* Sections to be discarded. */
-	/DISCARD/ : {
-	*(.exitcall.exit)
-	EXIT_DATA
-	}
-
 	. = KERNELBASE;
 
 /*
@@ -245,10 +239,6 @@ SECTIONS
 	}
 #endif
 
-	. = ALIGN(PAGE_SIZE);
-	_edata  =  .;
-	PROVIDE32 (edata = .);
-
 	/* The initial task and kernel stack */
 #ifdef CONFIG_PPC32
 	. = ALIGN(8192);
@@ -281,6 +271,10 @@ SECTIONS
 		__nosave_end = .;
 	}
 
+	. = ALIGN(PAGE_SIZE);
+	_edata  =  .;
+	PROVIDE32 (edata = .);
+
 /*
  * And finally the bss
  */
@@ -297,4 +291,7 @@ SECTIONS
 	. = ALIGN(PAGE_SIZE);
 	_end = . ;
 	PROVIDE32 (end = .);
+
+	/* Sections to be discarded. */
+	DISCARDS
 }
