@@ -100,7 +100,7 @@ struct robust_list_head;
 struct bio;
 struct fs_struct;
 struct bts_context;
-struct perf_counter_context;
+struct perf_event_context;
 
 /*
  * List of flags we want to share for kernel threads,
@@ -257,7 +257,7 @@ extern asmlinkage void schedule_tail(struct task_struct *prev);
 extern void init_idle(struct task_struct *idle, int cpu);
 extern void init_idle_bootup_task(struct task_struct *idle);
 
-extern int runqueue_is_locked(void);
+extern int runqueue_is_locked(int cpu);
 extern void task_rq_unlock_wait(struct task_struct *p);
 
 extern cpumask_var_t nohz_cpu_mask;
@@ -701,7 +701,7 @@ struct user_struct {
 #endif
 #endif
 
-#ifdef CONFIG_PERF_COUNTERS
+#ifdef CONFIG_PERF_EVENTS
 	atomic_long_t locked_vm;
 #endif
 };
@@ -1074,6 +1074,8 @@ struct sched_class {
 			     int running);
 	void (*prio_changed) (struct rq *this_rq, struct task_struct *task,
 			     int oldprio, int running);
+
+	unsigned int (*get_rr_interval) (struct task_struct *task);
 
 #ifdef CONFIG_FAIR_GROUP_SCHED
 	void (*moved_group) (struct task_struct *p);
@@ -1453,10 +1455,10 @@ struct task_struct {
 	struct list_head pi_state_list;
 	struct futex_pi_state *pi_state_cache;
 #endif
-#ifdef CONFIG_PERF_COUNTERS
-	struct perf_counter_context *perf_counter_ctxp;
-	struct mutex perf_counter_mutex;
-	struct list_head perf_counter_list;
+#ifdef CONFIG_PERF_EVENTS
+	struct perf_event_context *perf_event_ctxp;
+	struct mutex perf_event_mutex;
+	struct list_head perf_event_list;
 #endif
 #ifdef CONFIG_NUMA
 	struct mempolicy *mempolicy;	/* Protected by alloc_lock */
@@ -1757,7 +1759,6 @@ extern cputime_t task_gtime(struct task_struct *p);
 
 #define RCU_READ_UNLOCK_BLOCKED (1 << 0) /* blocked while in RCU read-side. */
 #define RCU_READ_UNLOCK_NEED_QS (1 << 1) /* RCU core needs CPU response. */
-#define RCU_READ_UNLOCK_GOT_QS  (1 << 2) /* CPU has responded to RCU core. */
 
 static inline void rcu_copy_process(struct task_struct *p)
 {
