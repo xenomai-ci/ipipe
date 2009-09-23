@@ -675,17 +675,19 @@ int dwc_otg_hcd_qtd_add(dwc_otg_qtd_t * _qtd,  dwc_otg_hcd_t * _dwc_otg_hcd)
 	if (qh == NULL) {
 		qh = dwc_otg_hcd_qh_create(_dwc_otg_hcd, urb);
 		if (qh == NULL) {
+			retval = -1;
 			goto done;
 		}
 		ep->hcpriv = qh;
-		_qtd->qtd_qh_ptr = qh;
 	}
+	_qtd->qtd_qh_ptr = qh;
 	retval = dwc_otg_hcd_qh_add(_dwc_otg_hcd, qh);
 	if (retval == 0) {
 		list_add_tail(&_qtd->qtd_list_entry, &qh->qtd_list);
 	}
 
-done:local_irq_restore(flags);
+done:
+	local_irq_restore(flags);
 
 	return retval;
 }
