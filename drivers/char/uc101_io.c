@@ -284,11 +284,11 @@ static int __devinit uc101_gpio_probe(struct of_device *ofdev,
 	uc101_gpio_getpin(np, &pin_flash, 13, -1, "Flash");
 	uc101_gpio_getpin(np, &pin_cf_over, 14, -1, "CF over");
 
-	uc101_gpio_getpin(np, &pin_m, 15, -1, "M");
-	uc101_gpio_getpin(np, &pin_q, 16, -1, "Q");
+	uc101_gpio_getpin(np, &pin_q, 15, -1, "Q");
+	uc101_gpio_getpin(np, &pin_m, 16, -1, "M");
 
-	uc101_gpio_getpin(np, &pin_h2, 17, -1, "LED H2");
-	uc101_gpio_getpin(np, &pin_h3, 18, -1, "LED H3");
+	uc101_gpio_getpin(np, &pin_h2, 17, 0, "LED H2");
+	uc101_gpio_getpin(np, &pin_h3, 18, 0, "LED H3");
 
 	return 0;
 
