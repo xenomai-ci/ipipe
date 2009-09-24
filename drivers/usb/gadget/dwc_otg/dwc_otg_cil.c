@@ -1045,12 +1045,13 @@ void dwc_otg_core_host_init(dwc_otg_core_if_t * _core_if)
 
 		do {
 			hcchar.d32 = dwc_read_reg32(&hc_regs->hcchar);
-			if (++count > 1000) {
+			if (++count > 200) {
 				DWC_ERROR
 				    ("%s: Unable to clear halt on channel %d\n",
 				     __func__, i);
 				break;
 			}
+			udelay(100);
 		} while (hcchar.b.chen);
 	}
 
@@ -3119,6 +3120,7 @@ extern void dwc_otg_flush_tx_fifo(dwc_otg_core_if_t * _core_if,
 				  __func__, greset.d32, dwc_read_reg32(&global_regs->gnptxsts));
 			break;
 		}
+		udelay(1);
 	} while (greset.b.txfflsh == 1);
     /* Wait for 3 PHY Clocks */
     UDELAY(1);
@@ -3149,6 +3151,7 @@ extern void dwc_otg_flush_rx_fifo(dwc_otg_core_if_t * _core_if)
 			DWC_WARN("%s() HANG! GRSTCTL=%0x\n", __func__, greset.d32);
 			break;
 		}
+		udelay(1);
 	} while (greset.b.rxfflsh == 1);
 
     /* Wait for 3 PHY Clocks */
@@ -3188,6 +3191,7 @@ void dwc_otg_core_reset(dwc_otg_core_if_t * _core_if)
 			DWC_WARN("%s() HANG! Soft Reset GRSTCTL=%0x\n", __func__, greset.d32);
 			break;
 		}
+		udelay(1);
 	} while (greset.b.csftrst == 1);
 
     /* Wait for 3 PHY Clocks */
