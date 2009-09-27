@@ -124,7 +124,7 @@ static inline void fcse_mark_dirty(struct mm_struct *mm)
 }
 
 #else /* ! CONFIG_ARM_FCSE */
-#define fcse_switch_mm(prev, next) do { } while (0)
+#define fcse_switch_mm(prev, next) 1
 #define fcse_mva_to_va(mva) (mva)
 #define fcse_va_to_mva(mm, x) ({ (void)(mm); (x); })
 #define fcse_mark_dirty(mm) do { (void)(mm); } while(0)
