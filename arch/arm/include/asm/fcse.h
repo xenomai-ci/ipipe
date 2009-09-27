@@ -30,6 +30,9 @@
 /* Mask to get rid of PID from relocated address */
 #define FCSE_PID_MASK (FCSE_PID_TASK_SIZE - 1)
 
+#define fcse_tlb_mask(mm) ((mm)->context.cpu_tlb_mask)
+#define fcse_cpu_set_vm_mask(cpu, mm) cpu_set(cpu, (mm)->cpu_vm_mask)
+
 /* Sets the CPU's PID Register */
 static inline void fcse_pid_set(unsigned long pid)
 {
@@ -68,6 +71,8 @@ void fcse_pid_free(unsigned pid);
 #define fcse_pid_set(pid) do { } while (0)
 #define fcse_mva_to_va(x) (x)
 #define fcse_va_to_mva(mm, x) ({ (void)(mm); (x); })
+#define fcse_tlb_mask(mm) ((mm)->cpu_vm_mask)
+#define fcse_cpu_set_vm_mask(cpu, mm) do { } while (0)
 #endif /* ! CONFIG_ARM_FCSE */
 
 #endif /* __ASM_ARM_FCSE_H */
