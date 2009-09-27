@@ -19,6 +19,7 @@
 #include <asm/cachetype.h>
 #include <asm/proc-fns.h>
 #include <asm-generic/mm_hooks.h>
+#include <asm/fcse.h>
 
 void __check_kvm_seq(struct mm_struct *mm);
 
@@ -66,11 +67,29 @@ static inline void check_context(struct mm_struct *mm)
 		__check_kvm_seq(mm);
 }
 
-#define init_new_context(tsk,mm)	0
+static inline int 
+init_new_context(struct task_struct *tsk, struct mm_struct *mm)
+{
+#ifdef CONFIG_ARM_FCSE
+	int pid;
+
+	pid = fcse_pid_alloc();
+	if (pid < 0)
+		return pid;
+	mm->context.pid = pid << FCSE_PID_SHIFT;
+#endif /* CONFIG_ARM_FCSE */
+
+	return 0;
+}
 
 #endif
 
-#define destroy_context(mm)		do { } while(0)
+static inline void destroy_context(struct mm_struct *mm)
+{
+#ifdef CONFIG_ARM_FCSE
+	fcse_pid_free(mm->context.pid >> FCSE_PID_SHIFT);
+#endif /* CONFIG_ARM_FCSE */
+}
 
 /*
  * This is called when "tsk" is about to enter lazy TLB mode.
@@ -106,6 +125,7 @@ switch_mm(struct mm_struct *prev, struct mm_struct *next,
 #endif
 	if (!cpu_test_and_set(cpu, next->cpu_vm_mask) || prev != next) {
 		check_context(next);
+		fcse_pid_set(next->context.pid);
 		cpu_switch_mm(next->pgd, next);
 		if (cache_is_vivt())
 			cpu_clear(cpu, prev->cpu_vm_mask);

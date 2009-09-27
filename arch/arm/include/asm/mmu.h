@@ -7,6 +7,9 @@ typedef struct {
 #ifdef CONFIG_CPU_HAS_ASID
 	unsigned int id;
 #endif
+#ifdef CONFIG_ARM_FCSE
+	unsigned long pid;
+#endif /* CONFIG_ARM_FCSE */
 	unsigned int kvm_seq;
 } mm_context_t;
 
