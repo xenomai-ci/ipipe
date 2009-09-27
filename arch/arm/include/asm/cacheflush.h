@@ -350,8 +350,10 @@ static inline void outer_flush_range(unsigned long start, unsigned long end)
 
 static inline void vivt_flush_cache_mm(struct mm_struct *mm)
 {
-	if (cpumask_test_cpu(smp_processor_id(), mm_cpumask(mm)))
+	if (cpumask_test_cpu(smp_processor_id(), mm_cpumask(mm))) {
+		fcse_notify_flush_all();
 		__cpuc_flush_user_all();
+	}
 }
 
 static inline void
