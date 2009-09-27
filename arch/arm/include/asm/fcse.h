@@ -27,6 +27,9 @@
 /* Size of PID relocation area */
 #define FCSE_PID_TASK_SIZE (1UL << FCSE_PID_SHIFT)
 
+/* Mask to get rid of PID from relocated address */
+#define FCSE_PID_MASK (FCSE_PID_TASK_SIZE - 1)
+
 /* Sets the CPU's PID Register */
 static inline void fcse_pid_set(unsigned long pid)
 {
@@ -34,11 +37,37 @@ static inline void fcse_pid_set(unsigned long pid)
 			      : /* */: "r" (pid) : "memory");
 }
 
+/* Returns the state of the CPU's PID Register */
+static inline unsigned long fcse_pid_get(void)
+{
+	unsigned long pid;
+	__asm__ __volatile__("mrc p15, 0, %0, c13, c0, 0" : "=&r" (pid));
+	return pid & ~FCSE_PID_MASK;
+}
+
+static inline unsigned long fcse_mva_to_va(unsigned long mva)
+{
+	unsigned long pid = fcse_pid_get();
+	if (pid && (pid == (mva & ~FCSE_PID_MASK)))
+		return mva & FCSE_PID_MASK;
+	return mva;
+}
+
+static inline unsigned long
+fcse_va_to_mva(struct mm_struct *mm, unsigned long va)
+{
+	if (va < FCSE_PID_TASK_SIZE)
+		return mm->context.pid | va;
+	return va;
+}
+
 int fcse_pid_alloc(void);
 void fcse_pid_free(unsigned pid);
 
 #else /* ! CONFIG_ARM_FCSE */
 #define fcse_pid_set(pid) do { } while (0)
+#define fcse_mva_to_va(x) (x)
+#define fcse_va_to_mva(mm, x) ({ (void)(mm); (x); })
 #endif /* ! CONFIG_ARM_FCSE */
 
 #endif /* __ASM_ARM_FCSE_H */
