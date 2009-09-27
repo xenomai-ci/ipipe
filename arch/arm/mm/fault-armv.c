@@ -94,6 +94,7 @@ no_pmd:
 static void
 make_coherent(struct address_space *mapping, struct vm_area_struct *vma, unsigned long addr, unsigned long pfn)
 {
+#ifndef CONFIG_ARM_FCSE_GUARANTEED
 	struct mm_struct *mm = vma->vm_mm;
 	struct vm_area_struct *mpnt;
 	struct prio_tree_iter iter;
@@ -127,6 +128,10 @@ make_coherent(struct address_space *mapping, struct vm_area_struct *vma, unsigne
 		adjust_pte(vma, addr);
 	else
 		flush_cache_page(vma, addr, pfn);
+#else /* CONFIG_ARM_FCSE_GUARANTEED */
+	if (vma->vm_flags & VM_MAYSHARE)
+		adjust_pte(vma, addr);
+#endif /* CONFIG_ARM_FCSE_GUARANTEED */
 }
 
 /*
