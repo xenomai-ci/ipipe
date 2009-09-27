@@ -37,6 +37,7 @@
 #include <asm/ptrace.h>
 #include <asm/localtimer.h>
 #include <asm/smp_plat.h>
+#include <asm/fcse.h>
 
 /*
  * as from 2.5, kernels no longer have an init_tasks structure
@@ -638,7 +639,7 @@ void flush_tlb_all(void)
 void flush_tlb_mm(struct mm_struct *mm)
 {
 	if (tlb_ops_need_broadcast())
-		on_each_cpu_mask(ipi_flush_tlb_mm, mm, 1, mm_cpumask(mm));
+		on_each_cpu_mask(ipi_flush_tlb_mm, mm, 1, fcse_tlb_mask(mm));
 	else
 		local_flush_tlb_mm(mm);
 }
@@ -649,7 +650,7 @@ void flush_tlb_page(struct vm_area_struct *vma, unsigned long uaddr)
 		struct tlb_args ta;
 		ta.ta_vma = vma;
 		ta.ta_start = uaddr;
-		on_each_cpu_mask(ipi_flush_tlb_page, &ta, 1, mm_cpumask(vma->vm_mm));
+		on_each_cpu_mask(ipi_flush_tlb_page, &ta, 1, fcse_tlb_mask(vma->vm_mm));
 	} else
 		local_flush_tlb_page(vma, uaddr);
 }
@@ -672,7 +673,7 @@ void flush_tlb_range(struct vm_area_struct *vma,
 		ta.ta_vma = vma;
 		ta.ta_start = start;
 		ta.ta_end = end;
-		on_each_cpu_mask(ipi_flush_tlb_range, &ta, 1, mm_cpumask(vma->vm_mm));
+		on_each_cpu_mask(ipi_flush_tlb_range, &ta, 1, fcse_tlb_mask(vma->vm_mm));
 	} else
 		local_flush_tlb_range(vma, start, end);
 }

@@ -75,6 +75,8 @@ init_new_context(struct task_struct *tsk, struct mm_struct *mm)
 #ifdef CONFIG_ARM_FCSE
 	int pid;
 
+	cpus_clear(mm->context.cpu_tlb_mask);
+
 	pid = fcse_pid_alloc();
 	if (pid < 0)
 		return pid;
@@ -126,12 +128,13 @@ switch_mm(struct mm_struct *prev, struct mm_struct *next,
 	    !cpumask_test_cpu(cpu, mm_cpumask(next)))
 		__flush_icache_all();
 #endif
-	if (!cpumask_test_and_set_cpu(cpu, mm_cpumask(next)) || prev != next) {
+	if (!cpumask_test_and_set_cpu(cpu, fcse_tlb_mask(next)) || prev != next) {
+		fcse_cpu_set_vm_mask(cpu, next);
 		check_context(next);
 		fcse_pid_set(next->context.pid);
 		cpu_switch_mm(next->pgd, next);
 		if (cache_is_vivt())
-			cpumask_clear_cpu(cpu, mm_cpumask(prev));
+			cpumask_clear_cpu(cpu, fcse_tlb_mask(prev));
 	}
 #endif
 }

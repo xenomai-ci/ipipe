@@ -9,6 +9,7 @@ typedef struct {
 #endif
 #ifdef CONFIG_ARM_FCSE
 	unsigned long pid;
+	cpumask_t cpu_tlb_mask;
 #endif /* CONFIG_ARM_FCSE */
 	unsigned int kvm_seq;
 } mm_context_t;
