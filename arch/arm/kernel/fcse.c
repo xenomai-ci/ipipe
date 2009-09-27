@@ -55,3 +55,14 @@ void fcse_pid_free(unsigned pid)
 	fcse_pid_dereference(pid);
 	spin_unlock_irqrestore(&fcse_lock, flags);
 }
+
+#ifdef CONFIG_ARM_FCSE_BEST_EFFORT
+int fcse_needs_flush(struct mm_struct *prev, struct mm_struct *next)
+{
+	unsigned res;
+
+	res = 1;
+
+	return res;
+}
+#endif /* CONFIG_ARM_FCSE_BEST_EFFORT */

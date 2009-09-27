@@ -66,6 +66,11 @@ fcse_va_to_mva(struct mm_struct *mm, unsigned long va)
 
 int fcse_pid_alloc(void);
 void fcse_pid_free(unsigned pid);
+#ifdef CONFIG_ARM_FCSE_BEST_EFFORT
+int fcse_needs_flush(struct mm_struct *prev, struct mm_struct *next);
+#else /* CONFIG_ARM_FCSE_GUARANTEED */
+#define fcse_needs_flush(prev, next) (0)
+#endif /* CONFIG_ARM_FCSE_GUARANTEED */
 
 #else /* ! CONFIG_ARM_FCSE */
 #define fcse_pid_set(pid) do { } while (0)
@@ -73,6 +78,7 @@ void fcse_pid_free(unsigned pid);
 #define fcse_va_to_mva(mm, x) ({ (void)(mm); (x); })
 #define fcse_tlb_mask(mm) ((mm)->cpu_vm_mask)
 #define fcse_cpu_set_vm_mask(cpu, mm) do { } while (0)
+#define fcse_needs_flush(prev, next) (1)
 #endif /* ! CONFIG_ARM_FCSE */
 
 #endif /* __ASM_ARM_FCSE_H */

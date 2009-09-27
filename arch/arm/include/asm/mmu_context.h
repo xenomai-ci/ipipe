@@ -129,7 +129,7 @@ switch_mm(struct mm_struct *prev, struct mm_struct *next,
 		fcse_cpu_set_vm_mask(cpu, next);
 		check_context(next);
 		fcse_pid_set(next->context.pid);
-		cpu_switch_mm(next->pgd, next);
+		cpu_switch_mm(next->pgd, next, fcse_needs_flush(prev, next));
 		if (cache_is_vivt())
 			cpu_clear(cpu, fcse_tlb_mask(prev));
 	}
