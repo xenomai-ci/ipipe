@@ -335,8 +335,10 @@ static inline void outer_flush_range(unsigned long start, unsigned long end)
 #ifndef CONFIG_CPU_CACHE_VIPT
 static inline void flush_cache_mm(struct mm_struct *mm)
 {
-	if (cpu_isset(smp_processor_id(), mm->cpu_vm_mask))
+	if (cpu_isset(smp_processor_id(), mm->cpu_vm_mask)) {
+		fcse_notify_flush_all();
 		__cpuc_flush_user_all();
+	}
 }
 
 static inline void

@@ -68,8 +68,10 @@ int fcse_pid_alloc(void);
 void fcse_pid_free(unsigned pid);
 #ifdef CONFIG_ARM_FCSE_BEST_EFFORT
 int fcse_needs_flush(struct mm_struct *prev, struct mm_struct *next);
+void fcse_notify_flush_all(void);
 #else /* CONFIG_ARM_FCSE_GUARANTEED */
 #define fcse_needs_flush(prev, next) (0)
+#define fcse_notify_flush_all() do { } while (0)
 #endif /* CONFIG_ARM_FCSE_GUARANTEED */
 
 #else /* ! CONFIG_ARM_FCSE */
@@ -79,6 +81,7 @@ int fcse_needs_flush(struct mm_struct *prev, struct mm_struct *next);
 #define fcse_tlb_mask(mm) ((mm)->cpu_vm_mask)
 #define fcse_cpu_set_vm_mask(cpu, mm) do { } while (0)
 #define fcse_needs_flush(prev, next) (1)
+#define fcse_notify_flush_all() do { } while (0)
 #endif /* ! CONFIG_ARM_FCSE */
 
 #endif /* __ASM_ARM_FCSE_H */
