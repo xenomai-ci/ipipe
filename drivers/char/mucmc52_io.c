@@ -54,8 +54,8 @@
 #define GPIO_GET_AUX(gpio) (gpio_get_value(gpio) ? 1 : 0)
 
 /* Driver's banner */
-static char mucmc52_gpio_banner[] __initdata = KERN_INFO MUCMC52_IO_NAME ": "
-						MUCMC52_IO_VERSION "\n";
+static char mucmc52_gpio_banner[] = KERN_INFO MUCMC52_IO_NAME ": "
+					MUCMC52_IO_VERSION "\n";
 
 static struct semaphore io_sem;
 static wait_queue_head_t	wq_interrupt;
@@ -410,7 +410,7 @@ static int mucmc52_gpio_proc_read(char *page, char **start, off_t off,
 /*
  * Initialization/cleanup
  */
-static int __devinit mucmc52_gpio_getpin(struct device_node *np, int *pin,
+static int mucmc52_gpio_getpin(struct device_node *np, int *pin,
 					int index, int dir, char *name)
 {
 	int	ret;
@@ -434,7 +434,7 @@ static int __devinit mucmc52_gpio_getpin(struct device_node *np, int *pin,
 	return 0;
 }
 
-static int init_irq(void)
+static __init int init_irq(void)
 {
 	struct device_node *np = NULL;
 	int	error;
@@ -512,7 +512,7 @@ error_timer620:
 	return -1;
 }
 
-static int init_gpio_pins(struct device_node *np)
+static __init int init_gpio_pins(struct device_node *np)
 {
 	simple_gpiochip_init("manroland,mucmc52-aux-gpio");
 
@@ -555,7 +555,7 @@ static int init_gpio_pins(struct device_node *np)
 	return 0;
 }
 
-static int __devinit mucmc52_gpio_probe(struct of_device *ofdev,
+static int __init mucmc52_gpio_probe(struct of_device *ofdev,
                                         const struct of_device_id *match)
 {
 	struct device_node *np = ofdev->node;

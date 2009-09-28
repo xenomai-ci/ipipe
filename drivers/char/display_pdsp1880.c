@@ -64,8 +64,8 @@ static DISPLAY		*disp_base = NULL;
 
 /* Froward declarations */
 /* Driver's banner */
-static char display_banner[] __initdata = KERN_INFO DISPLAY_NAME ": "
-						DISPLAY_VERSION "\n";
+static char display_banner[] = KERN_INFO DISPLAY_NAME ": "
+					DISPLAY_VERSION "\n";
 
 static void display_clear (void)
 {

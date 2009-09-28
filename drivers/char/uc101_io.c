@@ -48,8 +48,8 @@
 #define UC101_GPIO_PROC	"driver/uc101_gpio"
 
 /* Driver's banner */
-static char uc101_gpio_banner[] __initdata = KERN_INFO UC101_GPIO_NAME ": "
-						UC101_GPIO_VERSION "\n";
+static char uc101_gpio_banner[] = KERN_INFO UC101_GPIO_NAME ": "
+					UC101_GPIO_VERSION "\n";
 
 static int pin_rs_clear;
 static int pin_cf;
@@ -213,7 +213,7 @@ static int uc101_gpio_proc_write(struct file *file, const char *buffer,
 /*
  * Initialization/cleanup
  */
-static int __devinit uc101_gpio_getpin(struct device_node *np, int *pin,
+static int uc101_gpio_getpin(struct device_node *np, int *pin,
 					int index, int dir, char *name)
 {
 	int	ret;
