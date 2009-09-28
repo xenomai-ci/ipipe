@@ -1,7 +1,7 @@
 #
 # Automatically generated make config: don't edit
-# Linux kernel version: 2.6.31-rc5
-# Fri Sep 18 08:55:46 2009
+# Linux kernel version: 2.6.31
+# Thu Sep 24 14:56:31 2009
 #
 # CONFIG_PPC64 is not set
 
@@ -670,11 +670,7 @@ CONFIG_INPUT=y
 #
 # Character devices
 #
-CONFIG_VT=y
-CONFIG_CONSOLE_TRANSLATIONS=y
-CONFIG_VT_CONSOLE=y
-CONFIG_HW_CONSOLE=y
-# CONFIG_VT_HW_CONSOLE_BINDING is not set
+# CONFIG_VT is not set
 CONFIG_DEVKMEM=y
 # CONFIG_SERIAL_NONSTANDARD is not set
 
@@ -902,22 +898,8 @@ CONFIG_SSB_POSSIBLE=y
 # Display device support
 #
 # CONFIG_DISPLAY_SUPPORT is not set
-
-#
-# Console display driver support
-#
-# CONFIG_VGA_CONSOLE is not set
-CONFIG_DUMMY_CONSOLE=y
 # CONFIG_SOUND is not set
-CONFIG_HID_SUPPORT=y
-CONFIG_HID=y
-CONFIG_HID_DEBUG=y
-# CONFIG_HIDRAW is not set
-# CONFIG_HID_PID is not set
-
-#
-# Special HID drivers
-#
+# CONFIG_HID_SUPPORT is not set
 # CONFIG_USB_SUPPORT is not set
 # CONFIG_MMC is not set
 # CONFIG_MEMSTICK is not set
@@ -1200,7 +1182,7 @@ CONFIG_GENERIC_ATOMIC64=y
 #
 # Kernel hacking
 #
-CONFIG_PRINTK_TIME=y
+# CONFIG_PRINTK_TIME is not set
 CONFIG_ENABLE_WARN_DEPRECATED=y
 CONFIG_ENABLE_MUST_CHECK=y
 CONFIG_FRAME_WARN=1024
