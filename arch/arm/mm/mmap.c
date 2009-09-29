@@ -122,7 +122,14 @@ full_search:
 			mm->cached_hole_size = 0;
 			goto full_search;
 		}
+#ifdef CONFIG_ARM_FCSE_BEST_EFFORT
+		mm->context.big = 1;
+		if (mm->context.pid) {
+			fcse_relocate_mm_to_null_pid(mm);
+		}
+#else /* CONFIG_ARM_FCSE_GUARANTEED */
 		return -ENOMEM;
+#endif /* CONFIG_ARM_FCSE_GUARANTEED */
 	}
 #endif /* CONFIG_ARM_FCSE */
 	return addr;

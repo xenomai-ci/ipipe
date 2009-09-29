@@ -12,6 +12,8 @@ typedef struct {
 	cpumask_t cpu_tlb_mask;
 #ifdef CONFIG_ARM_FCSE_BEST_EFFORT
 	unsigned shared_dirty_pages;
+	unsigned big;
+	unsigned high_pages;
 #endif /* CONFIG_ARM_FCSE_BEST_EFFORT */
 #endif /* CONFIG_ARM_FCSE */
 	unsigned int kvm_seq;

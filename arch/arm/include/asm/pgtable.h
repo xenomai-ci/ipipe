@@ -259,6 +259,10 @@ extern pgprot_t		pgprot_kernel;
 	unsigned long _val = (val);				\
 	if(pte_present(_val) && ((_val) & L_PTE_SHARED))	\
 		--_mm->context.shared_dirty_pages;		\
+	if (pte_present(_val) && _addr < TASK_SIZE) {		\
+		if (_addr >= FCSE_TASK_SIZE)			\
+			--_mm->context.high_pages;		\
+	}							\
 } while (0)
 
 #define fcse_account_page_addition(mm, addr, val) ({			\
@@ -272,6 +276,9 @@ extern pgprot_t		pgprot_kernel;
 		else							\
 			++_mm->context.shared_dirty_pages;		\
 	}								\
+	if (pte_present(_val)						\
+	    && _addr < TASK_SIZE && _addr >= FCSE_TASK_SIZE)		\
+		++_mm->context.high_pages;				\
 	_val;								\
 })
 #else /* CONFIG_ARM_FCSE_GUARANTEED || !CONFIG_ARM_FCSE */

@@ -118,7 +118,9 @@ int fcse_needs_flush(struct mm_struct *prev, struct mm_struct *next)
 	spin_unlock_irqrestore(&fcse_lock, flags);
 
 	res = reused_pid
-		|| prev->context.shared_dirty_pages;
+		|| prev->context.shared_dirty_pages
+		|| prev->context.high_pages
+		|| next->context.high_pages;
 
 	if (res) {
 		cpu_clear(smp_processor_id(), prev->cpu_vm_mask);
@@ -132,4 +134,41 @@ void fcse_notify_flush_all(void)
 {
 	fcse_notify_flush_all_inner(current->mm);
 }
+
+void fcse_pid_reference(unsigned pid)
+{
+	unsigned long flags;
+
+	spin_lock_irqsave(&fcse_lock, flags);
+	fcse_pid_reference_inner(pid);
+	spin_unlock_irqrestore(&fcse_lock, flags);
+}
+
+/* Called with mm->mmap_sem write-locked. */
+void fcse_relocate_mm_to_null_pid(struct mm_struct *mm)
+{
+	pgd_t *to = mm->pgd + pgd_index(0);
+	pgd_t *from = pgd_offset(mm, 0);
+	unsigned len = pgd_index(FCSE_TASK_SIZE) * sizeof(*from);
+	unsigned long flags;
+
+	preempt_disable();
+
+	memcpy(to, from, len);
+	spin_lock_irqsave(&fcse_lock, flags);
+	fcse_pid_dereference(mm->context.pid >> FCSE_PID_SHIFT);
+	fcse_pid_reference_inner(0);
+	per_pid[0].last_mm = mm;
+	spin_unlock_irqrestore(&fcse_lock, flags);
+
+	mm->context.pid = 0;
+	fcse_pid_set(0);
+	memset(from, '\0', len);
+	mb();
+	flush_cache_mm(mm);
+	flush_tlb_mm(mm);
+
+	preempt_enable();
+}
+
 #endif /* CONFIG_ARM_FCSE_BEST_EFFORT */

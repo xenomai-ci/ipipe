@@ -69,6 +69,8 @@ void fcse_pid_free(unsigned pid);
 #ifdef CONFIG_ARM_FCSE_BEST_EFFORT
 int fcse_needs_flush(struct mm_struct *prev, struct mm_struct *next);
 void fcse_notify_flush_all(void);
+void fcse_pid_reference(unsigned pid);
+void fcse_relocate_mm_to_null_pid(struct mm_struct *mm);
 #else /* CONFIG_ARM_FCSE_GUARANTEED */
 #define fcse_needs_flush(prev, next) (0)
 #define fcse_notify_flush_all() do { } while (0)
