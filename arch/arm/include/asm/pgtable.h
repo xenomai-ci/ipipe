@@ -250,6 +250,31 @@ extern pgprot_t		pgprot_kernel;
 #define __S111  __PAGE_SHARED_EXEC
 
 #ifndef __ASSEMBLY__
+#ifdef CONFIG_ARM_FCSE_BEST_EFFORT
+#define fcse_account_page_removal(mm, addr, val) do {		\
+	struct mm_struct *_mm = (mm);				\
+	unsigned long _addr = (addr);				\
+	unsigned long _val = (val);				\
+	if (pte_present(_val) && _addr < TASK_SIZE) {		\
+		if (_addr >= FCSE_TASK_SIZE)			\
+			--_mm->context.fcse.high_pages;		\
+	}							\
+} while (0)
+
+#define fcse_account_page_addition(mm, addr, val) ({			\
+	struct mm_struct *_mm = (mm);					\
+	unsigned long _addr = (addr);					\
+	unsigned long _val = (val);					\
+	if (pte_present(_val)						\
+	    && _addr < TASK_SIZE && _addr >= FCSE_TASK_SIZE)		\
+		++_mm->context.fcse.high_pages;				\
+	_val;								\
+})
+#else /* CONFIG_ARM_FCSE_GUARANTEED || !CONFIG_ARM_FCSE */
+#define fcse_account_page_removal(mm, addr, val) do { } while (0)
+#define fcse_account_page_addition(mm, addr, val) (val)
+#endif /* CONFIG_ARM_FCSE_GUARANTEED || !CONFIG_ARM_FCSE */
+
 /*
  * ZERO_PAGE is a global shared page that is always zero: used
  * for zero-mapped memory areas etc..
@@ -261,7 +286,10 @@ extern struct page *empty_zero_page;
 #define pfn_pte(pfn,prot)	(__pte(((pfn) << PAGE_SHIFT) | pgprot_val(prot)))
 
 #define pte_none(pte)		(!pte_val(pte))
-#define pte_clear(mm,addr,ptep)	set_pte_ext(ptep, __pte(0), 0)
+#define pte_clear(mm,addr,ptep)	do {				\
+	fcse_account_page_removal(mm, addr, pte_val(*ptep));	\
+	set_pte_ext(ptep, __pte(0), 0);				\
+} while (0)
 #define pte_page(pte)		(pfn_to_page(pte_pfn(pte)))
 #define pte_offset_kernel(dir,addr)	(pmd_page_vaddr(*(dir)) + __pte_index(addr))
 
@@ -280,8 +308,11 @@ extern struct page *empty_zero_page;
 
 #define set_pte_ext(ptep,pte,ext) cpu_set_pte_ext(ptep,pte,ext)
 
-#define set_pte_at(mm,addr,ptep,pteval) do { \
-	set_pte_ext(ptep, pteval, (addr) >= TASK_SIZE ? 0 : PTE_EXT_NG); \
+#define set_pte_at(mm,addr,ptep,pteval) do {				\
+	pte_t _pteval = pte_val(pteval);				\
+	fcse_account_page_removal(mm, addr, pte_val(*ptep));		\
+	_pteval = fcse_account_page_addition(mm, addr, _pteval);	\
+	set_pte_ext(ptep, _pteval, (addr) >= TASK_SIZE ? 0 : PTE_EXT_NG); \
  } while (0)
 
 /*
