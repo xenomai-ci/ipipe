@@ -77,7 +77,9 @@ struct fcse_user {
 	unsigned count;
 };
 extern struct fcse_user fcse_pids_user[];
+extern struct mm_struct *fcse_large_process;
 int fcse_switch_mm_inner(struct mm_struct *prev, struct mm_struct *next);
+void fcse_pid_reference(unsigned pid);
 
 static inline int fcse_switch_mm(struct mm_struct *prev, struct mm_struct *next)
 {
@@ -143,6 +145,10 @@ static inline void fcse_mark_dirty(struct mm_struct *mm)
 		set_bit(FCSE_PID_MAX - (mm->context.fcse.pid >> FCSE_PID_SHIFT),
 			fcse_pids_cache_dirty);
 		FCSE_BUG_ON(!fcse_mm_in_cache(mm));
+#ifdef CONFIG_ARM_FCSE_BEST_EFFORT
+		if (mm->context.fcse.large)
+			fcse_large_process = mm;
+#endif
 	}
 }
 
