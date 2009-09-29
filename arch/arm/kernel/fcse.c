@@ -117,7 +117,8 @@ int fcse_needs_flush(struct mm_struct *prev, struct mm_struct *next)
 	__set_bit(pid, fcse_pids_cache_dirty);
 	spin_unlock_irqrestore(&fcse_lock, flags);
 
-	res = reused_pid;
+	res = reused_pid
+		|| prev->context.shared_dirty_pages;
 
 	if (res) {
 		cpu_clear(smp_processor_id(), prev->cpu_vm_mask);

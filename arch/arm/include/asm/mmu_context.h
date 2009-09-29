@@ -74,6 +74,9 @@ init_new_context(struct task_struct *tsk, struct mm_struct *mm)
 	int pid;
 
 	cpus_clear(mm->context.cpu_tlb_mask);
+#ifdef CONFIG_ARM_FCSE_BEST_EFFORT
+	mm->context.shared_dirty_pages = 0;
+#endif /* CONFIG_ARM_FCSE_BEST_EFFORT */
 
 	pid = fcse_pid_alloc();
 	if (pid < 0)
@@ -89,6 +92,9 @@ init_new_context(struct task_struct *tsk, struct mm_struct *mm)
 static inline void destroy_context(struct mm_struct *mm)
 {
 #ifdef CONFIG_ARM_FCSE
+#ifdef CONFIG_ARM_FCSE_BEST_EFFORT
+	BUG_ON(mm->context.shared_dirty_pages);
+#endif /* CONFIG_ARM_FCSE_BEST_EFFORT */
 	fcse_pid_free(mm->context.pid >> FCSE_PID_SHIFT);
 #endif /* CONFIG_ARM_FCSE */
 }

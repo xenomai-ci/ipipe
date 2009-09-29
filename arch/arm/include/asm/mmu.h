@@ -10,6 +10,9 @@ typedef struct {
 #ifdef CONFIG_ARM_FCSE
 	unsigned long pid;
 	cpumask_t cpu_tlb_mask;
+#ifdef CONFIG_ARM_FCSE_BEST_EFFORT
+	unsigned shared_dirty_pages;
+#endif /* CONFIG_ARM_FCSE_BEST_EFFORT */
 #endif /* CONFIG_ARM_FCSE */
 	unsigned int kvm_seq;
 } mm_context_t;
