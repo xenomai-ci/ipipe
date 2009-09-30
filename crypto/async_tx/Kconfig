@@ -18,7 +18,7 @@ config ASYNC_PQ
 	tristate
 	select ASYNC_CORE
 
-config ASYNC_R6RECOV
+config ASYNC_RAID6_RECOV
 	tristate
 	select ASYNC_CORE
 	select ASYNC_PQ
