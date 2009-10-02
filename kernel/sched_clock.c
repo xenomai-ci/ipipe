@@ -126,7 +126,7 @@ again:
 	clock = wrap_max(clock, min_clock);
 	clock = wrap_min(clock, max_clock);
 
-	if (cmpxchg(&scd->clock, old_clock, clock) != old_clock)
+	if (cmpxchg64(&scd->clock, old_clock, clock) != old_clock)
 		goto again;
 
 	return clock;
@@ -162,7 +162,7 @@ again:
 		val = remote_clock;
 	}
 
-	if (cmpxchg(ptr, old_val, val) != old_val)
+	if (cmpxchg64(ptr, old_val, val) != old_val)
 		goto again;
 
 	return val;
