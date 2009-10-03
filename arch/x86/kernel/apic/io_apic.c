@@ -2515,7 +2515,11 @@ static inline void irq_complete_move(struct irq_desc **descp) {}
 
 #if defined(CONFIG_IPIPE) && defined(CONFIG_SMP)
 
+#ifdef CONFIG_INTR_REMAP
 static void eoi_ioapic_irq(struct irq_desc *desc);
+#else /* !CONFIG_INTR_REMAP */
+static inline void eoi_ioapic_irq(struct irq_desc *desc) {}
+#endif /* !CONFIG_INTR_REMAP */
 
 static void move_apic_irq(unsigned int irq)
 {
