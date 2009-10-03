@@ -297,7 +297,7 @@ void __init __ipipe_enable_pipeline(void)
 
 	ipipe_virtualize_irq(ipipe_root_domain,
 			     ipipe_apic_vector_irq(REBOOT_VECTOR),
-			     (ipipe_irq_handler_t)&reboot_interrupt,
+			     (ipipe_irq_handler_t)&smp_reboot_interrupt,
 			     NULL,
 			     &__ipipe_ack_apic,
 			     IPIPE_STDROOT_MASK);
