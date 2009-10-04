@@ -273,6 +273,13 @@ void __init __ipipe_enable_pipeline(void)
 			     NULL,
 			     &__ipipe_ack_apic,
 			     IPIPE_STDROOT_MASK);
+
+	ipipe_virtualize_irq(ipipe_root_domain,
+			     ipipe_apic_vector_irq(IRQ_MOVE_CLEANUP_VECTOR),
+			     (ipipe_irq_handler_t)&smp_irq_move_cleanup_interrupt,
+			     NULL,
+			     &__ipipe_ack_apic,
+			     IPIPE_STDROOT_MASK);
 #else
 	(void)vector;
 #endif	/* CONFIG_SMP */
