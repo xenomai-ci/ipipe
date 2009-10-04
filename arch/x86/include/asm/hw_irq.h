@@ -96,6 +96,7 @@ extern void smp_invalidate_interrupt(struct pt_regs *);
 #else
 extern asmlinkage void smp_invalidate_interrupt(struct pt_regs *);
 #endif
+extern asmlinkage void smp_irq_move_cleanup_interrupt(void);
 #endif
 
 extern void (*__initconst interrupt[NR_VECTORS-FIRST_EXTERNAL_VECTOR])(void);
