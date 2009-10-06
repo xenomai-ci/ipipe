@@ -55,6 +55,8 @@
 #include "dwc_otg_regs.h"
 extern atomic_t release_later;
 
+static u64 dma_mask = DMA_BIT_MASK(32);
+
 static const char dwc_otg_hcd_name[] = "dwc_otg_hcd";
 static const struct hc_driver dwc_otg_hc_driver =
 {
@@ -189,6 +191,7 @@ static void kill_urbs_in_qh_list(dwc_otg_hcd_t * _hcd,
  */
 static void kill_all_urbs(dwc_otg_hcd_t * _hcd)
 {
+	kill_urbs_in_qh_list(_hcd, &_hcd->non_periodic_sched_deferred);
 	kill_urbs_in_qh_list(_hcd, &_hcd->non_periodic_sched_inactive);
 	kill_urbs_in_qh_list(_hcd, &_hcd->non_periodic_sched_active);
 	kill_urbs_in_qh_list(_hcd, &_hcd->periodic_sched_inactive);
@@ -382,10 +385,11 @@ static struct tasklet_struct reset_tasklet =
  */
 static void plbdma_tasklet_func(unsigned long data)
 {
+    unsigned long flags;
     dwc_otg_core_if_t * _core_if = (dwc_otg_core_if_t *) data;
 	dma_xfer_t	* dma_xfer = &_core_if->dma_xfer;
 
-    local_irq_disable();
+    local_irq_save(flags);
     DWC_DEBUGPL(DBG_SP, "Plbdma tasklet called\n");
 
 	if (_core_if->dma_xfer.dma_dir == OTG_TX_DMA) {
@@ -409,7 +413,7 @@ static void plbdma_tasklet_func(unsigned long data)
 				PLB_DMA_CH, OTG_RX_DMA);
 	}
 
-    local_irq_enable();
+    local_irq_restore(flags);
     return;
 }
 static struct tasklet_struct plbdma_tasklet =
@@ -443,7 +447,7 @@ int  __init  dwc_otg_hcd_init(struct device *_dev, dwc_otg_device_t * dwc_otg_de
      * Allocate memory for the base HCD plus the DWC OTG HCD.
      * Initialize the base HCD.
      */
-    hcd = usb_create_hcd(&dwc_otg_hc_driver, _dev, _dev->bus_id);
+    hcd = usb_create_hcd(&dwc_otg_hc_driver, _dev, dev_name(_dev));
 	if (hcd == NULL) {
 		retval = -ENOMEM;
 		goto error1;
@@ -463,6 +467,7 @@ int  __init  dwc_otg_hcd_init(struct device *_dev, dwc_otg_device_t * dwc_otg_de
     /* Initialize the non-periodic schedule. */
     INIT_LIST_HEAD(&dwc_otg_hcd->non_periodic_sched_inactive);
 	INIT_LIST_HEAD(&dwc_otg_hcd->non_periodic_sched_active);
+	INIT_LIST_HEAD(&dwc_otg_hcd->non_periodic_sched_deferred);
 
     /* Initialize the periodic schedule. */
     INIT_LIST_HEAD(&dwc_otg_hcd->periodic_sched_inactive);
@@ -509,8 +514,8 @@ int  __init  dwc_otg_hcd_init(struct device *_dev, dwc_otg_device_t * dwc_otg_de
 	/* Set device flags indicating whether the HCD supports DMA. */
 	if (otg_dev->core_if->dma_enable) {
 		DWC_PRINT("Using DMA mode\n");
-		_dev->dma_mask = (void *)~0;
-		_dev->coherent_dma_mask = ~0;
+		_dev->dma_mask = &dma_mask;
+		_dev->coherent_dma_mask = DMA_BIT_MASK(32);
 	} else {
 		DWC_PRINT("Using Slave mode\n");
 		_dev->dma_mask = (void *)0;
@@ -736,6 +741,7 @@ void dwc_otg_hcd_free(struct usb_hcd *_hcd)
     /* Free memory for QH/QTD lists */
     qh_list_free(dwc_otg_hcd,
 	&dwc_otg_hcd->non_periodic_sched_inactive);
+	qh_list_free(dwc_otg_hcd, &dwc_otg_hcd->non_periodic_sched_deferred);
 	qh_list_free(dwc_otg_hcd, &dwc_otg_hcd->non_periodic_sched_active);
 	qh_list_free(dwc_otg_hcd, &dwc_otg_hcd->periodic_sched_inactive);
 	qh_list_free(dwc_otg_hcd, &dwc_otg_hcd->periodic_sched_ready);
@@ -855,6 +861,10 @@ static void dump_channel_info(dwc_otg_hcd_t * _hcd,  dwc_otg_qh_t * qh)
 			qh_item = list_entry(item, dwc_otg_qh_t, qh_list_entry);
 			DWC_PRINT("    %p\n", qh_item);
 		} DWC_PRINT("  NP active sched:\n");
+		list_for_each(item, &_hcd->non_periodic_sched_deferred) {
+			qh_item = list_entry(item, dwc_otg_qh_t, qh_list_entry);
+			DWC_PRINT("    %p\n", qh_item);
+		} DWC_PRINT("  NP deferred sched:\n");
 		list_for_each(item, &_hcd->non_periodic_sched_active) {
 			qh_item = list_entry(item, dwc_otg_qh_t, qh_list_entry);
 			DWC_PRINT("    %p\n", qh_item);
@@ -875,24 +885,30 @@ int dwc_otg_hcd_urb_enqueue(struct usb_hcd *_hcd,
 			    struct urb *_urb,
 			    gfp_t _mem_flags)
 {
+	unsigned long flags;
 	int retval;
 	dwc_otg_hcd_t * dwc_otg_hcd = hcd_to_dwc_otg_hcd(_hcd);
 	dwc_otg_qtd_t * qtd;
 
+	local_irq_save(flags);
 	retval = usb_hcd_link_urb_to_ep(_hcd, _urb);
-	if (retval)
+	if (retval) {
+		local_irq_restore(flags);
 		return retval;
+	}
 #ifdef DEBUG
-	    if (CHK_DEBUG_LEVEL(DBG_HCDV | DBG_HCD_URB)) {
+	if (CHK_DEBUG_LEVEL(DBG_HCDV | DBG_HCD_URB)) {
 		dump_urb_info(_urb, "dwc_otg_hcd_urb_enqueue");
 	}
 #endif	/*  */
     if (!dwc_otg_hcd->flags.b.port_connect_status) {
 	    /* No longer connected. */
+	    local_irq_restore(flags);
 	    return -ENODEV;
 	}
 	qtd = dwc_otg_hcd_qtd_create(_urb);
 	if (qtd == NULL) {
+		local_irq_restore(flags);
 		DWC_ERROR("DWC OTG HCD URB Enqueue failed creating QTD\n");
 		return -ENOMEM;
 	}
@@ -902,6 +918,7 @@ int dwc_otg_hcd_urb_enqueue(struct usb_hcd *_hcd,
 			   "Error status %d\n", retval);
 		dwc_otg_hcd_qtd_free(qtd);
 	}
+	local_irq_restore(flags);
 	return retval;
 }
 
@@ -914,12 +931,9 @@ int dwc_otg_hcd_urb_dequeue(struct usb_hcd *_hcd, struct urb *_urb, int _status)
 	dwc_otg_hcd_t * dwc_otg_hcd;
 	dwc_otg_qtd_t * urb_qtd;
 	dwc_otg_qh_t * qh;
-	struct usb_host_endpoint *_ep = dwc_urb_to_endpoint(_urb);
 	int retval;
 
 	DWC_DEBUGPL(DBG_HCD, "DWC OTG HCD URB Dequeue\n");
-	urb_qtd = (dwc_otg_qtd_t *) _urb->hcpriv;
-	qh = (dwc_otg_qh_t *) _ep->hcpriv;
 	local_irq_save(flags);
 	retval = usb_hcd_check_unlink_urb(_hcd, _urb, _status);
 	if (retval) {
@@ -929,6 +943,15 @@ int dwc_otg_hcd_urb_dequeue(struct usb_hcd *_hcd, struct urb *_urb, int _status)
 
 	dwc_otg_hcd = hcd_to_dwc_otg_hcd(_hcd);
 
+	urb_qtd = (dwc_otg_qtd_t *) _urb->hcpriv;
+	if (urb_qtd == NULL) {
+		printk("urb_qtd is NULL for _urb %08x\n",(unsigned)_urb);
+		goto done;
+	}
+	qh = (dwc_otg_qh_t *) urb_qtd->qtd_qh_ptr;
+	if (qh == NULL) {
+		goto done;
+	}
 #ifdef DEBUG
     if (CHK_DEBUG_LEVEL(DBG_HCDV | DBG_HCD_URB)) {
 		dump_urb_info(_urb, "dwc_otg_hcd_urb_dequeue");
@@ -966,14 +989,18 @@ int dwc_otg_hcd_urb_dequeue(struct usb_hcd *_hcd, struct urb *_urb, int _status)
 	} else if (list_empty(&qh->qtd_list)) {
 		dwc_otg_hcd_qh_remove(dwc_otg_hcd, qh);
 	}
+done:
 	local_irq_restore(flags);
 	_urb->hcpriv = NULL;
 
     /* Higher layer software sets URB status. */
-	usb_hcd_giveback_urb(_hcd, _urb, _status);
-	if (CHK_DEBUG_LEVEL(DBG_HCDV | DBG_HCD_URB)) {
-		DWC_PRINT("Called usb_hcd_giveback_urb()\n");
-		DWC_PRINT("  urb->status = %d\n", _status);
+	if (_status != -ECONNRESET) {
+		usb_hcd_unlink_urb_from_ep(_hcd, _urb);
+		usb_hcd_giveback_urb(_hcd, _urb, _status);
+		if (CHK_DEBUG_LEVEL(DBG_HCDV | DBG_HCD_URB)) {
+			DWC_PRINT("Called usb_hcd_giveback_urb()\n");
+			DWC_PRINT("  urb->status = %d\n", _status);
+		}
 	}
 	return 0;
 }
@@ -2044,7 +2071,7 @@ static void assign_and_init_hc(dwc_otg_hcd_t * _hcd, dwc_otg_qh_t * _qh)
 	hc->multi_count = 1;
 	if (_hcd->core_if->dma_enable) {
 		hc->xfer_buff =
-		    (uint8_t *) urb->transfer_dma + urb->actual_length;
+			(uint8_t *)(u32)urb->transfer_dma + urb->actual_length;
 	} else {
 		hc->xfer_buff =
 		    (uint8_t *) urb->transfer_buffer + urb->actual_length;
@@ -2073,7 +2100,7 @@ static void assign_and_init_hc(dwc_otg_hcd_t * _hcd, dwc_otg_qh_t * _qh)
 			hc->ep_is_in = 0;
 			hc->data_pid_start = DWC_OTG_HC_PID_SETUP;
 			if (_hcd->core_if->dma_enable) {
-				hc->xfer_buff = (uint8_t *) urb->setup_dma;
+				hc->xfer_buff = (uint8_t *)(u32)urb->setup_dma;
 			} else {
 				hc->xfer_buff = (uint8_t *) urb->setup_packet;
 			}
@@ -2102,7 +2129,7 @@ static void assign_and_init_hc(dwc_otg_hcd_t * _hcd, dwc_otg_qh_t * _qh)
 			hc->data_pid_start = DWC_OTG_HC_PID_DATA1;
 			hc->xfer_len = 0;
 			if (_hcd->core_if->dma_enable) {
-				hc->xfer_buff = (uint8_t *) _hcd->status_buf_dma;
+				hc->xfer_buff = (uint8_t *)(u32)_hcd->status_buf_dma;
 			} else {
 				hc->xfer_buff = (uint8_t *) _hcd->status_buf;
 			}
@@ -2121,7 +2148,7 @@ static void assign_and_init_hc(dwc_otg_hcd_t * _hcd, dwc_otg_qh_t * _qh)
 			frame_desc = &urb->iso_frame_desc[qtd->isoc_frame_index];
 			hc->ep_type = DWC_OTG_EP_TYPE_ISOC;
 			if (_hcd->core_if->dma_enable) {
-				hc->xfer_buff = (uint8_t *) urb->transfer_dma;
+				hc->xfer_buff = (uint8_t *)(u32)urb->transfer_dma;
 			} else {
 				hc->xfer_buff = (uint8_t *) urb->transfer_buffer;
 			}
@@ -2184,6 +2211,31 @@ dwc_otg_transaction_type_e dwc_otg_hcd_select_transactions(dwc_otg_hcd_t *_hcd)
 		qh_ptr = qh_ptr->next;
 		list_move(&qh->qh_list_entry, &_hcd->periodic_sched_assigned);
 		ret_val = DWC_OTG_TRANSACTION_PERIODIC;
+	}
+	/*
+	 * Process entries in the deferred portion of the non-periodic list.
+	 * A NAK put them here and, at the right time, they need to be
+	 * placed on the sched_inactive list.
+	 */
+	qh_ptr = _hcd->non_periodic_sched_deferred.next;
+	while (qh_ptr != &_hcd->non_periodic_sched_deferred) {
+		uint16_t frame_number =
+			dwc_otg_hcd_get_frame_number(dwc_otg_hcd_to_hcd(_hcd));
+		unsigned long flags;
+		qh = list_entry(qh_ptr, dwc_otg_qh_t, qh_list_entry);
+		qh_ptr = qh_ptr->next;
+
+		if (dwc_frame_num_le(qh->sched_frame, frame_number)) {
+			// NAK did this
+			/*
+			 * Move the QH from the non periodic deferred schedule to
+			 * the non periodic inactive schedule.
+			 */
+			local_irq_save(flags);
+			list_move(&qh->qh_list_entry,
+				  &_hcd->non_periodic_sched_inactive);
+		        local_irq_restore(flags);
+		}
 	}
 
 	/*

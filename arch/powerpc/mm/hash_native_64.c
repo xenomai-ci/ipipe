@@ -171,6 +171,24 @@ static long native_hpte_insert(unsigned long hpte_group, unsigned long va,
 		rflags |= _PAGE_GUARDED;
 #endif
 
+#ifdef CONFIG_PPC_PASEMI_A2_WORKAROUNDS
+	/* Workaround for bug 4910: No non-guarded access over IOB */
+	if (pa >= 0x80000000 && pa < 0x100000000)
+		rflags |= _PAGE_GUARDED;
+#endif
+
+#ifdef CONFIG_PPC_PASEMI_A2_WORKAROUNDS
+	/* Workaround for bug 4910: No non-guarded access over IOB */
+	if (pa >= 0x80000000 && pa < 0x100000000)
+		rflags |= _PAGE_GUARDED;
+#endif
+
+#ifdef CONFIG_PPC_PASEMI_A2_WORKAROUNDS
+	/* Workaround for bug 4910: No non-guarded access over IOB */
+	if (pa >= 0x80000000 && pa < 0x100000000)
+		rflags |= _PAGE_GUARDED;
+#endif
+
 	hpte_v = hpte_encode_v(va, psize, ssize) | vflags | HPTE_V_VALID;
 	hpte_r = hpte_encode_r(pa, psize) | rflags;
 

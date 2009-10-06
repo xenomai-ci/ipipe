@@ -26,9 +26,21 @@
 
 #include <linux/types.h>
 #include <asm/mmu.h>
-//#include <asm/ibm4xx.h>
 
+#ifdef CONFIG_405EX
 #define DCRN_DMA0_BASE               0x100
+#define DCRN_DMASR_BASE              0x120
+#endif
+
+#ifdef CONFIG_460EX
+#define DCRN_DMA0_BASE               0x200
+#define DCRN_DMASR_BASE              0x220
+#endif
+
+#ifndef DCRN_DMA0_BASE
+#error DMA register not defined for this PPC4xx variant!
+#endif
+
 #define DCRN_DMACR0     (DCRN_DMA0_BASE + 0x0)  /* DMA Channel Control 0 */
 #define DCRN_DMACT0     (DCRN_DMA0_BASE + 0x1)  /* DMA Count 0 */
 #define DCRN_DMASAH0 (DCRN_DMA0_BASE + 0x2)     /* DMA Src Addr High 0 */
@@ -38,7 +50,6 @@
 #define DCRN_ASGH0      (DCRN_DMA0_BASE + 0x6)  /* DMA SG Desc Addr High 0 */
 #define DCRN_ASG0       (DCRN_DMA0_BASE + 0x7)  /* DMA SG Desc Addr Low 0 */
 
-#define DCRN_DMASR_BASE              0x120
 #define DCRN_DMASR      (DCRN_DMASR_BASE + 0x0) /* DMA Status Register */
 #define DCRN_ASGC       (DCRN_DMASR_BASE + 0x3) /* DMA Scatter/Gather Command */
 #define DCRN_SLP        (DCRN_DMASR_BASE + 0x5) /* DMA Sleep Register */
@@ -84,8 +95,13 @@
  * DMA Channel Control Registers
  */
 
-#if defined(CONFIG_44x) || defined(CONFIG_405EX) || defined(CONFIG_405EXr)
+/* The 44x devices have 64bit DMA controllers, where the 405EX/r have 32bit */
+#if defined(CONFIG_44x)
 #define	PPC4xx_DMA_64BIT
+#endif
+
+/* The 44x and 405EX/r come up big-endian with last bit reserved */
+#if defined(CONFIG_44x) || defined(CONFIG_405EX) || defined(CONFIG_405EXr)
 #define DMA_CR_OFFSET 1
 #else
 #define DMA_CR_OFFSET 0

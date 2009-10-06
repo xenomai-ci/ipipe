@@ -85,6 +85,9 @@ typedef enum dwc_otg_transaction_type {
  * its transactions are complete or if an error occurred. Otherwise, it
  * remains in the schedule so more transactions can be executed later.
  */
+
+struct dwc_otg_qh;
+
 typedef struct dwc_otg_qtd {
 	/**
 	 * Determines the PID of the next data packet for the data phase of
@@ -132,6 +135,8 @@ typedef struct dwc_otg_qtd {
 	/** This list of QTDs */
 	struct list_head  	qtd_list_entry;
 
+	/* Field to track the qh pointer */
+	struct dwc_otg_qh *qtd_qh_ptr;
 } dwc_otg_qtd_t;
 
 /**
@@ -235,6 +240,14 @@ typedef struct dwc_otg_hcd {
 	 * currently assigned to a host channel.
 	 */
 	struct list_head 	non_periodic_sched_inactive;
+
+	/**
+	 * Deferred items in the non-periodic schedule. This is a list of
+	 * Queue Heads. Transfers associated with these Queue Heads are not
+	 * currently assigned to a host channel.
+	 * When we get an NAK, the QH goes here.
+	 */
+	struct list_head 	non_periodic_sched_deferred;
 
 	/**
 	 * Active items in the non-periodic schedule. This is a list of
@@ -466,6 +479,7 @@ extern void dwc_otg_hcd_qh_free (dwc_otg_qh_t *_qh);
 extern int dwc_otg_hcd_qh_add (dwc_otg_hcd_t *_hcd, dwc_otg_qh_t *_qh);
 extern void dwc_otg_hcd_qh_remove (dwc_otg_hcd_t *_hcd, dwc_otg_qh_t *_qh);
 extern void dwc_otg_hcd_qh_deactivate (dwc_otg_hcd_t *_hcd, dwc_otg_qh_t *_qh, int sched_csplit);
+extern int dwc_otg_hcd_qh_deferr (dwc_otg_hcd_t *_hcd, dwc_otg_qh_t *_qh, int delay);
 
 /** Remove and free a QH */
 static inline void dwc_otg_hcd_qh_remove_and_free (dwc_otg_hcd_t *_hcd,

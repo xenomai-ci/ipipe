@@ -295,7 +295,7 @@ static void init_fslspclksel(dwc_otg_core_if_t * _core_if)
 		    /* Full speed PHY */
 		    val = DWC_HCFG_48_MHZ;
 	} else {
-	    /* High speed PHY running at full speed or high speed */
+		/* High speed PHY running at full speed or high speed */
 		val = DWC_HCFG_30_60_MHZ;
 	}
 	DWC_DEBUGPL(DBG_CIL, "Initializing HCFG.FSLSPClkSel to 0x%1x\n", val);
@@ -320,7 +320,7 @@ static void init_devspd(dwc_otg_core_if_t * _core_if)
 		    /* Full speed PHY */
 			val = 0x3;
 	} else if (_core_if->core_params->speed == DWC_SPEED_PARAM_FULL) {
-	    /* High speed PHY running at full speed */
+    /* High speed PHY running at full speed */
 		val = 0x1;
 	} else {
 	    /* High speed PHY running at high speed */
@@ -908,7 +908,8 @@ void dwc_otg_disable_host_interrupts(dwc_otg_core_if_t * _core_if)
 	dwc_modify_reg32(&global_regs->gintmsk, intr_mask.d32, 0);
 }
 
-#if 1 // test-only
+#if 0
+/* currently not used, keep it here as if needed later */
 static int phy_read(dwc_otg_core_if_t * _core_if, int addr)
 {
 	u32 val;
@@ -917,19 +918,18 @@ static int phy_read(dwc_otg_core_if_t * _core_if, int addr)
 	dwc_write_reg32(&_core_if->core_global_regs->gpvndctl,
 			0x02000000 | (addr << 16));
 	val = dwc_read_reg32(&_core_if->core_global_regs->gpvndctl);
-//	printk("%s1: val=%08x\n", __func__, val);
 	while (((val & 0x08000000) == 0) && (timeout--)) {
 		udelay(1000);
 		val = dwc_read_reg32(&_core_if->core_global_regs->gpvndctl);
-//		printk("%s2: val=%08x\n", __func__, val);
 	}
 	val = dwc_read_reg32(&_core_if->core_global_regs->gpvndctl);
-//	printk("%s3: val=%08x timeout=%d\n", __func__, val, timeout);
 	printk("%s: addr=%02x regval=%02x\n", __func__, addr, val & 0x000000ff);
 
 	return 0;
 }
+#endif
 
+#ifdef CONFIG_405EX
 static int phy_write(dwc_otg_core_if_t * _core_if, int addr, int val8)
 {
 	u32 val;
@@ -938,15 +938,11 @@ static int phy_write(dwc_otg_core_if_t * _core_if, int addr, int val8)
 	dwc_write_reg32(&_core_if->core_global_regs->gpvndctl,
 			0x02000000 | 0x00400000 | (addr << 16) | (val8 & 0x000000ff));
 	val = dwc_read_reg32(&_core_if->core_global_regs->gpvndctl);
-//	printk("%s1: val=%08x\n", __func__, val);
 	while (((val & 0x08000000) == 0) && (timeout--)) {
 		udelay(1000);
 		val = dwc_read_reg32(&_core_if->core_global_regs->gpvndctl);
-//		printk("%s2: val=%08x\n", __func__, val);
 	}
 	val = dwc_read_reg32(&_core_if->core_global_regs->gpvndctl);
-//	printk("%s3: val=%08x timeout=%d\n", __func__, val, timeout);
-//	printk("%s: addr=%02x regval=%02x\n", __func__, addr, val & 0x000000ff);
 
 	return 0;
 }
@@ -1068,10 +1064,6 @@ void dwc_otg_core_host_init(dwc_otg_core_if_t * _core_if)
 			dwc_write_reg32(host_if->hprt0, hprt0.d32);
 		}
 	}
-#if 0 // test-only
-	for (i=0; i<16; i++)
-		phy_read(_core_if, i);
-#endif
 
 #ifdef CONFIG_405EX
 	/* Write 0x60 to USB PHY register 7:
@@ -1086,10 +1078,6 @@ void dwc_otg_core_host_init(dwc_otg_core_if_t * _core_if)
 	phy_write(_core_if, 7, 0x60);
 #endif
 
-#if 0 // test-only
-	for (i=0; i<16; i++)
-		phy_read(_core_if, i);
-#endif
 	dwc_otg_enable_host_interrupts(_core_if);
 }
 
@@ -2417,6 +2405,7 @@ void dwc_otg_ep0_start_transfer(dwc_otg_core_if_t * _core_if, dwc_ep_t * _ep)
 				     deptsiz.d32, deptsiz.b.xfersize,deptsiz.b.pktcnt);
 			DWC_PRINT("TX Queue or FIFO Full (0x%0x)\n", gtxstatus.d32);
 #endif	/*  */
+			printk("TX Queue or FIFO Full!!!!\n"); // test-only
 		    return;
 		}
 		depctl.d32 = dwc_read_reg32(&in_regs->diepctl);
@@ -2712,8 +2701,10 @@ void dwc_otg_ep_write_packet(dwc_otg_core_if_t * _core_if, dwc_ep_t * _ep,
 		}
 #endif
 	}
+
 	_ep->xfer_count += byte_count;
 	_ep->xfer_buff += byte_count;
+	_ep->dma_addr += byte_count;
 }
 
 
@@ -2829,7 +2820,7 @@ void dwc_otg_read_packet(dwc_otg_core_if_t * _core_if,
     	DWC_DEBUGPL(DBG_SP, "%s set release_later %d\n",  __func__, _bytes);
 	    atomic_set(& release_later, 1);
 		//disable_irq_nosync(94);
-		dwc_otg_disable_global_interrupts(_core_if);
+	    dwc_otg_disable_global_interrupts(_core_if);
 
 		/* plbdma tasklet */
 	    _core_if->dma_xfer.dma_data_buff = data_buff;

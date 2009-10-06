@@ -1,7 +1,7 @@
 /*
- * AMCC Kilauea USB-OTG wrapper
+ * AMCC PPC4xx USB-OTG wrapper
  *
- * Copyright 2008 DENX Software Engineering, Stefan Roese <sr@denx.de>
+ * Copyright 2008-2009 DENX Software Engineering, Stefan Roese <sr@denx.de>
  *
  * Extract the resources (MEM & IRQ) from the dts file and put them
  * into the platform-device struct for usage in the platform-device
@@ -11,6 +11,7 @@
 
 #include <linux/platform_device.h>
 #include <linux/of_platform.h>
+#include <linux/dma-mapping.h>
 
 /*
  * Resource template will be filled dynamically with the values
@@ -18,11 +19,11 @@
  */
 static struct resource usb_otg_resources[] = {
 	[0] = {
-		/* 405EX USB-OTG registers */
+		/* 4xx USB-OTG registers */
 		.flags  = IORESOURCE_MEM,
 	},
 	[1] = {
-		/* 405EX OTG IRQ */
+		/* 4xx OTG IRQ */
 		.flags  = IORESOURCE_IRQ,
 	},
 	[2] = {
@@ -30,29 +31,25 @@ static struct resource usb_otg_resources[] = {
 		.flags  = IORESOURCE_IRQ,
 	},
 	[3] = {
-		/* 405EX DMA IRQ */
+		/* 4xx DMA IRQ */
 		.flags  = IORESOURCE_IRQ,
 	},
 };
 
-static u64 dma_mask = 0xffffffffULL;
+static u64 dma_mask = DMA_BIT_MASK(32);
 
 static struct platform_device usb_otg_device = {
         .name = "dwc_otg",
         .id = 0,
         .num_resources = ARRAY_SIZE(usb_otg_resources),
         .resource = usb_otg_resources,
-        .dev = {
-                .dma_mask = &dma_mask,
-                .coherent_dma_mask = 0xffffffffULL,
-        }
+	.dev = {
+		 .dma_mask = &dma_mask,
+		 .coherent_dma_mask = DMA_BIT_MASK(32),
+	},
 };
 
-static struct platform_device *ppc405ex_devs[] __initdata = {
-        &usb_otg_device,
-};
-
-static int __devinit ppc405ex_usb_otg_probe(struct of_device *ofdev,
+static int __devinit ppc4xx_usb_otg_probe(struct of_device *ofdev,
 					    const struct of_device_id *match)
 {
 	struct device_node *np = ofdev->node;
@@ -80,29 +77,29 @@ static int __devinit ppc405ex_usb_otg_probe(struct of_device *ofdev,
 	usb_otg_resources[3].start = usb_otg_resources[3].end =
 		irq_of_parse_and_map(np, 2);
 
-	return platform_add_devices(ppc405ex_devs, ARRAY_SIZE(ppc405ex_devs));
+	return platform_device_register(&usb_otg_device);
 }
 
-static int __devexit ppc405ex_usb_otg_remove(struct of_device *ofdev)
+static int __devexit ppc4xx_usb_otg_remove(struct of_device *ofdev)
 {
 	/* Nothing to do here */
 	return 0;
 }
 
-static const struct of_device_id ppc405ex_usb_otg_match[] = {
-	{ .compatible = "amcc,usb-otg-405ex", },
+static const struct of_device_id ppc4xx_usb_otg_match[] = {
+	{ .compatible = "amcc,usb-otg", },
 	{}
 };
 
-static struct of_platform_driver ppc405ex_usb_otg_driver = {
-	.name = "ppc405ex-usb-otg",
-	.match_table = ppc405ex_usb_otg_match,
-	.probe = ppc405ex_usb_otg_probe,
-	.remove = ppc405ex_usb_otg_remove,
+static struct of_platform_driver ppc4xx_usb_otg_driver = {
+	.name = "ppc4xx-usb-otg",
+	.match_table = ppc4xx_usb_otg_match,
+	.probe = ppc4xx_usb_otg_probe,
+	.remove = ppc4xx_usb_otg_remove,
 };
 
-static int __init ppc405ex_usb_otg_init(void)
+static int __init ppc4xx_usb_otg_init(void)
 {
-	return of_register_platform_driver(&ppc405ex_usb_otg_driver);
+	return of_register_platform_driver(&ppc4xx_usb_otg_driver);
 }
-device_initcall(ppc405ex_usb_otg_init);
+device_initcall(ppc4xx_usb_otg_init);
