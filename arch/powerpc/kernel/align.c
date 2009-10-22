@@ -492,11 +492,10 @@ int fix_alignment(struct pt_regs *regs)
 		if (flags & S) {
 			/* Single-precision FP store requires conversion... */
 #ifdef CONFIG_PPC_FPU
-			unsigned long irqflags;
-			ipipe_preempt_disable(irqflags);
+			preempt_disable();
 			enable_kernel_fp();
 			cvt_df(&data.dd, (float *)&data.v[4], &current->thread);
-			ipipe_preempt_enable(irqflags);
+			preempt_enable();
 #else
 			return 0;
 #endif
@@ -536,13 +535,10 @@ int fix_alignment(struct pt_regs *regs)
 	/* Single-precision FP load requires conversion... */
 	case LD+F+S:
 #ifdef CONFIG_PPC_FPU
-	{
-		unsigned long irqflags;
-		ipipe_preempt_disable(irqflags);
+		preempt_disable();
 		enable_kernel_fp();
 		cvt_fd((float *)&data.v[4], &data.dd, &current->thread);
-		ipipe_preempt_enable(irqflags);
-	}
+		preempt_enable();
 #else
 		return 0;
 #endif

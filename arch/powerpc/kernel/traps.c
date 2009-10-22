@@ -820,8 +820,7 @@ void alignment_exception(struct pt_regs *regs)
 {
 	int sig, code, fixed = 0;
 
-	if (test_bit(IPIPE_NOSTACK_FLAG, &ipipe_this_cpudom_var(status)) &&
-	    ipipe_trap_notify(IPIPE_TRAP_ALIGNMENT, regs))
+	if (ipipe_trap_notify(IPIPE_TRAP_ALIGNMENT,regs))
 	    	return;
 
 	/* we don't implement logging of alignment exceptions */
@@ -833,10 +832,6 @@ void alignment_exception(struct pt_regs *regs)
 		emulate_single_step(regs);
 		return;
 	}
-
-	if (!ipipe_root_domain_p &&
-	    ipipe_trap_notify(IPIPE_TRAP_ALIGNMENT, regs))
-		return;
 
 	/* Operand address was bad */
 	if (fixed == -EFAULT) {
