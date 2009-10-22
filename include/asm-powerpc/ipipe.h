@@ -37,10 +37,10 @@
 #include <linux/cache.h>
 #include <linux/threads.h>
 
-#define IPIPE_ARCH_STRING	"1.9-02"
+#define IPIPE_ARCH_STRING	"1.9-03"
 #define IPIPE_MAJOR_NUMBER	1
 #define IPIPE_MINOR_NUMBER	9
-#define IPIPE_PATCH_NUMBER	2
+#define IPIPE_PATCH_NUMBER	3
 
 #define prepare_arch_switch(next)			\
 	do {						\
