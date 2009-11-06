@@ -164,15 +164,15 @@ int smp_request_message_ipi(int virq, int msg)
 	if (msg < 0 || msg > PPC_MSG_DEBUGGER_BREAK) {
 		return -EINVAL;
 	}
-#if !defined(CONFIG_DEBUGGER) && !defined(CONFIG_KEXEC)
-	if (msg == PPC_MSG_DEBUGGER_BREAK) {
-		return 1;
-	}
-#endif
 #ifdef CONFIG_IPIPE
 	if (msg == PPC_MSG_DEBUGGER_BREAK)
 		/* Piggyback the debugger IPI for the I-pipe. */
 		__ipipe_register_ipi(virq);
+#endif
+#if !defined(CONFIG_DEBUGGER) && !defined(CONFIG_KEXEC)
+	if (msg == PPC_MSG_DEBUGGER_BREAK) {
+		return 1;
+	}
 #endif
 
 	err = request_irq(virq, smp_ipi_action[msg], IRQF_DISABLED|IRQF_PERCPU,
