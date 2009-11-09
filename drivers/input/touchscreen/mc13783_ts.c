@@ -94,6 +94,8 @@ static void mc13783_ts_work(struct work_struct *work)
 		mc13783_ts_report_sample(priv);
 }
 
+extern void mc13783_adc_set_ts_irq_mode(struct mc13783 *mc13783);
+
 static int mc13783_ts_open(struct input_dev *dev)
 {
 	struct mc13783_ts_priv *priv = input_get_drvdata(dev);
@@ -104,7 +106,15 @@ static int mc13783_ts_open(struct input_dev *dev)
 	if (ret)
 		return ret;
 
-	queue_delayed_work(priv->workq, &priv->work, HZ / 20);
+	if (priv->mc13783->ts_active)
+		mc13783_adc_set_ts_irq_mode(priv->mc13783);
+
+	/* clear and then unmask the ts wakeup interrupt */
+	mc13783_reg_write(priv->mc13783, MC13783_REG_INTERRUPT_STATUS_0,
+			MC13783_INT_STAT_TSI);
+
+	mc13783_set_bits(priv->mc13783, MC13783_REG_INTERRUPT_MASK_0,
+			MC13783_INT_MASK_TSM, 0);
 
 	return 0;
 }
@@ -112,6 +122,10 @@ static int mc13783_ts_open(struct input_dev *dev)
 static void mc13783_ts_close(struct input_dev *dev)
 {
 	struct mc13783_ts_priv *priv = input_get_drvdata(dev);
+
+	/* mask the ts wakeup interrupt */
+	mc13783_set_bits(priv->mc13783, MC13783_REG_INTERRUPT_MASK_0,
+			MC13783_INT_MASK_TSM, MC13783_INT_MASK_TSM);
 
 	mc13783_free_irq(priv->mc13783, MC13783_IRQ_TS);
 }
@@ -162,10 +176,6 @@ static int __devinit mc13783_ts_probe(struct platform_device *pdev)
 				"register input device failed with %d\n", ret);
 		goto err_failed_register;
 	}
-
-	/* unmask the ts wakeup interrupt */
-	mc13783_set_bits(priv->mc13783, MC13783_REG_INTERRUPT_MASK_0,
-			MC13783_INT_MASK_TSM, 0);
 
 	mc13783_adc_set_ts_status(priv->mc13783, 1);
 
