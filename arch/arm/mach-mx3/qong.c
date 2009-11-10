@@ -304,7 +304,7 @@ static struct mx3fb_platform_data mx3fb_pdata = {
 	.num_modes	= ARRAY_SIZE(fb_modedb),
 };
 
-void qong_init_lcd(void)
+static void __init qong_init_lcd(void)
 {
 	/* Init Display Interface */
 	mxc_iomux_mode(IOMUX_MODE(MX31_PIN_LD0, IOMUX_CONFIG_FUNC));
@@ -333,22 +333,12 @@ void qong_init_lcd(void)
 	mxc_iomux_mode(IOMUX_MODE(MX31_PIN_CONTRAST, IOMUX_CONFIG_FUNC));
 	mxc_iomux_mode(IOMUX_MODE(MX31_PIN_D3_SPL, IOMUX_CONFIG_FUNC));
 	mxc_iomux_mode(IOMUX_MODE(MX31_PIN_D3_CLS, IOMUX_CONFIG_FUNC));
+
+	mxc_register_device(&mx3_ipu, &mx3_ipu_data);
+	mxc_register_device(&mx3_fb, &mx3fb_pdata);
 }
 
-void qong_init_spi(void)
-{
-	mxc_iomux_mode(IOMUX_MODE(MX31_PIN_CSPI2_SPI_RDY, IOMUX_CONFIG_FUNC));
-	mxc_iomux_mode(IOMUX_MODE(MX31_PIN_CSPI2_SCLK, IOMUX_CONFIG_FUNC));
-	mxc_iomux_mode(IOMUX_MODE(MX31_PIN_CSPI2_MISO, IOMUX_CONFIG_FUNC));
-	mxc_iomux_mode(IOMUX_MODE(MX31_PIN_CSPI2_MOSI, IOMUX_CONFIG_FUNC));
-	mxc_iomux_mode(IOMUX_MODE(MX31_PIN_CSPI2_SS0, IOMUX_CONFIG_FUNC));
-
-	mxc_iomux_mode(IOMUX_MODE(MX31_PIN_GPIO1_3, IOMUX_CONFIG_GPIO));
-
-	if (!gpio_request(IOMUX_TO_GPIO(MX31_PIN_GPIO1_3), "spi1_irq"))
-		gpio_direction_input(IOMUX_TO_GPIO(MX31_PIN_GPIO1_3));
-}
-
+#if defined(CONFIG_MFD_MC13783) || defined(CONFIG_MFD_MC13783_MODULE)
 static struct mc13783_platform_data mc13783_pdata __initdata = {
 	.flags = MC13783_USE_TOUCHSCREEN,
 };
@@ -371,6 +361,24 @@ struct spi_imx_master qong_spi1_master = {
 	.num_chipselect = ARRAY_SIZE(qong_spi1_cs),
 };
 
+static void __init qong_init_spi(void)
+{
+	mxc_iomux_mode(IOMUX_MODE(MX31_PIN_CSPI2_SPI_RDY, IOMUX_CONFIG_FUNC));
+	mxc_iomux_mode(IOMUX_MODE(MX31_PIN_CSPI2_SCLK, IOMUX_CONFIG_FUNC));
+	mxc_iomux_mode(IOMUX_MODE(MX31_PIN_CSPI2_MISO, IOMUX_CONFIG_FUNC));
+	mxc_iomux_mode(IOMUX_MODE(MX31_PIN_CSPI2_MOSI, IOMUX_CONFIG_FUNC));
+	mxc_iomux_mode(IOMUX_MODE(MX31_PIN_CSPI2_SS0, IOMUX_CONFIG_FUNC));
+
+	mxc_iomux_mode(IOMUX_MODE(MX31_PIN_GPIO1_3, IOMUX_CONFIG_GPIO));
+
+	if (!gpio_request(IOMUX_TO_GPIO(MX31_PIN_GPIO1_3), "spi1_irq"))
+		gpio_direction_input(IOMUX_TO_GPIO(MX31_PIN_GPIO1_3));
+
+	spi_register_board_info(qong_spi_devs, ARRAY_SIZE(qong_spi_devs));
+	mxc_register_device(&mxc_spi_device1, &qong_spi1_master);
+}
+#endif
+
 /*
  * Board specific initialization.
  */
@@ -380,11 +388,9 @@ static void __init mxc_board_init(void)
 	qong_init_nor_mtd();
 	qong_init_fpga();
 	qong_init_lcd();
+#if defined(CONFIG_MFD_MC13783) || defined(CONFIG_MFD_MC13783_MODULE)
 	qong_init_spi();
-	mxc_register_device(&mx3_ipu, &mx3_ipu_data);
-	mxc_register_device(&mx3_fb, &mx3fb_pdata);
-	spi_register_board_info(qong_spi_devs, ARRAY_SIZE(qong_spi_devs));
-	mxc_register_device(&mxc_spi_device1, &qong_spi1_master);
+#endif
 }
 
 static void __init qong_timer_init(void)
