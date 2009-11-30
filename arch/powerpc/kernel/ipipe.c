@@ -170,7 +170,6 @@ cpumask_t __ipipe_set_irq_affinity(unsigned irq, cpumask_t cpumask)
 
 int __ipipe_send_ipi(unsigned ipi, cpumask_t cpumask)
 {
-	extern void mpic_send_ipi(unsigned int ipi_no, unsigned int cpu_mask);
 	unsigned long flags;
 	cpumask_t testmask;
 	int cpu;
