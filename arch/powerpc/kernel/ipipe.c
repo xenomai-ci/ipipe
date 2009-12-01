@@ -110,10 +110,11 @@ void __ipipe_hook_critical_ipi(struct ipipe_domain *ipd)
 
 void __ipipe_register_ipi(unsigned int irq)
 {
-	irq_desc_t *desc = irq_desc + irq;
 	__ipipe_ipi_irq = irq;
 	mb();
-	desc->chip->enable(irq);
+#ifndef CONFIG_DEBUGGER
+	irq_desc[irq].chip->startup(irq);
+#endif
 } 
 
 static void __ipipe_ipi_demux(int irq, struct pt_regs *regs)
