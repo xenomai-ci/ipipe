@@ -162,7 +162,7 @@ cpumask_t __ipipe_set_irq_affinity(unsigned irq, cpumask_t cpumask)
 	if (cpus_empty(cpumask))
 		return CPU_MASK_NONE;	/* Error -- bad mask value or non-routable IRQ. */
 
-	cpumask_copy(&oldmask, irq_to_desc(irq)->affinity);
+	cpumask_copy(&oldmask, &irq_to_desc(irq)->affinity);
 	irq_to_desc(irq)->chip->set_affinity(irq, &cpumask);
 
 	return oldmask;
