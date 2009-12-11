@@ -1676,7 +1676,7 @@ void ipipe_check_context(struct ipipe_domain *border_domain)
 
 	ipipe_context_check_off();
 	ipipe_trace_panic_freeze();
-	ipipe_set_printk_sync(__ipipe_current_domain);
+	oops_in_progress = 1;
 
 	if (this_domain->priority > border_domain->priority)
 		printk(KERN_ERR "I-pipe: Detected illicit call from domain "
