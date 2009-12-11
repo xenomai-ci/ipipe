@@ -312,7 +312,7 @@ void __ipipe_unstall_root(void)
 
 #ifdef CONFIG_IPIPE_DEBUG_INTERNAL
 	/* This helps catching bad usage from assembly call sites. */
-	BUG_ON(!__ipipe_root_domain_p);
+	BUG_ON(!__ipipe_root_domain_p && !oops_in_progress);
 #endif
 
 	p = ipipe_root_cpudom_ptr();
@@ -328,7 +328,7 @@ void __ipipe_unstall_root(void)
 void __ipipe_restore_root(unsigned long x)
 {
 #ifdef CONFIG_IPIPE_DEBUG_INTERNAL
-	BUG_ON(!ipipe_root_domain_p);
+	BUG_ON(!ipipe_root_domain_p && !oops_in_progress);
 #endif
 
 	if (x)
