@@ -580,6 +580,29 @@ void __ipipe_preempt_schedule_irq(void)
 
 #endif /* !CONFIG_X86_32 */
 
+void __ipipe_halt_root(void)
+{
+	struct ipipe_percpu_domain_data *p;
+
+	/* Emulate sti+hlt sequence over the root domain. */
+
+	local_irq_disable_hw();
+
+	p = ipipe_root_cpudom_ptr();
+
+	clear_bit(IPIPE_STALL_FLAG, &p->status);
+
+	if (unlikely(p->irqpend_himask != 0)) {
+		__ipipe_sync_pipeline(IPIPE_IRQMASK_ANY);
+		local_irq_enable_hw();
+	} else {
+#ifdef CONFIG_IPIPE_TRACE_IRQSOFF
+		ipipe_trace_end(0x8000000E);
+#endif /* CONFIG_IPIPE_TRACE_IRQSOFF */
+		asm volatile("sti; hlt": : :"memory");
+	}
+}
+
 static void do_machine_check_vector(struct pt_regs *regs, long error_code)
 {
 #ifdef CONFIG_X86_MCE

@@ -51,7 +51,9 @@
 #define ex_do_simd_coprocessor_error		19
 #define ex_do_iret_error			32
 
-#if !defined(__ASSEMBLY__) && !defined(CONFIG_SMP)
+#ifndef __ASSEMBLY__
+
+#ifndef CONFIG_SMP
 
 #if __GNUC__ >= 4
 /* Alias to ipipe_root_cpudom_var(status) */
@@ -92,6 +94,12 @@ static inline unsigned long __ipipe_test_root(void)
 	return oldbit;
 }
 
-#endif	/* !__ASSEMBLY__ && !CONFIG_SMP */
+#endif /* !CONFIG_SMP */
+
+void __ipipe_halt_root(void);
+
+void __ipipe_serial_debug(const char *fmt, ...);
+
+#endif	/* !__ASSEMBLY__ */
 
 #endif	/* !__X86_IPIPE_BASE_H */
