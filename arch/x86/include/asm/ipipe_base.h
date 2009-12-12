@@ -203,6 +203,8 @@ static inline unsigned long __ipipe_test_root(void)
 
 #endif /* !CONFIG_SMP */
 
+void __ipipe_halt_root(void);
+
 void __ipipe_serial_debug(const char *fmt, ...);
 
 #endif	/* !__ASSEMBLY__ */

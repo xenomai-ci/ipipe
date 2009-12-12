@@ -72,10 +72,12 @@ static inline void native_irq_enable(void)
 
 static inline void native_safe_halt(void)
 {
-#ifdef CONFIG_IPIPE_TRACE_IRQSOFF
-	ipipe_trace_end(0x8000000E);
-#endif
+#ifdef CONFIG_IPIPE
+	barrier();
+	__ipipe_halt_root();
+#else
 	asm volatile("sti; hlt": : :"memory");
+#endif
 }
 
 static inline void native_halt(void)
