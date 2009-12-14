@@ -2199,9 +2199,11 @@ static int ftrace_convert_nops(struct module *mod,
 	}
 
 	/* disable interrupts to prevent kstop machine */
-	local_irq_save_hw_notrace(flags);
+	local_irq_save(flags);
+	local_irq_disable_hw();
 	ftrace_update_code(mod);
-	local_irq_restore_hw_notrace(flags);
+	local_irq_enable_hw();
+	local_irq_restore(flags);
 	mutex_unlock(&ftrace_lock);
 
 	return 0;
@@ -2226,9 +2228,11 @@ void __init ftrace_init(void)
 	/* Keep the ftrace pointer to the stub */
 	addr = (unsigned long)ftrace_stub;
 
-	local_irq_save_hw_notrace(flags);
+	local_irq_save(flags);
+	local_irq_disable_hw();
 	ftrace_dyn_arch_init(&addr);
-	local_irq_restore_hw_notrace(flags);
+	local_irq_enable_hw();
+	local_irq_restore(flags);
 
 	/* ftrace_dyn_arch_init places the return code in addr */
 	if (addr)
