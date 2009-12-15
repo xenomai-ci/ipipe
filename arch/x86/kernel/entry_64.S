@@ -1412,14 +1412,18 @@ ENTRY(call_softirq)
 	CFI_REL_OFFSET rbp,0
 	mov  %rsp,%rbp
 	CFI_DEF_CFA_REGISTER rbp
+	DISABLE_INTERRUPTS_HW_COND
 	incl PER_CPU_VAR(irq_count)
 	cmove PER_CPU_VAR(irq_stack_ptr),%rsp
+	ENABLE_INTERRUPTS_HW_COND
 	push  %rbp			# backlink for old unwinder
 	call __do_softirq
+	DISABLE_INTERRUPTS_HW_COND
 	leaveq
 	CFI_DEF_CFA_REGISTER	rsp
 	CFI_ADJUST_CFA_OFFSET   -8
 	decl PER_CPU_VAR(irq_count)
+	ENABLE_INTERRUPTS_HW_COND
 	ret
 	CFI_ENDPROC
 END(call_softirq)

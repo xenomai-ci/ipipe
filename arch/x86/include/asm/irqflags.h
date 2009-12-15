@@ -221,12 +221,14 @@ static inline unsigned long __raw_local_irq_save(void)
 #define ENABLE_INTERRUPTS(clobbers)	sti
 #endif /* CONFIG_X86_64 */
 #define ENABLE_INTERRUPTS_HW_COND	sti
+#define DISABLE_INTERRUPTS_HW_COND	cli
 #define DISABLE_INTERRUPTS_HW(clobbers)	cli
 #define ENABLE_INTERRUPTS_HW(clobbers)	sti
 #else /* !CONFIG_IPIPE */
 #define ENABLE_INTERRUPTS(x)		sti
 #define DISABLE_INTERRUPTS(x)		cli
 #define ENABLE_INTERRUPTS_HW_COND
+#define DISABLE_INTERRUPTS_HW_COND
 #define DISABLE_INTERRUPTS_HW(clobbers)	DISABLE_INTERRUPTS(clobbers)
 #define ENABLE_INTERRUPTS_HW(clobbers)	ENABLE_INTERRUPTS(clobbers)
 #endif /* !CONFIG_IPIPE */
