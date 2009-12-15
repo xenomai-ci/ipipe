@@ -1022,6 +1022,14 @@ ENTRY(retint_kernel)
 	jnc  retint_restore_args
 	bt   $9,EFLAGS-ARGOFFSET(%rsp)	/* interrupts off? */
 	jnc  retint_restore_args
+#ifdef CONFIG_IPIPE
+	/*
+	 * We may have preempted call_softirq before __do_softirq raised or
+	 * after it lowered the preemption counter.
+	 */
+	cmpl $0,PER_CPU_VAR(irq_count)
+	jge  retint_restore_args
+#endif
 	PREEMPT_SCHEDULE_IRQ
 	jmp exit_intr
 #endif
