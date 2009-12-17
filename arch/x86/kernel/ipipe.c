@@ -960,3 +960,7 @@ EXPORT_PER_CPU_SYMBOL_GPL(cpu_tlbstate);
 #if defined(CONFIG_SMP) || defined(CONFIG_DEBUG_SPINLOCK)
 EXPORT_SYMBOL(tasklist_lock);
 #endif /* CONFIG_SMP || CONFIG_DEBUG_SPINLOCK */
+
+#ifdef CONFIG_CC_STACKPROTECTOR
+EXPORT_PER_CPU_SYMBOL_GPL(irq_stack_union);
+#endif
