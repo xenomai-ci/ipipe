@@ -331,7 +331,7 @@ unsigned long __ipipe_mach_get_dec(void)
 void __init at91_timer_init(void)
 {
 	unsigned char tc_divisors[] = { 2, 8, 32, 128, 0, };
-	unsigned master_freq, divisor, divided_freq;
+	unsigned master_freq, divisor = 0, divided_freq = 0;
 	unsigned long long wrap_ns;
 
 	/* Disable (boot loader) timer interrupts. */
