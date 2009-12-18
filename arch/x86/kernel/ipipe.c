@@ -987,3 +987,5 @@ EXPORT_SYMBOL(tasklist_lock);
 #ifdef CONFIG_CC_STACKPROTECTOR
 EXPORT_PER_CPU_SYMBOL_GPL(irq_stack_union);
 #endif
+
+EXPORT_SYMBOL(__ipipe_halt_root);
