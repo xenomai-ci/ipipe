@@ -45,10 +45,10 @@
 #include <asm/paca.h>
 #endif
 
-#define IPIPE_ARCH_STRING	"2.7-05"
+#define IPIPE_ARCH_STRING	"2.7-06"
 #define IPIPE_MAJOR_NUMBER	2
 #define IPIPE_MINOR_NUMBER	7
-#define IPIPE_PATCH_NUMBER	5
+#define IPIPE_PATCH_NUMBER	6
 
 #ifdef CONFIG_IPIPE_WANT_PREEMPTIBLE_SWITCH
 
