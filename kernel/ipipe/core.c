@@ -312,7 +312,7 @@ void __ipipe_unstall_root(void)
 
 #ifdef CONFIG_IPIPE_DEBUG_INTERNAL
 	/* This helps catching bad usage from assembly call sites. */
-	BUG_ON(!__ipipe_root_domain_p);
+	BUG_ON(!__ipipe_root_domain_p && !oops_in_progress);
 #endif
 
 	p = ipipe_root_cpudom_ptr();
@@ -328,7 +328,7 @@ void __ipipe_unstall_root(void)
 void __ipipe_restore_root(unsigned long x)
 {
 #ifdef CONFIG_IPIPE_DEBUG_INTERNAL
-	BUG_ON(!ipipe_root_domain_p);
+	BUG_ON(!ipipe_root_domain_p && !oops_in_progress);
 #endif
 
 	if (x)
@@ -1676,7 +1676,7 @@ void ipipe_check_context(struct ipipe_domain *border_domain)
 
 	ipipe_context_check_off();
 	ipipe_trace_panic_freeze();
-	ipipe_set_printk_sync(__ipipe_current_domain);
+	oops_in_progress = 1;
 
 	if (this_domain->priority > border_domain->priority)
 		printk(KERN_ERR "I-pipe: Detected illicit call from domain "
