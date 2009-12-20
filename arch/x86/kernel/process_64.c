@@ -148,7 +148,6 @@ void cpu_idle(void)
 			enter_idle();
 			/* Don't trace irqs off for idle */
 			stop_critical_timings();
-  			ipipe_suspend_domain();
 			pm_idle();
 			start_critical_timings();
 			/* In many cases the interrupt that ended idle

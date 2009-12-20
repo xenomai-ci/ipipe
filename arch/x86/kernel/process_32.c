@@ -117,7 +117,6 @@ void cpu_idle(void)
 			local_irq_disable();
 			/* Don't trace irqs off for idle */
 			stop_critical_timings();
-  			ipipe_suspend_domain();
 			pm_idle();
 			start_critical_timings();
 		}
