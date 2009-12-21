@@ -508,5 +508,11 @@ EXPORT_SYMBOL_GPL(cpu_do_switch_mm);
 #endif
 EXPORT_SYMBOL_GPL(__check_kvm_seq);
 #if defined(CONFIG_SMP) || defined(CONFIG_DEBUG_SPINLOCK)
-EXPORT_SYMBOL(tasklist_lock);
+EXPORT_SYMBOL_GPL(tasklist_lock);
 #endif /* CONFIG_SMP || CONFIG_DEBUG_SPINLOCK */
+
+#ifdef CONFIG_CPU_HAS_ASID
+EXPORT_SYMBOL_GPL(__new_context);
+EXPORT_SYMBOL_GPL(cpu_last_asid);
+#endif /* CONFIG_CPU_HAS_ASID */
+
