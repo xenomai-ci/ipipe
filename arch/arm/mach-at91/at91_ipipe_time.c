@@ -101,7 +101,7 @@ union tsc_reg {
 		unsigned long high;
 	};
 #endif /* __LITTLE_ENDIAN */
-	cycle_t full;
+	unsigned long long full;
 };
 static unsigned max_delta_ticks, min_delta_ticks;
 static struct clock_event_device clkevt;
@@ -334,8 +334,8 @@ unsigned long __ipipe_mach_get_dec(void)
 
 void __init at91_timer_init(void)
 {
-	unsigned char tc_divisors[] = { 2, 8, 32, 128, };
-	unsigned master_freq, divided_freq = AT91_SLOW_CLOCK;
+	unsigned char tc_divisors[] = { 2, 8, 32, 128, 0, };
+	unsigned master_freq, divisor = 0, divided_freq = 0;
 	unsigned long long wrap_ns;
 
 	/* Disable (boot loader) timer interrupts. */
@@ -354,8 +354,10 @@ void __init at91_timer_init(void)
 	master_freq = clk_get_rate(clk_get(NULL, "mck"));
 	/* Find the first frequency above 1 MHz */
 	for (tc_timer_clock = ARRAY_SIZE(tc_divisors) - 1;
-		tc_timer_clock >= 0; tc_timer_clock--) {
-		divided_freq = master_freq / tc_divisors[tc_timer_clock];
+	     tc_timer_clock >= 0; tc_timer_clock--) {
+		divisor = tc_divisors[tc_timer_clock];
+		divided_freq = (divisor
+				? master_freq / divisor : AT91_SLOW_CLOCK);
 		if (divided_freq > 1000000)
 			break;
 	}
@@ -368,7 +370,7 @@ void __init at91_timer_init(void)
 		       " frequency greater than 1MHz\n");
 
 	printk(KERN_INFO "AT91 I-pipe timer: div: %u, freq: %u.%06u MHz, wrap: "
-	       "%u.%06u ms\n", master_freq / divided_freq,
+	       "%u.%06u ms\n", divisor,
 	       divided_freq / 1000000, divided_freq % 1000000,
 	       (unsigned) wrap_ns / 1000000, (unsigned) wrap_ns % 1000000);
 

@@ -136,6 +136,7 @@ int fcse_needs_flush(struct mm_struct *prev, struct mm_struct *next)
 
 	return res;
 }
+EXPORT_SYMBOL_GPL(fcse_needs_flush);
 
 /* Called with mm->mmap_sem write-locked. */
 void fcse_relocate_mm_to_null_pid(struct mm_struct *mm)
