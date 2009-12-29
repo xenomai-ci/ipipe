@@ -1089,14 +1089,14 @@ void nf_conntrack_flush_report(struct net *net, u32 pid, int report)
 }
 EXPORT_SYMBOL_GPL(nf_conntrack_flush_report);
 
-static void nf_ct_release_dying_list(void)
+static void nf_ct_release_dying_list(struct net *net)
 {
 	struct nf_conntrack_tuple_hash *h;
 	struct nf_conn *ct;
 	struct hlist_nulls_node *n;
 
 	spin_lock_bh(&nf_conntrack_lock);
-	hlist_nulls_for_each_entry(h, n, &init_net.ct.dying, hnnode) {
+	hlist_nulls_for_each_entry(h, n, &net->ct.dying, hnnode) {
 		ct = nf_ct_tuplehash_to_ctrack(h);
 		/* never fails to remove them, no listeners at this point */
 		nf_ct_kill(ct);
@@ -1115,7 +1115,7 @@ static void nf_conntrack_cleanup_net(struct net *net)
 {
  i_see_dead_people:
 	nf_ct_iterate_cleanup(net, kill_all, NULL);
-	nf_ct_release_dying_list();
+	nf_ct_release_dying_list(net);
 	if (atomic_read(&net->ct.count) != 0) {
 		schedule();
 		goto i_see_dead_people;
@@ -1350,6 +1350,11 @@ err_stat:
 	return ret;
 }
 
+s16 (*nf_ct_nat_offset)(const struct nf_conn *ct,
+			enum ip_conntrack_dir dir,
+			u32 seq);
+EXPORT_SYMBOL_GPL(nf_ct_nat_offset);
+
 int nf_conntrack_init(struct net *net)
 {
 	int ret;
@@ -1367,6 +1372,9 @@ int nf_conntrack_init(struct net *net)
 		/* For use by REJECT target */
 		rcu_assign_pointer(ip_ct_attach, nf_conntrack_attach);
 		rcu_assign_pointer(nf_ct_destroy, destroy_conntrack);
+
+		/* Howto get NAT offsets */
+		rcu_assign_pointer(nf_ct_nat_offset, NULL);
 	}
 	return 0;
 

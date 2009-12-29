@@ -949,6 +949,7 @@ int kvm_get_msr_common(struct kvm_vcpu *vcpu, u32 msr, u64 *pdata)
 	case MSR_P6_EVNTSEL0:
 	case MSR_P6_EVNTSEL1:
 	case MSR_K7_EVNTSEL0:
+	case MSR_K8_INT_PENDING_MSG:
 		data = 0;
 		break;
 	case MSR_MTRRcap:
@@ -1429,6 +1430,8 @@ static int kvm_dev_ioctl_get_supported_cpuid(struct kvm_cpuid2 *cpuid,
 
 	if (cpuid->nent < 1)
 		goto out;
+	if (cpuid->nent > KVM_MAX_CPUID_ENTRIES)
+		cpuid->nent = KVM_MAX_CPUID_ENTRIES;
 	r = -ENOMEM;
 	cpuid_entries = vmalloc(sizeof(struct kvm_cpuid_entry2) * cpuid->nent);
 	if (!cpuid_entries)
@@ -1448,6 +1451,10 @@ static int kvm_dev_ioctl_get_supported_cpuid(struct kvm_cpuid2 *cpuid,
 	for (func = 0x80000001; func <= limit && nent < cpuid->nent; ++func)
 		do_cpuid_ent(&cpuid_entries[nent], func, 0,
 			     &nent, cpuid->nent);
+	r = -E2BIG;
+	if (nent >= cpuid->nent)
+		goto out_free;
+
 	r = -EFAULT;
 	if (copy_to_user(entries, cpuid_entries,
 			 nent * sizeof(struct kvm_cpuid_entry2)))
@@ -3198,6 +3205,9 @@ static void update_cr8_intercept(struct kvm_vcpu *vcpu)
 	if (!kvm_x86_ops->update_cr8_intercept)
 		return;
 
+	if (!vcpu->arch.apic)
+		return;
+
 	if (!vcpu->arch.apic->vapic_addr)
 		max_irr = kvm_lapic_find_highest_irr(vcpu);
 	else
@@ -3752,7 +3762,7 @@ static int save_guest_segment_descriptor(struct kvm_vcpu *vcpu, u16 selector,
 	return kvm_write_guest(vcpu->kvm, gpa, seg_desc, 8);
 }
 
-static u32 get_tss_base_addr(struct kvm_vcpu *vcpu,
+static gpa_t get_tss_base_addr(struct kvm_vcpu *vcpu,
 			     struct desc_struct *seg_desc)
 {
 	u32 base_addr;
@@ -4118,13 +4128,7 @@ int kvm_arch_vcpu_ioctl_set_sregs(struct kvm_vcpu *vcpu,
 
 	vcpu->arch.cr2 = sregs->cr2;
 	mmu_reset_needed |= vcpu->arch.cr3 != sregs->cr3;
-
-	down_read(&vcpu->kvm->slots_lock);
-	if (gfn_to_memslot(vcpu->kvm, sregs->cr3 >> PAGE_SHIFT))
-		vcpu->arch.cr3 = sregs->cr3;
-	else
-		set_bit(KVM_REQ_TRIPLE_FAULT, &vcpu->requests);
-	up_read(&vcpu->kvm->slots_lock);
+	vcpu->arch.cr3 = sregs->cr3;
 
 	kvm_set_cr8(vcpu, sregs->cr8);
 

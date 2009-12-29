@@ -661,7 +661,7 @@ static void vmx_vcpu_load(struct kvm_vcpu *vcpu, int cpu)
 	if (vcpu->cpu != cpu) {
 		vcpu_clear(vmx);
 		kvm_migrate_timers(vcpu);
-		vpid_sync_vcpu_all(vmx);
+		set_bit(KVM_REQ_TLB_FLUSH, &vcpu->requests);
 		local_irq_disable();
 		list_add(&vmx->local_vcpus_link,
 			 &per_cpu(vcpus_on_cpu, cpu));
@@ -1569,7 +1569,6 @@ static void ept_update_paging_mode_cr0(unsigned long *hw_cr0,
 		vcpu->arch.cr0 = cr0;
 		vmx_set_cr4(vcpu, vcpu->arch.cr4);
 		*hw_cr0 |= X86_CR0_PE | X86_CR0_PG;
-		*hw_cr0 &= ~X86_CR0_WP;
 	} else if (!is_paging(vcpu)) {
 		/* From nonpaging to paging */
 		vmcs_write32(CPU_BASED_VM_EXEC_CONTROL,
@@ -1578,9 +1577,10 @@ static void ept_update_paging_mode_cr0(unsigned long *hw_cr0,
 			       CPU_BASED_CR3_STORE_EXITING));
 		vcpu->arch.cr0 = cr0;
 		vmx_set_cr4(vcpu, vcpu->arch.cr4);
-		if (!(vcpu->arch.cr0 & X86_CR0_WP))
-			*hw_cr0 &= ~X86_CR0_WP;
 	}
+
+	if (!(cr0 & X86_CR0_WP))
+		*hw_cr0 &= ~X86_CR0_WP;
 }
 
 static void ept_update_paging_mode_cr4(unsigned long *hw_cr4,
