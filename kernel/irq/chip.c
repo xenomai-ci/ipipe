@@ -512,6 +512,7 @@ handle_fasteoi_irq(unsigned int irq, struct irq_desc *desc)
 	desc->chip->unmask(irq);
 out:
 #else
+out:
 	desc->chip->eoi(irq);
 #endif
 
