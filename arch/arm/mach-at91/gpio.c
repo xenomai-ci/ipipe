@@ -508,10 +508,10 @@ void ipipe_mute_pic(void)
 	unsigned i;
 
 	for (i = 0; i < __ipipe_at91_gpio_banks; i++) {
-		unmasked = __raw_readl(gpio[i].regbase + PIO_IMR);
+		unmasked = __raw_readl(gpio_chip[i].regbase + PIO_IMR);
 		muted = unmasked & __ipipe_irqbits[i + 1];
 		__raw_get_cpu_var(__ipipe_muted_irqs)[i + 1] = muted;
-		__raw_writel(muted, gpio[i].regbase + PIO_IDR);
+		__raw_writel(muted, gpio_chip[i].regbase + PIO_IDR);
 	}
 
 	unmasked = at91_sys_read(AT91_AIC_IMR);
@@ -528,7 +528,7 @@ void ipipe_unmute_pic(void)
 	for (i = 0; i < __ipipe_at91_gpio_banks; i++) {
 		unsigned long muted;
 		muted = __raw_get_cpu_var(__ipipe_muted_irqs)[i + 1];
-		__raw_writel(muted, gpio[i].regbase + PIO_IER);
+		__raw_writel(muted, gpio_chip[i].regbase + PIO_IER);
 	}
 }
 #endif /* __IPIPE_FEATURE_PIC_MUTE */
@@ -651,10 +651,6 @@ void __init at91_gpio_irq_setup(void)
 	pr_info("AT91: %d gpio irqs in %d banks\n", pin - PIN_BASE, gpio_banks);
 #ifdef CONFIG_IPIPE
 	__ipipe_at91_gpio_banks = gpio_banks;
-#if defined(CONFIG_IPIPE) && defined(__IPIPE_FEATURE_PIC_MUTE)
-	printk("__ipipe_gpio_parent_mask: 0x%08lx\n",
-	       __ipipe_irqbits[0]);
-#endif /* CONFIG_IPIPE && __IPIPE_FEATURE_PIC_MUTE */
 #endif /* CONFIG_IPIPE */
 }
 

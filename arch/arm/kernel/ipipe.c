@@ -153,8 +153,6 @@ void __ipipe_enable_irqdesc(struct ipipe_domain *ipd, unsigned irq)
 	spin_lock_irqsave(&__ipipe_irqbits_lock, flags);
 	__ipipe_irqbits[irq / BITS_PER_LONG] &= ~(1 << (irq % BITS_PER_LONG));
 	spin_unlock_irqrestore(&__ipipe_irqbits_lock, flags);
-	printk("__ipipe_irqbits(after en)[%u]: 0x%08lx\n",
-	       irq / BITS_PER_LONG, __ipipe_irqbits[irq / BITS_PER_LONG]);
 #else
 	(void) flags;
 #endif /* __IPIPE_FEATURE_PIC_MUTE */
@@ -172,8 +170,6 @@ void __ipipe_disable_irqdesc(struct ipipe_domain *ipd, unsigned irq)
 	spin_lock_irqsave(&__ipipe_irqbits_lock, flags);
 	__ipipe_irqbits[irq / BITS_PER_LONG] |= 1 << (irq % BITS_PER_LONG);
 	spin_unlock_irqrestore(&__ipipe_irqbits_lock, flags);
-	printk("__ipipe_irqbits(after dis)[%u]: 0x%08lx\n",
-	       irq / BITS_PER_LONG, __ipipe_irqbits[irq / BITS_PER_LONG]);
 }
 EXPORT_SYMBOL(__ipipe_disable_irqdesc);
 #endif /* __IPIPE_FEATURE_PIC_MUTE */
