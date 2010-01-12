@@ -5608,7 +5608,8 @@ asmlinkage void __sched preempt_schedule(void)
 
 	do {
 		add_preempt_count(PREEMPT_ACTIVE);
-		schedule();
+		if (schedule())
+			return;
 		sub_preempt_count(PREEMPT_ACTIVE);
 
 		/*
