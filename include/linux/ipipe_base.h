@@ -59,8 +59,22 @@ void __ipipe_unstall_root(void);
 
 void __ipipe_restore_root(unsigned long x);
 
-#define ipipe_preempt_disable(flags)	local_irq_save_hw(flags)
-#define ipipe_preempt_enable(flags)	local_irq_restore_hw(flags)
+#define ipipe_preempt_disable(flags)		\
+	do {					\
+		local_irq_save_hw(flags);	\
+		if (__ipipe_root_domain_p)	\
+			preempt_disable();	\
+	} while (0)
+
+#define ipipe_preempt_enable(flags)			\
+	do {						\
+		if (__ipipe_root_domain_p) {		\
+			preempt_enable_no_resched();	\
+			local_irq_restore_hw(flags);	\
+			preempt_check_resched();	\
+		} else					\
+			local_irq_restore_hw(flags);	\
+	} while (0)
  
 #ifdef CONFIG_IPIPE_DEBUG_CONTEXT
 void ipipe_check_context(struct ipipe_domain *border_ipd);
