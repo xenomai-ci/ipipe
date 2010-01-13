@@ -157,7 +157,7 @@ struct ipipe_domain {
 	ipipe_event_handler_t evhand[IPIPE_NR_EVENTS]; /* Event handlers. */
 	unsigned long long evself;	/* Self-monitored event bits. */
 
-	struct {
+	struct irqdesc {
 		unsigned long control;
 		ipipe_irq_ackfn_t acknowledge;
 		ipipe_irq_handler_t handler;
