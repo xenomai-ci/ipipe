@@ -126,7 +126,7 @@ sa1100_high_gpio_handler(unsigned int irq, struct irq_desc *desc)
 		mask >>= 11;
 		do {
 			if (mask & 1)
-				generic_handle_irq(irq);
+				ipipe_handle_irq_cond(irq);
 			mask >>= 1;
 			irq++;
 		} while (mask);
@@ -134,33 +134,6 @@ sa1100_high_gpio_handler(unsigned int irq, struct irq_desc *desc)
 		mask = GEDR & 0xfffff800;
 	} while (mask);
 }
-
-#ifdef CONFIG_IPIPE
-void __ipipe_mach_demux_irq(unsigned irq, struct pt_regs *regs)
-{
-	unsigned int mask;
-
-	mask = GEDR & 0xfffff800;
-	do {
-		/*
-		 * clear down all currently active IRQ sources.
-		 * We will be processing them all.
-		 */
-		GEDR = mask;
-
-		irq = IRQ_GPIO11;
-		mask >>= 11;
-		do {
-			if (mask & 1)
-				__ipipe_handle_irq(irq, regs);
-			mask >>= 1;
-			irq++;
-		} while (mask);
-
-		mask = GEDR & 0xfffff800;
-	} while (mask);
-}
-#endif /* CONFIG_IPIPE */
 
 /*
  * Like GPIO0 to 10, GPIO11-27 IRQs need to be handled specially.

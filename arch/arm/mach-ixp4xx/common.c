@@ -48,9 +48,6 @@ static struct clock_event_device clockevent_ixp4xx;
 #ifdef CONFIG_IPIPE
 #include <linux/ipipe.h>
 
-/* We have no cascaded interrupts. */
-void __ipipe_mach_demux_irq(unsigned irq, struct pt_regs *regs) {}
-
 #ifdef CONFIG_NO_IDLE_HZ
 #error "dynamic tick timer not yet supported with IPIPE"
 #endif

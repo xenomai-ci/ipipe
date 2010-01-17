@@ -147,7 +147,6 @@ extern unsigned long long __ipipe_mach_get_tsc(void);
 extern void __ipipe_mach_set_dec(unsigned long);
 extern void __ipipe_mach_release_timer(void);
 extern unsigned long __ipipe_mach_get_dec(void);
-extern void __ipipe_mach_demux_irq(unsigned irq, struct pt_regs *regs);
 void __ipipe_mach_get_tscinfo(struct __ipipe_tscinfo *info);
 int __ipipe_check_tickdev(const char *devname);
 
@@ -167,6 +166,9 @@ int __ipipe_check_tickdev(const char *devname);
 	do_div(delta, ipipe_cpu_freq() / 1000000 + 1); \
 	(unsigned long)delta; \
 })
+
+#define ipipe_handle_irq_cond(irq) \
+	__ipipe_handle_irq(irq, (struct pt_regs *)1)
 
 /* Private interface -- Internal use only */
 
@@ -253,6 +255,9 @@ do {									\
 #define ipipe_update_tick_evtdev(evtdev)	do { } while (0)
 
 #define smp_processor_id_hw()		smp_processor_id()
+
+#define ipipe_handle_irq_cond(irq) \
+	generic_handle_irq(irq)
 
 #define ipipe_mm_switch_protect(flags) \
 	do {					\

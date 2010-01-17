@@ -229,33 +229,9 @@ sic_handle_irq(unsigned int irq, struct irq_desc *desc)
 
 		irq += IRQ_SIC_START;
 
-		generic_handle_irq(irq);
+		ipipe_handle_irq_cond(irq);
 	} while (status);
 }
-
-#ifdef CONFIG_IPIPE
-void __ipipe_mach_demux_irq(unsigned irq, struct pt_regs *regs)
-{
-	unsigned long status = sic_readl(INTCP_VA_SIC_BASE + IRQ_STATUS);
-	struct irq_desc *desc_unused = irq_desc + irq;
-
-	if (status == 0) {
-		do_bad_IRQ(irq, desc_unused);
-		return;
-	}
-
-	do {
-		irq = ffs(status) - 1;
-		status &= ~(1 << irq);
-
-		irq += IRQ_SIC_START;
-
-		__ipipe_handle_irq(irq, regs);
-
-		status = sic_readl(INTCP_VA_SIC_BASE + IRQ_STATUS);
-	} while (status);
-}
-#endif /* CONFIG_IPIPE */
 
 static void __init intcp_init_irq(void)
 {

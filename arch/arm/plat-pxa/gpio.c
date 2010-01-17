@@ -226,41 +226,12 @@ static void pxa_gpio_demux_handler(unsigned int irq, struct irq_desc *desc)
 			while (n < BITS_PER_LONG) {
 				loop = 1;
 
-				generic_handle_irq(gpio_to_irq(gpio_base + n));
+				ipipe_handle_irq_cond(gpio_to_irq(gpio_base + n));
 				n = find_next_bit(&gedr, BITS_PER_LONG, n + 1);
 			}
 		}
 	} while (loop);
 }
-
-#ifdef CONFIG_IPIPE
-void __ipipe_mach_demux_irq(unsigned irq, struct pt_regs *regs)
-{
-	struct pxa_gpio_chip *c;
-	int loop, gpio, gpio_base, n;
-	unsigned long gedr;
-
-	do {
-		loop = 0;
-		for_each_gpio_chip(gpio, c) {
-			gpio_base = c->chip.base;
-
-			gedr = __raw_readl(c->regbase + GEDR_OFFSET);
-			gedr = gedr & c->irq_mask;
-			__raw_writel(gedr, c->regbase + GEDR_OFFSET);
-
-			n = find_first_bit(&gedr, BITS_PER_LONG);
-			while (n < BITS_PER_LONG) {
-				loop = 1;
-
-				__ipipe_handle_irq(
-					gpio_to_irq(gpio_base + n), regs);
-				n = find_next_bit(&gedr, BITS_PER_LONG, n + 1);
-			}
-		}
-	} while (loop);
-}
-#endif /* CONFIG_IPIPE */
 
 static void pxa_ack_muxed_gpio(unsigned int irq)
 {

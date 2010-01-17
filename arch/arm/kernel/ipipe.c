@@ -491,11 +491,7 @@ asmlinkage int __ipipe_grab_irq(int irq, struct pt_regs *regs)
 	ipipe_trace_begin(regs->ARM_ORIG_r0);
 #endif
 
-	if (__ipipe_mach_irq_mux_p(irq)) {
-                __ipipe_mach_demux_irq(irq, regs);
-                status = ipipe_root_domain_p && !__ipipe_test_root();
-        } else
-		status = __ipipe_handle_irq(irq, regs);
+	status = __ipipe_handle_irq(irq, regs);
 
 #ifdef CONFIG_IPIPE_TRACE_IRQSOFF
 	ipipe_trace_end(regs->ARM_ORIG_r0);

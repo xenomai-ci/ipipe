@@ -28,7 +28,6 @@
 #ifdef CONFIG_IPIPE
 #include <asm/irq.h>
 
-unsigned __ipipe_at91_gpio_banks = 0;
 #ifdef __IPIPE_FEATURE_PIC_MUTE
 DEFINE_PER_CPU(__ipipe_irqbits_t, __ipipe_muted_irqs);
 #endif /* __IPIPE_FEATURE_PIC_MUTE */
@@ -436,7 +435,7 @@ static void gpio_irq_handler(unsigned irq, struct irq_desc *desc)
 					gpio_irq_mask(pin);
 				}
 				else
-					generic_handle_irq(pin);
+					ipipe_handle_irq_cond(pin);
 			}
 			pin++;
 			gpio++;
@@ -447,67 +446,13 @@ static void gpio_irq_handler(unsigned irq, struct irq_desc *desc)
 	/* now it may re-trigger */
 }
 
-#ifdef CONFIG_IPIPE
-void __ipipe_mach_demux_irq(unsigned irq, struct pt_regs *regs)
-{
-	struct irq_desc *desc = &irq_desc[irq];
-	unsigned	pin;
-	struct irq_desc	*gpio;
-	struct at91_gpio_chip *at91_gpio;
-	void __iomem	*pio;
-	u32		isr;
-
-	at91_gpio = get_irq_chip_data(irq);
-	pio = at91_gpio->regbase;
-
-	/* temporarily mask (level sensitive) parent IRQ */
-	desc->chip->ack(irq);
-	for (;;) {
-		/* Reading ISR acks pending (edge triggered) GPIO interrupts.
-		 * When there none are pending, we're finished unless we need
-		 * to process multiple banks (like ID_PIOCDE on sam9263).
-		 */
-		isr = __raw_readl(pio + PIO_ISR) & __raw_readl(pio + PIO_IMR);
-		if (!isr) {
-			if (!at91_gpio->next)
-				break;
-			at91_gpio = at91_gpio->next;
-			pio = at91_gpio->regbase;
-			continue;
-		}
-
-		pin = at91_gpio->chip.base;
-		gpio = &irq_desc[pin];
-
-		while (isr) {
-			if (isr & 1) {
-				if (unlikely(gpio->depth)) {
-					/*
-					 * The core ARM interrupt handler lazily disables IRQs so
-					 * another IRQ must be generated before it actually gets
-					 * here to be disabled on the GPIO controller.
-					 */
-					gpio_irq_mask(pin);
-				}
-				else
-					__ipipe_handle_irq(pin, regs);
-			}
-			pin++;
-			gpio++;
-			isr >>= 1;
-		}
-	}
-	desc->chip->unmask(irq);
-	/* now it may re-trigger */
-}
-
-#ifdef __IPIPE_FEATURE_PIC_MUTE
+#if defined(CONFIG_IPIPE) && defined(__IPIPE_FEATURE_PIC_MUTE)
 void ipipe_mute_pic(void)
 {
 	unsigned long unmasked, muted;
 	unsigned i;
 
-	for (i = 0; i < __ipipe_at91_gpio_banks; i++) {
+	for (i = 0; i < gpio_banks; i++) {
 		unmasked = __raw_readl(gpio_chip[i].regbase + PIO_IMR);
 		muted = unmasked & __ipipe_irqbits[i + 1];
 		__raw_get_cpu_var(__ipipe_muted_irqs)[i + 1] = muted;
@@ -525,14 +470,13 @@ void ipipe_unmute_pic(void)
 	unsigned i;
 
 	at91_sys_write(AT91_AIC_IECR, __raw_get_cpu_var(__ipipe_muted_irqs)[0]);
-	for (i = 0; i < __ipipe_at91_gpio_banks; i++) {
+	for (i = 0; i < gpio_banks; i++) {
 		unsigned long muted;
 		muted = __raw_get_cpu_var(__ipipe_muted_irqs)[i + 1];
 		__raw_writel(muted, gpio_chip[i].regbase + PIO_IER);
 	}
 }
-#endif /* __IPIPE_FEATURE_PIC_MUTE */
-#endif /* CONFIG_IPIPE */
+#endif /* CONFIG_IPIPE && __IPIPE_FEATURE_PIC_MUTE */
 
 /*--------------------------------------------------------------------------*/
 
@@ -649,9 +593,6 @@ void __init at91_gpio_irq_setup(void)
 #endif /* CONFIG_IPIPE && __IPIPE_FEATURE_PIC_MUTE */
 	}
 	pr_info("AT91: %d gpio irqs in %d banks\n", pin - PIN_BASE, gpio_banks);
-#ifdef CONFIG_IPIPE
-	__ipipe_at91_gpio_banks = gpio_banks;
-#endif /* CONFIG_IPIPE */
 }
 
 /* gpiolib support */

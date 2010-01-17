@@ -117,8 +117,7 @@ static void mxc_gpio_irq_handler(struct mxc_gpio_port *port, u32 irq_stat)
 			continue;
 
 		BUG_ON(!(irq_desc[gpio_irq_no].handle_irq));
-		irq_desc[gpio_irq_no].handle_irq(gpio_irq_no,
-				&irq_desc[gpio_irq_no]);
+		ipipe_handle_irq_cond(gpio_irq_no);
 	}
 }
 
@@ -134,36 +133,6 @@ static void mx3_gpio_irq_handler(u32 irq, struct irq_desc *desc)
 
 	mxc_gpio_irq_handler(port, irq_stat);
 }
-
-#ifdef CONFIG_IPIPE
-void __ipipe_mach_demux_irq(unsigned irq, struct pt_regs *regs)
-{
-	struct mxc_gpio_port *port = (struct mxc_gpio_port *)get_irq_data(irq);
-	u32 irq_stat, gpio_irq_no;
-
-	irq_stat = __raw_readl(port->base + GPIO_ISR) &
-			__raw_readl(port->base + GPIO_IMR);
-	BUG_ON(!irq_stat);
-
-	gpio_irq_no = port->virtual_irq_start;
-
-	for (; irq_stat != 0; irq_stat >>= 1, gpio_irq_no++) {
-                if ((irq_stat & 1) == 0)
-                        continue;
-
-#ifdef CONFIG_MACH_MX31ADS
-		if (gpio_irq_no == EXPIO_PARENT_INT) {
-			extern void mx31ads_demux_expio(u32,
-							struct pt_regs *regs);
-			mx31ads_demux_expio(gpio_irq_no, regs);
-			continue;
-		}
-#endif /* CONFIG_MACH_MX31ADS */
-
-		__ipipe_handle_irq(gpio_irq_no, regs);
-        }
-}
-#endif /* CONFIG_IPIPE */
 #endif /* CONFIG_ARCH_MX3 */
 
 #ifdef CONFIG_ARCH_MX2
@@ -185,32 +154,6 @@ static void mx2_gpio_irq_handler(u32 irq, struct irq_desc *desc)
 			mxc_gpio_irq_handler(&port[i], irq_stat);
 	}
 }
-
-#ifdef CONFIG_IPIPE
-void __ipipe_mach_demux_irq(unsigned irq, struct pt_regs *regs)
-{
-	struct mxc_gpio_port *port = (struct mxc_gpio_port *)get_irq_data(irq);
-	u32 irq_msk, irq_stat, gpio_irq_no;
-	int i;
-
-	for (i = 0; i < gpio_table_size; i++) {
-		irq_msk = __raw_readl(port->base + GPIO_IMR);
-		if (!irq_msk)
-			continue;
-
-		irq_stat = __raw_readl(port->base + GPIO_ISR) & irq_msk;
-
-		gpio_irq_no = port[i].virtual_irq_start;
-
-		for (; irq_stat != 0; irq_stat >>= 1, gpio_irq_no++) {
-			if ((irq_stat & 1) == 0)
-				continue;
-
-			__ipipe_handle_irq(gpio_irq_no, regs);
-		}
-	}
-}
-#endif /* CONFIG_IPIPE */
 #endif /* CONFIG_ARCH_MX2 */
 
 static struct irq_chip gpio_irq_chip = {
