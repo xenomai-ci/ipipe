@@ -58,19 +58,15 @@
 		x;							\
 	})
 
-#define ipipe_mm_switch_protect(flags)					\
-	do {								\
-		preempt_disable();					\
-		per_cpu(ipipe_active_mm, smp_processor_id()) = NULL;    \
-		barrier();						\
-		(void)(flags);						\
-	} while(0)
+#define ipipe_mm_switch_protect(flags) \
+	do {					\
+		(void) (flags);			\
+	} while (0)
 
 #define ipipe_mm_switch_unprotect(flags)	\
 	do {					\
-		preempt_enable();		\
-		(void)(flags);			\
-	} while(0)
+		(void) (flags);			\
+	} while (0)
 
 #else /* !CONFIG_IPIPE_WANT_PREEMPTIBLE_SWITCH */
 
