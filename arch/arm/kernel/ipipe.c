@@ -151,6 +151,12 @@ void __ipipe_enable_pipeline(void)
 	unsigned long flags;
 	unsigned irq;
 
+/* We do not want "wfi" to be called in arm926ejs based processor, as
+   this causes the I-cache to be disabled when idle. */
+#ifdef CONFIG_CPU_ARM926T
+	disable_hlt();
+#endif
+
 	flags = ipipe_critical_enter(NULL);
 
 	/* First, virtualize all interrupts from the root domain. */
