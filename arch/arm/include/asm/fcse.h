@@ -37,14 +37,15 @@
 static inline void fcse_pid_set(unsigned long pid)
 {
 	__asm__ __volatile__ ("mcr p15, 0, %0, c13, c0, 0"
-			      : /* */: "r" (pid) : "memory");
+			      : /* */ : "r" (pid) : "memory", "cc");
 }
 
 /* Returns the state of the CPU's PID Register */
 static inline unsigned long fcse_pid_get(void)
 {
 	unsigned long pid;
-	__asm__ __volatile__("mrc p15, 0, %0, c13, c0, 0" : "=&r" (pid));
+	__asm__ __volatile__("mrc p15, 0, %0, c13, c0, 0" 
+			     : "=&r" (pid) : /* */ : "cc");
 	return pid & ~FCSE_PID_MASK;
 }
 
