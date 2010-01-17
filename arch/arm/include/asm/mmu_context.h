@@ -143,6 +143,8 @@ __switch_mm(struct mm_struct *prev, struct mm_struct *next,
 	if (!cpus_empty(next->cpu_vm_mask) && !cpu_isset(cpu, next->cpu_vm_mask))
 		__flush_icache_all();
 #endif
+	if (cache_is_vivt() && prev && prev != next)
+		cpu_clear(cpu, fcse_tlb_mask(prev));
 	if (!cpu_test_and_set(cpu, fcse_tlb_mask(next)) || prev != next) {
 		fcse_cpu_set_vm_mask(cpu, next);
 		check_context(next);
@@ -156,8 +158,7 @@ __switch_mm(struct mm_struct *prev, struct mm_struct *next,
 				cpu_switch_mm(next->pgd, next,
 					      fcse_needs_flush(prev, next));
 				barrier();
-				prev = xchg(&per_cpu(ipipe_active_mm, cpu),
-					    next);
+				per_cpu(ipipe_active_mm, cpu) = next;
 			} while (test_and_clear_thread_flag(TIF_MMSWITCH_INT));
 		else
 #endif /* CONFIG_IPIPE */
@@ -166,8 +167,6 @@ __switch_mm(struct mm_struct *prev, struct mm_struct *next,
 				cpu_switch_mm(next->pgd, next,
 					      fcse_needs_flush(prev, next));
 			}
-		if (cache_is_vivt() && prev)
-			cpu_clear(cpu, fcse_tlb_mask(prev));
 	}
 #endif
 }
