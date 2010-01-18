@@ -60,10 +60,10 @@ static void s3c_irq_demux_wdtac97(unsigned int irq,
 
 	if (subsrc != 0) {
 		if (subsrc & 1) {
-			generic_handle_irq(IRQ_S3C2440_WDT);
+			ipipe_handle_irq_cond(IRQ_S3C2440_WDT);
 		}
 		if (subsrc & 2) {
-			generic_handle_irq(IRQ_S3C2440_AC97);
+			ipipe_handle_irq_cond(IRQ_S3C2440_AC97);
 		}
 	}
 }
@@ -94,25 +94,6 @@ static struct irq_chip s3c_irq_wdtac97 = {
 	.unmask	    = s3c_irq_wdtac97_unmask,
 	.ack	    = s3c_irq_wdtac97_ack,
 };
-
-#ifdef CONFIG_IPIPE
-void __ipipe_s3c_irq_demux_wdtac97(unsigned int subsrc, struct pt_regs *regs)
-{
-	subsrc >>= 13;
-	subsrc &= 3;
-
-	if (subsrc != 0) {
-		if (subsrc & 1) {
-			__ipipe_handle_irq(IRQ_S3C2440_WDT, regs);
-			return;
-		}
-		if (subsrc & 2) {
-			__ipipe_handle_irq(IRQ_S3C2440_AC97, regs);
-			return;
-		}
-	}
-}
-#endif /* CONFIG_IPIPE */
 
 static int s3c2440_irq_add(struct sys_device *sysdev)
 {
