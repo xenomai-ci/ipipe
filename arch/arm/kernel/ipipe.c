@@ -172,6 +172,8 @@ void __ipipe_disable_irqdesc(struct ipipe_domain *ipd, unsigned irq)
 	spin_unlock_irqrestore(&__ipipe_irqbits_lock, flags);
 }
 EXPORT_SYMBOL(__ipipe_disable_irqdesc);
+EXPORT_SYMBOL(ipipe_mute_pic);
+EXPORT_SYMBOL(ipipe_unmute_pic);
 #endif /* __IPIPE_FEATURE_PIC_MUTE */
 
 /*
