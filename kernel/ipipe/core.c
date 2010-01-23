@@ -1006,8 +1006,16 @@ void __ipipe_sync_stage(unsigned long syncmask)
 	ipd = __ipipe_current_domain;
 	p = ipipe_cpudom_ptr(ipd);
 
-	if (__test_and_set_bit(IPIPE_SYNC_FLAG, &p->status))
-		return;
+	if (__test_and_set_bit(IPIPE_SYNC_FLAG, &p->status)) {
+		/*
+		 * Some questionable code in the root domain may enter
+		 * busy waits for IRQs over interrupt context, so we
+		 * unfortunately have to allow piling up IRQs for
+		 * them. Non-root domains are not allowed to do this.
+		 */
+		if (ipd != ipipe_root_domain)
+			return;
+	}
 
 	cpu = ipipe_processor_id();
 
@@ -1045,7 +1053,7 @@ void __ipipe_sync_stage(unsigned long syncmask)
 				continue;
 
 			__set_bit(IPIPE_STALL_FLAG, &p->status);
-			barrier();
+			smp_wmb();
 
 			if (ipd == ipipe_root_domain)
 				trace_hardirqs_off();
