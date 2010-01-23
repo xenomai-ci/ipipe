@@ -3021,7 +3021,7 @@ static int serial8250_resume(struct platform_device *dev)
 
 #include <stdarg.h>
 
-void __ipipe_serial_debug(const char *fmt, ...)
+void __weak __ipipe_serial_debug(const char *fmt, ...)
 {
         struct uart_8250_port *up = &serial8250_ports[0];
         unsigned int ier, count;
