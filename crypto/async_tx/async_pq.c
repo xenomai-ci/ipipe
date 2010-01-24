@@ -1,5 +1,8 @@
 /*
  * Copyright(c) 2007 Yuri Tikhonov <yur@emcraft.com>
+ *	Developed for DENX Software Engineering GmbH
+ *	based on async_xor.c code written by:
+ *		Dan Williams <dan.j.williams@intel.com>
  * Copyright(c) 2009 Intel Corporation
  *
  * This program is free software; you can redistribute it and/or modify it

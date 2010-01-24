@@ -144,6 +144,14 @@
 			#gpio-cells = <2>;
 		};
 
+		gpio_sint: gpio_sint@b00 {
+			compatible = "fsl,mpc5200b-gpio-sint","fsl,mpc5200-gpio-sint";
+			reg = <0xb00 0x40>;
+			interrupts = <1 8 0 0 3 0>;
+			gpio-controller;
+			#gpio-cells = <2>;
+		};
+
 		dma-controller@1200 {
 			compatible = "fsl,mpc5200b-bestcomm","fsl,mpc5200-bestcomm";
 			reg = <0x1200 0x80>;
@@ -226,6 +234,13 @@
 			compatible = "fsl,mpc5200b-sram","fsl,mpc5200-sram";
 			reg = <0x8000 0x4000>;
 		};
+
+		wdt {
+			compatible = "generic,gpio-wdt";
+			reg = <0x600 0x10>;
+			gpios = <&gpt0 0 0>;
+			period = <500>;	// WDT trigger period in msec
+		};
 	};
 
 	localbus {
@@ -280,5 +295,39 @@
 			};
 		};
 
+		sram@1,0 {
+			compatible = "sram";
+			reg = <1 0x100000 0x100000>;
+		};
+
+		display@3,600000 {
+				compatible = "infineon,pdsp1880-display";
+				reg = <3 0x00600000 0x1000>;
+		};
+
+		uc101_gpio {
+			compatible = "manroland,uc101_gpio";
+			reg = <0x0 0x0 0x0>;
+			gpios = <&gpt1 0 0
+				 &gpt2 0 0
+				 &gpt3 0 0
+				 &gpt4 0 0
+				 &gpt5 0 0
+				 &gpt6 0 0
+				 &gpt7 0 0
+				 &gpio_simple 12 0
+				 &gpio_simple 13 0
+				 &gpio_simple 14 0
+				 &gpio_simple 15 0
+				 &gpio_simple 18 0
+				 &gpio_simple 19 0
+				 &gpio_simple 20 0
+				 &gpio_simple 21 0
+				 &gpio_simple 22 0
+				 &gpio_simple 23 0
+				 &gpio_sint 5 0
+				 &gpio_sint 4 0
+				>;
+		};
 	};
 };

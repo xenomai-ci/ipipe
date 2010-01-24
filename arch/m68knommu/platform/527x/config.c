@@ -23,6 +23,13 @@
 
 /***************************************************************************/
 
+void coldfire_reset(void);
+#if defined(CONFIG_UBOOT)
+void parse_uboot_commandline(char *commandp, int size);
+#endif
+
+/***************************************************************************/
+
 static struct mcf_platform_uart m527x_uart_platform[] = {
 	{
 		.mapbase	= MCF_MBAR + MCFUART_BASE1,
@@ -184,6 +191,17 @@ static void m527x_cpu_reset(void)
 
 void __init config_BSP(char *commandp, int size)
 {
+	mcf_disableall();
+
+#ifdef CONFIG_BOOTPARAM
+	strncpy(commandp, CONFIG_BOOTPARAM_STRING, size);
+	commandp[size-1] = 0;
+#elif defined(CONFIG_UBOOT)
+	parse_uboot_commandline(commandp, size);
+#else
+	memset(commandp, 0, size);
+#endif
+
 	mach_reset = m527x_cpu_reset;
 	m527x_uarts_init();
 	m527x_fec_init();

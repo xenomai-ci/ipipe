@@ -203,7 +203,7 @@ static irqreturn_t mc13783_interrupt(int irq, void *dev_id)
 }
 
 /* set adc to ts interrupt mode, which generates touchscreen wakeup interrupt */
-static inline void mc13783_adc_set_ts_irq_mode(struct mc13783 *mc13783)
+void mc13783_adc_set_ts_irq_mode(struct mc13783 *mc13783)
 {
 	unsigned int reg_adc0, reg_adc1;
 
@@ -214,6 +214,7 @@ static inline void mc13783_adc_set_ts_irq_mode(struct mc13783 *mc13783)
 	mc13783_reg_write(mc13783, MC13783_REG_ADC_0, reg_adc0);
 	mc13783_reg_write(mc13783, MC13783_REG_ADC_1, reg_adc1);
 }
+EXPORT_SYMBOL_GPL(mc13783_adc_set_ts_irq_mode);
 
 int mc13783_adc_do_conversion(struct mc13783 *mc13783, unsigned int mode,
 		unsigned int channel, unsigned int *sample)
@@ -241,6 +242,7 @@ int mc13783_adc_do_conversion(struct mc13783 *mc13783, unsigned int mode,
 		reg_adc0 |= MC13783_ADC0_ADREFEN | MC13783_ADC0_ADREFMODE
 			| MC13783_ADC0_TSMOD0 | MC13783_ADC0_TSMOD1;
 		reg_adc1 |= 4 << MC13783_ADC1_CHAN1_SHIFT;
+		reg_adc1 |= MC13783_ADC1_ATO1;
 		break;
 	case MC13783_ADC_MODE_SINGLE_CHAN:
 		reg_adc1 |= (channel & 0x7) << MC13783_ADC1_CHAN0_SHIFT;

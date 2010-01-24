@@ -1290,6 +1290,10 @@ struct task_struct {
 
 	struct mm_struct *mm, *active_mm;
 
+#ifdef CONFIG_PPC_PASEMI_A2_WORKAROUNDS
+	real_pte_t zero_pte;
+#endif
+
 /* task state */
 	int exit_state;
 	int exit_code, exit_signal;
@@ -1562,6 +1566,9 @@ struct task_struct {
 	unsigned long trace_recursion;
 #endif /* CONFIG_TRACING */
 	unsigned long stack_start;
+#if defined(CONFIG_PROCNAME_ON_PDSP1880)
+	char pname[8]; /* 8 characters from the ProcessName for the Display */
+#endif
 };
 
 /* Future-safe accessor for struct task_struct's cpus_allowed. */
@@ -2114,11 +2121,18 @@ static inline int is_si_special(const struct siginfo *info)
 	return info <= SEND_SIG_FORCED;
 }
 
-/* True if we are on the alternate signal stack.  */
-
+/*
+ * True if we are on the alternate signal stack.
+ */
 static inline int on_sig_stack(unsigned long sp)
 {
-	return (sp - current->sas_ss_sp < current->sas_ss_size);
+#ifdef CONFIG_STACK_GROWSUP
+	return sp >= current->sas_ss_sp &&
+		sp - current->sas_ss_sp < current->sas_ss_size;
+#else
+	return sp > current->sas_ss_sp &&
+		sp - current->sas_ss_sp <= current->sas_ss_size;
+#endif
 }
 
 static inline int sas_ss_flags(unsigned long sp)

@@ -966,7 +966,7 @@ void thermal_zone_device_update(struct thermal_zone_device *tz)
 
 		switch (trip_type) {
 		case THERMAL_TRIP_CRITICAL:
-			if (temp >= trip_temp) {
+			if (temp > trip_temp) {
 				if (tz->ops->notify)
 					ret = tz->ops->notify(tz, count,
 							      trip_type);
@@ -979,7 +979,7 @@ void thermal_zone_device_update(struct thermal_zone_device *tz)
 			}
 			break;
 		case THERMAL_TRIP_HOT:
-			if (temp >= trip_temp)
+			if (temp > trip_temp)
 				if (tz->ops->notify)
 					tz->ops->notify(tz, count, trip_type);
 			break;
@@ -991,14 +991,14 @@ void thermal_zone_device_update(struct thermal_zone_device *tz)
 
 				cdev = instance->cdev;
 
-				if (temp >= trip_temp)
+				if (temp > trip_temp)
 					cdev->ops->set_cur_state(cdev, 1);
 				else
 					cdev->ops->set_cur_state(cdev, 0);
 			}
 			break;
 		case THERMAL_TRIP_PASSIVE:
-			if (temp >= trip_temp || tz->passive)
+			if (temp > trip_temp || tz->passive)
 				thermal_zone_device_passive(tz, temp,
 							    trip_temp, count);
 			break;

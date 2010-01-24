@@ -1,5 +1,6 @@
 obj-$(CONFIG_44x)	:= misc_44x.o idle.o
 obj-$(CONFIG_PPC44x_SIMPLE) += ppc44x_simple.o
+obj-$(CONFIG_AMCC_PPC440SPE_ADMA) += ppc440spe_dma_engines.o
 obj-$(CONFIG_EBONY)	+= ebony.o
 obj-$(CONFIG_SAM440EP) 	+= sam440ep.o
 obj-$(CONFIG_WARP)	+= warp.o

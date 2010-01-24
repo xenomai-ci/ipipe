@@ -35,6 +35,7 @@ config SPARC32
 
 config SPARC64
 	def_bool 64BIT
+	select ARCH_HAS_NMI_WATCHDOG
 	select ARCH_SUPPORTS_MSI
 	select HAVE_FUNCTION_TRACER
 	select HAVE_KRETPROBES

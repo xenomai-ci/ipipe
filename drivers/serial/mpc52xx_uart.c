@@ -42,7 +42,7 @@
  * The idx field must be equal to the PSC index (e.g. 0 for PSC1, 1 for PSC2,
  * and so on). So the PSC1 is mapped to /dev/ttyPSC0, PSC2 to /dev/ttyPSC1 and
  * so on. But be warned, it's an ABSOLUTE REQUIREMENT ! This is needed mainly
- * fpr the console code : without this 1:1 mapping, at early boot time, when we
+ * for the console code : without this 1:1 mapping, at early boot time, when we
  * are parsing the kernel args console=ttyPSC?, we wouldn't know which PSC it
  * will be mapped to.
  */
@@ -72,6 +72,7 @@
 #include <linux/console.h>
 #include <linux/delay.h>
 #include <linux/io.h>
+#include <linux/nmi.h>
 #include <linux/of.h>
 #include <linux/of_platform.h>
 
@@ -945,6 +946,7 @@ mpc52xx_console_write(struct console *co, const char *s, unsigned int count)
 	/* Disable interrupts */
 	psc_ops->cw_disable_ints(port);
 
+	touch_nmi_watchdog();
 	/* Wait the TX buffer to be empty */
 	j = 5000000;	/* Maximum wait */
 	while (!mpc52xx_uart_tx_empty(port) && --j)
@@ -1182,6 +1184,9 @@ mpc52xx_uart_of_remove(struct of_device *op)
 		uart_remove_one_port(&mpc52xx_uart_driver, port);
 		irq_dispose_mapping(port->irq);
 	}
+
+	if (port->irq != NO_IRQ)
+		irq_dispose_mapping(port->irq);
 
 	return 0;
 }

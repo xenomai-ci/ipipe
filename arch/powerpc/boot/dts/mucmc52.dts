@@ -191,6 +191,13 @@
 			compatible = "fsl,mpc5200b-sram","fsl,mpc5200-sram";
 			reg = <0x8000 0x4000>;
 		};
+
+		wdt {
+			compatible = "generic,gpio-wdt";
+			reg = <0x600 0x10>;
+			gpios = <&gpt0 0 0>;
+			period = <500>;	// WDT trigger period in msec
+		};
 	};
 
 	pci@f0000d00 {
@@ -267,6 +274,11 @@
 			};
 		};
 
+		sram@1,0 {
+			compatible = "sram";
+			reg = <1 0x100000 0x100000>;
+		};
+
 		simple100: gpio-controller-100@3,600100 {
 			compatible = "manroland,mucmc52-aux-gpio";
 			reg = <3 0x00600100 0x1>;
@@ -328,5 +340,46 @@
 			#gpio-cells = <2>;
 		};
 
+		display@3,600000 {
+				compatible = "infineon,pdsp1880-display";
+				reg = <3 0x00600000 0x1000>;
+		};
+
+		uc101_gpio {
+			compatible = "manroland,mucmc52_gpio";
+			reg = <0x0 0x0 0x0>;
+			gpios = <&gpt1 0 0
+				 &gpt2 0 0
+				 &gpio_simple 19 0
+				 &gpio_simple 18 0
+				 &simple100 0 0
+				 &simple100 1 0
+				 &simple100 2 0
+				 &simple100 3 0
+				 &simple100 4 0
+				 &simple100 5 0
+				 &simple100 6 0
+				 &simple100 7 0
+				 &simple104 0 0
+				 &simple104 1 0
+				 &simple104 2 0
+				 &simple104 3 0
+				 &simple104 4 0
+				 &simple104 5 0
+				 &simple104 6 0
+				 &simple104 7 0
+				 &simple200 7 0
+				 &simple201 7 0
+				 &simple202 7 0
+				 &simple203 7 0
+				 &simple204 7 0
+				 &simple206 7 0
+				 &simple207 7 0
+				 &simple20f 7 0
+				 &simple20f 6 0
+				 &simple20f 5 0
+				 &simple20f 4 0
+				>;
+		};
 	};
 };

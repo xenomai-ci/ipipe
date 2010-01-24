@@ -251,12 +251,4 @@ extern char _initrd_end[];
 extern char _dtb_start[];
 extern char _dtb_end[];
 
-static inline __attribute__((const))
-int __ilog2_u32(u32 n)
-{
-	int bit;
-	asm ("cntlzw %0,%1" : "=r" (bit) : "r" (n));
-	return 31 - bit;
-}
-
 #endif /* _PPC_BOOT_OPS_H_ */

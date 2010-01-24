@@ -206,6 +206,8 @@ struct machdep_calls {
 
 	void		(*kgdb_map_scc)(void);
 
+	void		(*l2cache_inv_range)(unsigned long s, unsigned long e);
+
 	/*
 	 * optional PCI "hooks"
 	 */

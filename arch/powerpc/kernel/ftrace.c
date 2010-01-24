@@ -138,7 +138,7 @@ __ftrace_make_nop(struct module *mod,
 	 * 0xe8, 0x4c, 0x00, 0x28,    ld      r2,40(r12)
 	 */
 
-	pr_devel("ip:%lx jumps to %lx r2: %lx", ip, tramp, mod->arch.toc);
+	pr_debug("ip:%lx jumps to %lx r2: %lx", ip, tramp, mod->arch.toc);
 
 	/* Find where the trampoline jumps to */
 	if (probe_kernel_read(jmp, (void *)tramp, sizeof(jmp))) {
@@ -146,7 +146,7 @@ __ftrace_make_nop(struct module *mod,
 		return -EFAULT;
 	}
 
-	pr_devel(" %08x %08x", jmp[0], jmp[1]);
+	pr_debug(" %08x %08x", jmp[0], jmp[1]);
 
 	/* verify that this is what we expect it to be */
 	if (((jmp[0] & 0xffff0000) != 0x3d820000) ||
@@ -162,18 +162,18 @@ __ftrace_make_nop(struct module *mod,
 	offset = ((unsigned)((unsigned short)jmp[0]) << 16) +
 		(int)((short)jmp[1]);
 
-	pr_devel(" %x ", offset);
+	pr_debug(" %x ", offset);
 
 	/* get the address this jumps too */
 	tramp = mod->arch.toc + offset + 32;
-	pr_devel("toc: %lx", tramp);
+	pr_debug("toc: %lx", tramp);
 
 	if (probe_kernel_read(jmp, (void *)tramp, 8)) {
 		printk(KERN_ERR "Failed to read %lx\n", tramp);
 		return -EFAULT;
 	}
 
-	pr_devel(" %08x %08x\n", jmp[0], jmp[1]);
+	pr_debug(" %08x %08x\n", jmp[0], jmp[1]);
 
 	ptr = ((unsigned long)jmp[0] << 32) + jmp[1];
 
@@ -250,7 +250,7 @@ __ftrace_make_nop(struct module *mod,
 	 *  0x4e, 0x80, 0x04, 0x20  bctr
 	 */
 
-	pr_devel("ip:%lx jumps to %lx", ip, tramp);
+	pr_debug("ip:%lx jumps to %lx", ip, tramp);
 
 	/* Find where the trampoline jumps to */
 	if (probe_kernel_read(jmp, (void *)tramp, sizeof(jmp))) {
@@ -258,7 +258,7 @@ __ftrace_make_nop(struct module *mod,
 		return -EFAULT;
 	}
 
-	pr_devel(" %08x %08x ", jmp[0], jmp[1]);
+	pr_debug(" %08x %08x ", jmp[0], jmp[1]);
 
 	/* verify that this is what we expect it to be */
 	if (((jmp[0] & 0xffff0000) != 0x3d600000) ||
@@ -274,7 +274,7 @@ __ftrace_make_nop(struct module *mod,
 	if (tramp & 0x8000)
 		tramp -= 0x10000;
 
-	pr_devel(" %lx ", tramp);
+	pr_debug(" %lx ", tramp);
 
 	if (tramp != addr) {
 		printk(KERN_ERR
@@ -383,7 +383,7 @@ __ftrace_make_call(struct dyn_ftrace *rec, unsigned long addr)
 	/* ld r2,40(r1) */
 	op[1] = 0xe8410028;
 
-	pr_devel("write to %lx\n", rec->ip);
+	pr_debug("write to %lx\n", rec->ip);
 
 	if (probe_kernel_write((void *)ip, op, MCOUNT_INSN_SIZE * 2))
 		return -EPERM;
@@ -423,7 +423,7 @@ __ftrace_make_call(struct dyn_ftrace *rec, unsigned long addr)
 		return -EINVAL;
 	}
 
-	pr_devel("write to %lx\n", rec->ip);
+	pr_debug("write to %lx\n", rec->ip);
 
 	if (probe_kernel_write((void *)ip, &op, MCOUNT_INSN_SIZE))
 		return -EPERM;
@@ -575,7 +575,7 @@ void prepare_ftrace_return(unsigned long *parent, unsigned long self_addr)
 			PPC_LONG "2b,4b\n"
 		".previous"
 
-		: [old] "=&r" (old), [faulted] "=r" (faulted)
+		: [old] "=r" (old), [faulted] "=r" (faulted)
 		: [parent] "r" (parent), [return_hooker] "r" (return_hooker)
 		: "memory"
 	);
