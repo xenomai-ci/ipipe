@@ -103,8 +103,6 @@
 #define NUM_INVALIDATE_TLB_VECTORS	   8
 #endif
 
-#define FIRST_SYSTEM_VECTOR		0xef
-
 /*
  * Local APIC timer IRQ vector is on a different priority level,
  * to work around the 'lost local interrupt if more than 2 IRQ
@@ -128,6 +126,9 @@
  * Self IPI vector for machine checks
  */
 #define MCE_SELF_VECTOR			0xeb
+
+/* I-pipe: Lowest number of vectors above */
+#define FIRST_SYSTEM_VECTOR		0xea
 
 /*
  * First APIC vector available to drivers: (vectors 0x30-0xee) we
