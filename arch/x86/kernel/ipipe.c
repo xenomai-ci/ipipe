@@ -289,7 +289,7 @@ void __init __ipipe_enable_pipeline(void)
 			     IPIPE_STDROOT_MASK);
 
 	ipipe_virtualize_irq(ipipe_root_domain,
-			     ipipe_apic_vector_irq(IRQ_MOVE_CLEANUP_VECTOR),
+			     IRQ_MOVE_CLEANUP_VECTOR,
 			     (ipipe_irq_handler_t)&smp_irq_move_cleanup_interrupt,
 			     NULL,
 			     &__ipipe_ack_apic,
@@ -311,7 +311,10 @@ void __init __ipipe_enable_pipeline(void)
 	 * IPIPE_SYSTEM_MASK has been passed for them, that's ok. */
 
 	for (irq = 0; irq < NR_IRQS; irq++)
-		/* Fails for IPIPE_CRITICAL_IPI but that's ok. */
+		/*
+		 * Fails for IPIPE_CRITICAL_IPI and IRQ_MOVE_CLEANUP_VECTOR,
+		 * but that's ok.
+		 */
 		ipipe_virtualize_irq(ipipe_root_domain,
 				     irq,
 				     (ipipe_irq_handler_t)&do_IRQ,
@@ -900,8 +903,12 @@ int __ipipe_handle_irq(struct pt_regs *regs)
 #ifdef CONFIG_X86_LOCAL_APIC
 		if (vector >= FIRST_SYSTEM_VECTOR)
 			irq = ipipe_apic_vector_irq(vector);
+#ifdef CONFIG_SMP
+		else if (vector == IRQ_MOVE_CLEANUP_VECTOR)
+			irq = vector;
+#endif /* CONFIG_SMP */
 		else
-#endif
+#endif /* CONFIG_X86_LOCAL_APIC */
 			irq = __get_cpu_var(vector_irq)[vector];
 		m_ack = 0;
 	} else { /* This is a self-triggered one. */
