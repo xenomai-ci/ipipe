@@ -91,10 +91,19 @@
 #define THRESHOLD_APIC_VECTOR		0xf9
 #define REBOOT_VECTOR			0xf8
 
+#ifdef CONFIG_IPIPE
+/* f0-f2 used for TLB flush, f3-f7 reserved for the I-pipe */
+#define INVALIDATE_TLB_VECTOR_END	0xf2
+#define INVALIDATE_TLB_VECTOR_START	0xf0
+#define NUM_INVALIDATE_TLB_VECTORS	3
+#else /* !CONFIG_IPIPE */
 /* f0-f7 used for spreading out TLB flushes: */
 #define INVALIDATE_TLB_VECTOR_END	0xf7
 #define INVALIDATE_TLB_VECTOR_START	0xf0
 #define NUM_INVALIDATE_TLB_VECTORS	   8
+#endif
+
+#define FIRST_SYSTEM_VECTOR		0xef
 
 /*
  * Local APIC timer IRQ vector is on a different priority level,
