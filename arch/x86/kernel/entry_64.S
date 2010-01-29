@@ -344,7 +344,10 @@ ENTRY(save_args)
 	/*
 	 * We entered an interrupt context - irqs are off:
 	 */
-2:	TRACE_IRQS_OFF
+2:
+#ifndef CONFIG_IPIPE
+	TRACE_IRQS_OFF
+#endif
 	ret
 	CFI_ENDPROC
 END(save_args)
