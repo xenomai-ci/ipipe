@@ -59,6 +59,8 @@ static cpumask_t __ipipe_cpu_sync_map;
 
 static cpumask_t __ipipe_cpu_lock_map;
 
+static unsigned long __ipipe_critical_lock;
+
 static IPIPE_DEFINE_SPINLOCK(__ipipe_cpu_barrier);
 
 static atomic_t __ipipe_critical_count = ATOMIC_INIT(0);
@@ -421,11 +423,12 @@ void __ipipe_hook_critical_ipi(struct ipipe_domain *ipd)
 
 #endif	/* CONFIG_SMP */
 
-/* ipipe_critical_enter() -- Grab the superlock excluding all CPUs
-   but the current one from a critical section. This lock is used when
-   we must enforce a global critical section for a single CPU in a
-   possibly SMP system whichever context the CPUs are running. */
-
+/*
+ * ipipe_critical_enter() -- Grab the superlock excluding all CPUs but
+ * the current one from a critical section. This lock is used when we
+ * must enforce a global critical section for a single CPU in a
+ * possibly SMP system whichever context the CPUs are running.
+ */
 unsigned long ipipe_critical_enter(void (*syncfn) (void))
 {
 	unsigned long flags;
@@ -433,7 +436,7 @@ unsigned long ipipe_critical_enter(void (*syncfn) (void))
 	local_irq_save_hw(flags);
 
 #ifdef CONFIG_SMP
-	if (unlikely(num_online_cpus() == 1))	/* We might be running a SMP-kernel on a UP box... */
+	if (unlikely(num_online_cpus() == 1))
 		return flags;
 
 	{
@@ -441,7 +444,7 @@ unsigned long ipipe_critical_enter(void (*syncfn) (void))
 		cpumask_t lock_map;
 
 		if (!cpu_test_and_set(cpu, __ipipe_cpu_lock_map)) {
-			while (cpu_test_and_set(BITS_PER_LONG - 1, __ipipe_cpu_lock_map)) {
+			while (test_and_set_bit(0, &__ipipe_critical_lock)) {
 				int n = 0;
 				do {
 					cpu_relax();
@@ -483,7 +486,8 @@ void ipipe_critical_exit(unsigned long flags)
 			cpu_relax();
 
 		cpu_clear(ipipe_processor_id(), __ipipe_cpu_lock_map);
-		cpu_clear(BITS_PER_LONG - 1, __ipipe_cpu_lock_map);
+		clear_bit(0, &__ipipe_critical_lock);
+		smp_mb__after_clear_bit();
 	}
 out:
 #endif	/* CONFIG_SMP */
