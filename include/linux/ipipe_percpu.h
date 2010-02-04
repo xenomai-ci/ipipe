@@ -29,9 +29,12 @@ struct ipipe_domain;
 
 struct ipipe_percpu_domain_data {
 	unsigned long status;	/* <= Must be first in struct. */
-	unsigned long irqpend_himask;
-	unsigned long irqpend_lomask[IPIPE_IRQ_IWORDS];
-	unsigned long irqheld_mask[IPIPE_IRQ_IWORDS];
+	unsigned long irqpend_himap;
+#ifdef __IPIPE_3LEVEL_IRQMAP
+	unsigned long irqpend_mdmap[IPIPE_IRQ_MDMAPSZ];
+#endif
+	unsigned long irqpend_lomap[IPIPE_IRQ_LOMAPSZ];
+	unsigned long irqheld_map[IPIPE_IRQ_LOMAPSZ];
 	unsigned long irqall[IPIPE_NR_IRQS];
 	u64 evsync;
 };
