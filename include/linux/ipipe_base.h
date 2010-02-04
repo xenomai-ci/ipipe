@@ -27,17 +27,32 @@
 
 #include <asm/ipipe_base.h>
 
-/* Number of virtual IRQs */
+#define __bpl_up(x)		(((x)+(BITS_PER_LONG-1)) & ~(BITS_PER_LONG-1))
+/* Number of virtual IRQs (must be a multiple of BITS_PER_LONG) */
 #define IPIPE_NR_VIRQS		BITS_PER_LONG
-/* First virtual IRQ # */
-#define IPIPE_VIRQ_BASE		(((IPIPE_NR_XIRQS + BITS_PER_LONG - 1) / BITS_PER_LONG) * BITS_PER_LONG)
+/* First virtual IRQ # (must be aligned on BITS_PER_LONG) */
+#define IPIPE_VIRQ_BASE		__bpl_up(IPIPE_NR_XIRQS)
 /* Total number of IRQ slots */
-#define IPIPE_NR_IRQS		(IPIPE_VIRQ_BASE + IPIPE_NR_VIRQS)
-/* Number of indirect words needed to map the whole IRQ space. */
-#define IPIPE_IRQ_IWORDS	((IPIPE_NR_IRQS + BITS_PER_LONG - 1) / BITS_PER_LONG)
-#define IPIPE_IRQ_IMASK		(BITS_PER_LONG - 1)
-#define IPIPE_IRQMASK_ANY	(~0L)
-#define IPIPE_IRQMASK_VIRT	(IPIPE_IRQMASK_ANY << (IPIPE_VIRQ_BASE / BITS_PER_LONG))
+#define IPIPE_NR_IRQS		(IPIPE_VIRQ_BASE+IPIPE_NR_VIRQS)
+
+#define IPIPE_IRQ_LOMAPSZ	(IPIPE_NR_IRQS / BITS_PER_LONG)
+#if IPIPE_IRQ_LOMAPSZ > BITS_PER_LONG
+/*
+ * We need a 3-level mapping. This allows us to handle up to 32k IRQ
+ * vectors on 32bit machines, 256k on 64bit ones.
+ */
+#define __IPIPE_3LEVEL_IRQMAP	1
+#define IPIPE_IRQ_MDMAPSZ	(__bpl_up(IPIPE_IRQ_LOMAPSZ) / BITS_PER_LONG)
+#else
+/*
+ * 2-level mapping is enough. This allows us to handle up to 1024 IRQ
+ * vectors on 32bit machines, 4096 on 64bit ones.
+ */
+#define __IPIPE_2LEVEL_IRQMAP	1
+#endif
+
+#define IPIPE_IRQ_DOALL		0
+#define IPIPE_IRQ_DOVIRT	1
 
 /* Per-cpu pipeline status */
 #define IPIPE_STALL_FLAG	0	/* Stalls a pipeline stage -- guaranteed at bit #0 */
@@ -48,7 +63,7 @@
 #define IPIPE_SYNC_MASK		(1L << IPIPE_SYNC_FLAG)
 #define IPIPE_NOSTACK_MASK	(1L << IPIPE_NOSTACK_FLAG)
 
-typedef void (*ipipe_irq_handler_t)(unsigned irq,
+typedef void (*ipipe_irq_handler_t)(unsigned int irq,
 				    void *cookie);
 
 extern struct ipipe_domain ipipe_root;

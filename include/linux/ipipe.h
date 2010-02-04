@@ -68,14 +68,6 @@ static inline void ipipe_context_check_off(void) { }
 
 #ifdef CONFIG_IPIPE
 
-/*
- * Sanity check: IPIPE_VIRQ_BASE depends on CONFIG_NR_CPUS, and if the
- * latter gets too large, we fail to map the virtual interrupts.
- */
-#if IPIPE_VIRQ_BASE / BITS_PER_LONG > BITS_PER_LONG
-#error "CONFIG_NR_CPUS is too large, please lower it."
-#endif
-
 #define IPIPE_VERSION_STRING	IPIPE_ARCH_STRING
 #define IPIPE_RELEASE_NUMBER	((IPIPE_MAJOR_NUMBER << 16) | \
 				 (IPIPE_MINOR_NUMBER <<  8) | \
@@ -232,7 +224,7 @@ void __ipipe_dispatch_wired_nocheck(struct ipipe_domain *head, unsigned irq);
 
 void __ipipe_dispatch_wired(struct ipipe_domain *head, unsigned irq);
 
-void __ipipe_sync_stage(unsigned long syncmask);
+void __ipipe_sync_stage(int dovirt);
 
 void __ipipe_set_irq_pending(struct ipipe_domain *ipd, unsigned irq);
 
@@ -255,7 +247,7 @@ static inline void ipipe_irq_unlock(unsigned irq)
 }
 
 #ifndef __ipipe_sync_pipeline
-#define __ipipe_sync_pipeline(syncmask) __ipipe_sync_stage(syncmask)
+#define __ipipe_sync_pipeline(dovirt) __ipipe_sync_stage(dovirt)
 #endif
 
 #ifndef __ipipe_run_irqtail
@@ -263,6 +255,8 @@ static inline void ipipe_irq_unlock(unsigned irq)
 #endif
 
 #define __ipipe_pipeline_head_p(ipd) (&(ipd)->p_link == __ipipe_pipeline.next)
+
+#define __ipipe_ipending_p(p)	((p)->irqpend_himap != 0)
 
 /*
  * Keep the following as a macro, so that client code could check for
