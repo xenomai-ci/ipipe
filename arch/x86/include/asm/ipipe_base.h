@@ -27,10 +27,8 @@
 #include <asm/irq_vectors.h>
 
 #ifdef CONFIG_X86_32
-#define IPIPE_IRQ_ISHIFT  	5
 #define IPIPE_NR_FAULTS		33 /* 32 from IDT + iret_error */
 #else
-#define IPIPE_IRQ_ISHIFT  	6
 #define IPIPE_NR_FAULTS		32
 #endif
 

@@ -72,16 +72,21 @@ static void (*__ipipe_cpu_sync) (void);
  * just like if it has been actually received from a hw source. Also
  * works for virtual interrupts.
  */
-int ipipe_trigger_irq(unsigned irq)
+int ipipe_trigger_irq(unsigned int irq)
 {
 	struct pt_regs regs;
 	unsigned long flags;
 
-	if (irq >= IPIPE_NR_IRQS ||
-	    (ipipe_virtual_irq_p(irq) &&
-	     !test_bit(irq - IPIPE_VIRQ_BASE, &__ipipe_virtual_irq_map)))
+#ifdef CONFIG_IPIPE_DEBUG
+	if (irq >= IPIPE_NR_IRQS)
 		return -EINVAL;
-
+	if (ipipe_virtual_irq_p(irq)) {
+		if (!test_bit(irq - IPIPE_VIRQ_BASE,
+			      &__ipipe_virtual_irq_map))
+			return -EINVAL;
+	} else if (irq_to_desc(irq) == NULL)
+		return -EINVAL;
+#endif
 	local_irq_save_hw(flags);
 	regs.flags = flags;
 	regs.orig_ax = irq;	/* Positive value - IRQ won't be acked */
@@ -148,7 +153,7 @@ static void __ipipe_null_handler(unsigned irq, void *cookie)
 
 void __init __ipipe_enable_pipeline(void)
 {
-	unsigned vector, irq;
+	unsigned int vector, irq;
 
 #ifdef CONFIG_X86_LOCAL_APIC
 
@@ -552,8 +557,8 @@ asmlinkage void __ipipe_unstall_iret_root(struct pt_regs regs)
 		 * release any pending event. The SYNC_BIT prevents
 		 * infinite recursion in case of flooding.
 		 */
-		if (unlikely(p->irqpend_himask != 0))
-			__ipipe_sync_pipeline(IPIPE_IRQMASK_ANY);
+		if (unlikely(__ipipe_ipending_p(p)))
+			__ipipe_sync_pipeline(IPIPE_IRQ_DOALL);
 	}
 #ifdef CONFIG_IPIPE_TRACE_IRQSOFF
 	ipipe_trace_end(0x8000000D);
@@ -591,11 +596,11 @@ void __ipipe_preempt_schedule_irq(void)
 	 * returning to us, and now.
 	 */
 	p = ipipe_root_cpudom_ptr(); 
-	if (unlikely(p->irqpend_himask != 0)) { 
+	if (unlikely(__ipipe_ipending_p(p))) { 
 		add_preempt_count(PREEMPT_ACTIVE);
 		trace_hardirqs_on();
 		clear_bit(IPIPE_STALL_FLAG, &p->status); 
-		__ipipe_sync_pipeline(IPIPE_IRQMASK_ANY); 
+		__ipipe_sync_pipeline(IPIPE_IRQ_DOALL); 
 		sub_preempt_count(PREEMPT_ACTIVE);
 	} 
 
@@ -619,8 +624,8 @@ void __ipipe_halt_root(void)
 	trace_hardirqs_on();
 	clear_bit(IPIPE_STALL_FLAG, &p->status);
 
-	if (unlikely(p->irqpend_himask != 0)) {
-		__ipipe_sync_pipeline(IPIPE_IRQMASK_ANY);
+	if (unlikely(__ipipe_ipending_p(p))) {
+		__ipipe_sync_pipeline(IPIPE_IRQ_DOALL);
 		local_irq_enable_hw();
 	} else {
 #ifdef CONFIG_IPIPE_TRACE_IRQSOFF
@@ -712,16 +717,14 @@ int __ipipe_handle_exception(struct pt_regs *regs, long error_code, int vector)
 		root_entry = true;
 
 		local_save_flags(flags);
-
-		if (irqs_disabled_hw()) {
-			/*
-			 * Replicate hw interrupt state into the virtual mask
-			 * before calling the I-pipe event handler over the
-			 * root domain. Also required later when calling the
-			 * Linux exception handler.
-			 */
+		/*
+		 * Replicate hw interrupt state into the virtual mask
+		 * before calling the I-pipe event handler over the
+		 * root domain. Also required later when calling the
+		 * Linux exception handler.
+		 */
+		if (irqs_disabled_hw())
 			local_irq_disable();
-		}
 	}
 #ifdef CONFIG_KGDB
 	/* catch exception KGDB is interested in over non-root domains */
@@ -828,12 +831,10 @@ int __ipipe_divert_exception(struct pt_regs *regs, int vector)
 		return 1;
 	}
 
-	if (likely(ipipe_root_domain_p)) {
-		/* see __ipipe_handle_exception */
+	/* see __ipipe_handle_exception */
+	if (likely(ipipe_root_domain_p))
 		__fixup_if(root_entry ? raw_irqs_disabled_flags(flags) :
 					raw_irqs_disabled(), regs);
-	}
-
 	/*
 	 * No need to restore root state in the 64-bit case, the Linux handler
 	 * and the return code will take care of it.
@@ -876,8 +877,8 @@ int __ipipe_syscall_root(struct pt_regs *regs)
 	 * If allowed, sync pending VIRQs before _TIF_NEED_RESCHED is
 	 * tested.
 	 */
-	if ((p->irqpend_himask & IPIPE_IRQMASK_VIRT) != 0)
-		__ipipe_sync_pipeline(IPIPE_IRQMASK_VIRT);
+	if (__ipipe_ipending_p(p))
+		__ipipe_sync_pipeline(IPIPE_IRQ_DOVIRT);
 #ifdef CONFIG_X86_64
 	if (!ret)
 #endif
@@ -894,7 +895,7 @@ int __ipipe_syscall_root(struct pt_regs *regs)
 int __ipipe_handle_irq(struct pt_regs *regs)
 {
 	struct ipipe_domain *this_domain, *next_domain;
-	unsigned vector = regs->orig_ax, irq;
+	unsigned int vector = regs->orig_ax, irq;
 	struct list_head *head, *pos;
 	int m_ack;
 
@@ -925,7 +926,7 @@ int __ipipe_handle_irq(struct pt_regs *regs)
 		next_domain = list_entry(head, struct ipipe_domain, p_link);
 		if (likely(test_bit(IPIPE_WIRED_FLAG, &next_domain->irqs[irq].control))) {
 			if (!m_ack && next_domain->irqs[irq].acknowledge)
-				next_domain->irqs[irq].acknowledge(irq, irq_desc + irq);
+				next_domain->irqs[irq].acknowledge(irq, irq_to_desc(irq));
 			__ipipe_dispatch_wired(next_domain, irq);
 			goto finalize_nosync;
 		}
@@ -940,7 +941,7 @@ int __ipipe_handle_irq(struct pt_regs *regs)
 		if (test_bit(IPIPE_HANDLE_FLAG, &next_domain->irqs[irq].control)) {
 			__ipipe_set_irq_pending(next_domain, irq);
 			if (!m_ack && next_domain->irqs[irq].acknowledge) {
-				next_domain->irqs[irq].acknowledge(irq, irq_desc + irq);
+				next_domain->irqs[irq].acknowledge(irq, irq_to_desc(irq));
 				m_ack = 1;
 			}
 		}
@@ -955,7 +956,7 @@ int __ipipe_handle_irq(struct pt_regs *regs)
 	 * pending for it.
 	 */
 	if (test_bit(IPIPE_AHEAD_FLAG, &this_domain->flags) &&
-	    ipipe_head_cpudom_var(irqpend_himask) == 0)
+	    !__ipipe_ipending_p(ipipe_head_cpudom_ptr()))
 		goto finalize_nosync;
 
 	/*
@@ -1021,7 +1022,7 @@ int __ipipe_check_tickdev(const char *devname)
 
 EXPORT_SYMBOL(__ipipe_tick_irq);
 
-EXPORT_SYMBOL_GPL(irq_desc);
+EXPORT_SYMBOL_GPL(irq_to_desc);
 struct task_struct *__switch_to(struct task_struct *prev_p,
 				struct task_struct *next_p);
 EXPORT_SYMBOL_GPL(__switch_to);
