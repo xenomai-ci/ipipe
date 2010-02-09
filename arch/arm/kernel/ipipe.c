@@ -34,6 +34,7 @@
 #include <linux/module.h>
 #include <linux/errno.h>
 #include <linux/kallsyms.h>
+#include <linux/kprobes.h>
 #include <asm/system.h>
 #include <asm/atomic.h>
 #include <asm/hardirq.h>
@@ -249,6 +250,20 @@ asmlinkage int __ipipe_check_root(void)
 asmlinkage int __ipipe_check_root_interruptible(void)
 {
         return ipipe_root_domain_p && !__ipipe_test_root();
+}
+
+__kprobes int 
+__ipipe_switch_to_notifier_call_chain(struct atomic_notifier_head *nh,
+				      unsigned long val, void *v)
+{
+        unsigned long flags;
+        int rc;
+
+        local_irq_save(flags);
+        rc = atomic_notifier_call_chain(nh, val, v);
+        local_irq_restore_nosync(flags);
+
+        return rc;
 }
 
 asmlinkage int __ipipe_syscall_root(unsigned long scno, struct pt_regs *regs)
