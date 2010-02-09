@@ -814,7 +814,11 @@ ENTRY(__switch_to)
 	add	r4, r2, #TI_CPU_SAVE
 	ldr	r0, =thread_notify_head
 	mov	r1, #THREAD_NOTIFY_SWITCH
+#ifndef CONFIG_IPIPE
 	bl	atomic_notifier_call_chain
+#else /* !CONFIG_IPIPE */
+	bl	__ipipe_switch_to_notifier_call_chain
+#endif /* !CONFIG_IPIPE */
 	mov	r0, r5
 	ldmia	r4, {r4 - sl, fp, sp, pc}	@ Load all regs saved previously
 ENDPROC(__switch_to)
