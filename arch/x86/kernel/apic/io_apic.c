@@ -639,6 +639,7 @@ static void unmask_IO_APIC_irq_desc(struct irq_desc *desc)
 	else
 #endif
 	__unmask_IO_APIC_irq(cfg);
+	ipipe_irq_unlock(desc->irq);
 	spin_unlock_irqrestore(&ioapic_lock, flags);
 }
 
