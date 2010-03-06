@@ -98,7 +98,11 @@ void flush_fp_to_thread(struct task_struct *tsk)
 
 void enable_kernel_fp(void)
 {
+	unsigned long flags;
+
 	WARN_ON(preemptible());
+
+	local_irq_save_hw_cond(flags);
 
 #ifdef CONFIG_SMP
 	if (current->thread.regs && (current->thread.regs->msr & MSR_FP))
@@ -108,6 +112,7 @@ void enable_kernel_fp(void)
 #else
 	giveup_fpu(last_task_used_math);
 #endif /* CONFIG_SMP */
+	local_irq_restore_hw_cond(flags);
 }
 EXPORT_SYMBOL(enable_kernel_fp);
 
@@ -398,7 +403,7 @@ struct task_struct *__switch_to(struct task_struct *prev,
 	}
 #endif
 
-	local_irq_save(flags);
+	local_irq_save_hw(flags);
 
 	account_system_vtime(current);
 	account_process_vtime(current);
@@ -412,7 +417,7 @@ struct task_struct *__switch_to(struct task_struct *prev,
 	hard_irq_disable();
 	last = _switch(old_thread, new_thread);
 
-	local_irq_restore(flags);
+	local_irq_restore_hw(flags);
 
 	return last;
 }
@@ -1072,7 +1077,7 @@ void dump_stack(void)
 }
 EXPORT_SYMBOL(dump_stack);
 
-#ifdef CONFIG_PPC64
+#ifdef CONFIG_RUNLATCH
 void ppc64_runlatch_on(void)
 {
 	unsigned long ctrl;

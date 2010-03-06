@@ -154,7 +154,7 @@ const char *smp_ipi_name[] = {
 	[PPC_MSG_CALL_FUNCTION] =  "ipi call function",
 	[PPC_MSG_RESCHEDULE] = "ipi reschedule",
 	[PPC_MSG_CALL_FUNC_SINGLE] = "ipi call function single",
-	[PPC_MSG_DEBUGGER_BREAK] = "ipi debugger",
+	[PPC_MSG_DEBUGGER_BREAK] = "ipi I-pipe/debugger",
 };
 
 /* optional function to request ipi, for controllers with >= 4 ipis */
@@ -165,11 +165,17 @@ int smp_request_message_ipi(int virq, int msg)
 	if (msg < 0 || msg > PPC_MSG_DEBUGGER_BREAK) {
 		return -EINVAL;
 	}
+#ifdef CONFIG_IPIPE
+	if (msg == PPC_MSG_DEBUGGER_BREAK)
+		/* Piggyback the debugger IPI for the I-pipe. */
+		__ipipe_register_ipi(virq);
+#endif
 #if !defined(CONFIG_DEBUGGER) && !defined(CONFIG_KEXEC)
 	if (msg == PPC_MSG_DEBUGGER_BREAK) {
 		return 1;
 	}
 #endif
+
 	err = request_irq(virq, smp_ipi_action[msg], IRQF_DISABLED|IRQF_PERCPU,
 			  smp_ipi_name[msg], 0);
 	WARN(err < 0, "unable to request_irq %d for %s (rc %d)\n",
@@ -200,8 +206,12 @@ void arch_send_call_function_ipi_mask(const struct cpumask *mask)
 #ifdef CONFIG_DEBUGGER
 void smp_send_debugger_break(int cpu)
 {
-	if (likely(smp_ops))
+	if (likely(smp_ops)) {
+#ifdef CONFIG_IPIPE
+		cpu_set(cpu, __ipipe_dbrk_pending);
+#endif
 		smp_ops->message_pass(cpu, PPC_MSG_DEBUGGER_BREAK);
+	}
 }
 #endif
 
@@ -210,6 +220,10 @@ void crash_send_ipi(void (*crash_ipi_callback)(struct pt_regs *))
 {
 	crash_ipi_function_ptr = crash_ipi_callback;
 	if (crash_ipi_callback && smp_ops) {
+#ifdef CONFIG_IPIPE
+		cpus_setall(__ipipe_dbrk_pending);
+		cpu_clear(ipipe_processor_id(), __ipipe_dbrk_pending);
+#endif
 		mb();
 		smp_ops->message_pass(MSG_ALL_BUT_SELF, PPC_MSG_DEBUGGER_BREAK);
 	}
@@ -491,6 +505,9 @@ int __devinit start_secondary(void *unused)
 	struct device_node *l2_cache;
 	int i, base;
 
+#if defined(CONFIG_IPIPE) && defined(CONFIG_PPC64)
+	get_paca()->root_percpu = (u64)&ipipe_percpudom(&ipipe_root, status, cpu);
+#endif
 	atomic_inc(&init_mm.mm_count);
 	current->active_mm = &init_mm;
 

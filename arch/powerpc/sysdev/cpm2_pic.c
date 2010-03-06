@@ -82,35 +82,48 @@ static void cpm2_mask_irq(unsigned int virq)
 {
 	int	bit, word;
 	unsigned int irq_nr = virq_to_hw(virq);
+	unsigned long flags;
 
 	bit = irq_to_siubit[irq_nr];
 	word = irq_to_siureg[irq_nr];
 
+	local_irq_save_hw_cond(flags);
+	ipipe_irq_lock(virq);
 	ppc_cached_irq_mask[word] &= ~(1 << bit);
 	out_be32(&cpm2_intctl->ic_simrh + word, ppc_cached_irq_mask[word]);
+	local_irq_restore_hw_cond(flags);
 }
 
 static void cpm2_unmask_irq(unsigned int virq)
 {
 	int	bit, word;
 	unsigned int irq_nr = virq_to_hw(virq);
+	unsigned long flags;
 
 	bit = irq_to_siubit[irq_nr];
 	word = irq_to_siureg[irq_nr];
 
+	local_irq_save_hw_cond(flags);
 	ppc_cached_irq_mask[word] |= 1 << bit;
 	out_be32(&cpm2_intctl->ic_simrh + word, ppc_cached_irq_mask[word]);
+	ipipe_irq_unlock(virq);
+	local_irq_restore_hw_cond(flags);
 }
 
-static void cpm2_ack(unsigned int virq)
+static void cpm2_mask_ack(unsigned int virq)
 {
 	int	bit, word;
 	unsigned int irq_nr = virq_to_hw(virq);
+	unsigned long flags;
 
 	bit = irq_to_siubit[irq_nr];
 	word = irq_to_siureg[irq_nr];
 
+	local_irq_save_hw_cond(flags);
+	ppc_cached_irq_mask[word] &= ~(1 << bit);
+	out_be32(&cpm2_intctl->ic_simrh + word, ppc_cached_irq_mask[word]);
 	out_be32(&cpm2_intctl->ic_sipnrh + word, 1 << bit);
+	local_irq_restore_hw_cond(flags);
 }
 
 static void cpm2_end_irq(unsigned int virq)
@@ -118,10 +131,14 @@ static void cpm2_end_irq(unsigned int virq)
 	struct irq_desc *desc;
 	int	bit, word;
 	unsigned int irq_nr = virq_to_hw(virq);
+	unsigned long flags;
 
 	desc = irq_to_desc(irq_nr);
-	if (!(desc->status & (IRQ_DISABLED|IRQ_INPROGRESS))
-			&& desc->action) {
+	local_irq_save_hw_cond(flags);
+
+	if (!__ipipe_root_domain_p ||
+	    (!(desc->status & (IRQ_DISABLED|IRQ_INPROGRESS))
+	     && desc->action)) {
 
 		bit = irq_to_siubit[irq_nr];
 		word = irq_to_siureg[irq_nr];
@@ -135,6 +152,8 @@ static void cpm2_end_irq(unsigned int virq)
 		 */
 		mb();
 	}
+
+	local_irq_restore_hw_cond(flags);
 }
 
 static int cpm2_set_irq_type(unsigned int virq, unsigned int flow_type)
@@ -201,7 +220,7 @@ static struct irq_chip cpm2_pic = {
 	.name = " CPM2 SIU ",
 	.mask = cpm2_mask_irq,
 	.unmask = cpm2_unmask_irq,
-	.ack = cpm2_ack,
+	.mask_ack = cpm2_mask_ack,
 	.eoi = cpm2_end_irq,
 	.set_type = cpm2_set_irq_type,
 };

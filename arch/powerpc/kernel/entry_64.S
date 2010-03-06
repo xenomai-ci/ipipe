@@ -33,6 +33,11 @@
 #include <asm/irqflags.h>
 #include <asm/ftrace.h>
 
+#ifdef CONFIG_IPIPE
+#define PREEMPT_SCHEDULE_IRQ	.__ipipe_preempt_schedule_irq
+#else
+#define PREEMPT_SCHEDULE_IRQ	.preempt_schedule_irq
+#endif
 /*
  * System calls.
  */
@@ -105,6 +110,7 @@ system_call_common:
 	addi	r9,r1,STACK_FRAME_OVERHEAD
 	ld	r12,_MSR(r1)
 #endif /* CONFIG_TRACE_IRQFLAGS */
+#ifdef CONFIG_SOFTDISABLE
 	li	r10,1
 	stb	r10,PACASOFTIRQEN(r13)
 	stb	r10,PACAHARDIRQEN(r13)
@@ -120,6 +126,24 @@ BEGIN_FW_FTR_SECTION
 2:
 END_FW_FTR_SECTION_IFSET(FW_FEATURE_ISERIES)
 #endif /* CONFIG_PPC_ISERIES */
+#endif /* CONFIG_SOFTDISABLE */
+
+#ifdef CONFIG_IPIPE
+	addi	r3,r1,GPR0
+	bl	.__ipipe_syscall_root
+	cmpwi	r3,0
+	ld	r0,GPR0(r1)
+	ld	r3,GPR3(r1)
+	ld	r4,GPR4(r1)
+	ld	r5,GPR5(r1)
+	ld	r6,GPR6(r1)
+	ld	r7,GPR7(r1)
+	ld	r8,GPR8(r1)
+	ld	r9,GPR9(r1)
+	bgt	ipipe_end_syscall
+	blt	syscall_exit
+	addi	r9,r1,STACK_FRAME_OVERHEAD
+#endif /* CONFIG_IPIPE */
 
 	/* Hard enable interrupts */
 #ifdef CONFIG_PPC_BOOK3E
@@ -257,10 +281,27 @@ syscall_dotrace:
 	ld	r10,TI_FLAGS(r10)
 	b	syscall_dotrace_cont
 
+#ifdef CONFIG_IPIPE
+	/*
+	 * We get there upon return from __ipipe_syscall_root,
+	 * with hw interrupts off.
+	 */
+ipipe_end_syscall:
+	ld	r8,_MSR(r1)
+#ifdef CONFIG_PPC_BOOK3S
+	/* No MSR:RI on BookE */
+	andi.	r10,r8,MSR_RI
+	beq-	unrecov_restore
+#endif
+	ld	r5,_CCR(r1)
+	mfmsr	r10
+	b	syscall_error_cont
+#endif /* CONFIG_IPIPE */
+
 syscall_enosys:
 	li	r3,-ENOSYS
 	b	syscall_exit
-	
+
 syscall_exit_work:
 	/* If TIF_RESTOREALL is set, don't scribble on either r3 or ccr.
 	 If TIF_NOERROR is set, just save r3 as it is. */
@@ -295,6 +336,18 @@ syscall_exit_work:
 	andi.	r0,r9,(_TIF_SYSCALL_T_OR_A|_TIF_SINGLESTEP)
 	beq	.ret_from_except_lite
 
+#ifdef CONFIG_IPIPE_TRACE_IRQSOFF
+	bl	.save_nvgprs
+	bl	.__ipipe_trace_irqson
+#ifdef CONFIG_PPC_BOOK3E
+	wrteei	1
+#else
+	/* Re-enable interrupts */
+	mfmsr	r10
+	ori	r10,r10,MSR_EE
+	mtmsrd	r10,1
+#endif /* CONFIG_PPC_BOOK3E */
+#else /* !CONFIG_IPIPE_TRACE_IRQSOFF */
 	/* Re-enable interrupts */
 #ifdef CONFIG_PPC_BOOK3E
 	wrteei	1
@@ -305,6 +358,7 @@ syscall_exit_work:
 #endif /* CONFIG_PPC_BOOK3E */
 
 	bl	.save_nvgprs
+#endif /* !CONFIG_IPIPE_TRACE_IRQSOFF */
 	addi	r3,r1,STACK_FRAME_OVERHEAD
 	bl	.do_syscall_trace_leave
 	b	.ret_from_except
@@ -355,6 +409,22 @@ _GLOBAL(ppc64_swapcontext)
 	b	syscall_exit
 
 _GLOBAL(ret_from_fork)
+#ifdef CONFIG_IPIPE
+#ifdef CONFIG_IPIPE_TRACE_IRQSOFF
+	stdu	r1,-8(r1)
+	std	r3,0(r1)
+	bl	.__ipipe_trace_irqson
+	ld	r3,0(r1)
+	addi	r1,r1,8
+#endif /* CONFIG_IPIPE_TRACE_IRQSOFF */
+#ifdef CONFIG_PPC_BOOK3E
+	wrteei	1
+#else /* !CONFIG_PPC_BOOK3E */
+	mfmsr	r10
+	ori	r10,r10,MSR_EE
+	mtmsrd	r10,1
+#endif /* !CONFIG_PPC_BOOK3E */
+#endif /* CONFIG_IPIPE */
 	bl	.schedule_tail
 	REST_NVGPRS(r1)
 	li	r3,0
@@ -503,6 +573,15 @@ END_FTR_SECTION_IFSET(CPU_FTR_ALTIVEC)
 	addi	r1,r1,SWITCH_FRAME_SIZE
 	blr
 
+
+#ifdef CONFIG_IPIPE
+_GLOBAL(__ipipe_ret_from_except_lite)
+	cmpwi	r3,0
+	/* FIXME: branching to __ipipe_check_root is useless here */
+	bne+	.ret_from_except_lite
+	b	restore
+#endif /* CONFIG_IPIPE */
+
 	.align	7
 _GLOBAL(ret_from_except)
 	ld	r11,_TRAP(r1)
@@ -524,6 +603,16 @@ _GLOBAL(ret_from_except_lite)
 	rotldi	r9,r9,16
 	mtmsrd	r9,1		/* Update machine state */
 #endif /* CONFIG_PPC_BOOK3E */
+
+#ifdef CONFIG_IPIPE
+#ifdef CONFIG_IPIPE_TRACE_IRQSOFF
+	bl	.__ipipe_trace_irqsoff
+#endif
+	bl	.__ipipe_check_root
+	cmpwi	r3,0
+	mfmsr	r10		/* this is used later, might be messed */
+	beq-	restore
+#endif /* CONFIG_IPIPE */
 
 #ifdef CONFIG_PREEMPT
 	clrrdi	r9,r1,THREAD_SHIFT	/* current_thread_info() */
@@ -548,6 +637,7 @@ _GLOBAL(ret_from_except_lite)
 #endif
 
 restore:
+#ifdef CONFIG_SOFTDISABLE
 BEGIN_FW_FTR_SECTION
 	ld	r5,SOFTE(r1)
 FW_FTR_SECTION_ELSE
@@ -564,11 +654,37 @@ ALT_FW_FTR_SECTION_END_IFCLR(FW_FEATURE_ISERIES)
 	bl	.perf_event_do_pending
 27:
 #endif /* CONFIG_PERF_EVENTS */
-
 	/* extract EE bit and use it to restore paca->hard_enabled */
 	ld	r3,_MSR(r1)
 	rldicl	r4,r3,49,63		/* r0 = (r3 >> 15) & 1 */
 	stb	r4,PACAHARDIRQEN(r13)
+
+#else	/* !CONFIG_SOFTDISABLE */
+#ifdef CONFIG_IPIPE
+#ifdef CONFIG_PERF_EVENTS
+	/* check paca->perf_event_pending if we're enabling ints */
+	ld	r5,_MSR(r1)
+	rldicl	r5,r5,49,63		/* r0 = (r3 >> 15) & 1 */
+	lbz	r3,PACAPERFPEND(r13)
+	and.	r3,r3,r5
+	beq	27f
+	bl	.perf_event_do_pending
+27:
+#endif /* CONFIG_PERF_EVENTS */
+#ifdef CONFIG_IPIPE_TRACE_IRQSOFF
+	ld	r3,_MSR(r1)
+	rldicl	r3,r3,49,63		/* r0 = (r3 >> 15) & 1 */
+	bl	.__ipipe_trace_irqsx
+#endif
+	ld	r3,SOFTE(r1)		/* currently hard-disabled, so this is safe */
+	nor	r3,r3,r3
+	ld	r4,PACAROOTPCPU(r13)
+	ld	r5,0(r4)
+	insrdi	r5,r3,1,63
+	std	r5,0(r4)
+	ld	r3,_MSR(r1)
+#endif /* CONFIG_IPIPE */
+#endif	/* !CONFIG_SOFTDISABLE */
 
 #ifdef CONFIG_PPC_BOOK3E
 	b	.exception_return_book3e
@@ -659,6 +775,7 @@ do_work:
 	crandc	eq,cr1*4+eq,eq
 	bne	restore
 
+#ifdef CONFIG_SOFTDISABLE
 	/* Here we are preempting the current task.
 	 *
 	 * Ensure interrupts are soft-disabled. We also properly mark
@@ -669,9 +786,14 @@ do_work:
 	stb	r0,PACASOFTIRQEN(r13)
 	stb	r0,PACAHARDIRQEN(r13)
 	TRACE_DISABLE_INTS
+#endif
 
-	/* Call the scheduler with soft IRQs off */
-1:	bl	.preempt_schedule_irq
+	/*
+	 * Call the scheduler with soft IRQs off. When the interrupt
+	 * pipeline is enabled, we enter the IRQ preemption code with hw
+	 * interrupts disabled as well.
+	 */
+1:	bl	PREEMPT_SCHEDULE_IRQ
 
 	/* Hard-disable interrupts again (and update PACA) */
 #ifdef CONFIG_PPC_BOOK3E
@@ -682,8 +804,14 @@ do_work:
 	rotldi	r10,r10,16
 	mtmsrd	r10,1
 #endif /* CONFIG_PPC_BOOK3E */
+#ifdef CONFIG_IPIPE_TRACE_IRQSOFF
+	/* FIXME: watch out for register wreckage */
+	bl	.__ipipe_trace_irqsoff
+#endif /* CONFIG_IPIPE_TRACE_IRQSOFF */
+#ifdef CONFIG_SOFTDISABLE
 	li	r0,0
 	stb	r0,PACAHARDIRQEN(r13)
+#endif
 
 	/* Re-test flags and eventually loop */
 	clrrdi	r9,r1,THREAD_SHIFT
@@ -705,6 +833,9 @@ user_work:
 
 	andi.	r0,r4,_TIF_NEED_RESCHED
 	beq	1f
+#ifdef CONFIG_IPIPE_TRACE_IRQSOFF
+	bl	.__ipipe_trace_irqson
+#endif /* CONFIG_IPIPE_TRACE_IRQSOFF */
 	bl	.schedule
 	b	.ret_from_except_lite
 
@@ -758,7 +889,7 @@ _GLOBAL(enter_rtas)
 	li	r0,0
 	mtcr	r0
 
-#ifdef CONFIG_BUG	
+#ifdef CONFIG_BUG && CONFIG_SOFTDISABLE
 	/* There is no way it is acceptable to get here with interrupts enabled,
 	 * check it with the asm equivalent of WARN_ON
 	 */
@@ -931,6 +1062,10 @@ _GLOBAL(_mcount)
 	blr
 
 _GLOBAL(ftrace_caller)
+        LOAD_REG_IMMEDIATE(r3, function_trace_stop)
+        lwz     r3, 0(r3)
+        cmpwi   r3, 0
+        bne     ftrace_stub
 	/* Taken from output of objdump from lib64/glibc */
 	mflr	r3
 	ld	r11, 0(r1)
@@ -958,6 +1093,10 @@ _GLOBAL(mcount)
 	blr
 
 _GLOBAL(_mcount)
+        LOAD_REG_IMMEDIATE(r3, function_trace_stop)
+        lwz     r3, 0(r3)
+        cmpwi   r3, 0
+        bne     ftrace_stub
 	/* Taken from output of objdump from lib64/glibc */
 	mflr	r3
 	ld	r11, 0(r1)

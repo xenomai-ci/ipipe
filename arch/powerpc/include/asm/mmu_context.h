@@ -34,11 +34,17 @@ extern void mmu_context_init(void);
  * switch_mm is the entry point called from the architecture independent
  * code in kernel/sched.c
  */
-static inline void switch_mm(struct mm_struct *prev, struct mm_struct *next,
-			     struct task_struct *tsk)
+static inline void __switch_mm(struct mm_struct *prev, struct mm_struct *next,
+			       struct task_struct *tsk)
 {
+	int cpu = smp_processor_id();
+
+#if defined(CONFIG_IPIPE_DEBUG_INTERNAL) && \
+	!defined(CONFIG_IPIPE_WANT_PREEMPTIBLE_SWITCH)
+	WARN_ON_ONCE(!irqs_disabled_hw());
+#endif
 	/* Mark this context has been used on the new CPU */
-	cpumask_set_cpu(smp_processor_id(), mm_cpumask(next));
+	cpumask_set_cpu(cpu, mm_cpumask(next));
 
 	/* 32-bit keeps track of the current PGDIR in the thread struct */
 #ifdef CONFIG_PPC32
@@ -64,6 +70,28 @@ static inline void switch_mm(struct mm_struct *prev, struct mm_struct *next,
 	/* The actual HW switching method differs between the various
 	 * sub architectures.
 	 */
+#ifdef CONFIG_IPIPE_WANT_PREEMPTIBLE_SWITCH
+#ifdef CONFIG_PPC_STD_MMU_64
+	do {
+		per_cpu(ipipe_active_mm, cpu) = NULL; /* mm state is undefined. */
+		barrier();
+		if (cpu_has_feature(CPU_FTR_SLB))
+			switch_slb(tsk, next);
+		else
+			switch_stab(tsk, next);
+		barrier();
+		per_cpu(ipipe_active_mm, cpu) = next;
+	} while (test_and_clear_thread_flag(TIF_MMSWITCH_INT));
+#else
+	do {
+		per_cpu(ipipe_active_mm, cpu) = NULL; /* mm state is undefined. */
+		barrier();
+		switch_mmu_context(prev, next);
+		barrier();
+		per_cpu(ipipe_active_mm, cpu) = next;
+	} while (test_and_clear_thread_flag(TIF_MMSWITCH_INT));
+#endif
+#else /* !CONFIG_IPIPE_WANT_PREEMPTIBLE_SWITCH */
 #ifdef CONFIG_PPC_STD_MMU_64
 	if (cpu_has_feature(CPU_FTR_SLB))
 		switch_slb(tsk, next);
@@ -73,7 +101,21 @@ static inline void switch_mm(struct mm_struct *prev, struct mm_struct *next,
 	/* Out of line for now */
 	switch_mmu_context(prev, next);
 #endif
+#endif /* !CONFIG_IPIPE_WANT_PREEMPTIBLE_SWITCH */
+}
 
+static inline void switch_mm(struct mm_struct *prev, struct mm_struct *next,
+			     struct task_struct *tsk)
+{
+#ifndef CONFIG_IPIPE_WANT_PREEMPTIBLE_SWITCH
+	unsigned long flags;
+	local_irq_save_hw(flags);
+#endif /* !CONFIG_IPIPE_WANT_PREEMPTIBLE_SWITCH */
+	__switch_mm(prev, next, tsk);
+#ifndef CONFIG_IPIPE_WANT_PREEMPTIBLE_SWITCH
+	local_irq_restore_hw(flags);
+#endif /* !CONFIG_IPIPE_WANT_PREEMPTIBLE_SWITCH */
+	return;
 }
 
 #define deactivate_mm(tsk,mm)	do { } while (0)
@@ -87,7 +129,7 @@ static inline void activate_mm(struct mm_struct *prev, struct mm_struct *next)
 	unsigned long flags;
 
 	local_irq_save(flags);
-	switch_mm(prev, next, current);
+	__switch_mm(prev, next, current);
 	local_irq_restore(flags);
 }
 

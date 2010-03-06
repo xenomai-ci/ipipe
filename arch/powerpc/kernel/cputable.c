@@ -1922,7 +1922,7 @@ static void __init setup_cpu_spec(unsigned long offset, struct cpu_spec *s)
 #endif /* CONFIG_PPC64 || CONFIG_BOOKE */
 }
 
-struct cpu_spec * __init identify_cpu(unsigned long offset, unsigned int pvr)
+notrace struct cpu_spec * __init identify_cpu(unsigned long offset, unsigned int pvr)
 {
 	struct cpu_spec *s = cpu_specs;
 	int i;
