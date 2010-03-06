@@ -61,6 +61,7 @@ struct sched_param {
 #include <linux/errno.h>
 #include <linux/nodemask.h>
 #include <linux/mm_types.h>
+#include <linux/ipipe.h>
 
 #include <asm/system.h>
 #include <asm/page.h>
@@ -192,9 +193,17 @@ print_cfs_rq(struct seq_file *m, int cpu, struct cfs_rq *cfs_rq)
 #define TASK_DEAD		64
 #define TASK_WAKEKILL		128
 #define TASK_WAKING		256
+#ifdef CONFIG_IPIPE
+#define TASK_ATOMICSWITCH	512
+#define TASK_NOWAKEUP		1024
+#define TASK_STATE_MAX		2048
+#define TASK_STATE_TO_CHAR_STR "RSDTtZXxKWAN"
+#else  /* !CONFIG_IPIPE */
+#define TASK_ATOMICSWITCH	0
+#define TASK_NOWAKEUP		0
 #define TASK_STATE_MAX		512
-
 #define TASK_STATE_TO_CHAR_STR "RSDTtZXxKW"
+#endif /* CONFIG_IPIPE */
 
 extern char ___assert_task_state[1 - 2*!!(
 		sizeof(TASK_STATE_TO_CHAR_STR)-1 != ilog2(TASK_STATE_MAX)+1)];
@@ -305,6 +314,15 @@ extern void trap_init(void);
 extern void update_process_times(int user);
 extern void scheduler_tick(void);
 
+#ifdef CONFIG_IPIPE
+void update_root_process_times(struct pt_regs *regs);
+#else  /* !CONFIG_IPIPE */
+static inline void update_root_process_times(struct pt_regs *regs)
+{
+	update_process_times(user_mode(regs));
+}
+#endif /* CONFIG_IPIPE */
+
 extern void sched_show_task(struct task_struct *p);
 
 #ifdef CONFIG_DETECT_SOFTLOCKUP
@@ -356,7 +374,7 @@ extern signed long schedule_timeout(signed long timeout);
 extern signed long schedule_timeout_interruptible(signed long timeout);
 extern signed long schedule_timeout_killable(signed long timeout);
 extern signed long schedule_timeout_uninterruptible(signed long timeout);
-asmlinkage void schedule(void);
+asmlinkage int schedule(void);
 extern int mutex_spin_on_owner(struct mutex *lock, struct thread_info *owner);
 
 struct nsproxy;
@@ -486,6 +504,9 @@ extern int get_dumpable(struct mm_struct *mm);
 #endif
 					/* leave room for more dump flags */
 #define MMF_VM_MERGEABLE	16	/* KSM may merge identical pages */
+#ifdef CONFIG_IPIPE
+#define MMF_VM_PINNED		31	/* ondemand load up and COW disabled */
+#endif
 
 #define MMF_INIT_MASK		(MMF_DUMPABLE_MASK | MMF_DUMP_FILTER_MASK)
 
@@ -1512,6 +1533,9 @@ struct task_struct {
 #endif
 	atomic_t fs_excl;	/* holding fs exclusive resources */
 	struct rcu_head rcu;
+#ifdef CONFIG_IPIPE
+	void *ptd[IPIPE_ROOT_NPTDKEYS];
+#endif
 
 	/*
 	 * cache last used pipe for splice
@@ -1759,6 +1783,11 @@ extern void thread_group_times(struct task_struct *p, cputime_t *ut, cputime_t *
 #define PF_EXITING	0x00000004	/* getting shut down */
 #define PF_EXITPIDONE	0x00000008	/* pi exit done on shut down */
 #define PF_VCPU		0x00000010	/* I'm a virtual CPU */
+#ifdef CONFIG_IPIPE
+#define PF_EVNOTIFY	0x00000020	/* Notify other domains about internal events */
+#else
+#define PF_EVNOTIFY	0
+#endif /* CONFIG_IPIPE */
 #define PF_FORKNOEXEC	0x00000040	/* forked but didn't exec */
 #define PF_MCE_PROCESS  0x00000080      /* process policy on mce errors */
 #define PF_SUPERPRIV	0x00000100	/* used super-user privileges */
