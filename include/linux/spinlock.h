@@ -88,6 +88,8 @@
 # include <linux/spinlock_up.h>
 #endif
 
+#include <linux/ipipe_lock.h>
+
 #ifdef CONFIG_DEBUG_SPINLOCK
   extern void __raw_spin_lock_init(raw_spinlock_t *lock, const char *name,
 				   struct lock_class_key *key);
@@ -270,16 +272,9 @@ static inline raw_spinlock_t *spinlock_check(spinlock_t *lock)
 	return &lock->rlock;
 }
 
-#define spin_lock_init(_lock)				\
-do {							\
-	spinlock_check(_lock);				\
-	raw_spin_lock_init(&(_lock)->rlock);		\
-} while (0)
+#define spin_lock_init(_lock)	PICK_SPINOP(_lock_init, _lock)
 
-static inline void spin_lock(spinlock_t *lock)
-{
-	raw_spin_lock(&lock->rlock);
-}
+#define spin_lock(lock)		PICK_SPINOP(_lock, lock)
 
 static inline void spin_lock_bh(spinlock_t *lock)
 {
@@ -288,7 +283,7 @@ static inline void spin_lock_bh(spinlock_t *lock)
 
 static inline int spin_trylock(spinlock_t *lock)
 {
-	return raw_spin_trylock(&lock->rlock);
+	return PICK_SPINOP_RET(_trylock, lock, int);
 }
 
 #define spin_lock_nested(lock, subclass)			\
@@ -301,40 +296,27 @@ do {									\
 	raw_spin_lock_nest_lock(spinlock_check(lock), nest_lock);	\
 } while (0)
 
-static inline void spin_lock_irq(spinlock_t *lock)
-{
-	raw_spin_lock_irq(&lock->rlock);
-}
+#define spin_lock_irq(lock)		PICK_SPINOP(_lock_irq, lock)
 
-#define spin_lock_irqsave(lock, flags)				\
-do {								\
-	raw_spin_lock_irqsave(spinlock_check(lock), flags);	\
-} while (0)
+#define spin_lock_irqsave(lock, flags)			\
+	PICK_SPINLOCK_IRQSAVE(lock, flags)
 
 #define spin_lock_irqsave_nested(lock, flags, subclass)			\
 do {									\
 	raw_spin_lock_irqsave_nested(spinlock_check(lock), flags, subclass); \
 } while (0)
 
-static inline void spin_unlock(spinlock_t *lock)
-{
-	raw_spin_unlock(&lock->rlock);
-}
+#define spin_unlock(lock)		PICK_SPINOP(_unlock, lock)
 
 static inline void spin_unlock_bh(spinlock_t *lock)
 {
 	raw_spin_unlock_bh(&lock->rlock);
 }
 
-static inline void spin_unlock_irq(spinlock_t *lock)
-{
-	raw_spin_unlock_irq(&lock->rlock);
-}
+#define spin_unlock_irq(lock)		PICK_SPINOP(_unlock_irq, lock)
 
-static inline void spin_unlock_irqrestore(spinlock_t *lock, unsigned long flags)
-{
-	raw_spin_unlock_irqrestore(&lock->rlock, flags);
-}
+#define spin_unlock_irqrestore(lock, flags)		\
+	PICK_SPINUNLOCK_IRQRESTORE(lock, flags)
 
 static inline int spin_trylock_bh(spinlock_t *lock)
 {
@@ -347,9 +329,7 @@ static inline int spin_trylock_irq(spinlock_t *lock)
 }
 
 #define spin_trylock_irqsave(lock, flags)			\
-({								\
-	raw_spin_trylock_irqsave(spinlock_check(lock), flags); \
-})
+	PICK_SPINTRYLOCK_IRQSAVE(lock, flags)
 
 static inline void spin_unlock_wait(spinlock_t *lock)
 {
