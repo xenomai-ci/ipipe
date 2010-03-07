@@ -147,7 +147,8 @@ static __inline__ unsigned long __ipipe_test_root(void)
 
 #endif /* !__ASSEMBLY__ */
 
-#define __IPIPE_FEATURE_PREEMPTIBLE_SWITCH  1
+#define __IPIPE_FEATURE_PREEMPTIBLE_SWITCH	1
+#define __IPIPE_FEATURE_SYSINFO_V2		1
 
 #endif /* CONFIG_IPIPE */
 
