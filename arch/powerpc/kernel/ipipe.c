@@ -410,10 +410,11 @@ void __ipipe_enable_pipeline(void)
 
 int ipipe_get_sysinfo(struct ipipe_sysinfo *info)
 {
-	info->ncpus = num_online_cpus();
-	info->cpufreq = ipipe_cpu_freq();
-	info->archdep.tmirq = IPIPE_TIMER_VIRQ;
-	info->archdep.tmfreq = info->cpufreq;
+	info->sys_nr_cpus = num_online_cpus();
+	info->sys_cpu_freq = __ipipe_cpu_freq;
+	info->sys_hrtimer_irq = __ipipe_hrtimer_irq;
+	info->sys_hrtimer_freq = __ipipe_hrtimer_freq;
+	info->sys_hrclock_freq = __ipipe_hrclock_freq;
 
 	return 0;
 }

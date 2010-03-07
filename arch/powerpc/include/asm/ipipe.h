@@ -89,16 +89,11 @@
 struct ipipe_domain;
 
 struct ipipe_sysinfo {
-
-	int ncpus;			/* Number of CPUs on board */
-	u64 cpufreq;			/* CPU frequency (in Hz) */
-
-	/* Arch-dependent block */
-
-	struct {
-		unsigned tmirq;		/* Decrementer virtual IRQ */
-		u64 tmfreq;		/* Timebase frequency */
-	} archdep;
+	int sys_nr_cpus;	/* Number of CPUs on board */
+	int sys_hrtimer_irq;	/* hrtimer device IRQ */
+	u64 sys_hrtimer_freq;	/* hrtimer device frequency */
+	u64 sys_hrclock_freq;	/* hrclock device frequency */
+	u64 sys_cpu_freq;	/* CPU frequency (Hz) */
 };
 
 #ifdef CONFIG_DEBUGGER
@@ -125,12 +120,16 @@ DECLARE_PER_CPU(struct mm_struct *, ipipe_active_mm);
 #define ipipe_mm_switch_unprotect(flags)	local_irq_restore_hw_cond(flags)
 #endif
 
-#define ipipe_cpu_freq()	ppc_tb_freq
+#define __ipipe_hrtimer_irq	IPIPE_TIMER_VIRQ
+#define __ipipe_hrtimer_freq	ppc_tb_freq
+#define __ipipe_hrclock_freq	__ipipe_hrtimer_freq
+#define __ipipe_cpu_freq	ppc_proc_freq
+
 #ifdef CONFIG_PPC64
 #define ipipe_read_tsc(t)	(t = mftb())
-#define ipipe_tsc2ns(t)		(((t) * 1000UL) / (ipipe_cpu_freq() / 1000000UL))
-#define ipipe_tsc2us(t)		((t) / (ipipe_cpu_freq() / 1000000UL))
-#else
+#define ipipe_tsc2ns(t)		(((t) * 1000UL) / (__ipipe_cpu_freq / 1000000UL))
+#define ipipe_tsc2us(t)		((t) / (__ipipe_cpu_freq / 1000000UL))
+#else /* CONFIG_PPC32 */
 #define ipipe_read_tsc(t)					\
 	({							\
 		unsigned long __tbu;				\
@@ -144,20 +143,17 @@ DECLARE_PER_CPU(struct mm_struct *, ipipe_active_mm);
 				       "=r" (__tbu));			\
 		t;							\
 	})
-#define ipipe_tsc2ns(t)		((((unsigned long)(t)) * 1000) / (ipipe_cpu_freq() / 1000000))
+
+#define ipipe_tsc2ns(t)	\
+	((((unsigned long)(t)) * 1000) / (__ipipe_cpu_freq / 1000000))
+
 #define ipipe_tsc2us(t)						\
 	({							\
 		unsigned long long delta = (t);			\
-		do_div(delta, ipipe_cpu_freq()/1000000+1);	\
+		do_div(delta, __ipipe_cpu_freq/1000000+1);	\
 		(unsigned long)delta;				\
 	})
-#endif
-#define __ipipe_read_timebase()					\
-	({							\
- 	unsigned long long t;					\
- 	ipipe_read_tsc(t);					\
- 	t;							\
- 	})
+#endif /* CONFIG_PPC32 */
 
 /* Private interface -- Internal use only */
 
