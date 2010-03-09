@@ -750,11 +750,12 @@ int __ipipe_handle_exception(struct pt_regs *regs, long error_code, int vector)
 
 	if (likely(ipipe_root_domain_p)) {
 		/*
-		 * In case we faulted in the iret path, regs.flags do not
-		 * match the root domain state. The fault handler or the
-		 * low-level return code may evaluate it. Fix this up, either
-		 * by the root state sampled on entry or, if we migrated to
-		 * root, with the current state.
+		 * If root is not the topmost domain or in case we faulted in
+		 * the iret path of x86-32, regs.flags does not match the root
+		 * domain state. The fault handler or the low-level return
+		 * code may evaluate it. So fix this up, either by the root
+		 * state sampled on entry or, if we migrated to root, with the
+		 * current state.
 		 */
 		__fixup_if(root_entry ? raw_irqs_disabled_flags(flags) :
 					raw_irqs_disabled(), regs);
