@@ -708,7 +708,7 @@ static inline int ipipe_test_foreign_stack(void)
 
 #define __ipipe_root_domain_p		1
 #define ipipe_root_domain_p		1
-#define ipipe_safe_current		current
+#define ipipe_safe_current()		current
 #define ipipe_processor_id()		smp_processor_id()
 
 #define ipipe_nmi_enter()		do { } while (0)
