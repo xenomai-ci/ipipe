@@ -155,7 +155,7 @@ void __ipipe_handle_irq(unsigned irq, struct pt_regs *regs)
 	 * pending for it.
 	 */
 	if (test_bit(IPIPE_AHEAD_FLAG, &this_domain->flags) &&
-	    ipipe_head_cpudom_var(irqpend_himask) == 0)
+	    !__ipipe_ipending_p(ipipe_head_cpudom_ptr()))
 		goto out;
 
 	__ipipe_walk_pipeline(head);
@@ -228,8 +228,8 @@ int __ipipe_syscall_root(struct pt_regs *regs)
 	}
 
 	p = ipipe_root_cpudom_ptr();
-	if ((p->irqpend_himask & IPIPE_IRQMASK_VIRT) != 0)
-		__ipipe_sync_pipeline(IPIPE_IRQMASK_VIRT);
+	if (__ipipe_ipending_p(p))
+		__ipipe_sync_pipeline(IPIPE_IRQ_DOVIRT);
 
 	local_irq_restore_hw(flags);
 
@@ -290,6 +290,7 @@ int ipipe_trigger_irq(unsigned irq)
 asmlinkage void __ipipe_sync_root(void)
 {
 	void (*irq_tail_hook)(void) = (void (*)(void))__ipipe_irq_tail_hook;
+	struct ipipe_percpu_domain_data *p;
 	unsigned long flags;
 
 	BUG_ON(irqs_disabled());
@@ -301,19 +302,20 @@ asmlinkage void __ipipe_sync_root(void)
 
 	clear_thread_flag(TIF_IRQ_SYNC);
 
-	if (ipipe_root_cpudom_var(irqpend_himask) != 0)
-		__ipipe_sync_pipeline(IPIPE_IRQMASK_ANY);
+	p = ipipe_root_cpudom_ptr();
+	if (__ipipe_ipending_p(p))
+		__ipipe_sync_pipeline(IPIPE_IRQ_DOALL);
 
 	local_irq_restore_hw(flags);
 }
 
-void ___ipipe_sync_pipeline(unsigned long syncmask)
+void ___ipipe_sync_pipeline(int dovirt)
 {
 	if (__ipipe_root_domain_p &&
 	    test_bit(IPIPE_SYNCDEFER_FLAG, &ipipe_root_cpudom_var(status)))
 		return;
 
-	__ipipe_sync_stage(syncmask);
+	__ipipe_sync_stage(dovirt);
 }
 
 void __ipipe_disable_root_irqs_hw(void)

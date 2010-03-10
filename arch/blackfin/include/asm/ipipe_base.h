@@ -24,8 +24,10 @@
 
 #ifdef CONFIG_IPIPE
 
+#include <asm/bitsperlong.h>
+#include <mach/irq.h>
+
 #define IPIPE_NR_XIRQS		NR_IRQS
-#define IPIPE_IRQ_ISHIFT	5	/* 2^5 for 32bits arch. */
 
 /* Blackfin-specific, per-cpu pipeline status */
 #define IPIPE_SYNCDEFER_FLAG	15

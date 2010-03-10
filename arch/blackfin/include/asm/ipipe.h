@@ -34,6 +34,7 @@
 #include <asm/bitops.h>
 #include <asm/atomic.h>
 #include <asm/traps.h>
+#include <asm/bitsperlong.h>
 
 #define IPIPE_ARCH_STRING     "1.12-00"
 #define IPIPE_MAJOR_NUMBER    1
@@ -129,11 +130,11 @@ void __ipipe_enable_pipeline(void);
 #define __ipipe_hook_critical_ipi(ipd) do { } while (0)
 
 #define __ipipe_sync_pipeline  ___ipipe_sync_pipeline
-void ___ipipe_sync_pipeline(unsigned long syncmask);
+void ___ipipe_sync_pipeline(int dovirt);
 
 void __ipipe_handle_irq(unsigned irq, struct pt_regs *regs);
 
-int __ipipe_get_irq_priority(unsigned irq);
+int __ipipe_get_irq_priority(unsigned int irq);
 
 void __ipipe_serial_debug(const char *fmt, ...);
 
