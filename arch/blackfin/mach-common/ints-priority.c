@@ -387,14 +387,13 @@ static void bfin_demux_error_irq(unsigned int int_err_irq,
 
 static inline void bfin_set_irq_handler(unsigned irq, irq_flow_handler_t handle)
 {
+	struct irq_desc *desc = irq_to_desc(irq);
 #ifdef CONFIG_IPIPE
-	_set_irq_handler(irq, handle_level_irq);
-#else
-	struct irq_desc *desc = irq_desc + irq;
+	handle = __fixup_irq_handler(desc, handle_level_irq, 0);
+#endif
 	/* May not call generic set_irq_handler() due to spinlock
 	   recursion. */
 	desc->handle_irq = handle;
-#endif
 }
 
 static DECLARE_BITMAP(gpio_enabled, MAX_BLACKFIN_GPIOS);
