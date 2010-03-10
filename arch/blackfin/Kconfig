@@ -84,6 +84,8 @@ source "kernel/Kconfig.freezer"
 
 menu "Blackfin Processor Options"
 
+source "kernel/ipipe/Kconfig"
+
 comment "Processor and Board Settings"
 
 choice
