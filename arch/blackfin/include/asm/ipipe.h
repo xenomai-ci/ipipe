@@ -36,9 +36,9 @@
 #include <asm/traps.h>
 #include <asm/bitsperlong.h>
 
-#define IPIPE_ARCH_STRING     "1.12-00"
+#define IPIPE_ARCH_STRING     "1.13-00"
 #define IPIPE_MAJOR_NUMBER    1
-#define IPIPE_MINOR_NUMBER    12
+#define IPIPE_MINOR_NUMBER    13
 #define IPIPE_PATCH_NUMBER    0
 
 #ifdef CONFIG_SMP
