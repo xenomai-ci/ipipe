@@ -498,8 +498,6 @@ out:
 	local_irq_restore_hw(flags);
 }
 
-#ifdef CONFIG_X86_32
-
 static inline void __fixup_if(int s, struct pt_regs *regs)
 {
 	/*
@@ -512,6 +510,8 @@ static inline void __fixup_if(int s, struct pt_regs *regs)
 	else
 		regs->flags |= X86_EFLAGS_IF;
 }
+
+#ifdef CONFIG_X86_32
 
 /*
  * Check the stall bit of the root domain to make sure the existing
@@ -573,10 +573,6 @@ asmlinkage void __ipipe_unstall_iret_root(struct pt_regs regs)
 }
 
 #else /* !CONFIG_X86_32 */
-
-static inline void __fixup_if(int s, struct pt_regs *regs)
-{
-}
 
 #ifdef CONFIG_PREEMPT
 
@@ -753,11 +749,11 @@ int __ipipe_handle_exception(struct pt_regs *regs, long error_code, int vector)
 
 	if (likely(ipipe_root_domain_p)) {
 		/*
-		 * 32-bit: In case we faulted in the iret path, regs.flags do
-		 * not match the root domain state as the low-level return
-		 * code will evaluate it. Fix this up, either by the root
-		 * state sampled on entry or, if we migrated to root, with the
-		 * current state.
+		 * In case we faulted in the iret path, regs.flags do not
+		 * match the root domain state. The fault handler or the
+		 * low-level return code may evaluate it. Fix this up, either
+		 * by the root state sampled on entry or, if we migrated to
+		 * root, with the current state.
 		 */
 		__fixup_if(root_entry ? raw_irqs_disabled_flags(flags) :
 					raw_irqs_disabled(), regs);
@@ -886,7 +882,13 @@ int __ipipe_syscall_root(struct pt_regs *regs)
 
 	local_irq_save_hw(flags);
 	p = ipipe_root_cpudom_ptr();
+#ifdef CONFIG_X86_32
+	/*
+	 * Fix-up only required on 32-bit as only here the IRET return code
+	 * will evaluate the flags.
+	 */
 	__fixup_if(test_bit(IPIPE_STALL_FLAG, &p->status), regs);
+#endif
 	/*
 	 * If allowed, sync pending VIRQs before _TIF_NEED_RESCHED is
 	 * tested.
