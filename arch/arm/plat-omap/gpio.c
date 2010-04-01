@@ -20,7 +20,9 @@
 #include <linux/sysdev.h>
 #include <linux/err.h>
 #include <linux/clk.h>
+#include <linux/irq.h>		/* For irq_desc */
 #include <linux/io.h>
+#include <linux/ipipe.h>
 
 #include <mach/hardware.h>
 #include <asm/irq.h>
@@ -1345,8 +1347,7 @@ static void gpio_irq_handler(unsigned int irq, struct irq_desc *desc)
 			if (bank->toggle_mask & (1 << gpio_index))
 				_toggle_gpio_edge_triggering(bank, gpio_index);
 #endif
-
-			generic_handle_irq(gpio_irq);
+			ipipe_handle_irq_cond(gpio_irq);
 		}
 	}
 	/* if bank has any level sensitive GPIO pin interrupt

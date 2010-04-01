@@ -19,12 +19,20 @@
 #include <linux/list.h>
 #include <linux/module.h>
 #include <linux/io.h>
+#include <linux/ipipe.h>
 
 #include <mach/hardware.h>
 #include <mach/at91_pio.h>
 #include <mach/gpio.h>
 
 #include <asm/gpio.h>
+#ifdef CONFIG_IPIPE
+#include <asm/irq.h>
+
+#ifdef __IPIPE_FEATURE_PIC_MUTE
+DEFINE_PER_CPU(__ipipe_irqbits_t, __ipipe_muted_irqs);
+#endif /* __IPIPE_FEATURE_PIC_MUTE */
+#endif /* CONFIG_IPIPE */
 
 #include "generic.h"
 
@@ -375,6 +383,10 @@ static int gpio_irq_type(unsigned pin, unsigned type)
 
 static struct irq_chip gpio_irqchip = {
 	.name		= "GPIO",
+#ifdef CONFIG_IPIPE
+	.ack            = gpio_irq_mask,
+	.mask_ack       = gpio_irq_mask,
+#endif /* CONFIG_IPIPE */
 	.mask		= gpio_irq_mask,
 	.unmask		= gpio_irq_unmask,
 	.set_type	= gpio_irq_type,
@@ -422,7 +434,7 @@ static void gpio_irq_handler(unsigned irq, struct irq_desc *desc)
 					gpio_irq_mask(pin);
 				}
 				else
-					generic_handle_irq(pin);
+					ipipe_handle_irq_cond(pin);
 			}
 			pin++;
 			gpio++;
@@ -432,6 +444,38 @@ static void gpio_irq_handler(unsigned irq, struct irq_desc *desc)
 	desc->chip->unmask(irq);
 	/* now it may re-trigger */
 }
+
+#if defined(CONFIG_IPIPE) && defined(__IPIPE_FEATURE_PIC_MUTE)
+void ipipe_mute_pic(void)
+{
+	unsigned long unmasked, muted;
+	unsigned i;
+
+	for (i = 0; i < gpio_banks; i++) {
+		unmasked = __raw_readl(gpio_chip[i].regbase + PIO_IMR);
+		muted = unmasked & __ipipe_irqbits[i + 1];
+		__raw_get_cpu_var(__ipipe_muted_irqs)[i + 1] = muted;
+		__raw_writel(muted, gpio_chip[i].regbase + PIO_IDR);
+	}
+
+	unmasked = at91_sys_read(AT91_AIC_IMR);
+	muted = unmasked & __ipipe_irqbits[0];
+	__raw_get_cpu_var(__ipipe_muted_irqs)[0] = muted;
+	at91_sys_write(AT91_AIC_IDCR, muted);
+}
+
+void ipipe_unmute_pic(void)
+{
+	unsigned i;
+
+	at91_sys_write(AT91_AIC_IECR, __raw_get_cpu_var(__ipipe_muted_irqs)[0]);
+	for (i = 0; i < gpio_banks; i++) {
+		unsigned long muted;
+		muted = __raw_get_cpu_var(__ipipe_muted_irqs)[i + 1];
+		__raw_writel(muted, gpio_chip[i].regbase + PIO_IER);
+	}
+}
+#endif /* CONFIG_IPIPE && __IPIPE_FEATURE_PIC_MUTE */
 
 /*--------------------------------------------------------------------------*/
 
@@ -509,6 +553,11 @@ void __init at91_gpio_irq_setup(void)
 	unsigned		pioc, pin;
 	struct at91_gpio_chip	*this, *prev;
 
+#if defined(CONFIG_IPIPE) && defined(__IPIPE_FEATURE_PIC_MUTE)
+	printk("Setting irqbits to all ones.\n");
+	memset(__ipipe_irqbits, ~0, sizeof(__ipipe_irqbits));
+#endif /* CONFIG_IPIPE && __IPIPE_FEATURE_PIC_MUTE */
+
 	for (pioc = 0, pin = PIN_BASE, this = gpio_chip, prev = NULL;
 			pioc++ < gpio_banks;
 			prev = this, this++) {
@@ -538,6 +587,9 @@ void __init at91_gpio_irq_setup(void)
 
 		set_irq_chip_data(id, this);
 		set_irq_chained_handler(id, gpio_irq_handler);
+#if defined(CONFIG_IPIPE) && defined(__IPIPE_FEATURE_PIC_MUTE)
+		__ipipe_irqbits[0] &= ~(1 << id);
+#endif /* CONFIG_IPIPE && __IPIPE_FEATURE_PIC_MUTE */
 	}
 	pr_info("AT91: %d gpio irqs in %d banks\n", pin - PIN_BASE, gpio_banks);
 }

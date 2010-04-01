@@ -14,7 +14,7 @@
 #define NR_PIDS (TASK_SIZE / FCSE_PID_TASK_SIZE)
 #define PIDS_LONGS ((NR_PIDS + BITS_PER_LONG - 1) / BITS_PER_LONG)
 
-static DEFINE_SPINLOCK(fcse_lock);
+static IPIPE_DEFINE_SPINLOCK(fcse_lock);
 static unsigned long fcse_pids_bits[PIDS_LONGS];
 unsigned long fcse_pids_cache_dirty[PIDS_LONGS];
 EXPORT_SYMBOL(fcse_pids_cache_dirty);
@@ -217,6 +217,7 @@ static noinline int fcse_relocate_mm_to_pid(struct mm_struct *mm, int fcse_pid)
 
 	return fcse_pid;
 }
+EXPORT_SYMBOL_GPL(fcse_needs_flush);
 
 int fcse_switch_mm_inner(struct mm_struct *prev, struct mm_struct *next)
 {
@@ -255,9 +256,10 @@ int fcse_switch_mm_inner(struct mm_struct *prev, struct mm_struct *next)
 
   is_flush_needed:
 	flush_needed = reused_pid
+		|| next->context.fcse.high_pages
+		|| !prev
 		|| prev->context.fcse.shared_dirty_pages
-		|| prev->context.fcse.high_pages
-		|| next->context.fcse.high_pages;
+		|| prev->context.fcse.high_pages;
 
 	fcse_pid_set(fcse_pid << FCSE_PID_SHIFT);
 	if (flush_needed)

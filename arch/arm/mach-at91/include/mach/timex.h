@@ -82,6 +82,6 @@
 #define AT91X40_MASTER_CLOCK	40000000
 #define CLOCK_TICK_RATE		(AT91X40_MASTER_CLOCK)
 
-#endif
+#endif /* arch specific */
 
 #endif

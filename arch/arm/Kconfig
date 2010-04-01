@@ -254,6 +254,8 @@ config ARCH_VERSATILE
 config ARCH_AT91
 	bool "Atmel AT91"
 	select GENERIC_GPIO
+	select GENERIC_TIME if IPIPE
+	select GENERIC_CLOCKEVENTS if IPIPE
 	select ARCH_REQUIRE_GPIOLIB
 	select HAVE_CLK
 	help
@@ -514,7 +516,7 @@ config ARCH_KS8695
 	bool "Micrel/Kendin KS8695"
 	select CPU_ARM922T
 	select GENERIC_GPIO
-        select ARCH_REQUIRE_GPIOLIB
+	select ARCH_REQUIRE_GPIOLIB
 	help
 	  Support for Micrel/Kendin KS8695 "Centaur" (ARM922T) based
 	  System-on-Chip devices.
@@ -1069,6 +1071,8 @@ config LOCAL_TIMERS
 	  legacy IPI broadcast method.  Local timers allows the system
 	  accounting to be spread across the timer interval, preventing a
 	  "thundering herd" at every timer tick.
+
+source kernel/ipipe/Kconfig
 
 source kernel/Kconfig.preempt
 
