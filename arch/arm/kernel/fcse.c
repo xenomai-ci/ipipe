@@ -10,7 +10,7 @@
 #define NR_PIDS (TASK_SIZE / FCSE_PID_TASK_SIZE)
 #define PIDS_LONGS ((NR_PIDS + BITS_PER_LONG - 1) / BITS_PER_LONG)
 
-static DEFINE_SPINLOCK(fcse_lock);
+static IPIPE_DEFINE_SPINLOCK(fcse_lock);
 static unsigned long fcse_pids_bits[PIDS_LONGS];
 #ifdef CONFIG_ARM_FCSE_BEST_EFFORT
 static unsigned long fcse_pids_cache_dirty[PIDS_LONGS];
@@ -20,7 +20,7 @@ struct {
 	unsigned count;
 } per_pid[NR_PIDS];
 #endif /* CONFIG_ARM_FCSE_BEST_EFFORT */
-	
+
 static void fcse_pid_reference_inner(unsigned pid)
 {
 #ifdef CONFIG_ARM_FCSE_BEST_EFFORT
@@ -118,9 +118,10 @@ int fcse_needs_flush(struct mm_struct *prev, struct mm_struct *next)
 	spin_unlock_irqrestore(&fcse_lock, flags);
 
 	res = reused_pid
+		|| next->context.high_pages
+		|| !prev
 		|| prev->context.shared_dirty_pages
-		|| prev->context.high_pages
-		|| next->context.high_pages;
+		|| prev->context.high_pages;
 
 	if (res) {
 		cpu_clear(smp_processor_id(), prev->cpu_vm_mask);
@@ -129,6 +130,7 @@ int fcse_needs_flush(struct mm_struct *prev, struct mm_struct *next)
 
 	return res;
 }
+EXPORT_SYMBOL_GPL(fcse_needs_flush);
 
 void fcse_notify_flush_all(void)
 {

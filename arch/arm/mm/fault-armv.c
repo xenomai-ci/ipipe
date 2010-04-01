@@ -59,7 +59,7 @@ static void fcse_set_pte_shared(struct vm_area_struct *vma,
 	}
 	pte_unmap(pte);
 	return;
-	
+
 bad_pgd:
 	pgd_ERROR(*pgd);
 	pgd_clear(pgd);

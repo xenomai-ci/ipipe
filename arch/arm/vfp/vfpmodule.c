@@ -42,11 +42,14 @@ static int vfp_notifier(struct notifier_block *self, unsigned long cmd, void *v)
 {
 	struct thread_info *thread = v;
 	union vfp_state *vfp;
+	unsigned long flags;
 	__u32 cpu = thread->cpu;
 
 	if (likely(cmd == THREAD_NOTIFY_SWITCH)) {
-		u32 fpexc = fmrx(FPEXC);
+		u32 fpexc;
 
+		local_irq_save_hw_cond(flags);
+		fpexc = fmrx(FPEXC);
 #ifdef CONFIG_SMP
 		/*
 		 * On SMP, if VFP is enabled, save the old state in
@@ -71,6 +74,7 @@ static int vfp_notifier(struct notifier_block *self, unsigned long cmd, void *v)
 		 * old state.
 		 */
 		fmxr(FPEXC, fpexc & ~FPEXC_EN);
+		local_irq_restore_hw_cond(flags);
 		return NOTIFY_DONE;
 	}
 
@@ -87,12 +91,15 @@ static int vfp_notifier(struct notifier_block *self, unsigned long cmd, void *v)
 		/*
 		 * Disable VFP to ensure we initialise it first.
 		 */
+		local_irq_save_hw_cond(flags);
 		fmxr(FPEXC, fmrx(FPEXC) & ~FPEXC_EN);
-	}
+	} else
+		local_irq_save_hw_cond(flags);
 
 	/* flush and release case: Per-thread VFP cleanup. */
 	if (last_VFP_context[cpu] == vfp)
 		last_VFP_context[cpu] = NULL;
+	local_irq_restore_hw_cond(flags);
 
 	return NOTIFY_DONE;
 }
@@ -122,7 +129,9 @@ void vfp_raise_sigfpe(unsigned int sicode, struct pt_regs *regs)
 	current->thread.error_code = 0;
 	current->thread.trap_no = 6;
 
+	local_irq_enable_hw_cond();
 	send_sig_info(SIGFPE, &info, current);
+	local_irq_disable_hw_cond();
 }
 
 static void vfp_panic(char *reason, u32 inst)
@@ -219,7 +228,7 @@ static u32 vfp_emulate_instruction(u32 inst, u32 fpscr, struct pt_regs *regs)
  */
 void VFP_bounce(u32 trigger, u32 fpexc, struct pt_regs *regs)
 {
-	u32 fpscr, orig_fpscr, fpsid, exceptions;
+	u32 fpscr, orig_fpscr, fpsid, exceptions, next_trigger = 0;
 
 	pr_debug("VFP: bounce: trigger %08x fpexc %08x\n", trigger, fpexc);
 
@@ -267,7 +276,7 @@ void VFP_bounce(u32 trigger, u32 fpexc, struct pt_regs *regs)
 		 * unallocated VFP instruction but with FPSCR.IXE set and not
 		 * on VFP subarch 1.
 		 */
-		 vfp_raise_exceptions(VFP_EXCEPTION_ERROR, trigger, fpscr, regs);
+		vfp_raise_exceptions(VFP_EXCEPTION_ERROR, trigger, fpscr, regs);
 		goto exit;
 	}
 
@@ -283,6 +292,15 @@ void VFP_bounce(u32 trigger, u32 fpexc, struct pt_regs *regs)
 
 		fpscr &= ~FPSCR_LENGTH_MASK;
 		fpscr |= (len & FPEXC_LENGTH_MASK) << (FPSCR_LENGTH_BIT - FPEXC_LENGTH_BIT);
+	}
+
+	if (!(fpexc ^ (FPEXC_EX | FPEXC_FP2V))) {
+		/*
+		 * The barrier() here prevents fpinst2 being read
+		 * before the condition above.
+		 */
+		barrier();
+		next_trigger = fmrx(FPINST2);
 	}
 
 	/*
@@ -301,18 +319,14 @@ void VFP_bounce(u32 trigger, u32 fpexc, struct pt_regs *regs)
 	if (fpexc ^ (FPEXC_EX | FPEXC_FP2V))
 		goto exit;
 
-	/*
-	 * The barrier() here prevents fpinst2 being read
-	 * before the condition above.
-	 */
-	barrier();
-	trigger = fmrx(FPINST2);
+	trigger = next_trigger;
 
  emulate:
 	exceptions = vfp_emulate_instruction(trigger, orig_fpscr, regs);
 	if (exceptions)
 		vfp_raise_exceptions(exceptions, trigger, orig_fpscr, regs);
  exit:
+	local_irq_enable_hw_cond();
 	preempt_enable();
 }
 

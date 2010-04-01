@@ -57,6 +57,72 @@
 #define MX3_TCN			0x24
 #define MX3_TCMP		0x10
 
+#ifdef CONFIG_IPIPE
+#ifdef CONFIG_NO_IDLE_HZ
+#error "dynamic tick timer not yet supported with IPIPE"
+#endif /* CONFIG_NO_IDLE_HZ */
+int __ipipe_mach_timerint;
+EXPORT_SYMBOL(__ipipe_mach_timerint);
+
+int __ipipe_mach_timerstolen = 0;
+EXPORT_SYMBOL(__ipipe_mach_timerstolen);
+
+unsigned int __ipipe_mach_ticks_per_jiffy = LATCH;
+EXPORT_SYMBOL(__ipipe_mach_ticks_per_jiffy);
+
+static int mxc_timer_initialized;
+static unsigned mxc_min_delay;
+
+union tsc_reg {
+#ifdef __BIG_ENDIAN
+	struct {
+		unsigned long high;
+		unsigned long low;
+	};
+#else /* __LITTLE_ENDIAN */
+	struct {
+		unsigned long low;
+		unsigned long high;
+	};
+#endif /* __LITTLE_ENDIAN */
+	unsigned long long full;
+};
+
+#ifdef CONFIG_SMP
+static union tsc_reg tsc[NR_CPUS];
+
+void __ipipe_mach_get_tscinfo(struct __ipipe_tscinfo *info)
+{
+	info->type = IPIPE_TSC_TYPE_NONE;
+}
+
+#else /* !CONFIG_SMP */
+static union tsc_reg *tsc;
+
+void __ipipe_mach_get_tscinfo(struct __ipipe_tscinfo *info)
+{
+	info->type = IPIPE_TSC_TYPE_FREERUNNING;
+	if (cpu_is_mx1()) {
+#ifdef CONFIG_ARCH_MX1
+		info->u.fr.counter = (unsigned *) (TIM1_BASE_ADDR + MX1_2_TCN);
+#endif
+	} else if (cpu_is_mx2()) {
+#ifdef CONFIG_ARCH_MX2
+		info->u.fr.counter = (unsigned *) (GPT1_BASE_ADDR + MX1_2_TCN);
+#endif
+	} else if (cpu_is_mx3()) {
+#ifdef CONFIG_ARCH_MX3
+		info->u.fr.counter = (unsigned *) (GPT1_BASE_ADDR + MX3_TCN);
+#endif
+	}
+	info->u.fr.mask = 0xffffffff;
+	info->u.fr.tsc = &tsc->full;
+}
+#endif /* !CONFIG_SMP */
+
+static void ipipe_mach_update_tsc(void);
+#endif /* CONFIG_IPIPE */
+
 static struct clock_event_device clockevent_mxc;
 static enum clock_event_mode clockevent_mode = CLOCK_EVT_MODE_UNUSED;
 
@@ -120,6 +186,9 @@ static int __init mxc_clocksource_init(struct clk *timer_clk)
 	if (cpu_is_mx3())
 		clocksource_mxc.read = mx3_get_cycles;
 
+#ifdef CONFIG_IPIPE
+	__ipipe_mach_ticks_per_jiffy = (c + HZ/2) / HZ;
+#endif /* CONFIG_IPIPE */
 	clocksource_mxc.mult = clocksource_hz2mult(c,
 					clocksource_mxc.shift);
 	clocksource_register(&clocksource_mxc);
@@ -238,7 +307,11 @@ static irqreturn_t mxc_timer_interrupt(int irq, void *dev_id)
 	else
 		tstat = __raw_readl(timer_base + MX1_2_TSTAT);
 
+#ifndef CONFIG_IPIPE
 	gpt_irq_acknowledge();
+#else /* !CONFIG_IPIPE */
+	ipipe_mach_update_tsc();
+#endif /* !CONFIG_IPIPE */
 
 	evt->event_handler(evt);
 
@@ -326,4 +399,116 @@ void __init mxc_timer_init(struct clk *timer_clk)
 
 	/* Make irqs happen */
 	setup_irq(irq, &mxc_timer_irq);
+
+#ifdef CONFIG_IPIPE
+	__ipipe_mach_timerint = irq;
+#ifndef CONFIG_SMP
+	tsc = (union tsc_reg *) __ipipe_tsc_area;
+	barrier();
+#endif /* CONFIG_SMP */
+
+	mxc_min_delay = ((ipipe_cpu_freq() + 500000) / 1000000) ?: 1;
+	mxc_timer_initialized = 1;
+#endif /* CONFIG_IPIPE */
 }
+
+#ifdef CONFIG_IPIPE
+int __ipipe_check_tickdev(const char *devname)
+{
+	return !strcmp(devname, clockevent_mxc.name);
+}
+
+void __ipipe_mach_acktimer(void)
+{
+	gpt_irq_acknowledge();
+}
+
+static void ipipe_mach_update_tsc(void)
+{
+	union tsc_reg *local_tsc;
+	unsigned long stamp, flags;
+
+	local_irq_save_hw(flags);
+	local_tsc = &tsc[ipipe_processor_id()];
+	if (!cpu_is_mx3())
+		stamp = __raw_readl(timer_base + MX1_2_TCN);
+	else
+		stamp = __raw_readl(timer_base + MX3_TCN);
+	if (unlikely(stamp < local_tsc->low))
+		/* 32 bit counter wrapped, increment high word. */
+		local_tsc->high++;
+	local_tsc->low = stamp;
+	local_irq_restore_hw(flags);
+}
+
+notrace unsigned long long __ipipe_mach_get_tsc(void)
+{
+	if (likely(mxc_timer_initialized)) {
+		union tsc_reg *local_tsc, result;
+		unsigned long stamp;
+
+		local_tsc = &tsc[ipipe_processor_id()];
+
+		if (!cpu_is_mx3())  {
+			__asm__ ("ldmia %1, %M0\n"
+				 : "=r"(result.full), "+&r"(local_tsc)
+				 : "m"(*local_tsc));
+			barrier();
+			stamp = __raw_readl(timer_base + MX1_2_TCN);
+		} else {
+			__asm__ ("ldmia %1, %M0\n"
+				 : "=r"(result.full), "+&r"(local_tsc)
+				 : "m"(*local_tsc));
+			barrier();
+			stamp = __raw_readl(timer_base + MX3_TCN);
+		}
+		if (unlikely(stamp < result.low))
+			/* 32 bit counter wrapped, increment high word. */
+			result.high++;
+		result.low = stamp;
+
+		return result.full;
+	}
+
+        return 0;
+}
+EXPORT_SYMBOL(__ipipe_mach_get_tsc);
+
+/*
+ * Reprogram the timer
+ */
+
+void __ipipe_mach_set_dec(unsigned long delay)
+{
+	if (delay > mxc_min_delay) {
+		unsigned long flags;
+
+		local_irq_save_hw(flags);
+		if (!cpu_is_mx3())
+			mx1_2_set_next_event(delay, NULL);
+		else
+			mx3_set_next_event(delay, NULL);
+		local_irq_restore_hw(flags);
+	} else
+		ipipe_trigger_irq(__ipipe_mach_timerint);
+}
+EXPORT_SYMBOL(__ipipe_mach_set_dec);
+
+void __ipipe_mach_release_timer(void)
+{
+	mxc_set_mode(clockevent_mxc.mode, &clockevent_mxc);
+	if (clockevent_mxc.mode == CLOCK_EVT_MODE_ONESHOT)
+		clockevent_mxc.set_next_event(LATCH, &clockevent_mxc);
+}
+EXPORT_SYMBOL(__ipipe_mach_release_timer);
+
+unsigned long __ipipe_mach_get_dec(void)
+{
+	if (!cpu_is_mx3())
+		return __raw_readl(timer_base + MX1_2_TCMP)
+			- __raw_readl(timer_base + MX1_2_TCN);
+	else
+		return __raw_readl(timer_base + MX3_TCMP)
+			- __raw_readl(timer_base + MX3_TCN);
+}
+#endif /* CONFIG_IPIPE */

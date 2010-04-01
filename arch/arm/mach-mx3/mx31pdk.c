@@ -23,6 +23,7 @@
 #include <linux/gpio.h>
 #include <linux/smsc911x.h>
 #include <linux/platform_device.h>
+#include <linux/ipipe.h>
 
 #include <mach/hardware.h>
 #include <asm/mach-types.h>
@@ -108,7 +109,7 @@ static void mx31pdk_expio_irq_handler(uint32_t irq, struct irq_desc *desc)
 	for (; int_valid != 0; int_valid >>= 1, expio_irq++) {
 		if ((int_valid & 1) == 0)
 			continue;
-		generic_handle_irq(expio_irq);
+		ipipe_handle_irq_cond(expio_irq);
 	}
 }
 
