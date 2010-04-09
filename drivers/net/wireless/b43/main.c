@@ -628,10 +628,17 @@ static void b43_upload_card_macaddress(struct b43_wldev *dev)
 static void b43_set_slot_time(struct b43_wldev *dev, u16 slot_time)
 {
 	/* slot_time is in usec. */
-	if (dev->phy.type != B43_PHYTYPE_G)
+	/* This test used to exit for all but a G PHY. */
+	if (b43_current_band(dev->wl) == IEEE80211_BAND_5GHZ)
 		return;
-	b43_write16(dev, 0x684, 510 + slot_time);
-	b43_shm_write16(dev, B43_SHM_SHARED, 0x0010, slot_time);
+	b43_write16(dev, B43_MMIO_IFSSLOT, 510 + slot_time);
+	/* Shared memory location 0x0010 is the slot time and should be
+	 * set to slot_time; however, this register is initially 0 and changing
+	 * the value adversely affects the transmit rate for BCM4311
+	 * devices. Until this behavior is unterstood, delete this step
+	 *
+	 * b43_shm_write16(dev, B43_SHM_SHARED, 0x0010, slot_time);
+	 */
 }
 
 static void b43_short_slot_timing_enable(struct b43_wldev *dev)
@@ -845,19 +852,16 @@ static void b43_op_update_tkip_key(struct ieee80211_hw *hw,
 	if (B43_WARN_ON(!modparam_hwtkip))
 		return;
 
-	mutex_lock(&wl->mutex);
-
+	/* This is only called from the RX path through mac80211, where
+	 * our mutex is already locked. */
+	B43_WARN_ON(!mutex_is_locked(&wl->mutex));
 	dev = wl->current_dev;
-	if (!dev || b43_status(dev) < B43_STAT_INITIALIZED)
-		goto out_unlock;
+	B43_WARN_ON(!dev || b43_status(dev) < B43_STAT_INITIALIZED);
 
 	keymac_write(dev, index, NULL);	/* First zero out mac to avoid race */
 
 	rx_tkip_phase1_write(dev, index, iv32, phase1key);
 	keymac_write(dev, index, addr);
-
-out_unlock:
-	mutex_unlock(&wl->mutex);
 }
 
 static void do_key_write(struct b43_wldev *dev,
@@ -3960,6 +3964,7 @@ static int b43_wireless_core_start(struct b43_wldev *dev)
 	}
 
 	/* We are ready to run. */
+	ieee80211_wake_queues(dev->wl->hw);
 	b43_set_status(dev, B43_STAT_STARTED);
 
 	/* Start data flow (TX/RX). */
@@ -4366,8 +4371,6 @@ static int b43_wireless_core_init(struct b43_wldev *dev)
 	ssb_bus_powerup(bus, !(sprom->boardflags_lo & B43_BFL_XTAL_NOSLOW));
 	b43_upload_card_macaddress(dev);
 	b43_security_init(dev);
-
-	ieee80211_wake_queues(dev->wl->hw);
 
 	ieee80211_wake_queues(dev->wl->hw);
 

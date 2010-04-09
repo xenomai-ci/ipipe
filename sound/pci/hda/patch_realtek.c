@@ -400,6 +400,8 @@ static int alc_mux_enum_info(struct snd_kcontrol *kcontrol,
 	unsigned int mux_idx = snd_ctl_get_ioffidx(kcontrol, &uinfo->id);
 	if (mux_idx >= spec->num_mux_defs)
 		mux_idx = 0;
+	if (!spec->input_mux[mux_idx].num_items && mux_idx > 0)
+		mux_idx = 0;
 	return snd_hda_input_mux_info(&spec->input_mux[mux_idx], uinfo);
 }
 
@@ -428,6 +430,8 @@ static int alc_mux_enum_put(struct snd_kcontrol *kcontrol,
 
 	mux_idx = adc_idx >= spec->num_mux_defs ? 0 : adc_idx;
 	imux = &spec->input_mux[mux_idx];
+	if (!imux->num_items && mux_idx > 0)
+		imux = &spec->input_mux[0];
 
 	type = get_wcaps_type(get_wcaps(codec, nid));
 	if (type == AC_WID_AUD_MIX) {
@@ -6248,6 +6252,7 @@ static const char *alc260_models[ALC260_MODEL_LAST] = {
 
 static struct snd_pci_quirk alc260_cfg_tbl[] = {
 	SND_PCI_QUIRK(0x1025, 0x007b, "Acer C20x", ALC260_ACER),
+	SND_PCI_QUIRK(0x1025, 0x007f, "Acer", ALC260_WILL),
 	SND_PCI_QUIRK(0x1025, 0x008f, "Acer", ALC260_ACER),
 	SND_PCI_QUIRK(0x1509, 0x4540, "Favorit 100XS", ALC260_FAVORIT100),
 	SND_PCI_QUIRK(0x103c, 0x2808, "HP d5700", ALC260_HP_3013),
@@ -6277,7 +6282,7 @@ static struct alc_config_preset alc260_presets[] = {
 		.num_dacs = ARRAY_SIZE(alc260_dac_nids),
 		.dac_nids = alc260_dac_nids,
 		.num_adc_nids = ARRAY_SIZE(alc260_dual_adc_nids),
-		.adc_nids = alc260_adc_nids,
+		.adc_nids = alc260_dual_adc_nids,
 		.num_channel_mode = ARRAY_SIZE(alc260_modes),
 		.channel_mode = alc260_modes,
 		.input_mux = &alc260_capture_source,
@@ -7042,8 +7047,8 @@ static struct snd_kcontrol_new alc885_mb5_mixer[] = {
 	HDA_BIND_MUTE   ("Surround Playback Switch", 0x0d, 0x02, HDA_INPUT),
 	HDA_CODEC_VOLUME("LFE Playback Volume", 0x0e, 0x00, HDA_OUTPUT),
 	HDA_BIND_MUTE   ("LFE Playback Switch", 0x0e, 0x02, HDA_INPUT),
-	HDA_CODEC_VOLUME("HP Playback Volume", 0x0f, 0x00, HDA_OUTPUT),
-	HDA_BIND_MUTE   ("HP Playback Switch", 0x0f, 0x02, HDA_INPUT),
+	HDA_CODEC_VOLUME("Headphone Playback Volume", 0x0f, 0x00, HDA_OUTPUT),
+	HDA_BIND_MUTE   ("Headphone Playback Switch", 0x0f, 0x02, HDA_INPUT),
 	HDA_CODEC_VOLUME("Line Playback Volume", 0x0b, 0x02, HDA_INPUT),
 	HDA_CODEC_MUTE  ("Line Playback Switch", 0x0b, 0x02, HDA_INPUT),
 	HDA_CODEC_VOLUME("Mic Playback Volume", 0x0b, 0x01, HDA_INPUT),
@@ -7430,6 +7435,7 @@ static struct hda_verb alc885_mb5_init_verbs[] = {
 	{0x14, AC_VERB_SET_PIN_WIDGET_CONTROL, PIN_OUT},
 	{0x14, AC_VERB_SET_AMP_GAIN_MUTE, AMP_OUT_UNMUTE},
 	{0x14, AC_VERB_SET_CONNECT_SEL, 0x03},
+	{0x14, AC_VERB_SET_UNSOLICITED_ENABLE, ALC880_HP_EVENT | AC_USRSP_EN},
 	/* Front Mic pin: input vref at 80% */
 	{0x19, AC_VERB_SET_PIN_WIDGET_CONTROL, PIN_VREF80},
 	{0x19, AC_VERB_SET_AMP_GAIN_MUTE, AMP_OUT_MUTE},
@@ -7552,6 +7558,27 @@ static void alc885_mbp3_setup(struct hda_codec *codec)
 
 	spec->autocfg.hp_pins[0] = 0x15;
 	spec->autocfg.speaker_pins[0] = 0x14;
+}
+
+static void alc885_mb5_automute(struct hda_codec *codec)
+{
+	unsigned int present;
+
+	present = snd_hda_codec_read(codec, 0x14, 0,
+				     AC_VERB_GET_PIN_SENSE, 0) & 0x80000000;
+	snd_hda_codec_amp_stereo(codec, 0x18, HDA_OUTPUT, 0,
+				 HDA_AMP_MUTE, present ? HDA_AMP_MUTE : 0);
+	snd_hda_codec_amp_stereo(codec, 0x1a, HDA_OUTPUT, 0,
+				 HDA_AMP_MUTE, present ? HDA_AMP_MUTE : 0);
+
+}
+
+static void alc885_mb5_unsol_event(struct hda_codec *codec,
+				    unsigned int res)
+{
+	/* Headphone insertion or removal. */
+	if ((res >> 26) == ALC880_HP_EVENT)
+		alc885_mb5_automute(codec);
 }
 
 
@@ -8895,7 +8922,7 @@ static struct snd_pci_quirk alc882_cfg_tbl[] = {
 	SND_PCI_QUIRK(0x8086, 0x0022, "DX58SO", ALC889_INTEL),
 	SND_PCI_QUIRK(0x8086, 0x0021, "Intel IbexPeak", ALC889A_INTEL),
 	SND_PCI_QUIRK(0x8086, 0x3b56, "Intel IbexPeak", ALC889A_INTEL),
-	SND_PCI_QUIRK(0x8086, 0xd601, "D102GGC", ALC883_3ST_6ch),
+	SND_PCI_QUIRK(0x8086, 0xd601, "D102GGC", ALC882_6ST_DIG),
 
 	{}
 };
@@ -8996,6 +9023,8 @@ static struct alc_config_preset alc882_presets[] = {
 		.input_mux = &mb5_capture_source,
 		.dig_out_nid = ALC882_DIGOUT_NID,
 		.dig_in_nid = ALC882_DIGIN_NID,
+		.unsol_event = alc885_mb5_unsol_event,
+		.init_hook = alc885_mb5_automute,
 	},
 	[ALC885_MACPRO] = {
 		.mixers = { alc882_macpro_mixer },
@@ -9719,6 +9748,8 @@ static void alc882_auto_init_input_src(struct hda_codec *codec)
 			continue;
 		mux_idx = c >= spec->num_mux_defs ? 0 : c;
 		imux = &spec->input_mux[mux_idx];
+		if (!imux->num_items && mux_idx > 0)
+			imux = &spec->input_mux[0];
 		for (idx = 0; idx < conns; idx++) {
 			/* if the current connection is the selected one,
 			 * unmute it as default - otherwise mute it
