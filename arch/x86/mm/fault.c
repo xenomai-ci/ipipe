@@ -964,7 +964,8 @@ do_page_fault(struct pt_regs *regs, unsigned long error_code)
 	/* Get the faulting address: */
 	address = read_cr2();
 
-	local_irq_enable_hw_cond();
+	if (!__ipipe_pipeline_head_p(ipipe_root_domain))
+		local_irq_enable_hw_cond();
 
 	/*
 	 * Detect and handle instructions that would cause a page fault for
