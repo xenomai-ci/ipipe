@@ -189,6 +189,8 @@ extern int __ipipe_event_monitors[];
 
 /* Private interface */
 
+void ipipe_init_early(void);
+
 void ipipe_init(void);
 
 #ifdef CONFIG_PROC_FS
@@ -636,6 +638,7 @@ static inline void ipipe_nmi_exit(void)
 
 #else	/* !CONFIG_IPIPE */
 
+#define ipipe_init_early()		do { } while(0)
 #define ipipe_init()			do { } while(0)
 #define ipipe_suspend_domain()		do { } while(0)
 #define ipipe_sigwake_notify(p)		do { } while(0)
