@@ -205,15 +205,15 @@ void ipipe_release_tickdev(int cpu)
 
 #endif /* CONFIG_GENERIC_CLOCKEVENTS */
 
-/*
- * ipipe_init() -- Initialization routine of the IPIPE layer. Called
- * by the host kernel early during the boot procedure.
- */
-void __init ipipe_init(void)
+void __init ipipe_init_early(void)
 {
 	struct ipipe_domain *ipd = &ipipe_root;
 
-	__ipipe_check_platform();	/* Do platform dependent checks first. */
+	/*
+	 * Do the early init stuff. At this point, the kernel does not
+	 * provide much services yet: be careful.
+	 */
+	__ipipe_check_platform(); /* Do platform dependent checks first. */
 
 	/*
 	 * A lightweight registration code for the root domain. We are
@@ -231,7 +231,6 @@ void __init ipipe_init(void)
 
 	__ipipe_init_stage(ipd);
 
-	INIT_LIST_HEAD(&ipd->p_link);
 	list_add_tail(&ipd->p_link, &__ipipe_pipeline);
 
 	__ipipe_init_platform();
@@ -243,7 +242,11 @@ void __init ipipe_init(void)
 	ipd->irqs[__ipipe_printk_virq].acknowledge = NULL;
 	ipd->irqs[__ipipe_printk_virq].control = IPIPE_HANDLE_MASK;
 #endif /* CONFIG_PRINTK */
+}
 
+void __init ipipe_init(void)
+{
+	/* Now we may engage the pipeline. */
 	__ipipe_enable_pipeline();
 
 	printk(KERN_INFO "I-pipe %s: pipeline enabled.\n",
