@@ -258,10 +258,10 @@ extern pgprot_t		pgprot_kernel;
 	unsigned long _addr = (addr);				\
 	unsigned long _val = (val);				\
 	if(pte_present(_val) && ((_val) & L_PTE_SHARED))	\
-		--_mm->context.shared_dirty_pages;		\
+		--_mm->context.fcse.shared_dirty_pages;		\
 	if (pte_present(_val) && _addr < TASK_SIZE) {		\
 		if (_addr >= FCSE_TASK_SIZE)			\
-			--_mm->context.high_pages;		\
+			--_mm->context.fcse.high_pages;		\
 	}							\
 } while (0)
 
@@ -274,11 +274,11 @@ extern pgprot_t		pgprot_kernel;
 		    != (L_PTE_CACHEABLE | L_PTE_WRITE | L_PTE_DIRTY))	\
 			_val &= ~L_PTE_SHARED;				\
 		else							\
-			++_mm->context.shared_dirty_pages;		\
+			++_mm->context.fcse.shared_dirty_pages;		\
 	}								\
 	if (pte_present(_val)						\
 	    && _addr < TASK_SIZE && _addr >= FCSE_TASK_SIZE)		\
-		++_mm->context.high_pages;				\
+		++_mm->context.fcse.high_pages;				\
 	_val;								\
 })
 #else /* CONFIG_ARM_FCSE_GUARANTEED || !CONFIG_ARM_FCSE */

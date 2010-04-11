@@ -125,7 +125,7 @@ full_search:
 	if ((unsigned long)(addr + len - stack_base) < stack_reserved
 	    || (unsigned long)(addr - stack_base) < stack_reserved) {
 		if (start_addr != TASK_UNMAPPED_BASE && !(flags & MAP_FIXED)
-		    && !mm->context.big) {
+		    && !mm->context.fcse.big) {
 			start_addr = addr = TASK_UNMAPPED_BASE;
 			mm->cached_hole_size = 0;
 			goto full_search;
@@ -137,16 +137,16 @@ full_search:
 			goto full_search;
 		}
 	}
-	if (addr + len > FCSE_TASK_SIZE && !mm->context.high_pages) {
+	if (addr + len > FCSE_TASK_SIZE && !mm->context.fcse.high_pages) {
 		if (start_addr != TASK_UNMAPPED_BASE
 		    && !(flags & MAP_FIXED)) {
 			start_addr = addr = TASK_UNMAPPED_BASE;
 			mm->cached_hole_size = 0;
 			goto full_search;
 		}
-		if (!mm->context.big)
-			mm->context.big = 1;
-		if (mm->context.pid)
+		if (!mm->context.fcse.big)
+			mm->context.fcse.big = 1;
+		if (mm->context.fcse.pid)
 			fcse_relocate_mm_to_null_pid(mm);
 	}
 #elif defined(CONFIG_ARM_FCSE_GUARANTEED)
