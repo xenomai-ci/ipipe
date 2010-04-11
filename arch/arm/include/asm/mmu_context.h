@@ -73,28 +73,28 @@ static inline int
 init_new_context(struct task_struct *tsk, struct mm_struct *mm)
 {
 #ifdef CONFIG_ARM_FCSE
-	int pid;
+	int fcse_pid;
 
-	cpus_clear(mm->context.cpu_tlb_mask);
+	cpus_clear(mm->context.fcse.cpu_tlb_mask);
 #ifdef CONFIG_ARM_FCSE_BEST_EFFORT
-	if (!mm->context.big) {
-		pid = fcse_pid_alloc();
-		mm->context.pid = pid << FCSE_PID_SHIFT;
+	if (!mm->context.fcse.big) {
+		fcse_pid = fcse_pid_alloc();
+		mm->context.fcse.pid = fcse_pid << FCSE_PID_SHIFT;
 	} else {
 		/* We are normally forking a process vith a virtual address
 		   space larger than 32 MB, so its pid should be 0. */
-		BUG_ON(mm->context.pid);
+		BUG_ON(mm->context.fcse.pid);
 		fcse_pid_reference(0);
 	}
 	/* If we are forking, set_pte_at will restore the correct high pages
 	   count, and shared writable pages are write-protected again. */
-	mm->context.shared_dirty_pages = 0;
-	mm->context.high_pages = 0;
+	mm->context.fcse.shared_dirty_pages = 0;
+	mm->context.fcse.high_pages = 0;
 #else /* CONFIG_ARM_FCSE_GUARANTEED */
-	pid = fcse_pid_alloc();
-	if (pid < 0)
-		return pid;
-	mm->context.pid = pid << FCSE_PID_SHIFT;
+	fcse_pid = fcse_pid_alloc();
+	if (fcse_pid < 0)
+		return fcse_pid;
+	mm->context.fcse.pid = fcse_pid << FCSE_PID_SHIFT;
 #endif /* CONFIG_ARM_FCSE_GUARANTEED */
 #endif /* CONFIG_ARM_FCSE */
 
@@ -107,10 +107,10 @@ static inline void destroy_context(struct mm_struct *mm)
 {
 #ifdef CONFIG_ARM_FCSE
 #ifdef CONFIG_ARM_FCSE_BEST_EFFORT
-	BUG_ON(mm->context.shared_dirty_pages);
-	BUG_ON(mm->context.high_pages);
+	BUG_ON(mm->context.fcse.shared_dirty_pages);
+	BUG_ON(mm->context.fcse.high_pages);
 #endif /* CONFIG_ARM_FCSE_BEST_EFFORT */
-	fcse_pid_free(mm->context.pid >> FCSE_PID_SHIFT);
+	fcse_pid_free(mm->context.fcse.pid >> FCSE_PID_SHIFT);
 #endif /* CONFIG_ARM_FCSE */
 }
 
@@ -150,7 +150,7 @@ switch_mm(struct mm_struct *prev, struct mm_struct *next,
 	if (!cpumask_test_and_set_cpu(cpu, fcse_tlb_mask(next)) || prev != next) {
 		fcse_cpu_set_vm_mask(cpu, next);
 		check_context(next);
-		fcse_pid_set(next->context.pid);
+		fcse_pid_set(next->context.fcse.pid);
 		cpu_switch_mm(next->pgd, next, fcse_needs_flush(prev, next));
 		if (cache_is_vivt())
 			cpumask_clear_cpu(cpu, fcse_tlb_mask(prev));

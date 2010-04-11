@@ -98,7 +98,7 @@ static void fcse_notify_flush_all_inner(struct mm_struct *next)
 		fcse_pids_cache_dirty[0] = 0UL;
 	}
 	if (next != &init_mm && next) {
-		unsigned pid = next->context.pid >> FCSE_PID_SHIFT;
+		unsigned pid = next->context.fcse.pid >> FCSE_PID_SHIFT;
 		__set_bit(pid, fcse_pids_cache_dirty);
 	}
 	spin_unlock_irqrestore(&fcse_lock, flags);
@@ -106,22 +106,23 @@ static void fcse_notify_flush_all_inner(struct mm_struct *next)
 
 int fcse_needs_flush(struct mm_struct *prev, struct mm_struct *next)
 {
-	unsigned res, reused_pid = 0, pid = next->context.pid >> FCSE_PID_SHIFT;
+	unsigned fcse_pid = next->context.fcse.pid >> FCSE_PID_SHIFT;
+	unsigned res, reused_pid = 0;
 	unsigned long flags;
 
 	spin_lock_irqsave(&fcse_lock, flags);
-	if (per_pid[pid].last_mm != next) {
-		if (per_pid[pid].last_mm)
-			reused_pid = test_bit(pid, fcse_pids_cache_dirty);
-		per_pid[pid].last_mm = next;
+	if (per_pid[fcse_pid].last_mm != next) {
+		if (per_pid[fcse_pid].last_mm)
+			reused_pid = test_bit(fcse_pid, fcse_pids_cache_dirty);
+		per_pid[fcse_pid].last_mm = next;
 	}
-	__set_bit(pid, fcse_pids_cache_dirty);
+	__set_bit(fcse_pid, fcse_pids_cache_dirty);
 	spin_unlock_irqrestore(&fcse_lock, flags);
 
 	res = reused_pid
-		|| prev->context.shared_dirty_pages
-		|| prev->context.high_pages
-		|| next->context.high_pages;
+		|| prev->context.fcse.shared_dirty_pages
+		|| prev->context.fcse.high_pages
+		|| next->context.fcse.high_pages;
 
 	if (res) {
 		cpu_clear(smp_processor_id(), prev->cpu_vm_mask);
@@ -136,12 +137,12 @@ void fcse_notify_flush_all(void)
 	fcse_notify_flush_all_inner(current->mm);
 }
 
-void fcse_pid_reference(unsigned pid)
+void fcse_pid_reference(unsigned fcse_pid)
 {
 	unsigned long flags;
 
 	spin_lock_irqsave(&fcse_lock, flags);
-	fcse_pid_reference_inner(pid);
+	fcse_pid_reference_inner(fcse_pid);
 	spin_unlock_irqrestore(&fcse_lock, flags);
 }
 
@@ -157,12 +158,12 @@ void fcse_relocate_mm_to_null_pid(struct mm_struct *mm)
 
 	memcpy(to, from, len);
 	spin_lock_irqsave(&fcse_lock, flags);
-	fcse_pid_dereference(mm->context.pid >> FCSE_PID_SHIFT);
+	fcse_pid_dereference(mm->context.fcse.pid >> FCSE_PID_SHIFT);
 	fcse_pid_reference_inner(0);
 	per_pid[0].last_mm = mm;
 	spin_unlock_irqrestore(&fcse_lock, flags);
 
-	mm->context.pid = 0;
+	mm->context.fcse.pid = 0;
 	fcse_pid_set(0);
 	memset(from, '\0', len);
 	mb();

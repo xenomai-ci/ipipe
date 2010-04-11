@@ -75,7 +75,7 @@ void show_pte(struct mm_struct *mm, unsigned long addr)
 
 #ifdef CONFIG_ARM_FCSE
 	printk(KERN_ALERT "fcse pid: %ld, 0x%08lx\n",
-	       mm->context.pid >> FCSE_PID_SHIFT, mm->context.pid);
+	       mm->context.fcse.pid >> FCSE_PID_SHIFT, mm->context.fcse.pid);
 #endif /* CONFIG_ARM_FCSE */
 	printk(KERN_ALERT "pgd = %p\n", mm->pgd);
 	pgd = pgd_offset(mm, addr);

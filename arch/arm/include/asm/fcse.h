@@ -2,10 +2,6 @@
  * Filename:    arch/arm/include/asm/fcse.h
  * Description: ARM Process ID (PID) includes for Fast Address Space Switching
  *              (FASS) in ARM Linux.
- * Created:     14/10/2001
- * Changes:     19/02/2002 - Macros added.
- *              03/08/2007 - Adapted to kernel 2.6.21 (ssm)
- *              Feb 2008   - Simplified a bit (rco)
  *
  * Copyright:   (C) 2001, 2002 Adam Wiggins <awiggins@cse.unsw.edu.au>
  *              (C) 2007 Sebastian Smolorz <ssm@emlix.com>
@@ -30,7 +26,7 @@
 /* Mask to get rid of PID from relocated address */
 #define FCSE_PID_MASK (FCSE_PID_TASK_SIZE - 1)
 
-#define fcse_tlb_mask(mm) (&(mm)->context.cpu_tlb_mask)
+#define fcse_tlb_mask(mm) (&(mm)->context.fcse.cpu_tlb_mask)
 #define fcse_cpu_set_vm_mask(cpu, mm) cpumask_set_cpu(cpu, mm_cpumask(mm))
 
 /* Sets the CPU's PID Register */
@@ -61,7 +57,7 @@ static inline unsigned long
 fcse_va_to_mva(struct mm_struct *mm, unsigned long va)
 {
 	if (va < FCSE_PID_TASK_SIZE)
-		return mm->context.pid | va;
+		return mm->context.fcse.pid | va;
 	return va;
 }
 
