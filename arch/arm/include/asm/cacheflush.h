@@ -327,20 +327,43 @@ static inline void outer_flush_range(unsigned long start, unsigned long end)
 
 #endif
 
+#ifdef CONFIG_ARM_FCSE
+#define FCSE_CACHE_MASK (~(L1_CACHE_BYTES - 1))
+#define FCSE_CACHE_ALIGN(addr) (((addr) + ~FCSE_CACHE_MASK) & FCSE_CACHE_MASK)
+
+static inline void
+fcse_flush_cache_user_range(struct vm_area_struct *vma, 
+			    unsigned long start, unsigned long end)
+{
+	if (cache_is_vivt() 
+	    && cpu_isset(smp_processor_id(), vma->vm_mm->cpu_vm_mask)) {
+		start = fcse_va_to_mva(vma->vm_mm, start & FCSE_CACHE_MASK);
+		end = fcse_va_to_mva(vma->vm_mm, FCSE_CACHE_ALIGN(end));
+		__cpuc_flush_user_range(start, end, vma->vm_flags);
+	}
+}
+#undef FCSE_CACHE_MASK
+#undef FCSE_CACHE_ALIGN
+#else /* ! CONFIG_ARM_FCSE */
+#define fcse_flush_cache_user_range(vma, start, end) do { } while (0)
+#endif /* ! CONFIG_ARM_FCSE */
+
 /*
  * Copy user data from/to a page which is mapped into a different
  * processes address space.  Really, we want to allow our "user
  * space" model to handle this.
  */
-#define copy_to_user_page(vma, page, vaddr, dst, src, len) \
-	do {							\
-		memcpy(dst, src, len);				\
-		flush_ptrace_access(vma, page, vaddr, dst, len, 1);\
+#define copy_to_user_page(vma, page, vaddr, dst, src, len)		\
+	do {								\
+		fcse_flush_cache_user_range(vma, vaddr, vaddr + len);	\
+		memcpy(dst, src, len);					\
+		flush_ptrace_access(vma, page, vaddr, dst, len, 1);	\
 	} while (0)
 
-#define copy_from_user_page(vma, page, vaddr, dst, src, len) \
-	do {							\
-		memcpy(dst, src, len);				\
+#define copy_from_user_page(vma, page, vaddr, dst, src, len)		\
+	do {								\
+		fcse_flush_cache_user_range(vma, vaddr, vaddr + len);	\
+		memcpy(dst, src, len);					\
 	} while (0)
 
 /*
@@ -360,10 +383,9 @@ static inline void
 vivt_flush_cache_range(struct vm_area_struct *vma, unsigned long start, unsigned long end)
 {
 	if (cpumask_test_cpu(smp_processor_id(), mm_cpumask(vma->vm_mm))) {
-		start = fcse_va_to_mva(vma->vm_mm, start);
-		end = fcse_va_to_mva(vma->vm_mm, end);
-		__cpuc_flush_user_range(start & PAGE_MASK, PAGE_ALIGN(end),
-					vma->vm_flags);
+		start = fcse_va_to_mva(vma->vm_mm, start & PAGE_MASK);
+		end = fcse_va_to_mva(vma->vm_mm, PAGE_ALIGN(end));
+		__cpuc_flush_user_range(start, end, vma->vm_flags);
 	}
 }
 
