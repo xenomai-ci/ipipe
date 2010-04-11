@@ -29,7 +29,13 @@ arch_get_unmapped_area(struct file *filp, unsigned long addr,
 {
 	struct mm_struct *mm = current->mm;
 	struct vm_area_struct *vma;
-	unsigned long start_addr;
+	unsigned long start_addr = addr;
+#ifdef CONFIG_ARM_FCSE_BEST_EFFORT
+	unsigned long stack_reserved = 
+		current->signal->rlim[RLIMIT_STACK].rlim_cur;
+	unsigned long stack_base = PAGE_ALIGN(mm->start_stack) - stack_reserved;
+#endif /* CONFIG_ARM_FCSE_BEST_EFFORT */
+
 #ifdef CONFIG_CPU_V6
 	unsigned int cache_type;
 	int do_align = 0, aliasing = 0;
@@ -119,23 +125,44 @@ full_search:
 	}
 
 found_addr:
-#ifdef CONFIG_ARM_FCSE
-	if (addr + len > FCSE_TASK_SIZE) {
-		if (!(flags & MAP_FIXED) && start_addr != TASK_UNMAPPED_BASE) {
+#ifdef CONFIG_ARM_FCSE_BEST_EFFORT
+	if ((unsigned long)(addr + len - stack_base) < stack_reserved
+	    || (unsigned long)(addr - stack_base) < stack_reserved) {
+		if (start_addr != TASK_UNMAPPED_BASE && !(flags & MAP_FIXED)
+		    && !mm->context.big) {
 			start_addr = addr = TASK_UNMAPPED_BASE;
 			mm->cached_hole_size = 0;
 			goto full_search;
 		}
-#ifdef CONFIG_ARM_FCSE_BEST_EFFORT
-		if (mm->context.pid) {
-			mm->context.big = 1;
-			fcse_relocate_mm_to_null_pid(mm);
+		if (!(flags & MAP_FIXED)) {
+			start_addr = TASK_UNMAPPED_BASE;
+			addr = PAGE_ALIGN(mm->start_stack);
+			mm->cached_hole_size = 0;
+			goto full_search;
 		}
-#else /* CONFIG_ARM_FCSE_GUARANTEED */
-		return -ENOMEM;
-#endif /* CONFIG_ARM_FCSE_GUARANTEED */
 	}
-#endif /* CONFIG_ARM_FCSE */
+	if (addr + len > FCSE_TASK_SIZE && !mm->context.high_pages) {
+		if (start_addr != TASK_UNMAPPED_BASE 
+		    && !(flags & MAP_FIXED)) {
+			start_addr = addr = TASK_UNMAPPED_BASE;
+			mm->cached_hole_size = 0;
+			goto full_search;
+		}
+		if (!mm->context.big)
+			mm->context.big = 1;
+		if (mm->context.pid)
+			fcse_relocate_mm_to_null_pid(mm);
+	}
+#elif defined(CONFIG_ARM_FCSE_GUARANTEED)
+	if (addr + len > FCSE_TASK_SIZE) {
+		if (start_addr != TASK_UNMAPPED_BASE && !(flags & MAP_FIXED)) {
+			start_addr = addr = TASK_UNMAPPED_BASE;
+			mm->cached_hole_size = 0;
+			goto full_search;
+		}
+		return -ENOMEM;
+	}
+#endif /* CONFIG_ARM_FCSE_GUARANTEED */
 	return addr;
 }
 
