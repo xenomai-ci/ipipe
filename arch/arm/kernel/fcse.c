@@ -12,32 +12,44 @@
 
 static IPIPE_DEFINE_SPINLOCK(fcse_lock);
 static unsigned long fcse_pids_bits[PIDS_LONGS];
+unsigned long fcse_pids_cache_dirty[PIDS_LONGS];
+
 #ifdef CONFIG_ARM_FCSE_BEST_EFFORT
-static unsigned long fcse_pids_cache_dirty[PIDS_LONGS];
 static unsigned random_pid;
-struct {
-	struct mm_struct *last_mm;
-	unsigned count;
-} per_pid[NR_PIDS];
+struct fcse_user fcse_pids_user[NR_PIDS];
 #endif /* CONFIG_ARM_FCSE_BEST_EFFORT */
 
 static void fcse_pid_reference_inner(unsigned pid)
 {
 #ifdef CONFIG_ARM_FCSE_BEST_EFFORT
-	if (++per_pid[pid].count == 1)
+	if (++fcse_pids_user[pid].count == 1)
 #endif /* CONFIG_ARM_FCSE_BEST_EFFORT */
 		__set_bit(pid, fcse_pids_bits);
 }
 
-static void fcse_pid_dereference(unsigned pid)
+static void fcse_pid_dereference(struct mm_struct *mm)
 {
 #ifdef CONFIG_ARM_FCSE_BEST_EFFORT
-	if (--per_pid[pid].count == 0) {
+	unsigned pid = mm->context.fcse.pid >> FCSE_PID_SHIFT;
+
+	if (--fcse_pids_user[pid].count == 0)
 		__clear_bit(pid, fcse_pids_bits);
-		per_pid[pid].last_mm = NULL;
+
+	/*
+	 * The following means we suppose that by the time this
+	 * function is called, this mm is out of cache:
+	 * - when the caller is destroy_context, exit_mmap is called
+	 * by mmput before, which flushes the cache;
+	 * - when the caller is fcse_relocate_mm_to_null_pid, we flush
+	 * the cache in this function.
+	 */
+	if (fcse_pids_user[pid].mm == mm) {
+		fcse_pids_user[pid].mm = NULL;
+		__clear_bit(pid, fcse_pids_cache_dirty);
 	}
 #else /* CONFIG_ARM_FCSE_BEST_EFFORT */
 	__clear_bit(pid, fcse_pids_bits);
+	__clear_bit(pid, fcse_pids_cache_dirty);
 #endif /* CONFIG_ARM_FCSE_BEST_EFFORT */
 }
 
@@ -71,16 +83,15 @@ int fcse_pid_alloc(void)
 	return pid;
 }
 
-void fcse_pid_free(unsigned pid)
+void fcse_pid_free(struct mm_struct *mm)
 {
 	unsigned long flags;
 
 	spin_lock_irqsave(&fcse_lock, flags);
-	fcse_pid_dereference(pid);
+	fcse_pid_dereference(mm);
 	spin_unlock_irqrestore(&fcse_lock, flags);
 }
 
-#ifdef CONFIG_ARM_FCSE_BEST_EFFORT
 static void fcse_notify_flush_all_inner(struct mm_struct *next)
 {
 	unsigned long flags;
@@ -97,12 +108,18 @@ static void fcse_notify_flush_all_inner(struct mm_struct *next)
 		fcse_pids_cache_dirty[0] = 0UL;
 	}
 	if (next != &init_mm && next) {
-		unsigned pid = next->context.fcse.pid >> FCSE_PID_SHIFT;
-		__set_bit(pid, fcse_pids_cache_dirty);
+		unsigned fcse_pid = next->context.fcse.pid >> FCSE_PID_SHIFT;
+		__set_bit(fcse_pid, fcse_pids_cache_dirty);
 	}
 	spin_unlock_irqrestore(&fcse_lock, flags);
 }
 
+void fcse_notify_flush_all(void)
+{
+	fcse_notify_flush_all_inner(current->mm);
+}
+
+#ifdef CONFIG_ARM_FCSE_BEST_EFFORT
 int fcse_needs_flush(struct mm_struct *prev, struct mm_struct *next)
 {
 	unsigned fcse_pid = next->context.fcse.pid >> FCSE_PID_SHIFT;
@@ -110,10 +127,10 @@ int fcse_needs_flush(struct mm_struct *prev, struct mm_struct *next)
 	unsigned long flags;
 
 	spin_lock_irqsave(&fcse_lock, flags);
-	if (per_pid[fcse_pid].last_mm != next) {
-		if (per_pid[fcse_pid].last_mm)
+	if (fcse_pids_user[fcse_pid].mm != next) {
+		if (fcse_pids_user[fcse_pid].mm)
 			reused_pid = test_bit(fcse_pid, fcse_pids_cache_dirty);
-		per_pid[fcse_pid].last_mm = next;
+		fcse_pids_user[fcse_pid].mm = next;
 	}
 	__set_bit(fcse_pid, fcse_pids_cache_dirty);
 	spin_unlock_irqrestore(&fcse_lock, flags);
@@ -132,11 +149,6 @@ int fcse_needs_flush(struct mm_struct *prev, struct mm_struct *next)
 	return res;
 }
 EXPORT_SYMBOL_GPL(fcse_needs_flush);
-
-void fcse_notify_flush_all(void)
-{
-	fcse_notify_flush_all_inner(current->mm);
-}
 
 void fcse_pid_reference(unsigned fcse_pid)
 {
@@ -159,9 +171,9 @@ void fcse_relocate_mm_to_null_pid(struct mm_struct *mm)
 
 	memcpy(to, from, len);
 	spin_lock_irqsave(&fcse_lock, flags);
-	fcse_pid_dereference(mm->context.fcse.pid >> FCSE_PID_SHIFT);
+	fcse_pid_dereference(mm);
 	fcse_pid_reference_inner(0);
-	per_pid[0].last_mm = mm;
+	fcse_pids_user[0].mm = mm;
 	spin_unlock_irqrestore(&fcse_lock, flags);
 
 	mm->context.fcse.pid = 0;
@@ -173,5 +185,4 @@ void fcse_relocate_mm_to_null_pid(struct mm_struct *mm)
 
 	preempt_enable();
 }
-
 #endif /* CONFIG_ARM_FCSE_BEST_EFFORT */

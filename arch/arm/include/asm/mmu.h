@@ -10,7 +10,6 @@ typedef struct {
 #ifdef CONFIG_ARM_FCSE
 	struct {
 		unsigned long pid;
-		cpumask_t cpu_tlb_mask;
 #ifdef CONFIG_ARM_FCSE_BEST_EFFORT
 		unsigned shared_dirty_pages;
 		unsigned big;

@@ -50,7 +50,7 @@ static void flush_pfn_alias(unsigned long pfn, unsigned long vaddr)
 void flush_cache_mm(struct mm_struct *mm)
 {
 	if (cache_is_vivt()) {
-		if (cpu_isset(smp_processor_id(), mm->cpu_vm_mask)) {
+		if (fcse_mm_in_cache(mm)) {
 			fcse_notify_flush_all();
 			__cpuc_flush_user_all();
 		}
@@ -75,7 +75,7 @@ void flush_cache_mm(struct mm_struct *mm)
 void flush_cache_range(struct vm_area_struct *vma, unsigned long start, unsigned long end)
 {
 	if (cache_is_vivt()) {
-		if (cpu_isset(smp_processor_id(), vma->vm_mm->cpu_vm_mask)) {
+		if (fcse_mm_in_cache(vma->vm_mm)) {
 			start = fcse_va_to_mva(vma->vm_mm, start) & PAGE_MASK;
 			end = PAGE_ALIGN(fcse_va_to_mva(vma->vm_mm, end));
 			__cpuc_flush_user_range(start, end, vma->vm_flags);
@@ -101,7 +101,7 @@ void flush_cache_range(struct vm_area_struct *vma, unsigned long start, unsigned
 void flush_cache_page(struct vm_area_struct *vma, unsigned long user_addr, unsigned long pfn)
 {
 	if (cache_is_vivt()) {
-		if (cpu_isset(smp_processor_id(), vma->vm_mm->cpu_vm_mask)) {
+		if (fcse_mm_in_cache(vma->vm_mm)) {
 			unsigned long addr;
 			addr = fcse_va_to_mva(vma->vm_mm, user_addr);
 			addr &= PAGE_MASK;
@@ -120,7 +120,7 @@ void flush_ptrace_access(struct vm_area_struct *vma, struct page *page,
 			 unsigned long len, int write)
 {
 	if (cache_is_vivt()) {
-		if (cpu_isset(smp_processor_id(), vma->vm_mm->cpu_vm_mask)) {
+		if (fcse_mm_in_cache(vma->vm_mm)) {
 			unsigned long addr = (unsigned long)kaddr;
 			__cpuc_coherent_kern_range(addr, addr + len);
 		}

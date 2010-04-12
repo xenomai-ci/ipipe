@@ -26,8 +26,7 @@
 /* Mask to get rid of PID from relocated address */
 #define FCSE_PID_MASK (FCSE_PID_TASK_SIZE - 1)
 
-#define fcse_tlb_mask(mm) ((mm)->context.fcse.cpu_tlb_mask)
-#define fcse_cpu_set_vm_mask(cpu, mm) cpu_set(cpu, (mm)->cpu_vm_mask)
+extern unsigned long fcse_pids_cache_dirty[];
 
 /* Sets the CPU's PID Register */
 static inline void fcse_pid_set(unsigned long pid)
@@ -62,25 +61,49 @@ fcse_va_to_mva(struct mm_struct *mm, unsigned long va)
 }
 
 int fcse_pid_alloc(void);
-void fcse_pid_free(unsigned pid);
-#ifdef CONFIG_ARM_FCSE_BEST_EFFORT
-int fcse_needs_flush(struct mm_struct *prev, struct mm_struct *next);
+void fcse_pid_free(struct mm_struct *mm);
 void fcse_notify_flush_all(void);
+#ifdef CONFIG_ARM_FCSE_BEST_EFFORT
+struct fcse_user {
+	struct mm_struct *mm;
+	unsigned count;
+};
+extern struct fcse_user fcse_user[];
+int fcse_needs_flush(struct mm_struct *prev, struct mm_struct *next);
 void fcse_pid_reference(unsigned pid);
 void fcse_relocate_mm_to_null_pid(struct mm_struct *mm);
+static inline int fcse_mm_in_cache(struct mm_struct *mm)
+{
+	unsigned fcse_pid = mm->context.fcse.pid >> FCSE_PID_SHIFT;
+	return test_bit(fcse_pid, fcse_pids_cache_dirty)
+		&& fcse_user[fcse_pid].mm == mm;
+}
 #else /* CONFIG_ARM_FCSE_GUARANTEED */
-#define fcse_needs_flush(prev, next) (0)
-#define fcse_notify_flush_all() do { } while (0)
+static inline int
+fcse_needs_flush(struct mm_struct *prev, struct mm_struct *next)
+{
+	unsigned fcse_pid = next->context.fcse.pid >> FCSE_PID_SHIFT;
+	set_bit(fcse_pid, fcse_pids_cache_dirty);
+	return 0;
+}
+static inline int fcse_mm_in_cache(struct mm_struct *mm)
+{
+	unsigned fcse_pid = mm->context.fcse.pid >> FCSE_PID_SHIFT;
+	return test_bit(fcse_pid, fcse_pids_cache_dirty);
+}
 #endif /* CONFIG_ARM_FCSE_GUARANTEED */
 
 #else /* ! CONFIG_ARM_FCSE */
 #define fcse_pid_set(pid) do { } while (0)
 #define fcse_mva_to_va(x) (x)
 #define fcse_va_to_mva(mm, x) ({ (void)(mm); (x); })
-#define fcse_tlb_mask(mm) ((mm)->cpu_vm_mask)
-#define fcse_cpu_set_vm_mask(cpu, mm) do { } while (0)
+#define fcse_mm_set_in_cache(mm) do { } while (0)
 #define fcse_needs_flush(prev, next) (1)
 #define fcse_notify_flush_all() do { } while (0)
+static inline int fcse_mm_in_cache(struct mm_struct *mm)
+{
+	return cpu_isset(smp_processor_id(), mm->cpu_vm_mask);
+}
 #endif /* ! CONFIG_ARM_FCSE */
 
 #endif /* __ASM_ARM_FCSE_H */
