@@ -148,8 +148,7 @@ switch_mm(struct mm_struct *prev, struct mm_struct *next,
 #endif
 	if (!cpumask_test_and_set_cpu(cpu, mm_cpumask(next)) || prev != next) {
 		check_context(next);
-		fcse_pid_set(next->context.fcse.pid);
-		cpu_switch_mm(next->pgd, next, fcse_needs_flush(prev, next));
+		cpu_switch_mm(next->pgd, next, fcse_switch_mm(prev, next));
 		if (cache_is_vivt())
 			cpumask_clear_cpu(cpu, mm_cpumask(prev));
 	}

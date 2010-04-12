@@ -35,23 +35,6 @@ static inline void fcse_pid_set(unsigned long pid)
 			      : /* */: "r" (pid) : "cc", "memory");
 }
 
-/* Returns the state of the CPU's PID Register */
-static inline unsigned long fcse_pid_get(void)
-{
-	unsigned long pid;
-	__asm__ __volatile__("mrc p15, 0, %0, c13, c0, 0"
-			     : "=&r" (pid) : /* */ : "cc");
-	return pid & ~FCSE_PID_MASK;
-}
-
-static inline unsigned long fcse_mva_to_va(unsigned long mva)
-{
-	unsigned long pid = fcse_pid_get();
-	if (pid && (pid == (mva & ~FCSE_PID_MASK)))
-		return mva & FCSE_PID_MASK;
-	return mva;
-}
-
 static inline unsigned long
 fcse_va_to_mva(struct mm_struct *mm, unsigned long va)
 {
@@ -68,22 +51,23 @@ struct fcse_user {
 	struct mm_struct *mm;
 	unsigned count;
 };
-extern struct fcse_user fcse_user[];
-int fcse_needs_flush(struct mm_struct *prev, struct mm_struct *next);
+extern struct fcse_user fcse_pids_user[];
+int fcse_switch_mm(struct mm_struct *prev, struct mm_struct *next);
 void fcse_pid_reference(unsigned pid);
 void fcse_relocate_mm_to_null_pid(struct mm_struct *mm);
 static inline int fcse_mm_in_cache(struct mm_struct *mm)
 {
 	unsigned fcse_pid = mm->context.fcse.pid >> FCSE_PID_SHIFT;
 	return test_bit(fcse_pid, fcse_pids_cache_dirty)
-		&& fcse_user[fcse_pid].mm == mm;
+		&& fcse_pids_user[fcse_pid].mm == mm;
 }
 #else /* CONFIG_ARM_FCSE_GUARANTEED */
 static inline int
-fcse_needs_flush(struct mm_struct *prev, struct mm_struct *next)
+fcse_switch_mm(struct mm_struct *prev, struct mm_struct *next)
 {
 	unsigned fcse_pid = next->context.fcse.pid >> FCSE_PID_SHIFT;
 	set_bit(fcse_pid, fcse_pids_cache_dirty);
+	fcse_pid_set(next->context.fcse.pid);
 	return 0;
 }
 static inline int fcse_mm_in_cache(struct mm_struct *mm)
@@ -94,18 +78,14 @@ static inline int fcse_mm_in_cache(struct mm_struct *mm)
 #endif /* CONFIG_ARM_FCSE_GUARANTEED */
 
 #else /* ! CONFIG_ARM_FCSE */
-#include <linux/smp.h>
-
 #define fcse_pid_set(pid) do { } while (0)
 #define fcse_mva_to_va(x) (x)
 #define fcse_va_to_mva(mm, x) ({ (void)(mm); (x); })
 #define fcse_mm_set_in_cache(mm) do { } while (0)
-#define fcse_needs_flush(prev, next) (1)
+#define fcse_switch_mm(prev, next) (1)
 #define fcse_notify_flush_all() do { } while (0)
-static inline int fcse_mm_in_cache(struct mm_struct *mm)
-{
-	return cpumask_test_cpu(smp_processor_id(), mm_cpumask(mm));
-}
+#define fcse_mm_in_cache(mm) \
+		(cpumask_test_cpu(smp_processor_id(), mm_cpumask(mm)))
 #endif /* ! CONFIG_ARM_FCSE */
 
 #endif /* __ASM_ARM_FCSE_H */
