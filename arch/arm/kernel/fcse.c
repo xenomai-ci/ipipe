@@ -13,6 +13,7 @@
 static IPIPE_DEFINE_SPINLOCK(fcse_lock);
 static unsigned long fcse_pids_bits[PIDS_LONGS];
 unsigned long fcse_pids_cache_dirty[PIDS_LONGS];
+EXPORT_SYMBOL(fcse_pids_cache_dirty);
 
 #ifdef CONFIG_ARM_FCSE_BEST_EFFORT
 static unsigned random_pid;
@@ -40,8 +41,11 @@ static void fcse_pid_dereference(struct mm_struct *mm)
 	 * function is called, this mm is out of cache:
 	 * - when the caller is destroy_context, exit_mmap is called
 	 * by mmput before, which flushes the cache;
-	 * - when the caller is fcse_relocate_mm_to_null_pid, we flush
-	 * the cache in this function.
+	 * - when the caller is fcse_relocate_mm_to_pid from
+	 * fcse_switch_mm, we only relocate when the mm is out of cache;
+	 * - when the caller is fcse_relocate_mm_to_pid from
+	 * fcse_relocate_mm_to_null_pid, we flush the cache in this
+	 * function.
 	 */
 	if (fcse_pids_user[pid].mm == mm) {
 		fcse_pids_user[pid].mm = NULL;
@@ -120,11 +124,60 @@ void fcse_notify_flush_all(void)
 }
 
 #ifdef CONFIG_ARM_FCSE_BEST_EFFORT
-int fcse_needs_flush(struct mm_struct *prev, struct mm_struct *next)
+/* Called with preemption disabled, mm->mmap_sem being held for writing. */
+int fcse_relocate_mm_to_pid(struct mm_struct *mm, int fcse_pid)
+{
+	const unsigned len = pgd_index(FCSE_TASK_SIZE) * sizeof(pgd_t);
+	unsigned long flags;
+	pgd_t *from, *to;
+
+	spin_lock_irqsave(&fcse_lock, flags);
+	/* pid == -1 means find a free pid. */
+	if (fcse_pid == -1) {
+		fcse_pid = find_first_zero_bit(fcse_pids_cache_dirty, NR_PIDS);
+		if (fcse_pid == NR_PIDS) {
+			spin_unlock_irqrestore(&fcse_lock, flags);
+			return -ENOENT;
+		}
+	}
+	fcse_pid_dereference(mm);
+	fcse_pid_reference_inner(fcse_pid);
+	fcse_pids_user[fcse_pid].mm = mm;
+	spin_unlock_irqrestore(&fcse_lock, flags);
+
+	from = pgd_offset(mm, 0);
+	mm->context.fcse.pid = fcse_pid << FCSE_PID_SHIFT;
+	to = pgd_offset(mm, 0);
+
+	memcpy(to, from, len);
+	memset(from, '\0', len);
+	barrier();
+	clean_dcache_area(from, len);
+	clean_dcache_area(to, len);
+
+	return fcse_pid;
+}
+
+int fcse_switch_mm(struct mm_struct *prev, struct mm_struct *next)
 {
 	unsigned fcse_pid = next->context.fcse.pid >> FCSE_PID_SHIFT;
 	unsigned res, reused_pid = 0;
 	unsigned long flags;
+
+	/*
+	 * If the next mm's pid is currently in use, and not by that
+	 * mm, try and find a new, free, pid.
+	 */
+	if (!next->context.fcse.big
+	    && test_bit(fcse_pid, fcse_pids_cache_dirty)
+	    && fcse_pids_user[fcse_pid].mm
+	    && fcse_pids_user[fcse_pid].mm != next
+	    && down_write_trylock(&next->mmap_sem)) {
+		int new_fcse_pid = fcse_relocate_mm_to_pid(next, -1);
+		up_write(&next->mmap_sem);
+		if (new_fcse_pid >= 0)
+			fcse_pid = new_fcse_pid;
+	}
 
 	spin_lock_irqsave(&fcse_lock, flags);
 	if (fcse_pids_user[fcse_pid].mm != next) {
@@ -141,10 +194,9 @@ int fcse_needs_flush(struct mm_struct *prev, struct mm_struct *next)
 		|| prev->context.fcse.shared_dirty_pages
 		|| prev->context.fcse.high_pages;
 
-	if (res) {
-		cpu_clear(smp_processor_id(), prev->cpu_vm_mask);
+	fcse_pid_set(fcse_pid << FCSE_PID_SHIFT);
+	if (res)
 		fcse_notify_flush_all_inner(next);
-	}
 
 	return res;
 }
@@ -162,24 +214,11 @@ void fcse_pid_reference(unsigned fcse_pid)
 /* Called with mm->mmap_sem write-locked. */
 void fcse_relocate_mm_to_null_pid(struct mm_struct *mm)
 {
-	pgd_t *to = mm->pgd + pgd_index(0);
-	pgd_t *from = pgd_offset(mm, 0);
-	unsigned len = pgd_index(FCSE_TASK_SIZE) * sizeof(*from);
-	unsigned long flags;
-
 	preempt_disable();
 
-	memcpy(to, from, len);
-	spin_lock_irqsave(&fcse_lock, flags);
-	fcse_pid_dereference(mm);
-	fcse_pid_reference_inner(0);
-	fcse_pids_user[0].mm = mm;
-	spin_unlock_irqrestore(&fcse_lock, flags);
-
-	mm->context.fcse.pid = 0;
+	fcse_relocate_mm_to_pid(mm, 0);
 	fcse_pid_set(0);
-	memset(from, '\0', len);
-	mb();
+	barrier();
 	flush_cache_mm(mm);
 	flush_tlb_mm(mm);
 

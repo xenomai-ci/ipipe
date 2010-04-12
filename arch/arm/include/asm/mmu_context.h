@@ -151,19 +151,15 @@ __switch_mm(struct mm_struct *prev, struct mm_struct *next,
 				/* mark mm state as undefined. */
 				per_cpu(ipipe_active_mm, cpu) = NULL;
 				barrier();
-				fcse_pid_set(next->context.pid);
 				cpu_switch_mm(next->pgd, next,
-					      fcse_needs_flush(prev, next));
+					      fcse_switch_mm(prev, next));
 				barrier();
 				per_cpu(ipipe_active_mm, cpu) = next;
 			} while (test_and_clear_thread_flag(TIF_MMSWITCH_INT));
 		else
 #endif /* CONFIG_IPIPE */
-			{
-				fcse_pid_set(next->context.pid);
-				cpu_switch_mm(next->pgd, next,
-					      fcse_needs_flush(prev, next));
-			}
+			cpu_switch_mm(next->pgd, next,
+				      fcse_switch_mm(prev, next));
 		if (cache_is_vivt())
 			cpu_clear(cpu, prev->cpu_vm_mask);
 	}

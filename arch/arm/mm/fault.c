@@ -485,8 +485,6 @@ do_DataAbort(unsigned long addr, unsigned int fsr, struct pt_regs *regs)
 	const struct fsr_info *inf = fsr_info + (fsr & 15) + ((fsr & (1 << 10)) >> 6);
 	struct siginfo info;
 
-	addr = fcse_mva_to_va(addr);
-
 	if (!inf->fn(addr, fsr, regs))
 		return;
 
