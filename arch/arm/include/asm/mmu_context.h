@@ -75,7 +75,6 @@ init_new_context(struct task_struct *tsk, struct mm_struct *mm)
 #ifdef CONFIG_ARM_FCSE
 	int fcse_pid;
 
-	cpus_clear(mm->context.fcse.cpu_tlb_mask);
 #ifdef CONFIG_ARM_FCSE_BEST_EFFORT
 	if (!mm->context.fcse.big) {
 		fcse_pid = fcse_pid_alloc();
@@ -110,7 +109,7 @@ static inline void destroy_context(struct mm_struct *mm)
 	BUG_ON(mm->context.fcse.shared_dirty_pages);
 	BUG_ON(mm->context.fcse.high_pages);
 #endif /* CONFIG_ARM_FCSE_BEST_EFFORT */
-	fcse_pid_free(mm->context.fcse.pid >> FCSE_PID_SHIFT);
+	fcse_pid_free(mm);
 #endif /* CONFIG_ARM_FCSE */
 }
 
@@ -147,13 +146,12 @@ switch_mm(struct mm_struct *prev, struct mm_struct *next,
 	    !cpumask_test_cpu(cpu, mm_cpumask(next)))
 		__flush_icache_all();
 #endif
-	if (!cpumask_test_and_set_cpu(cpu, fcse_tlb_mask(next)) || prev != next) {
-		fcse_cpu_set_vm_mask(cpu, next);
+	if (!cpumask_test_and_set_cpu(cpu, mm_cpumask(next)) || prev != next) {
 		check_context(next);
 		fcse_pid_set(next->context.fcse.pid);
 		cpu_switch_mm(next->pgd, next, fcse_needs_flush(prev, next));
 		if (cache_is_vivt())
-			cpumask_clear_cpu(cpu, fcse_tlb_mask(prev));
+			cpumask_clear_cpu(cpu, mm_cpumask(prev));
 	}
 #endif
 }

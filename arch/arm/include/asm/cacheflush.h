@@ -332,11 +332,11 @@ static inline void outer_flush_range(unsigned long start, unsigned long end)
 #define FCSE_CACHE_ALIGN(addr) (((addr) + ~FCSE_CACHE_MASK) & FCSE_CACHE_MASK)
 
 static inline void
-fcse_flush_cache_user_range(struct vm_area_struct *vma, 
+fcse_flush_cache_user_range(struct vm_area_struct *vma,
 			    unsigned long start, unsigned long end)
 {
-	if (cache_is_vivt() 
-	    && cpu_isset(smp_processor_id(), vma->vm_mm->cpu_vm_mask)) {
+	if (cache_is_vivt()
+	    && fcse_mm_in_cache(vma->vm_mm)) {
 		start = fcse_va_to_mva(vma->vm_mm, start & FCSE_CACHE_MASK);
 		end = fcse_va_to_mva(vma->vm_mm, FCSE_CACHE_ALIGN(end));
 		__cpuc_flush_user_range(start, end, vma->vm_flags);
@@ -373,7 +373,7 @@ fcse_flush_cache_user_range(struct vm_area_struct *vma,
 
 static inline void vivt_flush_cache_mm(struct mm_struct *mm)
 {
-	if (cpumask_test_cpu(smp_processor_id(), mm_cpumask(mm))) {
+	if (fcse_mm_in_cache(mm)) {
 		fcse_notify_flush_all();
 		__cpuc_flush_user_all();
 	}
@@ -382,7 +382,7 @@ static inline void vivt_flush_cache_mm(struct mm_struct *mm)
 static inline void
 vivt_flush_cache_range(struct vm_area_struct *vma, unsigned long start, unsigned long end)
 {
-	if (cpumask_test_cpu(smp_processor_id(), mm_cpumask(vma->vm_mm))) {
+	if (fcse_mm_in_cache(vma->vm_mm)) {
 		start = fcse_va_to_mva(vma->vm_mm, start & PAGE_MASK);
 		end = fcse_va_to_mva(vma->vm_mm, PAGE_ALIGN(end));
 		__cpuc_flush_user_range(start, end, vma->vm_flags);
@@ -392,7 +392,7 @@ vivt_flush_cache_range(struct vm_area_struct *vma, unsigned long start, unsigned
 static inline void
 vivt_flush_cache_page(struct vm_area_struct *vma, unsigned long user_addr, unsigned long pfn)
 {
-	if (cpumask_test_cpu(smp_processor_id(), mm_cpumask(vma->vm_mm))) {
+	if (fcse_mm_in_cache(vma->vm_mm)) {
 		unsigned long addr;
 		addr = fcse_va_to_mva(vma->vm_mm, user_addr) & PAGE_MASK;
 		__cpuc_flush_user_range(addr, addr + PAGE_SIZE, vma->vm_flags);
@@ -404,7 +404,7 @@ vivt_flush_ptrace_access(struct vm_area_struct *vma, struct page *page,
 			 unsigned long uaddr, void *kaddr,
 			 unsigned long len, int write)
 {
-	if (cpumask_test_cpu(smp_processor_id(), mm_cpumask(vma->vm_mm))) {
+	if (fcse_mm_in_cache(vma->vm_mm)) {
 		unsigned long addr = (unsigned long)kaddr;
 		__cpuc_coherent_kern_range(addr, addr + len);
 	}
