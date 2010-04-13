@@ -312,8 +312,13 @@ static inline void native_wbinvd(void)
 #else
 #define read_cr0()	(native_read_cr0())
 #define write_cr0(x)	(native_write_cr0(x))
+#ifdef CONFIG_IPIPE
+#define read_cr2()	__raw_get_cpu_var(__ipipe_cr2)
+#define write_cr2(x)	__raw_get_cpu_var(__ipipe_cr2) = (x)
+#else /* !CONFIG_IPIPE */
 #define read_cr2()	(native_read_cr2())
 #define write_cr2(x)	(native_write_cr2(x))
+#endif /* !CONFIG_IPIPE */
 #define read_cr3()	(native_read_cr3())
 #define write_cr3(x)	(native_write_cr3(x))
 #define read_cr4()	(native_read_cr4())

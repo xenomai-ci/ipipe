@@ -53,6 +53,9 @@ int __ipipe_tick_irq = 0;	/* Legacy timer */
 
 DEFINE_PER_CPU(struct pt_regs, __ipipe_tick_regs);
 
+DEFINE_PER_CPU(unsigned long, __ipipe_cr2);
+EXPORT_PER_CPU_SYMBOL_GPL(__ipipe_cr2);
+
 #ifdef CONFIG_SMP
 
 static cpumask_t __ipipe_cpu_sync_map;
@@ -712,6 +715,7 @@ int __ipipe_handle_exception(struct pt_regs *regs, long error_code, int vector)
 {
 	bool root_entry = false;
 	unsigned long flags = 0;
+	unsigned long cr2 = 0;
 
 	if (ipipe_root_domain_p) {
 		root_entry = true;
@@ -733,6 +737,9 @@ int __ipipe_handle_exception(struct pt_regs *regs, long error_code, int vector)
 					error_code, regs))
 		return 1;
 #endif /* CONFIG_KGDB */
+
+	if (vector == ex_do_page_fault)
+		cr2 = native_read_cr2();
 
 	if (unlikely(ipipe_trap_notify(vector, regs))) {
 		if (root_entry)
@@ -777,6 +784,9 @@ int __ipipe_handle_exception(struct pt_regs *regs, long error_code, int vector)
 #endif /* CONFIG_IPIPE_DEBUG */
 		}
 	}
+
+	if (vector == ex_do_page_fault)
+		write_cr2(cr2);
 
 	__ipipe_std_extable[vector](regs, error_code);
 
