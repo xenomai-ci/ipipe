@@ -33,6 +33,8 @@
 
 DECLARE_PER_CPU(struct pt_regs, __ipipe_tick_regs);
 
+DECLARE_PER_CPU(unsigned long, __ipipe_cr2);
+
 static inline unsigned __ipipe_get_irq_vector(int irq)
 {
 #ifdef CONFIG_X86_IO_APIC
