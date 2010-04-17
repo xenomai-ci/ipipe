@@ -374,8 +374,12 @@ fcse_flush_cache_user_range(struct vm_area_struct *vma,
 static inline void vivt_flush_cache_mm(struct mm_struct *mm)
 {
 	if (fcse_mm_in_cache(mm)) {
-		fcse_notify_flush_all();
-		__cpuc_flush_user_all();
+		unsigned seq;
+
+		do {
+			seq = fcse_flush_all_start(mm);
+			__cpuc_flush_user_all();
+		} while (!fcse_flush_all_done(mm, seq, 1));
 	}
 }
 
