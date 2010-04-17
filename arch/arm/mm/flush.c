@@ -51,8 +51,12 @@ void flush_cache_mm(struct mm_struct *mm)
 {
 	if (cache_is_vivt()) {
 		if (fcse_mm_in_cache(mm)) {
-			fcse_notify_flush_all();
-			__cpuc_flush_user_all();
+			unsigned seq;
+
+			do {
+				seq = fcse_flush_all_start(mm);
+				__cpuc_flush_user_all();
+			} while (!fcse_flush_all_done(mm, seq, 1));
 		}
 		return;
 	}

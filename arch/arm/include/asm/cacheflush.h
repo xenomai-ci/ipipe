@@ -317,10 +317,10 @@ static inline void outer_flush_range(unsigned long start, unsigned long end)
 #define FCSE_CACHE_ALIGN(addr) (((addr) + ~FCSE_CACHE_MASK) & FCSE_CACHE_MASK)
 
 static inline void
-fcse_flush_cache_user_range(struct vm_area_struct *vma, 
+fcse_flush_cache_user_range(struct vm_area_struct *vma,
 			    unsigned long start, unsigned long end)
 {
-	if (cache_is_vivt() 
+	if (cache_is_vivt()
 	    && fcse_mm_in_cache(vma->vm_mm)) {
 		start = fcse_va_to_mva(vma->vm_mm, start & FCSE_CACHE_MASK);
 		end = fcse_va_to_mva(vma->vm_mm, FCSE_CACHE_ALIGN(end));
@@ -359,8 +359,12 @@ fcse_flush_cache_user_range(struct vm_area_struct *vma,
 static inline void flush_cache_mm(struct mm_struct *mm)
 {
 	if (fcse_mm_in_cache(mm)) {
-		fcse_notify_flush_all();
-		__cpuc_flush_user_all();
+		unsigned seq;
+
+		do {
+			seq = fcse_flush_all_start(mm);
+			__cpuc_flush_user_all();
+		} while (!fcse_flush_all_done(mm, seq, 1));
 	}
 }
 

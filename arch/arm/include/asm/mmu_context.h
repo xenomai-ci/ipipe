@@ -74,21 +74,22 @@ init_new_context(struct task_struct *tsk, struct mm_struct *mm)
 	int fcse_pid;
 
 #ifdef CONFIG_ARM_FCSE_BEST_EFFORT
-	if (!mm->context.fcse.big) {
-		fcse_pid = fcse_pid_alloc();
+	if (!mm->context.fcse.large) {
+		fcse_pid = fcse_pid_alloc(mm);
 		mm->context.fcse.pid = fcse_pid << FCSE_PID_SHIFT;
 	} else {
 		/* We are normally forking a process vith a virtual address
 		   space larger than 32 MB, so its pid should be 0. */
-		BUG_ON(mm->context.fcse.pid);
+		FCSE_BUG_ON(mm->context.fcse.pid);
 		fcse_pid_reference(0);
 	}
 	/* If we are forking, set_pte_at will restore the correct high pages
 	   count, and shared writable pages are write-protected again. */
 	mm->context.fcse.shared_dirty_pages = 0;
 	mm->context.fcse.high_pages = 0;
+	mm->context.fcse.active = 0;
 #else /* CONFIG_ARM_FCSE_GUARANTEED */
-	fcse_pid = fcse_pid_alloc();
+	fcse_pid = fcse_pid_alloc(mm);
 	if (fcse_pid < 0)
 		return fcse_pid;
 	mm->context.fcse.pid = fcse_pid << FCSE_PID_SHIFT;
@@ -104,8 +105,8 @@ static inline void destroy_context(struct mm_struct *mm)
 {
 #ifdef CONFIG_ARM_FCSE
 #ifdef CONFIG_ARM_FCSE_BEST_EFFORT
-	BUG_ON(mm->context.fcse.shared_dirty_pages);
-	BUG_ON(mm->context.fcse.high_pages);
+	FCSE_BUG_ON(mm->context.fcse.shared_dirty_pages);
+	FCSE_BUG_ON(mm->context.fcse.high_pages);
 #endif /* CONFIG_ARM_FCSE_BEST_EFFORT */
 	fcse_pid_free(mm);
 #endif /* CONFIG_ARM_FCSE */
@@ -162,7 +163,8 @@ __switch_mm(struct mm_struct *prev, struct mm_struct *next,
 				      fcse_switch_mm(prev, next));
 		if (cache_is_vivt())
 			cpu_clear(cpu, prev->cpu_vm_mask);
-	}
+	} else
+		fcse_mark_dirty(next);
 #endif
 }
 
@@ -181,6 +183,16 @@ switch_mm(struct mm_struct *prev, struct mm_struct *next,
 }
 
 #define deactivate_mm(tsk,mm)	do { } while (0)
+
+#ifndef CONFIG_ARM_FCSE_BEST_EFFORT
 #define activate_mm(prev,next)	switch_mm(prev, next, NULL)
+#else
+#define activate_mm(prev,next)						\
+	({								\
+	switch_mm(prev, next, NULL);					\
+	next->context.fcse.active = 1;					\
+	FCSE_BUG_ON(current->mm == next && !fcse_mm_in_cache(next));	\
+	})
+#endif
 
 #endif
