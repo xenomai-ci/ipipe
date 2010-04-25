@@ -138,11 +138,13 @@ do {									\
 	if (!__ipipe_pipeline_head_p(ipd))				\
 		local_irq_enable_hw();					\
 	if (ipd == ipipe_root_domain) {					\
-		if (likely(!ipipe_virtual_irq_p(irq)))	{		\
-			__ipipe_move_root_irq(irq);			\
-			__ipipe_call_root_xirq_handler(irq, ipd->irqs[irq].handler); \
-		} else							\
-			__ipipe_call_root_virq_handler(irq, ipd->irqs[irq].handler, ipd->irqs[irq].cookie); \
+		if (likely(!ipipe_virtual_irq_p(irq)))			\
+			__ipipe_call_root_xirq_handler(irq,		\
+						       ipd->irqs[irq].handler); \
+		else							\
+			__ipipe_call_root_virq_handler(irq,		\
+						       ipd->irqs[irq].handler, \
+						       ipd->irqs[irq].cookie); \
 	} else {							\
 		__clear_bit(IPIPE_SYNC_FLAG, &ipipe_cpudom_var(ipd, status)); \
 		ipd->irqs[irq].handler(irq, ipd->irqs[irq].cookie);	\

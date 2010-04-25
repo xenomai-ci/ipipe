@@ -143,11 +143,10 @@ static inline void __ipipe_call_root_virq_handler(unsigned irq,
 		if (!__ipipe_pipeline_head_p(ipd))			\
 			local_irq_enable_hw();				\
 		if (ipd == ipipe_root_domain) {				\
-			if (likely(!ipipe_virtual_irq_p(irq))) {	\
-				__ipipe_move_root_irq(irq);		\
+			if (likely(!ipipe_virtual_irq_p(irq))) 		\
 				__ipipe_call_root_xirq_handler(		\
 					irq, (ipd)->irqs[irq].handler);	\
-			} else						\
+			else						\
 				__ipipe_call_root_virq_handler(		\
 					irq, (ipd)->irqs[irq].handler,	\
 					(ipd)->irqs[irq].cookie);	\

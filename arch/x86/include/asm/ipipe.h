@@ -135,7 +135,14 @@ int __ipipe_check_tickdev(const char *devname);
 
 #define __ipipe_root_tick_p(regs)	((regs)->flags & X86_EFLAGS_IF)
 
-#ifdef CONFIG_SMP
+#else /* !CONFIG_IPIPE */
+
+#define ipipe_update_tick_evtdev(evtdev)	do { } while (0)
+#define task_hijacked(p)			0
+
+#endif /* CONFIG_IPIPE */
+
+#if defined(CONFIG_SMP) && defined(CONFIG_IPIPE)
 #define __ipipe_move_root_irq(irq)					\
 	do {								\
 		if (irq < NR_IRQS) {					\
@@ -144,15 +151,8 @@ int __ipipe_check_tickdev(const char *devname);
 				chip->move(irq);			\
 		}							\
 	} while (0)
-#else /* !CONFIG_SMP */
+#else /* !(CONFIG_SMP && CONFIG_IPIPE) */
 #define __ipipe_move_root_irq(irq)	do { } while (0)
-#endif /* !CONFIG_SMP */
-
-#else /* !CONFIG_IPIPE */
-
-#define ipipe_update_tick_evtdev(evtdev)	do { } while (0)
-#define task_hijacked(p)			0
-
-#endif /* CONFIG_IPIPE */
+#endif /* !(CONFIG_SMP && CONFIG_IPIPE) */
 
 #endif	/* !__X86_IPIPE_H */

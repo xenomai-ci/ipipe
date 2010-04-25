@@ -231,10 +231,11 @@ unsigned int __irq_entry do_IRQ(struct pt_regs *regs)
 	unsigned vector = ~regs->orig_ax;
 	unsigned irq;
 
+	irq = __get_cpu_var(vector_irq)[vector];
+	__ipipe_move_root_irq(irq);
+
 	exit_idle();
 	irq_enter();
-
-	irq = __get_cpu_var(vector_irq)[vector];
 
 	if (!handle_irq(irq, regs)) {
 		ack_APIC_irq();
