@@ -683,6 +683,8 @@ static inline int ipipe_test_foreign_stack(void)
 #define local_irq_restore_full(vflags, rflags)	do { (void)(vflags); local_irq_restore(rflags); } while(0)
 #define local_irq_restore_nosync(vflags)	local_irq_restore(vflags)
 
+#define __ipipe_pipeline_head_p(ipd)	1
+
 #endif	/* CONFIG_IPIPE */
 
 #endif	/* !__LINUX_IPIPE_H */
