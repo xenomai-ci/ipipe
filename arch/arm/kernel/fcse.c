@@ -21,24 +21,24 @@ EXPORT_SYMBOL(fcse_pids_cache_dirty);
 
 #ifdef CONFIG_ARM_FCSE_BEST_EFFORT
 static unsigned random_pid;
-struct fcse_user fcse_user[NR_PIDS];
+struct fcse_user fcse_pids_user[NR_PIDS];
 #endif /* CONFIG_ARM_FCSE_BEST_EFFORT */
 
-static void fcse_pid_reference_inner(unsigned pid)
+static inline void fcse_pid_reference_inner(unsigned pid)
 {
 #ifdef CONFIG_ARM_FCSE_BEST_EFFORT
-	if (++fcse_user[pid].count == 1)
+	if (++fcse_pids_user[pid].count == 1)
 #endif /* CONFIG_ARM_FCSE_BEST_EFFORT */
 		__set_bit(pid, fcse_pids_bits);
 }
 
-static void fcse_pid_dereference(struct mm_struct *mm)
+static inline void fcse_pid_dereference(struct mm_struct *mm)
 {
 	unsigned fcse_pid = mm->context.fcse.pid >> FCSE_PID_SHIFT;
 
 #ifdef CONFIG_ARM_FCSE_BEST_EFFORT
 	FCSE_BUG_ON(fcse_mm_in_cache(mm));
-	if (--fcse_user[fcse_pid].count == 0)
+	if (--fcse_pids_user[fcse_pid].count == 0)
 		__clear_bit(fcse_pid, fcse_pids_bits);
 
 	/*
@@ -53,8 +53,8 @@ static void fcse_pid_dereference(struct mm_struct *mm)
 	 * fcse_relocate_mm_to_null_pid, we flush the cache in this
 	 * function.
 	 */
-	if (fcse_user[fcse_pid].mm == mm) {
-		fcse_user[fcse_pid].mm = NULL;
+	if (fcse_pids_user[fcse_pid].mm == mm) {
+		fcse_pids_user[fcse_pid].mm = NULL;
 		__clear_bit(fcse_pid, fcse_pids_cache_dirty);
 	}
 #else /* CONFIG_ARM_FCSE_BEST_EFFORT */
@@ -63,7 +63,7 @@ static void fcse_pid_dereference(struct mm_struct *mm)
 #endif /* CONFIG_ARM_FCSE_BEST_EFFORT */
 }
 
-static unsigned find_free_pid(unsigned long bits[])
+static inline unsigned find_free_pid(unsigned long bits[])
 {
 	unsigned fcse_pid;
 
@@ -76,6 +76,15 @@ static unsigned find_free_pid(unsigned long bits[])
 			fcse_pid = 0;
 
 	return fcse_pid;
+}
+
+void fcse_pid_free(struct mm_struct *mm)
+{
+	unsigned long flags;
+
+	spin_lock_irqsave(&fcse_lock, flags);
+	fcse_pid_dereference(mm);
+	spin_unlock_irqrestore(&fcse_lock, flags);
 }
 
 int fcse_pid_alloc(struct mm_struct *mm)
@@ -96,7 +105,7 @@ int fcse_pid_alloc(struct mm_struct *mm)
 #else /* CONFIG_ARM_FCSE_GUARANTEED */
 		spin_unlock_irqrestore(&fcse_lock, flags);
 #ifdef CONFIG_ARM_FCSE_MESSAGES
-		printk(KERN_WARNING "FCSE: system would exceed the %u processes limit.\n",
+		printk(KERN_WARNING "FCSE: system would exceed the %lu processes limit.\n",
 		       NR_PIDS);
 #endif /* CONFIG_ARM_FCSE_MESSAGES */
 		return -EAGAIN;
@@ -107,15 +116,6 @@ int fcse_pid_alloc(struct mm_struct *mm)
 	spin_unlock_irqrestore(&fcse_lock, flags);
 
 	return fcse_pid;
-}
-
-void fcse_pid_free(struct mm_struct *mm)
-{
-	unsigned long flags;
-
-	spin_lock_irqsave(&fcse_lock, flags);
-	fcse_pid_dereference(mm);
-	spin_unlock_irqrestore(&fcse_lock, flags);
 }
 
 static inline void fcse_clear_dirty_all(void)
@@ -186,14 +186,19 @@ static noinline int fcse_relocate_mm_to_pid(struct mm_struct *mm, int fcse_pid)
 	pgd_t *from, *to;
 
 	spin_lock_irqsave(&fcse_lock, flags);
+#if defined(CONFIG_ARM_FCSE_DYNPID)
 	/* pid == -1 means find a free pid. */
 	if (fcse_pid == -1) {
-		fcse_pid = find_free_pid(fcse_pids_cache_dirty);
+		fcse_pid = find_free_pid(fcse_pids_bits);
 		if (fcse_pid == NR_PIDS) {
-			spin_unlock_irqrestore(&fcse_lock, flags);
-			return -ENOENT;
+			fcse_pid = find_free_pid(fcse_pids_cache_dirty);
+			if (unlikely(fcse_pid == NR_PIDS)) {
+				spin_unlock_irqrestore(&fcse_lock, flags);
+				return -ENOENT;
+			}
 		}
 	}
+#endif /* CONFIG_ARM_FCSE_DYNPID */
 	fcse_pid_dereference(mm);
 	fcse_pid_reference_inner(fcse_pid);
 	fcse_pids_user[fcse_pid].mm = mm;
@@ -219,7 +224,7 @@ int fcse_switch_mm_inner(struct mm_struct *prev, struct mm_struct *next)
 	unsigned flush_needed, reused_pid = 0;
 	unsigned long flags;
 
-	if (next == &init_mm) {
+	if (unlikely(next == &init_mm)) {
 		spin_lock_irqsave(&fcse_lock, flags);
 		goto is_flush_needed;
 	}
@@ -229,7 +234,7 @@ int fcse_switch_mm_inner(struct mm_struct *prev, struct mm_struct *next)
 	 * If the next mm's pid is currently in use, and not by that
 	 * mm, try and find a new, free, pid.
 	 */
-	if (fcse_pids_user[fcse_pid].mm != next
+	if (unlikely(fcse_pids_user[fcse_pid].mm != next)
 	    && test_bit(fcse_pid, fcse_pids_cache_dirty)
 	    && !rwsem_is_locked(&next->mmap_sem)
 	    && fcse_pids_user[fcse_pid].mm
@@ -242,10 +247,10 @@ int fcse_switch_mm_inner(struct mm_struct *prev, struct mm_struct *next)
 #endif /* CONFIG_ARM_FCSE_DYNPID */
 
 	spin_lock_irqsave(&fcse_lock, flags);
-	if (fcse_user[fcse_pid].mm != next) {
-		if (fcse_user[fcse_pid].mm)
+	if (fcse_pids_user[fcse_pid].mm != next) {
+		if (fcse_pids_user[fcse_pid].mm)
 			reused_pid = test_bit(fcse_pid, fcse_pids_cache_dirty);
-		fcse_user[fcse_pid].mm = next;
+		fcse_pids_user[fcse_pid].mm = next;
 	}
 
   is_flush_needed:
@@ -302,28 +307,24 @@ static noinline void fcse_relocate_mm_to_null_pid(struct mm_struct *mm)
 #endif /* CONFIG_ARM_FCSE_BEST_EFFORT */
 
 unsigned long
-fcse_check_mmap_addr(struct mm_struct *mm, unsigned long start_addr,
-		     unsigned long addr, unsigned long len, unsigned long flags)
+fcse_check_mmap_inner(struct mm_struct *mm, unsigned long start_addr,
+		      unsigned long addr, unsigned long len, unsigned long fl)
 {
 #ifdef CONFIG_ARM_FCSE_BEST_EFFORT
 	unsigned long stack_reserved =
 		current->signal->rlim[RLIMIT_STACK].rlim_cur;
 	unsigned long stack_base = PAGE_ALIGN(mm->start_stack) - stack_reserved;
 
-	if (addr + len <= stack_base)
-		return addr;
-
 	/* We enfore the RLIMIT_STACK stack size, and here, the return
 	   address would fall in that reserved stack area */
-	if ((unsigned long)(addr + len - stack_base) < stack_reserved
-	    || (unsigned long)(addr - stack_base) < stack_reserved) {
+	if ((unsigned long)(addr + len - stack_base) < stack_reserved) {
 		/* Restart to try and find a hole, once. */
-		if (start_addr != TASK_UNMAPPED_BASE && !(flags & MAP_FIXED)
+		if (start_addr != TASK_UNMAPPED_BASE && !(fl & MAP_FIXED)
 		    && !mm->context.fcse.large)
 			return TASK_UNMAPPED_BASE;
 
 		/* Forcibly restart from above the stack */
-		if (!(flags & MAP_FIXED))
+		if (!(fl & MAP_FIXED))
 			return PAGE_ALIGN(mm->start_stack);
 
 		/* If MAP_FIXED is set, we encroach upon the reserved
@@ -333,38 +334,36 @@ fcse_check_mmap_addr(struct mm_struct *mm, unsigned long start_addr,
 	/* Address above 32MB */
 	if (addr + len > FCSE_TASK_SIZE && !mm->context.fcse.high_pages) {
 		/* Restart to try and find a hole, once. */
-		if (start_addr != TASK_UNMAPPED_BASE && !(flags & MAP_FIXED))
+		if (start_addr != TASK_UNMAPPED_BASE && !(fl & MAP_FIXED))
 			return TASK_UNMAPPED_BASE;
 
-		/* Ok, the process is going to be larger than 32MB */
-#ifdef CONFIG_ARM_FCSE_MESSAGES
-		printk(KERN_INFO "FCSE: process %u(%s) VM exceeds 32MB.\n",
-		       current->pid, current->comm);
+		if (!mm->context.fcse.large) {
+			/* Ok, the process is going to be larger than 32MB */
+#ifdef CONFIG_ARM_FCSE_MSSAGES
+			printk(KERN_INFO "FCSE: process %u(%s) VM exceeds 32MB.\n",
+			       current->pid, current->comm);
 #endif /* CONFIG_ARM_FCSE_MESSAGES */
-
-		if (!mm->context.fcse.large)
 			mm->context.fcse.large = 1;
+		}
 		if (mm->context.fcse.pid)
 			fcse_relocate_mm_to_null_pid(mm);
 	}
 
-#elif defined(CONFIG_ARM_FCSE_GUARANTEED)
-	/* Address above 32MB */
-	if (addr + len > FCSE_TASK_SIZE) {
-		/* Restart to try and find a hole, once. */
-		if (start_addr != TASK_UNMAPPED_BASE && !(flags & MAP_FIXED))
-			return TASK_UNMAPPED_BASE;
-
-		/* Fail, no 32MB processes in guaranteed mode. */
-#ifdef CONFIG_ARM_FCSE_MESSAGES
-		printk(KERN_WARNING "FCSE: process %u(%s) VM would exceed the 32MB limit.\n",
-		       current->pid, current->comm);
-#endif /* CONFIG_ARM_FCSE_MESSAGES */
-		return -ENOMEM;
-	}
-#endif /* CONFIG_ARM_FCSE_GUARANTEED */
-
 	return addr;
+
+#else /* CONFIG_ARM_FCSE_GUARANTEED */
+	/* Address above 32MB */
+	/* Restart to try and find a hole, once. */
+	if (start_addr != TASK_UNMAPPED_BASE && !(fl & MAP_FIXED))
+		return TASK_UNMAPPED_BASE;
+
+	/* Fail, no 32MB processes in guaranteed mode. */
+#ifdef CONFIG_ARM_FCSE_MESSAGES
+	printk(KERN_WARNING "FCSE: process %u(%s) VM would exceed the 32MB limit.\n",
+	       current->pid, current->comm);
+#endif /* CONFIG_ARM_FCSE_MESSAGES */
+	return -ENOMEM;
+#endif /* CONFIG_ARM_FCSE_GUARANTEED */
 }
 
 #ifdef CONFIG_ARM_FCSE_MESSAGES
