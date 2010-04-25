@@ -60,6 +60,8 @@ EXPORT_SYMBOL(profile_pc);
  */
 static irqreturn_t timer_interrupt(int irq, void *dev_id)
 {
+	unsigned long flags;
+
 	/* Keep nmi watchdog up to date */
 	inc_irq_stat(irq0_irqs);
 
@@ -70,11 +72,11 @@ static irqreturn_t timer_interrupt(int irq, void *dev_id)
 		 * manually to deassert NMI lines for the watchdog if run
 		 * on an 82489DX-based system.
 		 */
-		raw_spin_lock(&i8259A_lock);
+		raw_spin_lock_irqsave(&i8259A_lock, flags);
 		outb(0x0c, PIC_MASTER_OCW3);
 		/* Ack the IRQ; AEOI will end it automatically. */
 		inb(PIC_MASTER_POLL);
-		raw_spin_unlock(&i8259A_lock);
+		raw_spin_unlock_irqrestore(&i8259A_lock, flags);
 	}
 
 	global_clock_event->event_handler(global_clock_event);
