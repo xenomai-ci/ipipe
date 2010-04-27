@@ -45,4 +45,8 @@ extern void mxc91231_power_off(void);
 extern void mxc91231_arch_reset(int, const char *);
 extern void mxc91231_prepare_idle(void);
 
+#ifdef CONFIG_IPIPE
+void ipipe_mach_allow_hwtimer_uaccess(unsigned long aips1, unsigned long aips2);
+#endif
+
 #endif
