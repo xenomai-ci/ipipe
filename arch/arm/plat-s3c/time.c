@@ -254,11 +254,6 @@ static void s3c2410_timer_setup (void)
 		clk_set_parent(tin, tdiv);
 
 		tcnt = clk_get_rate(tin) / HZ;
-
-		tcfg1 = __raw_readl(S3C2410_TCFG1);
-		tcfg1 &= ~(S3C2410_TCFG1_MUX4_MASK | S3C2410_TCFG1_MUX3_MASK);
-		tcfg1 |= (S3C2410_TCFG1_MUX4_TCLK1 | S3C2410_TCFG1_MUX3_TCLK1);
-		__raw_writel(tcfg1, S3C2410_TCFG1);
 	}
 
 	tcon = __raw_readl(S3C2410_TCON);
