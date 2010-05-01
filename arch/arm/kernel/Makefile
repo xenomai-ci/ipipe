@@ -20,7 +20,7 @@ obj-y		:= compat.o elf.o entry-armv.o entry-common.o irq.o \
 obj-$(CONFIG_OC_ETM)		+= etm.o
 
 obj-$(CONFIG_ISA_DMA_API)	+= dma.o
-obj-$(CONFIG_ARCH_ACORN)	+= ecard.o 
+obj-$(CONFIG_ARCH_ACORN)	+= ecard.o
 obj-$(CONFIG_FIQ)		+= fiq.o
 obj-$(CONFIG_MODULES)		+= armksyms.o module.o
 obj-$(CONFIG_ARTHUR)		+= arthur.o
@@ -55,5 +55,6 @@ endif
 head-y			:= head$(MMUEXT).o
 obj-$(CONFIG_DEBUG_LL)	+= debug.o
 obj-$(CONFIG_EARLY_PRINTK)	+= early_printk.o
+obj-$(CONFIG_ARM_FCSE)	+= fcse.o
 
 extra-y := $(head-y) init_task.o vmlinux.lds
