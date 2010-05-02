@@ -171,6 +171,10 @@ __switch_mm(struct mm_struct *prev, struct mm_struct *next,
 #endif /* CONFIG_IPIPE */
 			cpu_switch_mm(next->pgd, next,
 				      fcse_switch_mm(prev, next));
+#if defined(CONFIG_IPIPE) && defined(CONFIG_ARM_FCSE)
+		if (tsk)
+			set_tsk_thread_flag(tsk, TIF_SWITCHED);
+#endif /* CONFIG_IPIPE && CONFIG_ARM_FCSE */
 		if (cache_is_vivt() && prev)
 			cpumask_clear_cpu(cpu, mm_cpumask(prev));
 	} else

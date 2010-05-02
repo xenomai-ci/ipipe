@@ -144,7 +144,10 @@ extern void vfp_sync_state(struct thread_info *thread);
 #define TIF_FREEZE		19
 #define TIF_RESTORE_SIGMASK	20
 #ifdef CONFIG_IPIPE
-#define TIF_MMSWITCH_INT        21
+#define TIF_MMSWITCH_INT	21
+#ifdef CONFIG_ARM_FCSE
+#define TIF_SWITCHED		22
+#endif /* CONFIG_ARM_FCSE */
 #endif /* CONFIG_IPIPE */
 
 #define _TIF_SIGPENDING		(1 << TIF_SIGPENDING)
@@ -156,7 +159,10 @@ extern void vfp_sync_state(struct thread_info *thread);
 #define _TIF_FREEZE		(1 << TIF_FREEZE)
 #define _TIF_RESTORE_SIGMASK	(1 << TIF_RESTORE_SIGMASK)
 #ifdef CONFIG_IPIPE
-#define _TIF_MMSWITCH_INT       (1 << TIF_MMSWITCH_INT)
+#define _TIF_MMSWITCH_INT	(1 << TIF_MMSWITCH_INT)
+#ifdef CONFIG_ARM_FCSE
+#define _TIF_SWITCHED		(1 << TIF_SWITCHED)
+#endif /* CONFIG_ARM_FCSE */
 #endif /* CONFIG_IPIPE */
 
 /*

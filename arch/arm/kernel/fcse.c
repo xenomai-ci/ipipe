@@ -37,7 +37,10 @@ static inline void fcse_pid_dereference(struct mm_struct *mm)
 	unsigned fcse_pid = mm->context.fcse.pid >> FCSE_PID_SHIFT;
 
 #ifdef CONFIG_ARM_FCSE_BEST_EFFORT
+#ifndef CONFIG_IPIPE
+	/* FIXME: Why ? */
 	FCSE_BUG_ON(fcse_mm_in_cache(mm));
+#endif /* CONFIG_IPIPE */
 	if (--fcse_pids_user[fcse_pid].count == 0)
 		__clear_bit(fcse_pid, fcse_pids_bits);
 
@@ -112,7 +115,9 @@ int fcse_pid_alloc(struct mm_struct *mm)
 #endif /* CONFIG_ARM_FCSE_GUARANTEED */
 	}
 	fcse_pid_reference_inner(fcse_pid);
+#ifdef CONFIG_ARM_FCSE_BEST_EFFORT
 	FCSE_BUG_ON(fcse_mm_in_cache(mm));
+#endif /* CONFIG_ARM_FCSE_BEST_EFFORT */
 	spin_unlock_irqrestore(&fcse_lock, flags);
 
 	return fcse_pid;
@@ -137,44 +142,58 @@ unsigned fcse_flush_all_start(struct mm_struct *mm)
 	if (!cache_is_vivt())
 		return 0;
 
-#ifdef CONFIG_ARM_FCSE_PREEMPT_FLUSH
-	return nr_context_switches();
-#else
+#ifndef CONFIG_ARM_FCSE_PREEMPT_FLUSH
 	preempt_disable();
+#endif /* CONFIG_ARM_FCSE_PREEMPT_FLUSH */
+
+#if defined(CONFIG_IPIPE)
+	clear_ti_thread_flag(current_thread_info(), TIF_SWITCHED);
+#elif defined(CONFIG_ARM_FCSE_PREEMPT_FLUSH)
+	return nr_context_switches();
+#endif /* CONFIG_ARM_FCSE_PREEMPT_FLUSH */
+
 	return 0;
-#endif
 }
 
 noinline int
 fcse_flush_all_done(struct mm_struct *mm, unsigned seq, unsigned dirty)
 {
 	unsigned long flags;
+	int done = 1;
 
 	if (!cache_is_vivt())
 		return 1;
 
 	spin_lock_irqsave(&fcse_lock, flags);
-#ifdef CONFIG_ARM_FCSE_PREEMPT_FLUSH
+#if defined(CONFIG_IPIPE)
+	if (test_ti_thread_flag(current_thread_info(), TIF_SWITCHED)) {
+		if (fcse_mm_in_cache(mm)) {
+			done = 0;
+			goto ret;
+		}
+	} else
+#elif defined(CONFIG_ARM_FCSE_PREEMPT_FLUSH)
 	if (seq != nr_context_switches()) {
 		if (fcse_mm_in_cache(mm)) {
-			spin_unlock_irqrestore(&fcse_lock, flags);
-
-			return 0;
+			done = 0;
+			goto ret;
 		}
 	} else
 #endif /* CONFIG_ARM_FCSE_PREEMPT_FLUSH */
-		fcse_clear_dirty_all();
+			fcse_clear_dirty_all();
 
 	if (dirty && current->mm != &init_mm && current->mm) {
 		unsigned fcse_pid =
 			current->mm->context.fcse.pid >> FCSE_PID_SHIFT;
 		__set_bit(fcse_pid, fcse_pids_cache_dirty);
 	}
+
+  ret:
 	spin_unlock_irqrestore(&fcse_lock, flags);
 #ifndef CONFIG_ARM_FCSE_PREEMPT_FLUSH
 	preempt_enable();
 #endif /* CONFIG_ARM_FCSE_PREEMPT_FLUSH */
-	return 1;
+	return done;
 }
 
 #ifdef CONFIG_ARM_FCSE_BEST_EFFORT
@@ -217,7 +236,6 @@ static noinline int fcse_relocate_mm_to_pid(struct mm_struct *mm, int fcse_pid)
 
 	return fcse_pid;
 }
-EXPORT_SYMBOL_GPL(fcse_needs_flush);
 
 int fcse_switch_mm_inner(struct mm_struct *prev, struct mm_struct *next)
 {
@@ -270,6 +288,7 @@ int fcse_switch_mm_inner(struct mm_struct *prev, struct mm_struct *next)
 
 	return flush_needed;
 }
+EXPORT_SYMBOL_GPL(fcse_switch_mm_inner);
 
 void fcse_pid_reference(unsigned fcse_pid)
 {
