@@ -816,7 +816,7 @@ endchoice
 
 config ARM_FCSE_DYNPID
 	bool "Dynamic FCSE pid allocation"
-	depends on ARM_FCSE_BEST_EFFORT
+	depends on ARM_FCSE_BEST_EFFORT && !IPIPE
 	help
 	  When this option is enabled, the kernel may decide to change the FCSE
 	  pid of a process when switching context. This helps reducing the
@@ -847,7 +847,7 @@ config ARM_FCSE_DEBUG
        bool "FCSE debug"
        select ARM_FCSE_MESSAGES
        help
-          This option enables some internal debug checks. It has a high
+	  This option enables some internal debug checks. It has a high
       	  overhead, and is only useful for debugging the FCSE code.
 
 endif

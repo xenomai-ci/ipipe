@@ -147,22 +147,30 @@ __switch_mm(struct mm_struct *prev, struct mm_struct *next,
 	if (!cpu_test_and_set(cpu, next->cpu_vm_mask) || prev != next) {
 		check_context(next);
 #if defined(CONFIG_IPIPE)
-		if (ipipe_root_domain_p)
-			do {
-				/* mark mm state as undefined. */
+		if (ipipe_root_domain_p) {
+			/* mark mm state as undefined. */
+			per_cpu(ipipe_active_mm, cpu) = NULL;
+			barrier();
+			cpu_switch_mm(next->pgd, next,
+				      fcse_switch_mm(prev, next));
+			barrier();
+			per_cpu(ipipe_active_mm, cpu) = next;
+			while (test_and_clear_thread_flag(TIF_MMSWITCH_INT)) {
 				per_cpu(ipipe_active_mm, cpu) = NULL;
 				barrier();
 				cpu_switch_mm(next->pgd, next,
-					      fcse_switch_mm(prev, next));
+					      fcse_switch_mm(NULL, next));
 				barrier();
 				per_cpu(ipipe_active_mm, cpu) = next;
-			} while (test_and_clear_thread_flag(TIF_MMSWITCH_INT));
-		else
+			}
+		} else
 #endif /* CONFIG_IPIPE */
 			cpu_switch_mm(next->pgd, next,
 				      fcse_switch_mm(prev, next));
-		if (cache_is_vivt())
-			cpu_clear(cpu, prev->cpu_vm_mask);
+#if defined(CONFIG_IPIPE) && defined(CONFIG_ARM_FCSE)
+		if (tsk)
+			set_tsk_thread_flag(tsk, TIF_SWITCHED);
+#endif /* CONFIG_IPIPE && CONFIG_ARM_FCSE */
 	} else
 		fcse_mark_dirty(next);
 #endif
