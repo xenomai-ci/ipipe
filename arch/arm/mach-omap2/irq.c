@@ -148,6 +148,7 @@ static struct irq_chip omap_irq_chip = {
 	.name	= "INTC",
 	.ack	= omap_mask_ack_irq,
 	.mask	= omap_mask_irq,
+	.mask_ack = omap_mask_ack_irq,
 	.unmask	= omap_unmask_irq,
 };
 
@@ -167,8 +168,14 @@ static void __init omap_irq_bank_init_one(struct omap_irq_bank *bank)
 	while (!(intc_bank_read_reg(bank, INTC_SYSSTATUS) & 0x1))
 		/* Wait for reset to complete */;
 
+#ifndef CONFIG_IPIPE
 	/* Enable autoidle */
 	intc_bank_write_reg(1 << 0, bank, INTC_SYSCONFIG);
+#else /* !CONFIG_IPIPE */
+	/* Disable autoidle */
+	intc_bank_write_reg(0, bank, INTC_SYSCONFIG);
+	intc_bank_write_reg(0x2, bank, INTC_IDLE);
+#endif /* CONFIG_IPIPE */
 }
 
 int omap_irq_pending(void)
