@@ -518,6 +518,7 @@ asmlinkage int __ipipe_grab_irq(int irq, struct pt_regs *regs)
 }
 
 EXPORT_SYMBOL_GPL(show_stack);
+EXPORT_SYMBOL_GPL(init_mm);
 #ifndef MULTI_CPU
 EXPORT_SYMBOL_GPL(cpu_do_switch_mm);
 #endif
