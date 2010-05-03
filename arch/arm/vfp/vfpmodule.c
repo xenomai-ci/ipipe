@@ -172,9 +172,7 @@ void vfp_raise_sigfpe(unsigned int sicode, struct pt_regs *regs)
 	current->thread.error_code = 0;
 	current->thread.trap_no = 6;
 
-	local_irq_enable_hw_cond();
 	send_sig_info(SIGFPE, &info, current);
-	local_irq_disable_hw_cond();
 }
 
 static void vfp_panic(char *reason, u32 inst)
@@ -304,6 +302,7 @@ void VFP_bounce(u32 trigger, u32 fpexc, struct pt_regs *regs)
 		/*
 		 * Synchronous exception, emulate the trigger instruction
 		 */
+		local_irq_enable_hw_cond();
 		goto emulate;
 	}
 
@@ -316,7 +315,18 @@ void VFP_bounce(u32 trigger, u32 fpexc, struct pt_regs *regs)
 		trigger = fmrx(FPINST);
 		regs->ARM_pc -= 4;
 #endif
-	} else if (!(fpexc & FPEXC_DEX)) {
+		if (fpexc & FPEXC_FP2V) {
+			/*
+			 * The barrier() here prevents fpinst2 being read
+			 * before the condition above.
+			 */
+			barrier();
+			next_trigger = fmrx(FPINST2);
+		}
+	}
+	local_irq_enable_hw_cond();
+
+	if (!(fpexc & (FPEXC_EX | FPEXC_DEX))) {
 		/*
 		 * Illegal combination of bits. It can be caused by an
 		 * unallocated VFP instruction but with FPSCR.IXE set and not
@@ -338,15 +348,6 @@ void VFP_bounce(u32 trigger, u32 fpexc, struct pt_regs *regs)
 
 		fpscr &= ~FPSCR_LENGTH_MASK;
 		fpscr |= (len & FPEXC_LENGTH_MASK) << (FPSCR_LENGTH_BIT - FPEXC_LENGTH_BIT);
-	}
-
-	if (!(fpexc ^ (FPEXC_EX | FPEXC_FP2V))) {
-		/*
-		 * The barrier() here prevents fpinst2 being read
-		 * before the condition above.
-		 */
-		barrier();
-		next_trigger = fmrx(FPINST2);
 	}
 
 	/*
