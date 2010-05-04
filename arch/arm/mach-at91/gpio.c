@@ -555,7 +555,6 @@ void __init at91_gpio_irq_setup(void)
 	struct at91_gpio_chip	*this, *prev;
 
 #if defined(CONFIG_IPIPE) && defined(__IPIPE_FEATURE_PIC_MUTE)
-	printk("Setting irqbits to all ones.\n");
 	memset(__ipipe_irqbits, ~0, sizeof(__ipipe_irqbits));
 #endif /* CONFIG_IPIPE && __IPIPE_FEATURE_PIC_MUTE */
 
