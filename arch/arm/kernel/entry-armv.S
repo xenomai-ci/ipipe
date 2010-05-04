@@ -101,7 +101,7 @@
 	moveq   r0, r2
 #endif
 	.endm
-	
+
 __pabt_invalid:
 	inv_entry BAD_PREFETCH
 	b	common_invalid
@@ -292,15 +292,6 @@ svc_preempt:
 	tst	r0, #_TIF_NEED_RESCHED
 	moveq	pc, r8				@ go again
 	b	1b
-#ifdef CONFIG_IPIPE
-#if __GNUC__ >= 4
-.LCipipe_root_status:
-	.word	__ipipe_root_status
-#else /* gcc < 4 */
-.LCipipe_root_status_addr:
-	.word	__ipipe_root_status_addr
-#endif /* gcc < 4 */
-#endif /* CONFIG_IPIPE */
 #endif /* CONFIG_PREEMPT */
 
 	.align	5
@@ -947,7 +938,7 @@ __kuser_helper_start:
  *
  * #define __kernel_dmb() \
  *         asm volatile ( "mov r0, #0xffff0fff; mov lr, pc; sub pc, r0, #95" \
- *	        : : : "r0", "lr","cc" )
+ *		: : : "r0", "lr","cc" )
  */
 
 __kuser_memory_barrier:				@ 0xffff0fa0
@@ -1117,7 +1108,7 @@ kuser_cmpxchg_fixup:
  * #define __kernel_get_tls() \
  *	({ register unsigned int __val asm("r0"); \
  *         asm( "mov r0, #0xffff0fff; mov lr, pc; sub pc, r0, #31" \
- *	        : "=r" (__val) : : "lr","cc" ); \
+ *		: "=r" (__val) : : "lr","cc" ); \
  *	   __val; })
  */
 
