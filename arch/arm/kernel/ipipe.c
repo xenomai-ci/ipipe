@@ -49,8 +49,8 @@ DEFINE_PER_CPU(struct pt_regs, __ipipe_tick_regs);
 DEFINE_PER_CPU(struct mm_struct *,ipipe_active_mm);
 EXPORT_PER_CPU_SYMBOL(ipipe_active_mm);
 #ifdef __IPIPE_FEATURE_PIC_MUTE
-__ipipe_irqbits_t __ipipe_irqbits;
-IPIPE_DEFINE_SPINLOCK(__ipipe_irqbits_lock);
+__ipipe_root_irqmap_t __ipipe_root_irqmap;
+IPIPE_DEFINE_SPINLOCK(__ipipe_root_irqmap_lock);
 #endif /* __IPIPE_FEATURE_PIC_MUTE */
 
 extern struct irq_desc irq_desc[];
@@ -126,7 +126,7 @@ int ipipe_get_sysinfo(struct ipipe_sysinfo *info)
 	info->cpufreq = ipipe_cpu_freq();
 	info->archdep.tmirq = __ipipe_mach_timerint;
 	info->archdep.tmfreq = info->cpufreq;
-        __ipipe_mach_get_tscinfo(&info->archdep.tsc);
+	__ipipe_mach_get_tscinfo(&info->archdep.tsc);
 
 	return 0;
 }
@@ -150,10 +150,11 @@ void __ipipe_enable_irqdesc(struct ipipe_domain *ipd, unsigned irq)
 #ifdef __IPIPE_FEATURE_PIC_MUTE
 	if (ipd == &ipipe_root)
 		return;
-	
-	spin_lock_irqsave(&__ipipe_irqbits_lock, flags);
-	__ipipe_irqbits[irq / BITS_PER_LONG] &= ~(1 << (irq % BITS_PER_LONG));
-	spin_unlock_irqrestore(&__ipipe_irqbits_lock, flags);
+
+	spin_lock_irqsave(&__ipipe_root_irqmap_lock, flags);
+	__ipipe_root_irqmap
+		[irq / BITS_PER_LONG] &= ~(1 << (irq % BITS_PER_LONG));
+	spin_unlock_irqrestore(&__ipipe_root_irqmap_lock, flags);
 #else
 	(void) flags;
 #endif /* __IPIPE_FEATURE_PIC_MUTE */
@@ -167,10 +168,10 @@ void __ipipe_disable_irqdesc(struct ipipe_domain *ipd, unsigned irq)
 
 	if (ipd == &ipipe_root)
 		return;
-	
-	spin_lock_irqsave(&__ipipe_irqbits_lock, flags);
-	__ipipe_irqbits[irq / BITS_PER_LONG] |= 1 << (irq % BITS_PER_LONG);
-	spin_unlock_irqrestore(&__ipipe_irqbits_lock, flags);
+
+	spin_lock_irqsave(&__ipipe_root_irqmap_lock, flags);
+	__ipipe_root_irqmap[irq / BITS_PER_LONG] |= 1 << (irq % BITS_PER_LONG);
+	spin_unlock_irqrestore(&__ipipe_root_irqmap_lock, flags);
 }
 EXPORT_SYMBOL(__ipipe_disable_irqdesc);
 EXPORT_SYMBOL(ipipe_mute_pic);
@@ -317,21 +318,21 @@ asmlinkage int __ipipe_check_root(void)
 
 asmlinkage int __ipipe_check_root_interruptible(void)
 {
-        return ipipe_root_domain_p && !__ipipe_test_root();
+	return ipipe_root_domain_p && !__ipipe_test_root();
 }
 
-__kprobes int 
+__kprobes int
 __ipipe_switch_to_notifier_call_chain(struct atomic_notifier_head *nh,
 				      unsigned long val, void *v)
 {
-        unsigned long flags;
-        int rc;
+	unsigned long flags;
+	int rc;
 
-        local_irq_save(flags);
-        rc = atomic_notifier_call_chain(nh, val, v);
-        __local_irq_restore_nosync(flags);
+	local_irq_save(flags);
+	rc = atomic_notifier_call_chain(nh, val, v);
+	__local_irq_restore_nosync(flags);
 
-        return rc;
+	return rc;
 }
 
 asmlinkage int __ipipe_syscall_root(unsigned long scno, struct pt_regs *regs)
@@ -395,16 +396,16 @@ int __ipipe_handle_irq(int irq, struct pt_regs *regs)
 
 	if (test_bit(IPIPE_STICKY_FLAG, &this_domain->irqs[irq].control))
 		head = &this_domain->p_link;
-        else {
-                head = __ipipe_pipeline.next;
-                next_domain = list_entry(head, struct ipipe_domain, p_link);
-                if (likely(test_bit(IPIPE_WIRED_FLAG, &next_domain->irqs[irq].control))) {
-                        if (!m_ack && next_domain->irqs[irq].acknowledge != NULL)
-                                next_domain->irqs[irq].acknowledge(irq, irq_desc + irq);
-                        __ipipe_dispatch_wired(next_domain, irq);
-                        goto finalize_nosync;
-                }
-        }
+	else {
+		head = __ipipe_pipeline.next;
+		next_domain = list_entry(head, struct ipipe_domain, p_link);
+		if (likely(test_bit(IPIPE_WIRED_FLAG, &next_domain->irqs[irq].control))) {
+			if (!m_ack && next_domain->irqs[irq].acknowledge != NULL)
+				next_domain->irqs[irq].acknowledge(irq, irq_desc + irq);
+			__ipipe_dispatch_wired(next_domain, irq);
+			goto finalize_nosync;
+		}
+	}
 
 	/* Ack the interrupt. */
 
@@ -428,9 +429,9 @@ int __ipipe_handle_irq(int irq, struct pt_regs *regs)
 			__ipipe_set_irq_pending(next_domain, irq);
 
 			if (!m_ack && next_domain->irqs[irq].acknowledge) {
-                                next_domain->irqs[irq].acknowledge(irq, irq_desc + irq);
-                                m_ack = 1;
-                        }
+				next_domain->irqs[irq].acknowledge(irq, irq_desc + irq);
+				m_ack = 1;
+			}
 		}
 
 		/*
@@ -464,8 +465,8 @@ int __ipipe_handle_irq(int irq, struct pt_regs *regs)
 	__ipipe_walk_pipeline(head);
 
 finalize_nosync:
-        if (!ipipe_root_domain_p || __ipipe_test_root())
-                return 0;
+	if (!ipipe_root_domain_p || __ipipe_test_root())
+		return 0;
 
 #ifdef CONFIG_SMP
 	/*
@@ -473,34 +474,34 @@ finalize_nosync:
 	 * preemptible kernels along the way out through
 	 * ret_from_intr.
 	 */
-        if (!regs)
-                __set_bit(IPIPE_STALL_FLAG, &ipipe_root_cpudom_var(status));
+	if (!regs)
+		__set_bit(IPIPE_STALL_FLAG, &ipipe_root_cpudom_var(status));
 #endif	/* CONFIG_SMP */
 
-        return 1;
+	return 1;
 }
 
 asmlinkage int __ipipe_grab_irq(int irq, struct pt_regs *regs)
 {
-        int status;
+	int status;
 
 #ifdef irq_finish
 	/* AT91 specific workaround */
-        irq_finish(irq);
+	irq_finish(irq);
 #endif /* irq_finish */
 
 	if (irq == __ipipe_mach_timerint) {
-                /*
+		/*
 		 * Given our deferred dispatching model for regular IRQs, we
-                 * only record CPU regs for the last timer interrupt, so that
-                 * the timer handler charges CPU times properly. It is assumed
-                 * that other interrupt handlers don't actually care for such
-                 * information.
+		 * only record CPU regs for the last timer interrupt, so that
+		 * the timer handler charges CPU times properly. It is assumed
+		 * that other interrupt handlers don't actually care for such
+		 * information.
 		 */
 		__raw_get_cpu_var(__ipipe_tick_regs).ARM_cpsr =
-                        (ipipe_root_domain_p
-                         ? regs->ARM_cpsr
-                         : regs->ARM_cpsr | PSR_I_BIT);
+			(ipipe_root_domain_p
+			 ? regs->ARM_cpsr
+			 : regs->ARM_cpsr | PSR_I_BIT);
 		__raw_get_cpu_var(__ipipe_tick_regs).ARM_pc = regs->ARM_pc;
 	}
 
@@ -514,7 +515,7 @@ asmlinkage int __ipipe_grab_irq(int irq, struct pt_regs *regs)
 	ipipe_trace_end(regs->ARM_ORIG_r0);
 #endif
 
-        return status;
+	return status;
 }
 
 EXPORT_SYMBOL_GPL(show_stack);

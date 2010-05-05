@@ -189,8 +189,8 @@ void __ipipe_enable_irqdesc(struct ipipe_domain *ipd, unsigned irq);
 #else /* __IPIPE_FEATURE_PIC_MUTE */
 
 typedef unsigned long
-__ipipe_irqbits_t[(NR_IRQS + BITS_PER_LONG - 1) / BITS_PER_LONG];
-extern __ipipe_irqbits_t __ipipe_irqbits;
+__ipipe_root_irqmap_t[(NR_IRQS + BITS_PER_LONG - 1) / BITS_PER_LONG];
+extern __ipipe_root_irqmap_t __ipipe_root_irqmap;
 
 void __ipipe_disable_irqdesc(struct ipipe_domain *ipd, unsigned irq);
 

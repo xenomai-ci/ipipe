@@ -29,7 +29,7 @@
 #include <asm/irq.h>
 
 #ifdef __IPIPE_FEATURE_PIC_MUTE
-DEFINE_PER_CPU(__ipipe_irqbits_t, __ipipe_muted_irqs);
+DEFINE_PER_CPU(__ipipe_root_irqmap_t, __ipipe_muted_irqs);
 #endif /* __IPIPE_FEATURE_PIC_MUTE */
 #endif /* CONFIG_IPIPE */
 
@@ -454,13 +454,13 @@ void ipipe_mute_pic(void)
 
 	for (i = 0; i < gpio_banks; i++) {
 		unmasked = __raw_readl(gpio_chip[i].regbase + PIO_IMR);
-		muted = unmasked & __ipipe_irqbits[i + 1];
+		muted = unmasked & __ipipe_root_irqmap[i + 1];
 		__raw_get_cpu_var(__ipipe_muted_irqs)[i + 1] = muted;
 		__raw_writel(muted, gpio_chip[i].regbase + PIO_IDR);
 	}
 
 	unmasked = at91_sys_read(AT91_AIC_IMR);
-	muted = unmasked & __ipipe_irqbits[0];
+	muted = unmasked & __ipipe_root_irqmap[0];
 	__raw_get_cpu_var(__ipipe_muted_irqs)[0] = muted;
 	at91_sys_write(AT91_AIC_IDCR, muted);
 }
@@ -555,7 +555,7 @@ void __init at91_gpio_irq_setup(void)
 	struct at91_gpio_chip	*this, *prev;
 
 #if defined(CONFIG_IPIPE) && defined(__IPIPE_FEATURE_PIC_MUTE)
-	memset(__ipipe_irqbits, ~0, sizeof(__ipipe_irqbits));
+	memset(__ipipe_root_irqmap, ~0, sizeof(__ipipe_root_irqmap));
 #endif /* CONFIG_IPIPE && __IPIPE_FEATURE_PIC_MUTE */
 
 	for (pioc = 0, pin = PIN_BASE, this = gpio_chip, prev = NULL;
@@ -588,7 +588,7 @@ void __init at91_gpio_irq_setup(void)
 		set_irq_chip_data(id, this);
 		set_irq_chained_handler(id, gpio_irq_handler);
 #if defined(CONFIG_IPIPE) && defined(__IPIPE_FEATURE_PIC_MUTE)
-		__ipipe_irqbits[0] &= ~(1 << id);
+		__ipipe_root_irqmap[0] &= ~(1 << id);
 #endif /* CONFIG_IPIPE && __IPIPE_FEATURE_PIC_MUTE */
 	}
 	pr_info("AT91: %d gpio irqs in %d banks\n", pin - PIN_BASE, gpio_banks);
