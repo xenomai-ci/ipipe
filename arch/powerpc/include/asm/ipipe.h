@@ -69,6 +69,22 @@
 		!__x__;							\
 	})
 
+DECLARE_PER_CPU(struct mm_struct *, ipipe_active_mm);
+
+#define ipipe_mm_switch_protect(flags)					\
+	do {								\
+		preempt_disable();					\
+		per_cpu(ipipe_active_mm, smp_processor_id()) = NULL;	\
+		barrier();						\
+		(void)(flags);						\
+	} while(0)
+
+#define ipipe_mm_switch_unprotect(flags)				\
+	do {								\
+		preempt_enable();					\
+		(void)(flags);						\
+	} while(0)
+
 #else /* !CONFIG_IPIPE_WANT_PREEMPTIBLE_SWITCH */
 
 #define prepare_arch_switch(next)			\
@@ -84,6 +100,9 @@
 		if (__x__) local_irq_enable_hw(); !__x__;		\
 	})
 
+#define ipipe_mm_switch_protect(flags)		local_irq_save_hw_cond(flags)
+#define ipipe_mm_switch_unprotect(flags)	local_irq_restore_hw_cond(flags)
+
 #endif /* !CONFIG_IPIPE_WANT_PREEMPTIBLE_SWITCH */
 
 struct ipipe_domain;
@@ -98,26 +117,6 @@ struct ipipe_sysinfo {
 
 #ifdef CONFIG_DEBUGGER
 extern cpumask_t __ipipe_dbrk_pending;
-#endif
-
-#ifdef CONFIG_IPIPE_WANT_PREEMPTIBLE_SWITCH
-struct mm;
-DECLARE_PER_CPU(struct mm_struct *, ipipe_active_mm);
-#define ipipe_mm_switch_protect(flags)					\
-	do {								\
-		preempt_disable();					\
-		per_cpu(ipipe_active_mm, smp_processor_id()) = NULL;	\
-		barrier();						\
-		(void)(flags);						\
-	} while(0)
-#define ipipe_mm_switch_unprotect(flags)				\
-	do {								\
-		preempt_enable();					\
-		(void)(flags);						\
-	} while(0)
-#else
-#define ipipe_mm_switch_protect(flags)		local_irq_save_hw_cond(flags)
-#define ipipe_mm_switch_unprotect(flags)	local_irq_restore_hw_cond(flags)
 #endif
 
 #define __ipipe_hrtimer_irq	IPIPE_TIMER_VIRQ
