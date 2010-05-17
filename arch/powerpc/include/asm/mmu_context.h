@@ -30,14 +30,31 @@ static inline void mmu_context_init(void) { }
 extern void mmu_context_init(void);
 #endif
 
+static inline void __do_switch_mm(struct mm_struct *prev, struct mm_struct *next,
+				  struct task_struct *tsk)
+{
+#ifdef CONFIG_PPC_STD_MMU_64
+	if (cpu_has_feature(CPU_FTR_SLB))
+		switch_slb(tsk, next);
+	else
+		switch_stab(tsk, next);
+#else
+	/* Out of line for now */
+	switch_mmu_context(prev, next);
+#endif
+}
+
 /*
  * switch_mm is the entry point called from the architecture independent
- * code in kernel/sched.c
+ * code in kernel/sched.c.
+ *
+ * I-pipe: when the pipeline support is enabled, this code is ironed
+ * so that it may be called from non-root domains as well.
  */
 static inline void __switch_mm(struct mm_struct *prev, struct mm_struct *next,
 			       struct task_struct *tsk)
 {
-	int cpu = smp_processor_id();
+	int cpu = ipipe_processor_id();
 
 #if defined(CONFIG_IPIPE_DEBUG_INTERNAL) && \
 	!defined(CONFIG_IPIPE_WANT_PREEMPTIBLE_SWITCH)
@@ -71,37 +88,19 @@ static inline void __switch_mm(struct mm_struct *prev, struct mm_struct *next,
 	 * sub architectures.
 	 */
 #ifdef CONFIG_IPIPE_WANT_PREEMPTIBLE_SWITCH
-#ifdef CONFIG_PPC_STD_MMU_64
-	do {
-		per_cpu(ipipe_active_mm, cpu) = NULL; /* mm state is undefined. */
-		barrier();
-		if (cpu_has_feature(CPU_FTR_SLB))
-			switch_slb(tsk, next);
-		else
-			switch_stab(tsk, next);
-		barrier();
-		per_cpu(ipipe_active_mm, cpu) = next;
-	} while (test_and_clear_thread_flag(TIF_MMSWITCH_INT));
-#else
-	do {
-		per_cpu(ipipe_active_mm, cpu) = NULL; /* mm state is undefined. */
-		barrier();
-		switch_mmu_context(prev, next);
-		barrier();
-		per_cpu(ipipe_active_mm, cpu) = next;
-	} while (test_and_clear_thread_flag(TIF_MMSWITCH_INT));
-#endif
-#else /* !CONFIG_IPIPE_WANT_PREEMPTIBLE_SWITCH */
-#ifdef CONFIG_PPC_STD_MMU_64
-	if (cpu_has_feature(CPU_FTR_SLB))
-		switch_slb(tsk, next);
-	else
-		switch_stab(tsk, next);
-#else
-	/* Out of line for now */
-	switch_mmu_context(prev, next);
-#endif
-#endif /* !CONFIG_IPIPE_WANT_PREEMPTIBLE_SWITCH */
+	if (ipipe_root_domain_p) {
+		do {
+			/* mm state is undefined. */
+			per_cpu(ipipe_active_mm, cpu) = NULL;
+			barrier();
+			__do_switch_mm(prev, next, tsk);
+			barrier();
+			per_cpu(ipipe_active_mm, cpu) = next;
+		} while (test_and_clear_thread_flag(TIF_MMSWITCH_INT));
+		return;
+	} /* Falldown wanted for non-root context. */
+#endif /* CONFIG_IPIPE_WANT_PREEMPTIBLE_SWITCH */
+	__do_switch_mm(prev, next, tsk);
 }
 
 static inline void switch_mm(struct mm_struct *prev, struct mm_struct *next,
