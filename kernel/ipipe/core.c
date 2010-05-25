@@ -1175,13 +1175,13 @@ void __ipipe_sync_stage(int dovirt)
 	p = ipipe_cpudom_ptr(ipd);
 
 	if (__test_and_set_bit(IPIPE_SYNC_FLAG, &p->status)) {
+#ifdef __IPIPE_FEATURE_NESTED_ROOTIRQS
 		/*
-		 * Some questionable code in the root domain may enter
-		 * busy waits for IRQs over interrupt context, so we
-		 * unfortunately have to allow piling up IRQs for
-		 * them. Non-root domains are not allowed to do this.
+		 * Caution: some archs do not support this
+		 * (mis)feature (e.g. x86_32).
 		 */
 		if (ipd != ipipe_root_domain)
+#endif
 			return;
 	}
 
