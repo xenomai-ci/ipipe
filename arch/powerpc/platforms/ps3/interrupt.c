@@ -74,7 +74,7 @@ struct ps3_bmp {
 		u64 unused_2[3];
 	};
 	u64 ipi_debug_brk_mask;
-	spinlock_t lock;
+	ipipe_spinlock_t lock;
 };
 
 /**
