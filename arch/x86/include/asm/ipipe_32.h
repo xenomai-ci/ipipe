@@ -128,29 +128,4 @@ static inline void __ipipe_call_root_virq_handler(unsigned irq,
 			     : /* no input */);
 }
 
-/*
- * When running handlers, enable hw interrupts for all domains but the
- * one heading the pipeline, so that IRQs can never be significantly
- * deferred for the latter.
- */
-#define __ipipe_run_isr(ipd, irq)					\
-do {									\
-	if (!__ipipe_pipeline_head_p(ipd))				\
-		local_irq_enable_hw();					\
-	if (ipd == ipipe_root_domain) {					\
-		if (likely(!ipipe_virtual_irq_p(irq)))			\
-			__ipipe_call_root_xirq_handler(irq,		\
-						       ipd->irqs[irq].handler); \
-		else							\
-			__ipipe_call_root_virq_handler(irq,		\
-						       ipd->irqs[irq].handler, \
-						       ipd->irqs[irq].cookie); \
-	} else {							\
-		__clear_bit(IPIPE_SYNC_FLAG, &ipipe_cpudom_var(ipd, status)); \
-		ipd->irqs[irq].handler(irq, ipd->irqs[irq].cookie);	\
-		__set_bit(IPIPE_SYNC_FLAG, &ipipe_cpudom_var(ipd, status)); \
-	}								\
-	local_irq_disable_hw();						\
-} while(0)
-
 #endif	/* !__X86_IPIPE_32_H */
