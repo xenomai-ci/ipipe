@@ -1,4 +1,3 @@
-
 /*
  *  Copyright (C) 1995  Linus Torvalds
  *  Copyright (C) 2001, 2002 Andi Kleen, SuSE Labs.
@@ -325,6 +324,33 @@ out:
 
 #else /* CONFIG_X86_64: */
 
+void vmalloc_sync_all(void)
+{
+	unsigned long address;
+
+	for (address = VMALLOC_START & PGDIR_MASK; address <= VMALLOC_END;
+	     address += PGDIR_SIZE) {
+
+		const pgd_t *pgd_ref = pgd_offset_k(address);
+		unsigned long flags;
+		struct page *page;
+
+		if (pgd_none(*pgd_ref))
+			continue;
+
+		spin_lock_irqsave(&pgd_lock, flags);
+		list_for_each_entry(page, &pgd_list, lru) {
+			pgd_t *pgd;
+			pgd = (pgd_t *)page_address(page) + pgd_index(address);
+			if (pgd_none(*pgd))
+				set_pgd(pgd, *pgd_ref);
+			else
+				BUG_ON(pgd_page_vaddr(*pgd) != pgd_page_vaddr(*pgd_ref));
+		}
+		spin_unlock_irqrestore(&pgd_lock, flags);
+	}
+}
+
 /*
  * 64-bit:
  *
@@ -395,43 +421,9 @@ static inline int vmalloc_sync_one(pgd_t *pgd, unsigned long address)
 	return 0;
 }
 
-void vmalloc_sync_all(void)
+static noinline __kprobes int vmalloc_fault(unsigned long address)
 {
-	unsigned long address;
-
-	for (address = VMALLOC_START & PGDIR_MASK; address <= VMALLOC_END;
-	     address += PGDIR_SIZE) {
-
-		const pgd_t *pgd_ref = pgd_offset_k(address);
-		unsigned long flags;
-		struct page *page;
-
-		if (pgd_none(*pgd_ref))
-			continue;
-
-		spin_lock_irqsave(&pgd_lock, flags);
-		list_for_each_entry(page, &pgd_list, lru) {
-			pgd_t *pgd;
-			pgd = (pgd_t *)page_address(page) + pgd_index(address);
-			if (pgd_none(*pgd))
-				set_pgd(pgd, *pgd_ref);
-			else
-				BUG_ON(pgd_page_vaddr(*pgd) != pgd_page_vaddr(*pgd_ref));
-		}
-		spin_unlock_irqrestore(&pgd_lock, flags);
-	}
-}
-
-/*
- * 64-bit:
- *
- *   Handle a fault on the vmalloc area
- *
- * This assumes no large pages in there.
- */
-static noinline int vmalloc_fault(unsigned long address)
-{
-	pgd_t *pgd = pgd = pgd_offset(current->active_mm, address);
+	pgd_t *pgd = pgd_offset(current->active_mm, address);
 	return vmalloc_sync_one(pgd, address);
 }
 
