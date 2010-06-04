@@ -206,7 +206,11 @@ void __ipipe_end_level_irq(unsigned irq, struct irq_desc *desc);
 void __ipipe_ack_edge_irq(unsigned irq, struct irq_desc *desc);
 void __ipipe_end_edge_irq(unsigned irq, struct irq_desc *desc);
 
+#if defined(CONFIG_SERIAL_MPC52xx_CONSOLE) && defined(CONFIG_IPIPE_DEBUG)
 void __ipipe_serial_debug(const char *fmt, ...);
+#else
+#define __ipipe_serial_debug(fmt, args...)	do { } while (0)
+#endif
 
 #define __ipipe_tick_irq	IPIPE_TIMER_VIRQ
 
@@ -247,7 +251,7 @@ do {									\
 } while(0)
 
 #define __ipipe_syscall_watched_p(p, sc)	\
-	(((p)->flags & PF_EVNOTIFY) || (unsigned long)sc >= NR_syscalls)
+	(ipipe_notifier_enabled_p(p) || (unsigned long)sc >= NR_syscalls)
 
 #define __ipipe_root_tick_p(regs)	((regs)->msr & MSR_EE)
 
@@ -263,6 +267,8 @@ void check_stack_overflow(void);
 
 #define ipipe_mm_switch_protect(flags)		do { (void)(flags); } while(0)
 #define ipipe_mm_switch_unprotect(flags)	do { (void)(flags); } while(0)
+
+#define __ipipe_serial_debug(fmt, args...)	do { } while (0)
 
 #endif /* CONFIG_IPIPE */
 
