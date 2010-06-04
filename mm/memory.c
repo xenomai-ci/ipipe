@@ -784,8 +784,9 @@ again:
 	}
 #else
 again:
-	init_rss_vec(rss);
 #endif
+	init_rss_vec(rss);
+
 	dst_pte = pte_alloc_map_lock(dst_mm, dst_pmd, addr, &dst_ptl);
 	if (!dst_pte) {
 		if (uncow_page)
