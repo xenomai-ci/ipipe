@@ -568,8 +568,9 @@ void __ipipe_lock_irq(struct ipipe_domain *ipd, int cpu, unsigned int irq)
 	struct ipipe_percpu_domain_data *p;
 	int l0b, l1b;
 
-	if (unlikely(test_and_set_bit(IPIPE_LOCK_FLAG,
-				      &ipd->irqs[irq].control)))
+	/* Wired interrupts cannot be locked (it is useless). */
+	if (test_bit(IPIPE_WIRED_FLAG, &ipd->irqs[irq].control) ||
+	    test_and_set_bit(IPIPE_LOCK_FLAG, &ipd->irqs[irq].control))
 		return;
 
 	l0b = irq / (BITS_PER_LONG * BITS_PER_LONG);
@@ -694,8 +695,9 @@ void __ipipe_lock_irq(struct ipipe_domain *ipd, int cpu, unsigned irq)
 	struct ipipe_percpu_domain_data *p;
 	int l0b = irq / BITS_PER_LONG;
 
-	if (unlikely(test_and_set_bit(IPIPE_LOCK_FLAG,
-				      &ipd->irqs[irq].control)))
+	/* Wired interrupts cannot be locked (it is useless). */
+	if (test_bit(IPIPE_WIRED_FLAG, &ipd->irqs[irq].control) ||
+	    test_and_set_bit(IPIPE_LOCK_FLAG, &ipd->irqs[irq].control))
 		return;
 
 	p = ipipe_percpudom_ptr(ipd, cpu);
@@ -1135,17 +1137,6 @@ void __ipipe_dispatch_wired(struct ipipe_domain *head, unsigned irq)
 	struct ipipe_percpu_domain_data *p = ipipe_cpudom_ptr(head);
 
 	prefetchw(p);
-
-	if (unlikely(test_bit(IPIPE_LOCK_FLAG, &head->irqs[irq].control))) {
-		/*
-		 * If we can't process this IRQ right now, we must
-		 * mark it as held, so that it will get played during
-		 * normal log sync when the corresponding interrupt
-		 * source is eventually unlocked.
-		 */
-		__ipipe_set_irq_held(p, irq);
-		return;
-	}
 
 	if (test_bit(IPIPE_STALL_FLAG, &p->status)) {
 		__ipipe_set_irq_pending(head, irq);
