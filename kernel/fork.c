@@ -1303,6 +1303,7 @@ static struct task_struct *copy_process(unsigned long clone_flags,
 	proc_fork_connector(p);
 	cgroup_post_fork(p);
 #ifdef CONFIG_IPIPE
+	p->ipipe_flags = 0;
 	memset(p->ptd, 0, sizeof(p->ptd));
 #endif /* CONFIG_IPIPE */
 	perf_event_fork(p);

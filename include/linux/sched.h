@@ -1517,6 +1517,7 @@ struct task_struct {
 	atomic_t fs_excl;	/* holding fs exclusive resources */
 	struct rcu_head rcu;
 #ifdef CONFIG_IPIPE
+	unsigned int ipipe_flags;
 	void *ptd[IPIPE_ROOT_NPTDKEYS];
 #endif
 
@@ -1789,6 +1790,12 @@ extern cputime_t task_gtime(struct task_struct *p);
 #define PF_MUTEX_TESTER	0x20000000	/* Thread belongs to the rt mutex tester */
 #define PF_FREEZER_SKIP	0x40000000	/* Freezer should not count it as freezeable */
 #define PF_FREEZER_NOSIG 0x80000000	/* Freezer won't send signals to it */
+
+/*
+ * p->ipipe_flags -- care for conflict with legacy PF_EVNOTIFY in main
+ * flags, until it moves there.
+ */
+#define PF_EVTRET	0x1
 
 /*
  * Only the _current_ task can read/write to tsk->flags, but other

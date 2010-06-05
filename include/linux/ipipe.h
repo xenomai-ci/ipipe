@@ -318,6 +318,9 @@ static inline void local_irq_restore_nosync(unsigned long x)
 #define __ipipe_root_domain_p	(__ipipe_current_domain == ipipe_root_domain)
 #define ipipe_root_domain_p	(ipipe_current_domain == ipipe_root_domain)
 
+/* This has to be called with hw IRQs off. */
+#define __ipipe_head_domain_p   __ipipe_pipeline_head_p(__ipipe_current_domain)
+
 static inline int __ipipe_event_monitored_p(int ev)
 {
 	if (__ipipe_event_monitors[ev] > 0)
@@ -326,59 +329,72 @@ static inline int __ipipe_event_monitored_p(int ev)
 	return (ipipe_current_domain->evself & (1LL << ev)) != 0;
 }
 
-#define ipipe_sigwake_notify(p)	\
-do {					\
-	if (((p)->flags & PF_EVNOTIFY) && __ipipe_event_monitored_p(IPIPE_EVENT_SIGWAKE)) \
-		__ipipe_dispatch_event(IPIPE_EVENT_SIGWAKE, p);		\
-} while(0)
+/*
+ * <!>: Backward compat is kept for now, with client domains
+ * storing the notifier enabled bit in the main flags of a
+ * task struct. This is clearly deprecated: at some point,
+ * this kludge will vanish. Fix the relevant code using
+ * ipipe_enable/disable_notifier() instead. You have been
+ * warned.
+ */
+#define ipipe_notifier_enabled_p(p)		\
+	(((p)->flags|(p)->ipipe_flags) & PF_EVNOTIFY)
 
-#define ipipe_exit_notify(p)	\
-do {				\
-	if (((p)->flags & PF_EVNOTIFY) && __ipipe_event_monitored_p(IPIPE_EVENT_EXIT)) \
-		__ipipe_dispatch_event(IPIPE_EVENT_EXIT, p);		\
-} while(0)
+#define ipipe_sigwake_notify(p)						\
+	do {								\
+		if (ipipe_notifier_enabled_p(p) &&			\
+		    __ipipe_event_monitored_p(IPIPE_EVENT_SIGWAKE))	\
+			__ipipe_dispatch_event(IPIPE_EVENT_SIGWAKE, p);	\
+	} while (0)
 
-#define ipipe_setsched_notify(p)	\
-do {					\
-	if (((p)->flags & PF_EVNOTIFY) && __ipipe_event_monitored_p(IPIPE_EVENT_SETSCHED)) \
-		__ipipe_dispatch_event(IPIPE_EVENT_SETSCHED, p);	\
-} while(0)
+#define ipipe_exit_notify(p)						\
+	do {								\
+		if (ipipe_notifier_enabled_p(p) &&			\
+		    __ipipe_event_monitored_p(IPIPE_EVENT_EXIT))	\
+			__ipipe_dispatch_event(IPIPE_EVENT_EXIT, p);	\
+	} while (0)
+
+#define ipipe_setsched_notify(p)					\
+	do {								\
+		if (ipipe_notifier_enabled_p(p) &&			\
+		    __ipipe_event_monitored_p(IPIPE_EVENT_SETSCHED))	\
+			__ipipe_dispatch_event(IPIPE_EVENT_SETSCHED, p); \
+	} while (0)
 
 #define ipipe_schedule_notify(prev, next)				\
 do {									\
-	if ((((prev)->flags|(next)->flags) & PF_EVNOTIFY) &&		\
+	if ((ipipe_notifier_enabled_p(next) ||				\
+	     ipipe_notifier_enabled_p(prev)) &&				\
 	    __ipipe_event_monitored_p(IPIPE_EVENT_SCHEDULE))		\
-		__ipipe_dispatch_event(IPIPE_EVENT_SCHEDULE,next);	\
-} while(0)
+		__ipipe_dispatch_event(IPIPE_EVENT_SCHEDULE, next);	\
+} while (0)
 
 #define ipipe_trap_notify(ex, regs)					\
-({									\
-	unsigned long __flags__;					\
-	int __ret__ = 0;						\
-	local_irq_save_hw_smp(__flags__);				\
-	if ((test_bit(IPIPE_NOSTACK_FLAG, &ipipe_this_cpudom_var(status)) || \
-	     ((current)->flags & PF_EVNOTIFY)) &&			\
-	    __ipipe_event_monitored_p(ex)) {				\
-		local_irq_restore_hw_smp(__flags__);			\
-		__ret__ = __ipipe_dispatch_event(ex, regs);		\
-	} else								\
-		local_irq_restore_hw_smp(__flags__);			\
-	__ret__;							\
-})
+	({								\
+		unsigned long __flags__;				\
+		int __ret__ = 0;					\
+		local_irq_save_hw_smp(__flags__);			\
+		if ((test_bit(IPIPE_NOSTACK_FLAG, &ipipe_this_cpudom_var(status)) || \
+		     ipipe_notifier_enabled_p(current)) &&		\
+		    __ipipe_event_monitored_p(ex)) {			\
+			local_irq_restore_hw_smp(__flags__);		\
+			__ret__ = __ipipe_dispatch_event(ex, regs);	\
+		} else							\
+			local_irq_restore_hw_smp(__flags__);		\
+		__ret__;						\
+	})
 
-static inline void ipipe_init_notify(struct task_struct *p)
-{
-	if (__ipipe_event_monitored_p(IPIPE_EVENT_INIT))
-		__ipipe_dispatch_event(IPIPE_EVENT_INIT, p);
-}
+#define ipipe_init_notify(p)						\
+	do {								\
+		if (__ipipe_event_monitored_p(IPIPE_EVENT_INIT))	\
+			__ipipe_dispatch_event(IPIPE_EVENT_INIT, p);	\
+	} while (0)
 
-struct mm_struct;
-
-static inline void ipipe_cleanup_notify(struct mm_struct *mm)
-{
-	if (__ipipe_event_monitored_p(IPIPE_EVENT_CLEANUP))
-		__ipipe_dispatch_event(IPIPE_EVENT_CLEANUP, mm);
-}
+#define ipipe_cleanup_notify(mm)					\
+	do {								\
+		if (__ipipe_event_monitored_p(IPIPE_EVENT_CLEANUP))	\
+			__ipipe_dispatch_event(IPIPE_EVENT_CLEANUP, mm); \
+	} while (0)
 
 /* Public interface */
 
@@ -635,6 +651,24 @@ static inline void ipipe_nmi_exit(void)
 	if (!test_bit(IPIPE_STALL_FLAG, &per_cpu(ipipe_nmi_saved_root, cpu)))
 		__clear_bit(IPIPE_STALL_FLAG, &ipipe_root_cpudom_var(status));
 }
+
+#define ipipe_enable_notifier(p)			\
+	do {						\
+		(p)->ipipe_flags |= PF_EVNOTIFY;	\
+	} while (0)
+
+#define ipipe_disable_notifier(p)				\
+	do {							\
+		(p)->ipipe_flags &= ~(PF_EVNOTIFY|PF_EVTRET);	\
+	} while (0)
+
+/* hw IRQs off. */
+#define ipipe_return_notify(p)						\
+	do {								\
+		if (ipipe_notifier_enabled_p(p) &&			\
+		    __ipipe_event_monitored_p(IPIPE_EVENT_RETURN))	\
+			(p)->ipipe_flags |= PF_EVTRET;			\
+	} while (0)
 
 #else	/* !CONFIG_IPIPE */
 
