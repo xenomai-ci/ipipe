@@ -873,14 +873,21 @@ int __ipipe_syscall_root(struct pt_regs *regs)
                 return 0;
 
         ret = __ipipe_dispatch_event(IPIPE_EVENT_SYSCALL, regs);
+
+	local_irq_save_hw(flags);
+
+	if (current->ipipe_flags & PF_EVTRET) {
+		current->ipipe_flags &= ~PF_EVTRET;
+		__ipipe_dispatch_event(IPIPE_EVENT_RETURN, regs);
+	}
+
         if (!ipipe_root_domain_p) {
-#ifdef CONFIG_X86_64
-		local_irq_disable_hw();
+#ifdef CONFIG_X86_32
+		local_irq_restore_hw(flags);
 #endif
 		return 1;
 	}
 
-	local_irq_save_hw(flags);
 	p = ipipe_root_cpudom_ptr();
 #ifdef CONFIG_X86_32
 	/*
@@ -913,6 +920,7 @@ int __ipipe_handle_irq(struct pt_regs *regs)
 	struct ipipe_domain *this_domain, *next_domain;
 	unsigned int vector = regs->orig_ax, irq;
 	struct list_head *head, *pos;
+	struct pt_regs *tick_regs;
 	int m_ack;
 
 	if ((long)regs->orig_ax < 0) {
@@ -996,7 +1004,7 @@ finalize_nosync:
 	 */
 
 	if (irq == __ipipe_tick_irq) {
-		struct pt_regs *tick_regs = &__raw_get_cpu_var(__ipipe_tick_regs);
+		tick_regs = &__raw_get_cpu_var(__ipipe_tick_regs);
 		tick_regs->flags = regs->flags;
 		tick_regs->cs = regs->cs;
 		tick_regs->ip = regs->ip;
@@ -1005,11 +1013,16 @@ finalize_nosync:
 		tick_regs->ss = regs->ss;
 		tick_regs->sp = regs->sp;
 #endif
-		if (!ipipe_root_domain_p)
+		if (!__ipipe_root_domain_p)
 			tick_regs->flags &= ~X86_EFLAGS_IF;
 	}
 
-	if (!ipipe_root_domain_p ||
+	if (user_mode(regs) && (current->ipipe_flags & PF_EVTRET) != 0) {
+		current->ipipe_flags &= ~PF_EVTRET;
+		__ipipe_dispatch_event(IPIPE_EVENT_RETURN, regs);
+	}
+
+	if (!__ipipe_root_domain_p ||
 	    test_bit(IPIPE_STALL_FLAG, &ipipe_root_cpudom_var(status)))
 		return 0;
 
