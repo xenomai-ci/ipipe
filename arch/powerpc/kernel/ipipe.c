@@ -537,33 +537,11 @@ void __ipipe_handle_irq(int irq, struct pt_regs *regs)
 	__ipipe_walk_pipeline(head);
 }
 
-asmlinkage int __ipipe_grab_irq(struct pt_regs *regs)
+static int __ipipe_exit_irq(struct pt_regs *regs)
 {
-	int irq;
+	int root = __ipipe_root_domain_p;
 
-	irq = ppc_md.get_irq();
-	if (unlikely(irq == NO_IRQ)) {
-		__get_cpu_var(irq_stat).spurious_irqs++;
-		goto root_checks;
-	}
-
-	if (likely(irq != NO_IRQ_IGNORE)) {
-		ipipe_trace_irq_entry(irq);
-#ifdef CONFIG_SMP
-		/* Check for cascaded I-pipe IPIs */
-		if (irq == __ipipe_ipi_irq) {
-			__ipipe_ipi_demux(irq, regs);
-			ipipe_trace_irq_exit(irq);
-			goto root_checks;
-		}
-#endif /* CONFIG_SMP */
-		__ipipe_handle_irq(irq, regs);
-		ipipe_trace_irq_exit(irq);
-	}
-
-root_checks:
-
-	if (__ipipe_root_domain_p) {
+	if (root) {
 #ifdef CONFIG_PPC_970_NAP
 		struct thread_info *ti = current_thread_info();
 		/* Emulate the napping check when 100% sure we do run
@@ -574,11 +552,51 @@ root_checks:
 #ifdef CONFIG_PPC64
 		ppc64_runlatch_on();
 #endif
-		if (!test_bit(IPIPE_STALL_FLAG, &ipipe_root_cpudom_var(status)))
-			return 1;
 	}
 
+	if (user_mode(regs) &&
+	    (current->ipipe_flags & PF_EVTRET) != 0) {
+		/*
+		 * Testing for user_regs() eliminates foreign stack
+		 * contexts, including from careless domains which did
+		 * not set the foreign stack bit (foreign stacks are
+		 * always kernel-based).
+		 */
+		current->ipipe_flags &= ~PF_EVTRET;
+		__ipipe_dispatch_event(IPIPE_EVENT_RETURN, regs);
+	}
+
+	if (root &&
+	    !test_bit(IPIPE_STALL_FLAG, &ipipe_root_cpudom_var(status)))
+		return 1;
+
 	return 0;
+}
+
+asmlinkage int __ipipe_grab_irq(struct pt_regs *regs)
+{
+	int irq;
+
+	irq = ppc_md.get_irq();
+	if (unlikely(irq == NO_IRQ)) {
+		__get_cpu_var(irq_stat).spurious_irqs++;
+		return __ipipe_exit_irq(regs);
+	}
+
+	if (likely(irq != NO_IRQ_IGNORE)) {
+		ipipe_trace_irq_entry(irq);
+#ifdef CONFIG_SMP
+		/* Check for cascaded I-pipe IPIs */
+		if (irq == __ipipe_ipi_irq)
+			__ipipe_ipi_demux(irq, regs);
+		else
+#endif /* CONFIG_SMP */
+			__ipipe_handle_irq(irq, regs);
+	}
+
+	ipipe_trace_irq_exit(irq);
+
+	return __ipipe_exit_irq(regs);
 }
 
 static void __ipipe_do_IRQ(unsigned irq, void *cookie)
@@ -636,22 +654,7 @@ asmlinkage int __ipipe_grab_timer(struct pt_regs *regs)
 
 	ipipe_trace_irq_exit(IPIPE_TIMER_VIRQ);
 
-	if (ipd == &ipipe_root) {
-#ifdef CONFIG_PPC_970_NAP
-		struct thread_info *ti = current_thread_info();
-		/* Emulate the napping check when 100% sure we do run
-		 * over the root context. */
-		if (test_and_clear_bit(TLF_NAPPING, &ti->local_flags))
-			regs->nip = regs->link;
-#endif
-#ifdef CONFIG_PPC64
-		ppc64_runlatch_on();
-#endif
-		if (!test_bit(IPIPE_STALL_FLAG, &ipipe_root_cpudom_var(status)))
-			return 1;
-	}
-
-	return 0;
+	return __ipipe_exit_irq(regs);
 }
 
 asmlinkage notrace int __ipipe_check_root(void) /* hw IRQs off */
@@ -798,6 +801,15 @@ asmlinkage int __ipipe_syscall_root(struct pt_regs *regs)
         ret = __ipipe_dispatch_event(IPIPE_EVENT_SYSCALL, regs);
 
 	local_irq_disable_hw();
+
+	/*
+	 * This is the end of the syscall path, so we may
+	 * safely assume a valid Linux task stack here.
+	 */
+	if (current->ipipe_flags & PF_EVTRET) {
+		current->ipipe_flags &= ~PF_EVTRET;
+		__ipipe_dispatch_event(IPIPE_EVENT_RETURN, regs);
+	}
 
         if (!__ipipe_root_domain_p) {
 #ifdef CONFIG_PPC32
