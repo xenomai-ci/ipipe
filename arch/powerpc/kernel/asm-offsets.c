@@ -137,7 +137,6 @@ int main(void)
 #elif CONFIG_IPIPE
 	DEFINE(PACAROOTPCPU, offsetof(struct paca_struct, root_percpu));
 #endif
-	DEFINE(PACAPERFPEND, offsetof(struct paca_struct, perf_event_pending));
 	DEFINE(PACACONTEXTID, offsetof(struct paca_struct, context.id));
 #ifdef CONFIG_PPC_MM_SLICES
 	DEFINE(PACALOWSLICESPSIZE, offsetof(struct paca_struct,
