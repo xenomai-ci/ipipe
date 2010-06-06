@@ -205,7 +205,7 @@ void __ipipe_end_level_irq(unsigned irq, struct irq_desc *desc);
 void __ipipe_ack_edge_irq(unsigned irq, struct irq_desc *desc);
 void __ipipe_end_edge_irq(unsigned irq, struct irq_desc *desc);
 
-#if defined(CONFIG_SERIAL_MPC52xx_CONSOLE) && defined(CONFIG_IPIPE_DEBUG)
+#ifdef CONFIG_IPIPE_DEBUG
 void __ipipe_serial_debug(const char *fmt, ...);
 #else
 #define __ipipe_serial_debug(fmt, args...)	do { } while (0)
