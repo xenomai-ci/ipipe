@@ -93,7 +93,7 @@ void __ipipe_restore_root(unsigned long x);
 
 #define ipipe_get_cpu(flags)	({ ipipe_preempt_disable(flags); ipipe_processor_id(); })
 #define ipipe_put_cpu(flags)	ipipe_preempt_enable(flags)
- 
+
 #ifdef CONFIG_IPIPE_DEBUG_CONTEXT
 void ipipe_check_context(struct ipipe_domain *border_ipd);
 #else /* !CONFIG_IPIPE_DEBUG_CONTEXT */
@@ -125,7 +125,11 @@ static inline void ipipe_check_context(struct ipipe_domain *border_ipd) { }
 		(void)(flags);		\
 		put_cpu();		\
 	} while (0)
+<<<<<<< HEAD:include/linux/ipipe_base.h
 	
+=======
+
+>>>>>>> ipipe-2.6.33-noarch:include/linux/ipipe_base.h
 #define ipipe_check_context(ipd)	do { } while(0)
 
 #endif	/* CONFIG_IPIPE */
