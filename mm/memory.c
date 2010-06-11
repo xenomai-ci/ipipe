@@ -704,8 +704,8 @@ again:
 	}
 #else
 again:
-	rss[1] = rss[0] = 0;
 #endif
+	rss[1] = rss[0] = 0;
 	dst_pte = pte_alloc_map_lock(dst_mm, dst_pmd, addr, &dst_ptl);
 	if (!dst_pte) {
 		if (uncow_page)
