@@ -244,7 +244,7 @@ do {									\
 } while(0)
 
 #define __ipipe_syscall_watched_p(p, sc)				\
-	(((p)->flags & PF_EVNOTIFY) || (unsigned long)sc >= __ARM_NR_BASE + 64)
+	(ipipe_notifier_enabled_p(p) || (unsigned long)sc >= __ARM_NR_BASE + 64)
 
 #define __ipipe_root_tick_p(regs) (!raw_irqs_disabled_flags(regs->ARM_cpsr))
 

@@ -350,11 +350,17 @@ __ipipe_switch_to_notifier_call_chain(struct atomic_notifier_head *nh,
 asmlinkage int __ipipe_syscall_root(unsigned long scno, struct pt_regs *regs)
 {
 	struct ipipe_percpu_domain_data *p;
-	unsigned long flags, origr7;
+	unsigned long orig_r7;
+        int ret = 0;
 
-	/* We use r7 to pass the syscall number to the other domains */
-	origr7 = regs->ARM_r7;
+	WARN_ON_ONCE(irqs_disabled_hw());
+
+	/*
+	 * We use r7 to pass the syscall number to the other domains.
+	 */
+	orig_r7 = regs->ARM_r7;
 	regs->ARM_r7 = __NR_SYSCALL_BASE + scno;
+
 	/*
 	 * This routine either returns:
 	 * 0 -- if the syscall is to be passed to Linux;
@@ -364,32 +370,36 @@ asmlinkage int __ipipe_syscall_root(unsigned long scno, struct pt_regs *regs)
 	 * tail work has to be performed (for handling signals etc).
 	 */
 
-	WARN_ON_ONCE(irqs_disabled_hw());
-
 	if (!__ipipe_syscall_watched_p(current, regs->ARM_r7) ||
 	    !__ipipe_event_monitored_p(IPIPE_EVENT_SYSCALL))
-		goto done;
+		goto out;
 
-	if (__ipipe_dispatch_event(IPIPE_EVENT_SYSCALL,regs) > 0){
-		if (ipipe_root_domain_p && !in_atomic()) {
-			/*
-			 * Sync pending VIRQs before _TIF_NEED_RESCHED
-			 * is tested.
-			 */
-			local_irq_save_hw(flags);
-			p = ipipe_root_cpudom_ptr();
-			if (__ipipe_ipending_p(p))
-				__ipipe_sync_pipeline(IPIPE_IRQ_DOVIRT);
-			local_irq_restore_hw(flags);
-			regs->ARM_r7 = origr7;
-			return -1;
-		}
-		regs->ARM_r7 = origr7;
-		return 1;
+        ret = __ipipe_dispatch_event(IPIPE_EVENT_SYSCALL, regs);
+
+	local_irq_disable_hw();
+
+	/*
+	 * This is the end of the syscall path, so we may
+	 * safely assume a valid Linux task stack here.
+	 */
+	if (current->ipipe_flags & PF_EVTRET) {
+		current->ipipe_flags &= ~PF_EVTRET;
+		__ipipe_dispatch_event(IPIPE_EVENT_RETURN, regs);
 	}
-done:
-	regs->ARM_r7 = origr7;
-	return 0;
+
+        if (!__ipipe_root_domain_p)
+		ret = -1;
+	else {
+		p = ipipe_root_cpudom_ptr();
+		if (__ipipe_ipending_p(p))
+			__ipipe_sync_pipeline(IPIPE_IRQ_DOVIRT);
+	}
+
+	local_irq_enable_hw();
+out:
+	regs->ARM_r7 = orig_r7;
+
+	return -ret;
 }
 
 /*
@@ -529,6 +539,18 @@ asmlinkage int __ipipe_grab_irq(int irq, struct pt_regs *regs)
 	ipipe_trace_irq_entry(irq);
 	status = __ipipe_handle_irq(irq, regs);
 	ipipe_trace_irq_exit(irq);
+
+	if (user_mode(regs) &&
+	    (current->ipipe_flags & PF_EVTRET) != 0) {
+		/*
+		 * Testing for user_regs() eliminates foreign stack
+		 * contexts, including from careless domains which did
+		 * not set the foreign stack bit (foreign stacks are
+		 * always kernel-based).
+		 */
+		current->ipipe_flags &= ~PF_EVTRET;
+		__ipipe_dispatch_event(IPIPE_EVENT_RETURN, regs);
+	}
 
 	return status;
 }
