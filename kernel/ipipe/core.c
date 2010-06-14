@@ -1962,6 +1962,7 @@ EXPORT_SYMBOL(ipipe_set_irq_affinity);
 EXPORT_SYMBOL(ipipe_send_ipi);
 EXPORT_SYMBOL(__ipipe_pend_irq);
 EXPORT_SYMBOL(__ipipe_set_irq_pending);
+EXPORT_SYMBOL(__ipipe_event_monitors);
 #if defined(CONFIG_IPIPE_DEBUG_INTERNAL) && defined(CONFIG_SMP)
 EXPORT_SYMBOL(__ipipe_check_percpu_access);
 #endif
