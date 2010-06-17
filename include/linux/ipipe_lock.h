@@ -63,6 +63,19 @@ typedef struct {
 		__ret__;						\
 	 })
 
+#define PICK_SPINTRYLOCK_IRQ(lock)					\
+	({								\
+		int __ret__;						\
+		if (ipipe_spinlock_p(lock))				\
+			__ret__ = __ipipe_spin_trylock_irq(ipipe_spinlock(lock)); \
+		else if (std_spinlock_raw_p(lock))				\
+			__ret__ = __real_raw_spin_trylock_irq(std_spinlock_raw(lock)); \
+		else if (std_spinlock_p(lock))				\
+			__ret__ = __real_raw_spin_trylock_irq(&std_spinlock(lock)->rlock); \
+		else __bad_lock_type();					\
+		__ret__;						\
+	 })
+
 #define PICK_SPINUNLOCK_IRQRESTORE(lock, flags)				\
 	do {								\
 		if (ipipe_spinlock_p(lock))				\
@@ -157,6 +170,8 @@ extern int __bad_lock_type(void);
 	spin_unlock_irqrestore(lock, flags)
 
 void __ipipe_spin_lock_irq(ipipe_spinlock_t *lock);
+
+int __ipipe_spin_trylock_irq(ipipe_spinlock_t *lock);
 
 void __ipipe_spin_unlock_irq(ipipe_spinlock_t *lock);
 
