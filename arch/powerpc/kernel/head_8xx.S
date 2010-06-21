@@ -932,15 +932,24 @@ _GLOBAL(set_context)
  * It is important we get called with interrupts disabled.  I used to
  * do that, but it appears that all code that calls this already had
  * interrupt disabled.
+ * I-pipe: we enforce this back, we need to bypass virtualization
+ * here.
  */
 	.globl	set_dec_cpu6
 set_dec_cpu6:
+#ifdef CONFIG_IPIPE
+	mfmsr	r6
+	rlwinm	r5,r6,0,17,15	/* clear MSR_EE */
+#endif
 	lis	r7, cpu6_errata_word@h
 	ori	r7, r7, cpu6_errata_word@l
 	li	r4, 0x2c00
 	stw	r4, 8(r7)
 	lwz	r4, 8(r7)
         mtspr   22, r3		/* Update Decrementer */
+#ifdef CONFIG_IPIPE
+	MTMSRD(r6)
+#endif
 	SYNC
 	blr
 #endif
