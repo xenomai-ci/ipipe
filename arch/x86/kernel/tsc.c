@@ -737,7 +737,7 @@ core_initcall(cpufreq_tsc);
 
 /* clocksource code */
 
-static struct clocksource clocksource_tsc;
+struct clocksource clocksource_tsc;
 
 /*
  * We compare the TSC to the cycle_last value in the clocksource
@@ -783,7 +783,7 @@ static void resume_tsc(struct clocksource *cs)
 	clocksource_tsc.cycle_last = 0;
 }
 
-static struct clocksource clocksource_tsc = {
+struct clocksource clocksource_tsc = {
 	.name                   = "tsc",
 	.rating                 = 300,
 	.read                   = read_tsc,
