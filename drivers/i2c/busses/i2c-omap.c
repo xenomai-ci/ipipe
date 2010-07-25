@@ -449,10 +449,6 @@ static int omap_i2c_xfer_msg(struct i2c_adapter *adap,
 	if (msg->len == 0)
 		return -EINVAL;
 
-#ifdef CONFIG_IPIPE
-	disable_irq(dev->irq);
-#endif /* CONFIG_IPIPE */
-
 	omap_i2c_write_reg(dev, OMAP_I2C_SA_REG, msg->addr);
 
 	/* REVISIT: Could the STB bit of I2C_CON be used with probing? */
@@ -496,9 +492,6 @@ static int omap_i2c_xfer_msg(struct i2c_adapter *adap,
 
 			/* Let the user know if i2c is in a bad state */
 			if (time_after(jiffies, delay)) {
-#ifdef CONFIG_IPIPE
-				enable_irq(dev->irq);
-#endif /* CONFIG_IPIPE */
 				dev_err(dev->dev, "controller timed out "
 				"waiting for start condition to finish\n");
 				return -ETIMEDOUT;
@@ -510,9 +503,6 @@ static int omap_i2c_xfer_msg(struct i2c_adapter *adap,
 		w &= ~OMAP_I2C_CON_STT;
 		omap_i2c_write_reg(dev, OMAP_I2C_CON_REG, w);
 	}
-#ifdef CONFIG_IPIPE
-	enable_irq(dev->irq);
-#endif /* CONFIG_IPIPE */
 
 	/*
 	 * REVISIT: We should abort the transfer on signals, but the bus goes
