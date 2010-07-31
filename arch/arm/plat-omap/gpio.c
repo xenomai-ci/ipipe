@@ -167,7 +167,7 @@ struct gpio_bank {
 	u32 saved_risingdetect;
 #endif
 	u32 level_mask;
-	spinlock_t lock;
+	ipipe_spinlock_t lock;
 	struct gpio_chip chip;
 	struct clk *dbck;
 };

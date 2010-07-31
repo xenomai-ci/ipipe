@@ -40,7 +40,7 @@ struct pxa_gpio_chip {
 #endif
 };
 
-static DEFINE_SPINLOCK(gpio_lock);
+static IPIPE_DEFINE_SPINLOCK(gpio_lock);
 static struct pxa_gpio_chip *pxa_gpio_chips;
 
 #define for_each_gpio_chip(i, c)			\
