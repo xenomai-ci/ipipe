@@ -403,7 +403,7 @@ do {								\
  * that interrupts are not re-enabled during lock-acquire:
  */
 #define LOCK_CONTENDED_FLAGS(_lock, try, lock, lockfl, flags) \
-	LOCK_CONTENDED((_lock), (try), (lock))
+	LOCK_CONTENDED((_lock), (try), lock)
 
 #else /* CONFIG_LOCKDEP */
 
