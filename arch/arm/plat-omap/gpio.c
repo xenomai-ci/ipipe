@@ -195,7 +195,7 @@ struct gpio_bank {
 #endif
 	u32 level_mask;
 	u32 toggle_mask;
-	spinlock_t lock;
+	ipipe_spinlock_t lock;
 	struct gpio_chip chip;
 	struct clk *dbck;
 	u32 mod_usage;
