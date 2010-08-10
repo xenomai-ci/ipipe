@@ -24,6 +24,7 @@
 
 /* set up by the platform code */
 void __iomem *twd_base;
+static struct clk *twd_clk;
 
 static unsigned long twd_timer_rate;
 
@@ -39,7 +40,7 @@ static void twd_set_mode(enum clock_event_mode mode,
 		/* timer load already set up */
 		ctrl = TWD_TIMER_CONTROL_ENABLE | TWD_TIMER_CONTROL_IT_ENABLE
 			| TWD_TIMER_CONTROL_PERIODIC;
-		__raw_writel(twd_timer_rate / HZ, twd_base + TWD_TIMER_LOAD);
+		__raw_writel((twd_timer_rate + HZ / 2) / HZ, twd_base + TWD_TIMER_LOAD);
 		break;
 	case CLOCK_EVT_MODE_ONESHOT:
 		/* period set, and timer enabled in 'next_event' hook */
@@ -165,7 +166,21 @@ void __cpuinit twd_timer_setup(struct clock_event_device *clk)
 		}
 	}
 
-	twd_calibrate_rate();
+	if (twd_clk == NULL) {
+		twd_clk = clk_get(NULL, "smp_twd");
+		if (IS_ERR(twd_clk))
+			pr_warn("%s: no clock found\n", __func__);
+		else
+			clk_enable(twd_clk);
+	}
+
+	if (!IS_ERR(twd_clk)) {
+		twd_timer_rate = clk_get_rate(twd_clk);
+		printk(KERN_INFO "local timer: %lu.%02luMHz.\n",
+		       twd_timer_rate / 1000000,
+		       (twd_timer_rate / 10000) % 100);
+	} else
+		twd_calibrate_rate();
 
 	clk->name = "local_timer";
 	clk->features = CLOCK_EVT_FEAT_PERIODIC | CLOCK_EVT_FEAT_ONESHOT |
