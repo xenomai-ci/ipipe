@@ -3091,6 +3091,14 @@ static struct clk auxclkreq5_ck = {
 	.recalc		= &omap2_clksel_recalc,
 };
 
+static struct clk smp_twd = {
+       .name           = "smp_twd",
+       .parent         = &dpll_mpu_ck,
+       .ops            = &clkops_null,
+       .fixed_div      = 2,
+       .recalc         = &omap_fixed_divisor_recalc,
+};
+
 /*
  * clkdev
  */
@@ -3363,6 +3371,7 @@ static struct omap_clk omap44xx_clks[] = {
 	CLK("usbhs-omap.0",	"usbhost_ick",		&dummy_ck,		CK_443X),
 	CLK("usbhs-omap.0",	"usbtll_fck",		&dummy_ck,	CK_443X),
 	CLK("omap_wdt",	"ick",				&dummy_ck,	CK_443X),
+	CLK(NULL,	"smp_twd",			&smp_twd,	CK_443X),
 };
 
 int __init omap4xxx_clk_init(void)
