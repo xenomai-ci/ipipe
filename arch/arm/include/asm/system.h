@@ -218,19 +218,19 @@ static inline void set_copro_access(unsigned int val)
  */
 extern struct task_struct *__switch_to(struct task_struct *, struct thread_info *, struct thread_info *);
 
-#ifdef CONFIG_IPIPE_WANT_PREEMPTIBLE_SWITCH
+#if defined(CONFIG_IPIPE_WANT_PREEMPTIBLE_SWITCH) || defined(CONFIG_SMP)
 #define switch_to(prev,next,last)					\
 do {									\
 	local_irq_disable_hw_cond();					\
 	last = __switch_to(prev,task_thread_info(prev), task_thread_info(next)); \
 	local_irq_enable_hw_cond();					\
 } while (0)
-#else /* !CONFIG_IPIPE_WANT_PREEMPTIBLE_SWITCH */
+#else /* !CONFIG_IPIPE_WANT_PREEMPTIBLE_SWITCH && !SMP */
 #define switch_to(prev,next,last)					\
 do {									\
 	last = __switch_to(prev,task_thread_info(prev), task_thread_info(next)); \
 } while (0)
-#endif /* !CONFIG_IPIPE_WANT_PREEMPTIBLE_SWITCH */
+#endif /* !CONFIG_IPIPE_WANT_PREEMPTIBLE_SWITCH && !SMP */
 
 #if defined(CONFIG_CPU_SA1100) || defined(CONFIG_CPU_SA110)
 /*

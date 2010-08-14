@@ -44,12 +44,23 @@ void __check_kvm_seq(struct mm_struct *mm);
 #define ASID_FIRST_VERSION	(1 << ASID_BITS)
 
 extern unsigned int cpu_last_asid;
+#ifdef CONFIG_SMP
+DECLARE_PER_CPU(struct mm_struct *, current_mm);
+#endif
 
 void __init_new_context(struct task_struct *tsk, struct mm_struct *mm);
 void __new_context(struct mm_struct *mm);
 
 static inline void check_context(struct mm_struct *mm)
 {
+	/*
+	 * This code is executed with interrupts enabled. Therefore,
+	 * mm->context.id cannot be updated to the latest ASID version
+	 * on a different CPU (and condition below not triggered)
+	 * without first getting an IPI to reset the context. The
+	 * alternative is to take a read_lock on mm->context.id_lock
+	 * (after changing its type to rwlock_t).
+	 */
 	if (unlikely((mm->context.id ^ cpu_last_asid) >> ASID_BITS))
 		__new_context(mm);
 
@@ -75,6 +86,7 @@ init_new_context(struct task_struct *tsk, struct mm_struct *mm)
 #ifdef CONFIG_ARM_FCSE
 	int fcse_pid;
 
+	cpus_clear(mm->context.cpu_tlb_mask);
 #ifdef CONFIG_ARM_FCSE_BEST_EFFORT
 	if (!mm->context.fcse.large) {
 		fcse_pid = fcse_pid_alloc(mm);
@@ -139,7 +151,7 @@ __switch_mm(struct mm_struct *prev, struct mm_struct *next,
 	    struct task_struct *tsk)
 {
 #ifdef CONFIG_MMU
-	unsigned int cpu = smp_processor_id_hw();
+	unsigned int cpu = ipipe_processor_id();
 
 #ifdef CONFIG_SMP
 	/* check for possible thread migration */
@@ -148,6 +160,10 @@ __switch_mm(struct mm_struct *prev, struct mm_struct *next,
 		__flush_icache_all();
 #endif
 	if (!cpumask_test_and_set_cpu(cpu, mm_cpumask(next)) || prev != next) {
+#ifdef CONFIG_SMP
+		struct mm_struct **crt_mm = &per_cpu(current_mm, cpu);
+		*crt_mm = next;
+#endif
 		check_context(next);
 #if defined(CONFIG_IPIPE)
 		if (ipipe_root_domain_p) {
@@ -186,14 +202,14 @@ static inline void
 switch_mm(struct mm_struct *prev, struct mm_struct *next,
 	  struct task_struct *tsk)
 {
-#ifndef CONFIG_IPIPE_WANT_PREEMPTIBLE_SWITCH
+#if !defined(CONFIG_IPIPE_WANT_PREEMPTIBLE_SWITCH) && !defined(CONFIG_SMP)
 	unsigned long flags;
 	local_irq_save_hw(flags);
-#endif /* !CONFIG_IPIPE_WANT_PREEMPTIBLE_SWITCH */
+#endif /* !(CONFIG_IPIPE_WANT_PREEMPTIBLE_SWITCH && SMP) */
 	__switch_mm(prev, next, tsk);
-#ifndef CONFIG_IPIPE_WANT_PREEMPTIBLE_SWITCH
+#if !defined(CONFIG_IPIPE_WANT_PREEMPTIBLE_SWITCH) && !defined(CONFIG_SMP)
 	local_irq_restore_hw(flags);
-#endif /* !CONFIG_IPIPE_WANT_PREEMPTIBLE_SWITCH */
+#endif /* !(CONFIG_IPIPE_WANT_PREEMPTIBLE_SWITCH && SMP) */
 }
 
 #define deactivate_mm(tsk,mm)	do { } while (0)

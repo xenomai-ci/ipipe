@@ -4,6 +4,7 @@
  * Copyright (C) 2002-2005 Philippe Gerum.
  * Copyright (C) 2005 Stelian Pop.
  * Copyright (C) 2006-2008 Gilles Chanteperdrix.
+ * Copyright (C) 2010 Philippe Gerum (SMP port).
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -36,15 +37,14 @@
 #define IPIPE_PATCH_NUMBER	2
 
 #ifdef CONFIG_SMP
-#error "I-pipe/arm: SMP not yet implemented"
-#define ipipe_processor_id()	(current_thread_info()->cpu)
+#define ipipe_processor_id()	hard_smp_processor_id()
 #else /* !CONFIG_SMP */
 #define ipipe_processor_id()	0
 #endif	/* CONFIG_SMP */
 
 #define smp_processor_id_hw() ipipe_processor_id()
 
-#ifdef CONFIG_IPIPE_WANT_PREEMPTIBLE_SWITCH
+#if defined(CONFIG_IPIPE_WANT_PREEMPTIBLE_SWITCH) || defined(CONFIG_SMP)
 
 #define prepare_arch_switch(next)			\
 	do {						\
@@ -54,22 +54,26 @@
 
 #define task_hijacked(p)						\
 	({								\
-		int x = !ipipe_root_domain_p;				\
-		clear_bit(IPIPE_SYNC_FLAG, &ipipe_root_cpudom_var(status)); \
-		x;							\
+		unsigned long __flags__;				\
+		int __x__;						\
+		local_irq_save_hw_smp(__flags__);			\
+		__x__ = __ipipe_root_domain_p;				\
+		__clear_bit(IPIPE_SYNC_FLAG, &ipipe_root_cpudom_var(status)); \
+		local_irq_restore_hw_smp(__flags__);			\
+		!__x__;							\
 	})
 
-#define ipipe_mm_switch_protect(flags) \
-	do {					\
-		(void) (flags);			\
-	} while (0)
+#define ipipe_mm_switch_protect(flags)					\
+	do {								\
+		(void)(flags);						\
+	} while(0)
 
 #define ipipe_mm_switch_unprotect(flags)	\
 	do {					\
-		(void) (flags);			\
-	} while (0)
+		(void)(flags);			\
+	} while(0)
 
-#else /* !CONFIG_IPIPE_WANT_PREEMPTIBLE_SWITCH */
+#else /* !CONFIG_IPIPE_WANT_PREEMPTIBLE_SWITCH && !SMP */
 
 #define prepare_arch_switch(next)			\
 	do {                                            \
@@ -79,9 +83,9 @@
 
 #define task_hijacked(p)						\
 	({								\
-		int x = !ipipe_root_domain_p;                           \
+		int __x__ = __ipipe_root_domain_p;			\
 		__clear_bit(IPIPE_SYNC_FLAG, &ipipe_root_cpudom_var(status)); \
-		if (!x) local_irq_enable_hw(); x;			\
+		if (__x__) local_irq_enable_hw(); !__x__;		\
 	})
 
 #define ipipe_mm_switch_protect(flags) \
@@ -90,7 +94,7 @@
 #define ipipe_mm_switch_unprotect(flags) \
 	local_irq_restore_hw_cond(flags)
 
-#endif /* !CONFIG_IPIPE_WANT_PREEMPTIBLE_SWITCH */
+#endif /* !CONFIG_IPIPE_WANT_PREEMPTIBLE_SWITCH && !SMP */
 
 extern unsigned long arm_return_addr(int level);
 
@@ -124,23 +128,17 @@ struct __ipipe_tscinfo {
 };
 
 struct ipipe_sysinfo {
-
-	int ncpus;		/* Number of CPUs on board */
-	u64 cpufreq;		/* CPU frequency (in Hz) */
-
-	/* Arch-dependent block */
-
-	struct {
-		unsigned tmirq;	/* Timer tick IRQ */
-		u64 tmfreq;	/* Timer frequency */
-		struct __ipipe_tscinfo tsc; /* exported data for u.s. tsc */
-	} archdep;
+	int sys_nr_cpus;	/* Number of CPUs on board */
+	int sys_hrtimer_irq;	/* hrtimer device IRQ */
+	u64 sys_hrtimer_freq;	/* hrtimer device frequency */
+	u64 sys_hrclock_freq;	/* hrclock device frequency */
+	u64 sys_cpu_freq;	/* CPU frequency (Hz) */
+	struct __ipipe_tscinfo arch_tsc; /* exported data for u.s. tsc */
 };
 
 DECLARE_PER_CPU(struct mm_struct *,ipipe_active_mm);
 /* arch specific stuff */
 extern void *__ipipe_tsc_area;
-extern int __ipipe_mach_timerint;
 extern int __ipipe_mach_timerstolen;
 extern unsigned int __ipipe_mach_ticks_per_jiffy;
 extern void __ipipe_mach_acktimer(void);
@@ -148,40 +146,103 @@ extern unsigned long long __ipipe_mach_get_tsc(void);
 extern void __ipipe_mach_set_dec(unsigned long);
 extern void __ipipe_mach_release_timer(void);
 extern unsigned long __ipipe_mach_get_dec(void);
+extern void __ipipe_mach_demux_irq(unsigned irq, struct pt_regs *regs);
 void __ipipe_mach_get_tscinfo(struct __ipipe_tscinfo *info);
 int __ipipe_check_tickdev(const char *devname);
+
+#ifndef __ipipe_cpu_freq
+#define __ipipe_cpu_freq		(HZ * __ipipe_mach_ticks_per_jiffy)
+#endif
+#ifndef __ipipe_mach_hrtimer_freq
+#define __ipipe_mach_hrtimer_freq	__ipipe_cpu_freq
+#endif
+#ifndef __ipipe_mach_hrclock_freq
+#define	__ipipe_mach_hrclock_freq	__ipipe_mach_hrtimer_freq
+#endif
+#ifndef __ipipe_mach_hrtimer_irq
+/*
+ * hrtimer IRQ advertised to domains. Defaults to the contents of the
+ * __ipipe_mach_timerint variable found in legacy platform supports.
+ * May be overridden on SMP platforms with distinct per-CPU timer
+ * interrupts.
+ */
+extern int __ipipe_mach_timerint;
+#define __ipipe_mach_hrtimer_irq	__ipipe_mach_timerint
+#endif
+#ifndef __ipipe_mach_ext_hrtimer
+/*
+ * hrtimer external IRQ number for the given CPU. Same as the internal
+ * hrtimer IRQ number by default.
+ */
+#define __ipipe_mach_ext_hrtimer(cpu)				\
+	({							\
+		(void)(cpu);					\
+		__ipipe_mach_hrtimer_irq;			\
+	})
+#endif
+#ifndef __ipipe_mach_localtimer
+/*
+ * Some SMP platforms may use different IRQ numbers depending on the
+ * CPU, remapping them to a single virq to advertise a common local
+ * timer interrupt to domains. The macro below provides the hrtimer
+ * IRQ number after remapping, if any. By default, there is no
+ * remapping.
+ */
+#define __ipipe_mach_localtimer(ext_irq)  (ext_irq)
+#endif
+#ifndef __ipipe_mach_doirq
+#define __ipipe_mach_doirq(irq)		asm_do_IRQ
+#endif
+#ifndef __ipipe_mach_ackirq
+#define __ipipe_mach_ackirq(irq)			\
+	({						\
+		__ipipe_mach_ext_hrtimer_p(irq)		\
+			? __ipipe_ack_timerirq		\
+			: __ipipe_ack_irq;		\
+	})
+#endif
+#ifndef __ipipe_mach_hrtimer_debug
+#define __ipipe_mach_hrtimer_debug(irq)	do { } while (0)
+#endif
 
 #define ipipe_read_tsc(t)	do { t = __ipipe_mach_get_tsc(); } while (0)
 #define __ipipe_read_timebase()	__ipipe_mach_get_tsc()
 
-#define ipipe_cpu_freq()	(HZ * __ipipe_mach_ticks_per_jiffy)
 #define ipipe_tsc2ns(t) \
 ({ \
 	unsigned long long delta = (t)*1000; \
-	do_div(delta, ipipe_cpu_freq() / 1000000 + 1); \
+	do_div(delta, __ipipe_cpu_freq / 1000000 + 1); \
 	(unsigned long)delta; \
 })
 #define ipipe_tsc2us(t) \
 ({ \
 	unsigned long long delta = (t); \
-	do_div(delta, ipipe_cpu_freq() / 1000000 + 1); \
+	do_div(delta, __ipipe_cpu_freq / 1000000 + 1); \
 	(unsigned long)delta; \
 })
-
-#define ipipe_handle_irq_cond(irq) \
-	__ipipe_handle_irq(irq, (struct pt_regs *)1)
 
 /* Private interface -- Internal use only */
 
 #define __ipipe_check_platform()	do { } while(0)
 
-#define __ipipe_init_platform()		do { } while(0)
-
 #define __ipipe_enable_irq(irq)	irq_desc[irq].chip->enable(irq)
 
 #define __ipipe_disable_irq(irq)	irq_desc[irq].chip->disable(irq)
 
-#define __ipipe_hook_critical_ipi(ipd) do { } while(0)
+#ifdef CONFIG_SMP
+void __ipipe_init_platform(void);
+void __ipipe_hook_critical_ipi(struct ipipe_domain *ipd);
+void __ipipe_root_ipi(unsigned int irq, struct pt_regs *regs);
+void __ipipe_root_localtimer(unsigned int irq, struct pt_regs *regs);
+void __ipipe_send_vnmi(void (*fn)(void *), cpumask_t cpumask, void *arg);
+void __ipipe_do_vnmi(unsigned int irq, void *cookie);
+#else /* !CONFIG_SMP */
+#define __ipipe_init_platform()		do { } while(0)
+#define __ipipe_hook_critical_ipi(ipd)	do { } while(0)
+#endif /* !CONFIG_SMP */
+#ifndef __ipipe_mach_init_platform
+#define __ipipe_mach_init_platform()	do { } while(0)
+#endif
 
 void __ipipe_enable_irqdesc(struct ipipe_domain *ipd, unsigned irq);
 
@@ -202,13 +263,15 @@ void ipipe_unmute_pic(void);
 
 void __ipipe_enable_pipeline(void);
 
-void __ipipe_do_critical_sync(unsigned irq,
-			      void *cookie);
+void __ipipe_do_critical_sync(unsigned irq, void *cookie);
 
 DECLARE_PER_CPU(struct pt_regs, __ipipe_tick_regs);
 
-int __ipipe_handle_irq(int irq,
-		       struct pt_regs *regs);
+int __ipipe_grab_irq(int irq, struct pt_regs *regs);
+
+int __ipipe_exit_irq(struct pt_regs *regs);
+
+void __ipipe_handle_irq(int irq, struct pt_regs *regs);
 
 static inline void ipipe_handle_chained_irq(unsigned int irq)
 {
@@ -219,9 +282,9 @@ static inline void ipipe_handle_chained_irq(unsigned int irq)
 	ipipe_trace_irq_exit(irq);
 }
 
-#define ipipe_update_tick_evtdev(evtdev) do { } while (0)
+void __ipipe_halt_root(void);
 
-#define __ipipe_tick_irq	__ipipe_mach_timerint
+#define ipipe_update_tick_evtdev(evtdev) do { } while (0)
 
 static inline unsigned long __ipipe_ffnz(unsigned long ul)
 {
@@ -266,9 +329,6 @@ do {									\
 
 #define smp_processor_id_hw()		smp_processor_id()
 
-#define ipipe_handle_irq_cond(irq) \
-	generic_handle_irq(irq)
-
 #define ipipe_handle_chained_irq(irq)   generic_handle_irq(irq)
 
 #define ipipe_mm_switch_protect(flags) \
@@ -282,5 +342,12 @@ do {									\
 	} while (0)
 
 #endif /* CONFIG_IPIPE */
+
+#if defined (CONFIG_IPIPE_DEBUG) &&		\
+	(defined(CONFIG_DEBUG_LL) || defined(CONFIG_SERIAL_8250_CONSOLE))
+void __ipipe_serial_debug(const char *fmt, ...);
+#else
+#define __ipipe_serial_debug(fmt, args...)	do { } while (0)
+#endif
 
 #endif	/* !__ARM_IPIPE_H */

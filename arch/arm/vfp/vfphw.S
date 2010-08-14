@@ -90,6 +90,9 @@ ENTRY(vfp_support_entry)
 	enable_irq
 #ifdef CONFIG_IPIPE
 	disable_irq
+#ifdef CONFIG_SMP
+	mrc	p15, 0, r11, c0, c0, 5  @ reload current CPU number
+#endif
 	ldr	r4, [r3, r11, lsl #2]	@ reload last_VFP_context pointer
 #endif
 	VFPFMXR	FPEXC, r5		@ enable VFP, disable any pending

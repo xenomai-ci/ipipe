@@ -57,13 +57,21 @@
 	test_for_ipi r1, r6, r5, lr
 	movne	r0, sp
 	adrne	lr, BSYM(1b)
+#ifdef CONFIG_IPIPE
+	bne	__ipipe_grab_ipi
+#else
 	bne	do_IPI
+#endif
 
 #ifdef CONFIG_LOCAL_TIMERS
 	test_for_ltirq r1, r6, r5, lr
 	movne	r0, sp
 	adrne	lr, BSYM(1b)
+#ifdef CONFIG_IPIPE
+	bne	__ipipe_grab_localtimer
+#else
 	bne	do_local_timer
+#endif
 #endif
 #endif
 #ifdef CONFIG_IPIPE

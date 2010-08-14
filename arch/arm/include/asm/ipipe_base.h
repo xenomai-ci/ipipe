@@ -2,6 +2,7 @@
  * arch/arm/include/asm/ipipe_base.h
  *
  * Copyright (C) 2007 Gilles Chanteperdrix.
+ * Copyright (C) 2010 Philippe Gerum (SMP port).
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -27,7 +28,6 @@
 #include <asm/irq.h>
 
 #define IPIPE_NR_XIRQS		NR_IRQS
-#define IPIPE_IRQ_ISHIFT	5	/* 25 for 32bits arch. */
 
 /* ARM traps */
 #define IPIPE_TRAP_ACCESS	 0	/* Data or instruction access exception */
@@ -59,14 +59,25 @@
 #include <asm/irqflags.h>
 
 #ifdef CONFIG_SMP
-#error "SMP not implemented."
-#define __ipipe_root_status ipipe_root_cpudom_var(status)
+
+#define IPIPE_FIRST_IPI		IPIPE_VIRQ_BASE
+
+#define IPIPE_CRITICAL_IPI	IPIPE_FIRST_IPI
+#define IPIPE_SERVICE_IPI0	(IPIPE_CRITICAL_IPI + 1)
+#define IPIPE_SERVICE_IPI1	(IPIPE_CRITICAL_IPI + 2)
+#define IPIPE_SERVICE_IPI2	(IPIPE_CRITICAL_IPI + 3)
+#define IPIPE_SERVICE_IPI3	(IPIPE_CRITICAL_IPI + 4)
+#define IPIPE_SERVICE_VNMI	(IPIPE_CRITICAL_IPI + 5)
+
+#define IPIPE_LAST_IPI		IPIPE_SERVICE_VNMI
+
+void __ipipe_stall_root(void);
+
+unsigned long __ipipe_test_and_stall_root(void);
+
+unsigned long __ipipe_test_root(void);
 
 #else /* !CONFIG_SMP */
-
-#ifdef CONFIG_VFP
-#define __IPIPE_FEATURE_VFP_SAFE 1
-#endif
 
 #if __GNUC__ >= 4
 /* Alias to ipipe_root_cpudom_var(status) */
@@ -103,6 +114,13 @@ static inline unsigned __ipipe_test_and_stall_root(void)
 }
 
 #endif	/* CONFIG_SMP */
+
+#define __IPIPE_FEATURE_PREEMPTIBLE_SWITCH	1
+#define __IPIPE_FEATURE_SYSINFO_V2		1
+
+#ifdef CONFIG_VFP
+#define __IPIPE_FEATURE_VFP_SAFE		1
+#endif
 
 #endif /* !__ASSEMBLY__ */
 
