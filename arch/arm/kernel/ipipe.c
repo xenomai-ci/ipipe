@@ -376,7 +376,7 @@ int ipipe_get_sysinfo(struct ipipe_sysinfo *info)
 	info->sys_hrtimer_irq = __ipipe_mach_hrtimer_irq;
 	info->sys_hrtimer_freq = __ipipe_mach_hrtimer_freq;
 	info->sys_hrclock_freq = __ipipe_mach_hrclock_freq;
-        __ipipe_mach_get_tscinfo(&info->arch_tsc);
+	__ipipe_mach_get_tscinfo(&info->arch_tsc);
 
 	return 0;
 }
@@ -521,7 +521,7 @@ asmlinkage int __ipipe_check_root(void)
 
 asmlinkage int __ipipe_check_root_interruptible(void)
 {
-        return ipipe_root_domain_p && !irqs_disabled();
+	return ipipe_root_domain_p && !irqs_disabled();
 }
 
 __kprobes int
@@ -542,7 +542,7 @@ asmlinkage int __ipipe_syscall_root(unsigned long scno, struct pt_regs *regs)
 {
 	struct ipipe_percpu_domain_data *p;
 	unsigned long orig_r7;
-        int ret = 0;
+	int ret = 0;
 
 	WARN_ON_ONCE(irqs_disabled_hw());
 
@@ -565,7 +565,7 @@ asmlinkage int __ipipe_syscall_root(unsigned long scno, struct pt_regs *regs)
 	    !__ipipe_event_monitored_p(IPIPE_EVENT_SYSCALL))
 		goto out;
 
-        ret = __ipipe_dispatch_event(IPIPE_EVENT_SYSCALL, regs);
+	ret = __ipipe_dispatch_event(IPIPE_EVENT_SYSCALL, regs);
 
 	local_irq_disable_hw();
 
@@ -578,7 +578,7 @@ asmlinkage int __ipipe_syscall_root(unsigned long scno, struct pt_regs *regs)
 		__ipipe_dispatch_event(IPIPE_EVENT_RETURN, regs);
 	}
 
-        if (!__ipipe_root_domain_p)
+	if (!__ipipe_root_domain_p)
 		ret = -1;
 	else {
 		p = ipipe_root_cpudom_ptr();
@@ -721,7 +721,7 @@ int __ipipe_exit_irq(struct pt_regs *regs)
 		__ipipe_dispatch_event(IPIPE_EVENT_RETURN, regs);
 	}
 
-        return __ipipe_root_domain_p && !irqs_disabled();
+	return __ipipe_root_domain_p && !irqs_disabled();
 }
 
 asmlinkage int __ipipe_grab_irq(int irq, struct pt_regs *regs)
@@ -729,7 +729,7 @@ asmlinkage int __ipipe_grab_irq(int irq, struct pt_regs *regs)
 	int cpu = ipipe_processor_id();
 #ifdef irq_finish
 	/* AT91 specific workaround */
-        irq_finish(irq);
+	irq_finish(irq);
 #endif /* irq_finish */
 	/*
 	 * Some SMP platforms may remap different per-CPU local timer
@@ -743,17 +743,17 @@ asmlinkage int __ipipe_grab_irq(int irq, struct pt_regs *regs)
 	if (likely(__ipipe_mach_ext_hrtimer(cpu) == irq)) {
 		__ipipe_mach_hrtimer_debug(irq);
 		irq = __ipipe_mach_localtimer(irq);
-                /*
+		/*
 		 * Given our deferred dispatching model for regular IRQs, we
-                 * only record CPU regs for the last timer interrupt, so that
-                 * the timer handler charges CPU times properly. It is assumed
-                 * that other interrupt handlers don't actually care for such
-                 * information.
+		 * only record CPU regs for the last timer interrupt, so that
+		 * the timer handler charges CPU times properly. It is assumed
+		 * that other interrupt handlers don't actually care for such
+		 * information.
 		 */
 		__raw_get_cpu_var(__ipipe_tick_regs).ARM_cpsr =
-                        (ipipe_root_domain_p
-                         ? regs->ARM_cpsr
-                         : regs->ARM_cpsr | PSR_I_BIT);
+			(ipipe_root_domain_p
+			 ? regs->ARM_cpsr
+			 : regs->ARM_cpsr | PSR_I_BIT);
 		__raw_get_cpu_var(__ipipe_tick_regs).ARM_pc = regs->ARM_pc;
 	}
 
@@ -761,10 +761,7 @@ asmlinkage int __ipipe_grab_irq(int irq, struct pt_regs *regs)
 	ipipe_trace_begin(regs->ARM_ORIG_r0);
 #endif
 
-	if (__ipipe_mach_irq_mux_p(irq))
-                __ipipe_mach_demux_irq(irq, regs);
-	else
-		__ipipe_handle_irq(irq, regs);
+	__ipipe_handle_irq(irq, regs);
 
 #ifdef CONFIG_IPIPE_TRACE_IRQSOFF
 	ipipe_trace_end(regs->ARM_ORIG_r0);
@@ -786,23 +783,23 @@ static IPIPE_DEFINE_SPINLOCK(serial_debug_lock);
 
 void __ipipe_serial_debug(const char *fmt, ...)
 {
-        unsigned long flags;
-        char buf[128];
-        va_list ap;
+	unsigned long flags;
+	char buf[128];
+	va_list ap;
 	int n;
 
-        va_start(ap, fmt);
-        n = vsnprintf(buf, sizeof(buf) - 2, fmt, ap);
-        va_end(ap);
+	va_start(ap, fmt);
+	n = vsnprintf(buf, sizeof(buf) - 2, fmt, ap);
+	va_end(ap);
 
 	if (n > 0 && buf[n - 1] == '\n') {
 		buf[n] = '\r';
 		buf[n+1] = '\0';
 	}
 
-        spin_lock_irqsave(&serial_debug_lock, flags);
+	spin_lock_irqsave(&serial_debug_lock, flags);
 	printascii(buf);
-        spin_unlock_irqrestore(&serial_debug_lock, flags);
+	spin_unlock_irqrestore(&serial_debug_lock, flags);
 }
 
 EXPORT_SYMBOL_GPL(__ipipe_serial_debug);

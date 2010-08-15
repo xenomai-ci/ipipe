@@ -146,7 +146,6 @@ extern unsigned long long __ipipe_mach_get_tsc(void);
 extern void __ipipe_mach_set_dec(unsigned long);
 extern void __ipipe_mach_release_timer(void);
 extern unsigned long __ipipe_mach_get_dec(void);
-extern void __ipipe_mach_demux_irq(unsigned irq, struct pt_regs *regs);
 void __ipipe_mach_get_tscinfo(struct __ipipe_tscinfo *info);
 int __ipipe_check_tickdev(const char *devname);
 
