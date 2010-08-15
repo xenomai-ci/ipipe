@@ -681,7 +681,7 @@ void __ipipe_handle_irq(int irq, struct pt_regs *regs)
 	__ipipe_walk_pipeline(head);
 }
 
-int __ipipe_exit_irq(struct pt_regs *regs)
+void __ipipe_exit_irq(struct pt_regs *regs)
 {
 	if (user_mode(regs) &&
 	    (current->ipipe_flags & PF_EVTRET) != 0) {
@@ -694,11 +694,9 @@ int __ipipe_exit_irq(struct pt_regs *regs)
 		current->ipipe_flags &= ~PF_EVTRET;
 		__ipipe_dispatch_event(IPIPE_EVENT_RETURN, regs);
 	}
-
-	return __ipipe_root_domain_p && !irqs_disabled();
 }
 
-asmlinkage int __ipipe_grab_irq(int irq, struct pt_regs *regs)
+asmlinkage void __ipipe_grab_irq(int irq, struct pt_regs *regs)
 {
 	int cpu = ipipe_processor_id();
 #ifdef irq_finish
@@ -740,8 +738,7 @@ asmlinkage int __ipipe_grab_irq(int irq, struct pt_regs *regs)
 #ifdef CONFIG_IPIPE_TRACE_IRQSOFF
 	ipipe_trace_end(regs->ARM_ORIG_r0);
 #endif
-
-	return __ipipe_exit_irq(regs);
+	__ipipe_exit_irq(regs);
 }
 
 asmlinkage int __ipipe_dispatch_trap(int trap, struct pt_regs *regs)

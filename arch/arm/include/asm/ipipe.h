@@ -268,9 +268,9 @@ void __ipipe_do_critical_sync(unsigned irq, void *cookie);
 
 DECLARE_PER_CPU(struct pt_regs, __ipipe_tick_regs);
 
-int __ipipe_grab_irq(int irq, struct pt_regs *regs);
+void __ipipe_grab_irq(int irq, struct pt_regs *regs);
 
-int __ipipe_exit_irq(struct pt_regs *regs);
+void __ipipe_exit_irq(struct pt_regs *regs);
 
 void __ipipe_handle_irq(int irq, struct pt_regs *regs);
 

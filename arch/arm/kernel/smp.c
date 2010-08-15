@@ -459,7 +459,7 @@ int __ipipe_send_ipi(unsigned ipi, cpumask_t cpumask)
 	return 0;
 }
 
-asmlinkage int  __exception __ipipe_grab_ipi(struct pt_regs *regs) /* hw IRQs off */
+asmlinkage void __exception __ipipe_grab_ipi(struct pt_regs *regs) /* hw IRQs off */
 {
 	unsigned int cpu = ipipe_processor_id(), svc;
 	struct ipi_data *ipi = &per_cpu(ipi_data, cpu);
@@ -501,7 +501,7 @@ asmlinkage int  __exception __ipipe_grab_ipi(struct pt_regs *regs) /* hw IRQs of
 		}
 	}
 
-	return __ipipe_exit_irq(regs);
+	__ipipe_exit_irq(regs);
 }
 
 void  __ipipe_root_ipi(unsigned int irq, struct pt_regs *regs)
@@ -774,7 +774,7 @@ void flush_tlb_kernel_page(unsigned long kaddr)
 }
 
 void flush_tlb_range(struct vm_area_struct *vma,
-                     unsigned long start, unsigned long end)
+		     unsigned long start, unsigned long end)
 {
 	if (tlb_ops_need_broadcast()) {
 		cpumask_t *mask = fcse_tlb_mask(vma->vm_mm);

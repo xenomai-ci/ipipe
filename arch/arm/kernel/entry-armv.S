@@ -30,9 +30,6 @@
  * Interrupt handling.  Preserves r7, r8, r9
  */
 	.macro	irq_handler
-#ifdef CONFIG_IPIPE
-	mov r0, #2
-#endif
 	get_irqnr_preamble r5, lr
 1:	get_irqnr_and_base r1, r6, r5, lr
 	movne	r0, r1
@@ -75,8 +72,7 @@
 #endif
 #endif
 #ifdef CONFIG_IPIPE
-	cmp	r0, #2
-	bleq	__ipipe_check_root_interruptible
+	bl	__ipipe_check_root_interruptible
 #endif
 
 	.endm
