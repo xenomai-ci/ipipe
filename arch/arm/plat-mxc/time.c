@@ -391,7 +391,7 @@ void __init mxc_timer_init(struct clk *timer_clk, void __iomem *base, int irq)
 	barrier();
 #endif /* CONFIG_SMP */
 
-	mxc_min_delay = ((ipipe_cpu_freq() + 500000) / 1000000) ?: 1;
+	mxc_min_delay = ((__ipipe_cpu_freq + 500000) / 1000000) ?: 1;
 	mxc_timer_initialized = 1;
 #endif /* CONFIG_IPIPE */
 }
