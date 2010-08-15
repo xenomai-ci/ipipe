@@ -229,7 +229,7 @@ sic_handle_irq(unsigned int irq, struct irq_desc *desc)
 
 		irq += IRQ_SIC_START;
 
-		ipipe_handle_irq_cond(irq);
+		ipipe_handle_chained_irq(irq);
 	} while (status);
 }
 

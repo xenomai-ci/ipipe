@@ -60,10 +60,10 @@ static void s3c_irq_demux_wdtac97(unsigned int irq,
 
 	if (subsrc != 0) {
 		if (subsrc & 1) {
-			ipipe_handle_irq_cond(IRQ_S3C2440_WDT);
+			ipipe_handle_chained_irq(IRQ_S3C2440_WDT);
 		}
 		if (subsrc & 2) {
-			ipipe_handle_irq_cond(IRQ_S3C2440_AC97);
+			ipipe_handle_chained_irq(IRQ_S3C2440_AC97);
 		}
 	}
 }

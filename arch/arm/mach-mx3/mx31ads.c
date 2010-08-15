@@ -135,7 +135,7 @@ static void mx31ads_expio_irq_handler(u32 irq, struct irq_desc *desc)
 		if ((int_valid & 1) == 0)
 			continue;
 
-		ipipe_handle_irq_cond(expio_irq);
+		ipipe_handle_chained_irq(expio_irq);
 	}
 }
 

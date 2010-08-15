@@ -109,7 +109,7 @@ static void mx31pdk_expio_irq_handler(uint32_t irq, struct irq_desc *desc)
 	for (; int_valid != 0; int_valid >>= 1, expio_irq++) {
 		if ((int_valid & 1) == 0)
 			continue;
-		ipipe_handle_irq_cond(expio_irq);
+		ipipe_handle_chained_irq(expio_irq);
 	}
 }
 

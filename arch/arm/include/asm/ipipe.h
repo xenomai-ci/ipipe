@@ -27,6 +27,7 @@
 #ifdef CONFIG_IPIPE
 
 #include <linux/ipipe_percpu.h>
+#include <linux/ipipe_trace.h>
 #include <mach/irqs.h>		/* For __IPIPE_FEATURE_PIC_MUTE */
 
 #define IPIPE_ARCH_STRING	"1.17-02"
@@ -209,6 +210,15 @@ DECLARE_PER_CPU(struct pt_regs, __ipipe_tick_regs);
 int __ipipe_handle_irq(int irq,
 		       struct pt_regs *regs);
 
+static inline void ipipe_handle_chained_irq(unsigned int irq)
+{
+	struct pt_regs regs;    /* dummy */
+
+	ipipe_trace_irq_entry(irq);
+	__ipipe_handle_irq(irq, &regs);
+	ipipe_trace_irq_exit(irq);
+}
+
 #define ipipe_update_tick_evtdev(evtdev) do { } while (0)
 
 #define __ipipe_tick_irq	__ipipe_mach_timerint
@@ -258,6 +268,8 @@ do {									\
 
 #define ipipe_handle_irq_cond(irq) \
 	generic_handle_irq(irq)
+
+#define ipipe_handle_chained_irq(irq)   generic_handle_irq(irq)
 
 #define ipipe_mm_switch_protect(flags) \
 	do {					\

@@ -434,7 +434,7 @@ static void gpio_irq_handler(unsigned irq, struct irq_desc *desc)
 					gpio_irq_mask(pin);
 				}
 				else
-					ipipe_handle_irq_cond(pin);
+					ipipe_handle_chained_irq(pin);
 			}
 			pin++;
 			gpio++;

@@ -400,10 +400,10 @@ static void s3c_irq_demux_adc(unsigned int irq,
 
 	if (subsrc != 0) {
 		if (subsrc & 1) {
-			ipipe_handle_irq_cond(IRQ_TC);
+			ipipe_handle_chained_irq(IRQ_TC);
 		}
 		if (subsrc & 2) {
-			ipipe_handle_irq_cond(IRQ_ADC);
+			ipipe_handle_chained_irq(IRQ_ADC);
 		}
 	}
 }
@@ -428,13 +428,13 @@ static void s3c_irq_demux_uart(unsigned int start)
 
 	if (subsrc != 0) {
 		if (subsrc & 1)
-			ipipe_handle_irq_cond(start);
+			ipipe_handle_chained_irq(start);
 
 		if (subsrc & 2)
-			ipipe_handle_irq_cond(start+1);
+			ipipe_handle_chained_irq(start+1);
 
 		if (subsrc & 4)
-			ipipe_handle_irq_cond(start+2);
+			ipipe_handle_chained_irq(start+2);
 	}
 }
 
@@ -481,7 +481,7 @@ s3c_irq_demux_extint8(unsigned int irq,
 		eintpnd &= ~(1<<irq);
 
 		irq += (IRQ_EINT4 - 4);
-		ipipe_handle_irq_cond(irq);
+		ipipe_handle_chained_irq(irq);
 	}
 
 }
@@ -504,7 +504,7 @@ s3c_irq_demux_extint4t7(unsigned int irq,
 
 		irq += (IRQ_EINT4 - 4);
 
-		ipipe_handle_irq_cond(irq);
+		ipipe_handle_chained_irq(irq);
 	}
 }
 

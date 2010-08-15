@@ -221,7 +221,7 @@ static void pxa_gpio_demux_handler(unsigned int irq, struct irq_desc *desc)
 			while (n < BITS_PER_LONG) {
 				loop = 1;
 
-				ipipe_handle_irq_cond(gpio_to_irq(gpio_base + n));
+				ipipe_handle_chained_irq(gpio_to_irq(gpio_base + n));
 				n = find_next_bit(&gedr, BITS_PER_LONG, n + 1);
 			}
 		}
