@@ -729,7 +729,7 @@ void __sched  __ipipe_preempt_schedule_irq(void)
 	if (unlikely(__ipipe_ipending_p(p))) {
 		add_preempt_count(PREEMPT_ACTIVE);
 		clear_bit(IPIPE_STALL_FLAG, &p->status);
-		__ipipe_sync_pipeline(IPIPE_IRQ_DOALL);
+		__ipipe_sync_pipeline();
 		sub_preempt_count(PREEMPT_ACTIVE);
 	}
 
@@ -820,7 +820,7 @@ asmlinkage int __ipipe_syscall_root(struct pt_regs *regs)
 
 	p = ipipe_root_cpudom_ptr();
 	if (__ipipe_ipending_p(p))
-		__ipipe_sync_pipeline(IPIPE_IRQ_DOVIRT);
+		__ipipe_sync_pipeline();
 
 #ifdef CONFIG_PPC32
 	local_irq_enable_hw();
