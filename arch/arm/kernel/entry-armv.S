@@ -319,8 +319,6 @@ __und_svc:
 #endif
 
 #ifdef CONFIG_IPIPE
-	/* Beware, do_undefinstr in arch/arm/traps.c will not signal the trap
-	when in svc mode because of this hunk. */
 	mov	r4, r2
 	mov	r0, #7				@ r0 = IPIPE_TRAP_UNDEFINSTR
 	mov	r1, sp				@ r1 = &regs
@@ -554,6 +552,17 @@ ENDPROC(__irq_usr)
 __und_usr:
 	usr_entry
 
+#ifdef CONFIG_IPIPE
+	mov	r0, #7				@ r0 = IPIPE_TRAP_UNDEFINSTR
+	mov	r1, sp				@ r1 = &regs
+	mov	r4, r2
+	mov	r5, r3
+	bl	__ipipe_dispatch_event		@ branch to trap handler
+	cmp	r0, #0
+	bne	ret_from_exception
+	mov	r2, r4
+	mov	r3, r5
+#endif /* CONFIG_IPIPE */
 	@
 	@ fall through to the emulation code, which returns using r9 if
 	@ it has emulated the instruction, or the more conventional lr
@@ -654,7 +663,7 @@ call_fpe:
 	mov	r7, #1
 	strb	r7, [r10, #TI_USED_CP + 10]	@ mark CP#10 as used
 	strb	r7, [r10, #TI_USED_CP + 11]	@ mark CP#11 as used
-	b	_do_vfp				@ let VFP handler handle this
+	b	do_vfp				@ let VFP handler handle this
 1:
 #endif
 	tst	r0, #0x08000000			@ only CDP/CPRT/LDC/STC have bit 27
@@ -700,8 +709,8 @@ call_fpe:
 	movw_pc	lr				@ CP#8
 	movw_pc	lr				@ CP#9
 #ifdef CONFIG_VFP
-	W(b)	_do_vfp				@ CP#10 (VFP)
-	W(b)	_do_vfp				@ CP#11 (VFP)
+	W(b)	do_vfp				@ CP#10 (VFP)
+	W(b)	do_vfp				@ CP#11 (VFP)
 #else
 	movw_pc	lr				@ CP#10 (VFP)
 	movw_pc	lr				@ CP#11 (VFP)
@@ -736,42 +745,10 @@ call_fpe:
 #endif
 
 do_fpe:
-#ifdef CONFIG_IPIPE
-	mov	r4, r0
-	mov	r5, r2
-	mov	r6, lr
-	mov	r0, #5				@ r0 = IPIPE_TRAP_FPU
-	mov	r1, sp				@ r1 = &regs
-	bl	__ipipe_dispatch_event		@ branch to trap handler
-	cmp	r0, #0
-	movne	pc, r9
-	mov	lr, r6
-	mov	r2, r5
-	mov	r0, r4
-#endif
 	enable_irq
 	ldr	r4, .LCfp
 	add	r10, r10, #TI_FPSTATE		@ r10 = workspace
 	ldr	pc, [r4]			@ Call FP module USR entry point
-
-#ifdef CONFIG_VFP
-_do_vfp:
-#ifdef CONFIG_IPIPE
-	mov	r4, r0
-	mov	r5, r2
-	mov	r6, lr
-	mov	r0, #6				@ r0 = IPIPE_TRAP_VFP
-	mov	r1, sp				@ r1 = &regs
-	bl	__ipipe_dispatch_event		@ branch to trap handler
-	cmp	r0, #0
-	movne	pc, r9
-	mov	lr, r6
-	mov	r2, r5
-	mov	r0, r4
-#endif
-	b	do_vfp
-#endif
-
 
 /*
  * The FP module is called with these registers set:

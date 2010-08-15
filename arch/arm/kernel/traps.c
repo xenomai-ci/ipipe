@@ -331,11 +331,6 @@ asmlinkage void __exception do_undefinstr(struct pt_regs *regs)
 	siginfo_t info;
 	void __user *pc;
 
-	/* In kernel mode, the trap was already signaled at the beginning of
-	 * __und_svc in arch/arm/kernel/entry-armv.S */
-	if (user_mode(regs) && ipipe_trap_notify(IPIPE_TRAP_UNDEFINSTR, regs))
-		return;
-
 	/*
 	 * According to the ARM ARM, PC is 2 or 4 bytes ahead,
 	 * depending whether we're in Thumb mode or not.
