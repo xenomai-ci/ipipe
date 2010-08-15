@@ -178,6 +178,8 @@ extern int __ipipe_mach_timerint;
 		(void)(cpu);					\
 		__ipipe_mach_hrtimer_irq;			\
 	})
+#define __ipipe_mach_ext_hrtimer_p(irq)				\
+	((irq) == __ipipe_mach_hrtimer_irq)
 #endif
 #ifndef __ipipe_mach_localtimer
 /*
