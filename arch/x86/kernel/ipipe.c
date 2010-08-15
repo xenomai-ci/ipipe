@@ -565,7 +565,7 @@ asmlinkage void __ipipe_unstall_iret_root(struct pt_regs regs)
 		 * infinite recursion in case of flooding.
 		 */
 		if (unlikely(__ipipe_ipending_p(p)))
-			__ipipe_sync_pipeline(IPIPE_IRQ_DOALL);
+			__ipipe_sync_pipeline();
 	}
 #ifdef CONFIG_IPIPE_TRACE_IRQSOFF
 	ipipe_trace_end(0x8000000D);
@@ -628,7 +628,7 @@ void __ipipe_halt_root(void)
 	clear_bit(IPIPE_STALL_FLAG, &p->status);
 
 	if (unlikely(__ipipe_ipending_p(p))) {
-		__ipipe_sync_pipeline(IPIPE_IRQ_DOALL);
+		__ipipe_sync_pipeline();
 		local_irq_enable_hw();
 	} else {
 #ifdef CONFIG_IPIPE_TRACE_IRQSOFF
@@ -901,7 +901,7 @@ int __ipipe_syscall_root(struct pt_regs *regs)
 	 * tested.
 	 */
 	if (__ipipe_ipending_p(p))
-		__ipipe_sync_pipeline(IPIPE_IRQ_DOVIRT);
+		__ipipe_sync_pipeline();
 #ifdef CONFIG_X86_64
 	if (!ret)
 #endif

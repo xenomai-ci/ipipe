@@ -319,7 +319,7 @@ void __ipipe_unstall_root(void)
         __clear_bit(IPIPE_STALL_FLAG, &p->status);
 
         if (unlikely(__ipipe_ipending_p(p)))
-                __ipipe_sync_pipeline(IPIPE_IRQ_DOALL);
+                __ipipe_sync_pipeline();
 
         local_irq_enable_hw();
 }
@@ -412,7 +412,7 @@ void ipipe_unstall_pipeline_head(void)
 	if (unlikely(__ipipe_ipending_p(p))) {
 		head_domain = __ipipe_pipeline_head();
 		if (likely(head_domain == __ipipe_current_domain))
-			__ipipe_sync_pipeline(IPIPE_IRQ_DOALL);
+			__ipipe_sync_pipeline();
 		else
 			__ipipe_walk_pipeline(&head_domain->p_link);
         }
@@ -449,7 +449,7 @@ void __ipipe_restore_pipeline_head(unsigned long x) /* hw interrupt off */
 		if (unlikely(__ipipe_ipending_p(p))) {
 			head_domain = __ipipe_pipeline_head();
 			if (likely(head_domain == __ipipe_current_domain))
-				__ipipe_sync_pipeline(IPIPE_IRQ_DOALL);
+				__ipipe_sync_pipeline();
 			else
 				__ipipe_walk_pipeline(&head_domain->p_link);
 		}
@@ -614,36 +614,18 @@ void __ipipe_unlock_irq(struct ipipe_domain *ipd, unsigned int irq)
 	}
 }
 
-static inline int __ipipe_next_irq(struct ipipe_percpu_domain_data *p,
-				   int dovirt)
+static inline int __ipipe_next_irq(struct ipipe_percpu_domain_data *p)
 {
-	unsigned long l0m, l1m, l2m, himask, mdmask;
 	int l0b, l1b, l2b, vl0b, vl1b;
+	unsigned long l0m, l1m, l2m;
 	unsigned int irq;
 
-	if (dovirt) {
-		/*
-		 * All virtual IRQs are mapped by a single long word.
-		 * There is exactly BITS_PER_LONG virqs, and they are
-		 * always last in the interrupt map, starting at
-		 * IPIPE_VIRQ_BASE. Therefore, we only need to test a
-		 * single bit within the high and middle maps to check
-		 * whether a virtual IRQ is pending (the computations
-		 * below are constant).
-		 */
-		vl0b = IPIPE_VIRQ_BASE / (BITS_PER_LONG * BITS_PER_LONG);
-		himask = (1L << vl0b);
-		vl1b = IPIPE_VIRQ_BASE / BITS_PER_LONG;
-		mdmask = (1L << (vl1b & (BITS_PER_LONG-1)));
-	} else
-		himask = mdmask = ~0L;
-
-	l0m = p->irqpend_himap & himask;
+	l0m = p->irqpend_himap;
 	if (unlikely(l0m == 0))
 		return -1;
 
 	l0b = __ipipe_ffnz(l0m);
-	l1m = p->irqpend_mdmap[l0b] & mdmask;
+	l1m = p->irqpend_mdmap[l0b];
 	if (unlikely(l1m == 0))
 		return -1;
 
@@ -731,15 +713,12 @@ void __ipipe_unlock_irq(struct ipipe_domain *ipd, unsigned irq)
 	}
 }
 
-static inline int __ipipe_next_irq(struct ipipe_percpu_domain_data *p,
-				   int dovirt)
+static inline int __ipipe_next_irq(struct ipipe_percpu_domain_data *p)
 {
-	unsigned long l0m, l1m, himask = ~0L;
+	unsigned long l0m, l1m;
 	int l0b, l1b;
 
-	himask <<= dovirt ? IPIPE_VIRQ_BASE/BITS_PER_LONG : 0;
-
-	l0m = p->irqpend_himap & himask;
+	l0m = p->irqpend_himap;
 	if (unlikely(l0m == 0))
 		return -1;
 
@@ -779,7 +758,7 @@ void __ipipe_walk_pipeline(struct list_head *pos)
 
 		if (__ipipe_ipending_p(np)) {
 			if (next_domain == this_domain)
-				__ipipe_sync_pipeline(IPIPE_IRQ_DOALL);
+				__ipipe_sync_pipeline();
 			else {
 
 				p->evsync = 0;
@@ -796,7 +775,7 @@ void __ipipe_walk_pipeline(struct list_head *pos)
 
 				if (__ipipe_ipending_p(p) &&
 				    !test_bit(IPIPE_STALL_FLAG, &p->status))
-					__ipipe_sync_pipeline(IPIPE_IRQ_DOALL);
+					__ipipe_sync_pipeline();
 			}
 			break;
 		} else if (next_domain == this_domain)
@@ -843,7 +822,7 @@ void ipipe_suspend_domain(void)
 
 		__ipipe_current_domain = next_domain;
 sync_stage:
-		__ipipe_sync_pipeline(IPIPE_IRQ_DOALL);
+		__ipipe_sync_pipeline();
 
 		if (__ipipe_current_domain != next_domain)
 			/*
@@ -1095,7 +1074,7 @@ int __ipipe_dispatch_event (unsigned event, void *data)
 		    __ipipe_ipending_p(np) &&
 		    !test_bit(IPIPE_STALL_FLAG, &np->status)) {
 			__ipipe_current_domain = next_domain;
-			__ipipe_sync_pipeline(IPIPE_IRQ_DOALL);
+			__ipipe_sync_pipeline();
 			if (__ipipe_current_domain != next_domain)
 				this_domain = __ipipe_current_domain;
 		}
@@ -1169,7 +1148,7 @@ void __ipipe_dispatch_wired_nocheck(struct ipipe_domain *head, unsigned irq) /* 
 		__ipipe_current_domain = old;
 		if (old == head) {
 			if (__ipipe_ipending_p(p))
-				__ipipe_sync_pipeline(IPIPE_IRQ_DOALL);
+				__ipipe_sync_pipeline();
 			return;
 		}
 	}
@@ -1188,7 +1167,7 @@ void __ipipe_dispatch_wired_nocheck(struct ipipe_domain *head, unsigned irq) /* 
  *
  * This routine must be called with hw interrupts off.
  */
-void __ipipe_sync_stage(int dovirt)
+void __ipipe_sync_stage(void)
 {
 	struct ipipe_percpu_domain_data *p;
 	struct ipipe_domain *ipd;
@@ -1211,7 +1190,7 @@ void __ipipe_sync_stage(int dovirt)
 	cpu = ipipe_processor_id();
 
 	for (;;) {
-		irq = __ipipe_next_irq(p, dovirt);
+		irq = __ipipe_next_irq(p);
 		if (irq < 0)
 			break;
 		/*
@@ -1371,7 +1350,7 @@ int ipipe_register_domain(struct ipipe_domain *ipd,
 
 	if (__ipipe_ipending_p(p) &&
 	    !test_bit(IPIPE_STALL_FLAG, &p->status))
-		__ipipe_sync_pipeline(IPIPE_IRQ_DOALL);
+		__ipipe_sync_pipeline();
 
 	local_irq_restore_hw(flags);
 
