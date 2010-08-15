@@ -29,6 +29,7 @@
 #include <linux/linkage.h>
 #include <linux/ipipe_base.h>
 #include <asm/ipipe.h>
+#include <asm/bug.h>
 
 #ifdef CONFIG_IPIPE_DEBUG_CONTEXT
 
@@ -64,6 +65,14 @@ static inline void ipipe_restore_context_check(int cpu, int old_state) { }
 static inline void ipipe_context_check_off(void) { }
 
 #endif	/* !CONFIG_IPIPE_DEBUG_CONTEXT */
+
+#ifdef CONFIG_IPIPE_DEBUG_INTERNAL
+#define IPIPE_WARN(c)		WARN_ON(c)
+#define IPIPE_WARN_ONCE(c)	WARN_ON_ONCE(c)
+#else
+#define IPIPE_WARN(c)		do { (void)(c); } while (0)
+#define IPIPE_WARN_ONCE(c)	do { (void)(c); } while (0)
+#endif
 
 #ifdef CONFIG_IPIPE
 
@@ -223,7 +232,7 @@ void __ipipe_dispatch_wired_nocheck(struct ipipe_domain *head, unsigned irq);
 
 void __ipipe_dispatch_wired(struct ipipe_domain *head, unsigned irq);
 
-void __ipipe_sync_stage(int dovirt);
+void __ipipe_sync_stage(void);
 
 void __ipipe_set_irq_pending(struct ipipe_domain *ipd, unsigned irq);
 
@@ -246,7 +255,7 @@ static inline void ipipe_irq_unlock(unsigned irq)
 }
 
 #ifndef __ipipe_sync_pipeline
-#define __ipipe_sync_pipeline(dovirt) __ipipe_sync_stage(dovirt)
+#define __ipipe_sync_pipeline() __ipipe_sync_stage()
 #endif
 
 #ifndef __ipipe_run_irqtail
