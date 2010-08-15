@@ -23,11 +23,6 @@
  * possible here, and this includes saving r0 back into the SVC
  * stack.
  */
-#ifdef CONFIG_IPIPE
-__ipipe_ret_fast_syscall:
-	ldr	r0, [sp, #S_R0+S_OFF]		@ returned r0
-	/* fall through */
-#endif
 ret_fast_syscall:
  UNWIND(.fnstart	)
  UNWIND(.cantunwind	)
@@ -36,7 +31,6 @@ ret_fast_syscall:
 	tst	r1, #_TIF_WORK_MASK
 	bne	fast_work_pending
 
-fast_restore_user_regs:
 	/* perform architecture specific actions before user return */
 	arch_ret_to_user r1, lr
 
@@ -44,9 +38,8 @@ fast_restore_user_regs:
 
 #ifdef CONFIG_IPIPE
 __ipipe_fast_exit_syscall:
-	ldr	r0, [sp, #S_R0+S_OFF]		@ returned r0
 	disable_irq				@ disable interrupts
-	b	fast_restore_user_regs
+	slow_restore_user_regs
 #endif /* CONFIG_IPIPE */
 
  UNWIND(.fnend		)
@@ -70,7 +63,6 @@ work_pending:
 work_resched:
 	enable_irq_cond
 	bl	schedule
-
 /*
  * "slow" syscall return path.  "why" tells us if this was a real syscall.
  */
@@ -271,9 +263,13 @@ ENTRY(vector_swi)
 #endif
 	enable_irq
 
+#ifndef	CONFIG_IPIPE
 	get_thread_info tsk
 	adr	tbl, sys_call_table		@ load syscall table pointer
 	ldr	ip, [tsk, #TI_FLAGS]		@ check for syscall tracing
+#else /* CONFIG_IPIPE */
+	adr	tbl, sys_call_table		@ load syscall table pointer
+#endif /* CONFIG_IPIPE */
 
 #if defined(CONFIG_OABI_COMPAT)
 	/*
@@ -290,19 +286,18 @@ ENTRY(vector_swi)
 	eor	scno, scno, #__NR_SYSCALL_BASE	@ check OS number
 #endif
 
-	stmdb	sp!, {r4, r5}			@ push fifth and sixth args
 #ifdef CONFIG_IPIPE
-	stmfd	sp!, {r0-r3, ip}
-	sub	sp, sp, #4
-	add	r1, sp, #S_OFF+24
+	mov	r1, sp
 	mov	r0, scno
 	bl	__ipipe_syscall_root
 	cmp	r0, #0
-	add	sp, sp, #4
-	ldmfd	sp!, {r0-r3, ip}
-	blt	__ipipe_ret_fast_syscall
+	get_thread_info tsk
+	blt	ret_slow_syscall
 	bgt	__ipipe_fast_exit_syscall
+	ldm	sp, { r0 - r3 }
+	ldr	ip, [tsk, #TI_FLAGS]		@ check for syscall tracing
 #endif /* CONFIG_IPIPE */
+	stmdb	sp!, {r4, r5}			@ push fifth and sixth args
 	tst	ip, #_TIF_SYSCALL_TRACE		@ are we tracing syscalls?
 	bne	__sys_trace
 
