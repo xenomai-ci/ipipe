@@ -66,7 +66,9 @@ DEFINE_PER_CPU(struct mm_struct *, current_mm);
 void __init_new_context(struct task_struct *tsk, struct mm_struct *mm)
 {
 	mm->context.id = 0;
+#ifdef CONFIG_SMP
 	spin_lock_init(&mm->context.id_lock);
+#endif /* CONFIG_SMP */
 }
 
 static void flush_context(void)
