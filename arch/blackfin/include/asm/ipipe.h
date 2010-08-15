@@ -34,11 +34,12 @@
 #include <asm/bitops.h>
 #include <asm/atomic.h>
 #include <asm/traps.h>
+#include <asm/bitsperlong.h>
 
-#define IPIPE_ARCH_STRING     "1.12-00"
+#define IPIPE_ARCH_STRING     "1.14-02"
 #define IPIPE_MAJOR_NUMBER    1
-#define IPIPE_MINOR_NUMBER    12
-#define IPIPE_PATCH_NUMBER    0
+#define IPIPE_MINOR_NUMBER    14
+#define IPIPE_PATCH_NUMBER    2
 
 #ifdef CONFIG_SMP
 #error "I-pipe/blackfin: SMP not implemented"
@@ -128,12 +129,11 @@ void __ipipe_enable_pipeline(void);
 
 #define __ipipe_hook_critical_ipi(ipd) do { } while (0)
 
-#define __ipipe_sync_pipeline  ___ipipe_sync_pipeline
-void ___ipipe_sync_pipeline(unsigned long syncmask);
+void ___ipipe_sync_pipeline(void);
 
 void __ipipe_handle_irq(unsigned irq, struct pt_regs *regs);
 
-int __ipipe_get_irq_priority(unsigned irq);
+int __ipipe_get_irq_priority(unsigned int irq);
 
 void __ipipe_serial_debug(const char *fmt, ...);
 
@@ -187,7 +187,7 @@ static inline unsigned long __ipipe_ffnz(unsigned long ul)
 	} while (0)
 
 #define __ipipe_syscall_watched_p(p, sc)	\
-	(((p)->flags & PF_EVNOTIFY) || (unsigned long)sc >= NR_syscalls)
+	(ipipe_notifier_enabled_p(p) || (unsigned long)sc >= NR_syscalls)
 
 void ipipe_init_irq_threads(void);
 

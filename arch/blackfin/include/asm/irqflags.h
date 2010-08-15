@@ -34,8 +34,22 @@ static inline unsigned long bfin_cli(void)
 #ifdef CONFIG_IPIPE
 
 #include <linux/compiler.h>
-#include <linux/ipipe_base.h>
 #include <linux/ipipe_trace.h>
+/*
+ * Way too many inter-deps between low-level headers in this port, so
+ * we redeclare the required bits we cannot pick from
+ * <asm/ipipe_base.h> to prevent circular dependencies.
+ */
+void __ipipe_unstall_root(void);
+
+#ifdef CONFIG_IPIPE_DEBUG_CONTEXT
+struct ipipe_domain;
+extern struct ipipe_domain ipipe_root;
+void ipipe_check_context(struct ipipe_domain *ipd);
+#define __check_irqop_context(ipd)  ipipe_check_context(&ipipe_root)
+#else /* !CONFIG_IPIPE_DEBUG_CONTEXT */
+#define __check_irqop_context(ipd)  do { } while(0)
+#endif /* !CONFIG_IPIPE_DEBUG_CONTEXT */
 
 #ifdef CONFIG_DEBUG_HWERR
 # define bfin_no_irqs 0x3f
@@ -45,7 +59,7 @@ static inline unsigned long bfin_cli(void)
 
 #define raw_local_irq_disable()				\
 	do {						\
-		ipipe_check_context(ipipe_root_domain);	\
+		__check_irqop_context();		\
 		__ipipe_stall_root();			\
 		barrier();				\
 	} while (0)
@@ -53,7 +67,7 @@ static inline unsigned long bfin_cli(void)
 #define raw_local_irq_enable()				\
 	do {						\
 		barrier();				\
-		ipipe_check_context(ipipe_root_domain);	\
+		__check_irqop_context();		\
 		__ipipe_unstall_root();			\
 	} while (0)
 
@@ -74,7 +88,7 @@ static inline unsigned long bfin_cli(void)
 
 #define raw_local_irq_save(x)				\
 	do {						\
-		ipipe_check_context(ipipe_root_domain);	\
+		__check_irqop_context();		\
 		raw_local_irq_save_ptr(&(x));		\
 	} while (0)
 

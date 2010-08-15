@@ -15,6 +15,7 @@
 #include <linux/kernel_stat.h>
 #include <linux/seq_file.h>
 #include <linux/irq.h>
+#include <linux/sched.h>
 #ifdef CONFIG_IPIPE
 #include <linux/ipipe.h>
 #endif
@@ -536,14 +537,13 @@ static void bfin_demux_mac_status_irq(unsigned int int_err_irq,
 
 static inline void bfin_set_irq_handler(unsigned irq, irq_flow_handler_t handle)
 {
+	struct irq_desc *desc = irq_to_desc(irq);
 #ifdef CONFIG_IPIPE
-	_set_irq_handler(irq, handle_level_irq);
-#else
-	struct irq_desc *desc = irq_desc + irq;
+	handle = __fixup_irq_handler(desc, handle_level_irq, 0);
+#endif
 	/* May not call generic set_irq_handler() due to spinlock
 	   recursion. */
 	desc->handle_irq = handle;
-#endif
 }
 
 static DECLARE_BITMAP(gpio_enabled, MAX_BLACKFIN_GPIOS);
@@ -1373,7 +1373,7 @@ asmlinkage int __ipipe_grab_irq(int vec, struct pt_regs *regs)
 	struct ipipe_domain *this_domain = __ipipe_current_domain;
 	struct ivgx *ivg_stop = ivg7_13[vec-IVG7].istop;
 	struct ivgx *ivg = ivg7_13[vec-IVG7].ifirst;
-	int irq, s;
+	int irq, s = 0;
 
 	if (likely(vec == EVT_IVTMR_P))
 		irq = IRQ_CORETMR;
@@ -1431,6 +1431,24 @@ asmlinkage int __ipipe_grab_irq(int vec, struct pt_regs *regs)
 	ipipe_trace_irq_entry(irq);
 	__ipipe_handle_irq(irq, regs);
 	ipipe_trace_irq_exit(irq);
+
+	if (user_mode(regs) &&
+	    !ipipe_test_foreign_stack() &&
+	    (current->ipipe_flags & PF_EVTRET) != 0) {
+		/*
+		 * Testing for user_regs() does NOT fully eliminate
+		 * foreign stack contexts, because of the forged
+		 * interrupt returns we do through
+		 * __ipipe_call_irqtail. In that case, we might have
+		 * preempted a foreign stack context in a high
+		 * priority domain, with a single interrupt level now
+		 * pending after the irqtail unwinding is done. In
+		 * which case user_mode() is now true, and the event
+		 * gets dispatched spuriously.
+		 */
+		current->ipipe_flags &= ~PF_EVTRET;
+		__ipipe_dispatch_event(IPIPE_EVENT_RETURN, regs);
+	}
 
 	if (this_domain == ipipe_root_domain) {
 		set_thread_flag(TIF_IRQ_SYNC);

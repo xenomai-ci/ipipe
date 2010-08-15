@@ -154,7 +154,7 @@ void __ipipe_handle_irq(unsigned irq, struct pt_regs *regs)
 	 * pending for it.
 	 */
 	if (test_bit(IPIPE_AHEAD_FLAG, &this_domain->flags) &&
-	    ipipe_head_cpudom_var(irqpend_himask) == 0)
+	    !__ipipe_ipending_p(ipipe_head_cpudom_ptr()))
 		goto out;
 
 	__ipipe_walk_pipeline(head);
@@ -185,11 +185,13 @@ void __ipipe_disable_irqdesc(struct ipipe_domain *ipd, unsigned irq)
 }
 EXPORT_SYMBOL(__ipipe_disable_irqdesc);
 
-int __ipipe_syscall_root(struct pt_regs *regs)
+asmlinkage int __ipipe_syscall_root(struct pt_regs *regs)
 {
 	struct ipipe_percpu_domain_data *p;
-	unsigned long flags;
-	int ret;
+	void (*hook)(void);
+        int ret;
+
+	WARN_ON_ONCE(irqs_disabled_hw());
 
 	/*
 	 * We need to run the IRQ tail hook whenever we don't
@@ -197,12 +199,9 @@ int __ipipe_syscall_root(struct pt_regs *regs)
 	 * important operations might be pending there (e.g. Xenomai
 	 * deferred rescheduling).
 	 */
-
 	if (regs->orig_p0 < NR_syscalls) {
-		void (*hook)(void) = (void (*)(void))__ipipe_irq_tail_hook;
+		hook = (__typeof__(hook))__ipipe_irq_tail_hook;
 		hook();
-		if ((current->flags & PF_EVNOTIFY) == 0)
-			return 0;
 	}
 
 	/*
@@ -214,23 +213,32 @@ int __ipipe_syscall_root(struct pt_regs *regs)
 	 * tail work has to be performed (for handling signals etc).
 	 */
 
-	if (!__ipipe_event_monitored_p(IPIPE_EVENT_SYSCALL))
+	if (!__ipipe_syscall_watched_p(current, regs->orig_p0) ||
+	    !__ipipe_event_monitored_p(IPIPE_EVENT_SYSCALL))
 		return 0;
 
-	ret = __ipipe_dispatch_event(IPIPE_EVENT_SYSCALL, regs);
+        ret = __ipipe_dispatch_event(IPIPE_EVENT_SYSCALL, regs);
 
-	local_irq_save_hw(flags);
+	local_irq_disable_hw();
 
-	if (!__ipipe_root_domain_p) {
-		local_irq_restore_hw(flags);
-		return 1;
+	/*
+	 * This is the end of the syscall path, so we may
+	 * safely assume a valid Linux task stack here.
+	 */
+	if (current->ipipe_flags & PF_EVTRET) {
+		current->ipipe_flags &= ~PF_EVTRET;
+		__ipipe_dispatch_event(IPIPE_EVENT_RETURN, regs);
 	}
 
-	p = ipipe_root_cpudom_ptr();
-	if ((p->irqpend_himask & IPIPE_IRQMASK_VIRT) != 0)
-		__ipipe_sync_pipeline(IPIPE_IRQMASK_VIRT);
+        if (!__ipipe_root_domain_p)
+		ret = -1;
+	else {
+		p = ipipe_root_cpudom_ptr();
+		if (__ipipe_ipending_p(p))
+			__ipipe_sync_pipeline();
+	}
 
-	local_irq_restore_hw(flags);
+	local_irq_enable_hw();
 
 	return -ret;
 }
@@ -289,6 +297,7 @@ int ipipe_trigger_irq(unsigned irq)
 asmlinkage void __ipipe_sync_root(void)
 {
 	void (*irq_tail_hook)(void) = (void (*)(void))__ipipe_irq_tail_hook;
+	struct ipipe_percpu_domain_data *p;
 	unsigned long flags;
 
 	BUG_ON(irqs_disabled());
@@ -300,19 +309,20 @@ asmlinkage void __ipipe_sync_root(void)
 
 	clear_thread_flag(TIF_IRQ_SYNC);
 
-	if (ipipe_root_cpudom_var(irqpend_himask) != 0)
-		__ipipe_sync_pipeline(IPIPE_IRQMASK_ANY);
+	p = ipipe_root_cpudom_ptr();
+	if (__ipipe_ipending_p(p))
+		__ipipe_sync_pipeline();
 
 	local_irq_restore_hw(flags);
 }
 
-void ___ipipe_sync_pipeline(unsigned long syncmask)
+void ___ipipe_sync_pipeline(void)
 {
 	if (__ipipe_root_domain_p &&
 	    test_bit(IPIPE_SYNCDEFER_FLAG, &ipipe_root_cpudom_var(status)))
 		return;
 
-	__ipipe_sync_stage(syncmask);
+	__ipipe_sync_stage();
 }
 
 void __ipipe_disable_root_irqs_hw(void)
