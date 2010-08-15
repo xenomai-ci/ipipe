@@ -232,7 +232,7 @@ void __ipipe_dispatch_wired_nocheck(struct ipipe_domain *head, unsigned irq);
 
 void __ipipe_dispatch_wired(struct ipipe_domain *head, unsigned irq);
 
-void __ipipe_sync_stage(int dovirt);
+void __ipipe_sync_stage(void);
 
 void __ipipe_set_irq_pending(struct ipipe_domain *ipd, unsigned irq);
 
@@ -255,7 +255,7 @@ static inline void ipipe_irq_unlock(unsigned irq)
 }
 
 #ifndef __ipipe_sync_pipeline
-#define __ipipe_sync_pipeline(dovirt) __ipipe_sync_stage(dovirt)
+#define __ipipe_sync_pipeline() __ipipe_sync_stage()
 #endif
 
 #ifndef __ipipe_run_irqtail
