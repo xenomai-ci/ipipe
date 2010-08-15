@@ -45,7 +45,6 @@
 #include <asm/unistd.h>
 #include <asm/mach/irq.h>
 #include <asm/mmu_context.h>
-#include <mach/system.h>
 
 /* Next tick date (timebase value). */
 DEFINE_PER_CPU(struct pt_regs, __ipipe_tick_regs);
@@ -680,31 +679,6 @@ void __ipipe_handle_irq(int irq, struct pt_regs *regs)
 	 * current domain in the pipeline.
 	 */
 	__ipipe_walk_pipeline(head);
-}
-
-void __ipipe_halt_root(void)
-{
-	struct ipipe_percpu_domain_data *p;
-
-	/* Emulate idle entry sequence over the root domain. */
-
-	local_irq_disable_hw();
-
-	p = ipipe_root_cpudom_ptr();
-
-	trace_hardirqs_on();
-	clear_bit(IPIPE_STALL_FLAG, &p->status);
-
-	if (unlikely(__ipipe_ipending_p(p))) {
-		__ipipe_sync_pipeline(IPIPE_IRQ_DOALL);
-		local_irq_enable_hw();
-	} else {
-#ifdef CONFIG_IPIPE_TRACE_IRQSOFF
-		ipipe_trace_end(0x8000000E);
-#endif /* CONFIG_IPIPE_TRACE_IRQSOFF */
-		local_irq_enable_hw();
-		arch_idle();
-	}
 }
 
 int __ipipe_exit_irq(struct pt_regs *regs)

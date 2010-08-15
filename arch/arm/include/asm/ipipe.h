@@ -283,8 +283,6 @@ static inline void ipipe_handle_chained_irq(unsigned int irq)
 	ipipe_trace_irq_exit(irq);
 }
 
-void __ipipe_halt_root(void);
-
 #define ipipe_update_tick_evtdev(evtdev) do { } while (0)
 
 static inline unsigned long __ipipe_ffnz(unsigned long ul)
