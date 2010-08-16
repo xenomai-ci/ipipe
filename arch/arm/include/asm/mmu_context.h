@@ -86,7 +86,6 @@ init_new_context(struct task_struct *tsk, struct mm_struct *mm)
 #ifdef CONFIG_ARM_FCSE
 	int fcse_pid;
 
-	cpus_clear(mm->context.cpu_tlb_mask);
 #ifdef CONFIG_ARM_FCSE_BEST_EFFORT
 	if (!mm->context.fcse.large) {
 		fcse_pid = fcse_pid_alloc(mm);
