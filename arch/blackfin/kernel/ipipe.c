@@ -263,10 +263,11 @@ static void __ipipe_no_irqtail(void)
 
 int ipipe_get_sysinfo(struct ipipe_sysinfo *info)
 {
-	info->ncpus = num_online_cpus();
-	info->cpufreq = ipipe_cpu_freq();
-	info->archdep.tmirq = IPIPE_TIMER_IRQ;
-	info->archdep.tmfreq = info->cpufreq;
+	info->sys_nr_cpus = num_online_cpus();
+	info->sys_cpu_freq = ipipe_cpu_freq();
+	info->sys_hrtimer_irq = IPIPE_TIMER_IRQ;
+	info->sys_hrtimer_freq = __ipipe_core_clock;
+	info->sys_hrclock_freq = __ipipe_core_clock;
 
 	return 0;
 }

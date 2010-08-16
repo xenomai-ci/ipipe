@@ -50,6 +50,8 @@
 
 #define IPIPE_TIMER_IRQ		IRQ_CORETMR
 
+#define __IPIPE_FEATURE_SYSINFO_V2	1
+
 #ifndef __ASSEMBLY__
 
 extern unsigned long __ipipe_root_status; /* Alias to ipipe_root_cpudom_var(status) */

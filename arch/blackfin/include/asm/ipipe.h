@@ -65,16 +65,11 @@ do {						\
 struct ipipe_domain;
 
 struct ipipe_sysinfo {
-
-	int ncpus;		/* Number of CPUs on board */
-	u64 cpufreq;		/* CPU frequency (in Hz) */
-
-	/* Arch-dependent block */
-
-	struct {
-		unsigned tmirq;	/* Timer tick IRQ */
-		u64 tmfreq;	/* Timer frequency */
-	} archdep;
+	int sys_nr_cpus;	/* Number of CPUs on board */
+	int sys_hrtimer_irq;	/* hrtimer device IRQ */
+	u64 sys_hrtimer_freq;	/* hrtimer device frequency */
+	u64 sys_hrclock_freq;	/* hrclock device frequency */
+	u64 sys_cpu_freq;	/* CPU frequency (Hz) */
 };
 
 #define ipipe_read_tsc(t)					\
