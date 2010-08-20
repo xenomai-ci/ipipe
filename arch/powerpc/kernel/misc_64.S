@@ -28,6 +28,7 @@
 
 	.text
 
+#ifdef CONFIG_IRQSTACKS
 _GLOBAL(call_do_softirq)
 	mflr	r0
 	std	r0,16(r1)
@@ -51,6 +52,7 @@ _GLOBAL(call_handle_irq)
 	ld	r0,16(r1)
 	mtlr	r0
 	blr
+#endif	
 
 	.section	".toc","aw"
 PPC64_CACHES:
