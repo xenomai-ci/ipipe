@@ -549,7 +549,8 @@ asmlinkage void __ipipe_unstall_iret_root(struct pt_regs regs)
 	if (raw_irqs_disabled_flags(regs.flags)) {
 		if (!__test_and_set_bit(IPIPE_STALL_FLAG, &p->status))
 			trace_hardirqs_off();
-		regs.flags |= X86_EFLAGS_IF;
+		if (!__ipipe_pipeline_head_p(ipipe_root_domain))
+			regs.flags |= X86_EFLAGS_IF;
 	} else {
 		if (test_bit(IPIPE_STALL_FLAG, &p->status)) {
 			trace_hardirqs_on();

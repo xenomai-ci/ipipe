@@ -134,7 +134,7 @@
 #endif /* CONFIG_IPIPE */
 	
 #ifdef CONFIG_PREEMPT
-#define preempt_stop(clobbers)	DISABLE_INTERRUPTS(clobbers); TRACE_IRQS_OFF
+#define preempt_stop(clobbers)	DISABLE_INTERRUPTS_HW(clobbers); TRACE_IRQS_OFF
 #else
 #define preempt_stop(clobbers)
 #define resume_kernel		restore_all
@@ -428,7 +428,6 @@ END(ret_from_exception)
 
 #ifdef CONFIG_PREEMPT
 ENTRY(resume_kernel)
-	DISABLE_INTERRUPTS_HW(CLBR_ANY)
 	cmpl $0,TI_preempt_count(%ebp)	# non-zero preempt_count ?
 	jnz restore_all
 need_resched:
