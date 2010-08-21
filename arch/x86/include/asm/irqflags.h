@@ -310,7 +310,10 @@ static inline int raw_irqs_disabled(void)
 	pushl %eax;				\
 	pushl %ecx;				\
 	pushl %edx;				\
+	pushfl;					\
+	sti;					\
 	call lockdep_sys_exit;			\
+	popfl;					\
 	popl %edx;				\
 	popl %ecx;				\
 	popl %eax;
