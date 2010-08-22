@@ -745,7 +745,7 @@ void flush_tlb_all(void)
 void flush_tlb_mm(struct mm_struct *mm)
 {
 	if (tlb_ops_need_broadcast()) {
-		cpumask_t *mask = fcse_tlb_mask(mm);
+		cpumask_t *mask = mm_cpumask(mm);
 		on_each_cpu_mask(ipi_flush_tlb_mm, mm, 1, mask);
 	} else
 		local_flush_tlb_mm(mm);
@@ -754,7 +754,7 @@ void flush_tlb_mm(struct mm_struct *mm)
 void flush_tlb_page(struct vm_area_struct *vma, unsigned long uaddr)
 {
 	if (tlb_ops_need_broadcast()) {
-		cpumask_t *mask = fcse_tlb_mask(vma->vm_mm);
+		cpumask_t *mask = mm_cpumask(vma->vm_mm);
 		struct tlb_args ta;
 		ta.ta_vma = vma;
 		ta.ta_start = uaddr;
@@ -777,7 +777,7 @@ void flush_tlb_range(struct vm_area_struct *vma,
 		     unsigned long start, unsigned long end)
 {
 	if (tlb_ops_need_broadcast()) {
-		cpumask_t *mask = fcse_tlb_mask(vma->vm_mm);
+		cpumask_t *mask = mm_cpumask(vma->vm_mm);
 		struct tlb_args ta;
 		ta.ta_vma = vma;
 		ta.ta_start = start;
