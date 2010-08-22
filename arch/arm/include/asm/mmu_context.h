@@ -161,14 +161,16 @@ __switch_mm(struct mm_struct *prev, struct mm_struct *next,
 	if (!cpumask_test_and_set_cpu(cpu, mm_cpumask(next)) || prev != next) {
 #ifdef CONFIG_SMP
 		struct mm_struct **crt_mm = &per_cpu(current_mm, cpu);
-		*crt_mm = next;
 #endif
-		check_context(next);
 #if defined(CONFIG_IPIPE)
 		if (ipipe_root_domain_p) {
 			/* mark mm state as undefined. */
 			per_cpu(ipipe_active_mm, cpu) = NULL;
 			barrier();
+#ifdef CONFIG_SMP
+			*crt_mm = next;
+#endif
+			check_context(next);
 			cpu_switch_mm(next->pgd, next,
 				      fcse_switch_mm(prev, next));
 			barrier();
@@ -177,6 +179,10 @@ __switch_mm(struct mm_struct *prev, struct mm_struct *next,
 				/* mark mm state as undefined. */
 				per_cpu(ipipe_active_mm, cpu) = NULL;
 				barrier();
+#ifdef CONFIG_SMP
+				*crt_mm = next;
+#endif
+				check_context(next);
 				cpu_switch_mm(next->pgd, next,
 					      fcse_switch_mm(NULL, next));
 				barrier();
@@ -184,8 +190,11 @@ __switch_mm(struct mm_struct *prev, struct mm_struct *next,
 			}
 		} else
 #endif /* CONFIG_IPIPE */
+		{
+			check_context(next);
 			cpu_switch_mm(next->pgd, next,
 				      fcse_switch_mm(prev, next));
+		}
 #if defined(CONFIG_IPIPE) && defined(CONFIG_ARM_FCSE)
 		if (tsk)
 			set_tsk_thread_flag(tsk, TIF_SWITCHED);
