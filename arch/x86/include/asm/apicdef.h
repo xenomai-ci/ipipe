@@ -149,6 +149,7 @@
 # define MAX_LOCAL_APIC 32768
 #endif
 
+#ifndef __ASSEMBLY__
 /*
  * All x86-64 systems are xAPIC compatible.
  * In the following, "apicid" is a physical APIC ID.
@@ -424,4 +425,7 @@ struct local_apic {
 #else
  #define BAD_APICID 0xFFFFu
 #endif
+
+#endif /* !__ASSEMBLY__ */
+
 #endif /* _ASM_X86_APICDEF_H */
