@@ -195,6 +195,11 @@ extern struct list_head __ipipe_pipeline;
 
 extern int __ipipe_event_monitors[];
 
+typedef void (*ipipe_root_preempt_handler_t)(void *cookie);
+
+DECLARE_PER_CPU(ipipe_root_preempt_handler_t, __ipipe_root_preempt_handler);
+DECLARE_PER_CPU(void *, __ipipe_root_preempt_cookie);
+
 /* Private interface */
 
 void ipipe_init_early(void);
@@ -680,6 +685,32 @@ static inline void ipipe_nmi_exit(void)
 			(p)->ipipe_flags |= PF_EVTRET;			\
 	} while (0)
 
+static inline void
+ipipe_register_root_preempt_handler(ipipe_root_preempt_handler_t handler,
+				    void *cookie)
+{
+	int cpu = ipipe_processor_id();
+
+	per_cpu(__ipipe_root_preempt_cookie, cpu) = cookie;
+	barrier();
+	per_cpu(__ipipe_root_preempt_handler, cpu) = handler;
+}
+
+static inline void ipipe_unregister_root_preempt_handler(void)
+{
+	per_cpu(__ipipe_root_preempt_handler, ipipe_processor_id()) = NULL;
+}
+
+static inline void ipipe_root_preempt_notify(void)
+{
+	ipipe_root_preempt_handler_t handler;
+	int cpu = ipipe_processor_id();
+
+	handler = per_cpu(__ipipe_root_preempt_handler, cpu);
+	if (unlikely(handler))
+		handler(per_cpu(__ipipe_root_preempt_cookie, cpu));
+}
+
 #else	/* !CONFIG_IPIPE */
 
 #define ipipe_init_early()		do { } while(0)
@@ -692,6 +723,10 @@ static inline void ipipe_nmi_exit(void)
 #define ipipe_cleanup_notify(mm)	do { } while(0)
 #define ipipe_trap_notify(t,r)		0
 #define ipipe_init_proc()		do { } while(0)
+
+#define ipipe_register_root_preempt_handler(h, c)	do { } while (0)
+#define ipipe_unregister_root_preempt_handler()		do { } while (0)
+#define ipipe_root_preempt_notify()			do { } while (0)
 
 static inline void __ipipe_pin_range_globally(unsigned long start,
 					      unsigned long end)

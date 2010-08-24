@@ -114,6 +114,12 @@ unsigned __ipipe_printk_virq;
 
 int __ipipe_event_monitors[IPIPE_NR_EVENTS];
 
+DEFINE_PER_CPU(ipipe_root_preempt_handler_t, __ipipe_root_preempt_handler);
+EXPORT_PER_CPU_SYMBOL_GPL(__ipipe_root_preempt_handler);
+
+DEFINE_PER_CPU(void *, __ipipe_root_preempt_cookie);
+EXPORT_PER_CPU_SYMBOL_GPL(__ipipe_root_preempt_cookie);
+
 #ifdef CONFIG_GENERIC_CLOCKEVENTS
 
 DECLARE_PER_CPU(struct tick_device, tick_cpu_device);
