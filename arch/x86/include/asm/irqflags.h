@@ -323,8 +323,23 @@ static inline int raw_irqs_disabled(void)
 #endif
 
 #ifdef CONFIG_TRACE_IRQFLAGS
+# if defined(CONFIG_IPIPE) && defined(CONFIG_X86_64)
+#  define TRACE_IRQS_ON				\
+	call trace_hardirqs_on_thunk;		\
+	pushq %rax;				\
+	PER_CPU(ipipe_percpu_darray, %rax);	\
+	btrl $0,(%rax);				\
+	popq %rax
+#  define TRACE_IRQS_OFF			\
+	pushq %rax;				\
+	PER_CPU(ipipe_percpu_darray, %rax);	\
+	btsl $0,(%rax);				\
+	popq %rax;				\
+	call trace_hardirqs_off_thunk
+# else /* !(CONFIG_IPIPE && CONFIG_X86_64) */
 #  define TRACE_IRQS_ON		call trace_hardirqs_on_thunk;
 #  define TRACE_IRQS_OFF	call trace_hardirqs_off_thunk;
+# endif /* !(CONFIG_IPIPE && CONFIG_X86_64) */
 #else
 #  define TRACE_IRQS_ON
 #  define TRACE_IRQS_OFF

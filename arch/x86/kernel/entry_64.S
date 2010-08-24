@@ -1143,6 +1143,7 @@ ENTRY(\sym)
 #ifdef CONFIG_IPIPE
 	movq $\ex_code,%rdx
 	call __ipipe_handle_exception   /* handle(regs, error_code, ex_code) */
+	TRACE_IRQS_OFF
 	testl %eax, %eax
 	jz error_exit
 	movl %ebx,%eax
@@ -1152,6 +1153,7 @@ ENTRY(\sym)
 	jne retint_noswapgs
 	jmp retint_swapgs_notrace
 #else /* !CONFIG_IPIPE */
+	TRACE_IRQS_OFF
 	call \do_sym
 #endif /* !CONFIG_IPIPE */
 	jmp error_exit		/* %ebx: no swapgs flag */
@@ -1167,16 +1169,18 @@ ENTRY(\sym)
 	CFI_ADJUST_CFA_OFFSET 8
 	subq $15*8, %rsp
 	call save_paranoid
-	TRACE_IRQS_OFF
 	movq %rsp,%rdi		/* pt_regs pointer */
 #ifdef CONFIG_IPIPE
 	.if \ex_code
 	movq $\ex_code,%rsi
 	call __ipipe_divert_exception   /* handle(regs, ex_code) */
+	TRACE_IRQS_OFF
 	testl %eax,%eax
 	jnz 1f
 	movq %rsp,%rdi
 	.endif
+#else
+	TRACE_IRQS_OFF
 #endif
 	xorl %esi,%esi		/* no error code */
 	call \do_sym
@@ -1236,6 +1240,7 @@ ENTRY(\sym)
 #ifdef CONFIG_IPIPE
 	movq $\ex_code,%rdx
 	call __ipipe_handle_exception   /* handle(regs, error_code, ex_code) */
+	TRACE_IRQS_OFF
 	testl %eax, %eax
 	jz error_exit
 	movl %ebx,%eax
@@ -1245,6 +1250,7 @@ ENTRY(\sym)
 	jne retint_noswapgs
 	jmp retint_swapgs_notrace
 #else /* !CONFIG_IPIPE */
+	TRACE_IRQS_OFF
 	call \do_sym
 #endif /* !CONFIG_IPIPE */
 	jmp error_exit			/* %ebx: no swapgs flag */
@@ -1612,7 +1618,6 @@ ENTRY(error_entry)
 error_swapgs:
 	SWAPGS
 error_sti:
-	TRACE_IRQS_OFF
 	ret
 	CFI_ENDPROC
 
