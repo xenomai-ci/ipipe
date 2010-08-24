@@ -56,22 +56,6 @@ DEFINE_PER_CPU(struct pt_regs, __ipipe_tick_regs);
 DEFINE_PER_CPU(unsigned long, __ipipe_cr2);
 EXPORT_PER_CPU_SYMBOL_GPL(__ipipe_cr2);
 
-#ifdef CONFIG_SMP
-
-static cpumask_t __ipipe_cpu_sync_map;
-
-static cpumask_t __ipipe_cpu_lock_map;
-
-static unsigned long __ipipe_critical_lock;
-
-static IPIPE_DEFINE_SPINLOCK(__ipipe_cpu_barrier);
-
-static atomic_t __ipipe_critical_count = ATOMIC_INIT(0);
-
-static void (*__ipipe_cpu_sync) (void);
-
-#endif /* CONFIG_SMP */
-
 /*
  * ipipe_trigger_irq() -- Push the interrupt at front of the pipeline
  * just like if it has been actually received from a hw source. Also
@@ -368,12 +352,6 @@ int __ipipe_send_ipi(unsigned ipi, cpumask_t cpumask)
 	unsigned long flags;
 	int self;
 
-	if (ipi != IPIPE_SERVICE_IPI0 &&
-	    ipi != IPIPE_SERVICE_IPI1 &&
-	    ipi != IPIPE_SERVICE_IPI2 &&
-	    ipi != IPIPE_SERVICE_IPI3)
-		return -EINVAL;
-
 	local_irq_save_hw(flags);
 
 	self = cpu_isset(ipipe_processor_id(),cpumask);
@@ -390,30 +368,6 @@ int __ipipe_send_ipi(unsigned ipi, cpumask_t cpumask)
 	return 0;
 }
 
-/* Always called with hw interrupts off. */
-
-void __ipipe_do_critical_sync(unsigned irq, void *cookie)
-{
-	int cpu = ipipe_processor_id();
-
-	cpu_set(cpu, __ipipe_cpu_sync_map);
-
-	/* Now we are in sync with the lock requestor running on another
-	   CPU. Enter a spinning wait until he releases the global
-	   lock. */
-	spin_lock(&__ipipe_cpu_barrier);
-
-	/* Got it. Now get out. */
-
-	if (__ipipe_cpu_sync)
-		/* Call the sync routine if any. */
-		__ipipe_cpu_sync();
-
-	spin_unlock(&__ipipe_cpu_barrier);
-
-	cpu_clear(cpu, __ipipe_cpu_sync_map);
-}
-
 void __ipipe_hook_critical_ipi(struct ipipe_domain *ipd)
 {
 	ipd->irqs[IPIPE_CRITICAL_IPI].acknowledge = &__ipipe_ack_apic;
@@ -425,78 +379,6 @@ void __ipipe_hook_critical_ipi(struct ipipe_domain *ipd)
 }
 
 #endif	/* CONFIG_SMP */
-
-/*
- * ipipe_critical_enter() -- Grab the superlock excluding all CPUs but
- * the current one from a critical section. This lock is used when we
- * must enforce a global critical section for a single CPU in a
- * possibly SMP system whichever context the CPUs are running.
- */
-unsigned long ipipe_critical_enter(void (*syncfn) (void))
-{
-	unsigned long flags;
-
-	local_irq_save_hw(flags);
-
-#ifdef CONFIG_SMP
-	if (unlikely(num_online_cpus() == 1))
-		return flags;
-
-	{
-		int cpu = ipipe_processor_id();
-		cpumask_t lock_map;
-
-		if (!cpu_test_and_set(cpu, __ipipe_cpu_lock_map)) {
-			while (test_and_set_bit(0, &__ipipe_critical_lock)) {
-				int n = 0;
-				do {
-					cpu_relax();
-				} while (++n < cpu);
-			}
-
-			spin_lock(&__ipipe_cpu_barrier);
-
-			__ipipe_cpu_sync = syncfn;
-
-			/* Send the sync IPI to all processors but the current one. */
-			apic->send_IPI_allbutself(IPIPE_CRITICAL_VECTOR);
-
-			cpus_andnot(lock_map, cpu_online_map, __ipipe_cpu_lock_map);
-
-			while (!cpus_equal(__ipipe_cpu_sync_map, lock_map))
-				cpu_relax();
-		}
-
-		atomic_inc(&__ipipe_critical_count);
-	}
-#endif	/* CONFIG_SMP */
-
-	return flags;
-}
-
-/* ipipe_critical_exit() -- Release the superlock. */
-
-void ipipe_critical_exit(unsigned long flags)
-{
-#ifdef CONFIG_SMP
-	if (num_online_cpus() == 1)
-		goto out;
-
-	if (atomic_dec_and_test(&__ipipe_critical_count)) {
-		spin_unlock(&__ipipe_cpu_barrier);
-
-		while (!cpus_empty(__ipipe_cpu_sync_map))
-			cpu_relax();
-
-		cpu_clear(ipipe_processor_id(), __ipipe_cpu_lock_map);
-		clear_bit(0, &__ipipe_critical_lock);
-		smp_mb__after_clear_bit();
-	}
-out:
-#endif	/* CONFIG_SMP */
-
-	local_irq_restore_hw(flags);
-}
 
 static inline void __fixup_if(int s, struct pt_regs *regs)
 {
