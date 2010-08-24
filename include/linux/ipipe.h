@@ -559,6 +559,8 @@ void ipipe_init_attr(struct ipipe_domain_attr *attr);
 
 int ipipe_get_sysinfo(struct ipipe_sysinfo *sysinfo);
 
+void __ipipe_do_critical_sync(unsigned irq, void *cookie);
+
 unsigned long ipipe_critical_enter(void (*syncfn) (void));
 
 void ipipe_critical_exit(unsigned long flags);
