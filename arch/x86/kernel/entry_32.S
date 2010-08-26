@@ -1443,7 +1443,9 @@ error_code:
 	movl $(__USER_DS), %ecx
 	movl %ecx, %ds
 	movl %ecx, %es
+#ifndef CONFIG_IPIPE
 	TRACE_IRQS_OFF
+#endif
 	movl %esp,%eax			# pt_regs pointer
 	HANDLE_EXCEPTION(edi)
 	jmp ret_from_exception
