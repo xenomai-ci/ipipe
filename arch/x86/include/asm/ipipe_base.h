@@ -58,6 +58,9 @@
 #define IPIPE_NR_XIRQS		NR_IRQS
 #endif /* !(CONFIG_X86_64 || CONFIG_X86_LOCAL_APIC) */
 
+#define ipipe_ipi_p(ipi) \
+	(ipi >= IPIPE_SERVICE_IPI0 && ipi <= IPIPE_SERVICE_IPI3)
+
 /* Pseudo-vectors used for kernel events */
 #define IPIPE_FIRST_EVENT	IPIPE_NR_FAULTS
 #define IPIPE_EVENT_SYSCALL	(IPIPE_FIRST_EVENT)
