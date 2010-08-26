@@ -31,7 +31,6 @@
 #include <linux/interrupt.h>
 #include <linux/bitops.h>
 #include <linux/tick.h>
-#include <linux/prefetch.h>
 #ifdef CONFIG_PROC_FS
 #include <linux/proc_fs.h>
 #include <linux/seq_file.h>
@@ -541,7 +540,6 @@ void __ipipe_set_irq_pending(struct ipipe_domain *ipd, unsigned int irq)
 
 	l0b = irq / (BITS_PER_LONG * BITS_PER_LONG);
 	l1b = irq / BITS_PER_LONG;
-	prefetchw(p);
 
 	if (likely(!test_bit(IPIPE_LOCK_FLAG, &ipd->irqs[irq].control))) {
 		__set_bit(irq, p->irqpend_lomap);
@@ -655,8 +653,6 @@ void __ipipe_set_irq_pending(struct ipipe_domain *ipd, unsigned irq)
 	int l0b = irq / BITS_PER_LONG;
 
 	IPIPE_WARN_ONCE(!irqs_disabled_hw());
-
-	prefetchw(p);
 	
 	if (likely(!test_bit(IPIPE_LOCK_FLAG, &ipd->irqs[irq].control))) {
 		__set_bit(irq, p->irqpend_lomap);
@@ -1114,8 +1110,6 @@ void __ipipe_dispatch_wired(struct ipipe_domain *head, unsigned irq)
 {
 	struct ipipe_percpu_domain_data *p = ipipe_cpudom_ptr(head);
 
-	prefetchw(p);
-
 	if (unlikely(test_bit(IPIPE_LOCK_FLAG, &head->irqs[irq].control))) {
 		/*
 		 * If we can't process this IRQ right now, we must
@@ -1139,8 +1133,6 @@ void __ipipe_dispatch_wired_nocheck(struct ipipe_domain *head, unsigned irq) /* 
 {
 	struct ipipe_percpu_domain_data *p = ipipe_cpudom_ptr(head);
 	struct ipipe_domain *old;
-
-	prefetchw(p);
 
 	old = __ipipe_current_domain;
 	__ipipe_current_domain = head; /* Switch to the head domain. */
