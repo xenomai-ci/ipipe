@@ -601,6 +601,7 @@ void __ipipe_handle_irq(int irq, struct pt_regs *regs)
 {
 	struct ipipe_domain *this_domain, *next_domain;
 	struct list_head *head, *pos;
+	struct irq_desc *desc;
 	int m_ack;
 
 	/* Software-triggered IRQs do not need any ack. */
@@ -620,8 +621,10 @@ void __ipipe_handle_irq(int irq, struct pt_regs *regs)
 		head = __ipipe_pipeline.next;
 		next_domain = list_entry(head, struct ipipe_domain, p_link);
 		if (likely(test_bit(IPIPE_WIRED_FLAG, &next_domain->irqs[irq].control))) {
-			if (!m_ack && next_domain->irqs[irq].acknowledge)
-				next_domain->irqs[irq].acknowledge(irq, irq_to_desc(irq));
+			if (!m_ack && next_domain->irqs[irq].acknowledge) {
+				desc = ipipe_virtual_irq_p(irq) ? NULL : irq_to_desc(irq);
+				next_domain->irqs[irq].acknowledge(irq, desc);
+			}
 			__ipipe_dispatch_wired(next_domain, irq);
 			return;
 		}
@@ -647,7 +650,8 @@ void __ipipe_handle_irq(int irq, struct pt_regs *regs)
 			__ipipe_set_irq_pending(next_domain, irq);
 
 			if (!m_ack && next_domain->irqs[irq].acknowledge) {
-				next_domain->irqs[irq].acknowledge(irq, irq_to_desc(irq));
+				desc = ipipe_virtual_irq_p(irq) ? NULL : irq_to_desc(irq);
+				next_domain->irqs[irq].acknowledge(irq, desc);
 				m_ack = 1;
 			}
 		}
