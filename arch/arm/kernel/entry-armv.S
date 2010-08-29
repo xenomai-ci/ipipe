@@ -72,8 +72,18 @@
 #endif
 #endif
 #ifdef CONFIG_IPIPE
+#if !defined(CONFIG_SMP)
+	ldr	r0, =per_cpu__ipipe_percpu_domain
+	ldr	r1, =ipipe_root
+	ldr	r0, [r0]
+	cmp	r0, r1
+	ldreq	r0, =__ipipe_root_status
+	tsteq	r0, #1
+#else /* CONFIG_SMP */
 	bl	__ipipe_check_root_interruptible
-#endif
+	cmp	r0, #1
+#endif /* CONFIG_SMP */
+#endif /* CONFIG_IPIPE */
 
 	.endm
 
@@ -262,9 +272,8 @@ __irq_svc:
 
 	irq_handler
 #ifdef CONFIG_IPIPE
-	cmp	r0, #0
-	ldreq	r4, [sp, #S_PSR]		@ irqs are already disabled
-	beq	__ipipe_fast_svc_irq_exit
+	ldrne	r4, [sp, #S_PSR]		@ irqs are already disabled
+	bne	__ipipe_fast_svc_irq_exit
 #endif
 
 #ifdef CONFIG_PREEMPT
@@ -522,8 +531,7 @@ __irq_usr:
 
 	irq_handler
 #ifdef CONFIG_IPIPE
-	cmp	r0, #0
-	bne	__ipipe_usr_irq_continue
+	beq	__ipipe_usr_irq_continue
 	slow_restore_user_regs 		@ Fast exit path over non-root domains
 __ipipe_usr_irq_continue:
 #endif
@@ -799,9 +807,16 @@ ENTRY(ret_from_exception)
  UNWIND(.fnstart	)
  UNWIND(.cantunwind	)
 #ifdef CONFIG_IPIPE
+#if !defined(CONFIG_SMP)
+	ldr	r0, =per_cpu__ipipe_percpu_domain
+	ldr	r1, =ipipe_root
+	ldr	r0, [r0]
+	cmp	r0, r1
+#else /* CONFIG_SMP */
 	bl     __ipipe_check_root
-	cmp     r0, #0
-	bne     1f
+	cmp     r0, #1
+#endif /* CONFIG_SMP */
+	beq     1f
 	slow_restore_user_regs          @ Fast exit path over non-root domains
 1:
 #endif /* CONFIG_IPIPE */

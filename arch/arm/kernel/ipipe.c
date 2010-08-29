@@ -513,6 +513,7 @@ asmlinkage void __sched __ipipe_preempt_schedule_irq(void)
 
 #endif	/* CONFIG_PREEMPT */
 
+#ifdef CONFIG_SMP
 asmlinkage int __ipipe_check_root(void)
 {
 	return ipipe_root_domain_p;
@@ -520,8 +521,9 @@ asmlinkage int __ipipe_check_root(void)
 
 asmlinkage int __ipipe_check_root_interruptible(void)
 {
-	return ipipe_root_domain_p && !irqs_disabled();
+	return __ipipe_root_domain_p && !irqs_disabled();
 }
+#endif
 
 __kprobes int
 __ipipe_switch_to_notifier_call_chain(struct atomic_notifier_head *nh,
