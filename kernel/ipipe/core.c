@@ -933,7 +933,7 @@ int ipipe_virtualize_irq(struct ipipe_domain *ipd,
 		    ~(IPIPE_HANDLE_MASK | IPIPE_STICKY_MASK |
 		      IPIPE_EXCLUSIVE_MASK | IPIPE_WIRED_MASK);
 
-	if (acknowledge == NULL && !ipipe_virtual_irq_p(irq))
+	if (acknowledge == NULL)
 		/*
 		 * Acknowledge handler unspecified for a hw interrupt:
 		 * use the Linux-defined handler instead.
