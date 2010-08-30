@@ -327,10 +327,8 @@ void __ipipe_unstall_root(void)
 
         local_irq_disable_hw();
 
-#ifdef CONFIG_IPIPE_DEBUG_INTERNAL
 	/* This helps catching bad usage from assembly call sites. */
-	BUG_ON(!__ipipe_root_domain_p);
-#endif
+	ipipe_check_context(ipipe_root_domain);
 
 	p = ipipe_root_cpudom_ptr();
 
@@ -344,9 +342,7 @@ void __ipipe_unstall_root(void)
 
 void __ipipe_restore_root(unsigned long x)
 {
-#ifdef CONFIG_IPIPE_DEBUG_INTERNAL
-	BUG_ON(!ipipe_root_domain_p);
-#endif
+	ipipe_check_context(ipipe_root_domain);
 
 	if (x)
 		__ipipe_stall_root();
