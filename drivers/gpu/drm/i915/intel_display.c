@@ -42,6 +42,7 @@
 bool intel_pipe_has_type (struct drm_crtc *crtc, int type);
 static void intel_update_watermarks(struct drm_device *dev);
 static void intel_increase_pllclock(struct drm_crtc *crtc, bool schedule);
+static void intel_crtc_update_cursor(struct drm_crtc *crtc);
 
 typedef struct {
     /* given values */
@@ -1501,6 +1502,7 @@ static void ironlake_enable_pll_edp (struct drm_crtc *crtc)
 	dpa_ctl = I915_READ(DP_A);
 	dpa_ctl |= DP_PLL_ENABLE;
 	I915_WRITE(DP_A, dpa_ctl);
+	POSTING_READ(DP_A);
 	udelay(200);
 }
 
@@ -3403,6 +3405,9 @@ static int intel_crtc_mode_set(struct drm_crtc *crtc,
 		return -EINVAL;
 	}
 
+	/* Ensure that the cursor is valid for the new mode before changing... */
+	intel_crtc_update_cursor(crtc);
+
 	if (is_lvds && dev_priv->lvds_downclock_avail) {
 		has_reduced_clock = limit->find_pll(limit, crtc,
 							    dev_priv->lvds_downclock,
@@ -3939,6 +3944,85 @@ void intel_crtc_load_lut(struct drm_crtc *crtc)
 	}
 }
 
+/* If no-part of the cursor is visible on the framebuffer, then the GPU may hang... */
+static void intel_crtc_update_cursor(struct drm_crtc *crtc)
+{
+	struct drm_device *dev = crtc->dev;
+	struct drm_i915_private *dev_priv = dev->dev_private;
+	struct intel_crtc *intel_crtc = to_intel_crtc(crtc);
+	int pipe = intel_crtc->pipe;
+	int x = intel_crtc->cursor_x;
+	int y = intel_crtc->cursor_y;
+	uint32_t base, pos;
+	bool visible;
+
+	pos = 0;
+
+	if (crtc->fb) {
+		base = intel_crtc->cursor_addr;
+		if (x > (int) crtc->fb->width)
+			base = 0;
+
+		if (y > (int) crtc->fb->height)
+			base = 0;
+	} else
+		base = 0;
+
+	if (x < 0) {
+		if (x + intel_crtc->cursor_width < 0)
+			base = 0;
+
+		pos |= CURSOR_POS_SIGN << CURSOR_X_SHIFT;
+		x = -x;
+	}
+	pos |= x << CURSOR_X_SHIFT;
+
+	if (y < 0) {
+		if (y + intel_crtc->cursor_height < 0)
+			base = 0;
+
+		pos |= CURSOR_POS_SIGN << CURSOR_Y_SHIFT;
+		y = -y;
+	}
+	pos |= y << CURSOR_Y_SHIFT;
+
+	visible = base != 0;
+	if (!visible && !intel_crtc->cursor_visble)
+		return;
+
+	I915_WRITE(pipe == 0 ? CURAPOS : CURBPOS, pos);
+	if (intel_crtc->cursor_visble != visible) {
+		uint32_t cntl = I915_READ(pipe == 0 ? CURACNTR : CURBCNTR);
+		if (base) {
+			/* Hooray for CUR*CNTR differences */
+			if (IS_MOBILE(dev) || IS_I9XX(dev)) {
+				cntl &= ~(CURSOR_MODE | MCURSOR_PIPE_SELECT);
+				cntl |= CURSOR_MODE_64_ARGB_AX | MCURSOR_GAMMA_ENABLE;
+				cntl |= pipe << 28; /* Connect to correct pipe */
+			} else {
+				cntl &= ~(CURSOR_FORMAT_MASK);
+				cntl |= CURSOR_ENABLE;
+				cntl |= CURSOR_FORMAT_ARGB | CURSOR_GAMMA_ENABLE;
+			}
+		} else {
+			if (IS_MOBILE(dev) || IS_I9XX(dev)) {
+				cntl &= ~(CURSOR_MODE | MCURSOR_GAMMA_ENABLE);
+				cntl |= CURSOR_MODE_DISABLE;
+			} else {
+				cntl &= ~(CURSOR_ENABLE | CURSOR_GAMMA_ENABLE);
+			}
+		}
+		I915_WRITE(pipe == 0 ? CURACNTR : CURBCNTR, cntl);
+
+		intel_crtc->cursor_visble = visible;
+	}
+	/* and commit changes on next vblank */
+	I915_WRITE(pipe == 0 ? CURABASE : CURBBASE, base);
+
+	if (visible)
+		intel_mark_busy(dev, to_intel_framebuffer(crtc->fb)->obj);
+}
+
 static int intel_crtc_cursor_set(struct drm_crtc *crtc,
 				 struct drm_file *file_priv,
 				 uint32_t handle,
@@ -3949,11 +4033,7 @@ static int intel_crtc_cursor_set(struct drm_crtc *crtc,
 	struct intel_crtc *intel_crtc = to_intel_crtc(crtc);
 	struct drm_gem_object *bo;
 	struct drm_i915_gem_object *obj_priv;
-	int pipe = intel_crtc->pipe;
-	uint32_t control = (pipe == 0) ? CURACNTR : CURBCNTR;
-	uint32_t base = (pipe == 0) ? CURABASE : CURBBASE;
-	uint32_t temp = I915_READ(control);
-	size_t addr;
+	uint32_t addr;
 	int ret;
 
 	DRM_DEBUG_KMS("\n");
@@ -3961,12 +4041,6 @@ static int intel_crtc_cursor_set(struct drm_crtc *crtc,
 	/* if we want to turn off the cursor ignore width and height */
 	if (!handle) {
 		DRM_DEBUG_KMS("cursor off\n");
-		if (IS_MOBILE(dev) || IS_I9XX(dev)) {
-			temp &= ~(CURSOR_MODE | MCURSOR_GAMMA_ENABLE);
-			temp |= CURSOR_MODE_DISABLE;
-		} else {
-			temp &= ~(CURSOR_ENABLE | CURSOR_GAMMA_ENABLE);
-		}
 		addr = 0;
 		bo = NULL;
 		mutex_lock(&dev->struct_mutex);
@@ -4008,7 +4082,8 @@ static int intel_crtc_cursor_set(struct drm_crtc *crtc,
 
 		addr = obj_priv->gtt_offset;
 	} else {
-		ret = i915_gem_attach_phys_object(dev, bo, (pipe == 0) ? I915_GEM_PHYS_CURSOR_0 : I915_GEM_PHYS_CURSOR_1);
+		ret = i915_gem_attach_phys_object(dev, bo,
+						  (intel_crtc->pipe == 0) ? I915_GEM_PHYS_CURSOR_0 : I915_GEM_PHYS_CURSOR_1);
 		if (ret) {
 			DRM_ERROR("failed to attach phys object\n");
 			goto fail_locked;
@@ -4019,21 +4094,7 @@ static int intel_crtc_cursor_set(struct drm_crtc *crtc,
 	if (!IS_I9XX(dev))
 		I915_WRITE(CURSIZE, (height << 12) | width);
 
-	/* Hooray for CUR*CNTR differences */
-	if (IS_MOBILE(dev) || IS_I9XX(dev)) {
-		temp &= ~(CURSOR_MODE | MCURSOR_PIPE_SELECT);
-		temp |= CURSOR_MODE_64_ARGB_AX | MCURSOR_GAMMA_ENABLE;
-		temp |= (pipe << 28); /* Connect to correct pipe */
-	} else {
-		temp &= ~(CURSOR_FORMAT_MASK);
-		temp |= CURSOR_ENABLE;
-		temp |= CURSOR_FORMAT_ARGB | CURSOR_GAMMA_ENABLE;
-	}
-
  finish:
-	I915_WRITE(control, temp);
-	I915_WRITE(base, addr);
-
 	if (intel_crtc->cursor_bo) {
 		if (dev_priv->info->cursor_needs_physical) {
 			if (intel_crtc->cursor_bo != bo)
@@ -4047,6 +4108,10 @@ static int intel_crtc_cursor_set(struct drm_crtc *crtc,
 
 	intel_crtc->cursor_addr = addr;
 	intel_crtc->cursor_bo = bo;
+	intel_crtc->cursor_width = width;
+	intel_crtc->cursor_height = height;
+
+	intel_crtc_update_cursor(crtc);
 
 	return 0;
 fail_unpin:
@@ -4060,34 +4125,12 @@ fail:
 
 static int intel_crtc_cursor_move(struct drm_crtc *crtc, int x, int y)
 {
-	struct drm_device *dev = crtc->dev;
-	struct drm_i915_private *dev_priv = dev->dev_private;
 	struct intel_crtc *intel_crtc = to_intel_crtc(crtc);
-	struct intel_framebuffer *intel_fb;
-	int pipe = intel_crtc->pipe;
-	uint32_t temp = 0;
-	uint32_t adder;
 
-	if (crtc->fb) {
-		intel_fb = to_intel_framebuffer(crtc->fb);
-		intel_mark_busy(dev, intel_fb->obj);
-	}
+	intel_crtc->cursor_x = x;
+	intel_crtc->cursor_y = y;
 
-	if (x < 0) {
-		temp |= CURSOR_POS_SIGN << CURSOR_X_SHIFT;
-		x = -x;
-	}
-	if (y < 0) {
-		temp |= CURSOR_POS_SIGN << CURSOR_Y_SHIFT;
-		y = -y;
-	}
-
-	temp |= x << CURSOR_X_SHIFT;
-	temp |= y << CURSOR_Y_SHIFT;
-
-	adder = intel_crtc->cursor_addr;
-	I915_WRITE((pipe == 0) ? CURAPOS : CURBPOS, temp);
-	I915_WRITE((pipe == 0) ? CURABASE : CURBBASE, adder);
+	intel_crtc_update_cursor(crtc);
 
 	return 0;
 }
@@ -4774,14 +4817,16 @@ static int intel_crtc_page_flip(struct drm_crtc *crtc,
 	work->pending_flip_obj = obj;
 
 	if (intel_crtc->plane)
-		flip_mask = I915_DISPLAY_PLANE_B_FLIP_PENDING_INTERRUPT;
+		flip_mask = MI_WAIT_FOR_PLANE_B_FLIP;
 	else
-		flip_mask = I915_DISPLAY_PLANE_A_FLIP_PENDING_INTERRUPT;
+		flip_mask = MI_WAIT_FOR_PLANE_A_FLIP;
 
-	/* Wait for any previous flip to finish */
-	if (IS_GEN3(dev))
-		while (I915_READ(ISR) & flip_mask)
-			;
+	if (IS_GEN3(dev) || IS_GEN2(dev)) {
+		BEGIN_LP_RING(2);
+		OUT_RING(MI_WAIT_FOR_EVENT | flip_mask);
+		OUT_RING(0);
+		ADVANCE_LP_RING();
+	}
 
 	/* Offset into the new buffer for cases of shared fbs between CRTCs */
 	offset = obj_priv->gtt_offset;
@@ -4795,8 +4840,14 @@ static int intel_crtc_page_flip(struct drm_crtc *crtc,
 		OUT_RING(offset | obj_priv->tiling_mode);
 		pipesrc = I915_READ(pipesrc_reg); 
 		OUT_RING(pipesrc & 0x0fff0fff);
-	} else {
+	} else if (IS_GEN3(dev)) {
 		OUT_RING(MI_DISPLAY_FLIP_I915 |
+			 MI_DISPLAY_FLIP_PLANE(intel_crtc->plane));
+		OUT_RING(fb->pitch);
+		OUT_RING(offset);
+		OUT_RING(MI_NOOP);
+	} else {
+		OUT_RING(MI_DISPLAY_FLIP |
 			 MI_DISPLAY_FLIP_PLANE(intel_crtc->plane));
 		OUT_RING(fb->pitch);
 		OUT_RING(offset);
