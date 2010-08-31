@@ -2086,6 +2086,15 @@ out:
 
 #endif /* CONFIG_IPIPE_DEBUG_INTERNAL && CONFIG_SMP */
 
+
+void ipipe_prepare_panic(void)
+{
+	ipipe_set_printk_sync(ipipe_current_domain);
+	ipipe_context_check_off();
+}
+
+EXPORT_SYMBOL_GPL(ipipe_prepare_panic);
+
 EXPORT_SYMBOL(ipipe_virtualize_irq);
 EXPORT_SYMBOL(ipipe_control_irq);
 EXPORT_SYMBOL(ipipe_suspend_domain);

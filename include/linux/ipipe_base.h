@@ -109,6 +109,7 @@ static inline void ipipe_check_context(struct ipipe_domain *border_ipd) { }
 #ifdef CONFIG_HAVE_IPIPE_HOSTRT
 #define __IPIPE_FEATURE_HOSTRT			1
 #endif
+#define __IPIPE_FEATURE_PREPARE_PANIC		1
 
 #else /* !CONFIG_IPIPE */
 

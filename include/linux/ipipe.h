@@ -565,6 +565,8 @@ unsigned long ipipe_critical_enter(void (*syncfn) (void));
 
 void ipipe_critical_exit(unsigned long flags);
 
+void ipipe_prepare_panic(void);
+
 static inline void ipipe_set_printk_sync(struct ipipe_domain *ipd)
 {
 	set_bit(IPIPE_SPRINTK_FLAG, &ipd->flags);
