@@ -77,7 +77,13 @@
 	ldr	r1, =ipipe_root
 	ldr	r0, [r0]
 	cmp	r0, r1
+#if __GNUC__ >= 4
 	ldreq	r0, =__ipipe_root_status
+#else /* gcc < 4 */
+	ldreq 	r0, =__ipipe_root_status_addr
+	ldreq	r0, [r0]
+#endif /* gcc < 4 */
+	ldreq	r0, [r0]
 	tsteq	r0, #1
 #else /* CONFIG_SMP */
 	bl	__ipipe_check_root_interruptible
