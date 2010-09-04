@@ -30,7 +30,7 @@ static inline void __native_flush_tlb_global(void)
 	 * from interrupts. (Use the raw variant because this code can
 	 * be called from deep inside debugging code.)
 	 */
-	raw_local_irq_save(flags);
+	local_irq_save_hw(flags);
 
 	cr4 = native_read_cr4();
 	/* clear PGE */
@@ -38,7 +38,7 @@ static inline void __native_flush_tlb_global(void)
 	/* write old PGE again and flush TLBs */
 	native_write_cr4(cr4);
 
-	raw_local_irq_restore(flags);
+	local_irq_restore_hw(flags);
 }
 
 static inline void __native_flush_tlb_single(unsigned long addr)
