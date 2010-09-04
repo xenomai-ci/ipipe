@@ -31,7 +31,6 @@
 #include <linux/interrupt.h>
 #include <linux/bitops.h>
 #include <linux/tick.h>
-#include <linux/prefetch.h>
 #ifdef CONFIG_PROC_FS
 #include <linux/proc_fs.h>
 #include <linux/seq_file.h>
@@ -551,9 +550,10 @@ void __ipipe_set_irq_pending(struct ipipe_domain *ipd, unsigned int irq)
 	struct ipipe_percpu_domain_data *p = ipipe_cpudom_ptr(ipd);
 	int l0b, l1b;
 
+	IPIPE_WARN_ONCE(!irqs_disabled_hw());
+
 	l0b = irq / (BITS_PER_LONG * BITS_PER_LONG);
 	l1b = irq / BITS_PER_LONG;
-	prefetchw(p);
 
 	if (likely(!test_bit(IPIPE_LOCK_FLAG, &ipd->irqs[irq].control))) {
 		__set_bit(irq, p->irqpend_lomap);
@@ -570,6 +570,8 @@ void __ipipe_lock_irq(struct ipipe_domain *ipd, int cpu, unsigned int irq)
 {
 	struct ipipe_percpu_domain_data *p;
 	int l0b, l1b;
+
+	IPIPE_WARN_ONCE(!irqs_disabled_hw());
 
 	/* Wired interrupts cannot be locked (it is useless). */
 	if (test_bit(IPIPE_WIRED_FLAG, &ipd->irqs[irq].control) ||
@@ -595,6 +597,8 @@ void __ipipe_unlock_irq(struct ipipe_domain *ipd, unsigned int irq)
 {
 	struct ipipe_percpu_domain_data *p;
 	int l0b, l1b, cpu;
+
+	IPIPE_WARN_ONCE(!irqs_disabled_hw());
 
 	if (unlikely(!test_and_clear_bit(IPIPE_LOCK_FLAG,
 					 &ipd->irqs[irq].control)))
@@ -663,7 +667,7 @@ void __ipipe_set_irq_pending(struct ipipe_domain *ipd, unsigned irq)
 	struct ipipe_percpu_domain_data *p = ipipe_cpudom_ptr(ipd);
 	int l0b = irq / BITS_PER_LONG;
 
-	prefetchw(p);
+	IPIPE_WARN_ONCE(!irqs_disabled_hw());
 	
 	if (likely(!test_bit(IPIPE_LOCK_FLAG, &ipd->irqs[irq].control))) {
 		__set_bit(irq, p->irqpend_lomap);
@@ -679,6 +683,8 @@ void __ipipe_lock_irq(struct ipipe_domain *ipd, int cpu, unsigned irq)
 {
 	struct ipipe_percpu_domain_data *p;
 	int l0b = irq / BITS_PER_LONG;
+
+	IPIPE_WARN_ONCE(!irqs_disabled_hw());
 
 	/* Wired interrupts cannot be locked (it is useless). */
 	if (test_bit(IPIPE_WIRED_FLAG, &ipd->irqs[irq].control) ||
@@ -698,6 +704,8 @@ void __ipipe_unlock_irq(struct ipipe_domain *ipd, unsigned irq)
 {
 	struct ipipe_percpu_domain_data *p;
 	int l0b = irq / BITS_PER_LONG, cpu;
+
+	IPIPE_WARN_ONCE(!irqs_disabled_hw());
 
 	if (unlikely(!test_and_clear_bit(IPIPE_LOCK_FLAG,
 					 &ipd->irqs[irq].control)))
@@ -924,7 +932,7 @@ int ipipe_virtualize_irq(struct ipipe_domain *ipd,
 		    ~(IPIPE_HANDLE_MASK | IPIPE_STICKY_MASK |
 		      IPIPE_EXCLUSIVE_MASK | IPIPE_WIRED_MASK);
 
-	if (acknowledge == NULL && !ipipe_virtual_irq_p(irq))
+	if (acknowledge == NULL)
 		/*
 		 * Acknowledge handler unspecified for a hw interrupt:
 		 * use the Linux-defined handler instead.
@@ -1118,8 +1126,6 @@ void __ipipe_dispatch_wired(struct ipipe_domain *head, unsigned irq)
 {
 	struct ipipe_percpu_domain_data *p = ipipe_cpudom_ptr(head);
 
-	prefetchw(p);
-
 	if (test_bit(IPIPE_STALL_FLAG, &p->status)) {
 		__ipipe_set_irq_pending(head, irq);
 		return;
@@ -1132,8 +1138,6 @@ void __ipipe_dispatch_wired_nocheck(struct ipipe_domain *head, unsigned irq) /* 
 {
 	struct ipipe_percpu_domain_data *p = ipipe_cpudom_ptr(head);
 	struct ipipe_domain *old;
-
-	prefetchw(p);
 
 	old = __ipipe_current_domain;
 	__ipipe_current_domain = head; /* Switch to the head domain. */
