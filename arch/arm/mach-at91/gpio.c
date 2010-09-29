@@ -410,6 +410,13 @@ static void gpio_irq_handler(unsigned irq, struct irq_desc *desc)
 
 	/* temporarily mask (level sensitive) parent IRQ */
 	desc->chip->ack(irq);
+#ifdef CONFIG_IPIPE
+	if (!(*at91_gpio->nonroot_gpios)) {
+		local_irq_enable_hw();
+		local_irq_disable_hw();
+	}
+#endif /* CONFIG_IPIPE */
+
 	for (;;) {
 		/* Reading ISR acks pending (edge triggered) GPIO interrupts.
 		 * When there none are pending, we're finished unless we need
@@ -436,9 +443,15 @@ static void gpio_irq_handler(unsigned irq, struct irq_desc *desc)
 					 * here to be disabled on the GPIO controller.
 					 */
 					gpio_irq_mask(pin);
-				}
-				else
+				} else {
 					ipipe_handle_chained_irq(pin);
+#ifdef CONFIG_IPIPE
+					if (!(*at91_gpio->nonroot_gpios)) {
+						local_irq_enable_hw();
+						local_irq_disable_hw();
+					}
+#endif /* CONFIG_IPIPE */
+				}
 			}
 			pin++;
 			gpio++;
