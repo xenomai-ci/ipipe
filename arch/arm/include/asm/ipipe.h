@@ -269,6 +269,10 @@ typedef unsigned long
 __ipipe_irqbits_t[(NR_IRQS + BITS_PER_LONG - 1) / BITS_PER_LONG];
 extern __ipipe_irqbits_t __ipipe_irqbits;
 
+void __ipipe_mach_enable_irqdesc(struct ipipe_domain *ipd, unsigned irq);
+
+void __ipipe_mach_disable_irqdesc(struct ipipe_domain *ipd, unsigned irq);
+
 void __ipipe_disable_irqdesc(struct ipipe_domain *ipd, unsigned irq);
 
 void ipipe_mute_pic(void);

@@ -41,6 +41,10 @@ struct at91_gpio_chip {
 	struct at91_gpio_chip	*next;		/* Bank sharing same clock */
 	struct at91_gpio_bank	*bank;		/* Bank definition */
 	void __iomem		*regbase;	/* Base of register bank */
+#ifdef CONFIG_IPIPE
+	unsigned *nonroot_gpios;
+	unsigned nonroot_gpios_storage;
+#endif
 };
 
 #define to_at91_gpio_chip(c) container_of(c, struct at91_gpio_chip, chip)
@@ -446,16 +450,50 @@ static void gpio_irq_handler(unsigned irq, struct irq_desc *desc)
 }
 
 #if defined(CONFIG_IPIPE) && defined(__IPIPE_FEATURE_PIC_MUTE)
+void __ipipe_mach_enable_irqdesc(struct ipipe_domain *ipd, unsigned irq)
+{
+	struct irq_desc *desc = irq_to_desc(irq);
+
+	if (desc->chip == &gpio_irqchip) {
+		struct at91_gpio_chip *chip = &gpio_chip[(irq - PIN_BASE) / 32];
+		struct at91_gpio_bank *bank = chip->bank;
+
+		if (ipd != &ipipe_root && ++(*chip->nonroot_gpios) == 1)
+			__ipipe_irqbits[(bank->id / BITS_PER_LONG)]
+				&= ~(1 << (bank->id % BITS_PER_LONG));
+	}
+}
+
+void __ipipe_mach_disable_irqdesc(struct ipipe_domain *ipd, unsigned irq)
+{
+	struct irq_desc *desc = irq_to_desc(irq);
+	if (desc->chip == &gpio_irqchip) {
+		struct at91_gpio_chip *chip = &gpio_chip[(irq - PIN_BASE) / 32];
+		struct at91_gpio_bank *bank = chip->bank;
+
+		if (ipd != &ipipe_root && --(*chip->nonroot_gpios) == 0)
+			__ipipe_irqbits[(bank->id / BITS_PER_LONG)]
+				|= (1 << (bank->id % BITS_PER_LONG));
+	}
+}
+
 void ipipe_mute_pic(void)
 {
+	struct at91_gpio_chip *prev, *chip = NULL;
 	unsigned long unmasked, muted;
 	unsigned i;
 
 	for (i = 0; i < gpio_banks; i++) {
-		unmasked = __raw_readl(gpio_chip[i].regbase + PIO_IMR);
+		prev = chip;
+		chip = &gpio_chip[i];
+		if (!(*chip->nonroot_gpios))
+			continue;
+
+		unmasked = __raw_readl(chip->regbase + PIO_IMR);
 		muted = unmasked & __ipipe_irqbits[i + 1];
-		__raw_get_cpu_var(__ipipe_muted_irqs)[i + 1] = muted;
-		__raw_writel(muted, gpio_chip[i].regbase + PIO_IDR);
+		__raw_get_cpu_var(__ipipe_muted_irqs)
+			[i + PIN_BASE / 32] = muted;
+		__raw_writel(muted, chip->regbase + PIO_IDR);
 	}
 
 	unmasked = at91_sys_read(AT91_AIC_IMR);
@@ -466,13 +504,20 @@ void ipipe_mute_pic(void)
 
 void ipipe_unmute_pic(void)
 {
+	struct at91_gpio_chip *prev, *chip = NULL;
+	unsigned long muted;
 	unsigned i;
 
 	at91_sys_write(AT91_AIC_IECR, __raw_get_cpu_var(__ipipe_muted_irqs)[0]);
 	for (i = 0; i < gpio_banks; i++) {
-		unsigned long muted;
-		muted = __raw_get_cpu_var(__ipipe_muted_irqs)[i + 1];
-		__raw_writel(muted, gpio_chip[i].regbase + PIO_IER);
+		prev = chip;
+		chip = &gpio_chip[i];
+		if (!(*chip->nonroot_gpios))
+			continue;
+
+		muted = __raw_get_cpu_var(__ipipe_muted_irqs)
+			[i + PIN_BASE / 32];
+		__raw_writel(muted, chip->regbase + PIO_IER);
 	}
 }
 #endif /* CONFIG_IPIPE && __IPIPE_FEATURE_PIC_MUTE */
@@ -553,10 +598,6 @@ void __init at91_gpio_irq_setup(void)
 	unsigned		pioc, pin;
 	struct at91_gpio_chip	*this, *prev;
 
-#if defined(CONFIG_IPIPE) && defined(__IPIPE_FEATURE_PIC_MUTE)
-	memset(__ipipe_irqbits, ~0, sizeof(__ipipe_irqbits));
-#endif /* CONFIG_IPIPE && __IPIPE_FEATURE_PIC_MUTE */
-
 	for (pioc = 0, pin = PIN_BASE, this = gpio_chip, prev = NULL;
 			pioc++ < gpio_banks;
 			prev = this, this++) {
@@ -586,9 +627,6 @@ void __init at91_gpio_irq_setup(void)
 
 		set_irq_chip_data(id, this);
 		set_irq_chained_handler(id, gpio_irq_handler);
-#if defined(CONFIG_IPIPE) && defined(__IPIPE_FEATURE_PIC_MUTE)
-		__ipipe_irqbits[0] &= ~(1 << id);
-#endif /* CONFIG_IPIPE && __IPIPE_FEATURE_PIC_MUTE */
 	}
 	pr_info("AT91: %d gpio irqs in %d banks\n", pin - PIN_BASE, gpio_banks);
 }
@@ -682,13 +720,19 @@ void __init at91_gpio_init(struct at91_gpio_bank *data, int nr_banks)
 		at91_gpio->chip.base = PIN_BASE + i * 32;
 		at91_gpio->regbase = at91_gpio->bank->offset +
 			(void __iomem *)AT91_VA_BASE_SYS;
-
+#ifdef CONFIG_IPIPE
+		at91_gpio->nonroot_gpios = &at91_gpio->nonroot_gpios_storage;
+#endif
 		/* enable PIO controller's clock */
 		clk_enable(at91_gpio->bank->clock);
 
 		/* AT91SAM9263_ID_PIOCDE groups PIOC, PIOD, PIOE */
-		if (last && last->bank->id == at91_gpio->bank->id)
+		if (last && last->bank->id == at91_gpio->bank->id) {
 			last->next = at91_gpio;
+#ifdef CONFIG_IPIPE
+			at91_gpio->nonroot_gpios = last->nonroot_gpios;
+#endif
+		}
 		last = at91_gpio;
 
 		gpiochip_add(&at91_gpio->chip);

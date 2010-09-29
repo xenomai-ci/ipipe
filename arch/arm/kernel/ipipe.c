@@ -396,13 +396,18 @@ void __ipipe_enable_irqdesc(struct ipipe_domain *ipd, unsigned irq)
 {
 	unsigned long flags;
 	irq_to_desc(irq)->status &= ~IRQ_DISABLED;
-#ifdef __IPIPE_FEATURE_PIC_MUTE
-	if (ipd == &ipipe_root)
-		return;
 
+#ifdef __IPIPE_FEATURE_PIC_MUTE
 	spin_lock_irqsave(&__ipipe_irqbits_lock, flags);
-	__ipipe_irqbits[irq / BITS_PER_LONG] &= ~(1 << (irq % BITS_PER_LONG));
+	if (ipd == &ipipe_root)
+		__ipipe_irqbits[irq / BITS_PER_LONG]
+			|= (1 << (irq % BITS_PER_LONG));
+	else
+		__ipipe_irqbits[irq / BITS_PER_LONG]
+			&= ~(1 << (irq % BITS_PER_LONG));
 	spin_unlock_irqrestore(&__ipipe_irqbits_lock, flags);
+
+	__ipipe_mach_enable_irqdesc(ipd, irq);
 #else
 	(void) flags;
 #endif /* __IPIPE_FEATURE_PIC_MUTE */
@@ -414,12 +419,14 @@ void __ipipe_disable_irqdesc(struct ipipe_domain *ipd, unsigned irq)
 {
 	unsigned long flags;
 
-	if (ipd == &ipipe_root)
-		return;
+	__ipipe_mach_disable_irqdesc(ipd, irq);
 
 	spin_lock_irqsave(&__ipipe_irqbits_lock, flags);
-	__ipipe_irqbits[irq / BITS_PER_LONG] |= 1 << (irq % BITS_PER_LONG);
+	if (ipd == &ipipe_root || !ipipe_root.irqs[irq].handler)
+		__ipipe_irqbits[irq / BITS_PER_LONG]
+			&= ~(1 << (irq % BITS_PER_LONG));
 	spin_unlock_irqrestore(&__ipipe_irqbits_lock, flags);
+
 }
 EXPORT_SYMBOL(__ipipe_disable_irqdesc);
 EXPORT_SYMBOL(ipipe_mute_pic);
@@ -438,8 +445,8 @@ void __ipipe_enable_pipeline(void)
 #ifdef CONFIG_CPU_ARM926T
 	/*
 	 * We do not want "wfi" to be called in arm926ejs based
-	 * processor, as this causes the I-cache to be disabled when
-	 * idle.
+	 * processor, as this causes Linux to disable the I-cache
+	 * when idle.
 	 */
 	disable_hlt();
 #endif
