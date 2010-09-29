@@ -37,6 +37,7 @@
 #include <linux/delay.h>
 #include <linux/io.h>
 #include <linux/module.h>
+#include <linux/sched.h>
 #include <mach/hardware.h>
 #include <plat/dmtimer.h>
 #include <mach/irqs.h>
@@ -353,7 +354,7 @@ static void omap_dm_timer_wait_for_reset(struct omap_dm_timer *timer)
 	}
 }
 
-static void omap_dm_timer_reset(struct omap_dm_timer *timer)
+static void omap_dm_timer_reset(struct omap_dm_timer *timer, int posted)
 {
 	u32 l;
 
@@ -364,8 +365,13 @@ static void omap_dm_timer_reset(struct omap_dm_timer *timer)
 	omap_dm_timer_set_source(timer, OMAP_TIMER_SRC_32_KHZ);
 
 	l = omap_dm_timer_read_reg(timer, OMAP_TIMER_OCP_CFG_REG);
+#if !defined(CONFIG_IPIPE)
 	l |= 0x02 << 3;  /* Set to smart-idle mode */
-	l |= 0x2 << 8;   /* Set clock activity to perserve f-clock on idle */
+	l |= 0x2 << 8;   /* Set clock activity to perserve f-clock on
+			  * idle */
+#else /* IPIPE */
+	l = (0x3 << 8) | (l & (1 << 5)) | (0x1 << 3) | (l & (1 << 2));
+#endif /* IPIPE */
 
 	/*
 	 * Enable wake-up on OMAP2 CPUs.
@@ -376,14 +382,14 @@ static void omap_dm_timer_reset(struct omap_dm_timer *timer)
 
 	/* Match hardware reset default of posted mode */
 	omap_dm_timer_write_reg(timer, OMAP_TIMER_IF_CTRL_REG,
-			OMAP_TIMER_CTRL_POSTED);
-	timer->posted = 1;
+				posted ? OMAP_TIMER_CTRL_POSTED : 0);
+	timer->posted = posted;
 }
 
-static void omap_dm_timer_prepare(struct omap_dm_timer *timer)
+static void omap_dm_timer_prepare(struct omap_dm_timer *timer, int posted)
 {
 	omap_dm_timer_enable(timer);
-	omap_dm_timer_reset(timer);
+	omap_dm_timer_reset(timer, posted);
 }
 
 struct omap_dm_timer *omap_dm_timer_request(void)
@@ -404,13 +410,14 @@ struct omap_dm_timer *omap_dm_timer_request(void)
 	spin_unlock_irqrestore(&dm_timer_lock, flags);
 
 	if (timer != NULL)
-		omap_dm_timer_prepare(timer);
+		omap_dm_timer_prepare(timer, 1);
 
 	return timer;
 }
 EXPORT_SYMBOL_GPL(omap_dm_timer_request);
 
-struct omap_dm_timer *omap_dm_timer_request_specific(int id)
+static struct omap_dm_timer *
+omap_dm_timer_request_specific_inner(int id, int posted)
 {
 	struct omap_dm_timer *timer;
 	unsigned long flags;
@@ -428,16 +435,26 @@ struct omap_dm_timer *omap_dm_timer_request_specific(int id)
 	timer->reserved = 1;
 	spin_unlock_irqrestore(&dm_timer_lock, flags);
 
-	omap_dm_timer_prepare(timer);
+	omap_dm_timer_prepare(timer, posted);
 
 	return timer;
 }
+struct omap_dm_timer *omap_dm_timer_request_specific(int id)
+{
+	return omap_dm_timer_request_specific_inner(id, 1);
+}
 EXPORT_SYMBOL_GPL(omap_dm_timer_request_specific);
+
+struct omap_dm_timer *omap_dm_timer_request_specific_nonposted(int id)
+{
+	return omap_dm_timer_request_specific_inner(id, 0);
+}
+EXPORT_SYMBOL_GPL(omap_dm_timer_request_specific_nonposted);
 
 void omap_dm_timer_free(struct omap_dm_timer *timer)
 {
 	omap_dm_timer_enable(timer);
-	omap_dm_timer_reset(timer);
+	omap_dm_timer_reset(timer, 1);
 	omap_dm_timer_disable(timer);
 
 	WARN_ON(!timer->reserved);
@@ -479,6 +496,11 @@ EXPORT_SYMBOL_GPL(omap_dm_timer_get_irq);
 unsigned long omap_dm_timer_get_phys_counter_addr(struct omap_dm_timer *timer)
 {
 	return timer->phys_base + (OMAP_TIMER_COUNTER_REG & 0xff);
+}
+
+unsigned long omap_dm_timer_get_virt_counter_addr(struct omap_dm_timer *timer)
+{
+	return (unsigned long)timer->io_base + (OMAP_TIMER_COUNTER_REG & 0xff);
 }
 #endif /* CONFIG_IPIPE */
 
@@ -634,7 +656,7 @@ EXPORT_SYMBOL_GPL(omap_dm_timer_set_load);
 
 /* Optimized set_load which removes costly spin wait in timer_start */
 void omap_dm_timer_set_load_start(struct omap_dm_timer *timer, int autoreload,
-                            unsigned int load)
+			    unsigned int load)
 {
 	u32 l;
 

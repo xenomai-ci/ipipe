@@ -57,7 +57,9 @@ void omap_dm_timer_disable(struct omap_dm_timer *timer);
 
 int omap_dm_timer_get_irq(struct omap_dm_timer *timer);
 #ifdef CONFIG_IPIPE
+struct omap_dm_timer *omap_dm_timer_request_specific_nonposted(int timer_id);
 unsigned long omap_dm_timer_get_phys_counter_addr(struct omap_dm_timer *timer);
+unsigned long omap_dm_timer_get_virt_counter_addr(struct omap_dm_timer *timer);
 #endif /* CONFIG_IPIPE */
 
 u32 omap_dm_timer_modify_idlect_mask(u32 inputmask);
