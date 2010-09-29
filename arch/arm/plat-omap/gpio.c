@@ -207,6 +207,12 @@ struct gpio_bank {
 #define METHOD_GPIO_7XX		3
 #define METHOD_GPIO_24XX	5
 
+#if !defined(MULTI_OMAP1) && !defined(MULTI_OMAP2)
+#define inline_single inline
+#else
+#define inline_single
+#endif
+
 #ifdef CONFIG_ARCH_OMAP16XX
 static struct gpio_bank gpio_bank_1610[5] = {
 	{ OMAP1_MPUIO_VBASE, NULL, INT_MPUIO, IH_MPUIO_BASE,
@@ -392,7 +398,7 @@ static inline int gpio_valid(int gpio)
 	return -1;
 }
 
-static int check_gpio(int gpio)
+static inline_single int check_gpio(int gpio)
 {
 	if (unlikely(gpio_valid(gpio) < 0)) {
 		printk(KERN_ERR "omap-gpio: invalid GPIO %d\n", gpio);
@@ -757,7 +763,7 @@ static inline void set_24xx_gpio_triggering(struct gpio_bank *bank, int gpio,
  * This only applies to chips that can't do both rising and falling edge
  * detection at once.  For all other chips, this function is a noop.
  */
-static void _toggle_gpio_edge_triggering(struct gpio_bank *bank, int gpio)
+static inline_single void _toggle_gpio_edge_triggering(struct gpio_bank *bank, int gpio)
 {
 	void __iomem *reg = bank->base;
 	u32 l = 0;
@@ -790,7 +796,7 @@ static void _toggle_gpio_edge_triggering(struct gpio_bank *bank, int gpio)
 }
 #endif
 
-static int _set_gpio_triggering(struct gpio_bank *bank, int gpio, int trigger)
+static inline_single int _set_gpio_triggering(struct gpio_bank *bank, int gpio, int trigger)
 {
 	void __iomem *reg = bank->base;
 	u32 l = 0;
@@ -913,7 +919,7 @@ static int gpio_irq_type(unsigned irq, unsigned type)
 	return retval;
 }
 
-static void _clear_gpio_irqbank(struct gpio_bank *bank, int gpio_mask)
+static inline_single void _clear_gpio_irqbank(struct gpio_bank *bank, int gpio_mask)
 {
 	void __iomem *reg = bank->base;
 
@@ -975,7 +981,7 @@ static inline void _clear_gpio_irqstatus(struct gpio_bank *bank, int gpio)
 	_clear_gpio_irqbank(bank, 1 << get_gpio_index(gpio));
 }
 
-static u32 _get_gpio_irqbank_mask(struct gpio_bank *bank)
+static inline_single u32 _get_gpio_irqbank_mask(struct gpio_bank *bank)
 {
 	void __iomem *reg = bank->base;
 	int inv = 0;
@@ -1034,7 +1040,7 @@ static u32 _get_gpio_irqbank_mask(struct gpio_bank *bank)
 	return l;
 }
 
-static void _enable_gpio_irqbank(struct gpio_bank *bank, int gpio_mask, int enable)
+static inline_single void _enable_gpio_irqbank(struct gpio_bank *bank, int gpio_mask, int enable)
 {
 	void __iomem *reg = bank->base;
 	u32 l;
@@ -1384,6 +1390,16 @@ static void gpio_mask_irq(unsigned int irq)
 	_set_gpio_triggering(bank, get_gpio_index(gpio), IRQ_TYPE_NONE);
 }
 
+static void gpio_mask_ack_irq(unsigned int irq)
+{
+	unsigned int gpio = irq - IH_GPIO_BASE;
+	struct gpio_bank *bank = get_irq_chip_data(irq);
+
+	_set_gpio_irqenable(bank, gpio, 0);
+	_set_gpio_triggering(bank, get_gpio_index(gpio), IRQ_TYPE_NONE);
+	_clear_gpio_irqstatus(bank, gpio);
+}
+
 static void gpio_unmask_irq(unsigned int irq)
 {
 	unsigned int gpio = irq - IH_GPIO_BASE;
@@ -1410,6 +1426,7 @@ static struct irq_chip gpio_irq_chip = {
 	.shutdown	= gpio_irq_shutdown,
 	.ack		= gpio_ack_irq,
 	.mask		= gpio_mask_irq,
+	.mask_ack	= gpio_mask_ack_irq,
 	.unmask		= gpio_unmask_irq,
 	.set_type	= gpio_irq_type,
 	.set_wake	= gpio_wake_enable,

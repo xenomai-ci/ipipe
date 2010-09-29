@@ -35,6 +35,12 @@
 /* Number of IRQ state bits in each MIR register */
 #define IRQ_BITS_PER_REG	32
 
+#if !defined(MULTI_OMAP1) && !defined(MULTI_OMAP2)
+#define inline_single inline
+#else
+#define inline_single
+#endif
+
 /*
  * OMAP2 has a number of different interrupt controllers, each interrupt
  * controller is identified as its own "bank". Register definitions are
@@ -66,12 +72,12 @@ static struct omap3_intc_regs intc_context[ARRAY_SIZE(irq_banks)];
 
 /* INTC bank register get/set */
 
-static void intc_bank_write_reg(u32 val, struct omap_irq_bank *bank, u16 reg)
+static inline_single void intc_bank_write_reg(u32 val, struct omap_irq_bank *bank, u16 reg)
 {
 	__raw_writel(val, bank->base_reg + reg);
 }
 
-static u32 intc_bank_read_reg(struct omap_irq_bank *bank, u16 reg)
+static inline_single u32 intc_bank_read_reg(struct omap_irq_bank *bank, u16 reg)
 {
 	return __raw_readl(bank->base_reg + reg);
 }
@@ -83,7 +89,7 @@ static int previous_irq;
  * an interrupt handler does not get posted before we unmask. Warn about
  * the interrupt handlers that need to flush posted writes.
  */
-static int omap_check_spurious(unsigned int irq)
+static inline_single int omap_check_spurious(unsigned int irq)
 {
 	u32 sir, spurious;
 
@@ -101,12 +107,13 @@ static int omap_check_spurious(unsigned int irq)
 }
 
 /* XXX: FIQ and additional INTC support (only MPU at the moment) */
-static void omap_ack_irq(unsigned int irq)
+static inline_single void omap_ack_irq(unsigned int irq)
 {
 	intc_bank_write_reg(0x1, &irq_banks[0], INTC_CONTROL);
+	dsb();
 }
 
-static void omap_mask_irq(unsigned int irq)
+static inline_single void omap_mask_irq(unsigned int irq)
 {
 	int offset = irq & (~(IRQ_BITS_PER_REG - 1));
 
@@ -171,10 +178,11 @@ static void __init omap_irq_bank_init_one(struct omap_irq_bank *bank)
 #ifndef CONFIG_IPIPE
 	/* Enable autoidle */
 	intc_bank_write_reg(1 << 0, bank, INTC_SYSCONFIG);
-#else /* !CONFIG_IPIPE */
+	intc_bank_write_reg(0x2, bank, INTC_IDLE);
+#else /* CONFIG_IPIPE */
 	/* Disable autoidle */
 	intc_bank_write_reg(0, bank, INTC_SYSCONFIG);
-	intc_bank_write_reg(0x2, bank, INTC_IDLE);
+	intc_bank_write_reg(0x1, bank, INTC_IDLE);
 #endif /* CONFIG_IPIPE */
 }
 
