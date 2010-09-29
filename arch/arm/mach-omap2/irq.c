@@ -15,6 +15,7 @@
 #include <linux/interrupt.h>
 #include <linux/io.h>
 #include <mach/hardware.h>
+#include <asm/ipipe.h>
 #include <asm/mach/irq.h>
 
 
@@ -32,6 +33,7 @@
 #define INTC_MIR_CLEAR0		0x0088
 #define INTC_MIR_SET0		0x008c
 #define INTC_PENDING_IRQ0	0x0098
+#define INTC_PRIO               0x0100
 /* Number of IRQ state bits in each MIR register */
 #define IRQ_BITS_PER_REG	32
 
@@ -241,6 +243,65 @@ void __init omap_init_irq(void)
 		set_irq_flags(i, IRQF_VALID);
 	}
 }
+
+#if defined(CONFIG_IPIPE) && defined(__IPIPE_FEATURE_PIC_MUTE)
+DECLARE_PER_CPU(__ipipe_irqbits_t, __ipipe_muted_irqs);
+
+void omap_mute_pic(void)
+{
+	struct omap_irq_bank *bank = &irq_banks[0];
+	unsigned muted;
+	int i;
+
+	if (cpu_is_omap34xx()) {
+		intc_bank_write_reg(0x1, bank, INTC_THRESHOLD);
+		intc_bank_write_reg(0x1, bank, INTC_CONTROL);
+		return;
+	}
+
+	for (i = 0; i < INTCPS_NR_MIR_REGS; i++) {
+		muted = __ipipe_irqbits[i];
+		if (muted)
+			muted &= ~intc_bank_read_reg(bank,
+						     INTC_MIR0 + 0x20 * i);
+		__raw_get_cpu_var(__ipipe_muted_irqs)[i] = muted;
+		if (muted)
+			intc_bank_write_reg(muted, bank,
+					    INTC_MIR_SET0 + 0x20 * i);
+	}
+	intc_bank_write_reg(0x1, bank, INTC_CONTROL);
+}
+
+void omap_unmute_pic(void)
+{
+	struct omap_irq_bank *bank = &irq_banks[0];
+	unsigned muted;
+	int i;
+
+	if (cpu_is_omap34xx()) {
+		intc_bank_write_reg(0xff, bank, INTC_THRESHOLD);
+		return;
+	}
+
+	for (i = 0; i < INTCPS_NR_MIR_REGS; i++) {
+		muted = __raw_get_cpu_var(__ipipe_muted_irqs)[i];
+		if (muted)
+			intc_bank_write_reg(muted, bank,
+					    INTC_MIR_CLEAR0 + 0x20 * i);
+	}
+}
+
+void omap_set_irq_prio(int irq, int hi)
+{
+	if (cpu_is_omap34xx()) {
+		struct omap_irq_bank *bank = &irq_banks[0];
+
+		if (irq >= INTCPS_NR_MIR_REGS * 32)
+			return;
+		intc_bank_write_reg(hi ? 0 : 0xfc, bank, INTC_PRIO + 4 * irq);
+	}
+}
+#endif /* __IPIPE_FEATURE_PIC_MUTE */
 
 #ifdef CONFIG_ARCH_OMAP3
 void omap_intc_save_context(void)

@@ -199,6 +199,9 @@ struct gpio_bank {
 	struct gpio_chip chip;
 	struct clk *dbck;
 	u32 mod_usage;
+#ifdef CONFIG_IPIPE
+	unsigned nonroot_gpios;
+#endif
 };
 
 #define METHOD_MPUIO		0
@@ -339,6 +342,12 @@ static struct gpio_bank gpio_bank_44xx[6] = {
 
 static struct gpio_bank *gpio_bank;
 static int gpio_bank_count;
+
+#ifdef CONFIG_IPIPE
+#ifdef __IPIPE_FEATURE_PIC_MUTE
+DEFINE_PER_CPU(__ipipe_irqbits_t, __ipipe_muted_irqs);
+#endif /* __IPIPE_FEATURE_PIC_MUTE */
+#endif /* CONFIG_IPIPE */
 
 static inline struct gpio_bank *get_gpio_bank(int gpio)
 {
@@ -1306,6 +1315,13 @@ static void gpio_irq_handler(unsigned int irq, struct irq_desc *desc)
 		u32 isr_saved, level_mask = 0;
 		u32 enabled;
 
+#ifdef CONFIG_IPIPE
+		if (!bank->nonroot_gpios) {
+			local_irq_enable_hw();
+			local_irq_disable_hw();
+		}
+#endif /* CONFIG_IPIPE */
+
 		enabled = _get_gpio_irqbank_mask(bank);
 		isr_saved = isr = __raw_readl(isr_reg) & enabled;
 
@@ -1341,6 +1357,13 @@ static void gpio_irq_handler(unsigned int irq, struct irq_desc *desc)
 
 			if (!(isr & 1))
 				continue;
+
+#ifdef CONFIG_IPIPE
+			if (!bank->nonroot_gpios) {
+				local_irq_enable_hw();
+				local_irq_disable_hw();
+			}
+#endif /* CONFIG_IPIPE */
 
 #ifdef CONFIG_ARCH_OMAP1
 			/*
@@ -1897,6 +1920,11 @@ static int __init _omap_gpio_init(void)
 		set_irq_chained_handler(bank->irq, gpio_irq_handler);
 		set_irq_data(bank->irq, bank);
 
+#ifdef CONFIG_IPIPE
+		__ipipe_irqbits[1 << (bank->irq / 32)]
+			|= (1 << (bank->irq % 32));
+#endif
+
 		if (cpu_is_omap34xx() || cpu_is_omap44xx()) {
 			sprintf(clk_name, "gpio%d_dbck", i + 1);
 			bank->dbck = clk_get(NULL, clk_name);
@@ -1920,6 +1948,92 @@ static int __init _omap_gpio_init(void)
 
 	return 0;
 }
+
+#if defined(CONFIG_IPIPE) && defined(__IPIPE_FEATURE_PIC_MUTE)
+extern void omap_set_irq_prio(int irq, int hi);
+extern void omap_mute_pic(void);
+extern void omap_unmute_pic(void);
+
+void __ipipe_mach_enable_irqdesc(struct ipipe_domain *ipd, unsigned irq)
+{
+	struct irq_desc *desc = irq_to_desc(irq);
+
+	if (desc->chip == &gpio_irq_chip
+#ifdef CONFIG_ARCH_OMAP1
+	    || desc->chip == &mpuio_irq_chip
+#endif
+	    ) {
+		/* It is a gpio. */
+		struct gpio_bank *bank = get_irq_chip_data(irq);
+
+		if (ipd != &ipipe_root && ++bank->nonroot_gpios == 1) {
+			__ipipe_irqbits[(bank->irq / 32)]
+				&= ~(1 << (bank->irq % 32));
+			omap_set_irq_prio(bank->irq, 1);
+		}
+	} else
+		omap_set_irq_prio(irq, ipd != &ipipe_root);
+}
+
+void __ipipe_mach_disable_irqdesc(struct ipipe_domain *ipd, unsigned irq)
+{
+	struct irq_desc *desc = irq_to_desc(irq);
+	if (desc->chip == &gpio_irq_chip
+#ifdef CONFIG_ARCH_OMAP1
+	    || desc->chip == &mpuio_irq_chip
+#endif
+	    ) {
+		/* It is a gpio. */
+		struct gpio_bank *bank = get_irq_chip_data(irq);
+
+		if (ipd != &ipipe_root && --bank->nonroot_gpios == 0) {
+			omap_set_irq_prio(bank->irq, 0);
+			__ipipe_irqbits[(bank->irq / 32)]
+				|= (1 << (bank->irq % 32));
+		}
+	} else if (ipd != &ipipe_root)
+		omap_set_irq_prio(irq, 0);
+}
+
+void ipipe_mute_pic(void)
+{
+	unsigned muted;
+	unsigned i;
+
+	omap_mute_pic();
+
+	for (i = 0; i < gpio_bank_count; i++) {
+		struct gpio_bank *bank = &gpio_bank[i];
+		if (!bank->nonroot_gpios)
+			continue;
+
+		muted = __ipipe_irqbits[IH_GPIO_BASE / 32 + i];
+		if (muted)
+			muted &= _get_gpio_irqbank_mask(bank);
+		__raw_get_cpu_var(__ipipe_muted_irqs)[IH_GPIO_BASE / 32 + i] = muted;
+		if (muted)
+			_enable_gpio_irqbank(bank, muted, 0);
+	}
+}
+
+void ipipe_unmute_pic(void)
+{
+	unsigned muted;
+	unsigned i;
+
+	for (i = 0; i < gpio_bank_count; i++) {
+		struct gpio_bank *bank = &gpio_bank[i];
+		if (!bank->nonroot_gpios)
+			continue;
+
+		muted = __raw_get_cpu_var(__ipipe_muted_irqs)[IH_GPIO_BASE / 32 + i];
+		if (muted)
+			_enable_gpio_irqbank(bank, muted, 1);
+	}
+
+	omap_unmute_pic();
+}
+#endif /* CONFIG_IPIPE && __IPIPE_FEATURE_PIC_MUTE */
 
 #if defined(CONFIG_ARCH_OMAP16XX) || defined(CONFIG_ARCH_OMAP24XX) || \
 		defined(CONFIG_ARCH_OMAP34XX) || defined(CONFIG_ARCH_OMAP4)
