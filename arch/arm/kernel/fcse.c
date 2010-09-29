@@ -6,6 +6,7 @@
 #include <linux/mman.h>
 #include <linux/dcache.h>
 #include <linux/fs.h>
+#include <linux/hardirq.h>
 
 #include <asm/fcse.h>
 #include <asm/cacheflush.h>
@@ -108,8 +109,8 @@ int fcse_pid_alloc(struct mm_struct *mm)
 #else /* CONFIG_ARM_FCSE_GUARANTEED */
 		spin_unlock_irqrestore(&fcse_lock, flags);
 #ifdef CONFIG_ARM_FCSE_MESSAGES
-		printk(KERN_WARNING "FCSE: system would exceed the %lu processes limit.\n",
-		       NR_PIDS);
+		printk(KERN_WARNING "FCSE: %s[%d] would exceed the %lu processes limit.\n",
+		       current->comm, current->pid, NR_PIDS);
 #endif /* CONFIG_ARM_FCSE_MESSAGES */
 		return -EAGAIN;
 #endif /* CONFIG_ARM_FCSE_GUARANTEED */
@@ -401,9 +402,11 @@ dump_vmas(struct mm_struct *mm, unsigned long addr, struct pt_regs *regs)
 {
 	struct vm_area_struct *vma;
 	char path[128];
+	int locked = 0;
 
 	printk("mappings:\n");
-	down_read(&mm->mmap_sem);
+	if (!in_atomic())
+		locked = down_read_trylock(&mm->mmap_sem);
 	for(vma = mm->mmap; vma; vma = vma->vm_next) {
 		struct file *file = vma->vm_file;
 		int flags = vma->vm_flags;
@@ -444,22 +447,27 @@ dump_vmas(struct mm_struct *mm, unsigned long addr, struct pt_regs *regs)
 				? "," : " <-"));
 		printk("\n");
 	}
-	up_read(&mm->mmap_sem);
+	if (locked)
+		up_read(&mm->mmap_sem);
 }
 #endif /* CONFIG_DEBUG_USER */
 
 void fcse_notify_segv(struct mm_struct *mm,
 		       unsigned long addr, struct pt_regs *regs)
 {
+	int locked = 0;
+
 #if defined(CONFIG_DEBUG_USER)
 	if (user_debug & UDBG_SEGV)
 		dump_vmas(mm, addr, regs);
 #endif /* CONFIG_DEBUG_USER */
 
-	down_read(&mm->mmap_sem);
+	if (!in_atomic())
+		locked = down_read_trylock(&mm->mmap_sem);
 	if (find_vma(mm, addr) == find_vma(mm, regs->ARM_sp))
 		printk(KERN_INFO "FCSE: process %u(%s) probably overflowed stack at 0x%08lx.\n",
 		       current->pid, current->comm, regs->ARM_pc);
-	up_read(&mm->mmap_sem);
+	if (locked)
+		up_read(&mm->mmap_sem);
 }
 #endif /* CONFIG_ARM_FCSE_MESSAGES */
