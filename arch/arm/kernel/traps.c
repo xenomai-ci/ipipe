@@ -728,10 +728,6 @@ void __init trap_init(void)
 	return;
 }
 
-#ifdef CONFIG_IPIPE
-void *__ipipe_tsc_area;
-#endif /* CONFIG_IPIPE */
-
 void __init early_trap_init(void)
 {
 	unsigned long vectors = CONFIG_VECTORS_BASE;
@@ -757,7 +753,6 @@ void __init early_trap_init(void)
 #else /* !CONFIG_IPIPE */
 	BUG_ON(0x1000 - kuser_sz < 0x200 + __stubs_end - __stubs_start);
 	memcpy((void *)vectors + 0x1000 - kuser_sz, __ipipe_tsc_area_start, kuser_sz);
-	__ipipe_tsc_area = (void *)vectors + 0x1000 - kuser_sz;
 #endif /* !CONFIG_IPIPE */
 
 	/*

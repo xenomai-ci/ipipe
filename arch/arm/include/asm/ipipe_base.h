@@ -26,6 +26,7 @@
 #include <linux/threads.h>
 #include <asm/ptrace.h>
 #include <asm/irq.h>
+#include <mach/irqs.h>		/* For __IPIPE_FEATURE_PIC_MUTE */
 
 #define IPIPE_NR_XIRQS		NR_IRQS
 
@@ -120,6 +121,10 @@ static inline unsigned __ipipe_test_and_stall_root(void)
 
 #ifdef CONFIG_VFP
 #define __IPIPE_FEATURE_VFP_SAFE		1
+#endif
+
+#ifdef CONFIG_IPIPE_ARM_KUSER_TSC
+#define __IPIPE_FEATURE_KUSER_TSC
 #endif
 
 #endif /* !__ASSEMBLY__ */

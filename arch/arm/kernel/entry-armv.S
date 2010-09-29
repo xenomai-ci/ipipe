@@ -910,18 +910,6 @@ ENDPROC(__switch_to)
  */
  THUMB(	.arm	)
 
-#ifdef CONFIG_IPIPE
-/* We use the same mechanism as Linux user helpers to store variables related to
-   TSC emulation, so that they can be used in user-space. */
-	.align 5
-	.globl  __ipipe_tsc_area_start
-
-__ipipe_tsc_area_start:
-	.rep	12
-	.word	0
-	.endr
-#endif /* CONFIG_IPIPE */
-
 	.macro	usr_ret, reg
 #ifdef CONFIG_ARM_THUMB
 	bx	\reg
@@ -929,6 +917,50 @@ __ipipe_tsc_area_start:
 	mov	pc, \reg
 #endif
 	.endm
+
+#ifdef CONFIG_IPIPE
+/*
+	I-pipe tsc area, here we store data shared with user-space for
+	tsc-emulation. If CONFIG_IPIPE_ARM_KUSER_TSC is enabled
+	__ipipe_kuser_get_tsc will be overwritten with the real TSC
+	emulation code.
+*/
+	.globl	__ipipe_tsc_area
+	.equ	__ipipe_tsc_area, CONFIG_VECTORS_BASE + 0x1000 + __ipipe_tsc_area_start - __kuser_helper_end
+
+#ifdef CONFIG_IPIPE_ARM_KUSER_TSC
+	.globl  __ipipe_tsc_addr
+	.equ	__ipipe_tsc_addr, CONFIG_VECTORS_BASE + 0x1000 + .LCcntr_addr - __kuser_helper_end
+
+	.globl	__ipipe_tsc_get
+	.equ	__ipipe_tsc_get, CONFIG_VECTORS_BASE + 0x1000 + __ipipe_kuser_get_tsc - __kuser_helper_end
+#endif
+
+	.align 5
+	.globl  __ipipe_tsc_area_start
+__ipipe_tsc_area_start:
+	.rep  3
+	.word 0
+	.endr
+
+#ifdef CONFIG_IPIPE_ARM_KUSER_TSC
+	.rep  4
+	.word 0
+	.endr
+.LCcntr_addr:
+	.word 0
+
+	.align 5
+__ipipe_kuser_get_tsc:
+	nop
+	mov	r0, #0
+	mov	r1, #0
+	usr_ret	lr
+	.rep 20
+	.word 0
+	.endr
+#endif
+#endif
 
 	.align	5
 	.globl	__kuser_helper_start

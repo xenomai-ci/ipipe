@@ -29,7 +29,6 @@
 
 #include <linux/ipipe_percpu.h>
 #include <linux/ipipe_trace.h>
-#include <mach/irqs.h>		/* For __IPIPE_FEATURE_PIC_MUTE */
 
 #define IPIPE_ARCH_STRING	"1.17-02"
 #define IPIPE_MAJOR_NUMBER	1
@@ -102,16 +101,23 @@ extern unsigned long arm_return_addr(int level);
 #define __BUILTIN_RETURN_ADDRESS0 arm_return_addr(0)
 #define __BUILTIN_RETURN_ADDRESS1 arm_return_addr(1)
 
-
 struct ipipe_domain;
 
-#define IPIPE_TSC_TYPE_NONE	   0
-#define IPIPE_TSC_TYPE_FREERUNNING 1
-#define IPIPE_TSC_TYPE_DECREMENTER 2
+#define IPIPE_TSC_TYPE_NONE	   		0
+#define IPIPE_TSC_TYPE_FREERUNNING 		1
+#define IPIPE_TSC_TYPE_DECREMENTER 		2
+#define IPIPE_TSC_TYPE_FREERUNNING_COUNTDOWN	3
 
+/* tscinfo, exported to user-space */
 struct __ipipe_tscinfo {
 	unsigned type;
+	unsigned freq;
+	unsigned long counter_vaddr;
 	union {
+		struct {
+			unsigned long counter_paddr;
+			unsigned mask;
+		};
 		struct {
 			unsigned *counter; /* Hw counter physical address */
 			unsigned mask; /* Significant bits in the hw counter. */
@@ -128,26 +134,34 @@ struct __ipipe_tscinfo {
 };
 
 struct ipipe_sysinfo {
-	int sys_nr_cpus;	/* Number of CPUs on board */
-	int sys_hrtimer_irq;	/* hrtimer device IRQ */
-	u64 sys_hrtimer_freq;	/* hrtimer device frequency */
-	u64 sys_hrclock_freq;	/* hrclock device frequency */
-	u64 sys_cpu_freq;	/* CPU frequency (Hz) */
-	struct __ipipe_tscinfo arch_tsc; /* exported data for u.s. tsc */
+       int sys_nr_cpus;        /* Number of CPUs on board */
+       int sys_hrtimer_irq;    /* hrtimer device IRQ */
+       u64 sys_hrtimer_freq;   /* hrtimer device frequency */
+       u64 sys_hrclock_freq;   /* hrclock device frequency */
+       u64 sys_cpu_freq;       /* CPU frequency (Hz) */
+       struct __ipipe_tscinfo arch_tsc; /* exported data for u.s. tsc */
 };
 
 DECLARE_PER_CPU(struct mm_struct *,ipipe_active_mm);
 /* arch specific stuff */
-extern void *__ipipe_tsc_area;
+extern char __ipipe_tsc_area[];
 extern int __ipipe_mach_timerstolen;
 extern unsigned int __ipipe_mach_ticks_per_jiffy;
 extern void __ipipe_mach_acktimer(void);
-extern unsigned long long __ipipe_mach_get_tsc(void);
 extern void __ipipe_mach_set_dec(unsigned long);
 extern void __ipipe_mach_release_timer(void);
 extern unsigned long __ipipe_mach_get_dec(void);
 void __ipipe_mach_get_tscinfo(struct __ipipe_tscinfo *info);
 int __ipipe_check_tickdev(const char *devname);
+
+#ifdef CONFIG_IPIPE_ARM_KUSER_TSC
+unsigned long long __ipipe_tsc_get(void) __attribute__((long_call));
+void __ipipe_tsc_register(struct __ipipe_tscinfo *info);
+void __ipipe_tsc_update(void);
+#else /* ! generic tsc */
+unsigned long long __ipipe_mach_get_tsc(void);
+#define __ipipe_tsc_get() __ipipe_mach_get_tsc()
+#endif /* ! generic tsc */
 
 #ifndef __ipipe_cpu_freq
 #define __ipipe_cpu_freq		(HZ * __ipipe_mach_ticks_per_jiffy)
@@ -206,8 +220,8 @@ extern int __ipipe_mach_timerint;
 #define __ipipe_mach_hrtimer_debug(irq)	do { } while (0)
 #endif
 
-#define ipipe_read_tsc(t)	do { t = __ipipe_mach_get_tsc(); } while (0)
-#define __ipipe_read_timebase()	__ipipe_mach_get_tsc()
+#define ipipe_read_tsc(t)	do { t = __ipipe_tsc_get(); } while (0)
+#define __ipipe_read_timebase()	__ipipe_tsc_get()
 
 #define ipipe_tsc2ns(t) \
 ({ \

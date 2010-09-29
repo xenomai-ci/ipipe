@@ -57,5 +57,6 @@ obj-$(CONFIG_DEBUG_LL)	+= debug.o
 obj-$(CONFIG_EARLY_PRINTK)	+= early_printk.o
 obj-$(CONFIG_ARM_FCSE)	+= fcse.o
 obj-$(CONFIG_IPIPE)	+= ipipe.o
+obj-$(CONFIG_IPIPE_ARM_KUSER_TSC) += ipipe_tsc.o ipipe_tsc_asm.o
 
 extra-y := $(head-y) init_task.o vmlinux.lds
