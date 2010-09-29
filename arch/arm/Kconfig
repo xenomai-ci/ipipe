@@ -853,6 +853,13 @@ config PLAT_ORION
 config PLAT_PXA
 	bool
 
+if IPIPE
+config IPIPE_ARM_KUSER_TSC
+       bool
+       select GENERIC_TIME
+       default y if ARCH_AT91
+endif
+
 source arch/arm/mm/Kconfig
 
 config IWMMXT
