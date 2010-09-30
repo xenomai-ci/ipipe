@@ -910,16 +910,6 @@ finalize_nosync:
 	    test_bit(IPIPE_STALL_FLAG, &ipipe_root_cpudom_var(status)))
 		return 0;
 
-#if defined(CONFIG_X86_32) && defined(CONFIG_SMP)
-	/*
-	 * Prevent a spurious rescheduling from being triggered on
-	 * preemptible kernels along the way out through
-	 * ret_from_intr.
-	 */
-	if ((long)regs->orig_ax < 0)
-		__set_bit(IPIPE_STALL_FLAG, &ipipe_root_cpudom_var(status));
-#endif	/* CONFIG_SMP */
-
 	return 1;
 }
 
