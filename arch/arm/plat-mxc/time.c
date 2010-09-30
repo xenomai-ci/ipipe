@@ -71,57 +71,7 @@ EXPORT_SYMBOL(__ipipe_mach_timerstolen);
 unsigned int __ipipe_mach_ticks_per_jiffy = LATCH;
 EXPORT_SYMBOL(__ipipe_mach_ticks_per_jiffy);
 
-static int mxc_timer_initialized;
 static unsigned mxc_min_delay;
-
-union tsc_reg {
-#ifdef __BIG_ENDIAN
-	struct {
-		unsigned long high;
-		unsigned long low;
-	};
-#else /* __LITTLE_ENDIAN */
-	struct {
-		unsigned long low;
-		unsigned long high;
-	};
-#endif /* __LITTLE_ENDIAN */
-	unsigned long long full;
-};
-
-#ifdef CONFIG_SMP
-static union tsc_reg tsc[NR_CPUS];
-
-void __ipipe_mach_get_tscinfo(struct __ipipe_tscinfo *info)
-{
-	info->type = IPIPE_TSC_TYPE_NONE;
-}
-
-#else /* !CONFIG_SMP */
-static union tsc_reg *tsc;
-
-void __ipipe_mach_get_tscinfo(struct __ipipe_tscinfo *info)
-{
-	info->type = IPIPE_TSC_TYPE_FREERUNNING;
-	if (cpu_is_mx1()) {
-#ifdef CONFIG_ARCH_MX1
-		info->u.fr.counter = (unsigned *) (TIM1_BASE_ADDR + MX1_2_TCN);
-#endif
-	} else if (cpu_is_mx2()) {
-#ifdef CONFIG_ARCH_MX2
-		info->u.fr.counter = (unsigned *) (GPT1_BASE_ADDR + MX1_2_TCN);
-#endif
-	} else if (cpu_is_mx3()) {
-#ifdef CONFIG_ARCH_MX3
-		info->u.fr.counter = (unsigned *) (GPT1_BASE_ADDR + MX3_TCN);
-#endif
-	}
-	info->u.fr.mask = 0xffffffff;
-	info->u.fr.tsc = &tsc->full;
-}
-#endif /* !CONFIG_SMP */
-
-static void ipipe_mach_update_tsc(void);
 #endif /* CONFIG_IPIPE */
 
 static struct clock_event_device clockevent_mxc;
@@ -187,9 +137,6 @@ static int __init mxc_clocksource_init(struct clk *timer_clk)
 	if (cpu_is_mx3() || cpu_is_mx25())
 		clocksource_mxc.read = mx3_get_cycles;
 
-#ifdef CONFIG_IPIPE
-	__ipipe_mach_ticks_per_jiffy = (c + HZ/2) / HZ;
-#endif /* CONFIG_IPIPE */
 	clocksource_mxc.mult = clocksource_hz2mult(c,
 					clocksource_mxc.shift);
 	clocksource_register(&clocksource_mxc);
@@ -311,7 +258,7 @@ static irqreturn_t mxc_timer_interrupt(int irq, void *dev_id)
 #ifndef CONFIG_IPIPE
 	gpt_irq_acknowledge();
 #else /* !CONFIG_IPIPE */
-	ipipe_mach_update_tsc();
+	__ipipe_tsc_update();
 #endif /* !CONFIG_IPIPE */
 
 	evt->event_handler(evt);
@@ -355,48 +302,16 @@ static int __init mxc_clockevent_init(struct clk *timer_clk)
 	return 0;
 }
 
-void __init mxc_timer_init(struct clk *timer_clk, void __iomem *base, int irq)
-{
-	uint32_t tctl_val;
-
-	clk_enable(timer_clk);
-
-	timer_base = base;
-
-	/*
-	 * Initialise to a known state (all timers off, and timing reset)
-	 */
-
-	__raw_writel(0, timer_base + MXC_TCTL);
-	__raw_writel(0, timer_base + MXC_TPRER); /* see datasheet note */
-
-	if (cpu_is_mx3() || cpu_is_mx25())
-		tctl_val = MX3_TCTL_CLK_IPG | MX3_TCTL_FRR | MX3_TCTL_WAITEN | MXC_TCTL_TEN;
-	else
-		tctl_val = MX1_2_TCTL_FRR | MX1_2_TCTL_CLK_PCLK1 | MXC_TCTL_TEN;
-
-	__raw_writel(tctl_val, timer_base + MXC_TCTL);
-
-	/* init and register the timer to the framework */
-	mxc_clocksource_init(timer_clk);
-	mxc_clockevent_init(timer_clk);
-
-	/* Make irqs happen */
-	setup_irq(irq, &mxc_timer_irq);
-
 #ifdef CONFIG_IPIPE
-	__ipipe_mach_timerint = irq;
-#ifndef CONFIG_SMP
-	tsc = (union tsc_reg *) __ipipe_tsc_area;
-	barrier();
-#endif /* CONFIG_SMP */
+static struct __ipipe_tscinfo tsc_info = {
+	.type = IPIPE_TSC_TYPE_FREERUNNING,
+	.u = {
+		{
+			.mask = 0xffffffff,
+		},
+	},
+};
 
-	mxc_min_delay = ((__ipipe_cpu_freq + 500000) / 1000000) ?: 1;
-	mxc_timer_initialized = 1;
-#endif /* CONFIG_IPIPE */
-}
-
-#ifdef CONFIG_IPIPE
 int __ipipe_check_tickdev(const char *devname)
 {
 	return !strcmp(devname, clockevent_mxc.name);
@@ -406,58 +321,6 @@ void __ipipe_mach_acktimer(void)
 {
 	gpt_irq_acknowledge();
 }
-
-static void ipipe_mach_update_tsc(void)
-{
-	union tsc_reg *local_tsc;
-	unsigned long stamp, flags;
-
-	local_irq_save_hw(flags);
-	local_tsc = &tsc[ipipe_processor_id()];
-	if (!cpu_is_mx3())
-		stamp = __raw_readl(timer_base + MX1_2_TCN);
-	else
-		stamp = __raw_readl(timer_base + MX3_TCN);
-	if (unlikely(stamp < local_tsc->low))
-		/* 32 bit counter wrapped, increment high word. */
-		local_tsc->high++;
-	local_tsc->low = stamp;
-	local_irq_restore_hw(flags);
-}
-
-notrace unsigned long long __ipipe_mach_get_tsc(void)
-{
-	if (likely(mxc_timer_initialized)) {
-		union tsc_reg *local_tsc, result;
-		unsigned long stamp;
-
-		local_tsc = &tsc[ipipe_processor_id()];
-
-		if (!cpu_is_mx3())  {
-			__asm__ ("ldmia %1, %M0\n"
-				 : "=r"(result.full), "+&r"(local_tsc)
-				 : "m"(*local_tsc));
-			barrier();
-			stamp = __raw_readl(timer_base + MX1_2_TCN);
-		} else {
-			__asm__ ("ldmia %1, %M0\n"
-				 : "=r"(result.full), "+&r"(local_tsc)
-				 : "m"(*local_tsc));
-			barrier();
-			stamp = __raw_readl(timer_base + MX3_TCN);
-		}
-		if (unlikely(stamp < result.low))
-			/* 32 bit counter wrapped, increment high word. */
-			result.high++;
-		result.low = stamp;
-
-		return result.full;
-	}
-
-	return 0;
-}
-EXPORT_SYMBOL(__ipipe_mach_get_tsc);
-
 /*
  * Reprogram the timer
  */
@@ -496,3 +359,54 @@ unsigned long __ipipe_mach_get_dec(void)
 			- __raw_readl(timer_base + MX3_TCN);
 }
 #endif /* CONFIG_IPIPE */
+
+void __init mxc_timer_init(struct clk *timer_clk, void __iomem *base, int irq)
+{
+	uint32_t tctl_val;
+
+	clk_enable(timer_clk);
+
+	timer_base = base;
+
+	/*
+	 * Initialise to a known state (all timers off, and timing reset)
+	 */
+
+	__raw_writel(0, timer_base + MXC_TCTL);
+	__raw_writel(0, timer_base + MXC_TPRER); /* see datasheet note */
+
+	if (cpu_is_mx3() || cpu_is_mx25())
+		tctl_val = MX3_TCTL_CLK_IPG | MX3_TCTL_FRR | MX3_TCTL_WAITEN | MXC_TCTL_TEN;
+	else
+		tctl_val = MX1_2_TCTL_FRR | MX1_2_TCTL_CLK_PCLK1 | MXC_TCTL_TEN;
+
+	__raw_writel(tctl_val, timer_base + MXC_TCTL);
+
+	/* init and register the timer to the framework */
+	mxc_clocksource_init(timer_clk);
+	mxc_clockevent_init(timer_clk);
+
+	/* Make irqs happen */
+	setup_irq(irq, &mxc_timer_irq);
+
+#ifdef CONFIG_IPIPE
+	__ipipe_mach_timerint = irq;
+	__ipipe_mach_ticks_per_jiffy = (clk_get_rate(timer_clk) + HZ/2) / HZ;
+	tsc_info.freq = clk_get_rate(timer_clk);
+	mxc_min_delay = ((__ipipe_cpu_freq + 500000) / 1000000) ?: 1;
+
+	if (cpu_is_mx1() || cpu_is_mx2()) {
+#if defined(CONFIG_ARCH_MX1) || defined(CONFIG_ARCH_MX2)
+		tsc_info.u.counter_paddr = (TIM1_BASE_ADDR + MX1_2_TCN);
+		tsc_info.counter_vaddr =
+			(unsigned long)(timer_base + MX1_2_TCN);
+#endif
+	} else if (cpu_is_mx3()) {
+#ifdef CONFIG_ARCH_MX3
+		tsc_info.u.counter_paddr = (GPT1_BASE_ADDR + MX3_TCN);
+		tsc_info.counter_vaddr = (unsigned long)(timer_base + MX3_TCN);
+#endif
+	}
+	__ipipe_tsc_register(&tsc_info);
+#endif /* CONFIG_IPIPE */
+}

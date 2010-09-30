@@ -857,7 +857,7 @@ if IPIPE
 config IPIPE_ARM_KUSER_TSC
        bool
        select GENERIC_TIME
-       default y if ARCH_AT91 || ARCH_IXP4XX || ARCH_OMAP
+       default y if ARCH_AT91 || ARCH_IXP4XX || ARCH_MXC || ARCH_OMAP
 endif
 
 source arch/arm/mm/Kconfig
