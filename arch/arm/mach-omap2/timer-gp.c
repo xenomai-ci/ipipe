@@ -171,7 +171,7 @@ static void __init omap2_gp_clockevent_init(void)
 
 	inited = 1;
 
-	gptimer = omap_dm_timer_request_specific(gptimer_id);
+	gptimer = omap_dm_timer_request_specific_nonposted(gptimer_id);
 	BUG_ON(gptimer == NULL);
 	gptimer_wakeup = gptimer;
 
@@ -254,7 +254,11 @@ static void __init omap2_gp_clocksource_init(void)
 	static char err2[] __initdata = KERN_ERR
 		"%s: can't register clocksource!\n";
 
+#ifdef CONFIG_IPIPE
+	gpt = omap_dm_timer_request_specific(3);
+#else
 	gpt = omap_dm_timer_request();
+#endif
 	if (!gpt)
 		printk(err1, clocksource_gpt.name);
 	gpt_clocksource = gpt;
@@ -290,6 +294,9 @@ static void __init omap2_gp_timer_init(void)
 #endif
 	omap_dm_timer_init();
 
+#ifdef CONFIG_IPIPE
+	omap2_gp_clockevent_set_gptimer(2);
+#endif
 	omap2_gp_clockevent_init();
 	omap2_gp_clocksource_init();
 }
