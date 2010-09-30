@@ -34,45 +34,17 @@ EXPORT_SYMBOL(__ipipe_mach_timerstolen);
 unsigned int __ipipe_mach_ticks_per_jiffy = LATCH;
 EXPORT_SYMBOL(__ipipe_mach_ticks_per_jiffy);
 
-static int sa1100_timer_initialized;
-
-union tsc_reg {
-#ifdef __BIG_ENDIAN
-	struct {
-		unsigned long high;
-		unsigned long low;
-	};
-#else /* __LITTLE_ENDIAN */
-	struct {
-		unsigned long low;
-		unsigned long high;
-	};
-#endif /* __LITTLE_ENDIAN */
-	unsigned long long full;
+static struct __ipipe_tscinfo tsc_info = {
+	.type = IPIPE_TSC_TYPE_FREERUNNING,
+	.freq = CLOCK_TICK_RATE,
+	.counter_vaddr = io_p2v(0x90000010UL),
+	.u = {
+		{
+			.counter_paddr = 0x90000010UL,
+			.mask = 0xffffffff,
+		},
+	},
 };
-
-#ifdef CONFIG_SMP
-static union tsc_reg tsc[NR_CPUS];
-
-void __ipipe_mach_get_tscinfo(struct __ipipe_tscinfo *info)
-{
-	info->type = IPIPE_TSC_TYPE_NONE;
-}
-
-#else /* !CONFIG_SMP */
-static union tsc_reg *tsc;
-
-void __ipipe_mach_get_tscinfo(struct __ipipe_tscinfo *info)
-{
-	info->type = IPIPE_TSC_TYPE_FREERUNNING;
-	info->u.fr.counter = (unsigned *)0x90000010;
-	info->u.fr.mask = 0xffffffff;
-	info->u.fr.tsc = &tsc->full;
-}
-#endif /* !CONFIG_SMP */
-
-static void ipipe_mach_update_tsc(void);
-
 #endif /* CONFIG_IPIPE */
 
 static irqreturn_t sa1100_ost0_interrupt(int irq, void *dev_id)
@@ -84,7 +56,7 @@ static irqreturn_t sa1100_ost0_interrupt(int irq, void *dev_id)
 	OIER &= ~OIER_E0;
 	OSSR = OSSR_M0;
 #else /* CONFIG_IPIPE */
-	ipipe_mach_update_tsc();
+	__ipipe_tsc_update();
 #endif /* CONFIG_IPIPE */
 	c->event_handler(c);
 
@@ -183,12 +155,7 @@ static void __init sa1100_timer_init(void)
 	setup_irq(IRQ_OST0, &sa1100_timer_irq);
 
 #ifdef CONFIG_IPIPE
-#ifndef CONFIG_SMP
-	tsc = (union tsc_reg *) __ipipe_tsc_area;
-	barrier();
-#endif /* CONFIG_SMP */
-
-	sa1100_timer_initialized = 1;
+	__ipipe_tsc_register(&tsc_info);
 #endif /* CONFIG_IPIPE */
 
 	clocksource_register(&cksrc_sa1100_oscr);
@@ -238,44 +205,6 @@ void __ipipe_mach_acktimer(void)
 	OSSR = OSSR_M0;  /* Clear match on timer 0 */
 	OIER &= ~OIER_E0;
 }
-
-static void ipipe_mach_update_tsc(void)
-{
-	union tsc_reg *local_tsc;
-	unsigned long stamp, flags;
-
-	local_irq_save_hw(flags);
-	local_tsc = &tsc[ipipe_processor_id()];
-	stamp = OSCR;
-	if (unlikely(stamp < local_tsc->low))
-		/* 32 bit counter wrapped, increment high word. */
-		local_tsc->high++;
-	local_tsc->low = stamp;
-	local_irq_restore_hw(flags);
-}
-
-notrace unsigned long long __ipipe_mach_get_tsc(void)
-{
-	if (likely(sa1100_timer_initialized)) {
-		union tsc_reg *local_tsc, result;
-		unsigned long stamp;
-
-		local_tsc = &tsc[ipipe_processor_id()];
-
-		__asm__ ("ldmia %1, %M0\n":
-			 "=r"(result.full): "r"(local_tsc), "m"(*local_tsc));
-		barrier();
-		stamp = OSCR;
-		if (unlikely(stamp < result.low))
-			/* 32 bit counter wrapped, increment high word. */
-			result.high++;
-		result.low = stamp;
-		return result.full;
-	}
-
-	return 0;
-}
-EXPORT_SYMBOL(__ipipe_mach_get_tsc);
 
 /*
  * Reprogram the timer
