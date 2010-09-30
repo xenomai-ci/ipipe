@@ -1744,6 +1744,31 @@ void ipipe_critical_exit(unsigned long flags)
 	local_irq_restore_hw(flags);
 }
 
+#ifdef CONFIG_HAVE_IPIPE_HOSTRT
+/*
+ * NOTE: The architecture specific code must only call this function
+ * when a clocksource suitable for CLOCK_HOST_REALTIME is enabled.
+ */
+void ipipe_update_hostrt(struct timespec *wall_time, struct clocksource *clock)
+{
+	struct ipipe_hostrt_data hostrt_data;
+
+	hostrt_data.live = 1;
+	hostrt_data.cycle_last = clock->cycle_last;
+	hostrt_data.mask = clock->mask;
+	hostrt_data.mult = clock->mult;
+	hostrt_data.shift = clock->shift;
+	hostrt_data.wall_time_sec = wall_time->tv_sec;
+	hostrt_data.wall_time_nsec = wall_time->tv_nsec;
+	hostrt_data.wall_to_monotonic = wall_to_monotonic;
+
+	/* Note: The event receiver is responsible for providing
+	   proper locking */
+	if (__ipipe_event_monitored_p(IPIPE_EVENT_HOSTRT))
+		__ipipe_dispatch_event(IPIPE_EVENT_HOSTRT, &hostrt_data);
+}
+#endif /* CONFIG_HAVE_IPIPE_HOSTRT */
+
 int ipipe_alloc_ptdkey (void)
 {
 	unsigned long flags;

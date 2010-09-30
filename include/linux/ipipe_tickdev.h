@@ -25,6 +25,7 @@
 #if defined(CONFIG_IPIPE) && defined(CONFIG_GENERIC_CLOCKEVENTS)
 
 #include <linux/clockchips.h>
+#include <linux/clocksource.h>
 
 struct tick_device;
 
@@ -44,6 +45,22 @@ struct ipipe_tick_device {
 	int real_shift;
 };
 
+/*
+ * NOTE: When modifying this structure, make sure to keep the Xenomai
+ * definition include/nucleus/vdso.h in sync.
+ */
+struct ipipe_hostrt_data {
+	short live;
+	seqcount_t seqcount;
+	time_t wall_time_sec;
+	u32 wall_time_nsec;
+	struct timespec wall_to_monotonic;
+	cycle_t cycle_last;
+	cycle_t mask;
+	u32 mult;
+	u32 shift;
+};
+
 int ipipe_request_tickdev(const char *devname,
 			  void (*emumode)(enum clock_event_mode mode,
 					  struct clock_event_device *cdev),
@@ -54,5 +71,13 @@ int ipipe_request_tickdev(const char *devname,
 void ipipe_release_tickdev(int cpu);
 
 #endif /* CONFIG_IPIPE && CONFIG_GENERIC_CLOCKEVENTS */
+
+#ifdef CONFIG_HAVE_IPIPE_HOSTRT
+void ipipe_update_hostrt(struct timespec *wall_time,
+			 struct clocksource *clock);
+#else /* !CONFIG_IPIPE_HOSTRT */
+static inline void
+ipipe_update_hostrt(struct timespec *wall_time, struct clocksource *clock) {};
+#endif
 
 #endif /* !__LINUX_IPIPE_TICKDEV_H */
