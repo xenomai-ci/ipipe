@@ -529,7 +529,10 @@ void __ipipe_restore_pipeline_head(unsigned long x);
 
 static inline void ipipe_restore_pipeline_head(unsigned long x)
 {
-	local_irq_disable_hw();
+#ifdef CONFIG_IPIPE_DEBUG
+	if (WARN_ON_ONCE(!irqs_disabled_hw()))
+		local_irq_disable_hw();
+#endif
 	if ((x ^ test_bit(IPIPE_STALL_FLAG, &ipipe_head_cpudom_var(status))) & 1)
 		__ipipe_restore_pipeline_head(x);
 }
@@ -708,7 +711,7 @@ static inline int ipipe_test_foreign_stack(void)
 
 #define __ipipe_root_domain_p		1
 #define ipipe_root_domain_p		1
-#define ipipe_safe_current		current
+#define ipipe_safe_current()		current
 #define ipipe_processor_id()		smp_processor_id()
 
 #define ipipe_nmi_enter()		do { } while (0)

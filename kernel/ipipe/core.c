@@ -1584,6 +1584,8 @@ int ipipe_send_ipi (unsigned ipi, cpumask_t cpumask)
 
 {
 #ifdef CONFIG_SMP
+	if (!ipipe_ipi_p(ipi))
+		return -EINVAL;
 	return __ipipe_send_ipi(ipi,cpumask);
 #else /* !CONFIG_SMP */
 	return -EINVAL;
