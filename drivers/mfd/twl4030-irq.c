@@ -31,6 +31,7 @@
 #include <linux/interrupt.h>
 #include <linux/irq.h>
 #include <linux/kthread.h>
+#include <linux/kallsyms.h>
 
 #include <linux/i2c/twl.h>
 
@@ -332,7 +333,11 @@ static int twl4030_irq_thread(void *data)
 					note_interrupt(module_irq, d,
 							IRQ_NONE);
 				else
-					ipipe_handle_chained_irq(module_irq);
+#ifndef CONFIG_IPIPE
+					d->handle_irq(module_irq, d);
+#else
+					d->ipipe_ack(module_irq, d);
+#endif
 			}
 		}
 		local_irq_enable();
