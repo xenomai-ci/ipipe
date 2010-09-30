@@ -66,46 +66,6 @@ EXPORT_SYMBOL(__ipipe_mach_timerstolen);
 unsigned int __ipipe_mach_ticks_per_jiffy;
 EXPORT_SYMBOL(__ipipe_mach_ticks_per_jiffy);
 
-static int omap2_timer_initialized;
-
-union tsc_reg {
-#ifdef __BIG_ENDIAN
-	struct {
-		unsigned long high;
-		unsigned long low;
-	};
-#else /* __LITTLE_ENDIAN */
-	struct {
-		unsigned long low;
-		unsigned long high;
-	};
-#endif /* __LITTLE_ENDIAN */
-	unsigned long long full;
-};
-
-#ifdef CONFIG_SMP
-static union tsc_reg tsc[NR_CPUS];
-
-void __ipipe_mach_get_tscinfo(struct __ipipe_tscinfo *info)
-{
-	info->type = IPIPE_TSC_TYPE_NONE;
-}
-
-#else /* !CONFIG_SMP */
-static union tsc_reg *tsc;
-
-void __ipipe_mach_get_tscinfo(struct __ipipe_tscinfo *info)
-{
-	info->type = IPIPE_TSC_TYPE_FREERUNNING;
-	info->u.fr.counter = (unsigned *)
-		omap_dm_timer_get_phys_counter_addr(gpt_clocksource);
-	info->u.fr.mask = 0xffffffff;
-	info->u.fr.tsc = &tsc->full;
-}
-#endif /* !CONFIG_SMP */
-
-static void ipipe_mach_update_tsc(void);
-
 #endif /* CONFIG_IPIPE */
 static irqreturn_t omap2_gp_timer_interrupt(int irq, void *dev_id)
 {
@@ -115,7 +75,7 @@ static irqreturn_t omap2_gp_timer_interrupt(int irq, void *dev_id)
 
 	omap_dm_timer_write_status(gpt, OMAP_TIMER_INT_OVERFLOW);
 #else /* CONFIG_IPIPE */
-	ipipe_mach_update_tsc();
+	__ipipe_tsc_update();
 #endif /* CONFIG_IPIPE */
 
 	evt->event_handler(evt);
@@ -189,6 +149,15 @@ int __init omap2_gp_clockevent_set_gptimer(u8 id)
 }
 
 #ifdef CONFIG_IPIPE
+static struct __ipipe_tscinfo tsc_info = {
+	.type = IPIPE_TSC_TYPE_FREERUNNING,
+	.u = {
+		{
+			.mask = 0xffffffff,
+		},
+	},
+};
+
 int __ipipe_check_tickdev(const char *devname)
 {
 	return !strcmp(devname, clockevent_gpt.name);
@@ -296,17 +265,17 @@ static void __init omap2_gp_clocksource_init(void)
 
 	omap_dm_timer_set_load_start(gpt, 1, 0);
 
+#ifdef CONFIG_IPIPE
+	tsc_info.freq = tick_rate;
+	tsc_info.counter_vaddr =
+		omap_dm_timer_get_virt_counter_addr(gpt_clocksource);
+	tsc_info.u.counter_paddr =
+		omap_dm_timer_get_phys_counter_addr(gpt_clocksource);
+	__ipipe_tsc_register(&tsc_info);
+#endif
+
 	clocksource_gpt.mult =
 		clocksource_khz2mult(tick_rate/1000, clocksource_gpt.shift);
-
-#ifdef CONFIG_IPIPE
-#ifndef CONFIG_SMP
-	tsc = (union tsc_reg *) __ipipe_tsc_area;
-	barrier();
-#endif /* CONFIG_SMP */
-
-	omap2_timer_initialized = 1;
-#endif /* CONFIG_IPIPE */
 
 	if (clocksource_register(&clocksource_gpt))
 		printk(err2, clocksource_gpt.name);
@@ -335,47 +304,6 @@ void __ipipe_mach_acktimer(void)
 	omap_dm_timer_write_status(gptimer, OMAP_TIMER_INT_OVERFLOW);
 	omap_dm_timer_read_status(gptimer);
 }
-
-static void ipipe_mach_update_tsc(void)
-{
-	union tsc_reg *local_tsc;
-	unsigned long stamp, flags;
-
-	if (likely(omap2_timer_initialized)) {
-		local_irq_save_hw(flags);
-		local_tsc = &tsc[ipipe_processor_id()];
-		stamp = omap_dm_timer_read_counter(gpt_clocksource);
-		if (unlikely(stamp < local_tsc->low))
-			/* 32 bit counter wrapped, increment high word. */
-			local_tsc->high++;
-		local_tsc->low = stamp;
-		local_irq_restore_hw(flags);
-	}
-}
-
-notrace unsigned long long __ipipe_mach_get_tsc(void)
-{
-	if (likely(omap2_timer_initialized)) {
-		union tsc_reg *local_tsc, result;
-		unsigned long stamp;
-
-		local_tsc = &tsc[ipipe_processor_id()];
-
-		__asm__ ("ldmia %1, %M0\n" :
-			 "=r"(result.full) : "r"(local_tsc), "m"(*local_tsc));
-		barrier();
-		stamp = omap_dm_timer_read_counter(gpt_clocksource);
-		if (unlikely(stamp < result.low))
-			/* 32 bit counter wrapped, increment high word. */
-			result.high++;
-		result.low = stamp;
-
-		return result.full;
-	}
-
-	return 0;
-}
-EXPORT_SYMBOL(__ipipe_mach_get_tsc);
 
 /*
  * Reprogram the timer
