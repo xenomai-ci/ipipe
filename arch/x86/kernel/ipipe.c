@@ -486,7 +486,7 @@ void __ipipe_preempt_schedule_irq(void)
 		add_preempt_count(PREEMPT_ACTIVE);
 		trace_hardirqs_on();
 		clear_bit(IPIPE_STALL_FLAG, &p->status); 
-		__ipipe_sync_pipeline(IPIPE_IRQ_DOALL); 
+		__ipipe_sync_pipeline();
 		sub_preempt_count(PREEMPT_ACTIVE);
 	} 
 
