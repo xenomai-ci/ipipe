@@ -103,8 +103,10 @@ init_new_context(struct task_struct *tsk, struct mm_struct *mm)
 	mm->context.fcse.active = 0;
 #else /* CONFIG_ARM_FCSE_GUARANTEED */
 	fcse_pid = fcse_pid_alloc(mm);
-	if (fcse_pid < 0)
+	if (fcse_pid < 0) {
+		mm->context.fcse.pid = (~0 << FCSE_PID_SHIFT);
 		return fcse_pid;
+	}
 	mm->context.fcse.pid = fcse_pid << FCSE_PID_SHIFT;
 #endif /* CONFIG_ARM_FCSE_GUARANTEED */
 #endif /* CONFIG_ARM_FCSE */
@@ -121,7 +123,8 @@ static inline void destroy_context(struct mm_struct *mm)
 	FCSE_BUG_ON(mm->context.fcse.shared_dirty_pages);
 	FCSE_BUG_ON(mm->context.fcse.high_pages);
 #endif /* CONFIG_ARM_FCSE_BEST_EFFORT */
-	fcse_pid_free(mm);
+	if (mm->context.fcse.pid != (~0 << FCSE_PID_SHIFT))
+		fcse_pid_free(mm);
 #endif /* CONFIG_ARM_FCSE */
 }
 
