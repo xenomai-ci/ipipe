@@ -44,6 +44,7 @@
 #include <linux/linkage.h>
 #include <asm/thread_info.h>
 #include <asm/irqflags.h>
+#include <asm/ipipe_base.h>
 #include <asm/errno.h>
 #include <asm/segment.h>
 #include <asm/smp.h>
@@ -80,8 +81,61 @@
 
 #define nr_syscalls ((syscall_table_size)/4)
 
+#ifdef CONFIG_IPIPE
+#define EMULATE_ROOT_IRET(bypass) \
+				call __ipipe_unstall_iret_root ; \
+				TRACE_IRQS_ON ; \
+				bypass: \
+				movl PT_EAX(%esp),%eax
+#define TEST_PREEMPTIBLE(regs)  call __ipipe_kpreempt_root ; testl %eax,%eax
+#define CATCH_ROOT_SYSCALL(bypass1,bypass2)	\
+				movl  %esp,%eax ; \
+				call __ipipe_syscall_root ; \
+				testl  %eax,%eax ; \
+				js    bypass1 ; \
+				jne   bypass2 ; \
+				movl PT_ORIG_EAX(%esp),%eax
+#define PUSH_XCODE(v)		pushl $ ex_ ## v
+#define PUSH_XVEC(v)		pushl $ ex_ ## v
+#define HANDLE_EXCEPTION(code)	movl %code,%ecx ; \
+				call __ipipe_handle_exception ; \
+				testl %eax,%eax	; \
+				jnz restore_ret
+#define DIVERT_EXCEPTION(code)	movl $(__USER_DS), %ecx	; \
+				movl %ecx, %ds ; \
+				movl %ecx, %es ; \
+				movl %esp, %eax	; \
+				movl $ex_ ## code,%edx ; \
+				call __ipipe_divert_exception ; \
+				testl %eax,%eax	; \
+				jnz restore_ret
+
+#ifdef CONFIG_IPIPE_TRACE_IRQSOFF
+# define IPIPE_TRACE_IRQ_ENTER \
+	lea PT_EIP-4(%esp), %ebp; \
+	movl PT_ORIG_EAX(%esp), %eax; \
+	call ipipe_trace_begin
+# define IPIPE_TRACE_IRQ_EXIT \
+	pushl %eax; \
+	movl PT_ORIG_EAX+4(%esp), %eax; \
+	call ipipe_trace_end; \
+	popl %eax
+#else  /* !CONFIG_IPIPE_TRACE_IRQSOFF */
+#define IPIPE_TRACE_IRQ_ENTER
+#define IPIPE_TRACE_IRQ_EXIT
+#endif /* CONFIG_IPIPE_TRACE_IRQSOFF */
+#else /* !CONFIG_IPIPE */
+#define EMULATE_ROOT_IRET(bypass)
+#define TEST_PREEMPTIBLE(regs)		testl $X86_EFLAGS_IF,PT_EFLAGS(regs)
+#define CATCH_ROOT_SYSCALL(bypass1,bypass2)
+#define PUSH_XCODE(v)			pushl $v
+#define PUSH_XVEC(v)			pushl v
+#define HANDLE_EXCEPTION(code)		call *%code
+#define DIVERT_EXCEPTION(code)
+#endif /* CONFIG_IPIPE */
+	
 #ifdef CONFIG_PREEMPT
-#define preempt_stop(clobbers)	DISABLE_INTERRUPTS(clobbers); TRACE_IRQS_OFF
+#define preempt_stop(clobbers)	DISABLE_INTERRUPTS_HW(clobbers); TRACE_IRQS_OFF
 #else
 #define preempt_stop(clobbers)
 #define resume_kernel		restore_all
@@ -319,6 +373,7 @@
 .endm
 
 ENTRY(ret_from_fork)
+	ENABLE_INTERRUPTS_HW_COND
 	CFI_STARTPROC
 	pushl %eax
 	CFI_ADJUST_CFA_OFFSET 4
@@ -350,7 +405,7 @@ END(ret_from_fork)
 	RING0_PTREGS_FRAME
 ret_from_exception:
 	preempt_stop(CLBR_ANY)
-ret_from_intr:
+ENTRY(ret_from_intr)
 	GET_THREAD_INFO(%ebp)
 check_userspace:
 	movl PT_EFLAGS(%esp), %eax	# mix EFLAGS and CS
@@ -374,14 +429,13 @@ END(ret_from_exception)
 
 #ifdef CONFIG_PREEMPT
 ENTRY(resume_kernel)
-	DISABLE_INTERRUPTS(CLBR_ANY)
 	cmpl $0,TI_preempt_count(%ebp)	# non-zero preempt_count ?
 	jnz restore_all
 need_resched:
 	movl TI_flags(%ebp), %ecx	# need_resched set ?
 	testb $_TIF_NEED_RESCHED, %cl
 	jz restore_all
-	testl $X86_EFLAGS_IF,PT_EFLAGS(%esp)	# interrupts off (exception path) ?
+   	TEST_PREEMPTIBLE(%esp)		# interrupts off (exception path) ?
 	jz restore_all
 	call preempt_schedule_irq
 	jmp need_resched
@@ -433,7 +487,7 @@ sysenter_past_esp:
 	pushl %eax
 	CFI_ADJUST_CFA_OFFSET 4
 	SAVE_ALL
-	ENABLE_INTERRUPTS(CLBR_NONE)
+	ENABLE_INTERRUPTS_HW(CLBR_NONE)
 
 /*
  * Load the potential sixth argument from user stack.
@@ -449,6 +503,7 @@ sysenter_past_esp:
 .previous
 
 	GET_THREAD_INFO(%ebp)
+	CATCH_ROOT_SYSCALL(sysenter_tail,sysenter_out)
 
 	testl $_TIF_WORK_SYSCALL_ENTRY,TI_flags(%ebp)
 	jnz sysenter_audit
@@ -457,6 +512,7 @@ sysenter_do_call:
 	jae syscall_badsys
 	call *sys_call_table(,%eax,4)
 	movl %eax,PT_EAX(%esp)
+sysenter_tail:
 	LOCKDEP_SYS_EXIT
 	DISABLE_INTERRUPTS(CLBR_ANY)
 	TRACE_IRQS_OFF
@@ -465,10 +521,13 @@ sysenter_do_call:
 	jne sysexit_audit
 sysenter_exit:
 /* if something modifies registers it must also disable sysexit */
+ 	EMULATE_ROOT_IRET(sysenter_out)
 	movl PT_EIP(%esp), %edx
 	movl PT_OLDESP(%esp), %ecx
 	xorl %ebp,%ebp
-	TRACE_IRQS_ON
+#ifndef CONFIG_IPIPE
+  	TRACE_IRQS_ON
+#endif
 1:	mov  PT_FS(%esp), %fs
 	PTGS_TO_GS
 	ENABLE_INTERRUPTS_SYSEXIT
@@ -533,6 +592,7 @@ ENTRY(system_call)
 	CFI_ADJUST_CFA_OFFSET 4
 	SAVE_ALL
 	GET_THREAD_INFO(%ebp)
+ 	CATCH_ROOT_SYSCALL(syscall_exit,restore_ret)
 					# system call tracing in operation / emulation
 	testl $_TIF_WORK_SYSCALL_ENTRY,TI_flags(%ebp)
 	jnz syscall_trace_entry
@@ -565,6 +625,10 @@ restore_all_notrace:
 	CFI_REMEMBER_STATE
 	je ldt_ss			# returning to user-space with LDT SS
 restore_nocheck:
+#ifdef CONFIG_IPIPE
+	call __ipipe_unstall_iret_root
+#endif /* CONFIG_IPIPE */
+restore_ret:
 	RESTORE_REGS 4			# skip orig_eax/error_code
 	CFI_ADJUST_CFA_OFFSET -4
 irq_return:
@@ -572,7 +636,7 @@ irq_return:
 .section .fixup,"ax"
 ENTRY(iret_exc)
 	pushl $0			# no error code
-	pushl $do_iret_error
+  	PUSH_XCODE(do_iret_error)
 	jmp error_code
 .previous
 .section __ex_table,"a"
@@ -626,7 +690,7 @@ ldt_ss:
 	/* Disable interrupts, but do not irqtrace this section: we
 	 * will soon execute iret and the tracer was already set to
 	 * the irqstate after the iret */
-	DISABLE_INTERRUPTS(CLBR_EAX)
+	DISABLE_INTERRUPTS_HW(CLBR_EAX)
 	lss (%esp), %esp		/* switch to espfix segment */
 	CFI_ADJUST_CFA_OFFSET -8
 	jmp restore_nocheck
@@ -640,6 +704,7 @@ work_pending:
 	testb $_TIF_NEED_RESCHED, %cl
 	jz work_notifysig
 work_resched:
+	ENABLE_INTERRUPTS_HW_COND
 	call schedule
 	LOCKDEP_SYS_EXIT
 	DISABLE_INTERRUPTS(CLBR_ANY)	# make sure we don't miss an interrupt
@@ -855,6 +920,49 @@ END(irq_entries_start)
 END(interrupt)
 .previous
 
+#ifdef CONFIG_IPIPE
+	.p2align CONFIG_X86_L1_CACHE_SHIFT
+common_interrupt:
+	addl $-0x80,(%esp)	/* Adjust vector into the [-256,-1] range */
+	SAVE_ALL
+	IPIPE_TRACE_IRQ_ENTER
+	movl %esp, %eax
+	call __ipipe_handle_irq
+	IPIPE_TRACE_IRQ_EXIT
+	testl %eax,%eax
+	jnz  ret_from_intr
+	jmp restore_ret
+	CFI_ENDPROC
+
+	.pushsection .kprobes.text, "ax"
+#define BUILD_INTERRUPT3(name, nr, fn)	\
+ENTRY(name)				\
+	RING0_INT_FRAME;		\
+	pushl $~(nr);			\
+	CFI_ADJUST_CFA_OFFSET 4;	\
+	SAVE_ALL;			\
+	IPIPE_TRACE_IRQ_ENTER;		\
+ 	movl %esp, %eax;		\
+	call __ipipe_handle_irq;	\
+	IPIPE_TRACE_IRQ_EXIT;		\
+	testl %eax,%eax;		\
+	jnz  ret_from_intr;		\
+	jmp restore_ret;	\
+	CFI_ENDPROC
+
+#define BUILD_INTERRUPT(name, nr)	BUILD_INTERRUPT3(name, nr, smp_##name)
+
+#ifdef CONFIG_X86_LOCAL_APIC
+	BUILD_INTERRUPT(ipipe_ipi0,IPIPE_SERVICE_VECTOR0)
+	BUILD_INTERRUPT(ipipe_ipi1,IPIPE_SERVICE_VECTOR1)
+	BUILD_INTERRUPT(ipipe_ipi2,IPIPE_SERVICE_VECTOR2)
+	BUILD_INTERRUPT(ipipe_ipi3,IPIPE_SERVICE_VECTOR3)
+#ifdef CONFIG_SMP
+	BUILD_INTERRUPT(ipipe_ipiX,IPIPE_CRITICAL_VECTOR)
+#endif	
+#endif
+
+#else /* !CONFIG_IPIPE */
 /*
  * the CPU automatically disables interrupts when executing an IRQ vector,
  * so IRQ-flags tracing has to follow that:
@@ -889,6 +997,8 @@ ENDPROC(name)
 
 #define BUILD_INTERRUPT(name, nr)	BUILD_INTERRUPT3(name, nr, smp_##name)
 
+#endif /* !CONFIG_IPIPE */
+
 /* The include is where all of the SMP etc. interrupts come from */
 #include <asm/entry_arch.h>
 
@@ -896,7 +1006,7 @@ ENTRY(coprocessor_error)
 	RING0_INT_FRAME
 	pushl $0
 	CFI_ADJUST_CFA_OFFSET 4
-	pushl $do_coprocessor_error
+ 	PUSH_XCODE(do_coprocessor_error)
 	CFI_ADJUST_CFA_OFFSET 4
 	jmp error_code
 	CFI_ENDPROC
@@ -919,11 +1029,11 @@ ENTRY(simd_coprocessor_error)
 	.byte 664f-663f
 .previous
 .section .altinstr_replacement,"ax"
-663:	pushl $do_simd_coprocessor_error
+663:	PUSH_XCODE(do_simd_coprocessor_error)
 664:
 .previous
 #else
-	pushl $do_simd_coprocessor_error
+	PUSH_XCODE(do_simd_coprocessor_error)
 #endif
 	CFI_ADJUST_CFA_OFFSET 4
 	jmp error_code
@@ -934,7 +1044,7 @@ ENTRY(device_not_available)
 	RING0_INT_FRAME
 	pushl $-1			# mark this as an int
 	CFI_ADJUST_CFA_OFFSET 4
-	pushl $do_device_not_available
+ 	PUSH_XCODE(do_device_not_available)
 	CFI_ADJUST_CFA_OFFSET 4
 	jmp error_code
 	CFI_ENDPROC
@@ -959,7 +1069,7 @@ ENTRY(overflow)
 	RING0_INT_FRAME
 	pushl $0
 	CFI_ADJUST_CFA_OFFSET 4
-	pushl $do_overflow
+ 	PUSH_XCODE(do_overflow)
 	CFI_ADJUST_CFA_OFFSET 4
 	jmp error_code
 	CFI_ENDPROC
@@ -969,7 +1079,7 @@ ENTRY(bounds)
 	RING0_INT_FRAME
 	pushl $0
 	CFI_ADJUST_CFA_OFFSET 4
-	pushl $do_bounds
+ 	PUSH_XCODE(do_bounds)
 	CFI_ADJUST_CFA_OFFSET 4
 	jmp error_code
 	CFI_ENDPROC
@@ -979,7 +1089,7 @@ ENTRY(invalid_op)
 	RING0_INT_FRAME
 	pushl $0
 	CFI_ADJUST_CFA_OFFSET 4
-	pushl $do_invalid_op
+ 	PUSH_XCODE(do_invalid_op)
 	CFI_ADJUST_CFA_OFFSET 4
 	jmp error_code
 	CFI_ENDPROC
@@ -989,7 +1099,7 @@ ENTRY(coprocessor_segment_overrun)
 	RING0_INT_FRAME
 	pushl $0
 	CFI_ADJUST_CFA_OFFSET 4
-	pushl $do_coprocessor_segment_overrun
+  	PUSH_XCODE(do_coprocessor_segment_overrun)
 	CFI_ADJUST_CFA_OFFSET 4
 	jmp error_code
 	CFI_ENDPROC
@@ -997,7 +1107,7 @@ END(coprocessor_segment_overrun)
 
 ENTRY(invalid_TSS)
 	RING0_EC_FRAME
-	pushl $do_invalid_TSS
+  	PUSH_XCODE(do_invalid_TSS)
 	CFI_ADJUST_CFA_OFFSET 4
 	jmp error_code
 	CFI_ENDPROC
@@ -1005,7 +1115,7 @@ END(invalid_TSS)
 
 ENTRY(segment_not_present)
 	RING0_EC_FRAME
-	pushl $do_segment_not_present
+  	PUSH_XCODE(do_segment_not_present)
 	CFI_ADJUST_CFA_OFFSET 4
 	jmp error_code
 	CFI_ENDPROC
@@ -1013,7 +1123,7 @@ END(segment_not_present)
 
 ENTRY(stack_segment)
 	RING0_EC_FRAME
-	pushl $do_stack_segment
+  	PUSH_XCODE(do_stack_segment)
 	CFI_ADJUST_CFA_OFFSET 4
 	jmp error_code
 	CFI_ENDPROC
@@ -1021,7 +1131,7 @@ END(stack_segment)
 
 ENTRY(alignment_check)
 	RING0_EC_FRAME
-	pushl $do_alignment_check
+ 	PUSH_XCODE(do_alignment_check)
 	CFI_ADJUST_CFA_OFFSET 4
 	jmp error_code
 	CFI_ENDPROC
@@ -1031,7 +1141,7 @@ ENTRY(divide_error)
 	RING0_INT_FRAME
 	pushl $0			# no error code
 	CFI_ADJUST_CFA_OFFSET 4
-	pushl $do_divide_error
+ 	PUSH_XCODE(do_divide_error)
 	CFI_ADJUST_CFA_OFFSET 4
 	jmp error_code
 	CFI_ENDPROC
@@ -1042,7 +1152,7 @@ ENTRY(machine_check)
 	RING0_INT_FRAME
 	pushl $0
 	CFI_ADJUST_CFA_OFFSET 4
-	pushl machine_check_vector
+ 	PUSH_XVEC(machine_check_vector)
 	CFI_ADJUST_CFA_OFFSET 4
 	jmp error_code
 	CFI_ENDPROC
@@ -1053,7 +1163,7 @@ ENTRY(spurious_interrupt_bug)
 	RING0_INT_FRAME
 	pushl $0
 	CFI_ADJUST_CFA_OFFSET 4
-	pushl $do_spurious_interrupt_bug
+ 	PUSH_XCODE(do_spurious_interrupt_bug)
 	CFI_ADJUST_CFA_OFFSET 4
 	jmp error_code
 	CFI_ENDPROC
@@ -1285,7 +1395,7 @@ syscall_table_size=(.-sys_call_table)
 
 ENTRY(page_fault)
 	RING0_EC_FRAME
-	pushl $do_page_fault
+ 	PUSH_XCODE(do_page_fault)
 	CFI_ADJUST_CFA_OFFSET 4
 	ALIGN
 error_code:
@@ -1333,9 +1443,11 @@ error_code:
 	movl $(__USER_DS), %ecx
 	movl %ecx, %ds
 	movl %ecx, %es
+#ifndef CONFIG_IPIPE
 	TRACE_IRQS_OFF
+#endif
 	movl %esp,%eax			# pt_regs pointer
-	call *%edi
+	HANDLE_EXCEPTION(edi)
 	jmp ret_from_exception
 	CFI_ENDPROC
 END(page_fault)
@@ -1379,6 +1491,7 @@ debug_stack_correct:
 	CFI_ADJUST_CFA_OFFSET 4
 	SAVE_ALL
 	TRACE_IRQS_OFF
+ 	DIVERT_EXCEPTION(do_debug)
 	xorl %edx,%edx			# error code 0
 	movl %esp,%eax			# pt_regs pointer
 	call do_debug
@@ -1479,6 +1592,7 @@ ENTRY(int3)
 	CFI_ADJUST_CFA_OFFSET 4
 	SAVE_ALL
 	TRACE_IRQS_OFF
+ 	DIVERT_EXCEPTION(do_int3)
 	xorl %edx,%edx		# zero error code
 	movl %esp,%eax		# pt_regs pointer
 	call do_int3
@@ -1488,7 +1602,7 @@ END(int3)
 
 ENTRY(general_protection)
 	RING0_EC_FRAME
-	pushl $do_general_protection
+ 	PUSH_XCODE(do_general_protection)
 	CFI_ADJUST_CFA_OFFSET 4
 	jmp error_code
 	CFI_ENDPROC
