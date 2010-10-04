@@ -243,20 +243,6 @@ asmlinkage int __ipipe_syscall_root(struct pt_regs *regs)
 	return -ret;
 }
 
-unsigned long ipipe_critical_enter(void (*syncfn) (void))
-{
-	unsigned long flags;
-
-	local_irq_save_hw(flags);
-
-	return flags;
-}
-
-void ipipe_critical_exit(unsigned long flags)
-{
-	local_irq_restore_hw(flags);
-}
-
 static void __ipipe_no_irqtail(void)
 {
 }
