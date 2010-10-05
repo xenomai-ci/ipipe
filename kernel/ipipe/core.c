@@ -47,7 +47,26 @@ static unsigned long __ipipe_domain_slot_map;
 
 struct ipipe_domain ipipe_root;
 
-#ifndef CONFIG_SMP
+#ifdef CONFIG_SMP
+
+#define IPIPE_CRITICAL_TIMEOUT	1000000
+
+static cpumask_t __ipipe_cpu_sync_map;
+
+static cpumask_t __ipipe_cpu_lock_map;
+
+static cpumask_t __ipipe_cpu_pass_map;
+
+static unsigned long __ipipe_critical_lock;
+
+static IPIPE_DEFINE_SPINLOCK(__ipipe_cpu_barrier);
+
+static atomic_t __ipipe_critical_count = ATOMIC_INIT(0);
+
+static void (*__ipipe_cpu_sync) (void);
+
+#else /* !CONFIG_SMP */
+
 /*
  * Create an alias to the unique root status, so that arch-dep code
  * may get simple and easy access to this percpu variable.  We also
@@ -94,6 +113,12 @@ unsigned __ipipe_printk_virq;
 #endif /* CONFIG_PRINTK */
 
 int __ipipe_event_monitors[IPIPE_NR_EVENTS];
+
+DEFINE_PER_CPU(ipipe_root_preempt_handler_t, __ipipe_root_preempt_handler);
+EXPORT_PER_CPU_SYMBOL_GPL(__ipipe_root_preempt_handler);
+
+DEFINE_PER_CPU(void *, __ipipe_root_preempt_cookie);
+EXPORT_PER_CPU_SYMBOL_GPL(__ipipe_root_preempt_cookie);
 
 #ifdef CONFIG_GENERIC_CLOCKEVENTS
 
@@ -308,10 +333,8 @@ void __ipipe_unstall_root(void)
 
         local_irq_disable_hw();
 
-#ifdef CONFIG_IPIPE_DEBUG_INTERNAL
 	/* This helps catching bad usage from assembly call sites. */
-	BUG_ON(!__ipipe_root_domain_p);
-#endif
+	ipipe_check_context(ipipe_root_domain);
 
 	p = ipipe_root_cpudom_ptr();
 
@@ -325,9 +348,7 @@ void __ipipe_unstall_root(void)
 
 void __ipipe_restore_root(unsigned long x)
 {
-#ifdef CONFIG_IPIPE_DEBUG_INTERNAL
-	BUG_ON(!ipipe_root_domain_p);
-#endif
+	ipipe_check_context(ipipe_root_domain);
 
 	if (x)
 		__ipipe_stall_root();
@@ -1584,11 +1605,171 @@ int ipipe_send_ipi (unsigned ipi, cpumask_t cpumask)
 
 {
 #ifdef CONFIG_SMP
+	if (!ipipe_ipi_p(ipi))
+		return -EINVAL;
 	return __ipipe_send_ipi(ipi,cpumask);
 #else /* !CONFIG_SMP */
 	return -EINVAL;
 #endif /* CONFIG_SMP */
 }
+
+#ifdef CONFIG_SMP
+
+/* Always called with hw interrupts off. */
+void __ipipe_do_critical_sync(unsigned irq, void *cookie)
+{
+	int cpu = ipipe_processor_id();
+
+	cpu_set(cpu, __ipipe_cpu_sync_map);
+
+	/* Now we are in sync with the lock requestor running on another
+	   CPU. Enter a spinning wait until he releases the global
+	   lock. */
+	spin_lock(&__ipipe_cpu_barrier);
+
+	/* Got it. Now get out. */
+
+	if (__ipipe_cpu_sync)
+		/* Call the sync routine if any. */
+		__ipipe_cpu_sync();
+
+	cpu_set(cpu, __ipipe_cpu_pass_map);
+
+	spin_unlock(&__ipipe_cpu_barrier);
+
+	cpu_clear(cpu, __ipipe_cpu_sync_map);
+}
+#endif	/* CONFIG_SMP */
+
+/*
+ * ipipe_critical_enter() -- Grab the superlock excluding all CPUs but
+ * the current one from a critical section. This lock is used when we
+ * must enforce a global critical section for a single CPU in a
+ * possibly SMP system whichever context the CPUs are running.
+ */
+unsigned long ipipe_critical_enter(void (*syncfn)(void))
+{
+	unsigned long flags;
+
+	local_irq_save_hw(flags);
+
+#ifdef CONFIG_SMP
+	if (num_online_cpus() > 1) {
+		int cpu = ipipe_processor_id();
+		cpumask_t allbutself;
+		unsigned long loops;
+
+		if (!cpu_test_and_set(cpu, __ipipe_cpu_lock_map)) {
+			while (test_and_set_bit(0, &__ipipe_critical_lock)) {
+				int n = 0;
+
+				local_irq_enable_hw();
+
+				do {
+					cpu_relax();
+				} while (++n < cpu);
+
+				local_irq_disable_hw();
+			}
+
+restart:
+			spin_lock(&__ipipe_cpu_barrier);
+
+			__ipipe_cpu_sync = syncfn;
+
+			cpus_clear(__ipipe_cpu_pass_map);
+			cpu_set(cpu, __ipipe_cpu_pass_map);
+
+			/*
+			 * Send the sync IPI to all processors but the current
+			 * one.
+			 */
+			cpus_andnot(allbutself, cpu_online_map,
+				    __ipipe_cpu_pass_map);
+			__ipipe_send_ipi(IPIPE_CRITICAL_IPI, allbutself);
+
+			loops = IPIPE_CRITICAL_TIMEOUT;
+
+			while (!cpus_equal(__ipipe_cpu_sync_map, allbutself)) {
+				cpu_relax();
+
+				if (--loops == 0) {
+					/*
+					 * We ran into a deadlock due to a
+					 * contended rwlock. Cancel this round
+					 * and retry.
+					 */
+					__ipipe_cpu_sync = NULL;
+
+					spin_unlock(&__ipipe_cpu_barrier);
+
+					/*
+					 * Ensure all CPUs consumed the IPI to
+					 * avoid running __ipipe_cpu_sync
+					 * prematurely. This usually resolves
+					 * the deadlock reason too.
+					 */
+					while (!cpus_equal(cpu_online_map,
+							   __ipipe_cpu_pass_map))
+						cpu_relax();
+
+					goto restart;
+				}
+			}
+		}
+
+		atomic_inc(&__ipipe_critical_count);
+	}
+#endif	/* CONFIG_SMP */
+
+	return flags;
+}
+
+/* ipipe_critical_exit() -- Release the superlock. */
+
+void ipipe_critical_exit(unsigned long flags)
+{
+#ifdef CONFIG_SMP
+	if (num_online_cpus() > 1 &&
+	    atomic_dec_and_test(&__ipipe_critical_count)) {
+		spin_unlock(&__ipipe_cpu_barrier);
+
+		while (!cpus_empty(__ipipe_cpu_sync_map))
+			cpu_relax();
+
+		cpu_clear(ipipe_processor_id(), __ipipe_cpu_lock_map);
+		clear_bit(0, &__ipipe_critical_lock);
+		smp_mb__after_clear_bit();
+	}
+#endif	/* CONFIG_SMP */
+
+	local_irq_restore_hw(flags);
+}
+
+#ifdef CONFIG_HAVE_IPIPE_HOSTRT
+/*
+ * NOTE: The architecture specific code must only call this function
+ * when a clocksource suitable for CLOCK_HOST_REALTIME is enabled.
+ */
+void ipipe_update_hostrt(struct timespec *wall_time, struct clocksource *clock)
+{
+	struct ipipe_hostrt_data hostrt_data;
+
+	hostrt_data.live = 1;
+	hostrt_data.cycle_last = clock->cycle_last;
+	hostrt_data.mask = clock->mask;
+	hostrt_data.mult = clock->mult;
+	hostrt_data.shift = clock->shift;
+	hostrt_data.wall_time_sec = wall_time->tv_sec;
+	hostrt_data.wall_time_nsec = wall_time->tv_nsec;
+	hostrt_data.wall_to_monotonic = wall_to_monotonic;
+
+	/* Note: The event receiver is responsible for providing
+	   proper locking */
+	if (__ipipe_event_monitored_p(IPIPE_EVENT_HOSTRT))
+		__ipipe_dispatch_event(IPIPE_EVENT_HOSTRT, &hostrt_data);
+}
+#endif /* CONFIG_HAVE_IPIPE_HOSTRT */
 
 int ipipe_alloc_ptdkey (void)
 {
@@ -1910,6 +2091,15 @@ out:
 }
 
 #endif /* CONFIG_IPIPE_DEBUG_INTERNAL && CONFIG_SMP */
+
+
+void ipipe_prepare_panic(void)
+{
+	ipipe_set_printk_sync(ipipe_current_domain);
+	ipipe_context_check_off();
+}
+
+EXPORT_SYMBOL_GPL(ipipe_prepare_panic);
 
 EXPORT_SYMBOL(ipipe_virtualize_irq);
 EXPORT_SYMBOL(ipipe_control_irq);

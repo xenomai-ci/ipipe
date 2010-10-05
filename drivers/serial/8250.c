@@ -3094,6 +3094,8 @@ void __weak __ipipe_serial_debug(const char *fmt, ...)
         local_irq_restore_hw(flags);
 }
 
+EXPORT_SYMBOL(__ipipe_serial_debug);
+
 #endif
 
 static struct platform_driver serial8250_isa_driver = {

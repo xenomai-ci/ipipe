@@ -195,6 +195,11 @@ extern struct list_head __ipipe_pipeline;
 
 extern int __ipipe_event_monitors[];
 
+typedef void (*ipipe_root_preempt_handler_t)(void *cookie);
+
+DECLARE_PER_CPU(ipipe_root_preempt_handler_t, __ipipe_root_preempt_handler);
+DECLARE_PER_CPU(void *, __ipipe_root_preempt_cookie);
+
 /* Private interface */
 
 void ipipe_init_early(void);
@@ -529,7 +534,10 @@ void __ipipe_restore_pipeline_head(unsigned long x);
 
 static inline void ipipe_restore_pipeline_head(unsigned long x)
 {
-	local_irq_disable_hw();
+#ifdef CONFIG_IPIPE_DEBUG
+	if (WARN_ON_ONCE(!irqs_disabled_hw()))
+		local_irq_disable_hw();
+#endif
 	if ((x ^ test_bit(IPIPE_STALL_FLAG, &ipipe_head_cpudom_var(status))) & 1)
 		__ipipe_restore_pipeline_head(x);
 }
@@ -556,9 +564,13 @@ void ipipe_init_attr(struct ipipe_domain_attr *attr);
 
 int ipipe_get_sysinfo(struct ipipe_sysinfo *sysinfo);
 
+void __ipipe_do_critical_sync(unsigned irq, void *cookie);
+
 unsigned long ipipe_critical_enter(void (*syncfn) (void));
 
 void ipipe_critical_exit(unsigned long flags);
+
+void ipipe_prepare_panic(void);
 
 static inline void ipipe_set_printk_sync(struct ipipe_domain *ipd)
 {
@@ -673,6 +685,32 @@ static inline void ipipe_nmi_exit(void)
 			(p)->ipipe_flags |= PF_EVTRET;			\
 	} while (0)
 
+static inline void
+ipipe_register_root_preempt_handler(ipipe_root_preempt_handler_t handler,
+				    void *cookie)
+{
+	int cpu = ipipe_processor_id();
+
+	per_cpu(__ipipe_root_preempt_cookie, cpu) = cookie;
+	barrier();
+	per_cpu(__ipipe_root_preempt_handler, cpu) = handler;
+}
+
+static inline void ipipe_unregister_root_preempt_handler(void)
+{
+	per_cpu(__ipipe_root_preempt_handler, ipipe_processor_id()) = NULL;
+}
+
+static inline void ipipe_root_preempt_notify(void)
+{
+	ipipe_root_preempt_handler_t handler;
+	int cpu = ipipe_processor_id();
+
+	handler = per_cpu(__ipipe_root_preempt_handler, cpu);
+	if (unlikely(handler))
+		handler(per_cpu(__ipipe_root_preempt_cookie, cpu));
+}
+
 #else	/* !CONFIG_IPIPE */
 
 #define ipipe_init_early()		do { } while(0)
@@ -685,6 +723,10 @@ static inline void ipipe_nmi_exit(void)
 #define ipipe_cleanup_notify(mm)	do { } while(0)
 #define ipipe_trap_notify(t,r)		0
 #define ipipe_init_proc()		do { } while(0)
+
+#define ipipe_register_root_preempt_handler(h, c)	do { } while (0)
+#define ipipe_unregister_root_preempt_handler()		do { } while (0)
+#define ipipe_root_preempt_notify()			do { } while (0)
 
 static inline void __ipipe_pin_range_globally(unsigned long start,
 					      unsigned long end)
@@ -708,7 +750,7 @@ static inline int ipipe_test_foreign_stack(void)
 
 #define __ipipe_root_domain_p		1
 #define ipipe_root_domain_p		1
-#define ipipe_safe_current		current
+#define ipipe_safe_current()		current
 #define ipipe_processor_id()		smp_processor_id()
 
 #define ipipe_nmi_enter()		do { } while (0)
