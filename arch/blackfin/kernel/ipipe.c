@@ -232,7 +232,7 @@ asmlinkage int __ipipe_syscall_root(struct pt_regs *regs)
 	else {
 		p = ipipe_root_cpudom_ptr();
 		if (__ipipe_ipending_p(p))
-			__ipipe_sync_pipeline(IPIPE_IRQ_DOVIRT);
+			__ipipe_sync_pipeline();
 	}
 
 	local_irq_enable_hw();
@@ -308,18 +308,18 @@ asmlinkage void __ipipe_sync_root(void)
 
 	p = ipipe_root_cpudom_ptr();
 	if (__ipipe_ipending_p(p))
-		__ipipe_sync_pipeline(IPIPE_IRQ_DOALL);
+		__ipipe_sync_pipeline();
 
 	local_irq_restore_hw(flags);
 }
 
-void ___ipipe_sync_pipeline(int dovirt)
+void ___ipipe_sync_pipeline(void)
 {
 	if (__ipipe_root_domain_p &&
 	    test_bit(IPIPE_SYNCDEFER_FLAG, &ipipe_root_cpudom_var(status)))
 		return;
 
-	__ipipe_sync_stage(dovirt);
+	__ipipe_sync_stage();
 }
 
 void __ipipe_disable_root_irqs_hw(void)

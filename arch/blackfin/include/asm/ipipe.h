@@ -130,7 +130,7 @@ void __ipipe_enable_pipeline(void);
 #define __ipipe_hook_critical_ipi(ipd) do { } while (0)
 
 #define __ipipe_sync_pipeline  ___ipipe_sync_pipeline
-void ___ipipe_sync_pipeline(int dovirt);
+void ___ipipe_sync_pipeline(void);
 
 void __ipipe_handle_irq(unsigned irq, struct pt_regs *regs);
 
