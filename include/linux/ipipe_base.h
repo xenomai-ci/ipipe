@@ -51,9 +51,6 @@
 #define __IPIPE_2LEVEL_IRQMAP	1
 #endif
 
-#define IPIPE_IRQ_DOALL		0
-#define IPIPE_IRQ_DOVIRT	1
-
 /* Per-cpu pipeline status */
 #define IPIPE_STALL_FLAG	0	/* Stalls a pipeline stage -- guaranteed at bit #0 */
 #define IPIPE_SYNC_FLAG		1	/* The interrupt syncer is running for the domain */

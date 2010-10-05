@@ -73,7 +73,7 @@ DECLARE_PER_CPU(int, ipipe_percpu_context_check);
 DECLARE_PER_CPU(int, ipipe_saved_context_check_state);
 #endif
 
-#define ipipe_root_cpudom_ptr(var)	\
+#define ipipe_root_cpudom_ptr()		\
 	(&__ipipe_get_cpu_var(ipipe_percpu_darray)[IPIPE_ROOT_SLOT])
 
 #define ipipe_root_cpudom_var(var)	ipipe_root_cpudom_ptr()->var

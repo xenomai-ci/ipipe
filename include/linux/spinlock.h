@@ -252,7 +252,7 @@ static inline void do_raw_spin_unlock(raw_spinlock_t *lock) __releases(lock)
 	__real_raw_spin_trylock(lock) ? \
 	1 : ({ local_irq_enable(); 0;  }); \
 })
-#define raw_spin_trylock_irq(lock)	PICK_SPINOP(_trylock_irq, lock)
+#define raw_spin_trylock_irq(lock)	PICK_SPINTRYLOCK_IRQ(lock)
 
 #define __real_raw_spin_trylock_irqsave(lock, flags) \
 ({ \
