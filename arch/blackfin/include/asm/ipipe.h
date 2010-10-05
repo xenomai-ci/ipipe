@@ -36,10 +36,10 @@
 #include <asm/traps.h>
 #include <asm/bitsperlong.h>
 
-#define IPIPE_ARCH_STRING     "1.15-00"
+#define IPIPE_ARCH_STRING     "1.15-01"
 #define IPIPE_MAJOR_NUMBER    1
 #define IPIPE_MINOR_NUMBER    15
-#define IPIPE_PATCH_NUMBER    0
+#define IPIPE_PATCH_NUMBER    1
 
 #ifdef CONFIG_SMP
 #error "I-pipe/blackfin: SMP not implemented"
