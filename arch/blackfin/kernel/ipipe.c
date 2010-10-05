@@ -194,15 +194,12 @@ asmlinkage int __ipipe_syscall_root(struct pt_regs *regs)
 	WARN_ON_ONCE(irqs_disabled_hw());
 
 	/*
-	 * We need to run the IRQ tail hook whenever we don't
-	 * propagate a syscall to higher domains, because we know that
-	 * important operations might be pending there (e.g. Xenomai
-	 * deferred rescheduling).
+	 * We need to run the IRQ tail hook each time we intercept a
+	 * syscall, because we know that important operations might be
+	 * pending there (e.g. Xenomai deferred rescheduling).
 	 */
-	if (regs->orig_p0 < NR_syscalls) {
-		hook = (__typeof__(hook))__ipipe_irq_tail_hook;
-		hook();
-	}
+	hook = (__typeof__(hook))__ipipe_irq_tail_hook;
+	hook();
 
 	/*
 	 * This routine either returns:
