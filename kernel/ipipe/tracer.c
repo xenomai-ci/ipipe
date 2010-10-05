@@ -1404,6 +1404,7 @@ void __init __ipipe_init_tracer(void)
 #ifdef CONFIG_IPIPE_TRACE_ENABLE
 	ipipe_trace_enable = 1;
 #ifdef CONFIG_IPIPE_TRACE_MCOUNT
+	ftrace_enabled = 1;
 	register_ftrace_function(&ipipe_trace_ops);
 #endif /* CONFIG_IPIPE_TRACE_MCOUNT */
 #endif /* CONFIG_IPIPE_TRACE_ENABLE */
