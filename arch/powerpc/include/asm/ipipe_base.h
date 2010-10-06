@@ -69,6 +69,10 @@
 #define IPIPE_MSG_IPI_OFFSET	(IPIPE_CRITICAL_IPI)
 
 #define ipipe_processor_id()	raw_smp_processor_id()
+
+#define ipipe_ipi_p(ipi)	\
+	((ipi) >= IPIPE_SERVICE_IPI0 && (ipi) <= IPIPE_SERVICE_IPI4)
+
 #else  /* !CONFIG_SMP */
 #define ipipe_processor_id()	0
 #endif /* CONFIG_SMP */

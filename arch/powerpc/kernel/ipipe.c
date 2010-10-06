@@ -60,16 +60,6 @@ EXPORT_PER_CPU_SYMBOL(ipipe_active_mm);
 
 #ifdef CONFIG_SMP
 
-static cpumask_t __ipipe_cpu_sync_map;
-
-static cpumask_t __ipipe_cpu_lock_map;
-
-static IPIPE_DEFINE_SPINLOCK(__ipipe_cpu_barrier);
-
-static atomic_t __ipipe_critical_count = ATOMIC_INIT(0);
-
-static void (*__ipipe_cpu_sync) (void);
-
 static DEFINE_PER_CPU(struct ipipe_ipi_struct, ipipe_ipi_message);
 
 unsigned int __ipipe_ipi_irq = NR_IRQS + 1; /* dummy value */
@@ -77,30 +67,6 @@ unsigned int __ipipe_ipi_irq = NR_IRQS + 1; /* dummy value */
 #ifdef CONFIG_DEBUGGER
 cpumask_t __ipipe_dbrk_pending;	/* pending debugger break IPIs */
 #endif
-
-/* Always called with hw interrupts off. */
-
-void __ipipe_do_critical_sync(unsigned irq, void *cookie)
-{
-	cpu_set(ipipe_processor_id(), __ipipe_cpu_sync_map);
-
-	/*
-	 * Now we are in sync with the lock requestor running on another
-	 * CPU. Enter a spinning wait until he releases the global
-	 * lock.
-	 */
-	spin_lock(&__ipipe_cpu_barrier);
-
-	/* Got it. Now get out. */
-
-	if (__ipipe_cpu_sync)
-		/* Call the sync routine if any. */
-		__ipipe_cpu_sync();
-
-	spin_unlock(&__ipipe_cpu_barrier);
-
-	cpu_clear(ipipe_processor_id(), __ipipe_cpu_sync_map);
-}
 
 void __ipipe_hook_critical_ipi(struct ipipe_domain *ipd)
 {
