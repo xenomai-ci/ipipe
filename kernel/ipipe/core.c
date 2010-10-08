@@ -641,7 +641,7 @@ void __ipipe_unlock_irq(struct ipipe_domain *ipd, unsigned int irq)
 
 static inline int __ipipe_next_irq(struct ipipe_percpu_domain_data *p)
 {
-	int l0b, l1b, l2b, vl0b, vl1b;
+	int l0b, l1b, l2b;
 	unsigned long l0m, l1m, l2m;
 	unsigned int irq;
 
