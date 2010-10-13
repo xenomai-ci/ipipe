@@ -96,16 +96,15 @@ __ipipe_freerunning_countdown:
 __ipipe_freerunning_16:
 	ldr	r0, .LCfr16_cntr_addr
 /* User-space entry-point: r0 is the hardware counter virtual address */
-	mov	ip, r0
 1:	myldrd	r2, r3, r1, .LCfr16_last_tsc
-	ldr	r0, [ip]
+	ldr	ip, [r0]
 #ifndef CONFIG_CPU_ENDIAN_BE8
 /* Little endian */
 	ldr	r1, .LCfr16_last_tsc
 	cmp	r1, r2
 	bne	1b
 	mov	r1, r2, lsr #16
-	orr	r0, r0, r1, lsl #16
+	orr	r0, ip, r1, lsl #16
 	cmp	r2, r0
 	addhis	r0, r0, #0x10000
 	adc	r1, r3, #0
@@ -114,7 +113,7 @@ __ipipe_freerunning_16:
 	cmp	r1, r3
 	bne	1b
 	mov	r1, r3, lsr #16
-	orr	r1, r0, r1, lsl #16
+	orr	r1, ip, r1, lsl #16
 	cmp	r3, r0
 	addhis	r1, r1, #0x10000
 	adc	r0, r2, #0
@@ -138,30 +137,29 @@ __ipipe_freerunning_16:
 __ipipe_decrementer_16:
 	ldr	r0, .LCdec16_cntr_addr
 /* User-space entry-point: r0 is the hardware counter virtual address */
-	mov	ip, r0
 #ifndef CONFIG_CPU_ENDIAN_BE8
 /* Little endian */
 1:	ldr	r1, .LCdec16_last_tsc
-	ldr	r0, [ip]
+	ldr	ip, [r0]
 	ldr	r2, .LCdec16_last_cnt
-	subs 	r0, r2, r0
-	addcs	r0, r0, #0x10000
+	subs 	ip, r2, ip
+	addcs	ip, ip, #0x10000
 	myldrd	r2, r3, r3, .LCdec16_last_tsc
 	cmp	r1, r2
 	bne	1b
-	adds	r0, r0, r2
+	adds	r0, ip, r2
 	adc	r1, r3, #0
 #else /* Big endian */
 /* Little endian */
 1:	ldr	r1, .LCdec16_last_tsc + 4
-	ldr	r0, [ip]
+	ldr	ip, [r0]
 	ldr	r2, .Ldec16_Clast_cnt
-	subs 	r0, r2, r0
-	addcs	r0, r0, #0x10000
+	subs 	ip, r2, ip
+	addcs	ip, ip, #0x10000
 	myldrd	r2, r3, r3, .LCdec16_last_tsc
 	cmp	r1, r3
 	bne	1b
-	adds	r1, r0, r3
+	adds	r1, ip, r3
 	adc	r0, r2, #0
 #endif /* Big endian */
 	usr_ret	lr
