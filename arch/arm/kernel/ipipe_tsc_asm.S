@@ -57,7 +57,7 @@ __ipipe_freerunning_32:
 
 	.align 5
 .LCfrcd32_last_tsc:
-	.rep	3
+	.rep	7
 	.word	0
 	.endr
 .LCfrcd32_cntr_addr:
