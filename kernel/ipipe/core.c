@@ -2090,6 +2090,20 @@ out:
 	return ret;
 }
 
+void __ipipe_spin_unlock_debug(unsigned long flags)
+{
+	/*
+	 * We catch a nasty issue where spin_unlock_irqrestore() on a
+	 * regular kernel spinlock is about to re-enable hw interrupts
+	 * in a section entered with hw irqs off. This is clearly the
+	 * sign of a massive breakage coming. Usual suspect is a
+	 * regular spinlock which was overlooked, used within a
+	 * section which must run with hw irqs disabled.
+	 */
+	WARN_ON_ONCE(!raw_irqs_disabled_flags(flags) && irqs_disabled_hw());
+}
+EXPORT_SYMBOL(__ipipe_spin_unlock_debug);
+
 #endif /* CONFIG_IPIPE_DEBUG_INTERNAL && CONFIG_SMP */
 
 
