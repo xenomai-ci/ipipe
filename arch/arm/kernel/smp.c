@@ -798,13 +798,9 @@ void flush_tlb_kernel_range(unsigned long start, unsigned long end)
 		local_flush_tlb_kernel_range(start, end);
 }
 
-#ifdef CONFIG_SMP
-
 void arch_trigger_all_cpu_backtrace(void)
 {
 	cpumask_t mask = cpu_online_map;
 	cpu_clear(ipipe_processor_id(), mask);
 	send_ipi_message(&mask, IPI_CPU_DUMP);
 }
-
-#endif
