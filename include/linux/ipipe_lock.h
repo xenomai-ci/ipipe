@@ -228,6 +228,7 @@ void __ipipe_spin_unlock_debug(unsigned long flags);
 #define __ipipe_spin_unlock_irqrestore(lock, x)	do { (void)(x); } while (0)
 #define __ipipe_spin_unlock_irqbegin(lock)	do { } while (0)
 #define __ipipe_spin_unlock_irqcomplete(x)	do { (void)(x); } while (0)
+#define __ipipe_spin_unlock_debug(flags)	do { } while (0)
 
 #define ipipe_rwlock_t			rwlock_t
 #define IPIPE_DEFINE_RWLOCK(x)		DEFINE_RWLOCK(x)
