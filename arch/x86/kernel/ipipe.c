@@ -235,7 +235,7 @@ void __init __ipipe_enable_pipeline(void)
 
 	ipipe_virtualize_irq(ipipe_root_domain,
 			     ipipe_apic_vector_irq(X86_PLATFORM_IPI_VECTOR),
-			     (ipipe_irq_handler_t)&x86_platform_ipi,
+			     (ipipe_irq_handler_t)&smp_x86_platform_ipi,
 			     NULL,
 			     &__ipipe_ack_apic,
 			     IPIPE_STDROOT_MASK);
