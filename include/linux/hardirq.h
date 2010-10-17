@@ -209,6 +209,7 @@ extern void irq_exit(void);
 
 #define nmi_enter()							\
 	do {								\
+		ipipe_nmi_enter();					\
 		if (likely(!ipipe_test_foreign_stack())) {		\
 			ftrace_nmi_enter();				\
 			BUG_ON(in_nmi());				\
@@ -229,6 +230,7 @@ extern void irq_exit(void);
 			sub_preempt_count(NMI_OFFSET + HARDIRQ_OFFSET);	\
 			ftrace_nmi_exit();				\
 		}							\
+		ipipe_nmi_exit();					\
 	} while (0)
 
 #endif /* LINUX_HARDIRQ_H */
