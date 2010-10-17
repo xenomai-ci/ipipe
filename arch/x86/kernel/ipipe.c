@@ -240,14 +240,14 @@ void __init __ipipe_enable_pipeline(void)
 			     &__ipipe_ack_apic,
 			     IPIPE_STDROOT_MASK);
 
-#ifdef CONFIG_PERF_COUNTERS
+#ifdef CONFIG_PERF_EVENTS
 	ipipe_virtualize_irq(ipipe_root_domain,
 			     ipipe_apic_vector_irq(LOCAL_PENDING_VECTOR),
-			     (ipipe_irq_handler_t)&perf_pending_interrupt,
+			     (ipipe_irq_handler_t)&smp_perf_pending_interrupt,
 			     NULL,
 			     &__ipipe_ack_apic,
 			     IPIPE_STDROOT_MASK);
-#endif /* CONFIG_PERF_COUNTERS */
+#endif /* CONFIG_PERF_EVENTS */
 
 #endif	/* CONFIG_X86_LOCAL_APIC */
 
