@@ -894,7 +894,7 @@ unsigned ipipe_alloc_virq(void)
  * handler.
  */
 int ipipe_virtualize_irq(struct ipipe_domain *ipd,
-			 unsigned irq,
+			 unsigned int irq,
 			 ipipe_irq_handler_t handler,
 			 void *cookie,
 			 ipipe_irq_ackfn_t acknowledge,
@@ -1006,24 +1006,22 @@ unlock_and_exit:
 	return ret;
 }
 
-/* ipipe_control_irq() -- Change modes of a pipelined interrupt for
- * the current domain. */
+/* ipipe_control_irq() -- Change control mode of a pipelined interrupt. */
 
-int ipipe_control_irq(unsigned irq, unsigned clrmask, unsigned setmask)
+int ipipe_control_irq(struct ipipe_domain *ipd, unsigned int irq,
+		      unsigned clrmask, unsigned setmask)
 {
-	struct ipipe_domain *ipd;
 	unsigned long flags;
+	int ret = 0;
 
 	if (irq >= IPIPE_NR_IRQS)
 		return -EINVAL;
 
-	spin_lock_irqsave(&__ipipe_pipelock, flags);
-
-	ipd = __ipipe_current_domain;
+	flags = ipipe_critical_enter(NULL);
 
 	if (ipd->irqs[irq].control & IPIPE_SYSTEM_MASK) {
-		spin_unlock_irqrestore(&__ipipe_pipelock, flags);
-		return -EPERM;
+		ret = -EPERM;
+		goto out;
 	}
 
 	if (ipd->irqs[irq].handler == NULL)
@@ -1043,9 +1041,10 @@ int ipipe_control_irq(unsigned irq, unsigned clrmask, unsigned setmask)
 	else if ((clrmask & IPIPE_ENABLE_MASK) != 0)
 		__ipipe_disable_irq(irq);
 
-	spin_unlock_irqrestore(&__ipipe_pipelock, flags);
+out:
+	ipipe_critical_exit(flags);
 
-	return 0;
+	return ret;
 }
 
 /* __ipipe_dispatch_event() -- Low-level event dispatcher. */
@@ -1171,8 +1170,10 @@ void __ipipe_dispatch_wired_nocheck(struct ipipe_domain *head, unsigned irq) /* 
 
 	p->irqall[irq]++;
 	__set_bit(IPIPE_STALL_FLAG, &p->status);
+	barrier();
 	head->irqs[irq].handler(irq, head->irqs[irq].cookie); /* Call the ISR. */
 	__ipipe_run_irqtail();
+	barrier();
 	__clear_bit(IPIPE_STALL_FLAG, &p->status);
 
 	if (__ipipe_current_domain == head) {
@@ -1423,6 +1424,7 @@ int ipipe_unregister_domain(struct ipipe_domain *ipd)
 
 		for (irq = 0; irq < IPIPE_NR_IRQS; irq++) {
 			clear_bit(IPIPE_HANDLE_FLAG, &ipd->irqs[irq].control);
+			clear_bit(IPIPE_WIRED_FLAG, &ipd->irqs[irq].control);
 			clear_bit(IPIPE_STICKY_FLAG, &ipd->irqs[irq].control);
 			set_bit(IPIPE_PASS_FLAG, &ipd->irqs[irq].control);
 		}
