@@ -890,8 +890,8 @@ unsigned ipipe_alloc_virq(void)
 }
 
 /*
- * ipipe_control_irq() -- Change modes of a pipelined interrupt for
- * the current domain.
+ * ipipe_virtualize_irq() -- Set a per-domain pipelined interrupt
+ * handler.
  */
 int ipipe_virtualize_irq(struct ipipe_domain *ipd,
 			 unsigned irq,
@@ -903,7 +903,7 @@ int ipipe_virtualize_irq(struct ipipe_domain *ipd,
 	ipipe_irq_handler_t old_handler;
 	struct irq_desc *desc;
 	unsigned long flags;
-	int err;
+	int ret = 0;
 
 	if (irq >= IPIPE_NR_IRQS)
 		return -EINVAL;
@@ -919,39 +919,51 @@ int ipipe_virtualize_irq(struct ipipe_domain *ipd,
 
 	old_handler = ipd->irqs[irq].handler;
 
-	if (handler != NULL) {
-		if (handler == IPIPE_SAME_HANDLER) {
-			handler = old_handler;
-			cookie = ipd->irqs[irq].cookie;
-
-			if (handler == NULL) {
-				err = -EINVAL;
-				goto unlock_and_exit;
-			}
-		} else if ((modemask & IPIPE_EXCLUSIVE_MASK) != 0 &&
-			   old_handler != NULL) {
-			err = -EBUSY;
-			goto unlock_and_exit;
-		}
-
-		/* Wired interrupts can only be delivered to domains
-		 * always heading the pipeline, and using dynamic
-		 * propagation. */
-
-		if ((modemask & IPIPE_WIRED_MASK) != 0) {
-			if ((modemask & (IPIPE_PASS_MASK | IPIPE_STICKY_MASK)) != 0) {
-				err = -EINVAL;
-				goto unlock_and_exit;
-			}
-			modemask |= (IPIPE_HANDLE_MASK);
-		}
-
-		if ((modemask & IPIPE_STICKY_MASK) != 0)
-			modemask |= IPIPE_HANDLE_MASK;
-	} else
+	if (handler == NULL) {
 		modemask &=
 		    ~(IPIPE_HANDLE_MASK | IPIPE_STICKY_MASK |
 		      IPIPE_EXCLUSIVE_MASK | IPIPE_WIRED_MASK);
+
+		ipd->irqs[irq].handler = NULL;
+		ipd->irqs[irq].cookie = NULL;
+		ipd->irqs[irq].acknowledge = NULL;
+		ipd->irqs[irq].control = modemask;
+
+		if (irq < NR_IRQS && !ipipe_virtual_irq_p(irq)) {
+			desc = irq_to_desc(irq);
+			if (old_handler && desc)
+				__ipipe_disable_irqdesc(ipd, irq);
+		}
+
+		goto unlock_and_exit;
+	}
+
+	if (handler == IPIPE_SAME_HANDLER) {
+		cookie = ipd->irqs[irq].cookie;
+		handler = old_handler;
+		if (handler == NULL) {
+			ret = -EINVAL;
+			goto unlock_and_exit;
+		}
+	} else if ((modemask & IPIPE_EXCLUSIVE_MASK) != 0 && old_handler) {
+		ret = -EBUSY;
+		goto unlock_and_exit;
+	}
+
+	/*
+	 * Wired interrupts can only be delivered to domains always
+	 * heading the pipeline, and using dynamic propagation.
+	 */
+	if ((modemask & IPIPE_WIRED_MASK) != 0) {
+		if ((modemask & (IPIPE_PASS_MASK | IPIPE_STICKY_MASK)) != 0) {
+			ret = -EINVAL;
+			goto unlock_and_exit;
+		}
+		modemask |= IPIPE_HANDLE_MASK;
+	}
+
+	if ((modemask & IPIPE_STICKY_MASK) != 0)
+		modemask |= IPIPE_HANDLE_MASK;
 
 	if (acknowledge == NULL)
 		/*
@@ -965,14 +977,12 @@ int ipipe_virtualize_irq(struct ipipe_domain *ipd,
 	ipd->irqs[irq].acknowledge = acknowledge;
 	ipd->irqs[irq].control = modemask;
 
-	if (irq < NR_IRQS && !ipipe_virtual_irq_p(irq)) {
-		desc = irq_to_desc(irq);
-		if (handler != NULL) {
-			if (desc)
-				__ipipe_enable_irqdesc(ipd, irq);
+	desc = irq_to_desc(irq);
+	if (desc == NULL)
+		goto unlock_and_exit;
 
-			if ((modemask & IPIPE_ENABLE_MASK) != 0) {
-				if (ipd != __ipipe_current_domain) {
+	if (irq < NR_IRQS && !ipipe_virtual_irq_p(irq)) {
+		__ipipe_enable_irqdesc(ipd, irq);
 		/*
 		 * IRQ enable/disable state is domain-sensitive, so we
 		 * may not change it for another domain. What is
@@ -981,23 +991,19 @@ int ipipe_virtualize_irq(struct ipipe_domain *ipd,
 		 * descriptor which thus may be different from
 		 * __ipipe_current_domain.
 		 */
-					err = -EPERM;
-					goto unlock_and_exit;
-				}
-				if (desc)
-					__ipipe_enable_irq(irq);
-			}
-		} else if (old_handler != NULL && desc)
-				__ipipe_disable_irqdesc(ipd, irq);
+		if ((modemask & IPIPE_ENABLE_MASK) != 0) {
+			if (ipd != __ipipe_current_domain)
+				ret = -EPERM;
+			else
+				__ipipe_enable_irq(irq);
+		}
 	}
 
-	err = 0;
-
-      unlock_and_exit:
+unlock_and_exit:
 
 	spin_unlock_irqrestore(&__ipipe_pipelock, flags);
 
-	return err;
+	return ret;
 }
 
 /* ipipe_control_irq() -- Change modes of a pipelined interrupt for
