@@ -829,7 +829,7 @@ void ipipe_suspend_domain(void)
 
 	this_domain = next_domain = __ipipe_current_domain;
 	p = ipipe_cpudom_ptr(this_domain);
-	p->status &= ~(IPIPE_STALL_MASK|IPIPE_SYNC_MASK);
+	p->status &= ~IPIPE_STALL_MASK;
 
 	if (__ipipe_ipending_p(p))
 		goto sync_stage;
@@ -1203,23 +1203,16 @@ void __ipipe_sync_stage(void)
 {
 	struct ipipe_percpu_domain_data *p;
 	struct ipipe_domain *ipd;
-	int cpu, irq;
+	int irq;
 
 	ipd = __ipipe_current_domain;
 	p = ipipe_cpudom_ptr(ipd);
 
-	if (__test_and_set_bit(IPIPE_SYNC_FLAG, &p->status)) {
-#ifdef __IPIPE_FEATURE_NESTED_ROOTIRQS
-		/*
-		 * Caution: some archs do not support this
-		 * (mis)feature (e.g. x86_32).
-		 */
-		if (ipd != ipipe_root_domain)
-#endif
-			return;
-	}
+	__set_bit(IPIPE_STALL_FLAG, &p->status);
+	smp_wmb();
 
-	cpu = ipipe_processor_id();
+	if (ipd == ipipe_root_domain)
+		trace_hardirqs_off();
 
 	for (;;) {
 		irq = __ipipe_next_irq(p);
@@ -1235,46 +1228,15 @@ void __ipipe_sync_stage(void)
 		if (test_bit(IPIPE_LOCK_FLAG, &ipd->irqs[irq].control))
 			continue;
 
-		__set_bit(IPIPE_STALL_FLAG, &p->status);
-		smp_wmb();
-
-		if (ipd == ipipe_root_domain)
-			trace_hardirqs_off();
-
 		__ipipe_run_isr(ipd, irq);
 		barrier();
 		p = ipipe_cpudom_ptr(__ipipe_current_domain);
-#ifdef CONFIG_SMP
-		{
-			int newcpu = ipipe_processor_id();
-
-			if (newcpu != cpu) {	/* Handle CPU migration. */
-				/*
-				 * We expect any domain to clear the SYNC bit each
-				 * time it switches in a new task, so that preemptions
-				 * and/or CPU migrations (in the SMP case) over the
-				 * ISR do not lock out the log syncer for some
-				 * indefinite amount of time. In the Linux case,
-				 * schedule() handles this (see kernel/sched.c). For
-				 * this reason, we don't bother clearing it here for
-				 * the source CPU in the migration handling case,
-				 * since it must have scheduled another task in by
-				 * now.
-				 */
-				__set_bit(IPIPE_SYNC_FLAG, &p->status);
-				cpu = newcpu;
-			}
-		}
-#endif	/* CONFIG_SMP */
-#ifdef CONFIG_TRACE_IRQFLAGS
-		if (__ipipe_root_domain_p &&
-		    test_bit(IPIPE_STALL_FLAG, &p->status))
-			trace_hardirqs_on();
-#endif
-		__clear_bit(IPIPE_STALL_FLAG, &p->status);
 	}
 
-	__clear_bit(IPIPE_SYNC_FLAG, &p->status);
+	if (ipd == ipipe_root_domain)
+		trace_hardirqs_on();
+
+	__clear_bit(IPIPE_STALL_FLAG, &p->status);
 }
 
 /* ipipe_register_domain() -- Link a new domain to the pipeline. */
