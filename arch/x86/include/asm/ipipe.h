@@ -69,7 +69,6 @@ do {						\
 
 #define task_hijacked(p)						\
 	({ int x = __ipipe_root_domain_p;				\
-	__clear_bit(IPIPE_SYNC_FLAG, &ipipe_root_cpudom_var(status));	\
 	if (x) local_irq_enable_hw(); !x; })
 
 struct ipipe_domain;
@@ -153,9 +152,7 @@ int __ipipe_check_tickdev(const char *devname);
 					irq, (ipd)->irqs[irq].handler,	\
 					(ipd)->irqs[irq].cookie);	\
 		} else {						\
-			__clear_bit(IPIPE_SYNC_FLAG, &ipipe_cpudom_var(ipd, status)); \
 			ipd->irqs[irq].handler(irq, ipd->irqs[irq].cookie); \
-			__set_bit(IPIPE_SYNC_FLAG, &ipipe_cpudom_var(ipd, status)); \
 		}							\
 		local_irq_disable_hw();					\
 	} while(0)
