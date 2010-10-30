@@ -60,12 +60,7 @@
 
 #define task_hijacked(p)						\
 	({								\
-		unsigned long __flags__;				\
-		int __x__;						\
-		local_irq_save_hw_smp(__flags__);			\
-		__x__ = __ipipe_root_domain_p;				\
-		__clear_bit(IPIPE_SYNC_FLAG, &ipipe_root_cpudom_var(status)); \
-		local_irq_restore_hw_smp(__flags__);			\
+		int __x__ = ipipe_root_domain_p;			\
 		!__x__;							\
 	})
 
@@ -80,8 +75,9 @@
 #define task_hijacked(p)						\
 	({								\
 		int __x__ = __ipipe_root_domain_p;			\
-		__clear_bit(IPIPE_SYNC_FLAG, &ipipe_root_cpudom_var(status)); \
-		if (__x__) local_irq_enable_hw(); !__x__;		\
+		if (__x__)						\
+			local_irq_enable_hw();				\
+		!__x__;							\
 	})
 
 #endif /* !CONFIG_IPIPE_WANT_PREEMPTIBLE_SWITCH */
@@ -242,11 +238,8 @@ do {									\
 			ipd->irqs[irq].handler(irq, ipd->irqs[irq].cookie);\
 			irq_exit();					\
 		}							\
-	else {								\
-		__clear_bit(IPIPE_SYNC_FLAG, &ipipe_cpudom_var(ipd, status)); \
+	else								\
 		ipd->irqs[irq].handler(irq, ipd->irqs[irq].cookie);	\
-		__set_bit(IPIPE_SYNC_FLAG, &ipipe_cpudom_var(ipd, status)); \
-	}								\
 	local_irq_disable_hw();						\
 } while(0)
 
