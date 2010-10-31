@@ -60,8 +60,8 @@ void __ipipe_ack_edge_irq(unsigned irq, struct irq_desc *desc);
 
 void __ipipe_end_edge_irq(unsigned irq, struct irq_desc *desc);
 
-static inline void __ipipe_call_root_xirq_handler(unsigned irq,
-						  void (*handler)(unsigned, void *))
+static inline void __do_root_xirq(ipipe_irq_handler_t handler,
+				  unsigned int irq)
 {
 	struct pt_regs *regs = &__raw_get_cpu_var(__ipipe_tick_regs);
 
@@ -95,13 +95,15 @@ static inline void __ipipe_call_root_xirq_handler(unsigned irq,
 			     : "rax");
 }
 
-void irq_enter(void);
-void irq_exit(void);
+#define __ipipe_do_root_xirq(ipd, irq)			\
+	__do_root_xirq((ipd)->irqs[irq].handler, irq)
 
-static inline void __ipipe_call_root_virq_handler(unsigned irq,
-						  void (*handler)(unsigned, void *),
-						  void *cookie)
+static inline void __do_root_virq(ipipe_irq_handler_t handler,
+				  void *cookie, unsigned int irq)
 {
+	void irq_enter(void);
+	void irq_exit(void);
+
 	irq_enter();
 	__asm__ __volatile__("movq  %%rsp, %%rax\n\t"
 			     "pushq $0\n\t"
@@ -132,5 +134,8 @@ static inline void __ipipe_call_root_virq_handler(unsigned irq,
 			     : /* no output */
 			     : /* no input */);
 }
+
+#define __ipipe_do_root_virq(ipd, irq)	\
+	__do_root_virq((ipd)->irqs[irq].handler, (ipd)->irqs[irq].cookie, irq)
 
 #endif	/* !__X86_IPIPE_64_H */
