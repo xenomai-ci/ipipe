@@ -80,10 +80,13 @@ typedef struct {
 	do {								\
 		if (ipipe_spinlock_p(lock))				\
 			__ipipe_spin_unlock_irqrestore(ipipe_spinlock(lock), flags); \
-		else if (std_spinlock_raw_p(lock))				\
-			__real_raw_spin_unlock_irqrestore(std_spinlock_raw(lock), flags); \
-		else if (std_spinlock_p(lock))				\
-			__real_raw_spin_unlock_irqrestore(&std_spinlock(lock)->rlock, flags); \
+		else {							\
+			__ipipe_spin_unlock_debug(flags);		\
+			if (std_spinlock_raw_p(lock))			\
+				__real_raw_spin_unlock_irqrestore(std_spinlock_raw(lock), flags); \
+			else if (std_spinlock_p(lock))			\
+				__real_raw_spin_unlock_irqrestore(&std_spinlock(lock)->rlock, flags); \
+		}							\
 	} while (0)
 
 #define PICK_SPINOP(op, lock)						\
@@ -187,6 +190,12 @@ void __ipipe_spin_unlock_irqbegin(ipipe_spinlock_t *lock);
 
 void __ipipe_spin_unlock_irqcomplete(unsigned long x);
 
+#if defined(CONFIG_IPIPE_DEBUG_INTERNAL) && defined(CONFIG_SMP)
+void __ipipe_spin_unlock_debug(unsigned long flags);
+#else
+#define __ipipe_spin_unlock_debug(flags)  do { } while (0)
+#endif
+
 #define ipipe_rwlock_t			__ipipe_rwlock_t
 #define IPIPE_DEFINE_RWLOCK(x)		ipipe_rwlock_t x = IPIPE_RW_LOCK_UNLOCKED
 #define IPIPE_DECLARE_RWLOCK(x)		extern ipipe_rwlock_t x
@@ -219,6 +228,7 @@ void __ipipe_spin_unlock_irqcomplete(unsigned long x);
 #define __ipipe_spin_unlock_irqrestore(lock, x)	do { (void)(x); } while (0)
 #define __ipipe_spin_unlock_irqbegin(lock)	do { } while (0)
 #define __ipipe_spin_unlock_irqcomplete(x)	do { (void)(x); } while (0)
+#define __ipipe_spin_unlock_debug(flags)	do { } while (0)
 
 #define ipipe_rwlock_t			rwlock_t
 #define IPIPE_DEFINE_RWLOCK(x)		DEFINE_RWLOCK(x)

@@ -53,11 +53,9 @@
 
 /* Per-cpu pipeline status */
 #define IPIPE_STALL_FLAG	0	/* Stalls a pipeline stage -- guaranteed at bit #0 */
-#define IPIPE_SYNC_FLAG		1	/* The interrupt syncer is running for the domain */
-#define IPIPE_NOSTACK_FLAG	2	/* Domain currently runs on a foreign stack */
+#define IPIPE_NOSTACK_FLAG	1	/* Domain currently runs on a foreign stack */
 
 #define IPIPE_STALL_MASK	(1L << IPIPE_STALL_FLAG)
-#define IPIPE_SYNC_MASK		(1L << IPIPE_SYNC_FLAG)
 #define IPIPE_NOSTACK_MASK	(1L << IPIPE_NOSTACK_FLAG)
 
 typedef void (*ipipe_irq_handler_t)(unsigned int irq,
@@ -111,6 +109,7 @@ static inline void ipipe_check_context(struct ipipe_domain *border_ipd) { }
 #endif
 #define __IPIPE_FEATURE_PREPARE_PANIC		1
 #define __IPIPE_FEATURE_ROOT_PREEMPT_NOTIFIER	1
+#define __IPIPE_FEATURE_CONTROL_IRQ		1
 
 #else /* !CONFIG_IPIPE */
 
