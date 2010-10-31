@@ -56,7 +56,6 @@ do {						\
 #define task_hijacked(p)						\
 	({								\
 		int __x__ = __ipipe_root_domain_p;			\
-		__clear_bit(IPIPE_SYNC_FLAG, &ipipe_root_cpudom_var(status)); \
 		if (__x__)						\
 			local_irq_enable_hw();				\
 		!__x__;							\
@@ -171,12 +170,10 @@ static inline unsigned long __ipipe_ffnz(unsigned long ul)
 			} else 						\
 				ipd->irqs[irq].handler(irq, &__raw_get_cpu_var(__ipipe_tick_regs)); \
 		} else {						\
-			__clear_bit(IPIPE_SYNC_FLAG, &ipipe_cpudom_var(ipd, status)); \
 			ipd->irqs[irq].handler(irq, ipd->irqs[irq].cookie); \
 			/* Attempt to exit the outer interrupt level before \
 			 * starting the deferred IRQ processing. */	\
 			__ipipe_run_irqtail();				\
-			__set_bit(IPIPE_SYNC_FLAG, &ipipe_cpudom_var(ipd, status)); \
 		}							\
 		local_irq_disable_hw();					\
 	} while (0)
