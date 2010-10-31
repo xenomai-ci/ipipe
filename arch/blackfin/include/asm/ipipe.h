@@ -146,6 +146,9 @@ static inline unsigned long __ipipe_ffnz(unsigned long ul)
 	return ffs(ul) - 1;
 }
 
+#define __ipipe_do_root_xirq(ipd, irq)					\
+	(ipd)->irqs[irq].handler(irq, &__raw_get_cpu_var(__ipipe_tick_regs))
+
 #define __ipipe_run_irqtail()  /* Must be a macro */			\
 	do {								\
 		unsigned long __pending;				\
@@ -156,26 +159,6 @@ static inline unsigned long __ipipe_ffnz(unsigned long ul)
 			if (__pending && (__pending & (__pending - 1)) == 0) \
 				__ipipe_call_irqtail(__ipipe_irq_tail_hook); \
 		}							\
-	} while (0)
-
-#define __ipipe_run_isr(ipd, irq)					\
-	do {								\
-		if (!__ipipe_pipeline_head_p(ipd))			\
-			local_irq_enable_hw();				\
-		if (ipd == ipipe_root_domain) {				\
-			if (unlikely(ipipe_virtual_irq_p(irq))) {	\
-				irq_enter();				\
-				ipd->irqs[irq].handler(irq, ipd->irqs[irq].cookie); \
-				irq_exit();				\
-			} else 						\
-				ipd->irqs[irq].handler(irq, &__raw_get_cpu_var(__ipipe_tick_regs)); \
-		} else {						\
-			ipd->irqs[irq].handler(irq, ipd->irqs[irq].cookie); \
-			/* Attempt to exit the outer interrupt level before \
-			 * starting the deferred IRQ processing. */	\
-			__ipipe_run_irqtail();				\
-		}							\
-		local_irq_disable_hw();					\
 	} while (0)
 
 #define __ipipe_syscall_watched_p(p, sc)	\
