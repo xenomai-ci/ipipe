@@ -1219,17 +1219,29 @@ void __ipipe_sync_stage(void)
 		if (irq < 0)
 			break;
 		/*
-		 * Make sure the compiler does not reorder
-		 * wrongly, so that all updates to maps are
-		 * done before the handler gets called.
+		 * Make sure the compiler does not reorder wrongly, so
+		 * that all updates to maps are done before the
+		 * handler gets called.
 		 */
 		barrier();
 
 		if (test_bit(IPIPE_LOCK_FLAG, &ipd->irqs[irq].control))
 			continue;
 
-		__ipipe_run_isr(ipd, irq);
-		barrier();
+		if (!__ipipe_pipeline_head_p(ipd))
+			local_irq_enable_hw();
+
+		if (likely(ipd != ipipe_root_domain)) {
+			ipd->irqs[irq].handler(irq, ipd->irqs[irq].cookie);
+			__ipipe_run_irqtail();
+		} else if (ipipe_virtual_irq_p(irq)) {
+			irq_enter();
+			__ipipe_do_root_virq(ipd, irq);
+			irq_exit();
+		} else
+			__ipipe_do_root_xirq(ipd, irq);
+
+		local_irq_disable_hw();
 		p = ipipe_cpudom_ptr(__ipipe_current_domain);
 	}
 

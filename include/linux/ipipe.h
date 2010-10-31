@@ -265,6 +265,16 @@ static inline void ipipe_irq_unlock(unsigned irq)
 #define __ipipe_sync_pipeline() __ipipe_sync_stage()
 #endif
 
+#ifndef __ipipe_do_root_xirq
+#define __ipipe_do_root_xirq(ipd, irq)			\
+	(ipd)->irqs[irq].handler(irq, (ipd)->irqs[irq].cookie)
+#endif
+
+#ifndef __ipipe_do_root_virq
+#define __ipipe_do_root_virq(ipd, irq)			\
+	(ipd)->irqs[irq].handler(irq, (ipd)->irqs[irq].cookie)
+#endif
+
 #ifndef __ipipe_run_irqtail
 #define __ipipe_run_irqtail() do { } while(0)
 #endif
