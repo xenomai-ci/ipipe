@@ -19,6 +19,7 @@
 #include <linux/audit.h>
 #include <linux/seccomp.h>
 #include <linux/signal.h>
+#include <linux/unistd.h>
 #include <linux/perf_event.h>
 #include <linux/hw_breakpoint.h>
 
