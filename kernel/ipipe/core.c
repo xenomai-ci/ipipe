@@ -1172,7 +1172,7 @@ void __ipipe_dispatch_wired_nocheck(struct ipipe_domain *head, unsigned irq) /* 
 	__set_bit(IPIPE_STALL_FLAG, &p->status);
 	barrier();
 	head->irqs[irq].handler(irq, head->irqs[irq].cookie); /* Call the ISR. */
-	__ipipe_run_irqtail();
+	__ipipe_run_irqtail(irq);
 	barrier();
 	__clear_bit(IPIPE_STALL_FLAG, &p->status);
 
@@ -1233,7 +1233,7 @@ void __ipipe_sync_stage(void)
 
 		if (likely(ipd != ipipe_root_domain)) {
 			ipd->irqs[irq].handler(irq, ipd->irqs[irq].cookie);
-			__ipipe_run_irqtail();
+			__ipipe_run_irqtail(irq);
 		} else if (ipipe_virtual_irq_p(irq)) {
 			irq_enter();
 			__ipipe_do_root_virq(ipd, irq);
