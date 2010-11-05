@@ -276,7 +276,7 @@ static inline void ipipe_irq_unlock(unsigned irq)
 #endif
 
 #ifndef __ipipe_run_irqtail
-#define __ipipe_run_irqtail() do { } while(0)
+#define __ipipe_run_irqtail(irq) do { } while(0)
 #endif
 
 #define __ipipe_pipeline_head_p(ipd) (&(ipd)->p_link == __ipipe_pipeline.next)
