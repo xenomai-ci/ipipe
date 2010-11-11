@@ -32,10 +32,86 @@ extern void __destroy_context(unsigned long context_id);
 extern void mmu_context_init(void);
 #endif
 
-static inline void __do_switch_mm(struct mm_struct *prev, struct mm_struct *next,
-				  struct task_struct *tsk)
+#ifdef CONFIG_IPIPE_WANT_PREEMPTIBLE_SWITCH
+
+static inline void __mmswitch_head(int cpu)
 {
+	/*
+	 * mmu_context_nohash in SMP mode is tracking an activity
+	 * counter into the mm struct. Therefore, we make sure the
+	 * kernel always sees the ipipe_active_mm update and the
+	 * actual switch as a single atomic operation. Since the
+	 * related code already requires to hard disable irqs all
+	 * through the switch, there is no additional penalty anyway.
+	 */
+#if defined(CONFIG_PPC_MMU_NOHASH) && defined(CONFIG_SMP)
+	local_irq_disable_hw();
+#endif
+	per_cpu(ipipe_active_mm, cpu) = NULL;
+}
+
+static inline void __mmswitch_tail(struct mm_struct *next, int cpu)
+{
+	per_cpu(ipipe_active_mm, cpu) = next;
+#if defined(CONFIG_PPC_MMU_NOHASH) && defined(CONFIG_SMP)
+	local_irq_enable_hw();
+#endif
+}
+
+static inline void __mmactivate_head(void)
+{
+#if defined(CONFIG_PPC_MMU_NOHASH) && defined(CONFIG_SMP)
+	local_irq_disable_hw();
+#else
+	preempt_disable();
+#endif
+	per_cpu(ipipe_active_mm, smp_processor_id()) = NULL;
+}
+
+static inline void __mmactivate_tail(void)
+{
+#if defined(CONFIG_PPC_MMU_NOHASH) && defined(CONFIG_SMP)
+	local_irq_enable_hw();
+#else
+	preempt_enable();
+#endif
+}
+
+#else  /* !IPIPE_WANT_PREEMPTIBLE_SWITCH */
+
+static inline void __mmswitch_head(int cpu)
+{
+#ifdef CONFIG_IPIPE_DEBUG_INTERNAL
+	WARN_ON_ONCE(!irqs_disabled_hw());
+#endif
+}
+
+static inline void __mmswitch_tail(struct mm_struct *next, int cpu)
+{
+}
+
+static inline void __mmactivate_head(void)
+{
+#ifdef CONFIG_IPIPE_DEBUG_INTERNAL
+	WARN_ON_ONCE(irqs_disabled_hw());
+#endif
+	local_irq_disable_hw_cond();
+}
+
+static inline void __mmactivate_tail(void)
+{
+	local_irq_enable_hw_cond();
+}
+
+#endif  /* !IPIPE_WANT_PREEMPTIBLE_SWITCH */
+
+static inline void __do_switch_mm(struct mm_struct *prev, struct mm_struct *next,
+				  struct task_struct *tsk, int cpu)
+{
+	__mmswitch_head(cpu);
+	barrier();
 #ifdef CONFIG_PPC_STD_MMU_64
+	/* mm state is undefined. */
 	if (cpu_has_feature(CPU_FTR_SLB))
 		switch_slb(tsk, next);
 	else
@@ -44,6 +120,8 @@ static inline void __do_switch_mm(struct mm_struct *prev, struct mm_struct *next
 	/* Out of line for now */
 	switch_mmu_context(prev, next);
 #endif
+	barrier();
+	__mmswitch_tail(next, cpu);
 }
 
 /*
@@ -58,10 +136,6 @@ static inline void __switch_mm(struct mm_struct *prev, struct mm_struct *next,
 {
 	int cpu = ipipe_processor_id();
 
-#if defined(CONFIG_IPIPE_DEBUG_INTERNAL) && \
-	!defined(CONFIG_IPIPE_WANT_PREEMPTIBLE_SWITCH)
-	WARN_ON_ONCE(!irqs_disabled_hw());
-#endif
 	/* Mark this context has been used on the new CPU */
 	cpumask_set_cpu(cpu, mm_cpumask(next));
 
@@ -91,18 +165,13 @@ static inline void __switch_mm(struct mm_struct *prev, struct mm_struct *next,
 	 */
 #ifdef CONFIG_IPIPE_WANT_PREEMPTIBLE_SWITCH
 	if (ipipe_root_domain_p) {
-		do {
-			/* mm state is undefined. */
-			per_cpu(ipipe_active_mm, cpu) = NULL;
-			barrier();
-			__do_switch_mm(prev, next, tsk);
-			barrier();
-			per_cpu(ipipe_active_mm, cpu) = next;
-		} while (test_and_clear_thread_flag(TIF_MMSWITCH_INT));
+		do
+			__do_switch_mm(prev, next, tsk, cpu);
+		while (test_and_clear_thread_flag(TIF_MMSWITCH_INT));
 		return;
 	} /* Falldown wanted for non-root context. */
 #endif /* CONFIG_IPIPE_WANT_PREEMPTIBLE_SWITCH */
-	__do_switch_mm(prev, next, tsk);
+	__do_switch_mm(prev, next, tsk, cpu);
 }
 
 static inline void switch_mm(struct mm_struct *prev, struct mm_struct *next,

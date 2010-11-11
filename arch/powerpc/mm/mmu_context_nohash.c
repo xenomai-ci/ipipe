@@ -192,9 +192,8 @@ static void context_check_map(void) { }
 void switch_mmu_context(struct mm_struct *prev, struct mm_struct *next)
 {
 	unsigned int i, id, cpu = ipipe_processor_id();
-	unsigned long *map, flags;
+	unsigned long *map;
 
-	local_irq_save_hw_cond(flags);
 	/* No lockless fast path .. yet */
 	raw_spin_lock(&context_lock);
 
@@ -202,6 +201,7 @@ void switch_mmu_context(struct mm_struct *prev, struct mm_struct *next)
 		cpu, next, next->context.active, next->context.id);
 
 #ifdef CONFIG_SMP
+	WARN_ON(!irqs_disabled_hw());
 	/* Mark us active and the previous one not anymore */
 	next->context.active++;
 	if (prev) {
@@ -281,7 +281,6 @@ void switch_mmu_context(struct mm_struct *prev, struct mm_struct *next)
 	pr_hardcont(" -> %d\n", id);
 	set_context(id, next->pgd);
 	raw_spin_unlock(&context_lock);
- 	local_irq_restore_hw_cond(flags);
 }
 
 /*

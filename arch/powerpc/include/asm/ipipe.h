@@ -52,6 +52,9 @@
 
 #ifdef CONFIG_IPIPE_WANT_PREEMPTIBLE_SWITCH
 
+struct mm;
+DECLARE_PER_CPU(struct mm_struct *, ipipe_active_mm);
+
 #define prepare_arch_switch(next)			\
 	do {						\
 		local_irq_enable_hw();			\
@@ -96,25 +99,19 @@ struct ipipe_sysinfo {
 extern cpumask_t __ipipe_dbrk_pending;
 #endif
 
-#ifdef CONFIG_IPIPE_WANT_PREEMPTIBLE_SWITCH
-struct mm;
-DECLARE_PER_CPU(struct mm_struct *, ipipe_active_mm);
 #define ipipe_mm_switch_protect(flags)					\
 	do {								\
-		preempt_disable();					\
-		per_cpu(ipipe_active_mm, smp_processor_id()) = NULL;	\
+		__mmactivate_head();					\
 		barrier();						\
 		(void)(flags);						\
 	} while(0)
+
 #define ipipe_mm_switch_unprotect(flags)				\
 	do {								\
-		preempt_enable();					\
+		barrier();						\
+		__mmactivate_tail();					\
 		(void)(flags);						\
 	} while(0)
-#else
-#define ipipe_mm_switch_protect(flags)		local_irq_save_hw_cond(flags)
-#define ipipe_mm_switch_unprotect(flags)	local_irq_restore_hw_cond(flags)
-#endif
 
 #define __ipipe_hrtimer_irq	IPIPE_TIMER_VIRQ
 #define __ipipe_hrtimer_freq	ppc_tb_freq
