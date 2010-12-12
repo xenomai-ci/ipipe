@@ -25,7 +25,7 @@
 
 #include "pq2.h"
 
-static DEFINE_RAW_SPINLOCK(pci_pic_lock);
+static IPIPE_DEFINE_RAW_SPINLOCK(pci_pic_lock);
 
 struct pq2ads_pci_pic {
 	struct device_node *node;
@@ -39,17 +39,30 @@ struct pq2ads_pci_pic {
 
 #define NUM_IRQS 32
 
+static inline void __pq2ads_pci_mask_irq(struct pq2ads_pci_pic *priv,
+					 unsigned int irq)
+{
+	setbits32(&priv->regs->mask, 1 << irq);
+	mb();
+}
+
+static inline void __pq2ads_pci_unmask_irq(struct pq2ads_pci_pic *priv,
+					   unsigned int irq)
+{
+	clrbits32(&priv->regs->mask, 1 << irq);
+}
+
 static void pq2ads_pci_mask_irq(unsigned int virq)
 {
 	struct pq2ads_pci_pic *priv = get_irq_chip_data(virq);
 	int irq = NUM_IRQS - virq_to_hw(virq) - 1;
+	unsigned long flags;
 
 	if (irq != -1) {
-		unsigned long flags;
 		raw_spin_lock_irqsave(&pci_pic_lock, flags);
 
-		setbits32(&priv->regs->mask, 1 << irq);
-		mb();
+		__pq2ads_pci_mask_irq(priv, irq);
+		ipipe_irq_lock(virq);
 
 		raw_spin_unlock_irqrestore(&pci_pic_lock, flags);
 	}
@@ -59,12 +72,12 @@ static void pq2ads_pci_unmask_irq(unsigned int virq)
 {
 	struct pq2ads_pci_pic *priv = get_irq_chip_data(virq);
 	int irq = NUM_IRQS - virq_to_hw(virq) - 1;
+	unsigned long flags;
 
 	if (irq != -1) {
-		unsigned long flags;
-
 		raw_spin_lock_irqsave(&pci_pic_lock, flags);
-		clrbits32(&priv->regs->mask, 1 << irq);
+		__pq2ads_pci_unmask_irq(priv, irq);
+		ipipe_irq_unlock(virq);
 		raw_spin_unlock_irqrestore(&pci_pic_lock, flags);
 	}
 }
@@ -98,7 +111,7 @@ static void pq2ads_pci_irq_demux(unsigned int irq, struct irq_desc *desc)
 		for (bit = 0; pend != 0; ++bit, pend <<= 1) {
 			if (pend & 0x80000000) {
 				int virq = irq_linear_revmap(priv->host, bit);
-				generic_handle_irq(virq);
+				ipipe_handle_chained_irq(virq);
 			}
 		}
 	}

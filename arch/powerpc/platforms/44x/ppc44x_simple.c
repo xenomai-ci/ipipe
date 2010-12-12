@@ -62,6 +62,7 @@ static char *board[] __initdata = {
 	"amcc,sequoia",
 	"amcc,taishan",
 	"amcc,yosemite",
+	"liebherr,lwmon5",
 	"mosaixtech,icon"
 };
 

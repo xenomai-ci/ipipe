@@ -100,6 +100,8 @@ EXPORT_SYMBOL(irq_desc);
 
 int distribute_irqs = 1;
 
+#ifdef CONFIG_SOFTDISABLE
+
 static inline notrace unsigned long get_hard_enabled(void)
 {
 	unsigned long enabled;
@@ -193,6 +195,9 @@ notrace void raw_local_irq_restore(unsigned long en)
 	__hard_irq_enable();
 }
 EXPORT_SYMBOL(raw_local_irq_restore);
+
+#endif /* !CONFIG_SOFTDISABLE */
+
 #endif /* CONFIG_PPC64 */
 
 static int show_other_interrupts(struct seq_file *p, int prec)
@@ -339,7 +344,8 @@ void fixup_irqs(const struct cpumask *map)
 }
 #endif
 
-static inline void handle_one_irq(unsigned int irq)
+#ifdef CONFIG_IRQSTACKS
+static inline void __handle_one_irq(unsigned int irq)
 {
 	struct thread_info *curtp, *irqtp;
 	unsigned long saved_sp_limit;
@@ -379,8 +385,14 @@ static inline void handle_one_irq(unsigned int irq)
 	if (irqtp->flags)
 		set_bits(irqtp->flags, &curtp->flags);
 }
+#else
+static inline void __handle_one_irq(unsigned int irq)
+{
+	generic_handle_irq(irq);
+}
+#endif
 
-static inline void check_stack_overflow(void)
+static inline void __check_stack_overflow(void)
 {
 #ifdef CONFIG_DEBUG_STACKOVERFLOW
 	long sp;
@@ -394,6 +406,16 @@ static inline void check_stack_overflow(void)
 		dump_stack();
 	}
 #endif
+}
+
+void handle_one_irq(unsigned int irq)
+{
+	__handle_one_irq(irq);
+}
+
+void check_stack_overflow(void)
+{
+	__check_stack_overflow();
 }
 
 void do_IRQ(struct pt_regs *regs)
@@ -436,7 +458,9 @@ void __init init_IRQ(void)
 
 	exc_lvl_ctx_init();
 
+#ifdef CONFIG_IRQSTACKS
 	irq_ctx_init();
+#endif
 }
 
 #if defined(CONFIG_BOOKE) || defined(CONFIG_40x)
@@ -471,6 +495,7 @@ void exc_lvl_ctx_init(void)
 }
 #endif
 
+#ifdef CONFIG_IRQSTACKS
 struct thread_info *softirq_ctx[NR_CPUS] __read_mostly;
 struct thread_info *hardirq_ctx[NR_CPUS] __read_mostly;
 
@@ -506,6 +531,9 @@ static inline void do_softirq_onstack(void)
 	current->thread.ksp_limit = saved_sp_limit;
 	irqtp->task = NULL;
 }
+#else
+#define do_softirq_onstack()	__do_softirq()
+#endif
 
 void do_softirq(void)
 {

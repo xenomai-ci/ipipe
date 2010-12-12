@@ -29,6 +29,14 @@ ifdef CONFIG_DEBUG_INFO
 BOOTCFLAGS	+= -g
 endif
 
+ifdef CONFIG_IPIPE_TRACE
+# do not trace the boot loader
+nullstring :=
+space      := $(nullstring) # end of the line
+pg_flag     = $(nullstring) -pg # end of the line
+BOOTCFLAGS     := $(subst ${pg_flag},${space},${BOOTCFLAGS})
+endif
+
 ifeq ($(call cc-option-yn, -fstack-protector),y)
 BOOTCFLAGS	+= -fno-stack-protector
 endif
@@ -78,6 +86,7 @@ src-plat := of.c cuboot-52xx.c cuboot-824x.c cuboot-83xx.c cuboot-85xx.c holly.c
 		cuboot-warp.c cuboot-85xx-cpm2.c cuboot-yosemite.c simpleboot.c \
 		virtex405-head.S virtex.c redboot-83xx.c cuboot-sam440ep.c \
 		cuboot-acadia.c cuboot-amigaone.c cuboot-kilauea.c \
+		lwmon5-head.S cuboot-lwmon5.c \
 		gamecube-head.S gamecube.c wii-head.S wii.c treeboot-iss4xx.c
 src-boot := $(src-wlib) $(src-plat) empty.c
 
@@ -209,6 +218,7 @@ image-$(CONFIG_WARP)			+= cuImage.warp
 image-$(CONFIG_YOSEMITE)		+= cuImage.yosemite
 image-$(CONFIG_ISS4xx)			+= treeImage.iss4xx \
 					   treeImage.iss4xx-mpic
+image-$(CONFIG_LWMON5)			+= cuImage.lwmon5
 
 # Board ports in arch/powerpc/platform/8xx/Kconfig
 image-$(CONFIG_MPC86XADS)		+= cuImage.mpc866ads

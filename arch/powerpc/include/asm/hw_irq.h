@@ -13,6 +13,10 @@
 
 extern void timer_interrupt(struct pt_regs *);
 
+#include <asm/ipipe_hwirq.h>
+
+#ifndef CONFIG_IPIPE
+
 #ifdef CONFIG_PPC64
 #include <asm/paca.h>
 
@@ -123,6 +127,8 @@ static inline int irqs_disabled_flags(unsigned long flags)
 }
 
 #endif /* CONFIG_PPC64 */
+
+#endif /* !CONFIG_IPIPE */
 
 /*
  * interrupt-retrigger: should we handle this via lost interrupts and IPIs
