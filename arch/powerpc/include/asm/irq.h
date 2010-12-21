@@ -342,9 +342,5 @@ extern int call_handle_irq(int irq, void *p1,
 			   struct thread_info *tp, void *func);
 extern void do_IRQ(struct pt_regs *regs);
 
-#ifdef CONFIG_NMI_WATCHDOG
-#define ARCH_HAS_NMI_WATCHDOG
-#endif
-
 #endif /* _ASM_IRQ_H */
 #endif /* __KERNEL__ */

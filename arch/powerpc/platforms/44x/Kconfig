@@ -182,16 +182,6 @@ config ICON
 	help
 	  This option enables support for the AMCC PPC440SPe evaluation board.
 
-config LWMON5
-	bool "lwmon5"
-	depends on 44x
-	default n
-	select PPC44x_SIMPLE
-	select 440EPX
-	select NMI_WATCHDOG
-	help
-	  This option enables support for the Liebherr lwmon5 board.
-
 #config LUAN
 #	bool "Luan"
 #	depends on 44x
@@ -249,15 +239,6 @@ config PPC4xx_GPIO
 	select GENERIC_GPIO
 	help
 	  Enable gpiolib support for ppc440 based boards
-
-config NMI_WATCHDOG
-        bool "Enable NMI watchdog"
-	depends on LWMON5
-        default n
-        help
-	  Add touch_nmi_watchdog() calls. This is needed for boards with a
-	  very short watchdog timeout that need to get "kicked" during upon
-	  Linux bootup, before the real watchdog driver is running.
 
 # 44x specific CPU modules, selected based on the board above.
 config 440EP
