@@ -95,42 +95,4 @@ static inline void __do_root_xirq(ipipe_irq_handler_t handler,
 #define __ipipe_do_root_xirq(ipd, irq)			\
 	__do_root_xirq((ipd)->irqs[irq].handler, irq)
 
-static inline void __do_root_virq(ipipe_irq_handler_t handler,
-				  void *cookie, unsigned int irq)
-{
-	void irq_enter(void);
-	void irq_exit(void);
-
-	irq_enter();
-	__asm__ __volatile__("pushfl\n\t"
-			     "pushl %%cs\n\t"
-			     "pushl $__virq_end\n\t"
-			     "pushl $-1\n\t"
-			     "pushl %%gs\n\t"
-			     "pushl %%fs\n\t"
-			     "pushl %%es\n\t"
-			     "pushl %%ds\n\t"
-			     "pushl %%eax\n\t"
-			     "pushl %%ebp\n\t"
-			     "pushl %%edi\n\t"
-			     "pushl %%esi\n\t"
-			     "pushl %%edx\n\t"
-			     "pushl %%ecx\n\t"
-			     "pushl %%ebx\n\t"
-			     "pushl %2\n\t"
-			     "pushl %%eax\n\t"
-			     "call *%1\n\t"
-			     "addl $8,%%esp\n"
-			     : /* no output */
-			     : "a" (irq), "r" (handler), "d" (cookie));
-	irq_exit();
-	__asm__ __volatile__("jmp ret_from_intr\n\t"
-			     "__virq_end: cli\n"
-			     : /* no output */
-			     : /* no input */);
-}
-
-#define __ipipe_do_root_virq(ipd, irq)	\
-	__do_root_virq((ipd)->irqs[irq].handler, (ipd)->irqs[irq].cookie, irq)
-
 #endif	/* !__X86_IPIPE_32_H */

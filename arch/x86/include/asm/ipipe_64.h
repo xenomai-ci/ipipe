@@ -98,44 +98,4 @@ static inline void __do_root_xirq(ipipe_irq_handler_t handler,
 #define __ipipe_do_root_xirq(ipd, irq)			\
 	__do_root_xirq((ipd)->irqs[irq].handler, irq)
 
-static inline void __do_root_virq(ipipe_irq_handler_t handler,
-				  void *cookie, unsigned int irq)
-{
-	void irq_enter(void);
-	void irq_exit(void);
-
-	irq_enter();
-	__asm__ __volatile__("movq  %%rsp, %%rax\n\t"
-			     "pushq $0\n\t"
-			     "pushq %%rax\n\t"
-			     "pushfq\n\t"
-			     "pushq %[kernel_cs]\n\t"
-			     "pushq $__virq_end\n\t"
-			     "pushq $-1\n\t"
-			     "subq  $9*8,%%rsp\n\t"
-			     "movq  %%rdi,8*8(%%rsp)\n\t"
-			     "movq  %%rsi,7*8(%%rsp)\n\t"
-			     "movq  %%rdx,6*8(%%rsp)\n\t"
-			     "movq  %%rcx,5*8(%%rsp)\n\t"
-			     "movq  %%rax,4*8(%%rsp)\n\t"
-			     "movq  %%r8,3*8(%%rsp)\n\t"
-			     "movq  %%r9,2*8(%%rsp)\n\t"
-			     "movq  %%r10,1*8(%%rsp)\n\t"
-			     "movq  %%r11,(%%rsp)\n\t"
-			     "call  *%[handler]\n\t"
-			     : /* no output */
-			     : [kernel_cs] "i" (__KERNEL_CS),
-			       [handler] "r" (handler), "D" (irq), "S" (cookie)
-			     : "rax");
-	irq_exit();
-	__asm__ __volatile__("cli\n\t"
-			     "jmp exit_intr\n\t"
-			     "__virq_end: cli\n"
-			     : /* no output */
-			     : /* no input */);
-}
-
-#define __ipipe_do_root_virq(ipd, irq)	\
-	__do_root_virq((ipd)->irqs[irq].handler, (ipd)->irqs[irq].cookie, irq)
-
 #endif	/* !__X86_IPIPE_64_H */
