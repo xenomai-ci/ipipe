@@ -71,6 +71,7 @@ static inline void __do_root_xirq(ipipe_irq_handler_t handler,
 			     "pushq $0\n\t"
 			     "pushq %%rax\n\t"
 			     "pushfq\n\t"
+			     "orq %[x86if],(%%rsp)\n\t"
 			     "pushq %[kernel_cs]\n\t"
 			     "pushq $__xirq_end\n\t"
 			     "pushq %[vector]\n\t"
@@ -91,7 +92,8 @@ static inline void __do_root_xirq(ipipe_irq_handler_t handler,
 			     : /* no output */
 			     : [kernel_cs] "i" (__KERNEL_CS),
 			       [vector] "rm" (regs->orig_ax),
-			       [handler] "r" (handler), "D" (regs)
+			       [handler] "r" (handler), "D" (regs),
+			       [x86if] "i" (X86_EFLAGS_IF)
 			     : "rax");
 }
 

@@ -70,6 +70,7 @@ static inline void __do_root_xirq(ipipe_irq_handler_t handler,
 	regs->orig_ax = ~__ipipe_get_irq_vector(irq);
 
 	__asm__ __volatile__("pushfl\n\t"
+			     "orl %[x86if],(%%esp)\n\t"
 			     "pushl %%cs\n\t"
 			     "pushl $__xirq_end\n\t"
 			     "pushl %%eax\n\t"
@@ -89,7 +90,8 @@ static inline void __do_root_xirq(ipipe_irq_handler_t handler,
 			     "jmp ret_from_intr\n\t"
 			     "__xirq_end: cli\n"
 			     : /* no output */
-			     : "a" (~irq), "r" (handler), "rm" (regs));
+			     : "a" (~irq), "r" (handler), "rm" (regs),
+			       [x86if] "i" (X86_EFLAGS_IF));
 }
 
 #define __ipipe_do_root_xirq(ipd, irq)			\
