@@ -1226,6 +1226,12 @@ void __ipipe_preempt_schedule_irq(void)
 
 #endif	/* !CONFIG_PREEMPT */
 
+#ifdef CONFIG_TRACE_IRQFLAGS
+#define root_stall_after_handler()	local_irq_disable()
+#else
+#define root_stall_after_handler()	do { } while (0)
+#endif
+
 /*
  * __ipipe_sync_stage() -- Flush the pending IRQs for the current
  * domain (and processor). This routine flushes the interrupt log
@@ -1276,12 +1282,15 @@ void __ipipe_sync_stage(void)
 			irq_enter();
 			ipd->irqs[irq].handler(irq, ipd->irqs[irq].cookie);
 			irq_exit();
+			root_stall_after_handler();
 			if (unlikely(preempt_count() == 0 && need_resched())) {
 				local_irq_disable_hw();
 				__ipipe_preempt_schedule_irq();
 			}
-		} else
+		} else {
 			__ipipe_do_root_xirq(ipd, irq);
+			root_stall_after_handler();
+		}
 
 		local_irq_disable_hw();
 		p = ipipe_cpudom_ptr(__ipipe_current_domain);
