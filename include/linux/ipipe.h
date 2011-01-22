@@ -270,11 +270,6 @@ static inline void ipipe_irq_unlock(unsigned irq)
 	(ipd)->irqs[irq].handler(irq, (ipd)->irqs[irq].cookie)
 #endif
 
-#ifndef __ipipe_do_root_virq
-#define __ipipe_do_root_virq(ipd, irq)			\
-	(ipd)->irqs[irq].handler(irq, (ipd)->irqs[irq].cookie)
-#endif
-
 #ifndef __ipipe_run_irqtail
 #define __ipipe_run_irqtail(irq) do { } while(0)
 #endif
