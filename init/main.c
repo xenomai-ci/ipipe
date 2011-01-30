@@ -552,7 +552,7 @@ asmlinkage void __init start_kernel(void)
 
 	cgroup_init_early();
 
-	local_irq_disable();
+	local_irq_disable_hw();
 	early_boot_irqs_off();
 
 /*
@@ -585,6 +585,7 @@ asmlinkage void __init start_kernel(void)
 	pidhash_init();
 	vfs_caches_init_early();
 	sort_main_extable();
+	ipipe_init_early();
 	trap_init();
 	mm_init();
 	/*
@@ -614,6 +615,11 @@ asmlinkage void __init start_kernel(void)
 	softirq_init();
 	timekeeping_init();
 	time_init();
+	/*
+	 * We need to wait for the interrupt and time subsystems to be
+	 * initialized before enabling the pipeline.
+	 */
+	ipipe_init();
 	profile_init();
 	if (!irqs_disabled())
 		printk(KERN_CRIT "start_kernel(): bug: interrupts were "
@@ -794,6 +800,7 @@ static void __init do_basic_setup(void)
 	init_tmpfs();
 	driver_init();
 	init_irq_proc();
+  	ipipe_init_proc();
 	do_ctors();
 	do_initcalls();
 }

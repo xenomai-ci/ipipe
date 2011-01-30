@@ -150,8 +150,10 @@ unsigned int __do_IRQ(unsigned int irq)
 		/*
 		 * No locking required for CPU-local interrupts:
 		 */
+#ifndef CONFIG_IPIPE
 		if (desc->irq_data.chip->ack)
 			desc->irq_data.chip->ack(irq);
+#endif
 		if (likely(!(desc->status & IRQ_DISABLED))) {
 			action_ret = handle_IRQ_event(irq, desc->action);
 			if (!noirqdebug)
@@ -162,8 +164,10 @@ unsigned int __do_IRQ(unsigned int irq)
 	}
 
 	raw_spin_lock(&desc->lock);
+#ifndef CONFIG_IPIPE
 	if (desc->irq_data.chip->ack)
 		desc->irq_data.chip->ack(irq);
+#endif
 	/*
 	 * REPLAY is when Linux resends an IRQ that was dropped earlier
 	 * WAITING is used by probe to mark irqs that are being tested

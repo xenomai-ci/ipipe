@@ -2334,7 +2334,7 @@ void trace_hardirqs_on_caller(unsigned long ip)
 	/* we'll do an OFF -> ON transition: */
 	curr->hardirqs_enabled = 1;
 
-	if (DEBUG_LOCKS_WARN_ON(!irqs_disabled()))
+	if (DEBUG_LOCKS_WARN_ON(!irqs_disabled() && !irqs_disabled_hw()))
 		return;
 	if (DEBUG_LOCKS_WARN_ON(current->hardirq_context))
 		return;
@@ -2377,7 +2377,7 @@ void trace_hardirqs_off_caller(unsigned long ip)
 	if (unlikely(!debug_locks || current->lockdep_recursion))
 		return;
 
-	if (DEBUG_LOCKS_WARN_ON(!irqs_disabled()))
+	if (DEBUG_LOCKS_WARN_ON(!irqs_disabled() && !irqs_disabled_hw()))
 		return;
 
 	if (curr->hardirqs_enabled) {
@@ -2409,7 +2409,7 @@ void trace_softirqs_on(unsigned long ip)
 	if (unlikely(!debug_locks))
 		return;
 
-	if (DEBUG_LOCKS_WARN_ON(!irqs_disabled()))
+	if (DEBUG_LOCKS_WARN_ON(!irqs_disabled() && !irqs_disabled_hw()))
 		return;
 
 	if (curr->softirqs_enabled) {
@@ -2443,7 +2443,7 @@ void trace_softirqs_off(unsigned long ip)
 	if (unlikely(!debug_locks))
 		return;
 
-	if (DEBUG_LOCKS_WARN_ON(!irqs_disabled()))
+	if (DEBUG_LOCKS_WARN_ON(!irqs_disabled() && !irqs_disabled_hw()))
 		return;
 
 	if (curr->softirqs_enabled) {

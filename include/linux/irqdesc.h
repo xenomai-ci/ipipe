@@ -55,6 +55,12 @@ struct irq_desc {
 		};
 	};
 #endif
+#ifdef CONFIG_IPIPE
+	void			(*ipipe_ack)(unsigned int irq,
+					     struct irq_desc *desc);
+	void			(*ipipe_end)(unsigned int irq,
+					     struct irq_desc *desc);
+#endif /* CONFIG_IPIPE */
 
 	struct timer_rand_state *timer_rand_state;
 	unsigned int		*kstat_irqs;
@@ -152,6 +158,7 @@ static inline void __set_irq_handler_unlocked(int irq,
 	struct irq_desc *desc;
 
 	desc = irq_to_desc(irq);
+	handler = __fixup_irq_handler(desc, handler, 0);
 	desc->handle_irq = handler;
 }
 #endif
