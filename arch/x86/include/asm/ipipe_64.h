@@ -24,6 +24,7 @@
 
 #include <asm/ptrace.h>
 #include <asm/irq.h>
+#include <asm/processor.h>
 #include <linux/cpumask.h>
 #include <linux/list.h>
 #include <linux/ipipe_percpu.h>
@@ -99,5 +100,9 @@ static inline void __do_root_xirq(ipipe_irq_handler_t handler,
 
 #define __ipipe_do_root_xirq(ipd, irq)			\
 	__do_root_xirq((ipd)->irqs[irq].handler, irq)
+
+#define __ipipe_check_root_resched()			\
+	(preempt_count() == 0 && need_resched() &&	\
+	 per_cpu(irq_count, ipipe_processor_id()) < 0)
 
 #endif	/* !__X86_IPIPE_64_H */
