@@ -266,8 +266,12 @@ static inline void ipipe_irq_unlock(unsigned irq)
 #endif
 
 #ifndef __ipipe_check_root_resched
+#ifdef CONFIG_PREEMPT
 #define __ipipe_check_root_resched()			\
 	(preempt_count() == 0 && need_resched())
+#else
+#define __ipipe_check_root_resched()  0
+#endif
 #endif
 
 #ifndef __ipipe_run_irqtail
