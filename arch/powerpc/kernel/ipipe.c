@@ -595,43 +595,6 @@ done:
 
 #endif /* CONFIG_PPC64 */
 
-#ifdef CONFIG_PREEMPT
-
-asmlinkage void __sched preempt_schedule_irq(void);
-
-void __sched  __ipipe_preempt_schedule_irq(void)
-{
-	struct ipipe_percpu_domain_data *p;
-	unsigned long flags;
-	/*
-	 * We have no IRQ state fixup on entry to exceptions, so we
-	 * have to stall the root stage before rescheduling.
-	 */
-#ifdef CONFIG_IPIPE_DEBUG
-	BUG_ON(!irqs_disabled_hw());
-#endif
-	local_irq_save(flags);
-	local_irq_enable_hw();
-	preempt_schedule_irq(); /* Ok, may reschedule now. */
-	local_irq_disable_hw();
-	/*
-	 * Flush any pending interrupt that may have been logged after
-	 * preempt_schedule_irq() stalled the root stage before
-	 * returning to us, and now.
-	 */
-	p = ipipe_root_cpudom_ptr();
-	if (unlikely(__ipipe_ipending_p(p))) {
-		add_preempt_count(PREEMPT_ACTIVE);
-		clear_bit(IPIPE_STALL_FLAG, &p->status);
-		__ipipe_sync_pipeline();
-		sub_preempt_count(PREEMPT_ACTIVE);
-	}
-
-	__local_irq_restore_nosync(flags);
-}
-
-#endif /* CONFIG_PREEMPT */
-
 #ifdef CONFIG_IPIPE_TRACE_IRQSOFF
 
 asmlinkage notrace void __ipipe_trace_irqsoff(void)
