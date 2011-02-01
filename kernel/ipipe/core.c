@@ -1182,6 +1182,12 @@ void __ipipe_dispatch_wired_nocheck(struct ipipe_domain *head, unsigned irq) /* 
 	__ipipe_walk_pipeline(&head->p_link);
 }
 
+#ifdef CONFIG_TRACE_IRQFLAGS
+#define root_stall_after_handler()	local_irq_disable()
+#else
+#define root_stall_after_handler()	do { } while (0)
+#endif
+
 #ifdef CONFIG_PREEMPT
 
 asmlinkage void preempt_schedule_irq(void);
@@ -1219,12 +1225,6 @@ void __ipipe_preempt_schedule_irq(void)
 #define __ipipe_preempt_schedule_irq()	do { } while (0)
 
 #endif	/* !CONFIG_PREEMPT */
-
-#ifdef CONFIG_TRACE_IRQFLAGS
-#define root_stall_after_handler()	local_irq_disable()
-#else
-#define root_stall_after_handler()	do { } while (0)
-#endif
 
 /*
  * __ipipe_sync_stage() -- Flush the pending IRQs for the current
@@ -1272,21 +1272,21 @@ void __ipipe_sync_stage(void)
 		if (likely(ipd != ipipe_root_domain)) {
 			ipd->irqs[irq].handler(irq, ipd->irqs[irq].cookie);
 			__ipipe_run_irqtail(irq);
+			local_irq_disable_hw();
 		} else if (ipipe_virtual_irq_p(irq)) {
 			irq_enter();
 			ipd->irqs[irq].handler(irq, ipd->irqs[irq].cookie);
 			irq_exit();
+			local_irq_disable_hw();
 			root_stall_after_handler();
-			if (unlikely(preempt_count() == 0 && need_resched())) {
-				local_irq_disable_hw();
+			while (__ipipe_check_root_resched())
 				__ipipe_preempt_schedule_irq();
-			}
 		} else {
 			__ipipe_do_root_xirq(ipd, irq);
+			local_irq_disable_hw();
 			root_stall_after_handler();
 		}
 
-		local_irq_disable_hw();
 		p = ipipe_cpudom_ptr(__ipipe_current_domain);
 	}
 
