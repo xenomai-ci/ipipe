@@ -1188,6 +1188,50 @@ void __ipipe_dispatch_wired_nocheck(struct ipipe_domain *head, unsigned irq) /* 
 	__ipipe_walk_pipeline(&head->p_link);
 }
 
+#ifdef CONFIG_TRACE_IRQFLAGS
+#define root_stall_after_handler()	local_irq_disable()
+#else
+#define root_stall_after_handler()	do { } while (0)
+#endif
+
+#ifdef CONFIG_PREEMPT
+
+asmlinkage void preempt_schedule_irq(void);
+
+void __ipipe_preempt_schedule_irq(void)
+{
+	struct ipipe_percpu_domain_data *p; 
+	unsigned long flags;  
+
+	BUG_ON(!irqs_disabled_hw());
+	local_irq_save(flags);
+	local_irq_enable_hw();
+	preempt_schedule_irq(); /* Ok, may reschedule now. */  
+	local_irq_disable_hw();
+
+	/*
+	 * Flush any pending interrupt that may have been logged after
+	 * preempt_schedule_irq() stalled the root stage before
+	 * returning to us, and now.
+	 */
+	p = ipipe_root_cpudom_ptr();
+	if (unlikely(__ipipe_ipending_p(p))) {
+		add_preempt_count(PREEMPT_ACTIVE);
+		trace_hardirqs_on();
+		clear_bit(IPIPE_STALL_FLAG, &p->status);
+		__ipipe_sync_pipeline();
+		sub_preempt_count(PREEMPT_ACTIVE);
+	}
+
+	__local_irq_restore_nosync(flags);
+}
+
+#else /* !CONFIG_PREEMPT */
+
+#define __ipipe_preempt_schedule_irq()	do { } while (0)
+
+#endif	/* !CONFIG_PREEMPT */
+
 /*
  * __ipipe_sync_stage() -- Flush the pending IRQs for the current
  * domain (and processor). This routine flushes the interrupt log
@@ -1234,14 +1278,21 @@ void __ipipe_sync_stage(void)
 		if (likely(ipd != ipipe_root_domain)) {
 			ipd->irqs[irq].handler(irq, ipd->irqs[irq].cookie);
 			__ipipe_run_irqtail(irq);
+			local_irq_disable_hw();
 		} else if (ipipe_virtual_irq_p(irq)) {
 			irq_enter();
-			__ipipe_do_root_virq(ipd, irq);
+			ipd->irqs[irq].handler(irq, ipd->irqs[irq].cookie);
 			irq_exit();
-		} else
+			local_irq_disable_hw();
+			root_stall_after_handler();
+			while (__ipipe_check_root_resched())
+				__ipipe_preempt_schedule_irq();
+		} else {
 			__ipipe_do_root_xirq(ipd, irq);
+			local_irq_disable_hw();
+			root_stall_after_handler();
+		}
 
-		local_irq_disable_hw();
 		p = ipipe_cpudom_ptr(__ipipe_current_domain);
 	}
 
