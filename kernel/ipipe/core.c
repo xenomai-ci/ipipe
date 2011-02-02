@@ -494,7 +494,7 @@ unsigned long __ipipe_spin_lock_irqsave(ipipe_spinlock_t *lock)
 	arch_spin_lock(&lock->arch_lock);
 	s = __test_and_set_bit(IPIPE_STALL_FLAG, &ipipe_this_cpudom_var(status));
 
-	return raw_mangle_irq_bits(s, flags);
+	return arch_mangle_irq_bits(s, flags);
 }
 
 int __ipipe_spin_trylock_irqsave(ipipe_spinlock_t *lock,
@@ -509,7 +509,7 @@ int __ipipe_spin_trylock_irqsave(ipipe_spinlock_t *lock,
 		return 0;
 	}
 	s = __test_and_set_bit(IPIPE_STALL_FLAG, &ipipe_this_cpudom_var(status));
-	*x = raw_mangle_irq_bits(s, flags);
+	*x = arch_mangle_irq_bits(s, flags);
 
 	return 1;
 }
@@ -518,7 +518,7 @@ void __ipipe_spin_unlock_irqrestore(ipipe_spinlock_t *lock,
 				    unsigned long x)
 {
 	arch_spin_unlock(&lock->arch_lock);
-	if (!raw_demangle_irq_bits(&x))
+	if (!arch_demangle_irq_bits(&x))
 		__clear_bit(IPIPE_STALL_FLAG, &ipipe_this_cpudom_var(status));
 	local_irq_restore_hw(x);
 }
@@ -544,7 +544,7 @@ void __ipipe_spin_unlock_irqbegin(ipipe_spinlock_t *lock)
 
 void __ipipe_spin_unlock_irqcomplete(unsigned long x)
 {
-	if (!raw_demangle_irq_bits(&x))
+	if (!arch_demangle_irq_bits(&x))
 		__clear_bit(IPIPE_STALL_FLAG, &ipipe_this_cpudom_var(status));
 	local_irq_restore_hw(x);
 }
