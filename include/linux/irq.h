@@ -169,9 +169,6 @@ struct irq_chip {
 	void		(*end)(unsigned int irq);
 	int		(*set_affinity)(unsigned int irq,
 					const struct cpumask *dest);
-#ifdef CONFIG_IPIPE
-	void		(*move)(unsigned int irq);
-#endif /* CONFIG_IPIPE */
 	int		(*retrigger)(unsigned int irq);
 	int		(*set_type)(unsigned int irq, unsigned int flow_type);
 	int		(*set_wake)(unsigned int irq, unsigned int on);
@@ -197,6 +194,9 @@ struct irq_chip {
 
 	void		(*irq_bus_lock)(struct irq_data *data);
 	void		(*irq_bus_sync_unlock)(struct irq_data *data);
+#ifdef CONFIG_IPIPE
+	void		(*irq_move)(struct irq_data *data);
+#endif /* CONFIG_IPIPE */
 
 	/* Currently used only by UML, might disappear one day.*/
 #ifdef CONFIG_IRQ_RELEASE_METHOD
@@ -274,10 +274,6 @@ set_irq_chip_and_handler(unsigned int irq, struct irq_chip *chip,
 extern void
 set_irq_chip_and_handler_name(unsigned int irq, struct irq_chip *chip,
 			      irq_flow_handler_t handle, const char *name);
-
-extern irq_flow_handler_t
-__fixup_irq_handler(struct irq_desc *desc, irq_flow_handler_t handle,
-		    int is_chained);
 
 extern void
 __set_irq_handler(unsigned int irq, irq_flow_handler_t handle, int is_chained,

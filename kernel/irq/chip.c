@@ -586,7 +586,7 @@ handle_fasteoi_irq(unsigned int irq, struct irq_desc *desc)
 	raw_spin_lock(&desc->lock);
 	desc->status &= ~IRQ_INPROGRESS;
 #ifdef CONFIG_IPIPE
-	desc->chip->unmask(irq);
+	desc->irq_data.chip->irq_unmask(&desc->irq_data);
 out:
 #else
 out:
@@ -713,18 +713,19 @@ void __ipipe_end_simple_irq(unsigned irq, struct irq_desc *desc)
 
 void __ipipe_ack_level_irq(unsigned irq, struct irq_desc *desc)
 {
-	mask_ack_irq(desc, irq);
+	mask_ack_irq(desc);
 }
 
 void __ipipe_end_level_irq(unsigned irq, struct irq_desc *desc)
 {
-	if (desc->chip->unmask)
-		desc->chip->unmask(irq);
+	if (desc->irq_data.chip->irq_unmask)
+		desc->irq_data.chip->irq_unmask(&desc->irq_data);
 }
 
 void __ipipe_ack_fasteoi_irq(unsigned irq, struct irq_desc *desc)
 {
-	desc->chip->eoi(irq);
+	if (desc->irq_data.chip->irq_eoi)
+		desc->irq_data.chip->irq_eoi(&desc->irq_data);
 }
 
 void __ipipe_end_fasteoi_irq(unsigned irq, struct irq_desc *desc)
@@ -733,24 +734,24 @@ void __ipipe_end_fasteoi_irq(unsigned irq, struct irq_desc *desc)
 	 * Non-requestable IRQs should not be masked in EOI handler.
 	 */
 	if (!(desc->status & IRQ_NOREQUEST))
-		desc->chip->unmask(irq);
+		desc->irq_data.chip->irq_unmask(&desc->irq_data);
 }
 
 void __ipipe_ack_edge_irq(unsigned irq, struct irq_desc *desc)
 {
-	desc->chip->ack(irq);
+	desc->irq_data.chip->irq_ack(&desc->irq_data);
 }
 
 void __ipipe_ack_percpu_irq(unsigned irq, struct irq_desc *desc)
 {
-	if (desc->chip->ack)
-		desc->chip->ack(irq);
+	if (desc->irq_data.chip->irq_ack)
+		desc->irq_data.chip->irq_ack(&desc->irq_data);
 }
 
 void __ipipe_end_percpu_irq(unsigned irq, struct irq_desc *desc)
 {
-	if (desc->chip->eoi)
-		desc->chip->eoi(irq);
+	if (desc->irq_data.chip->irq_eoi)
+		desc->irq_data.chip->irq_eoi(&desc->irq_data);
 }
 
 void __ipipe_end_edge_irq(unsigned irq, struct irq_desc *desc)

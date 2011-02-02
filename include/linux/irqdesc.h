@@ -151,6 +151,10 @@ static inline int irq_balancing_disabled(unsigned int irq)
 	return desc->status & IRQ_NO_BALANCING_MASK;
 }
 
+irq_flow_handler_t
+__fixup_irq_handler(struct irq_desc *desc, irq_flow_handler_t handle,
+		    int is_chained);
+
 /* caller has locked the irq_desc and both params are valid */
 static inline void __set_irq_handler_unlocked(int irq,
 					      irq_flow_handler_t handler)
