@@ -475,7 +475,7 @@ static void lapic_timer_setup(enum clock_event_mode mode,
 	if (evt->features & CLOCK_EVT_FEAT_DUMMY)
 		return;
 
-	local_irq_save(flags);
+	local_irq_save_hw(flags);
 
 	switch (mode) {
 	case CLOCK_EVT_MODE_PERIODIC:
@@ -495,7 +495,7 @@ static void lapic_timer_setup(enum clock_event_mode mode,
 		break;
 	}
 
-	local_irq_restore(flags);
+	local_irq_restore_hw(flags);
 }
 
 /*
@@ -1011,7 +1011,7 @@ void lapic_shutdown(void)
 	if (!cpu_has_apic && !apic_from_smp_config())
 		return;
 
-	local_irq_save(flags);
+	local_irq_save_hw(flags);
 
 #ifdef CONFIG_X86_32
 	if (!enabled_via_apicbase)
@@ -1021,7 +1021,7 @@ void lapic_shutdown(void)
 		disable_local_APIC();
 
 
-	local_irq_restore(flags);
+	local_irq_restore_hw(flags);
 }
 
 /*
@@ -1195,6 +1195,10 @@ static void __cpuinit lapic_setup_esr(void)
 			oldvalue, value);
 }
 
+int __ipipe_check_lapic(void)
+{
+	return !(lapic_clockevent.features & CLOCK_EVT_FEAT_DUMMY);
+}
 
 /**
  * setup_local_APIC - setup the local APIC
@@ -1268,7 +1272,7 @@ void __cpuinit setup_local_APIC(void)
 			value = apic_read(APIC_ISR + i*0x10);
 			for (j = 31; j >= 0; j--) {
 				if (value & (1<<j)) {
-					ack_APIC_irq();
+					__ack_APIC_irq();
 					acked++;
 				}
 			}
@@ -1792,7 +1796,7 @@ void smp_spurious_interrupt(struct pt_regs *regs)
 	 */
 	v = apic_read(APIC_ISR + ((SPURIOUS_APIC_VECTOR & ~0x1f) >> 1));
 	if (v & (1 << (SPURIOUS_APIC_VECTOR & 0x1f)))
-		ack_APIC_irq();
+		__ack_APIC_irq();
 
 	inc_irq_stat(irq_spurious_count);
 
@@ -2061,13 +2065,13 @@ static int lapic_suspend(struct sys_device *dev, pm_message_t state)
 		apic_pm_state.apic_thmr = apic_read(APIC_LVTTHMR);
 #endif
 
-	local_irq_save(flags);
+	local_irq_save_hw(flags);
 	disable_local_APIC();
 
 	if (intr_remapping_enabled)
 		disable_intr_remapping();
 
-	local_irq_restore(flags);
+	local_irq_restore_hw(flags);
 	return 0;
 }
 
@@ -2082,7 +2086,7 @@ static int lapic_resume(struct sys_device *dev)
 	if (!apic_pm_state.active)
 		return 0;
 
-	local_irq_save(flags);
+	local_irq_save_hw(flags);
 	if (intr_remapping_enabled) {
 		ioapic_entries = alloc_ioapic_entries();
 		if (!ioapic_entries) {
@@ -2148,7 +2152,7 @@ static int lapic_resume(struct sys_device *dev)
 		free_ioapic_entries(ioapic_entries);
 	}
 restore:
-	local_irq_restore(flags);
+	local_irq_restore_hw(flags);
 
 	return ret;
 }
