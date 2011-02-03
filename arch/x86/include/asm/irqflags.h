@@ -165,26 +165,15 @@ static inline unsigned long arch_local_irq_save(void)
 }
 #else
 
+#define ENABLE_INTERRUPTS(x)	sti
+#define DISABLE_INTERRUPTS(x)	cli
+
 #ifdef CONFIG_IPIPE
-#ifdef CONFIG_X86_32
-#define DISABLE_INTERRUPTS(clobbers)	PER_CPU(ipipe_percpu_darray, %eax); btsl $0,(%eax); sti
-#define ENABLE_INTERRUPTS(clobbers)	call __ipipe_unstall_root
-#else /* CONFIG_X86_64 */
-/* Not worth virtualizing in x86_64 mode. */
-#define DISABLE_INTERRUPTS(clobbers)	cli
-#define ENABLE_INTERRUPTS(clobbers)	sti
-#endif /* CONFIG_X86_64 */
 #define ENABLE_INTERRUPTS_HW_COND	sti
 #define DISABLE_INTERRUPTS_HW_COND	cli
-#define DISABLE_INTERRUPTS_HW(clobbers)	cli
-#define ENABLE_INTERRUPTS_HW(clobbers)	sti
 #else /* !CONFIG_IPIPE */
-#define ENABLE_INTERRUPTS(x)		sti
-#define DISABLE_INTERRUPTS(x)		cli
 #define ENABLE_INTERRUPTS_HW_COND
 #define DISABLE_INTERRUPTS_HW_COND
-#define DISABLE_INTERRUPTS_HW(clobbers)	DISABLE_INTERRUPTS(clobbers)
-#define ENABLE_INTERRUPTS_HW(clobbers)	ENABLE_INTERRUPTS(clobbers)
 #endif /* !CONFIG_IPIPE */
 
 #ifdef CONFIG_X86_64
@@ -341,23 +330,38 @@ static inline int irqs_disabled_hw(void)
 #endif
 
 #ifdef CONFIG_TRACE_IRQFLAGS
-# if defined(CONFIG_IPIPE) && defined(CONFIG_X86_64)
-#  define TRACE_IRQS_ON				\
+# ifdef CONFIG_IPIPE
+#  ifdef CONFIG_X86_64
+#   define TRACE_IRQS_ON			\
 	call trace_hardirqs_on_thunk;		\
 	pushq %rax;				\
 	PER_CPU(ipipe_percpu_darray, %rax);	\
 	btrl $0,(%rax);				\
 	popq %rax
-#  define TRACE_IRQS_OFF			\
+#   define TRACE_IRQS_OFF			\
 	pushq %rax;				\
 	PER_CPU(ipipe_percpu_darray, %rax);	\
 	btsl $0,(%rax);				\
 	popq %rax;				\
 	call trace_hardirqs_off_thunk
-# else /* !(CONFIG_IPIPE && CONFIG_X86_64) */
+#  else /* CONFIG_X86_32 */
+#   define TRACE_IRQS_ON			\
+	call trace_hardirqs_on_thunk;		\
+	pushl %eax;				\
+	PER_CPU(ipipe_percpu_darray, %eax);	\
+	btrl $0,(%eax);				\
+	popl %eax
+#   define TRACE_IRQS_OFF			\
+	pushl %eax;				\
+	PER_CPU(ipipe_percpu_darray, %eax);	\
+	btsl $0,(%eax);				\
+	popl %eax;				\
+	call trace_hardirqs_off_thunk
+#  endif /* CONFIG_X86_32 */
+# else /* !CONFIG_IPIPE */
 #  define TRACE_IRQS_ON		call trace_hardirqs_on_thunk;
 #  define TRACE_IRQS_OFF	call trace_hardirqs_off_thunk;
-# endif /* !(CONFIG_IPIPE && CONFIG_X86_64) */
+# endif /* !CONFIG_IPIPE */
 #else
 #  define TRACE_IRQS_ON
 #  define TRACE_IRQS_OFF

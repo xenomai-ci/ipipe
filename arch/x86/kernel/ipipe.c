@@ -393,70 +393,6 @@ static inline void __fixup_if(int s, struct pt_regs *regs)
 		regs->flags |= X86_EFLAGS_IF;
 }
 
-#ifdef CONFIG_X86_32
-
-/*
- * Check the stall bit of the root domain to make sure the existing
- * preemption opportunity upon in-kernel resumption could be
- * exploited. In case a rescheduling could take place, the root stage
- * is stalled before the hw interrupts are re-enabled. This routine
- * must be called with hw interrupts off.
- */
-
-asmlinkage int __ipipe_kpreempt_root(struct pt_regs regs)
-{
-	if (test_bit(IPIPE_STALL_FLAG, &ipipe_root_cpudom_var(status)))
-		/* Root stage is stalled: rescheduling denied. */
-		return 0;
-
-	__ipipe_stall_root();
-	trace_hardirqs_off();
-	local_irq_enable_hw_notrace();
-
-	return 1;	/* Ok, may reschedule now. */
-}
-
-asmlinkage void __ipipe_unstall_iret_root(struct pt_regs regs)
-{
-	struct ipipe_percpu_domain_data *p;
-
-	/* Emulate IRET's handling of the interrupt flag. */
-
-	local_irq_disable_hw();
-
-	p = ipipe_root_cpudom_ptr();
-
-	/*
-	 * Restore the software state as it used to be on kernel
-	 * entry. CAUTION: NMIs must *not* return through this
-	 * emulation.
-	 */
-	if (raw_irqs_disabled_flags(regs.flags)) {
-		if (!__test_and_set_bit(IPIPE_STALL_FLAG, &p->status))
-			trace_hardirqs_off();
-		if (!__ipipe_pipeline_head_p(ipipe_root_domain))
-			regs.flags |= X86_EFLAGS_IF;
-	} else {
-		if (test_bit(IPIPE_STALL_FLAG, &p->status)) {
-			trace_hardirqs_on();
-			__clear_bit(IPIPE_STALL_FLAG, &p->status);
-		}
-		/*
-		 * We could have received and logged interrupts while
-		 * stalled in the syscall path: play the log now to
-		 * release any pending event. The SYNC_BIT prevents
-		 * infinite recursion in case of flooding.
-		 */
-		if (unlikely(__ipipe_ipending_p(p)))
-			__ipipe_sync_pipeline();
-	}
-#ifdef CONFIG_IPIPE_TRACE_IRQSOFF
-	ipipe_trace_end(0x8000000D);
-#endif /* CONFIG_IPIPE_TRACE_IRQSOFF */
-}
-
-#endif /* !CONFIG_X86_32 */
-
 void __ipipe_halt_root(void)
 {
 	struct ipipe_percpu_domain_data *p;
@@ -699,7 +635,6 @@ int __ipipe_divert_exception(struct pt_regs *regs, int vector)
 
 int __ipipe_syscall_root(struct pt_regs *regs)
 {
-	struct ipipe_percpu_domain_data *p;
 	unsigned long flags;
         int ret;
 
@@ -725,30 +660,17 @@ int __ipipe_syscall_root(struct pt_regs *regs)
 		__ipipe_dispatch_event(IPIPE_EVENT_RETURN, regs);
 	}
 
-        if (!ipipe_root_domain_p) {
-#ifdef CONFIG_X86_32
-		local_irq_restore_hw(flags);
-#endif
+	if (!ipipe_root_domain_p)
 		return 1;
-	}
 
-	p = ipipe_root_cpudom_ptr();
-#ifdef CONFIG_X86_32
-	/*
-	 * Fix-up only required on 32-bit as only here the IRET return code
-	 * will evaluate the flags.
-	 */
-	__fixup_if(test_bit(IPIPE_STALL_FLAG, &p->status), regs);
-#endif
 	/*
 	 * If allowed, sync pending VIRQs before _TIF_NEED_RESCHED is
 	 * tested.
 	 */
-	if (__ipipe_ipending_p(p))
+	if (__ipipe_ipending_p(ipipe_root_cpudom_ptr()))
 		__ipipe_sync_pipeline();
-#ifdef CONFIG_X86_64
+
 	if (!ret)
-#endif
 		local_irq_restore_hw(flags);
 
 	return -ret;
