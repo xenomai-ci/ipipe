@@ -31,6 +31,7 @@
 #include <linux/clockchips.h>
 #include <linux/kprobes.h>
 #include <asm/unistd.h>
+#include <asm/processor.h>
 #include <asm/system.h>
 #include <asm/atomic.h>
 #include <asm/hw_irq.h>
@@ -797,12 +798,20 @@ finalize_nosync:
 
 int __ipipe_check_tickdev(const char *devname)
 {
+	int ret = 1;
+
 #ifdef CONFIG_X86_LOCAL_APIC
-	if (!strcmp(devname, "lapic"))
-		return __ipipe_check_lapic();
+	if (!strcmp(devname, "lapic")) {
+		ret = __ipipe_check_lapic();
+		if (ret)
+			return ret;
+		printk(KERN_INFO "I-pipe: cannot use LAPIC as a tick device\n");
+		if (cpu_has_amd_erratum(amd_erratum_400))
+			printk(KERN_INFO "I-pipe: disable C1E power state in your BIOS\n");
+	}
 #endif
 
-	return 1;
+	return ret;
 }
 
 EXPORT_SYMBOL(__ipipe_tick_irq);
