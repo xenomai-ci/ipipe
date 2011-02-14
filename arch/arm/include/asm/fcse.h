@@ -45,6 +45,18 @@
 #define FCSE_BUG_ON(expr) do { } while(0)
 #endif /* !CONFIG_ARM_FCSE_DEBUG */
 
+#if defined(CONFIG_ARM_FCSE_DYNPID) && defined(CONFIG_PREEMPT)
+#define fcse_check_context(mm)					\
+	FCSE_BUG_ON(!in_atomic()				\
+		    && (mm)->context.fcse.active		\
+		    && atomic_read(&(mm)->mm_users)		\
+		    && !(mm)->core_state			\
+		    && !rwsem_is_locked(&(mm)->mmap_sem)	\
+		    && !irqs_disabled());
+#else /* !CONFIG_ARM_FCSE_DYNPID */
+#define fcse_check_context(mm) do { (void)(mm); } while(0)
+#endif /* !CONFIG_ARM_FCSE_DYNPID */
+
 extern unsigned long fcse_pids_cache_dirty[];
 
 int fcse_pid_alloc(struct mm_struct *mm);
@@ -79,6 +91,7 @@ static inline unsigned long
 fcse_va_to_mva(struct mm_struct *mm, unsigned long va)
 {
 	if (cache_is_vivt() && va < FCSE_PID_TASK_SIZE) {
+		fcse_check_context(mm);
 		return mm->context.fcse.pid | va;
 	}
 	return va;
@@ -106,6 +119,7 @@ static inline int fcse_mm_in_cache(struct mm_struct *mm)
 {
 	unsigned fcse_pid = mm->context.fcse.pid >> FCSE_PID_SHIFT;
 	int res;
+	fcse_check_context(mm);
 	res = test_bit(FCSE_PID_MAX - fcse_pid, fcse_pids_cache_dirty)
 		&& fcse_pids_user[fcse_pid].mm == mm;
 	return res;
