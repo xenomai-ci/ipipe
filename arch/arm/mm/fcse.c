@@ -192,6 +192,23 @@ static noinline int fcse_relocate_mm_to_pid(struct mm_struct *mm, int fcse_pid)
 	pgd_t *from, *to;
 
 	raw_spin_lock_irqsave(&fcse_lock, flags);
+#if defined(CONFIG_ARM_FCSE_DYNPID)
+	/* pid == -1 means find a free pid. */
+	if (fcse_pid == -1) {
+		fcse_pid = find_free_pid(fcse_pids_bits);
+		if (fcse_pid == -1) {
+			fcse_pid = find_free_pid(fcse_pids_cache_dirty);
+			if (unlikely(fcse_pid == -1)) {
+			  fail:
+				raw_spin_unlock_irqrestore(&fcse_lock, flags);
+				return -ENOENT;
+			}
+		}
+		if (fcse_large_process
+		    && fcse_pid <= fcse_large_process->context.fcse.highest_pid)
+			goto fail;
+	}
+#endif /* CONFIG_ARM_FCSE_DYNPID */
 	fcse_pid_dereference(mm);
 	fcse_pid_reference_inner(fcse_pid);
 	fcse_pids_user[fcse_pid].mm = mm;
@@ -223,6 +240,23 @@ int fcse_switch_mm_inner(struct mm_struct *prev, struct mm_struct *next)
 		raw_spin_lock_irqsave(&fcse_lock, flags);
 		goto is_flush_needed;
 	}
+
+#ifdef CONFIG_ARM_FCSE_DYNPID
+	/*
+	 * If the next mm's pid is currently in use, and not by that
+	 * mm, try and find a new, free, pid.
+	 */
+	if (unlikely(fcse_pids_user[fcse_pid].mm != next)
+	    && test_bit(FCSE_PID_MAX - fcse_pid, fcse_pids_cache_dirty)
+	    && fcse_pids_user[fcse_pid].mm
+	    && !rwsem_is_locked(&next->mmap_sem)
+	    && !next->context.fcse.large
+	    && !next->core_state) {
+		int new_fcse_pid = fcse_relocate_mm_to_pid(next, -1);
+		if (new_fcse_pid >= 0)
+			fcse_pid = new_fcse_pid;
+	}
+#endif /* CONFIG_ARM_FCSE_DYNPID */
 
 	raw_spin_lock_irqsave(&fcse_lock, flags);
 	if (fcse_pids_user[fcse_pid].mm != next) {
