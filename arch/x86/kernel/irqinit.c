@@ -232,6 +232,7 @@ static void __init apic_intr_init(void)
 	alloc_intr_gate(IPIPE_SERVICE_VECTOR2, ipipe_ipi2);
 	alloc_intr_gate(IPIPE_SERVICE_VECTOR3, ipipe_ipi3);
 #endif
+	ipipe_init_vector_irq(0);
 #endif
 }
 

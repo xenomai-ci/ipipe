@@ -143,6 +143,19 @@ static void __ipipe_null_handler(unsigned irq, void *cookie)
 /* __ipipe_enable_pipeline() -- We are running on the boot CPU, hw
    interrupts are off, and secondary CPUs are still lost in space. */
 
+void ipipe_init_vector_irq(int cpu)
+{
+	unsigned int vector;
+
+	per_cpu(vector_irq, cpu)[IRQ_MOVE_CLEANUP_VECTOR] =
+		IRQ_MOVE_CLEANUP_VECTOR;
+
+	for (vector = first_system_vector; vector < NR_VECTORS; vector++)
+		if (per_cpu(vector_irq, cpu)[vector] == -1)
+			per_cpu(vector_irq, cpu)[vector] =
+				ipipe_apic_vector_irq(vector);
+}
+
 void __init __ipipe_enable_pipeline(void)
 {
 	unsigned int vector, irq;
@@ -687,23 +700,14 @@ int __ipipe_syscall_root(struct pt_regs *regs)
 int __ipipe_handle_irq(struct pt_regs *regs)
 {
 	struct ipipe_domain *this_domain, *next_domain;
-	unsigned int vector = regs->orig_ax, irq;
+	int irq, vector = regs->orig_ax;
 	struct list_head *head, *pos;
 	struct pt_regs *tick_regs;
 	int m_ack;
 
-	if ((long)regs->orig_ax < 0) {
-		vector = ~vector;
-#ifdef CONFIG_X86_LOCAL_APIC
-		if (vector >= FIRST_SYSTEM_VECTOR)
-			irq = ipipe_apic_vector_irq(vector);
-#ifdef CONFIG_SMP
-		else if (vector == IRQ_MOVE_CLEANUP_VECTOR)
-			irq = vector;
-#endif /* CONFIG_SMP */
-		else
-#endif /* CONFIG_X86_LOCAL_APIC */
-			irq = __get_cpu_var(vector_irq)[vector];
+	if (vector < 0) {
+		irq = __get_cpu_var(vector_irq)[~vector];
+		BUG_ON(irq < 0);
 		m_ack = 0;
 	} else { /* This is a self-triggered one. */
 		irq = vector;

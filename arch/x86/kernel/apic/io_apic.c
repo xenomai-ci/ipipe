@@ -1205,6 +1205,7 @@ void __setup_vector_irq(int cpu)
 		if (!cpumask_test_cpu(cpu, cfg->domain))
 			per_cpu(vector_irq, cpu)[vector] = -1;
 	}
+	ipipe_init_vector_irq(cpu);
 	raw_spin_unlock(&vector_lock);
 }
 
