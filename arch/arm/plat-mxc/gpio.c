@@ -24,6 +24,7 @@
 #include <linux/io.h>
 #include <linux/irq.h>
 #include <linux/gpio.h>
+#include <linux/ipipe.h>
 #include <mach/hardware.h>
 #include <asm-generic/bug.h>
 
@@ -87,6 +88,7 @@ static int gpio_set_irq_type(struct irq_data *d, u32 type)
 {
 	u32 gpio = irq_to_gpio(d->irq);
 	struct mxc_gpio_port *port = &mxc_gpio_ports[gpio / 32];
+	unsigned long flags;
 	u32 bit, val;
 	int edge;
 	void __iomem *reg = port->base;
@@ -120,11 +122,13 @@ static int gpio_set_irq_type(struct irq_data *d, u32 type)
 		return -EINVAL;
 	}
 
+	spin_lock_irqsave(&port->lock, flags);
 	reg += GPIO_ICR1 + ((gpio & 0x10) >> 2); /* lower or upper register */
 	bit = gpio & 0xf;
 	val = __raw_readl(reg) & ~(0x3 << (bit << 1));
 	__raw_writel(val | (edge << (bit << 1)), reg);
 	_clear_gpio_irqstatus(port, gpio & 0x1f);
+	spin_unlock_irqrestore(&port->lock, flags);
 
 	return 0;
 }
@@ -159,13 +163,35 @@ static void mxc_gpio_irq_handler(struct mxc_gpio_port *port, u32 irq_stat)
 {
 	u32 gpio_irq_no_base = port->virtual_irq_start;
 
-	while (irq_stat != 0) {
-		int irqoffset = fls(irq_stat) - 1;
+#ifdef CONFIG_IPIPE
+	/* Handle high priority domains interrupts first */
+	u32 nonroot_gpios = irq_stat & port->nonroot_gpios;
+
+	irq_stat &= ~nonroot_gpios;
+	while (nonroot_gpios != 0) {
+		int irqoffset = fls(nonroot_gpios) - 1;
 
 		if (port->both_edges & (1 << irqoffset))
 			mxc_flip_edge(port, irqoffset);
 
-		generic_handle_irq(gpio_irq_no_base + irqoffset);
+		ipipe_handle_chained_irq(gpio_irq_no_base + irqoffset);
+
+		nonroot_gpios &= ~(1 << irqoffset);
+	}
+#endif
+
+	while (irq_stat != 0) {
+		int irqoffset = fls(irq_stat) - 1;
+
+#ifdef CONFIG_IPIPE
+		local_irq_enable_hw();
+		local_irq_disable_hw();
+#endif /* CONFIG_IPIPE */
+
+		if (port->both_edges & (1 << irqoffset))
+			mxc_flip_edge(port, irqoffset);
+
+		ipipe_handle_chained_irq(gpio_irq_no_base + irqoffset);
 
 		irq_stat &= ~(1 << irqoffset);
 	}
@@ -177,10 +203,18 @@ static void mx3_gpio_irq_handler(u32 irq, struct irq_desc *desc)
 	u32 irq_stat;
 	struct mxc_gpio_port *port = get_irq_data(irq);
 
+#ifdef CONFIG_IPIPE
+	desc->irq_data.chip->irq_mask_ack(&desc->irq_data);
+#endif /* CONFIG_IPIPE */
+
 	irq_stat = __raw_readl(port->base + GPIO_ISR) &
 			__raw_readl(port->base + GPIO_IMR);
 
 	mxc_gpio_irq_handler(port, irq_stat);
+
+#ifdef CONFIG_IPIPE
+	desc->irq_data.chip->irq_unmask(&desc->irq_data);
+#endif /* CONFIG_IPIPE */
 }
 
 /* MX2 has one interrupt *for all* gpio ports */
@@ -189,6 +223,10 @@ static void mx2_gpio_irq_handler(u32 irq, struct irq_desc *desc)
 	int i;
 	u32 irq_msk, irq_stat;
 	struct mxc_gpio_port *port = get_irq_data(irq);
+
+#ifdef CONFIG_IPIPE
+	desc->irq_data.chip->irq_mask_ack(&desc->irq_data);
+#endif /* CONFIG_IPIPE */
 
 	/* walk through all interrupt status registers */
 	for (i = 0; i < gpio_table_size; i++) {
@@ -200,6 +238,10 @@ static void mx2_gpio_irq_handler(u32 irq, struct irq_desc *desc)
 		if (irq_stat)
 			mxc_gpio_irq_handler(&port[i], irq_stat);
 	}
+
+#ifdef CONFIG_IPIPE
+	desc->irq_data.chip->irq_unmask(&desc->irq_data);
+#endif /* CONFIG_IPIPE */
 }
 
 /*
@@ -459,3 +501,48 @@ static struct mxc_gpio_port imx50_gpio_ports[] = {
 DEFINE_REGISTER_FUNCTION(imx50)
 
 #endif /* if defined(CONFIG_SOC_IMX50) */
+
+#if defined(CONFIG_IPIPE) && defined(__IPIPE_FEATURE_PIC_MUTE)
+extern void tzic_set_irq_prio(int irq, int hi);
+
+void __ipipe_mach_enable_irqdesc(struct ipipe_domain *ipd, unsigned irq)
+{
+	struct irq_desc *desc = irq_to_desc(irq);
+
+	if (desc->chip == &gpio_irq_chip) {
+		/* It is a gpio. */
+		u32 gpio = irq_to_gpio(irq);
+		struct mxc_gpio_port *port = &mxc_gpio_ports[gpio / 32];
+
+		if (ipd != &ipipe_root) {
+			port->nonroot_gpios |= (1 << (gpio % 32));
+			if (port->nonroot_gpios == (1 << (gpio % 32))) {
+				__ipipe_irqbits[(port->irq / 32)]
+					&= ~(1 << (port->irq % 32));
+				tzic_set_irq_prio(port->irq, 1);
+			}
+		}
+	} else
+		tzic_set_irq_prio(irq, ipd != &ipipe_root);
+}
+
+void __ipipe_mach_disable_irqdesc(struct ipipe_domain *ipd, unsigned irq)
+{
+	struct irq_desc *desc = irq_to_desc(irq);
+	if (desc->chip == &gpio_irq_chip) {
+		/* It is a gpio. */
+		u32 gpio = irq_to_gpio(irq);
+		struct mxc_gpio_port *port = &mxc_gpio_ports[gpio / 32];
+
+		if (ipd != &ipipe_root) {
+			port->nonroot_gpios &= ~(1 << (gpio % 32));
+			if (!port->nonroot_gpios) {
+				tzic_set_irq_prio(port->irq, 0);
+				__ipipe_irqbits[(port->irq / 32)]
+					|= (1 << (port->irq % 32));
+			}
+		}
+	} else if (ipd != &ipipe_root)
+		tzic_set_irq_prio(irq, 0);
+}
+#endif /* CONFIG_IPIPE && __IPIPE_FEATURE_PIC_MUTE */

@@ -155,7 +155,11 @@ static int twl6030_irq_thread(void *data)
 					note_interrupt(module_irq, d,
 							IRQ_NONE);
 				else
+#ifndef CONFIG_IPIPE
 					d->handle_irq(module_irq, d);
+#else
+					d->ipipe_ack(module_irq, d);
+#endif
 
 			}
 		local_irq_enable();
@@ -359,6 +363,7 @@ int twl6030_init_irq(int irq_num, unsigned irq_base, unsigned irq_end)
 		pr_err("twl6030: could not claim irq%d: %d\n", irq_num, status);
 		goto fail_irq;
 	}
+
 	return status;
 fail_irq:
 	free_irq(irq_num, &irq_event);
@@ -378,4 +383,3 @@ int twl6030_exit_irq(void)
 	}
 	return 0;
 }
-

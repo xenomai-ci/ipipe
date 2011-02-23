@@ -608,7 +608,7 @@ config CPU_CP15_MPU
 config CPU_USE_DOMAINS
 	bool
 	depends on MMU
-	default y if !CPU_32v6K
+	default y if !CPU_32v6K || IPIPE
 	help
 	  This option enables or disables the use of domain switching
 	  via the set_fs() function.
@@ -921,7 +921,7 @@ endchoice
 
 config ARM_FCSE_DYNPID
 	bool "Dynamic FCSE pid allocation"
-	depends on ARM_FCSE_BEST_EFFORT
+	depends on ARM_FCSE_BEST_EFFORT && !IPIPE
 	help
 	  When this option is enabled, the kernel may decide to change the FCSE
 	  pid of a process when switching context. This helps reducing the

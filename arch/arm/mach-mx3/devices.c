@@ -22,6 +22,7 @@
 #include <linux/platform_device.h>
 #include <linux/serial.h>
 #include <linux/gpio.h>
+#include <mach/common.h>
 #include <mach/hardware.h>
 #include <mach/irqs.h>
 #include <mach/common.h>

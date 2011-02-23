@@ -172,8 +172,8 @@ int ipipe_request_tickdev(const char *devname,
 	evtdev = slave->evtdev;
 	status = evtdev->mode;
 
-        if (status == CLOCK_EVT_MODE_SHUTDOWN)
-                goto out;
+	if (status == CLOCK_EVT_MODE_SHUTDOWN)
+		goto out;
 
 	itd->slave = slave;
 	itd->emul_set_mode = emumode;
@@ -325,19 +325,19 @@ void __ipipe_unstall_root(void)
 {
 	struct ipipe_percpu_domain_data *p;
 
-        local_irq_disable_hw();
+	local_irq_disable_hw();
 
 	/* This helps catching bad usage from assembly call sites. */
 	ipipe_check_context(ipipe_root_domain);
 
 	p = ipipe_root_cpudom_ptr();
 
-        __clear_bit(IPIPE_STALL_FLAG, &p->status);
+	__clear_bit(IPIPE_STALL_FLAG, &p->status);
 
-        if (unlikely(__ipipe_ipending_p(p)))
-                __ipipe_sync_pipeline();
+	if (unlikely(__ipipe_ipending_p(p)))
+		__ipipe_sync_pipeline();
 
-        local_irq_enable_hw();
+	local_irq_enable_hw();
 }
 
 void __ipipe_restore_root(unsigned long x)
@@ -429,7 +429,7 @@ void ipipe_unstall_pipeline_head(void)
 			__ipipe_sync_pipeline();
 		else
 			__ipipe_walk_pipeline(&head_domain->p_link);
-        }
+	}
 
 	local_irq_enable_hw();
 }
@@ -448,12 +448,12 @@ void __ipipe_restore_pipeline_head(unsigned long x) /* hw interrupt off */
 			 * Already stalled albeit ipipe_restore_pipeline_head()
 			 * should have detected it? Send a warning once.
 			 */
-			local_irq_enable_hw();	
+			local_irq_enable_hw();
 			warned = 1;
 			printk(KERN_WARNING
 				   "I-pipe: ipipe_restore_pipeline_head() optimization failed.\n");
 			dump_stack();
-			local_irq_disable_hw();	
+			local_irq_disable_hw();
 		}
 #else /* !CONFIG_DEBUG_KERNEL */
 		__set_bit(IPIPE_STALL_FLAG, &p->status);
@@ -683,7 +683,7 @@ void __ipipe_set_irq_pending(struct ipipe_domain *ipd, unsigned irq)
 	int l0b = irq / BITS_PER_LONG;
 
 	IPIPE_WARN_ONCE(!irqs_disabled_hw());
-	
+
 	if (likely(!test_bit(IPIPE_LOCK_FLAG, &ipd->irqs[irq].control))) {
 		set_bit(irq, p->irqpend_lomap);
 		set_bit(l0b, &p->irqpend_himap);
@@ -1192,15 +1192,15 @@ void __ipipe_dispatch_wired_nocheck(struct ipipe_domain *head, unsigned irq) /* 
 
 asmlinkage void preempt_schedule_irq(void);
 
-void __ipipe_preempt_schedule_irq(void)
+asmlinkage void __sched __ipipe_preempt_schedule_irq(void)
 {
-	struct ipipe_percpu_domain_data *p; 
-	unsigned long flags;  
+	struct ipipe_percpu_domain_data *p;
+	unsigned long flags;
 
 	BUG_ON(!irqs_disabled_hw());
 	local_irq_save(flags);
 	local_irq_enable_hw();
-	preempt_schedule_irq(); /* Ok, may reschedule now. */  
+	preempt_schedule_irq(); /* Ok, may reschedule now. */
 	local_irq_disable_hw();
 
 	/*
@@ -2025,28 +2025,28 @@ DEFINE_PER_CPU(int, ipipe_saved_context_check_state);
 
 void ipipe_check_context(struct ipipe_domain *border_domain)
 {
-        struct ipipe_percpu_domain_data *p; 
-        struct ipipe_domain *this_domain; 
-        unsigned long flags;
+	struct ipipe_percpu_domain_data *p;
+	struct ipipe_domain *this_domain;
+	unsigned long flags;
 	int cpu;
- 
-        local_irq_save_hw_smp(flags); 
 
-        this_domain = __ipipe_current_domain; 
-        p = ipipe_head_cpudom_ptr(); 
-        if (likely(this_domain->priority <= border_domain->priority && 
-		   !test_bit(IPIPE_STALL_FLAG, &p->status))) { 
-                local_irq_restore_hw_smp(flags); 
-                return; 
-        } 
- 
+	local_irq_save_hw_smp(flags);
+
+	this_domain = __ipipe_current_domain;
+	p = ipipe_head_cpudom_ptr();
+	if (likely(this_domain->priority <= border_domain->priority &&
+		   !test_bit(IPIPE_STALL_FLAG, &p->status))) {
+		local_irq_restore_hw_smp(flags);
+		return;
+	}
+
 	cpu = ipipe_processor_id();
-        if (!per_cpu(ipipe_percpu_context_check, cpu)) { 
-                local_irq_restore_hw_smp(flags); 
-                return; 
-        } 
- 
-        local_irq_restore_hw_smp(flags); 
+	if (!per_cpu(ipipe_percpu_context_check, cpu)) {
+		local_irq_restore_hw_smp(flags);
+		return;
+	}
+
+	local_irq_restore_hw_smp(flags);
 
 	ipipe_context_check_off();
 	ipipe_trace_panic_freeze();
@@ -2101,7 +2101,7 @@ int notrace __ipipe_check_percpu_access(void)
 	 * disabled, and no migration could occur.
 	 */
 	if (this_domain == ipipe_root_domain) {
-		p = ipipe_root_cpudom_ptr(); 
+		p = ipipe_root_cpudom_ptr();
 		if (test_bit(IPIPE_STALL_FLAG, &p->status))
 			goto out;
 	}

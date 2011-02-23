@@ -2,6 +2,7 @@
  *  linux/arch/arm/mach-integrator/integrator_cp.c
  *
  *  Copyright (C) 2003 Deep Blue Solutions Ltd
+ *  Copyright (C) 2005 Stelian Pop.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -162,6 +163,9 @@ static struct irq_chip cic_chip = {
 	.name		= "CIC",
 	.irq_ack	= cic_mask_irq,
 	.irq_mask	= cic_mask_irq,
+#ifdef CONFIG_IPIPE
+	.irq_mask_ack	= cic_mask_irq,
+#endif /* CONFIG_IPIPE */
 	.irq_unmask	= cic_unmask_irq,
 };
 
@@ -181,6 +185,9 @@ static struct irq_chip pic_chip = {
 	.name		= "PIC",
 	.irq_ack	= pic_mask_irq,
 	.irq_mask	= pic_mask_irq,
+#ifdef CONFIG_IPIPE
+	.irq_mask_ack	= pic_mask_irq,
+#endif /* CONFIG_IPIPE */
 	.irq_unmask	= pic_unmask_irq,
 };
 
@@ -200,6 +207,9 @@ static struct irq_chip sic_chip = {
 	.name		= "SIC",
 	.irq_ack	= sic_mask_irq,
 	.irq_mask	= sic_mask_irq,
+#ifdef CONFIG_IPIPE
+	.irq_mask_ack	= sic_mask_irq,
+#endif /* CONFIG_IPIPE */
 	.irq_unmask	= sic_unmask_irq,
 };
 
@@ -219,7 +229,7 @@ sic_handle_irq(unsigned int irq, struct irq_desc *desc)
 
 		irq += IRQ_SIC_START;
 
-		generic_handle_irq(irq);
+		ipipe_handle_chained_irq(irq);
 	} while (status);
 }
 
@@ -588,7 +598,7 @@ static void __init intcp_timer_init(void)
 	writel(0, TIMER1_VA_BASE + TIMER_CTRL);
 	writel(0, TIMER2_VA_BASE + TIMER_CTRL);
 
-	sp804_clocksource_init(TIMER2_VA_BASE);
+	sp804_clocksource_init(TIMER2_VA_BASE, INTEGRATOR_TIMER2_BASE);
 	sp804_clockevents_init(TIMER1_VA_BASE, IRQ_TIMERINT1);
 }
 
