@@ -257,6 +257,10 @@ static inline void __omap_dm_timer_reset(void __iomem *base, int autoidle,
 
 	if (autoidle)
 		l |= 0x1 << 0;
+#ifdef CONFIG_IPIPE
+	else
+		l = (0x3 << 8) | (l & (1 << 5)) | (0x1 << 3) | (l & (1 << 2));
+#endif /* CONFIG_IPIPE */
 
 	if (wakeup)
 		l |= 1 << 2;
@@ -335,6 +339,11 @@ static inline void __omap_dm_timer_write_status(void __iomem *base,
 						unsigned int value)
 {
 	__omap_dm_timer_write(base, OMAP_TIMER_STAT_REG, value, 0);
+}
+
+static inline void __omap_dm_timer_read_status(void __iomem *base)
+{
+	__omap_dm_timer_read(base, OMAP_TIMER_STAT_REG, 0);
 }
 
 #endif /* __ASM_ARCH_DMTIMER_H */

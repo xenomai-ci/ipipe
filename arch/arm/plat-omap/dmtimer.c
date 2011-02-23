@@ -37,6 +37,7 @@
 #include <linux/delay.h>
 #include <linux/io.h>
 #include <linux/module.h>
+#include <linux/sched.h>
 #include <mach/hardware.h>
 #include <plat/dmtimer.h>
 #include <mach/irqs.h>
@@ -209,9 +210,11 @@ static void omap_dm_timer_reset(struct omap_dm_timer *timer)
 	}
 	omap_dm_timer_set_source(timer, OMAP_TIMER_SRC_32_KHZ);
 
+#ifndef CONFIG_IPIPE
 	/* Enable autoidle on OMAP2+ */
 	if (cpu_class_is_omap2())
 		autoidle = 1;
+#endif /* !CONFIG_IPIPE */
 
 	/*
 	 * Enable wake-up on OMAP2 CPUs.
@@ -275,7 +278,6 @@ struct omap_dm_timer *omap_dm_timer_request_specific(int id)
 
 	return timer;
 }
-EXPORT_SYMBOL_GPL(omap_dm_timer_request_specific);
 
 void omap_dm_timer_free(struct omap_dm_timer *timer)
 {
@@ -325,6 +327,18 @@ int omap_dm_timer_get_irq(struct omap_dm_timer *timer)
 	return timer->irq;
 }
 EXPORT_SYMBOL_GPL(omap_dm_timer_get_irq);
+
+#ifdef CONFIG_IPIPE
+unsigned long omap_dm_timer_get_phys_counter_addr(struct omap_dm_timer *timer)
+{
+	return timer->phys_base + (OMAP_TIMER_COUNTER_REG & 0xff);
+}
+
+unsigned long omap_dm_timer_get_virt_counter_addr(struct omap_dm_timer *timer)
+{
+	return (unsigned long)timer->io_base + (OMAP_TIMER_COUNTER_REG & 0xff);
+}
+#endif /* CONFIG_IPIPE */
 
 #if defined(CONFIG_ARCH_OMAP1)
 
@@ -453,7 +467,7 @@ EXPORT_SYMBOL_GPL(omap_dm_timer_set_load);
 
 /* Optimized set_load which removes costly spin wait in timer_start */
 void omap_dm_timer_set_load_start(struct omap_dm_timer *timer, int autoreload,
-                            unsigned int load)
+			    unsigned int load)
 {
 	u32 l;
 

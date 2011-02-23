@@ -288,8 +288,8 @@ int ipipe_request_tickdev(const char *devname,
 	evtdev = slave->evtdev;
 	status = evtdev->mode;
 
-        if (status == CLOCK_EVT_MODE_SHUTDOWN)
-                goto out;
+	if (status == CLOCK_EVT_MODE_SHUTDOWN)
+		goto out;
 
 	itd->slave = slave;
 	itd->emul_set_mode = emumode;
@@ -496,19 +496,19 @@ void ipipe_unstall_root(void)
 {
 	struct ipipe_percpu_domain_data *p;
 
-        hard_local_irq_disable();
+	hard_local_irq_disable();
 
 	/* This helps catching bad usage from assembly call sites. */
 	ipipe_root_only();
 
 	p = ipipe_this_cpu_root_context();
 
-        __clear_bit(IPIPE_STALL_FLAG, &p->status);
+	__clear_bit(IPIPE_STALL_FLAG, &p->status);
 
-        if (unlikely(__ipipe_ipending_p(p)))
-                __ipipe_sync_stage();
+	if (unlikely(__ipipe_ipending_p(p)))
+		__ipipe_sync_stage();
 
-        hard_local_irq_enable();
+	hard_local_irq_enable();
 }
 EXPORT_SYMBOL_GPL(ipipe_unstall_root);
 
@@ -565,12 +565,12 @@ void __ipipe_restore_head(unsigned long x) /* hw interrupt off */
 			 * Already stalled albeit ipipe_restore_head()
 			 * should have detected it? Send a warning once.
 			 */
-			hard_local_irq_enable();	
+			hard_local_irq_enable();
 			warned = 1;
 			printk(KERN_WARNING
 				   "I-pipe: ipipe_restore_head() optimization failed.\n");
 			dump_stack();
-			hard_local_irq_disable();	
+			hard_local_irq_disable();
 		}
 #else /* !CONFIG_DEBUG_KERNEL */
 		__set_bit(IPIPE_STALL_FLAG, &p->status);
@@ -811,7 +811,7 @@ void __ipipe_set_irq_pending(struct ipipe_domain *ipd, unsigned int irq)
 	int l0b = irq / BITS_PER_LONG;
 
 	IPIPE_WARN_ONCE(!hard_irqs_disabled());
-	
+
 	if (likely(!test_bit(IPIPE_LOCK_FLAG, &ipd->irqs[irq].control))) {
 		__set_bit(irq, p->irqpend_lomap);
 		__set_bit(l0b, &p->irqpend_himap);
@@ -1375,15 +1375,15 @@ void __ipipe_dispatch_irq_fast(unsigned int irq) /* hw interrupts off */
 
 asmlinkage void preempt_schedule_irq(void);
 
-void __ipipe_preempt_schedule_irq(void)
+asmlinkage void __sched __ipipe_preempt_schedule_irq(void)
 {
-	struct ipipe_percpu_domain_data *p; 
-	unsigned long flags;  
+	struct ipipe_percpu_domain_data *p;
+	unsigned long flags;
 
 	BUG_ON(!hard_irqs_disabled());
 	local_irq_save(flags);
 	hard_local_irq_enable();
-	preempt_schedule_irq(); /* Ok, may reschedule now. */  
+	preempt_schedule_irq(); /* Ok, may reschedule now. */
 	hard_local_irq_disable();
 
 	/*
@@ -1633,24 +1633,24 @@ void ipipe_update_hostrt(struct timespec *wall_time, struct timespec *wtm,
 
 void ipipe_root_only(void)
 {
-        struct ipipe_domain *this_domain; 
-        unsigned long flags;
+	struct ipipe_domain *this_domain;
+	unsigned long flags;
 
-        flags = hard_smp_local_irq_save();
+	flags = hard_smp_local_irq_save();
 
-        this_domain = __ipipe_current_domain;
-        if (likely(this_domain == ipipe_root_domain &&
-		   !test_bit(IPIPE_STALL_FLAG, &__ipipe_head_status))) { 
-                hard_smp_local_irq_restore(flags); 
-                return; 
-        } 
- 
-        if (!__this_cpu_read(ipipe_percpu.context_check)) { 
-                hard_smp_local_irq_restore(flags); 
-                return; 
-        } 
- 
-        hard_smp_local_irq_restore(flags); 
+	this_domain = __ipipe_current_domain;
+	if (likely(this_domain == ipipe_root_domain &&
+		   !test_bit(IPIPE_STALL_FLAG, &__ipipe_head_status))) {
+		hard_smp_local_irq_restore(flags);
+		return;
+	}
+
+	if (!__this_cpu_read(ipipe_percpu.context_check)) {
+		hard_smp_local_irq_restore(flags);
+		return;
+	}
+
+	hard_smp_local_irq_restore(flags);
 
 	ipipe_prepare_panic();
 	ipipe_trace_panic_freeze();
@@ -1706,7 +1706,7 @@ int notrace __ipipe_check_percpu_access(void)
 	 * disabled, and no migration could occur.
 	 */
 	if (this_domain == ipipe_root_domain) {
-		p = ipipe_this_cpu_root_context(); 
+		p = ipipe_this_cpu_root_context();
 		if (test_bit(IPIPE_STALL_FLAG, &p->status))
 			goto out;
 	}

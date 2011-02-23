@@ -29,7 +29,9 @@
 #include <linux/basic_mmio_gpio.h>
 #include <linux/of.h>
 #include <linux/of_device.h>
+#include <linux/ipipe.h>
 #include <asm-generic/bug.h>
+#include <asm/mach/irq.h>
 
 enum mxc_gpio_hwtype {
 	IMX1_GPIO,	/* runs on i.mx1 */
@@ -60,6 +62,9 @@ struct mxc_gpio_port {
 	int virtual_irq_start;
 	struct bgpio_chip bgc;
 	u32 both_edges;
+#ifdef CONFIG_IPIPE
+	unsigned nonroot_gpios;
+#endif /* CONFIG_IPIPE */
 };
 
 static struct mxc_gpio_hwdata imx1_imx21_gpio_hwdata = {
@@ -215,8 +220,30 @@ static void mxc_gpio_irq_handler(struct mxc_gpio_port *port, u32 irq_stat)
 {
 	u32 gpio_irq_no_base = port->virtual_irq_start;
 
+#ifdef CONFIG_IPIPE
+	/* Handle high priority domains interrupts first */
+	u32 nonroot_gpios = irq_stat & port->nonroot_gpios;
+
+	irq_stat &= ~nonroot_gpios;
+	while (nonroot_gpios != 0) {
+		int irqoffset = fls(nonroot_gpios) - 1;
+
+		if (port->both_edges & (1 << irqoffset))
+			mxc_flip_edge(port, irqoffset);
+
+		ipipe_handle_chained_irq(gpio_irq_no_base + irqoffset);
+
+		nonroot_gpios &= ~(1 << irqoffset);
+	}
+#endif
+
 	while (irq_stat != 0) {
 		int irqoffset = fls(irq_stat) - 1;
+
+#ifdef CONFIG_IPIPE
+		hard_local_irq_enable();
+		hard_local_irq_disable();
+#endif /* CONFIG_IPIPE */
 
 		if (port->both_edges & (1 << irqoffset))
 			mxc_flip_edge(port, irqoffset);
@@ -231,18 +258,26 @@ static void mxc_gpio_irq_handler(struct mxc_gpio_port *port, u32 irq_stat)
 static void mx3_gpio_irq_handler(u32 irq, struct irq_desc *desc)
 {
 	u32 irq_stat;
+	struct irq_chip *chip = irq_desc_get_chip(desc);
 	struct mxc_gpio_port *port = irq_get_handler_data(irq);
+
+	chained_irq_enter(chip, desc);
 
 	irq_stat = readl(port->base + GPIO_ISR) & readl(port->base + GPIO_IMR);
 
 	mxc_gpio_irq_handler(port, irq_stat);
+
+	chained_irq_exit(chip, desc);
 }
 
 /* MX2 has one interrupt *for all* gpio ports */
 static void mx2_gpio_irq_handler(u32 irq, struct irq_desc *desc)
 {
 	u32 irq_msk, irq_stat;
+	struct irq_chip *chip = irq_desc_get_chip(desc);
 	struct mxc_gpio_port *port;
+
+	chained_irq_enter(chip, desc);
 
 	/* walk through all interrupt status registers */
 	list_for_each_entry(port, &mxc_gpio_ports, node) {
@@ -254,6 +289,8 @@ static void mx2_gpio_irq_handler(u32 irq, struct irq_desc *desc)
 		if (irq_stat)
 			mxc_gpio_irq_handler(port, irq_stat);
 	}
+
+	chained_irq_exit(chip, desc);
 }
 
 /*
@@ -458,3 +495,51 @@ MODULE_AUTHOR("Freescale Semiconductor, "
 	      "Juergen Beisert <kernel@pengutronix.de>");
 MODULE_DESCRIPTION("Freescale MXC GPIO");
 MODULE_LICENSE("GPL");
+
+#if defined(CONFIG_IPIPE) && defined(__IPIPE_MACH_HAVE_PIC_MUTE)
+extern void tzic_set_irq_prio(int irq, int hi);
+
+void __ipipe_mach_enable_irqdesc(struct ipipe_domain *ipd, unsigned irq)
+{
+	struct irq_desc *desc = irq_to_desc(irq);
+	struct irq_chip *chip = irq_desc_get_chip(desc);
+
+	if (chip->irq_set_type == gpio_set_irq_type) {
+		/* It is a gpio. */
+		struct mxc_gpio_port *port = irq_get_handler_data(irq);
+		u32 gpio = irq_to_gpio(irq);
+
+		if (ipd != &ipipe_root) {
+			port->nonroot_gpios |= (1 << (gpio % 32));
+			if (port->nonroot_gpios == (1 << (gpio % 32))) {
+				__ipipe_irqbits[(port->irq / 32)]
+					&= ~(1 << (port->irq % 32));
+				tzic_set_irq_prio(port->irq, 1);
+			}
+		}
+	} else
+		tzic_set_irq_prio(irq, ipd != &ipipe_root);
+}
+
+void __ipipe_mach_disable_irqdesc(struct ipipe_domain *ipd, unsigned irq)
+{
+	struct irq_desc *desc = irq_to_desc(irq);
+	struct irq_chip *chip = irq_desc_get_chip(desc);
+
+	if (chip->irq_set_type == gpio_set_irq_type) {
+		/* It is a gpio. */
+		struct mxc_gpio_port *port = irq_get_handler_data(irq);
+		u32 gpio = irq_to_gpio(irq);
+
+		if (ipd != &ipipe_root) {
+			port->nonroot_gpios &= ~(1 << (gpio % 32));
+			if (!port->nonroot_gpios) {
+				tzic_set_irq_prio(port->irq, 0);
+				__ipipe_irqbits[(port->irq / 32)]
+					|= (1 << (port->irq % 32));
+			}
+		}
+	} else if (ipd != &ipipe_root)
+		tzic_set_irq_prio(irq, 0);
+}
+#endif /* CONFIG_IPIPE && __IPIPE_MACH_HAVE_PIC_MUTE */

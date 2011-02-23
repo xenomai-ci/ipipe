@@ -53,7 +53,7 @@ extern void imx50_soc_init(void);
 extern void imx51_soc_init(void);
 extern void imx53_soc_init(void);
 extern void epit_timer_init(struct clk *timer_clk, void __iomem *base, int irq);
-extern void mxc_timer_init(struct clk *timer_clk, void __iomem *, int);
+extern void mxc_timer_init(struct clk *timer_clk, void __iomem *, unsigned long, int);
 extern int mx1_clocks_init(unsigned long fref);
 extern int mx21_clocks_init(unsigned long lref, unsigned long fref);
 extern int mx25_clocks_init(void);
@@ -72,4 +72,9 @@ extern void mxc_arch_reset_init(void __iomem *);
 extern void mx51_efikamx_reset(void);
 extern int mx53_revision(void);
 extern int mx53_display_revision(void);
+
+#ifdef CONFIG_IPIPE
+void ipipe_mach_allow_hwtimer_uaccess(unsigned long aips1, unsigned long aips2);
+#endif
+
 #endif
