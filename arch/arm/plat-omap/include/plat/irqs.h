@@ -436,12 +436,21 @@
 #define INTCPS_NR_MIR_REGS	3
 #define INTCPS_NR_IRQS		96
 
+#ifndef CONFIG_ARCH_OMAP1
+#define __IPIPE_MACH_HAVE_PIC_MUTE
+#endif /* OMAP2 || OMAP3 || OMAP4 */
+
 #ifndef __ASSEMBLY__
 extern void __iomem *omap_irq_base;
 void omap1_init_irq(void);
 void omap2_init_irq(void);
 void omap3_init_irq(void);
 void ti816x_init_irq(void);
+
+#if defined(CONFIG_ARCH_OMAP4) && defined(CONFIG_SMP)
+#include <asm/smp_twd.h>
+#endif /* CONFIG_ARCH_OMAP4 */
+
 extern int omap_irq_pending(void);
 void omap_intc_save_context(void);
 void omap_intc_restore_context(void);

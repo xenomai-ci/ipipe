@@ -52,7 +52,7 @@
 		    && atomic_read(&(mm)->mm_users)		\
 		    && !(mm)->core_state			\
 		    && !rwsem_is_locked(&(mm)->mmap_sem)	\
-		    && !irqs_disabled());
+		    && !hard_irqs_disabled());
 #else /* !CONFIG_ARM_FCSE_DYNPID */
 #define fcse_check_context(mm) do { (void)(mm); } while(0)
 #endif /* !CONFIG_ARM_FCSE_DYNPID */
