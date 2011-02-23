@@ -551,3 +551,15 @@ struct platform_device imx_kpp_device = {
 };
 
 #endif
+#ifdef CONFIG_IPIPE
+static int post_cpu_init(void)
+{
+#ifdef CONFIG_MACH_MX27
+	if (cpu_is_mx27())
+		ipipe_mach_allow_hwtimer_uaccess(MX27_AIPI_BASE_ADDR_VIRT, 3);
+#endif /* CONFIG_MACH_MX27 */
+	return 0;
+}
+
+postcore_initcall(post_cpu_init);
+#endif /* CONFIG_IPIPE */
