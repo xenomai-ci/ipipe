@@ -271,6 +271,8 @@ config ARCH_VEXPRESS
 
 config ARCH_AT91
 	bool "Atmel AT91"
+	select GENERIC_TIME if IPIPE
+	select GENERIC_CLOCKEVENTS if IPIPE
 	select ARCH_REQUIRE_GPIOLIB
 	select HAVE_CLK
 	help
@@ -937,6 +939,13 @@ config PLAT_VERSATILE
 config ARM_TIMER_SP804
 	bool
 
+if IPIPE
+config IPIPE_ARM_KUSER_TSC
+       bool
+       select GENERIC_TIME
+       default y if ARCH_AT91 || ARCH_IXP4XX || ARCH_MXC || ARCH_OMAP || PLAT_PXA || PLAT_S3C24XX || ARCH_SA1100
+endif
+
 source arch/arm/mm/Kconfig
 
 config IWMMXT
@@ -1191,6 +1200,8 @@ config LOCAL_TIMERS
 	  legacy IPI broadcast method.  Local timers allows the system
 	  accounting to be spread across the timer interval, preventing a
 	  "thundering herd" at every timer tick.
+
+source kernel/ipipe/Kconfig
 
 source kernel/Kconfig.preempt
 

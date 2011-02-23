@@ -6,10 +6,10 @@
  * Maintainer: Deepak Saxena <dsaxena@plexity.net>
  *
  * Copyright 2002 (c) Intel Corporation
- * Copyright 2003-2004 (c) MontaVista, Software, Inc. 
- * 
- * This file is licensed under  the terms of the GNU General Public 
- * License version 2. This program is licensed "as is" without any 
+ * Copyright 2003-2004 (c) MontaVista, Software, Inc.
+ *
+ * This file is licensed under  the terms of the GNU General Public
+ * License version 2. This program is licensed "as is" without any
  * warranty of any kind, whether express or implied.
  */
 
@@ -43,6 +43,18 @@
 static void __init ixp4xx_clocksource_init(void);
 static void __init ixp4xx_clockevent_init(void);
 static struct clock_event_device clockevent_ixp4xx;
+
+#ifdef CONFIG_IPIPE
+#include <linux/ipipe.h>
+int __ipipe_mach_timerint = IRQ_IXP4XX_TIMER1;
+int __ipipe_mach_timerstolen = 0;
+unsigned int __ipipe_mach_ticks_per_jiffy = LATCH;
+EXPORT_SYMBOL(__ipipe_mach_timerint);
+EXPORT_SYMBOL(__ipipe_mach_timerstolen);
+EXPORT_SYMBOL(__ipipe_mach_ticks_per_jiffy);
+
+#define ONE_SHOT_ENABLE (IXP4XX_OST_ENABLE|IXP4XX_OST_ONE_SHOT)
+#endif /* CONFIG_IPIPE */
 
 /*************************************************************************
  * IXP4xx chipset I/O mapping
@@ -239,7 +251,7 @@ void __init ixp4xx_init_irq(void)
 	*IXP4XX_ICLR = 0x0;
 
 	/* Disable all interrupt */
-	*IXP4XX_ICMR = 0x0; 
+	*IXP4XX_ICMR = 0x0;
 
 	if (cpu_is_ixp46x() || cpu_is_ixp43x()) {
 		/* Route upper 32 sources to IRQ instead of FIQ */
@@ -249,7 +261,7 @@ void __init ixp4xx_init_irq(void)
 		*IXP4XX_ICMR2 = 0x00;
 	}
 
-        /* Default to all level triggered */
+	/* Default to all level triggered */
 	for(i = 0; i < NR_IRQS; i++) {
 		set_irq_chip(i, &ixp4xx_irq_chip);
 		set_irq_handler(i, handle_level_irq);
@@ -260,7 +272,7 @@ void __init ixp4xx_init_irq(void)
 
 /*************************************************************************
  * IXP4xx timer tick
- * We use OS timer1 on the CPU for the timer tick and the timestamp 
+ * We use OS timer1 on the CPU for the timer tick and the timestamp
  * counter as a source of real clock ticks to account for missed jiffies.
  *************************************************************************/
 
@@ -268,8 +280,12 @@ static irqreturn_t ixp4xx_timer_interrupt(int irq, void *dev_id)
 {
 	struct clock_event_device *evt = dev_id;
 
+#ifndef CONFIG_IPIPE
 	/* Clear Pending Interrupt by writing '1' to it */
 	*IXP4XX_OSST = IXP4XX_OSST_TIMER_1_PEND;
+#else /* CONFIG_IPIPE */
+	__ipipe_tsc_update();
+#endif /* CONFIG_IPIPE */
 
 	evt->event_handler(evt);
 
@@ -480,6 +496,73 @@ static void ixp4xx_set_mode(enum clock_event_mode mode,
 	*IXP4XX_OSRT1 = osrt | opts;
 }
 
+#ifdef CONFIG_IPIPE
+static struct __ipipe_tscinfo tsc_info = {
+	.type = IPIPE_TSC_TYPE_FREERUNNING,
+	.u = {
+		{
+			.counter_paddr =
+			(IXP4XX_TIMER_BASE_PHYS + IXP4XX_OSTS_OFFSET),
+			.mask = 0xffffffff,
+		},
+	},
+};
+
+int __ipipe_check_tickdev(const char *devname)
+{
+	return !strcmp(devname, clockevent_ixp4xx.name);
+}
+
+void __ipipe_mach_acktimer(void)
+{
+	/* Clear Pending Interrupt by writing '1' to it */
+	*IXP4XX_OSST = IXP4XX_OSST_TIMER_1_PEND;
+}
+/*
+ * Reprogram the timer
+ *
+ * The timer is aperiodic (most of the time) when running Xenomai, so
+ * __ipipe_mach_set_dec is called for each timer tick and programs the
+ * timer hardware for the next tick.
+ *
+ */
+#define MIN_DELAY 333 /* 5 usec with the 66.66 MHz system clock */
+
+void __ipipe_mach_set_dec(unsigned long delay)
+{
+	unsigned long flags;
+	if (delay > MIN_DELAY) {
+		local_irq_save_hw(flags);
+		*IXP4XX_OSRT1 = delay | ONE_SHOT_ENABLE;
+		local_irq_restore_hw(flags);
+	} else {
+		ipipe_trigger_irq(IRQ_IXP4XX_TIMER1);
+	}
+}
+EXPORT_SYMBOL(__ipipe_mach_set_dec);
+
+/*
+ * This returns the number of clock ticks remaining.
+ */
+unsigned long __ipipe_mach_get_dec(void)
+{
+	return(*IXP4XX_OST1); /* remaining */
+}
+EXPORT_SYMBOL(__ipipe_mach_get_dec);
+
+void __ipipe_mach_release_timer(void)
+{
+	unsigned long flags;
+
+	local_irq_save_hw(flags);
+	ixp4xx_set_mode(clockevent_ixp4xx.mode, &clockevent_ixp4xx);
+	if (clockevent_ixp4xx.mode == CLOCK_EVT_MODE_ONESHOT)
+		ixp4xx_set_next_event(LATCH, &clockevent_ixp4xx);
+	local_irq_restore_hw(flags);
+}
+EXPORT_SYMBOL(__ipipe_mach_release_timer);
+#endif /* CONFIG_IPIPE */
+
 static struct clock_event_device clockevent_ixp4xx = {
 	.name		= "ixp4xx timer1",
 	.features       = CLOCK_EVT_FEAT_PERIODIC | CLOCK_EVT_FEAT_ONESHOT,
@@ -500,4 +583,10 @@ static void __init ixp4xx_clockevent_init(void)
 	clockevent_ixp4xx.cpumask = cpumask_of(0);
 
 	clockevents_register_device(&clockevent_ixp4xx);
+
+#ifdef CONFIG_IPIPE
+	tsc_info.freq = FREQ;
+	tsc_info.counter_vaddr = (unsigned long)IXP4XX_OSTS;
+	__ipipe_tsc_register(&tsc_info);
+#endif
 }

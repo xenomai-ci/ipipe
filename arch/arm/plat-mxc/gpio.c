@@ -23,6 +23,7 @@
 #include <linux/io.h>
 #include <linux/irq.h>
 #include <linux/gpio.h>
+#include <linux/ipipe.h>
 #include <mach/hardware.h>
 #include <asm-generic/bug.h>
 
@@ -86,6 +87,7 @@ static int gpio_set_irq_type(u32 irq, u32 type)
 {
 	u32 gpio = irq_to_gpio(irq);
 	struct mxc_gpio_port *port = &mxc_gpio_ports[gpio / 32];
+	unsigned long flags;
 	u32 bit, val;
 	int edge;
 	void __iomem *reg = port->base;
@@ -119,11 +121,13 @@ static int gpio_set_irq_type(u32 irq, u32 type)
 		return -EINVAL;
 	}
 
+	spin_lock_irqsave(&port->lock, flags);
 	reg += GPIO_ICR1 + ((gpio & 0x10) >> 2); /* lower or upper register */
 	bit = gpio & 0xf;
 	val = __raw_readl(reg) & ~(0x3 << (bit << 1));
 	__raw_writel(val | (edge << (bit << 1)), reg);
 	_clear_gpio_irqstatus(port, gpio & 0x1f);
+	spin_unlock_irqrestore(&port->lock, flags);
 
 	return 0;
 }
@@ -164,7 +168,7 @@ static void mxc_gpio_irq_handler(struct mxc_gpio_port *port, u32 irq_stat)
 		if (port->both_edges & (1 << irqoffset))
 			mxc_flip_edge(port, irqoffset);
 
-		generic_handle_irq(gpio_irq_no_base + irqoffset);
+		ipipe_handle_chained_irq(gpio_irq_no_base + irqoffset);
 
 		irq_stat &= ~(1 << irqoffset);
 	}

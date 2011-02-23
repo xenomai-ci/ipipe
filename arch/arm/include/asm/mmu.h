@@ -6,7 +6,7 @@
 typedef struct {
 #ifdef CONFIG_CPU_HAS_ASID
 	unsigned int id;
-	spinlock_t id_lock;
+	ipipe_spinlock_t id_lock;
 #endif
 #ifdef CONFIG_ARM_FCSE
 	struct {

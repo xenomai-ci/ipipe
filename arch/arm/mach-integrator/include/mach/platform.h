@@ -399,7 +399,11 @@
 #define INTEGRATOR_TIMER1_BASE          (INTEGRATOR_CT_BASE + 0x100)
 #define INTEGRATOR_TIMER2_BASE          (INTEGRATOR_CT_BASE + 0x200)
 
+#ifdef CONFIG_ARCH_INTEGRATOR_CP
+#define TICKS_PER_uSEC                  1
+#else
 #define TICKS_PER_uSEC                  24
+#endif
 
 /*
  *  These are useconds NOT ticks.

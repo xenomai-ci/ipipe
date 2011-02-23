@@ -882,7 +882,7 @@ endchoice
 
 config ARM_FCSE_DYNPID
 	bool "Dynamic FCSE pid allocation"
-	depends on ARM_FCSE_BEST_EFFORT
+	depends on ARM_FCSE_BEST_EFFORT && !IPIPE
 	help
 	  When this option is enabled, the kernel may decide to change the FCSE
 	  pid of a process when switching context. This helps reducing the
