@@ -22,7 +22,7 @@
 @
 #define S_OFF		8
 
-/* 
+/*
  * The SWI code relies on the fact that R0 is at the bottom of the stack
  * (due to slow/fast restore user regs).
  */
@@ -183,6 +183,12 @@
 1:
 #endif
 	.endm
+
+	.macro slow_restore_user_regs
+	/* perform architecture specific actions before user return */
+	arch_ret_to_user r1, lr
+	restore_user_regs fast = 0, offset = 0
+       .endm
 
 /*
  * These are the registers used in the syscall handler, and allow us to

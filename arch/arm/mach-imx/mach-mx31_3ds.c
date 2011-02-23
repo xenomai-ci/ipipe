@@ -17,6 +17,7 @@
 #include <linux/init.h>
 #include <linux/clk.h>
 #include <linux/irq.h>
+#include <linux/ipipe.h>
 #include <linux/gpio.h>
 #include <linux/platform_device.h>
 #include <linux/mfd/mc13783.h>
