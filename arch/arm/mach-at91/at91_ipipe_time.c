@@ -76,7 +76,9 @@
 #define TCNXCNS(timer,v) ((v) << ((timer)<<1))
 #define AT91_TC_REG_MASK (0xffff)
 
-static unsigned max_delta_ticks, min_delta_ticks, tick_pending;
+static unsigned long next_match;
+
+static unsigned max_delta_ticks, min_delta_ticks;
 static struct clock_event_device clkevt;
 static int tc_timer_clock;
 
@@ -114,11 +116,7 @@ EXPORT_SYMBOL(__ipipe_mach_ticks_per_jiffy);
  */
 static irqreturn_t at91_timer_interrupt(int irq, void *dev_id)
 {
-	if (__ipipe_mach_timerstolen || tick_pending) {
-		tick_pending = 0;
-		clkevt.event_handler(&clkevt);
-	}
-
+	clkevt.event_handler(&clkevt);
 	return IRQ_HANDLED;
 }
 
@@ -132,8 +130,12 @@ void __ipipe_mach_acktimer(void)
 {
 	at91_tc_read(AT91_TC_SR);
 
-	if (unlikely(!__ipipe_mach_timerstolen))
-		__ipipe_mach_set_dec(max_delta_ticks);
+	if (unlikely(!__ipipe_mach_timerstolen)) {
+		__ipipe_tsc_update();
+		next_match = (next_match + __ipipe_mach_ticks_per_jiffy)
+			& AT91_TC_REG_MASK;
+		write_RC(next_match);
+	}
 }
 
 static void
@@ -145,7 +147,7 @@ at91_tc_set_mode(enum clock_event_mode mode, struct clock_event_device *dev)
 	/* Disable all interrupts. */
 	at91_tc_write(AT91_TC_IDR, ~0ul);
 
-	if (mode == CLOCK_EVT_MODE_ONESHOT) {
+	if (mode == CLOCK_EVT_MODE_PERIODIC) {
 		unsigned long v;
 
 #ifndef CONFIG_ARCH_AT91SAM9263
@@ -167,7 +169,9 @@ at91_tc_set_mode(enum clock_event_mode mode, struct clock_event_device *dev)
 		/* Use the clock selected by at91_timer_init as input clock. */
 		at91_tc_write(AT91_TC_CMR, tc_timer_clock);
 
-		__ipipe_mach_set_dec(max_delta_ticks);
+		/* Load the TC register C. */
+		next_match = __ipipe_mach_ticks_per_jiffy;
+		write_RC(next_match);
 
 		/* Enable CPCS interrupt. */
 		at91_tc_write(AT91_TC_IER, AT91_TC_CPCS);
@@ -175,14 +179,6 @@ at91_tc_set_mode(enum clock_event_mode mode, struct clock_event_device *dev)
 		/* Enable the channel. */
 		at91_tc_write(AT91_TC_CCR, AT91_TC_CLKEN | AT91_TC_SWTRG);
 	}
-}
-
-static int
-at91_tc_set_next_event(unsigned long delta, struct clock_event_device *dev)
-{
-	tick_pending = 1;
-	__ipipe_mach_set_dec(delta);
-	return 0;
 }
 
 /*
@@ -212,11 +208,10 @@ int __ipipe_check_tickdev(const char *devname)
 
 static struct clock_event_device clkevt = {
 	.name		= "at91_tc" __stringify(CONFIG_IPIPE_AT91_TC),
-	.features	= CLOCK_EVT_FEAT_ONESHOT,
+	.features	= CLOCK_EVT_FEAT_PERIODIC,
 	.shift		= 20,
 	.rating		= 250,
 	.set_mode	= at91_tc_set_mode,
-	.set_next_event = at91_tc_set_next_event,
 };
 
 static struct __ipipe_tscinfo tsc_info = {
@@ -235,7 +230,7 @@ static struct __ipipe_tscinfo tsc_info = {
 
 void __ipipe_mach_release_timer(void)
 {
-	clkevt.set_next_event(__ipipe_mach_ticks_per_jiffy, &clkevt);
+	__ipipe_mach_set_dec(__ipipe_mach_ticks_per_jiffy);
 }
 EXPORT_SYMBOL(__ipipe_mach_release_timer);
 
@@ -298,16 +293,15 @@ void __init at91_timer_init(void)
 	clkevt.max_delta_ns = wrap_ns;
 	clkevt.min_delta_ns = 2000;
 	clkevt.cpumask = cpumask_of(0);
+	clockevents_register_device(&clkevt);
+
+	tsc_info.freq = divided_freq;
+	__ipipe_tsc_register(&tsc_info);
 
 	__ipipe_mach_ticks_per_jiffy = (divided_freq + HZ/2) / HZ;
 	max_delta_ticks = (wrap_ns * clkevt.mult) >> clkevt.shift;
 	min_delta_ticks = ((unsigned long long) clkevt.min_delta_ns
 			   * clkevt.mult) >> clkevt.shift;
-
-	clockevents_register_device(&clkevt);
-
-	tsc_info.freq = divided_freq;
-	__ipipe_tsc_register(&tsc_info);
 }
 
 #ifdef CONFIG_ARCH_AT91RM9200
