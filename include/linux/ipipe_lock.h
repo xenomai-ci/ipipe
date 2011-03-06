@@ -224,6 +224,7 @@ void __ipipe_spin_unlock_debug(unsigned long flags);
 #define __ipipe_spin_lock_irq(lock)		do { } while (0)
 #define __ipipe_spin_unlock_irq(lock)		do { } while (0)
 #define __ipipe_spin_lock_irqsave(lock)		0
+#define __ipipe_spin_trylock_irq(lock)		1
 #define __ipipe_spin_trylock_irqsave(lock, x)	({ (void)(x); 1; })
 #define __ipipe_spin_unlock_irqrestore(lock, x)	do { (void)(x); } while (0)
 #define __ipipe_spin_unlock_irqbegin(lock)	do { } while (0)

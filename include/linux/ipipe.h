@@ -270,9 +270,13 @@ static inline void ipipe_irq_unlock(unsigned irq)
 	(ipd)->irqs[irq].handler(irq, (ipd)->irqs[irq].cookie)
 #endif
 
-#ifndef __ipipe_do_root_virq
-#define __ipipe_do_root_virq(ipd, irq)			\
-	(ipd)->irqs[irq].handler(irq, (ipd)->irqs[irq].cookie)
+#ifndef __ipipe_check_root_resched
+#ifdef CONFIG_PREEMPT
+#define __ipipe_check_root_resched()			\
+	(preempt_count() == 0 && need_resched())
+#else
+#define __ipipe_check_root_resched()  0
+#endif
 #endif
 
 #ifndef __ipipe_run_irqtail
