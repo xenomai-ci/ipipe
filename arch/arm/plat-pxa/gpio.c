@@ -286,7 +286,7 @@ void __init pxa_init_gpio(int mux_irq, int start, int end, set_wake_t fn)
 
 	for (irq  = gpio_to_irq(start); irq <= gpio_to_irq(end); irq++) {
 		set_irq_chip(irq, &pxa_muxed_gpio_chip);
-		set_irq_handler(irq, handle_level_irq);
+		set_irq_handler(irq, handle_edge_irq);
 		set_irq_flags(irq, IRQF_VALID | IRQF_PROBE);
 	}
 
