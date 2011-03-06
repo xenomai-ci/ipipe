@@ -38,6 +38,9 @@ struct mxc_gpio_port {
 	struct gpio_chip chip;
 	u32 both_edges;
 	ipipe_spinlock_t lock;
+#ifdef CONFIG_IPIPE
+	unsigned nonroot_gpios;
+#endif /* CONFIG_IPIPE */
 };
 
 int mxc_gpio_init(struct mxc_gpio_port*, int);

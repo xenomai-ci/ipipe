@@ -336,14 +336,15 @@ void __ipipe_mach_acktimer(void)
 void __ipipe_mach_set_dec(unsigned long delay)
 {
 	if (delay > mxc_min_delay) {
-		unsigned long flags;
+		unsigned long tcmp;
 
-		local_irq_save_hw(flags);
-		if (!timer_is_v2())
-			mx1_2_set_next_event(delay, NULL);
-		else
-			v2_set_next_event(delay, NULL);
-		local_irq_restore_hw(flags);
+		if (!timer_is_v2()) {
+			tcmp = __raw_readl(timer_base + MX1_2_TCN) + delay;
+			__raw_writel(tcmp, timer_base + MX1_2_TCMP);
+		} else {
+			tcmp = __raw_readl(timer_base + V2_TCN) + delay;
+			__raw_writel(tcmp, timer_base + V2_TCMP);
+		}
 	} else
 		ipipe_trigger_irq(__ipipe_mach_timerint);
 }
