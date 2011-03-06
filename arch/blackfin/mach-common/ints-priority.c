@@ -1423,6 +1423,21 @@ asmlinkage int __ipipe_grab_irq(int vec, struct pt_regs *regs)
 			__raw_get_cpu_var(__ipipe_tick_regs).ipend |= 0x10;
 	}
 
+	/*
+	 * We don't want Linux interrupt handlers to run at the
+	 * current core priority level (i.e. < EVT15), since this
+	 * might delay other interrupts handled by a high priority
+	 * domain. Here is what we do instead:
+	 *
+	 * - we raise the SYNCDEFER bit to prevent
+	 * __ipipe_handle_irq() to sync the pipeline for the root
+	 * stage for the incoming interrupt. Upon return, that IRQ is
+	 * pending in the interrupt log.
+	 *
+	 * - we raise the TIF_IRQ_SYNC bit for the current thread, so
+	 * that _schedule_and_signal_from_int will eventually sync the
+	 * pipeline from EVT15.
+	 */
 	if (this_domain == ipipe_root_domain) {
 		s = __test_and_set_bit(IPIPE_SYNCDEFER_FLAG, &p->status);
 		barrier();
