@@ -525,11 +525,8 @@ void __ipipe_mach_acktimer(void)
 
 void __ipipe_mach_set_dec(unsigned long delay)
 {
-	unsigned long flags;
 	if (delay > MIN_DELAY) {
-		local_irq_save_hw(flags);
 		*IXP4XX_OSRT1 = delay | ONE_SHOT_ENABLE;
-		local_irq_restore_hw(flags);
 	} else {
 		ipipe_trigger_irq(IRQ_IXP4XX_TIMER1);
 	}

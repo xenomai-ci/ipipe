@@ -186,16 +186,12 @@ at91_tc_set_mode(enum clock_event_mode mode, struct clock_event_device *dev)
  */
 void __ipipe_mach_set_dec(unsigned long delay)
 {
-	unsigned long flags;
-
 	if (delay > max_delta_ticks)
 		delay = max_delta_ticks;
 
 	if (likely(delay > min_delta_ticks)) {
-		local_irq_save_hw(flags);
 		write_RC((read_CV() + delay) & AT91_TC_REG_MASK);
 		__ipipe_tsc_update();
-		local_irq_restore_hw(flags);
 	} else
 		ipipe_trigger_irq(KERNEL_TIMER_IRQ_NUM);
 }
@@ -230,7 +226,10 @@ static struct __ipipe_tscinfo tsc_info = {
 
 void __ipipe_mach_release_timer(void)
 {
+	unsigned long flags;
+	local_irq_save_hw(flags);
 	__ipipe_mach_set_dec(__ipipe_mach_ticks_per_jiffy);
+	local_irq_restore_hw(flags);
 }
 EXPORT_SYMBOL(__ipipe_mach_release_timer);
 

@@ -213,12 +213,8 @@ void __ipipe_mach_acktimer(void)
 void __ipipe_mach_set_dec(unsigned long delay)
 {
 	if (delay > MIN_OSCR_DELTA) {
-		unsigned long flags;
-
-		local_irq_save_hw(flags);
 		OSMR0 = delay + OSCR;
 		OIER |= OIER_E0;
-		local_irq_restore_hw(flags);
 	} else
 		ipipe_trigger_irq(IRQ_OST0);
 }
