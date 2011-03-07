@@ -755,8 +755,8 @@ int __init mx27_clocks_init(unsigned long fref)
 	clk_enable(&uart1_clk);
 #endif
 
-	mxc_timer_init(&gpt1_clk, IO_ADDRESS(GPT1_BASE_ADDR), MXC_INT_GPT1);
+	mxc_timer_init(&gpt1_clk, IO_ADDRESS(GPT1_BASE_ADDR),
+		       GPT1_BASE_ADDR, MXC_INT_GPT1);
 
 	return 0;
 }
-

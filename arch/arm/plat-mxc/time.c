@@ -328,14 +328,15 @@ void __ipipe_mach_acktimer(void)
 void __ipipe_mach_set_dec(unsigned long delay)
 {
 	if (delay > mxc_min_delay) {
-		unsigned long flags;
+		unsigned long tcmp;
 
-		local_irq_save_hw(flags);
-		if (!cpu_is_mx3())
-			mx1_2_set_next_event(delay, NULL);
-		else
-			mx3_set_next_event(delay, NULL);
-		local_irq_restore_hw(flags);
+		if (cpu_is_mx3() || cpu_is_mx25()) {
+			tcmp = __raw_readl(timer_base + MX3_TCN) + delay;
+			__raw_writel(tcmp, timer_base + MX3_TCMP);
+		} else {
+			tcmp = __raw_readl(timer_base + MX1_2_TCN) + delay;
+			__raw_writel(tcmp, timer_base + MX1_2_TCMP);
+		}
 	} else
 		ipipe_trigger_irq(__ipipe_mach_timerint);
 }
@@ -351,16 +352,17 @@ EXPORT_SYMBOL(__ipipe_mach_release_timer);
 
 unsigned long __ipipe_mach_get_dec(void)
 {
-	if (!cpu_is_mx3())
-		return __raw_readl(timer_base + MX1_2_TCMP)
-			- __raw_readl(timer_base + MX1_2_TCN);
-	else
+	if (cpu_is_mx3() || cpu_is_mx25())
 		return __raw_readl(timer_base + MX3_TCMP)
 			- __raw_readl(timer_base + MX3_TCN);
+	else
+		return __raw_readl(timer_base + MX1_2_TCMP)
+			- __raw_readl(timer_base + MX1_2_TCN);
 }
 #endif /* CONFIG_IPIPE */
 
-void __init mxc_timer_init(struct clk *timer_clk, void __iomem *base, int irq)
+void __init mxc_timer_init(struct clk *timer_clk,
+			   void __iomem *base, unsigned long phys, int irq)
 {
 	uint32_t tctl_val;
 
@@ -395,17 +397,13 @@ void __init mxc_timer_init(struct clk *timer_clk, void __iomem *base, int irq)
 	tsc_info.freq = clk_get_rate(timer_clk);
 	mxc_min_delay = ((__ipipe_cpu_freq + 500000) / 1000000) ?: 1;
 
-	if (cpu_is_mx1() || cpu_is_mx2()) {
-#if defined(CONFIG_ARCH_MX1) || defined(CONFIG_ARCH_MX2)
-		tsc_info.u.counter_paddr = (TIM1_BASE_ADDR + MX1_2_TCN);
+	if (cpu_is_mx3() || cpu_is_mx25()) {
+		tsc_info.u.counter_paddr = (phys + MX3_TCN);
+		tsc_info.counter_vaddr = (unsigned long)(timer_base + MX3_TCN);
+	} else {
+		tsc_info.u.counter_paddr = (phys + MX1_2_TCN);
 		tsc_info.counter_vaddr =
 			(unsigned long)(timer_base + MX1_2_TCN);
-#endif
-	} else if (cpu_is_mx3()) {
-#ifdef CONFIG_ARCH_MX3
-		tsc_info.u.counter_paddr = (GPT1_BASE_ADDR + MX3_TCN);
-		tsc_info.counter_vaddr = (unsigned long)(timer_base + MX3_TCN);
-#endif
 	}
 	__ipipe_tsc_register(&tsc_info);
 #endif /* CONFIG_IPIPE */

@@ -636,7 +636,8 @@ int __init mxc91231_clocks_init(unsigned long fref)
 		clkdev_add(&lookups[i]);
 
 	gpt_base = MXC91231_IO_ADDRESS(MXC91231_GPT1_BASE_ADDR);
-	mxc_timer_init(&gpt_clk, gpt_base, MXC91231_INT_GPT);
+	mxc_timer_init(&gpt_clk, gpt_base,
+		       MXC91231_GPT1_BASE_ADDR, MXC91231_INT_GPT);
 
 	return 0;
 }
