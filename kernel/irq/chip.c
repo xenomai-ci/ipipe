@@ -805,7 +805,7 @@ __fixup_irq_handler(struct irq_desc *desc, irq_flow_handler_t handle, int is_cha
 		} else if (handle == &handle_percpu_irq) {
 			desc->ipipe_ack = &__ipipe_ack_percpu_irq;
 			desc->ipipe_end = &__ipipe_end_percpu_irq;
-		} else if (desc->chip == &no_irq_chip) {
+		} else if (get_irq_desc_chip(desc) == &no_irq_chip) {
 			desc->ipipe_ack = &__ipipe_noack_irq;
 			desc->ipipe_end = &__ipipe_noend_irq;
 		} else {
@@ -815,7 +815,7 @@ __fixup_irq_handler(struct irq_desc *desc, irq_flow_handler_t handle, int is_cha
 	}
 
 	/* Suppress intermediate trampoline routine. */
-	ipipe_root_domain->irqs[desc->irq].acknowledge = desc->ipipe_ack;
+	ipipe_root_domain->irqs[desc->irq_data.irq].acknowledge = desc->ipipe_ack;
 
 	return handle;
 }
