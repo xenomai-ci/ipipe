@@ -501,3 +501,13 @@ struct platform_device mx21_usbhc_device = {
 };
 #endif
 
+#ifdef CONFIG_IPIPE
+static int post_cpu_init(void)
+{
+	if (cpu_is_mx27())
+		ipipe_mach_allow_hwtimer_uaccess(MX27_AIPI_BASE_ADDR_VIRT, 3);
+	return 0;
+}
+
+postcore_initcall(post_cpu_init);
+#endif /* CONFIG_IPIPE */
