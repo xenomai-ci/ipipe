@@ -642,3 +642,14 @@ int __init mxc_register_gpios(void)
 {
 	return mxc_gpio_init(imx_gpio_ports, ARRAY_SIZE(imx_gpio_ports));
 }
+
+#ifdef CONFIG_IPIPE
+static int post_cpu_init(void)
+{
+	if (cpu_is_mx27())
+		ipipe_mach_allow_hwtimer_uaccess(AIPI_BASE_ADDR_VIRT, 3);
+	return 0;
+}
+
+postcore_initcall(post_cpu_init);
+#endif /* CONFIG_IPIPE */

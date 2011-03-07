@@ -443,8 +443,9 @@ struct platform_device mx25_fec_device = {
 #ifdef CONFIG_IPIPE
 static int post_cpu_init(void)
 {
-	ipipe_mach_allow_hwtimer_uaccess(MX25_AIPS1_BASE_ADDR_VIRT,
-					 MX25_AIPS2_BASE_ADDR_VIRT);
+	if (cpu_is_mx25())
+		ipipe_mach_allow_hwtimer_uaccess(MX25_AIPS1_BASE_ADDR_VIRT,
+						 MX25_AIPS2_BASE_ADDR_VIRT);
 	return 0;
 }
 
