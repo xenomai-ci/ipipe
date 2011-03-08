@@ -234,28 +234,18 @@ void uic_irq_cascade(unsigned int virq, struct irq_desc *desc)
 	else
 		desc->chip->mask_ack(virq);
 	raw_spin_unlock(&desc->lock);
+#else
+	desc->chip->mask_ack(virq);
 #endif
 
 	msr = mfdcr(uic->dcrbase + UIC_MSR);
-#ifdef CONFIG_IPIPE
-	desc->chip->mask_ack(virq);
-#endif
 	if (!msr) /* spurious interrupt */
 		goto uic_irq_ret;
 
 	src = 32 - ffs(msr);
 
 	subvirq = irq_linear_revmap(uic->irqhost, src);
-#ifdef CONFIG_IPIPE
-	{
-		struct pt_regs regs;    /* Contents not used. */
-		ipipe_trace_irq_entry(subvirq);
-		__ipipe_handle_irq(subvirq, &regs);
-		ipipe_trace_irq_exit(subvirq);
-	}
-#else
-	generic_handle_irq(subvirq);
-#endif
+	ipipe_handle_chained_irq(subvirq);
 
 uic_irq_ret:
 #ifndef CONFIG_IPIPE
