@@ -283,7 +283,7 @@ static inline int irqs_disabled_hw(void)
 #define local_irq_restore_hw(flags) do {		\
 		if ((flags) & X86_EFLAGS_IF)		\
 			ipipe_trace_end(0x80000001);	\
-		native_irq_disable();			\
+		native_restore_fl(flags);		\
 	} while (0)
 
 #else /* !CONFIG_IPIPE_TRACE_IRQSOFF */
