@@ -2,6 +2,7 @@
 #include <linux/module.h>
 #include <linux/clocksource.h>
 #include <linux/sched.h>
+#include <linux/ipipe_tickdev.h>
 
 #include <linux/ipipe.h>
 
@@ -111,3 +112,14 @@ void __ipipe_tsc_update(void)
 	ipipe_tsc_value->last_tsc = __ipipe_tsc_get() - 1;
 }
 EXPORT_SYMBOL(__ipipe_tsc_get);
+
+void update_vsyscall(struct timespec *wall_time,
+		     struct clocksource *clock, u32 mult)
+{
+	if (clock == &clksrc)
+		ipipe_update_hostrt(wall_time, clock);
+}
+
+void update_vsyscall_tz(void)
+{
+}
