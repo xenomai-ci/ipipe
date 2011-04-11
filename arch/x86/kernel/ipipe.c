@@ -30,6 +30,7 @@
 #include <linux/irq.h>
 #include <linux/clockchips.h>
 #include <linux/kprobes.h>
+#include <linux/ipipe_tickdev.h>
 #include <asm/unistd.h>
 #include <asm/processor.h>
 #include <asm/system.h>
@@ -49,6 +50,7 @@
 #include <asm/apic.h>
 #endif	/* CONFIG_X86_LOCAL_APIC */
 #include <asm/traps.h>
+#include <asm/tsc.h>
 
 int __ipipe_tick_irq = 0;	/* Legacy timer */
 
@@ -637,22 +639,22 @@ int __ipipe_divert_exception(struct pt_regs *regs, int vector)
 int __ipipe_syscall_root(struct pt_regs *regs)
 {
 	unsigned long flags;
-        int ret;
+	int ret;
 
-        /*
-         * This routine either returns:
-         * 0 -- if the syscall is to be passed to Linux;
-         * >0 -- if the syscall should not be passed to Linux, and no
-         * tail work should be performed;
-         * <0 -- if the syscall should not be passed to Linux but the
-         * tail work has to be performed (for handling signals etc).
-         */
+	/*
+	 * This routine either returns:
+	 * 0 -- if the syscall is to be passed to Linux;
+	 * >0 -- if the syscall should not be passed to Linux, and no
+	 * tail work should be performed;
+	 * <0 -- if the syscall should not be passed to Linux but the
+	 * tail work has to be performed (for handling signals etc).
+	 */
 
-        if (!__ipipe_syscall_watched_p(current, regs->orig_ax) ||
-            !__ipipe_event_monitored_p(IPIPE_EVENT_SYSCALL))
-                return 0;
+	if (!__ipipe_syscall_watched_p(current, regs->orig_ax) ||
+	    !__ipipe_event_monitored_p(IPIPE_EVENT_SYSCALL))
+		return 0;
 
-        ret = __ipipe_dispatch_event(IPIPE_EVENT_SYSCALL, regs);
+	ret = __ipipe_dispatch_event(IPIPE_EVENT_SYSCALL, regs);
 
 	local_irq_save_hw(flags);
 
@@ -679,7 +681,7 @@ int __ipipe_syscall_root(struct pt_regs *regs)
 
 /*
  * __ipipe_handle_irq() -- IPIPE's generic IRQ handler. An optimistic
- * interrupt protection log is maintained here for each domain.  Hw
+ * interrupt protection log is maintained here for each domain.	 Hw
  * interrupts are off on entry.
  */
 int __ipipe_handle_irq(struct pt_regs *regs)
@@ -813,6 +815,19 @@ int __ipipe_check_tickdev(const char *devname)
 
 	return ret;
 }
+
+#ifdef CONFIG_X86_32
+void update_vsyscall(struct timespec *wall_time, struct timespec *wtm,
+		       struct clocksource *clock, u32 mult)
+{
+       if (clock == &clocksource_tsc)
+	       ipipe_update_hostrt(wall_time, clock);
+}
+
+void update_vsyscall_tz(void)
+{
+}
+#endif /* CONFIG_X86_32 */
 
 EXPORT_SYMBOL(__ipipe_tick_irq);
 
