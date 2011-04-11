@@ -39,8 +39,6 @@ static inline void __switch_mm(struct mm_struct *prev, struct mm_struct *next,
 	WARN_ON_ONCE(!irqs_disabled_hw());
 #endif
 	if (likely(prev != next)) {
-		/* stop flush ipis for the previous mm */
-		cpumask_clear_cpu(cpu, mm_cpumask(prev));
 #ifdef CONFIG_SMP
 		percpu_write(cpu_tlbstate.state, TLBSTATE_OK);
 		percpu_write(cpu_tlbstate.active_mm, next);
@@ -49,6 +47,9 @@ static inline void __switch_mm(struct mm_struct *prev, struct mm_struct *next,
 
 		/* Re-load page tables */
 		load_cr3(next->pgd);
+
+		/* stop flush ipis for the previous mm */
+		cpumask_clear_cpu(cpu, mm_cpumask(prev));
 
 		/*
 		 * load the LDT, if the LDT is different:
