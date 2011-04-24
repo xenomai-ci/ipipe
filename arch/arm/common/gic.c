@@ -28,12 +28,14 @@
 #include <linux/smp.h>
 #include <linux/cpumask.h>
 #include <linux/io.h>
+#include <linux/spinlock.h>
 
 #include <asm/irq.h>
 #include <asm/mach/irq.h>
 #include <asm/hardware/gic.h>
+#include <asm/ipipe.h>
 
-static DEFINE_SPINLOCK(irq_controller_lock);
+static IPIPE_DEFINE_SPINLOCK(irq_controller_lock);
 
 struct gic_chip_data {
 	unsigned int irq_offset;
@@ -70,28 +72,42 @@ static inline unsigned int gic_irq(unsigned int irq)
  */
 static void gic_ack_irq(unsigned int irq)
 {
+	unsigned long flags;
 
-	spin_lock(&irq_controller_lock);
-	writel(gic_irq(irq), gic_cpu_base(irq) + GIC_CPU_EOI);
-	spin_unlock(&irq_controller_lock);
+	spin_lock_irqsave_cond(&irq_controller_lock, flags);
+	writel_relaxed(gic_irq(irq), gic_cpu_base(irq) + GIC_CPU_EOI);
+	spin_unlock_irqrestore_cond(&irq_controller_lock, flags);
 }
 
 static void gic_mask_irq(unsigned int irq)
 {
 	u32 mask = 1 << (irq % 32);
+	unsigned long flags;
 
-	spin_lock(&irq_controller_lock);
-	writel(mask, gic_dist_base(irq) + GIC_DIST_ENABLE_CLEAR + (gic_irq(irq) / 32) * 4);
-	spin_unlock(&irq_controller_lock);
+	spin_lock_irqsave_cond(&irq_controller_lock, flags);
+	writel_relaxed(mask, gic_dist_base(irq) + GIC_DIST_ENABLE_CLEAR + (gic_irq(irq) / 32) * 4);
+	spin_unlock_irqrestore_cond(&irq_controller_lock, flags);
+}
+
+static void gic_mask_ack_irq(unsigned int irq)
+{
+	u32 mask = 1 << (irq % 32);
+	unsigned long flags;
+
+	spin_lock_irqsave_cond(&irq_controller_lock, flags);
+	writel_relaxed(mask, gic_dist_base(irq) + GIC_DIST_ENABLE_CLEAR + (gic_irq(irq) / 32) * 4);
+	writel_relaxed(gic_irq(irq), gic_cpu_base(irq) + GIC_CPU_EOI);
+	spin_unlock_irqrestore_cond(&irq_controller_lock, flags);
 }
 
 static void gic_unmask_irq(unsigned int irq)
 {
 	u32 mask = 1 << (irq % 32);
+	unsigned long flags;
 
-	spin_lock(&irq_controller_lock);
-	writel(mask, gic_dist_base(irq) + GIC_DIST_ENABLE_SET + (gic_irq(irq) / 32) * 4);
-	spin_unlock(&irq_controller_lock);
+	spin_lock_irqsave_cond(&irq_controller_lock, flags);
+	writel_relaxed(mask, gic_dist_base(irq) + GIC_DIST_ENABLE_SET + (gic_irq(irq) / 32) * 4);
+	spin_unlock_irqrestore_cond(&irq_controller_lock, flags);
 }
 
 static int gic_set_type(unsigned int irq, unsigned int type)
@@ -103,6 +119,7 @@ static int gic_set_type(unsigned int irq, unsigned int type)
 	u32 confmask = 0x2 << ((gicirq % 16) * 2);
 	u32 confoff = (gicirq / 16) * 4;
 	bool enabled = false;
+	unsigned long flags;
 	u32 val;
 
 	/* Interrupt configuration for SGIs can't be changed */
@@ -112,9 +129,9 @@ static int gic_set_type(unsigned int irq, unsigned int type)
 	if (type != IRQ_TYPE_LEVEL_HIGH && type != IRQ_TYPE_EDGE_RISING)
 		return -EINVAL;
 
-	spin_lock(&irq_controller_lock);
+	spin_lock_irqsave_cond(&irq_controller_lock, flags);
 
-	val = readl(base + GIC_DIST_CONFIG + confoff);
+	val = readl_relaxed(base + GIC_DIST_CONFIG + confoff);
 	if (type == IRQ_TYPE_LEVEL_HIGH)
 		val &= ~confmask;
 	else if (type == IRQ_TYPE_EDGE_RISING)
@@ -124,17 +141,17 @@ static int gic_set_type(unsigned int irq, unsigned int type)
 	 * As recommended by the spec, disable the interrupt before changing
 	 * the configuration
 	 */
-	if (readl(base + GIC_DIST_ENABLE_SET + enableoff) & enablemask) {
-		writel(enablemask, base + GIC_DIST_ENABLE_CLEAR + enableoff);
+	if (readl_relaxed(base + GIC_DIST_ENABLE_SET + enableoff) & enablemask) {
+		writel_relaxed(enablemask, base + GIC_DIST_ENABLE_CLEAR + enableoff);
 		enabled = true;
 	}
 
-	writel(val, base + GIC_DIST_CONFIG + confoff);
+	writel_relaxed(val, base + GIC_DIST_CONFIG + confoff);
 
 	if (enabled)
-		writel(enablemask, base + GIC_DIST_ENABLE_SET + enableoff);
+		writel_relaxed(enablemask, base + GIC_DIST_ENABLE_SET + enableoff);
 
-	spin_unlock(&irq_controller_lock);
+	spin_unlock_irqrestore_cond(&irq_controller_lock, flags);
 
 	return 0;
 }
@@ -147,18 +164,19 @@ static int gic_set_cpu(unsigned int irq, const struct cpumask *mask_val)
 	unsigned int cpu = cpumask_first(mask_val);
 	u32 val;
 	struct irq_desc *desc;
+	unsigned long flags;
 
-	spin_lock(&irq_controller_lock);
+	spin_lock_irqsave_cond(&irq_controller_lock, flags);
 	desc = irq_to_desc(irq);
 	if (desc == NULL) {
-		spin_unlock(&irq_controller_lock);
+		spin_unlock_irqrestore_cond(&irq_controller_lock, flags);
 		return -EINVAL;
 	}
 	desc->node = cpu;
-	val = readl(reg) & ~(0xff << shift);
+	val = readl_relaxed(reg) & ~(0xff << shift);
 	val |= 1 << (cpu + shift);
-	writel(val, reg);
-	spin_unlock(&irq_controller_lock);
+	writel_relaxed(val, reg);
+	spin_unlock_irqrestore_cond(&irq_controller_lock, flags);
 
 	return 0;
 }
@@ -169,14 +187,14 @@ static void gic_handle_cascade_irq(unsigned int irq, struct irq_desc *desc)
 	struct gic_chip_data *chip_data = get_irq_data(irq);
 	struct irq_chip *chip = get_irq_chip(irq);
 	unsigned int cascade_irq, gic_irq;
-	unsigned long status;
+	unsigned long status, flags;
 
 	/* primary controller ack'ing */
 	chip->ack(irq);
 
-	spin_lock(&irq_controller_lock);
-	status = readl(chip_data->cpu_base + GIC_CPU_INTACK);
-	spin_unlock(&irq_controller_lock);
+	spin_lock_irqsave_cond(&irq_controller_lock, flags);
+	status = readl_relaxed(chip_data->cpu_base + GIC_CPU_INTACK);
+	spin_unlock_irqrestore_cond(&irq_controller_lock, flags);
 
 	gic_irq = (status & 0x3ff);
 	if (gic_irq == 1023)
@@ -186,7 +204,7 @@ static void gic_handle_cascade_irq(unsigned int irq, struct irq_desc *desc)
 	if (unlikely(gic_irq < 32 || gic_irq > 1020 || cascade_irq >= NR_IRQS))
 		do_bad_IRQ(cascade_irq, desc);
 	else
-		generic_handle_irq(cascade_irq);
+		ipipe_handle_chained_irq(cascade_irq);
 
  out:
 	/* primary controller unmasking */
@@ -197,6 +215,9 @@ static struct irq_chip gic_chip = {
 	.name		= "GIC",
 	.ack		= gic_ack_irq,
 	.mask		= gic_mask_irq,
+#ifdef CONFIG_IPIPE
+	.mask_ack       = gic_mask_ack_irq,
+#endif
 	.unmask		= gic_unmask_irq,
 	.set_type	= gic_set_type,
 #ifdef CONFIG_SMP
@@ -228,13 +249,13 @@ void __init gic_dist_init(unsigned int gic_nr, void __iomem *base,
 	gic_data[gic_nr].dist_base = base;
 	gic_data[gic_nr].irq_offset = (irq_start - 1) & ~31;
 
-	writel(0, base + GIC_DIST_CTRL);
+	writel_relaxed(0, base + GIC_DIST_CTRL);
 
 	/*
 	 * Find out how many interrupts are supported.
 	 * The GIC only supports up to 1020 interrupt sources.
 	 */
-	gic_irqs = readl(base + GIC_DIST_CTR) & 0x1f;
+	gic_irqs = readl_relaxed(base + GIC_DIST_CTR) & 0x1f;
 	gic_irqs = (gic_irqs + 1) * 32;
 	if (gic_irqs > 1020)
 		gic_irqs = 1020;
@@ -243,26 +264,26 @@ void __init gic_dist_init(unsigned int gic_nr, void __iomem *base,
 	 * Set all global interrupts to be level triggered, active low.
 	 */
 	for (i = 32; i < gic_irqs; i += 16)
-		writel(0, base + GIC_DIST_CONFIG + i * 4 / 16);
+		writel_relaxed(0, base + GIC_DIST_CONFIG + i * 4 / 16);
 
 	/*
 	 * Set all global interrupts to this CPU only.
 	 */
 	for (i = 32; i < gic_irqs; i += 4)
-		writel(cpumask, base + GIC_DIST_TARGET + i * 4 / 4);
+		writel_relaxed(cpumask, base + GIC_DIST_TARGET + i * 4 / 4);
 
 	/*
 	 * Set priority on all global interrupts.
 	 */
 	for (i = 32; i < gic_irqs; i += 4)
-		writel(0xa0a0a0a0, base + GIC_DIST_PRI + i * 4 / 4);
+		writel_relaxed(0xa0a0a0a0, base + GIC_DIST_PRI + i * 4 / 4);
 
 	/*
 	 * Disable all interrupts.  Leave the PPI and SGIs alone
 	 * as these enables are banked registers.
 	 */
 	for (i = 32; i < gic_irqs; i += 32)
-		writel(0xffffffff, base + GIC_DIST_ENABLE_CLEAR + i * 4 / 32);
+		writel_relaxed(0xffffffff, base + GIC_DIST_ENABLE_CLEAR + i * 4 / 32);
 
 	/*
 	 * Limit number of interrupts registered to the platform maximum
@@ -281,7 +302,7 @@ void __init gic_dist_init(unsigned int gic_nr, void __iomem *base,
 		set_irq_flags(i, IRQF_VALID | IRQF_PROBE);
 	}
 
-	writel(1, base + GIC_DIST_CTRL);
+	writel_relaxed(1, base + GIC_DIST_CTRL);
 }
 
 void __cpuinit gic_cpu_init(unsigned int gic_nr, void __iomem *base)
@@ -301,17 +322,17 @@ void __cpuinit gic_cpu_init(unsigned int gic_nr, void __iomem *base)
 	 * Deal with the banked PPI and SGI interrupts - disable all
 	 * PPI interrupts, ensure all SGI interrupts are enabled.
 	 */
-	writel(0xffff0000, dist_base + GIC_DIST_ENABLE_CLEAR);
-	writel(0x0000ffff, dist_base + GIC_DIST_ENABLE_SET);
+	writel_relaxed(0xffff0000, dist_base + GIC_DIST_ENABLE_CLEAR);
+	writel_relaxed(0x0000ffff, dist_base + GIC_DIST_ENABLE_SET);
 
 	/*
 	 * Set priority on PPI and SGI interrupts
 	 */
 	for (i = 0; i < 32; i += 4)
-		writel(0xa0a0a0a0, dist_base + GIC_DIST_PRI + i * 4 / 4);
+		writel_relaxed(0xa0a0a0a0, dist_base + GIC_DIST_PRI + i * 4 / 4);
 
-	writel(0xf0, base + GIC_CPU_PRIMASK);
-	writel(1, base + GIC_CPU_CTRL);
+	writel_relaxed(0xf0, base + GIC_CPU_PRIMASK);
+	writel_relaxed(1, base + GIC_CPU_CTRL);
 }
 
 #ifdef CONFIG_SMP
@@ -320,6 +341,6 @@ void gic_raise_softirq(const struct cpumask *mask, unsigned int irq)
 	unsigned long map = *cpus_addr(*mask);
 
 	/* this always happens on GIC0 */
-	writel(map << 16 | irq, gic_data[0].dist_base + GIC_DIST_SOFTINT);
+	writel_relaxed(map << 16 | irq, gic_data[0].dist_base + GIC_DIST_SOFTINT);
 }
 #endif
