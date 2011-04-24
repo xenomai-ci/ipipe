@@ -249,10 +249,11 @@ static void __init omap2_gp_clocksource_init(void)
 		"%s: can't register clocksource!\n";
 
 #ifdef CONFIG_IPIPE
-	gpt = omap_dm_timer_request_specific(3);
-#else
-	gpt = omap_dm_timer_request();
-#endif
+	if (cpu_is_omap34xx())
+		gpt = omap_dm_timer_request_specific(3);
+	else
+#endif /* CONFIG_IPIPE */
+		gpt = omap_dm_timer_request();
 	if (!gpt)
 		printk(err1, clocksource_gpt.name);
 	gpt_clocksource = gpt;
