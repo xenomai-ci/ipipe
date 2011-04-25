@@ -783,15 +783,18 @@ asmlinkage int printk(const char *fmt, ...)
 	if (test_bit(IPIPE_SPRINTK_FLAG, &__ipipe_current_domain->flags) ||
 	    oops_in_progress)
 		cs = ipipe_disable_context_check(ipipe_processor_id());
-	else if (__ipipe_current_domain == ipipe_root_domain) {
+	else if (__ipipe_root_domain_p) {
 		struct ipipe_domain *dom;
 
 		list_for_each_entry(dom, &__ipipe_pipeline, p_link) {
 			if (dom == ipipe_root_domain)
 				break;
 			if (test_bit(IPIPE_STALL_FLAG,
-				     &ipipe_cpudom_var(dom, status)))
+				     &ipipe_cpudom_var(dom, status))
+			    || raw_irqs_disabled_flags(flags)) {
 				sprintk = 0;
+				break;
+			}
 		}
 	} else
 		sprintk = 0;
@@ -1042,7 +1045,7 @@ asmlinkage int vprintk(const char *fmt, va_list args)
 	 * Try to acquire and then immediately release the
 	 * console semaphore. The release will do all the
 	 * actual magic (print out buffers, wake up klogd,
-	 * etc). 
+	 * etc).
 	 *
 	 * The console_trylock_for_printk() function
 	 * will release 'logbuf_lock' regardless of whether it
@@ -1638,7 +1641,7 @@ EXPORT_SYMBOL(register_console);
 
 int unregister_console(struct console *console)
 {
-        struct console *a, *b;
+	struct console *a, *b;
 	int res = 1;
 
 #ifdef CONFIG_A11Y_BRAILLE_CONSOLE
