@@ -1283,14 +1283,14 @@ void __ipipe_sync_stage(void)
 			irq_enter();
 			ipd->irqs[irq].handler(irq, ipd->irqs[irq].cookie);
 			irq_exit();
-			local_irq_disable_hw();
 			root_stall_after_handler();
+			local_irq_disable_hw();
 			while (__ipipe_check_root_resched())
 				__ipipe_preempt_schedule_irq();
 		} else {
 			__ipipe_do_root_xirq(ipd, irq);
-			local_irq_disable_hw();
 			root_stall_after_handler();
+			local_irq_disable_hw();
 		}
 
 		p = ipipe_cpudom_ptr(__ipipe_current_domain);
