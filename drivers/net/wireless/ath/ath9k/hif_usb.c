@@ -35,8 +35,14 @@ static struct usb_device_id ath9k_hif_usb_ids[] = {
 	{ USB_DEVICE(0x07D1, 0x3A10) }, /* Dlink Wireless 150 */
 	{ USB_DEVICE(0x13D3, 0x3327) }, /* Azurewave */
 	{ USB_DEVICE(0x13D3, 0x3328) }, /* Azurewave */
+	{ USB_DEVICE(0x13D3, 0x3346) }, /* IMC Networks */
+	{ USB_DEVICE(0x13D3, 0x3348) }, /* Azurewave */
+	{ USB_DEVICE(0x13D3, 0x3349) }, /* Azurewave */
+	{ USB_DEVICE(0x13D3, 0x3350) }, /* Azurewave */
 	{ USB_DEVICE(0x04CA, 0x4605) }, /* Liteon */
 	{ USB_DEVICE(0x083A, 0xA704) }, /* SMC Networks */
+	{ USB_DEVICE(0x040D, 0x3801) }, /* VIA */
+	{ USB_DEVICE(0x1668, 0x1200) }, /* Verizon */
 	{ },
 };
 
@@ -138,16 +144,36 @@ static void hif_usb_tx_cb(struct urb *urb)
 	case -ENODEV:
 	case -ESHUTDOWN:
 		/*
-		 * The URB has been killed, free the SKBs
-		 * and return.
+		 * The URB has been killed, free the SKBs.
 		 */
 		ath9k_skb_queue_purge(hif_dev, &tx_buf->skb_queue);
-		return;
+
+		/*
+		 * If the URBs are being flushed, no need to add this
+		 * URB to the free list.
+		 */
+		spin_lock(&hif_dev->tx.tx_lock);
+		if (hif_dev->tx.flags & HIF_USB_TX_FLUSH) {
+			spin_unlock(&hif_dev->tx.tx_lock);
+			return;
+		}
+		spin_unlock(&hif_dev->tx.tx_lock);
+
+		/*
+		 * In the stop() case, this URB has to be added to
+		 * the free list.
+		 */
+		goto add_free;
 	default:
 		break;
 	}
 
-	/* Check if TX has been stopped */
+	/*
+	 * Check if TX has been stopped, this is needed because
+	 * this CB could have been invoked just after the TX lock
+	 * was released in hif_stop() and kill_urb() hasn't been
+	 * called yet.
+	 */
 	spin_lock(&hif_dev->tx.tx_lock);
 	if (hif_dev->tx.flags & HIF_USB_TX_STOP) {
 		spin_unlock(&hif_dev->tx.tx_lock);
@@ -299,6 +325,7 @@ static void hif_usb_start(void *hif_handle, u8 pipe_id)
 static void hif_usb_stop(void *hif_handle, u8 pipe_id)
 {
 	struct hif_device_usb *hif_dev = (struct hif_device_usb *)hif_handle;
+	struct tx_buf *tx_buf = NULL, *tx_buf_tmp = NULL;
 	unsigned long flags;
 
 	spin_lock_irqsave(&hif_dev->tx.tx_lock, flags);
@@ -306,6 +333,12 @@ static void hif_usb_stop(void *hif_handle, u8 pipe_id)
 	hif_dev->tx.tx_skb_cnt = 0;
 	hif_dev->tx.flags |= HIF_USB_TX_STOP;
 	spin_unlock_irqrestore(&hif_dev->tx.tx_lock, flags);
+
+	/* The pending URBs have to be canceled. */
+	list_for_each_entry_safe(tx_buf, tx_buf_tmp,
+				 &hif_dev->tx.tx_pending, list) {
+		usb_kill_urb(tx_buf->urb);
+	}
 }
 
 static int hif_usb_send(void *hif_handle, u8 pipe_id, struct sk_buff *skb,
@@ -571,6 +604,7 @@ free:
 static void ath9k_hif_usb_dealloc_tx_urbs(struct hif_device_usb *hif_dev)
 {
 	struct tx_buf *tx_buf = NULL, *tx_buf_tmp = NULL;
+	unsigned long flags;
 
 	list_for_each_entry_safe(tx_buf, tx_buf_tmp,
 				 &hif_dev->tx.tx_buf, list) {
@@ -580,6 +614,10 @@ static void ath9k_hif_usb_dealloc_tx_urbs(struct hif_device_usb *hif_dev)
 		kfree(tx_buf->buf);
 		kfree(tx_buf);
 	}
+
+	spin_lock_irqsave(&hif_dev->tx.tx_lock, flags);
+	hif_dev->tx.flags |= HIF_USB_TX_FLUSH;
+	spin_unlock_irqrestore(&hif_dev->tx.tx_lock, flags);
 
 	list_for_each_entry_safe(tx_buf, tx_buf_tmp,
 				 &hif_dev->tx.tx_pending, list) {
@@ -799,10 +837,18 @@ static int ath9k_hif_usb_download_fw(struct hif_device_usb *hif_dev)
 	}
 	kfree(buf);
 
-	if ((hif_dev->device_id == 0x7010) || (hif_dev->device_id == 0x7015))
+	switch (hif_dev->device_id) {
+	case 0x7010:
+	case 0x7015:
+	case 0x9018:
+	case 0xA704:
+	case 0x1200:
 		firm_offset = AR7010_FIRMWARE_TEXT;
-	else
+		break;
+	default:
 		firm_offset = AR9271_FIRMWARE_TEXT;
+		break;
+	}
 
 	/*
 	 * Issue FW download complete command to firmware.
@@ -903,6 +949,8 @@ static int ath9k_hif_usb_probe(struct usb_interface *interface,
 	case 0x7010:
 	case 0x7015:
 	case 0x9018:
+	case 0xA704:
+	case 0x1200:
 		if (le16_to_cpu(udev->descriptor.bcdDevice) == 0x0202)
 			hif_dev->fw_name = FIRMWARE_AR7010_1_1;
 		else

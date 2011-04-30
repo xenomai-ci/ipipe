@@ -508,8 +508,9 @@ void xhci_stop(struct usb_hcd *hcd)
 	spin_lock_irq(&xhci->lock);
 	xhci_halt(xhci);
 	xhci_reset(xhci);
-	xhci_cleanup_msix(xhci);
 	spin_unlock_irq(&xhci->lock);
+
+	xhci_cleanup_msix(xhci);
 
 #ifdef CONFIG_USB_XHCI_HCD_DEBUGGING
 	/* Tell the event ring poll function not to reschedule */
@@ -544,8 +545,9 @@ void xhci_shutdown(struct usb_hcd *hcd)
 
 	spin_lock_irq(&xhci->lock);
 	xhci_halt(xhci);
-	xhci_cleanup_msix(xhci);
 	spin_unlock_irq(&xhci->lock);
+
+	xhci_cleanup_msix(xhci);
 
 	xhci_dbg(xhci, "xhci_shutdown completed - status = %x\n",
 		    xhci_readl(xhci, &xhci->op_regs->status));
@@ -1284,6 +1286,15 @@ static int xhci_configure_endpoint(struct xhci_hcd *xhci,
 		cmd_completion = command->completion;
 		cmd_status = &command->status;
 		command->command_trb = xhci->cmd_ring->enqueue;
+
+		/* Enqueue pointer can be left pointing to the link TRB,
+		 * we must handle that
+		 */
+		if ((command->command_trb->link.control & TRB_TYPE_BITMASK)
+				== TRB_TYPE(TRB_LINK))
+			command->command_trb =
+				xhci->cmd_ring->enq_seg->next->trbs;
+
 		list_add_tail(&command->cmd_list, &virt_dev->cmd_list);
 	} else {
 		in_ctx = virt_dev->in_ctx;
@@ -1993,6 +2004,15 @@ int xhci_reset_device(struct usb_hcd *hcd, struct usb_device *udev)
 	/* Attempt to submit the Reset Device command to the command ring */
 	spin_lock_irqsave(&xhci->lock, flags);
 	reset_device_cmd->command_trb = xhci->cmd_ring->enqueue;
+
+	/* Enqueue pointer can be left pointing to the link TRB,
+	 * we must handle that
+	 */
+	if ((reset_device_cmd->command_trb->link.control & TRB_TYPE_BITMASK)
+			== TRB_TYPE(TRB_LINK))
+		reset_device_cmd->command_trb =
+			xhci->cmd_ring->enq_seg->next->trbs;
+
 	list_add_tail(&reset_device_cmd->cmd_list, &virt_dev->cmd_list);
 	ret = xhci_queue_reset_device(xhci, slot_id);
 	if (ret) {
@@ -2148,8 +2168,12 @@ int xhci_alloc_dev(struct usb_hcd *hcd, struct usb_device *udev)
 		xhci_err(xhci, "Error while assigning device slot ID\n");
 		return 0;
 	}
-	/* xhci_alloc_virt_device() does not touch rings; no need to lock */
-	if (!xhci_alloc_virt_device(xhci, xhci->slot_id, udev, GFP_KERNEL)) {
+	/* xhci_alloc_virt_device() does not touch rings; no need to lock.
+	 * Use GFP_NOIO, since this function can be called from
+	 * xhci_discover_or_reset_device(), which may be called as part of
+	 * mass storage driver error handling.
+	 */
+	if (!xhci_alloc_virt_device(xhci, xhci->slot_id, udev, GFP_NOIO)) {
 		/* Disable slot, if we can do it without mem alloc */
 		xhci_warn(xhci, "Could not allocate xHCI USB device data structures\n");
 		spin_lock_irqsave(&xhci->lock, flags);

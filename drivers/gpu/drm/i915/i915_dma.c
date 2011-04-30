@@ -34,6 +34,7 @@
 #include "i915_drm.h"
 #include "i915_drv.h"
 #include "i915_trace.h"
+#include "../../../platform/x86/intel_ips.h"
 #include <linux/pci.h>
 #include <linux/vgaarb.h>
 #include <linux/acpi.h>
@@ -1418,9 +1419,15 @@ static int i915_load_modeset_init(struct drm_device *dev,
 	if (ret)
 		DRM_INFO("failed to find VBIOS tables\n");
 
-	/* if we have > 1 VGA cards, then disable the radeon VGA resources */
+	/* If we have > 1 VGA cards, then we need to arbitrate access
+	 * to the common VGA resources.
+	 *
+	 * If we are a secondary display controller (!PCI_DISPLAY_CLASS_VGA),
+	 * then we do not take part in VGA arbitration and the
+	 * vga_client_register() fails with -ENODEV.
+	 */
 	ret = vga_client_register(dev->pdev, dev, NULL, i915_vga_set_decode);
-	if (ret)
+	if (ret && ret != -ENODEV)
 		goto cleanup_ringbuffer;
 
 	ret = vga_switcheroo_register_client(dev->pdev,
@@ -2047,6 +2054,26 @@ out_unlock:
 EXPORT_SYMBOL_GPL(i915_gpu_turbo_disable);
 
 /**
+ * Tells the intel_ips driver that the i915 driver is now loaded, if
+ * IPS got loaded first.
+ *
+ * This awkward dance is so that neither module has to depend on the
+ * other in order for IPS to do the appropriate communication of
+ * GPU turbo limits to i915.
+ */
+static void
+ips_ping_for_i915_load(void)
+{
+	void (*link)(void);
+
+	link = symbol_get(ips_link_to_i915_driver);
+	if (link) {
+		link();
+		symbol_put(ips_link_to_i915_driver);
+	}
+}
+
+/**
  * i915_driver_load - setup chip and create an initial config
  * @dev: DRM device
  * @flags: startup flags
@@ -2234,6 +2261,8 @@ int i915_driver_load(struct drm_device *dev, unsigned long flags)
 	/* XXX Prevent module unload due to memory corruption bugs. */
 	__module_get(THIS_MODULE);
 
+	ips_ping_for_i915_load();
+
 	return 0;
 
 out_workqueue_free:
@@ -2306,6 +2335,9 @@ int i915_driver_unload(struct drm_device *dev)
 		i915_gem_lastclose(dev);
 
 		intel_cleanup_overlay(dev);
+
+		if (!I915_NEED_GFX_HWS(dev))
+			i915_free_hws(dev);
 	}
 
 	intel_teardown_mchbar(dev);
