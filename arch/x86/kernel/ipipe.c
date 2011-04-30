@@ -138,11 +138,6 @@ static void __ipipe_null_handler(unsigned irq, void *cookie)
 {
 }
 
-#endif	/* CONFIG_X86_LOCAL_APIC */
-
-/* __ipipe_enable_pipeline() -- We are running on the boot CPU, hw
-   interrupts are off, and secondary CPUs are still lost in space. */
-
 void ipipe_init_vector_irq(int cpu)
 {
 	unsigned int vector;
@@ -155,6 +150,11 @@ void ipipe_init_vector_irq(int cpu)
 			per_cpu(vector_irq, cpu)[vector] =
 				ipipe_apic_vector_irq(vector);
 }
+
+#endif	/* CONFIG_X86_LOCAL_APIC */
+
+/* __ipipe_enable_pipeline() -- We are running on the boot CPU, hw
+   interrupts are off, and secondary CPUs are still lost in space. */
 
 void __init __ipipe_enable_pipeline(void)
 {
