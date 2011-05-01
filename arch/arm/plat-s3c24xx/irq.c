@@ -627,7 +627,7 @@ void __init s3c24xx_init_irq(void)
 		default:
 			//irqdbf("registering irq %d (s3c irq)\n", irqno);
 			set_irq_chip(irqno, &s3c_irq_chip);
-			set_irq_handler(irqno, handle_edge_irq);
+			set_irq_handler(irqno, handle_level_irq);
 			set_irq_flags(irqno, IRQF_VALID);
 		}
 	}
@@ -647,14 +647,14 @@ void __init s3c24xx_init_irq(void)
 	for (irqno = IRQ_EINT0; irqno <= IRQ_EINT3; irqno++) {
 		irqdbf("registering irq %d (ext int)\n", irqno);
 		set_irq_chip(irqno, &s3c_irq_eint0t4);
-		set_irq_handler(irqno, handle_edge_irq);
+		set_irq_handler(irqno, handle_level_irq);
 		set_irq_flags(irqno, IRQF_VALID);
 	}
 
 	for (irqno = IRQ_EINT4; irqno <= IRQ_EINT23; irqno++) {
 		irqdbf("registering irq %d (extended s3c irq)\n", irqno);
 		set_irq_chip(irqno, &s3c_irqext_chip);
-		set_irq_handler(irqno, handle_edge_irq);
+		set_irq_handler(irqno, handle_level_irq);
 		set_irq_flags(irqno, IRQF_VALID);
 	}
 
@@ -686,7 +686,7 @@ void __init s3c24xx_init_irq(void)
 	for (irqno = IRQ_TC; irqno <= IRQ_ADC; irqno++) {
 		irqdbf("registering irq %d (s3c adc irq)\n", irqno);
 		set_irq_chip(irqno, &s3c_irq_adc);
-		set_irq_handler(irqno, handle_edge_irq);
+		set_irq_handler(irqno, handle_level_irq);
 		set_irq_flags(irqno, IRQF_VALID);
 	}
 

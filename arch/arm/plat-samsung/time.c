@@ -154,7 +154,7 @@ static inline unsigned long getticksoffset_tscupdate(void)
 	last_free_running_tcnt = tval;
 	__ipipe_tsc_update();
 	return ticks;
-	}
+}
 #else
 static unsigned long s3c2410_gettimeoffset (void)
 {
