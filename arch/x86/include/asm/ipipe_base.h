@@ -211,12 +211,6 @@ void __ipipe_halt_root(void);
 
 void __ipipe_serial_debug(const char *fmt, ...);
 
-#if defined(CONFIG_IPIPE) && defined(CONFIG_X86_LOCAL_APIC)
-void ipipe_init_vector_irq(int cpu);
-#else
-static inline void ipipe_init_vector_irq(int cpu) { }
-#endif
-
 #endif	/* !__ASSEMBLY__ */
 
 #endif	/* !__X86_IPIPE_BASE_H */

@@ -155,4 +155,10 @@ int __ipipe_check_tickdev(const char *devname);
 #define __ipipe_move_root_irq(irq)	do { } while (0)
 #endif /* !(CONFIG_SMP && CONFIG_IPIPE) */
 
+#if defined(CONFIG_IPIPE) && defined(CONFIG_X86_LOCAL_APIC)
+void ipipe_init_vector_irq(int cpu);
+#else
+static inline void ipipe_init_vector_irq(int cpu) { }
+#endif
+
 #endif	/* !__X86_IPIPE_H */
