@@ -143,7 +143,7 @@ __ipipe_decrementer_16:
 	ldr	ip, [r0]
 	ldr	r2, .LCdec16_last_cnt
 	subs 	ip, r2, ip
-	addcs	ip, ip, #0x10000
+	addcc	ip, ip, #0x10000
 	myldrd	r2, r3, r3, .LCdec16_last_tsc
 	cmp	r1, r2
 	bne	1b
@@ -155,7 +155,7 @@ __ipipe_decrementer_16:
 	ldr	ip, [r0]
 	ldr	r2, .LCdec16_last_cnt
 	subs 	ip, r2, ip
-	addcs	ip, ip, #0x10000
+	addcc	ip, ip, #0x10000
 	myldrd	r2, r3, r3, .LCdec16_last_tsc
 	cmp	r1, r3
 	bne	1b
