@@ -105,8 +105,8 @@ void __ipipe_tsc_update(void)
 		int offset = ipipe_tsc_value->last_cnt - cnt;
 		if (offset < 0)
 			offset += 0x10000;
-		ipipe_tsc_value->last_tsc += offset + 1;
-		ipipe_tsc_value->last_cnt = cnt - 1;
+		ipipe_tsc_value->last_tsc += offset;
+		ipipe_tsc_value->last_cnt = cnt;
 		return;
 	}
 	ipipe_tsc_value->last_tsc = __ipipe_tsc_get() - 1;
