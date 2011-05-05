@@ -3985,8 +3985,12 @@ int acpi_get_override_irq(u32 gsi, int *trigger, int *polarity)
 #ifdef CONFIG_IPIPE
 unsigned __ipipe_get_ioapic_irq_vector(int irq)
 {
-	return irq >= IPIPE_FIRST_APIC_IRQ && irq < IPIPE_NR_XIRQS ?
-		ipipe_apic_irq_vector(irq) : irq_cfg(irq)->vector;
+	if (irq >= IPIPE_FIRST_APIC_IRQ && irq < IPIPE_NR_XIRQS)
+		return ipipe_apic_irq_vector(irq);
+	else if (irq == IRQ_MOVE_CLEANUP_VECTOR)
+		return irq;
+	else
+		return irq_cfg(irq)->vector;
 }
 #endif /* CONFIG_IPIPE */
 
