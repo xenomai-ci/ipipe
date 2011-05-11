@@ -25,7 +25,6 @@
 #ifdef CONFIG_IPIPE
 
 #include <linux/clocksource.h>
-#include <linux/clockchips.h>
 
 /*
  * NOTE: When modifying this structure, make sure to keep the Xenomai
@@ -42,6 +41,10 @@ struct ipipe_hostrt_data {
 	u32 mult;
 	u32 shift;
 };
+
+#ifdef CONFIG_GENERIC_CLOCKEVENTS
+
+#include <linux/clockchips.h>
 
 struct tick_device;
 
@@ -69,6 +72,8 @@ int ipipe_request_tickdev(const char *devname,
 			  int cpu, unsigned long *tmfreq);
 
 void ipipe_release_tickdev(int cpu);
+
+#endif /* CONFIG_GENERIC_CLOCKEVENTS */
 
 #endif /* CONFIG_IPIPE */
 

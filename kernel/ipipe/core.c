@@ -63,10 +63,6 @@ DEFINE_PER_CPU(struct ipipe_percpu_data, ipipe_percpu) = {
 };
 EXPORT_PER_CPU_SYMBOL_GPL(ipipe_percpu);
 
-DECLARE_PER_CPU(struct tick_device, tick_cpu_device);
-
-static DEFINE_PER_CPU(struct ipipe_tick_device, ipipe_tick_cpu_device);
-
 /* Up to 2k of pending work data per CPU. */
 #define WORKBUF_SIZE 2048
 static DEFINE_PER_CPU_ALIGNED(unsigned char[WORKBUF_SIZE], work_buf);
@@ -234,6 +230,12 @@ static inline void remove_domain_proc(struct ipipe_domain *ipd)
 
 #endif	/* CONFIG_PROC_FS */
 
+#ifdef CONFIG_GENERIC_CLOCKEVENTS
+
+DECLARE_PER_CPU(struct tick_device, tick_cpu_device);
+
+static DEFINE_PER_CPU(struct ipipe_tick_device, ipipe_tick_cpu_device);
+
 int ipipe_request_tickdev(const char *devname,
 			  void (*emumode)(enum clock_event_mode mode,
 					  struct clock_event_device *cdev),
@@ -336,6 +338,8 @@ void ipipe_release_tickdev(int cpu)
 	ipipe_critical_exit(flags);
 }
 EXPORT_SYMBOL_GPL(ipipe_release_tickdev);
+
+#endif /* CONFIG_GENERIC_CLOCKEVENTS */
 
 static void init_stage(struct ipipe_domain *ipd)
 {
