@@ -37,6 +37,7 @@
 #include <mach/hardware.h>
 #include <mach/common.h>
 #include <mach/mmc.h>
+#include <mach/mx27.h>
 
 #include "devices.h"
 
