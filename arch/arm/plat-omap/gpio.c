@@ -1266,6 +1266,40 @@ static void omap_gpio_free(struct gpio_chip *chip, unsigned offset)
 	spin_unlock_irqrestore(&bank->lock, flags);
 }
 
+static void gpio_demux_inner(struct gpio_bank *bank, u32 isr, int nonroot)
+{
+	unsigned int gpio_irq, gpio_index;
+
+	gpio_irq = bank->virtual_irq_start;
+	for (; isr != 0; isr >>= 1, gpio_irq++) {
+		if (!(isr & 1))
+			continue;
+
+#ifdef CONFIG_IPIPE
+		if (nonroot) {
+			local_irq_enable_hw();
+			local_irq_disable_hw();
+		}
+#endif /* CONFIG_IPIPE */
+
+#ifdef CONFIG_ARCH_OMAP1
+		gpio_index = get_gpio_index(irq_to_gpio(gpio_irq));
+
+		/*
+		 * Some chips can't respond to both rising and falling
+		 * at the same time.  If this irq was requested with
+		 * both flags, we need to flip the ICR data for the IRQ
+		 * to respond to the IRQ for the opposite direction.
+		 * This will be indicated in the bank toggle_mask.
+		 */
+		if (bank->toggle_mask & (1 << gpio_index))
+			_toggle_gpio_edge_triggering(bank, gpio_index);
+#endif
+		ipipe_handle_chained_irq(gpio_irq);
+	}
+}
+
+
 /*
  * We need to unmask the GPIO bank interrupt as soon as possible to
  * avoid missing GPIO interrupts for other lines in the bank.
@@ -1279,7 +1313,6 @@ static void gpio_irq_handler(unsigned int irq, struct irq_desc *desc)
 {
 	void __iomem *isr_reg = NULL;
 	u32 isr;
-	unsigned int gpio_irq, gpio_index;
 	struct gpio_bank *bank;
 	u32 retrigger = 0;
 	int unmasked = 0;
@@ -1351,33 +1384,14 @@ static void gpio_irq_handler(unsigned int irq, struct irq_desc *desc)
 		if (!isr)
 			break;
 
-		gpio_irq = bank->virtual_irq_start;
-		for (; isr != 0; isr >>= 1, gpio_irq++) {
-			gpio_index = get_gpio_index(irq_to_gpio(gpio_irq));
-
-			if (!(isr & 1))
-				continue;
-
 #ifdef CONFIG_IPIPE
-			if (!bank->nonroot_gpios) {
-				local_irq_enable_hw();
-				local_irq_disable_hw();
-			}
-#endif /* CONFIG_IPIPE */
+		if (bank->nonroot_gpios)
+			gpio_demux_inner(bank, isr & bank->nonroot_gpios, 1);
+		gpio_demux_inner(bank, isr & ~bank->nonroot_gpios, 0);
+#else /* !CONFIG_IPIPE */
+		gpio_demux_inner(bank, isr, 0);
+#endif /* !CONFIG_IPIPE */
 
-#ifdef CONFIG_ARCH_OMAP1
-			/*
-			 * Some chips can't respond to both rising and falling
-			 * at the same time.  If this irq was requested with
-			 * both flags, we need to flip the ICR data for the IRQ
-			 * to respond to the IRQ for the opposite direction.
-			 * This will be indicated in the bank toggle_mask.
-			 */
-			if (bank->toggle_mask & (1 << gpio_index))
-				_toggle_gpio_edge_triggering(bank, gpio_index);
-#endif
-			ipipe_handle_chained_irq(gpio_irq);
-		}
 	}
 	/* if bank has any level sensitive GPIO pin interrupt
 	configured, we must unmask the bank interrupt only after
@@ -1966,10 +1980,13 @@ void __ipipe_mach_enable_irqdesc(struct ipipe_domain *ipd, unsigned irq)
 		/* It is a gpio. */
 		struct gpio_bank *bank = get_irq_chip_data(irq);
 
-		if (ipd != &ipipe_root && ++bank->nonroot_gpios == 1) {
-			__ipipe_irqbits[(bank->irq / 32)]
-				&= ~(1 << (bank->irq % 32));
-			omap_set_irq_prio(bank->irq, 1);
+		if (ipd != &ipipe_root) {
+			bank->nonroot_gpios |= (1 << (irq % 32));
+			if (bank->nonroot_gpios == (1 << (irq % 32))) {
+				__ipipe_irqbits[(bank->irq / 32)]
+					&= ~(1 << (bank->irq % 32));
+				omap_set_irq_prio(bank->irq, 1);
+			}
 		}
 	} else
 		omap_set_irq_prio(irq, ipd != &ipipe_root);
@@ -1986,10 +2003,13 @@ void __ipipe_mach_disable_irqdesc(struct ipipe_domain *ipd, unsigned irq)
 		/* It is a gpio. */
 		struct gpio_bank *bank = get_irq_chip_data(irq);
 
-		if (ipd != &ipipe_root && --bank->nonroot_gpios == 0) {
-			omap_set_irq_prio(bank->irq, 0);
-			__ipipe_irqbits[(bank->irq / 32)]
-				|= (1 << (bank->irq % 32));
+		if (ipd != &ipipe_root) {
+			bank->nonroot_gpios &= ~(1 << (irq % 32));
+			if (!bank->nonroot_gpios) {
+				omap_set_irq_prio(bank->irq, 0);
+				__ipipe_irqbits[(bank->irq / 32)]
+					|= (1 << (bank->irq % 32));
+			}
 		}
 	} else if (ipd != &ipipe_root)
 		omap_set_irq_prio(irq, 0);
