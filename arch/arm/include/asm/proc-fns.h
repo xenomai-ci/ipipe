@@ -264,7 +264,7 @@
 #ifndef CONFIG_ARM_FCSE_BEST_EFFORT
 #define cpu_switch_mm(pgd,mm,fcse_switch)			\
 	({							\
-		fcse_switch;					\
+		(void)(fcse_switch);				\
 		cpu_do_switch_mm(virt_to_phys(pgd), (mm));	\
 	})
 #else /* CONFIG_ARM_FCSE_BEST_EFFORT */
