@@ -10,7 +10,8 @@
 
 typedef unsigned long long __ipipe_tsc_t(void);
 
-extern __ipipe_tsc_t __ipipe_freerunning_32,
+extern __ipipe_tsc_t __ipipe_freerunning_64,
+	__ipipe_freerunning_32,
 	__ipipe_freerunning_16,
 	__ipipe_freerunning_countdown,
 	__ipipe_decrementer_16;
@@ -31,6 +32,8 @@ struct ipipe_tsc_value_t {
 	unsigned last_cnt;
 };
 
+unsigned long __ipipe_kuser_tsc_freq;
+
 struct ipipe_tsc_value_t *const ipipe_tsc_value =
 	(struct ipipe_tsc_value_t *)&__ipipe_tsc_area[0];
 
@@ -47,6 +50,9 @@ void __ipipe_tsc_register(struct __ipipe_tscinfo *info)
 			break;
 		case 0xffffffff:
 			implem = &__ipipe_freerunning_32;
+			break;
+		case 0xffffffffffffffffULL:
+			implem = &__ipipe_freerunning_64;
 			break;
 		default:
 			goto unimplemented;
@@ -68,7 +74,7 @@ void __ipipe_tsc_register(struct __ipipe_tscinfo *info)
 	default:
 	unimplemented:
 		printk("I-pipel: Unimplemented tsc configuration, "
-		       "type: %d, mask: 0x%08x\n", info->type, info->u.mask);
+		       "type: %d, mask: 0x%08Lx\n", info->type, info->u.mask);
 		BUG();
 	}
 
@@ -91,6 +97,8 @@ void __ipipe_tsc_register(struct __ipipe_tscinfo *info)
 	printk(KERN_INFO "I-pipe, %u.%03u MHz clocksource\n",
 	       tsc_info.freq / 1000000, (tsc_info.freq % 1000000) / 1000);
 	clocksource_register(&clksrc);
+
+	__ipipe_kuser_tsc_freq = tsc_info.freq;
 }
 
 void __ipipe_mach_get_tscinfo(struct __ipipe_tscinfo *info)
@@ -104,11 +112,14 @@ void __ipipe_tsc_update(void)
 		unsigned cnt = *(unsigned *)tsc_info.counter_vaddr;
 		int offset = ipipe_tsc_value->last_cnt - cnt;
 		if (offset < 0)
-			offset += 0x10000;
+			offset += tsc_info.u.dec.mask + 1;
 		ipipe_tsc_value->last_tsc += offset;
 		ipipe_tsc_value->last_cnt = cnt;
 		return;
 	}
+
+	/* Update last_tsc, in order to remain compatible with legacy
+	   user-space 32 bits free-running counter implementation */
 	ipipe_tsc_value->last_tsc = __ipipe_tsc_get() - 1;
 }
 EXPORT_SYMBOL(__ipipe_tsc_get);

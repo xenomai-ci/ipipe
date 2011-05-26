@@ -10,6 +10,14 @@
 #endif
 	.endm
 
+	.macro	usr_reteq, reg
+#ifdef CONFIG_ARM_THUMB
+	bxeq	\reg
+#else
+	moveq	 pc, \reg
+#endif
+	.endm
+
 	.macro	myldrd, rd1, rd2, rtmp, label
 #if __LINUX_ARM_ARCH__ < 5
 	adr	\rtmp, \label
@@ -28,6 +36,38 @@
 	implemntation to the vectors page. We repeat the data area so
 	that the PC relative operations are computed correctly.
 */
+
+	.align 5
+	.rep	7
+	.word	0
+	.endr
+.LCfr64_cntr_addr:
+	.word 	0
+
+	.align 5
+	.globl 	__ipipe_freerunning_64
+__ipipe_freerunning_64:
+	ldr	r0, .LCfr64_cntr_addr
+/* User-space entry-point: r0 is the hardware counter virtual address */
+	mov 	r2, r0
+#ifndef CONFIG_CPU_BIG_ENDIAN
+/* Little endian */
+	ldr 	r1, [r2, #4]
+1:	ldr	r0, [r2]
+	ldr	r3, [r2, #4]
+	cmp	r3, r1
+	usr_reteq lr
+	mov	r1, r3
+	b	1b
+#else /* Big endian */
+	ldr 	r0, [r2]
+1:	ldr	r1, [r2, #4]
+	ldr	r3, [r2]
+	cmp	r3, r0
+	usr_reteq lr
+	mov	r0, r3
+	b	1b
+#endif /* Big endian */
 
 	.align 5
 .LCfr32_last_tsc:

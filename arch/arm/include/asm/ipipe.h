@@ -111,16 +111,16 @@ struct __ipipe_tscinfo {
 	union {
 		struct {
 			unsigned long counter_paddr;
-			unsigned mask;
+			unsigned long long mask;
 		};
 		struct {
 			unsigned *counter; /* Hw counter physical address */
-			unsigned mask; /* Significant bits in the hw counter. */
+			unsigned long long mask; /* Significant bits in the hw counter. */
 			unsigned long long *tsc; /* 64 bits tsc value. */
 		} fr;
 		struct {
 			unsigned *counter; /* Hw counter physical address */
-			unsigned mask; /* Significant bits in the hw counter. */
+			unsigned long long mask; /* Significant bits in the hw counter. */
 			unsigned *last_cnt; /* Counter value when updating
 						tsc value. */
 			unsigned long long *tsc; /* 64 bits tsc value. */
@@ -153,6 +153,8 @@ int __ipipe_check_tickdev(const char *devname);
 unsigned long long __ipipe_tsc_get(void) __attribute__((long_call));
 void __ipipe_tsc_register(struct __ipipe_tscinfo *info);
 void __ipipe_tsc_update(void);
+extern unsigned long __ipipe_kuser_tsc_freq;
+#define __ipipe_mach_hrclock_freq __ipipe_kuser_tsc_freq
 #else /* ! generic tsc */
 unsigned long long __ipipe_mach_get_tsc(void);
 #define __ipipe_tsc_get() __ipipe_mach_get_tsc()
