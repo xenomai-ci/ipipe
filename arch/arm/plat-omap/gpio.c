@@ -2022,9 +2022,77 @@ static int __init _omap_gpio_init(void)
 }
 
 #if defined(CONFIG_IPIPE) && defined(__IPIPE_FEATURE_PIC_MUTE)
-extern void omap_set_irq_prio(int irq, int hi);
-extern void omap_mute_pic(void);
-extern void omap_unmute_pic(void);
+
+extern void omap2_intc_mute(void);
+extern void omap2_intc_unmute(void);
+extern void omap3_intc_mute(void);
+extern void omap3_intc_unmute(void);
+extern void omap3_intc_set_irq_prio(int irq, int hi);
+extern void gic_mute(void);
+extern void gic_unmute(void);
+extern void gic_set_irq_prio(int irq, int hi);
+
+void __ipipe_mach_pic_set_irq_prio(int irq, int hi)
+{
+#if defined(CONFIG_ARCH_OMAP3)
+	if (cpu_is_omap34xx())
+		omap3_intc_set_irq_prio(irq, hi);
+#endif /* OMAP3 */
+#if defined(CONFIG_ARCH_OMAP4)
+	if (cpu_is_omap44xx())
+		gic_set_irq_prio(irq, hi);
+#endif /* OMAP4 */
+}
+
+/* Multi OMAP2: run-time selection */
+#ifdef MULTI_OMAP2
+void __ipipe_mach_pic_mute(void)
+{
+#if defined(CONFIG_ARCH_OMAP2420) || defined (CONFIG_ARM_OMAP2430)
+	if (cpu_is_omap24xx())
+		omap2_intc_mute();
+#endif /* OMAP2 */
+#if defined(CONFIG_ARCH_OMAP3)
+	if (cpu_is_omap34xx())
+		omap3_intc_mute();
+#endif /* OMAP3 */
+#if defined(CONFIG_ARCH_OMAP4)
+	if (cpu_is_omap44xx())
+		gic_mute();
+#endif /* OMAP4 */
+}
+
+void __ipipe_mach_pic_unmute(void)
+{
+#if defined(CONFIG_ARCH_OMAP2420) || defined (CONFIG_ARM_OMAP2430)
+	if (cpu_is_omap24xx())
+		omap2_intc_unmute();
+#endif /* OMAP2 */
+#if defined(CONFIG_ARCH_OMAP3)
+	if (cpu_is_omap34xx())
+		omap3_intc_unmute();
+#endif /* OMAP3 */
+#if defined(CONFIG_ARCH_OMAP4)
+	if (cpu_is_omap44xx())
+		gic_unmute();
+#endif /* OMAP4 */
+}
+
+/* OMAP2 */
+#elif defined(CONFIG_ARCH_OMAP2420) || defined (CONFIG_ARM_OMAP2430)
+#define __ipipe_mach_pic_mute omap2_intc_mute
+#define __ipipe_mach_pic_unmute omap2_intc_unmute
+
+/* OMAP3 */
+#elif defined(CONFIG_ARCH_OMAP3)
+#define __ipipe_mach_pic_mute omap3_intc_mute
+#define __ipipe_mach_pic_unmute omap3_intc_unmute
+
+/* OMAP4 */
+#elif defined(CONFIG_ARCH_OMAP4)
+#define __ipipe_mach_pic_mute gic_mute
+#define __ipipe_mach_pic_unmute gic_unmute
+#endif /* OMAP4 */
 
 void __ipipe_mach_enable_irqdesc(struct ipipe_domain *ipd, unsigned irq)
 {
@@ -2043,11 +2111,11 @@ void __ipipe_mach_enable_irqdesc(struct ipipe_domain *ipd, unsigned irq)
 			if (bank->nonroot_gpios == (1 << (irq % 32))) {
 				__ipipe_irqbits[(bank->irq / 32)]
 					&= ~(1 << (bank->irq % 32));
-				omap_set_irq_prio(bank->irq, 1);
+				__ipipe_mach_pic_set_irq_prio(bank->irq, 1);
 			}
 		}
 	} else
-		omap_set_irq_prio(irq, ipd != &ipipe_root);
+		__ipipe_mach_pic_set_irq_prio(irq, ipd != &ipipe_root);
 }
 
 void __ipipe_mach_disable_irqdesc(struct ipipe_domain *ipd, unsigned irq)
@@ -2064,13 +2132,13 @@ void __ipipe_mach_disable_irqdesc(struct ipipe_domain *ipd, unsigned irq)
 		if (ipd != &ipipe_root) {
 			bank->nonroot_gpios &= ~(1 << (irq % 32));
 			if (!bank->nonroot_gpios) {
-				omap_set_irq_prio(bank->irq, 0);
+				__ipipe_mach_pic_set_irq_prio(bank->irq, 0);
 				__ipipe_irqbits[(bank->irq / 32)]
 					|= (1 << (bank->irq % 32));
 			}
 		}
 	} else if (ipd != &ipipe_root)
-		omap_set_irq_prio(irq, 0);
+		__ipipe_mach_pic_set_irq_prio(irq, 0);
 }
 
 void ipipe_mute_pic(void)
@@ -2078,7 +2146,7 @@ void ipipe_mute_pic(void)
 	unsigned muted;
 	unsigned i;
 
-	omap_mute_pic();
+	__ipipe_mach_pic_mute();
 
 	for (i = 0; i < gpio_bank_count; i++) {
 		struct gpio_bank *bank = &gpio_bank[i];
@@ -2109,7 +2177,7 @@ void ipipe_unmute_pic(void)
 			_enable_gpio_irqbank(bank, muted, 1);
 	}
 
-	omap_unmute_pic();
+	__ipipe_mach_pic_unmute();
 }
 #endif /* CONFIG_IPIPE && __IPIPE_FEATURE_PIC_MUTE */
 

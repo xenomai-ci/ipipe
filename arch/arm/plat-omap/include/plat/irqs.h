@@ -418,9 +418,9 @@
 #define INTCPS_NR_MIR_REGS	3
 #define INTCPS_NR_IRQS		96
 
-#if defined(CONFIG_ARCH_OMAP2) || defined(CONFIG_ARCH_OMAP3)
+#ifndef CONFIG_ARCH_OMAP1
 #define __IPIPE_FEATURE_PIC_MUTE
-#endif /* OMAP2 || OMAP3 */
+#endif /* OMAP2 || OMAP3 || OMAP4 */
 
 #ifndef __ASSEMBLY__
 
