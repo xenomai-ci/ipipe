@@ -55,21 +55,21 @@ struct omap_dm_timer *gptimer_wakeup;
 static struct omap_dm_timer *gpt_clocksource;
 #endif /* !CONFIG_OMAP_32K_TIMER */
 
-#ifdef CONFIG_IPIPE
+#if defined(CONFIG_IPIPE) && !defined(CONFIG_SMP)
 int __ipipe_mach_timerint;
 EXPORT_SYMBOL(__ipipe_mach_timerint);
-
-int __ipipe_mach_timerstolen;
-EXPORT_SYMBOL(__ipipe_mach_timerstolen);
 
 unsigned int __ipipe_mach_ticks_per_jiffy;
 EXPORT_SYMBOL(__ipipe_mach_ticks_per_jiffy);
 
-#endif /* CONFIG_IPIPE */
+int __ipipe_mach_timerstolen;
+EXPORT_SYMBOL(__ipipe_mach_timerstolen);
+#endif /* CONFIG_IPIPE && !CONFIG_SMP */
+
 static irqreturn_t omap2_gp_timer_interrupt(int irq, void *dev_id)
 {
 	struct clock_event_device *evt = &clockevent_gpt;
-#ifndef CONFIG_IPIPE
+#if !defined(CONFIG_IPIPE) || defined(CONFIG_SMP)
 	struct omap_dm_timer *gpt = (struct omap_dm_timer *)dev_id;
 
 	omap_dm_timer_write_status(gpt, OMAP_TIMER_INT_OVERFLOW);
@@ -155,10 +155,12 @@ static struct __ipipe_tscinfo tsc_info = {
 	},
 };
 
+#ifndef CONFIG_SMP
 int __ipipe_check_tickdev(const char *devname)
 {
 	return !strcmp(devname, clockevent_gpt.name);
 }
+#endif /* !CONFIG_SMP */
 #endif /* CONFIG_IPIPE */
 
 static void __init omap2_gp_clockevent_init(void)
@@ -191,10 +193,10 @@ static void __init omap2_gp_clockevent_init(void)
 
 	omap2_gp_timer_irq.dev_id = (void *)gptimer;
 
-#ifdef CONFIG_IPIPE
+#if defined(CONFIG_IPIPE) && !defined(CONFIG_SMP)
 	__ipipe_mach_timerint = omap_dm_timer_get_irq(gptimer);
 	__ipipe_mach_ticks_per_jiffy = (tick_rate + HZ / 2) / HZ;
-#endif /* CONFIG_IPIPE */
+#endif /* CONFIG_IPIPE && !CONFIG_SMP*/
 
 	setup_irq(omap_dm_timer_get_irq(gptimer), &omap2_gp_timer_irq);
 	omap_dm_timer_set_int_enable(gptimer, OMAP_TIMER_INT_OVERFLOW);
@@ -264,7 +266,7 @@ static void __init omap2_gp_clocksource_init(void)
 
 	omap_dm_timer_set_load_start(gpt, 1, 0);
 
-#ifdef CONFIG_IPIPE
+#if defined(CONFIG_IPIPE) && !defined(CONFIG_SMP)
 	tsc_info.freq = tick_rate;
 	tsc_info.counter_vaddr =
 		omap_dm_timer_get_virt_counter_addr(gpt_clocksource);
@@ -291,7 +293,7 @@ static void __init omap2_gp_timer_init(void)
 #endif
 	omap_dm_timer_init();
 
-#ifdef CONFIG_IPIPE
+#if defined(CONFIG_IPIPE) && !defined(CONFIG_SMP)
 	omap2_gp_clockevent_set_gptimer(2);
 #endif
 	omap2_gp_clockevent_init();
@@ -302,7 +304,7 @@ struct sys_timer omap_timer = {
 	.init	= omap2_gp_timer_init,
 };
 
-#ifdef CONFIG_IPIPE
+#if defined(CONFIG_IPIPE) && !defined(CONFIG_SMP)
 void __ipipe_mach_acktimer(void)
 {
 	omap_dm_timer_write_status(gptimer, OMAP_TIMER_INT_OVERFLOW);

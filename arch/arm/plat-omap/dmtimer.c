@@ -340,7 +340,7 @@ static void omap_dm_timer_reset(struct omap_dm_timer *timer, int posted)
 	omap_dm_timer_set_source(timer, OMAP_TIMER_SRC_32_KHZ);
 
 	l = omap_dm_timer_read_reg(timer, OMAP_TIMER_OCP_CFG_REG);
-#ifndef CONFIG_IPIPE
+#if !defined(CONFIG_IPIPE) || defined(CONFIG_SMP)
 	l |= 0x02 << 3;  /* Set to smart-idle mode */
 	l |= 0x2 << 8;   /* Set clock activity to perserve f-clock on
 			  * idle */
