@@ -870,7 +870,10 @@ common_interrupt:
 	jnz ret_from_intr
 	decl PER_CPU_VAR(irq_count)
 	leaveq
+	CFI_RESTORE		rbp
 	CFI_DEF_CFA_REGISTER	rsp
+	CFI_ADJUST_CFA_OFFSET	-8
+	addq $8, %rsp
 	CFI_ADJUST_CFA_OFFSET	-8
 	testl $3,CS-ARGOFFSET(%rsp)
 	jz restore_args
@@ -1039,7 +1042,10 @@ ENTRY(\sym)
 	jnz ret_from_intr
 	decl PER_CPU_VAR(irq_count)
 	leaveq
+	CFI_RESTORE		rbp
 	CFI_DEF_CFA_REGISTER	rsp
+	CFI_ADJUST_CFA_OFFSET	-8
+	addq $8, %rsp
 	CFI_ADJUST_CFA_OFFSET	-8
 	testl $3,CS-ARGOFFSET(%rsp)
 	jz restore_args
