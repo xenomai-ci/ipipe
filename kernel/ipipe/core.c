@@ -442,7 +442,8 @@ void __ipipe_restore_pipeline_head(unsigned long x) /* hw interrupt off */
 	if (x) {
 #ifdef CONFIG_DEBUG_KERNEL
 		static int warned;
-		if (!warned && test_and_set_bit(IPIPE_STALL_FLAG, &p->status)) {
+		if (!warned &&
+		    __test_and_set_bit(IPIPE_STALL_FLAG, &p->status)) {
 			/*
 			 * Already stalled albeit ipipe_restore_pipeline_head()
 			 * should have detected it? Send a warning once.
@@ -455,7 +456,7 @@ void __ipipe_restore_pipeline_head(unsigned long x) /* hw interrupt off */
 			local_irq_disable_hw();	
 		}
 #else /* !CONFIG_DEBUG_KERNEL */
-		set_bit(IPIPE_STALL_FLAG, &p->status);
+		__set_bit(IPIPE_STALL_FLAG, &p->status);
 #endif /* CONFIG_DEBUG_KERNEL */
 	}
 	else {
@@ -1211,7 +1212,7 @@ void __ipipe_preempt_schedule_irq(void)
 	if (unlikely(__ipipe_ipending_p(p))) {
 		add_preempt_count(PREEMPT_ACTIVE);
 		trace_hardirqs_on();
-		clear_bit(IPIPE_STALL_FLAG, &p->status);
+		__clear_bit(IPIPE_STALL_FLAG, &p->status);
 		__ipipe_sync_pipeline();
 		sub_preempt_count(PREEMPT_ACTIVE);
 	}
