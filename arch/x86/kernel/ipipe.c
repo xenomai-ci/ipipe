@@ -420,7 +420,7 @@ void __ipipe_halt_root(void)
 	p = ipipe_root_cpudom_ptr();
 
 	trace_hardirqs_on();
-	clear_bit(IPIPE_STALL_FLAG, &p->status);
+	__clear_bit(IPIPE_STALL_FLAG, &p->status);
 
 	if (unlikely(__ipipe_ipending_p(p))) {
 		__ipipe_sync_pipeline();

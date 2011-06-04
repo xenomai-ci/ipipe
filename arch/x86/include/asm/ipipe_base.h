@@ -131,7 +131,6 @@
 static inline void __ipipe_stall_root(void)
 {
 	__asm__ __volatile__(GET_ROOT_STATUS_ADDR
-			     LOCK_PREFIX
 			     TEST_AND_SET_ROOT_STATUS
 			     PUT_ROOT_STATUS_ADDR
 			     : : : ROOT_TEST_CLOBBER_LIST, "memory");
@@ -142,7 +141,6 @@ static inline unsigned long __ipipe_test_and_stall_root(void)
 	int oldbit;
 
 	__asm__ __volatile__(GET_ROOT_STATUS_ADDR
-			     LOCK_PREFIX
 			     TEST_AND_SET_ROOT_STATUS
 			     "sbbl %0,%0;"
 			     PUT_ROOT_STATUS_ADDR
