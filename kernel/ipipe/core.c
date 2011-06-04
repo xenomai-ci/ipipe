@@ -1166,6 +1166,7 @@ void __ipipe_dispatch_wired_nocheck(struct ipipe_domain *head, unsigned irq) /* 
 	head->irqs[irq].handler(irq, head->irqs[irq].cookie); /* Call the ISR. */
 	__ipipe_run_irqtail(irq);
 	barrier();
+	p = ipipe_cpudom_ptr(head);
 	__clear_bit(IPIPE_STALL_FLAG, &p->status);
 
 	if (__ipipe_current_domain == head) {
