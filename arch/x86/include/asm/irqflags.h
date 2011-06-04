@@ -143,7 +143,7 @@ static inline void halt(void)
 /* Merge virtual+real interrupt mask bits into a single word. */
 static inline unsigned long arch_mangle_irq_bits(int virt, unsigned long real)
 {
-	return (real & ~(1L << 31)) | ((virt != 0) << 31);
+	return (real & ~(1L << 31)) | ((unsigned long)(virt != 0) << 31);
 }
 
 /* Converse operation of arch_mangle_irq_bits() */
