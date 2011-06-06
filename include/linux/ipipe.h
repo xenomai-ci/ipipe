@@ -321,11 +321,11 @@ static inline void __local_irq_restore_nosync(unsigned long x)
 	struct ipipe_percpu_domain_data *p = ipipe_root_cpudom_ptr();
 
 	if (raw_irqs_disabled_flags(x)) {
-		set_bit(IPIPE_STALL_FLAG, &p->status);
+		__set_bit(IPIPE_STALL_FLAG, &p->status);
 		trace_hardirqs_off();
 	} else {
 		trace_hardirqs_on();
-		clear_bit(IPIPE_STALL_FLAG, &p->status);
+		__clear_bit(IPIPE_STALL_FLAG, &p->status);
 	}
 }
 

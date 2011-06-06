@@ -1431,7 +1431,7 @@ split_fallthrough:
 		 */
 		mark_page_accessed(page);
 	}
-	if (flags & FOLL_MLOCK) {
+	if ((flags & FOLL_MLOCK) && (vma->vm_flags & VM_LOCKED)) {
 		/*
 		 * The preliminary mapping check is mainly to avoid the
 		 * pointless overhead of lock_page on the ZERO_PAGE
@@ -1482,6 +1482,12 @@ no_page_table:
 	return page;
 }
 
+static inline int stack_guard_page(struct vm_area_struct *vma, unsigned long addr)
+{
+	return stack_guard_page_start(vma, addr) ||
+	       stack_guard_page_end(vma, addr+PAGE_SIZE);
+}
+
 int __get_user_pages(struct task_struct *tsk, struct mm_struct *mm,
 		     unsigned long start, int nr_pages, unsigned int gup_flags,
 		     struct page **pages, struct vm_area_struct **vmas,
@@ -1511,7 +1517,6 @@ int __get_user_pages(struct task_struct *tsk, struct mm_struct *mm,
 		vma = find_extend_vma(mm, start);
 		if (!vma && in_gate_area(tsk, start)) {
 			unsigned long pg = start & PAGE_MASK;
-			struct vm_area_struct *gate_vma = get_gate_vma(tsk);
 			pgd_t *pgd;
 			pud_t *pud;
 			pmd_t *pmd;
@@ -1536,10 +1541,11 @@ int __get_user_pages(struct task_struct *tsk, struct mm_struct *mm,
 				pte_unmap(pte);
 				return i ? : -EFAULT;
 			}
+			vma = get_gate_vma(tsk);
 			if (pages) {
 				struct page *page;
 
-				page = vm_normal_page(gate_vma, start, *pte);
+				page = vm_normal_page(vma, start, *pte);
 				if (!page) {
 					if (!(gup_flags & FOLL_DUMP) &&
 					     is_zero_pfn(pte_pfn(*pte)))
@@ -1553,12 +1559,7 @@ int __get_user_pages(struct task_struct *tsk, struct mm_struct *mm,
 				get_page(page);
 			}
 			pte_unmap(pte);
-			if (vmas)
-				vmas[i] = gate_vma;
-			i++;
-			start += PAGE_SIZE;
-			nr_pages--;
-			continue;
+			goto next_page;
 		}
 
 		if (!vma ||
@@ -1588,6 +1589,11 @@ int __get_user_pages(struct task_struct *tsk, struct mm_struct *mm,
 				int ret;
 				unsigned int fault_flags = 0;
 
+				/* For mlock, just skip the stack guard page. */
+				if (foll_flags & FOLL_MLOCK) {
+					if (stack_guard_page(vma, start))
+						goto next_page;
+				}
 				if (foll_flags & FOLL_WRITE)
 					fault_flags |= FAULT_FLAG_WRITE;
 				if (nonblocking)
@@ -1641,6 +1647,7 @@ int __get_user_pages(struct task_struct *tsk, struct mm_struct *mm,
 				flush_anon_page(vma, page, start);
 				flush_dcache_page(page);
 			}
+next_page:
 			if (vmas)
 				vmas[i] = vma;
 			i++;
@@ -3368,7 +3375,7 @@ int handle_mm_fault(struct mm_struct *mm, struct vm_area_struct *vma,
 	 * run pte_offset_map on the pmd, if an huge pmd could
 	 * materialize from under us from a different thread.
 	 */
-	if (unlikely(__pte_alloc(mm, vma, pmd, address)))
+	if (unlikely(pmd_none(*pmd)) && __pte_alloc(mm, vma, pmd, address))
 		return VM_FAULT_OOM;
 	/* if an huge pmd materialized from under us just retry later */
 	if (unlikely(pmd_trans_huge(*pmd)))
