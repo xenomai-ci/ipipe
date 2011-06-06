@@ -835,7 +835,9 @@ void update_vsyscall_tz(void)
 
 EXPORT_SYMBOL(__ipipe_tick_irq);
 
+#ifdef CONFIG_SPARSE_IRQ
 EXPORT_SYMBOL_GPL(irq_to_desc);
+#endif
 struct task_struct *__switch_to(struct task_struct *prev_p,
 				struct task_struct *next_p);
 EXPORT_SYMBOL_GPL(__switch_to);
