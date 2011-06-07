@@ -2337,7 +2337,8 @@ asmlinkage void smp_irq_move_cleanup_interrupt(void)
 	irq_enter();
 
 	me = smp_processor_id();
-	for (vector = FIRST_EXTERNAL_VECTOR; vector < NR_VECTORS; vector++) {
+	for (vector = FIRST_EXTERNAL_VECTOR + 1; vector < NR_VECTORS;
+	     vector++) {
 		unsigned int irq;
 		unsigned int irr;
 		struct irq_desc *desc;
