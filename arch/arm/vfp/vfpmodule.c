@@ -448,7 +448,8 @@ static inline void vfp_pm_init(void) { }
 
 void vfp_sync_hwstate(struct thread_info *thread)
 {
-	unsigned int cpu = get_cpu();
+	unsigned long flags;
+	unsigned int cpu = ipipe_get_cpu(flags);
 
 	/*
 	 * If the thread we're interested in is the current owner of the
@@ -465,12 +466,13 @@ void vfp_sync_hwstate(struct thread_info *thread)
 		fmxr(FPEXC, fpexc);
 	}
 
-	put_cpu();
+	ipipe_put_cpu(flags);
 }
 
 void vfp_flush_hwstate(struct thread_info *thread)
 {
-	unsigned int cpu = get_cpu();
+	unsigned long flags;
+	unsigned int cpu = ipipe_get_cpu(flags);
 
 	/*
 	 * If the thread we're interested in is the current owner of the
@@ -498,7 +500,7 @@ void vfp_flush_hwstate(struct thread_info *thread)
 	 */
 	thread->vfpstate.hard.cpu = NR_CPUS;
 #endif
-	put_cpu();
+	ipipe_put_cpu(flags);
 }
 
 #include <linux/smp.h>
