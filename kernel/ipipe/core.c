@@ -555,7 +555,7 @@ void __ipipe_spin_unlock_irqcomplete(unsigned long x)
 static inline void __ipipe_set_irq_held(struct ipipe_percpu_domain_data *p,
 					unsigned int irq)
 {
-	__set_bit(irq, p->irqheld_map);
+	set_bit(irq, p->irqheld_map);
 	p->irqall[irq]++;
 }
 
@@ -571,11 +571,11 @@ void __ipipe_set_irq_pending(struct ipipe_domain *ipd, unsigned int irq)
 	l1b = irq / BITS_PER_LONG;
 
 	if (likely(!test_bit(IPIPE_LOCK_FLAG, &ipd->irqs[irq].control))) {
-		__set_bit(irq, p->irqpend_lomap);
-		__set_bit(l1b, p->irqpend_mdmap);
-		__set_bit(l0b, &p->irqpend_himap);
+		set_bit(irq, p->irqpend_lomap);
+		set_bit(l1b, p->irqpend_mdmap);
+		set_bit(l0b, &p->irqpend_himap);
 	} else
-		__set_bit(irq, p->irqheld_map);
+		set_bit(irq, p->irqheld_map);
 
 	p->irqall[irq]++;
 }
@@ -597,12 +597,12 @@ void __ipipe_lock_irq(struct ipipe_domain *ipd, int cpu, unsigned int irq)
 	l1b = irq / BITS_PER_LONG;
 
 	p = ipipe_percpudom_ptr(ipd, cpu);
-	if (__test_and_clear_bit(irq, p->irqpend_lomap)) {
-		__set_bit(irq, p->irqheld_map);
+	if (test_and_clear_bit(irq, p->irqpend_lomap)) {
+		set_bit(irq, p->irqheld_map);
 		if (p->irqpend_lomap[l1b] == 0) {
-			__clear_bit(l1b, p->irqpend_mdmap);
+			clear_bit(l1b, p->irqpend_mdmap);
 			if (p->irqpend_mdmap[l0b] == 0)
-				__clear_bit(l0b, &p->irqpend_himap);
+				clear_bit(l0b, &p->irqpend_himap);
 		}
 	}
 }
@@ -625,7 +625,6 @@ void __ipipe_unlock_irq(struct ipipe_domain *ipd, unsigned int irq)
 	for_each_online_cpu(cpu) {
 		p = ipipe_percpudom_ptr(ipd, cpu);
 		if (test_and_clear_bit(irq, p->irqheld_map)) {
-			/* We need atomic ops here: */
 			set_bit(irq, p->irqpend_lomap);
 			set_bit(l1b, p->irqpend_mdmap);
 			set_bit(l0b, &p->irqpend_himap);
@@ -656,11 +655,11 @@ static inline int __ipipe_next_irq(struct ipipe_percpu_domain_data *p)
 	l2b = __ipipe_ffnz(l2m);
 	irq = l1b * BITS_PER_LONG + l2b;
 
-	__clear_bit(irq, p->irqpend_lomap);
+	clear_bit(irq, p->irqpend_lomap);
 	if (p->irqpend_lomap[l1b] == 0) {
-		__clear_bit(l1b, p->irqpend_mdmap);
+		clear_bit(l1b, p->irqpend_mdmap);
 		if (p->irqpend_mdmap[l0b] == 0)
-			__clear_bit(l0b, &p->irqpend_himap);
+			clear_bit(l0b, &p->irqpend_himap);
 	}
 
 	return irq;
@@ -672,7 +671,7 @@ static inline int __ipipe_next_irq(struct ipipe_percpu_domain_data *p)
 static inline void __ipipe_set_irq_held(struct ipipe_percpu_domain_data *p,
 					unsigned int irq)
 {
-	__set_bit(irq, p->irqheld_map);
+	set_bit(irq, p->irqheld_map);
 	p->irqall[irq]++;
 }
 
@@ -685,10 +684,10 @@ void __ipipe_set_irq_pending(struct ipipe_domain *ipd, unsigned irq)
 	IPIPE_WARN_ONCE(!irqs_disabled_hw());
 
 	if (likely(!test_bit(IPIPE_LOCK_FLAG, &ipd->irqs[irq].control))) {
-		__set_bit(irq, p->irqpend_lomap);
-		__set_bit(l0b, &p->irqpend_himap);
+		set_bit(irq, p->irqpend_lomap);
+		set_bit(l0b, &p->irqpend_himap);
 	} else
-		__set_bit(irq, p->irqheld_map);
+		set_bit(irq, p->irqheld_map);
 
 	p->irqall[irq]++;
 }
@@ -707,10 +706,10 @@ void __ipipe_lock_irq(struct ipipe_domain *ipd, int cpu, unsigned irq)
 		return;
 
 	p = ipipe_percpudom_ptr(ipd, cpu);
-	if (__test_and_clear_bit(irq, p->irqpend_lomap)) {
-		__set_bit(irq, p->irqheld_map);
+	if (test_and_clear_bit(irq, p->irqpend_lomap)) {
+		set_bit(irq, p->irqheld_map);
 		if (p->irqpend_lomap[l0b] == 0)
-			__clear_bit(l0b, &p->irqpend_himap);
+			clear_bit(l0b, &p->irqpend_himap);
 	}
 }
 
@@ -729,7 +728,6 @@ void __ipipe_unlock_irq(struct ipipe_domain *ipd, unsigned irq)
 	for_each_online_cpu(cpu) {
 		p = ipipe_percpudom_ptr(ipd, cpu);
 		if (test_and_clear_bit(irq, p->irqheld_map)) {
-			/* We need atomic ops here: */
 			set_bit(irq, p->irqpend_lomap);
 			set_bit(l0b, &p->irqpend_himap);
 		}
@@ -751,9 +749,9 @@ static inline int __ipipe_next_irq(struct ipipe_percpu_domain_data *p)
 		return -1;
 
 	l1b = __ipipe_ffnz(l1m);
-	__clear_bit(l1b, &p->irqpend_lomap[l0b]);
+	clear_bit(l1b, &p->irqpend_lomap[l0b]);
 	if (p->irqpend_lomap[l0b] == 0)
-		__clear_bit(l0b, &p->irqpend_himap);
+		clear_bit(l0b, &p->irqpend_himap);
 
 	return l0b * BITS_PER_LONG + l1b;
 }
@@ -1168,6 +1166,7 @@ void __ipipe_dispatch_wired_nocheck(struct ipipe_domain *head, unsigned irq) /* 
 	head->irqs[irq].handler(irq, head->irqs[irq].cookie); /* Call the ISR. */
 	__ipipe_run_irqtail(irq);
 	barrier();
+	p = ipipe_cpudom_ptr(head);
 	__clear_bit(IPIPE_STALL_FLAG, &p->status);
 
 	if (__ipipe_current_domain == head) {
@@ -1277,14 +1276,14 @@ void __ipipe_sync_stage(void)
 			irq_enter();
 			ipd->irqs[irq].handler(irq, ipd->irqs[irq].cookie);
 			irq_exit();
-			local_irq_disable_hw();
 			root_stall_after_handler();
+			local_irq_disable_hw();
 			while (__ipipe_check_root_resched())
 				__ipipe_preempt_schedule_irq();
 		} else {
 			__ipipe_do_root_xirq(ipd, irq);
-			local_irq_disable_hw();
 			root_stall_after_handler();
+			local_irq_disable_hw();
 		}
 
 		p = ipipe_cpudom_ptr(__ipipe_current_domain);
