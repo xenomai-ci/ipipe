@@ -186,10 +186,10 @@ __switch_mm(struct mm_struct *prev, struct mm_struct *next,
 			while (test_and_clear_thread_flag(TIF_MMSWITCH_INT)) {
 				/* mark mm state as undefined. */
 				per_cpu(ipipe_active_mm, cpu) = NULL;
-				barrier();
 #ifdef CONFIG_SMP
 				*crt_mm = next;
 #endif
+				barrier();
 				check_context(next);
 				cpu_switch_mm(next->pgd, next,
 					      fcse_switch_mm(NULL, next));
@@ -199,6 +199,9 @@ __switch_mm(struct mm_struct *prev, struct mm_struct *next,
 		} else
 #endif /* CONFIG_IPIPE */
 		{
+#ifdef CONFIG_SMP
+			*crt_mm = next;
+#endif
 			check_context(next);
 			cpu_switch_mm(next->pgd, next,
 				      fcse_switch_mm(prev, next));
