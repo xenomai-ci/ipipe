@@ -71,7 +71,7 @@ extern unsigned __ipipe_twd_hrtimer_freq;
 
 /* Global timer setup, the global timer is a convenient 64 bits
  * high-resoluion counter, part of the cortex a9 mpcore */
-void gt_setup(unsigned long base_paddr);
+void gt_setup(unsigned long base_paddr, unsigned bits);
 #endif /* CONFIG_IPIPE */
 
 void twd_timer_stop(void);

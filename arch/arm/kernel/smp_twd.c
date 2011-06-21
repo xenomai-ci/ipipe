@@ -85,16 +85,9 @@ int twd_timer_ack(void)
 	return 1;
 }
 
-static struct __ipipe_tscinfo tsc_info = {
-	.type = IPIPE_TSC_TYPE_FREERUNNING,
-	.u = {
-		{
-			.mask = 0xffffffffffffffffULL,
-		},
-	},
-};
+static struct __ipipe_tscinfo tsc_info;
 
-void __cpuinit gt_setup(unsigned long base_paddr)
+void __cpuinit gt_setup(unsigned long base_paddr, unsigned bits)
 {
 	if (!gt_base) {
 		gt_base = ioremap(base_paddr, SZ_256);
@@ -103,9 +96,23 @@ void __cpuinit gt_setup(unsigned long base_paddr)
 		/* Start global timer */
 		__raw_writel(1, gt_base + 0x8);
 
+		tsc_info.type = IPIPE_TSC_TYPE_FREERUNNING;
 		tsc_info.freq = twd_timer_rate;
 		tsc_info.counter_vaddr = (unsigned long)gt_base;
 		tsc_info.u.counter_paddr = base_paddr;
+
+		switch(bits) {
+		case 64:
+			tsc_info.u.mask = 0xffffffffffffffffULL;
+			break;
+		case 32:
+			tsc_info.u.mask = 0xffffffff;
+			break;
+		default:
+			/* Only supported as a 32 bits or 64 bits */
+			BUG();
+		}
+
 		__ipipe_tsc_register(&tsc_info);
 
 	}
