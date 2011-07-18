@@ -334,12 +334,14 @@ ENTRY(save_args)
 	 * moving irq_enter into assembly, which would be too much work)
 	 */
 1:	incl PER_CPU_VAR(irq_count)
+#ifndef CONFIG_IPIPE
 	jne 2f
 	popq_cfi %rax			/* move return address... */
 	mov PER_CPU_VAR(irq_stack_ptr),%rsp
 	EMPTY_FRAME 0
 	pushq_cfi %rbp			/* backlink for unwinder */
 	pushq_cfi %rax			/* ... to the new stack */
+#endif
 	/*
 	 * We entered an interrupt context - irqs are off:
 	 */
