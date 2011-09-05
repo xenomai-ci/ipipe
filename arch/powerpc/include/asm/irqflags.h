@@ -10,7 +10,17 @@
  */
 #include <asm/hw_irq.h>
 
-#else
+#elif CONFIG_IPIPE
+#ifdef CONFIG_IPIPE_TRACE_IRQSOFF
+#define TRACE_DISABLE_INTS		bl	.__ipipe_trace_irqson
+#define TRACE_ENABLE_INTS		bl	.__ipipe_trace_irqson
+#define TRACE_DISABLE_INTS_REALLY	bl	.__ipipe_trace_irqsoff
+#else	
+#define TRACE_DISABLE_INTS
+#define TRACE_ENABLE_INTS
+#define TRACE_DISABLE_INTS_REALLY
+#endif
+#else /* !CONFIG_IPIPE */
 #ifdef CONFIG_TRACE_IRQFLAGS
 #ifdef CONFIG_IRQSOFF_TRACER
 /*

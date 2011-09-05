@@ -38,7 +38,7 @@ struct pt_regs {
 	unsigned long xer;
 	unsigned long ccr;
 #ifdef __powerpc64__
-	unsigned long softe;		/* Soft enabled/disabled */
+	unsigned long softe;		/* Soft enabled/disabled (CONFIG_SOFTDISABLE || CONFIG_IPIPE) */
 #else
 	unsigned long mq;		/* 601 only (not used at present) */
 					/* Used on APUS to hold IPL value. */

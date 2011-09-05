@@ -82,47 +82,63 @@ static void cpm2_mask_irq(struct irq_data *d)
 {
 	int	bit, word;
 	unsigned int irq_nr = irqd_to_hwirq(d);
+	unsigned long flags;
 
 	bit = irq_to_siubit[irq_nr];
 	word = irq_to_siureg[irq_nr];
 
+	local_irq_save_hw_cond(flags);
+	ipipe_irq_lock(d->irq);
 	ppc_cached_irq_mask[word] &= ~(1 << bit);
 	out_be32(&cpm2_intctl->ic_simrh + word, ppc_cached_irq_mask[word]);
+	local_irq_restore_hw_cond(flags);
 }
 
 static void cpm2_unmask_irq(struct irq_data *d)
 {
 	int	bit, word;
 	unsigned int irq_nr = irqd_to_hwirq(d);
+	unsigned long flags;
 
 	bit = irq_to_siubit[irq_nr];
 	word = irq_to_siureg[irq_nr];
 
+	local_irq_save_hw_cond(flags);
 	ppc_cached_irq_mask[word] |= 1 << bit;
 	out_be32(&cpm2_intctl->ic_simrh + word, ppc_cached_irq_mask[word]);
+	ipipe_irq_unlock(d->irq);
+	local_irq_restore_hw_cond(flags);
 }
 
-static void cpm2_ack(struct irq_data *d)
+static void cpm2_mask_ack(struct irq_data *d)
 {
 	int	bit, word;
 	unsigned int irq_nr = irqd_to_hwirq(d);
+	unsigned long flags;
 
 	bit = irq_to_siubit[irq_nr];
 	word = irq_to_siureg[irq_nr];
 
+	local_irq_save_hw_cond(flags);
+	ppc_cached_irq_mask[word] &= ~(1 << bit);
+	out_be32(&cpm2_intctl->ic_simrh + word, ppc_cached_irq_mask[word]);
 	out_be32(&cpm2_intctl->ic_sipnrh + word, 1 << bit);
+	local_irq_restore_hw_cond(flags);
 }
 
 static void cpm2_end_irq(struct irq_data *d)
 {
 	int	bit, word;
 	unsigned int irq_nr = irqd_to_hwirq(d);
+	unsigned long flags;
 
 	bit = irq_to_siubit[irq_nr];
 	word = irq_to_siureg[irq_nr];
 
+	local_irq_save_hw_cond(flags);
 	ppc_cached_irq_mask[word] |= 1 << bit;
 	out_be32(&cpm2_intctl->ic_simrh + word, ppc_cached_irq_mask[word]);
+	local_irq_restore_hw_cond(flags);
 
 	/*
 	 * Work around large numbers of spurious IRQs on PowerPC 82xx
@@ -193,7 +209,7 @@ static struct irq_chip cpm2_pic = {
 	.name = "CPM2 SIU",
 	.irq_mask = cpm2_mask_irq,
 	.irq_unmask = cpm2_unmask_irq,
-	.irq_ack = cpm2_ack,
+	.irq_mask_ack = cpm2_mask_ack,
 	.irq_eoi = cpm2_end_irq,
 	.irq_set_type = cpm2_set_irq_type,
 	.flags = IRQCHIP_EOI_IF_HANDLED,

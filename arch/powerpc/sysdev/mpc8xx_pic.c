@@ -29,24 +29,32 @@ static void mpc8xx_unmask_irq(struct irq_data *d)
 {
 	int	bit, word;
 	unsigned int irq_nr = (unsigned int)irqd_to_hwirq(d);
+	unsigned long flags;
 
 	bit = irq_nr & 0x1f;
 	word = irq_nr >> 5;
 
+	local_irq_save_hw_cond(flags);
 	ppc_cached_irq_mask[word] |= (1 << (31-bit));
 	out_be32(&siu_reg->sc_simask, ppc_cached_irq_mask[word]);
+	ipipe_irq_unlock(d->irq);
+	local_irq_restore_hw_cond(flags);
 }
 
 static void mpc8xx_mask_irq(struct irq_data *d)
 {
 	int	bit, word;
 	unsigned int irq_nr = (unsigned int)irqd_to_hwirq(d);
+	unsigned long flags;
 
 	bit = irq_nr & 0x1f;
 	word = irq_nr >> 5;
 
+	local_irq_save_hw_cond(flags);
+	ipipe_irq_lock(d->irq);
 	ppc_cached_irq_mask[word] &= ~(1 << (31-bit));
 	out_be32(&siu_reg->sc_simask, ppc_cached_irq_mask[word]);
+	local_irq_restore_hw_cond(flags);
 }
 
 static void mpc8xx_ack(struct irq_data *d)
@@ -58,16 +66,37 @@ static void mpc8xx_ack(struct irq_data *d)
 	out_be32(&siu_reg->sc_sipend, 1 << (31-bit));
 }
 
-static void mpc8xx_end_irq(struct irq_data *d)
+#ifdef CONFIG_IPIPE
+static void mpc8xx_mask_ack_irq(struct irq_data *d)
 {
-	int bit, word;
+	int	bit, word;
 	unsigned int irq_nr = (unsigned int)irqd_to_hwirq(d);
+	unsigned long flags;
 
 	bit = irq_nr & 0x1f;
 	word = irq_nr >> 5;
 
+	local_irq_save_hw_cond(flags);
+	ppc_cached_irq_mask[word] &= ~(1 << (31-bit));
+	out_be32(&siu_reg->sc_simask, ppc_cached_irq_mask[word]);
+	out_be32(&siu_reg->sc_sipend, 1 << (31-bit));
+	local_irq_restore_hw_cond(flags);
+}
+#endif
+
+static void mpc8xx_end_irq(struct irq_data *d)
+{
+	int bit, word;
+	unsigned int irq_nr = (unsigned int)irqd_to_hwirq(d);
+	unsigned long flags;
+
+	bit = irq_nr & 0x1f;
+	word = irq_nr >> 5;
+
+	local_irq_save_hw_cond(flags);
 	ppc_cached_irq_mask[word] |= (1 << (31-bit));
 	out_be32(&siu_reg->sc_simask, ppc_cached_irq_mask[word]);
+	local_irq_restore_hw_cond(flags);
 }
 
 static int mpc8xx_set_irq_type(struct irq_data *d, unsigned int flow_type)
@@ -80,7 +109,9 @@ static int mpc8xx_set_irq_type(struct irq_data *d, unsigned int flow_type)
 		if ((hw & 1) == 0) {
 			siel |= (0x80000000 >> hw);
 			out_be32(&siu_reg->sc_siel, siel);
+#ifndef CONFIG_IPIPE
 			__irq_set_handler_locked(d->irq, handle_edge_irq);
+#endif
 		}
 	}
 	return 0;
@@ -91,6 +122,9 @@ static struct irq_chip mpc8xx_pic = {
 	.irq_unmask = mpc8xx_unmask_irq,
 	.irq_mask = mpc8xx_mask_irq,
 	.irq_ack = mpc8xx_ack,
+#ifdef CONFIG_IPIPE
+	.mask_ack = mpc8xx_mask_ack_irq,
+#endif
 	.irq_eoi = mpc8xx_end_irq,
 	.irq_set_type = mpc8xx_set_irq_type,
 };

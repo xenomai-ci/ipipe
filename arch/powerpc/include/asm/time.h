@@ -28,6 +28,7 @@
 extern unsigned long tb_ticks_per_jiffy;
 extern unsigned long tb_ticks_per_usec;
 extern unsigned long tb_ticks_per_sec;
+DECLARE_PER_CPU(int, disarm_decr);
 
 struct rtc_time;
 extern void to_tm(int tim, struct rtc_time * tm);

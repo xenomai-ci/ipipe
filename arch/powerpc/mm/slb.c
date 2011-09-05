@@ -134,17 +134,24 @@ static void __slb_flush_and_rebolt(void)
 
 void slb_flush_and_rebolt(void)
 {
+#ifdef CONFIG_IPIPE
+	unsigned long flags;
 
-	WARN_ON(!irqs_disabled());
-
+	local_save_flags_hw(flags);
+#else
+ 	WARN_ON(!irqs_disabled());
+#endif
 	/*
 	 * We can't take a PMU exception in the following code, so hard
 	 * disable interrupts.
 	 */
-	hard_irq_disable();
+ 	hard_irq_disable();
 
 	__slb_flush_and_rebolt();
 	get_paca()->slb_cache_ptr = 0;
+#ifdef CONFIG_IPIPE
+	local_irq_restore_hw(flags);
+#endif
 }
 
 void slb_vmalloc_update(void)
@@ -193,6 +200,13 @@ void switch_slb(struct task_struct *tsk, struct mm_struct *mm)
 	unsigned long pc = KSTK_EIP(tsk);
 	unsigned long stack = KSTK_ESP(tsk);
 	unsigned long exec_base;
+#ifdef CONFIG_IPIPE
+	unsigned long flags;
+
+	local_save_flags_hw(flags);
+#else
+ 	WARN_ON(!irqs_disabled());
+#endif
 
 	/*
 	 * We need interrupts hard-disabled here, not just soft-disabled,
@@ -226,6 +240,9 @@ void switch_slb(struct task_struct *tsk, struct mm_struct *mm)
 	get_paca()->slb_cache_ptr = 0;
 	get_paca()->context = mm->context;
 
+#ifdef CONFIG_IPIPE
+	local_irq_restore_hw(flags);
+#endif
 	/*
 	 * preload some userspace segments into the SLB.
 	 * Almost all 32 and 64bit PowerPC executables are linked at
