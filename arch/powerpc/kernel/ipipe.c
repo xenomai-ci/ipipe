@@ -83,7 +83,7 @@ void __ipipe_register_ipi(unsigned int irq)
 	__ipipe_ipi_irq = irq;
 	mb();
 #ifndef CONFIG_DEBUGGER
-	irq_to_desc(irq)->chip->startup(irq);
+	irq_get_chip(irq)->irq_startup(irq_get_irq_data(irq));
 #endif
 }
 
