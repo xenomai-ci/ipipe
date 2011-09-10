@@ -288,23 +288,6 @@ vsx_unavailable_pSeries_1:
 	STD_EXCEPTION_PSERIES(., 0xf40, vsx_unavailable)
 
 #ifdef CONFIG_SOFTDISABLE
-/*
- * An interrupt came in while soft-disabled; clear EE in SRR1,
- * clear paca->hard_enabled and return.
- */
-masked_interrupt:
-	stb	r10,PACAHARDIRQEN(r13)
-	mtcrf	0x80,r9
-	ld	r9,PACA_EXGEN+EX_R9(r13)
-	mfspr	r10,SPRN_SRR1
-	rldicl	r10,r10,48,1		/* clear MSR_EE */
-	rotldi	r10,r10,16
-	mtspr	SPRN_SRR1,r10
-	ld	r10,PACA_EXGEN+EX_R10(r13)
-	GET_SCRATCH0(r13)
-	rfid
-	b	.
-#endif /* CONFIG_SOFTDISABLE */
 
 masked_Hinterrupt:
 	stb	r10,PACAHARDIRQEN(r13)
@@ -318,6 +301,8 @@ masked_Hinterrupt:
 	GET_SCRATCH0(r13)
 	hrfid
 	b	.
+
+#endif /* CONFIG_SOFTDISABLE */
 
 	.align	7
 do_stab_bolted_pSeries:
