@@ -9374,7 +9374,7 @@ int ipipe_setscheduler_root(struct task_struct *p, int policy, int prio)
 	struct rq *rq;
 
 	rq = task_rq_lock(p, &flags);
-	on_rq = p->se.on_rq;
+	on_rq = p->on_rq;
 	running = task_current(rq, p);
 	if (on_rq)
 		deactivate_task(rq, p, 0);
