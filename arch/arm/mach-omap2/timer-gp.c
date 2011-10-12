@@ -176,7 +176,7 @@ static void __init omap2_gp_clockevent_init(void)
 /* Clocksource code */
 
 #ifdef CONFIG_OMAP_32K_TIMER
-/* 
+/*
  * When 32k-timer is enabled, don't use GPTimer for clocksource
  * instead, just leave default clocksource which uses the 32k
  * sync counter.  See clocksource setup in plat-omap/counter_32k.c
@@ -193,7 +193,13 @@ static void __init omap2_gp_clocksource_init(void)
  */
 static DEFINE_CLOCK_DATA(cd);
 static struct omap_dm_timer *gpt_clocksource;
-static cycle_t clocksource_read_cycles(struct clocksource *cs)
+
+static cycle_t notrace clocksource_read_dummy(struct clocksource *cs)
+{
+	return 0;
+}
+
+static cycle_t notrace clocksource_read_cycles(struct clocksource *cs)
 {
 	return (cycle_t)omap_dm_timer_read_counter(gpt_clocksource);
 }
@@ -201,10 +207,16 @@ static cycle_t clocksource_read_cycles(struct clocksource *cs)
 static struct clocksource clocksource_gpt = {
 	.name		= "gp timer",
 	.rating		= 300,
-	.read		= clocksource_read_cycles,
+	.read		= clocksource_read_dummy,
 	.mask		= CLOCKSOURCE_MASK(32),
 	.flags		= CLOCK_SOURCE_IS_CONTINUOUS,
 };
+
+unsigned long long notrace sched_clock(void)
+{
+	u32 cyc = clocksource_gpt.read(&clocksource_gpt);
+	return cyc_to_sched_clock(&cd, cyc, (u32)~0);
+}
 
 static void notrace dmtimer_update_sched_clock(void)
 {
@@ -235,6 +247,7 @@ static void __init omap2_gp_clocksource_init(void)
 
 	omap_dm_timer_set_load_start(gpt, 1, 0);
 
+	clocksource_gpt.read = &clocksource_read_cycles;
 	init_sched_clock(&cd, dmtimer_update_sched_clock, 32, tick_rate);
 
 	if (clocksource_register_hz(&clocksource_gpt, tick_rate))
