@@ -257,6 +257,9 @@ static struct irq_chip qe_ic_irq_chip = {
 	.irq_unmask = qe_ic_unmask_irq,
 	.irq_mask = qe_ic_mask_irq,
 	.irq_mask_ack = qe_ic_mask_irq,
+#ifdef CONFIG_IPIPE
+	.irq_eoi = qe_ic_mask_irq,
+#endif
 };
 
 static int qe_ic_host_match(struct irq_host *h, struct device_node *node)
