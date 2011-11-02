@@ -11,6 +11,7 @@
 #define _ASMARM_CACHEFLUSH_H
 
 #include <linux/mm.h>
+#include <linux/sched.h>
 
 #include <asm/glue.h>
 #include <asm/shmparam.h>
