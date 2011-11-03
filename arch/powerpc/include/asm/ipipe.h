@@ -33,6 +33,7 @@
 #include <asm/bitops.h>
 #include <asm/time.h>
 #include <linux/ipipe_percpu.h>
+#include <linux/irq.h>
 #include <linux/list.h>
 #include <linux/cpumask.h>
 #include <linux/cache.h>
@@ -226,8 +227,29 @@ void handle_one_irq(unsigned int irq);
 
 void check_stack_overflow(void);
 
-#define	ipipe_pre_cascade_eoi(desc)		irq_desc_get_chip(desc)->irq_eoi(&(desc)->irq_data)
-#define	ipipe_post_cascade_eoi(desc)		irq_desc_get_chip(desc)->irq_unmask(&(desc)->irq_data)
+static inline void ipipe_pre_cascade_noeoi(struct irq_desc *desc)
+{
+	struct irq_chip *chip = irq_desc_get_chip(desc);
+	chip->irq_mask(&desc->irq_data);
+}
+
+static inline void ipipe_post_cascade_noeoi(struct irq_desc *desc)
+{
+	struct irq_chip *chip = irq_desc_get_chip(desc);
+	chip->irq_unmask(&desc->irq_data);
+}
+
+static inline void ipipe_pre_cascade_eoi(struct irq_desc *desc)
+{
+	struct irq_chip *chip = irq_desc_get_chip(desc);
+	chip->irq_eoi(&desc->irq_data); /* EOI will mask too. */
+}
+
+static inline void ipipe_post_cascade_eoi(struct irq_desc *desc)
+{
+	struct irq_chip *chip = irq_desc_get_chip(desc);
+	chip->irq_unmask(&desc->irq_data);
+}
 
 #else /* !CONFIG_IPIPE */
 
@@ -237,8 +259,15 @@ void check_stack_overflow(void);
 
 #define ipipe_mm_switch_protect(flags)		do { (void)(flags); } while(0)
 #define ipipe_mm_switch_unprotect(flags)	do { (void)(flags); } while(0)
+#define	ipipe_pre_cascade_noeoi(desc)		do { } while (0)
+#define	ipipe_post_cascade_noeoi(desc)		do { } while (0)
 #define	ipipe_pre_cascade_eoi(desc)		do { } while (0)
-#define	ipipe_post_cascade_eoi(desc)		irq_desc_get_chip(desc)->irq_eoi(&(desc)->irq_data)
+
+static inline void ipipe_post_cascade_eoi(struct irq_desc *desc)
+{
+	struct irq_chip *chip = irq_desc_get_chip(desc);
+	chip->irq_eoi(&desc->irq_data);
+}
 
 #define __ipipe_serial_debug(fmt, args...)	do { } while (0)
 

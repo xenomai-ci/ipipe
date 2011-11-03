@@ -91,12 +91,12 @@ static inline void qe_ic_cascade_low_ipic(unsigned int irq,
 	struct qe_ic *qe_ic = irq_desc_get_handler_data(desc);
 	unsigned int cascade_irq = qe_ic_get_low_irq(qe_ic);
 
-	ipipe_pre_cascade_eoi(desc);
+	ipipe_pre_cascade_noeoi(desc);
 
 	if (cascade_irq != NO_IRQ)
 		qe_ic_cascade_irq(qe_ic, cascade_irq);
 
-	ipipe_post_cascade_eoi(desc);
+	ipipe_post_cascade_noeoi(desc);
 }
 
 static inline void qe_ic_cascade_high_ipic(unsigned int irq,
@@ -105,12 +105,12 @@ static inline void qe_ic_cascade_high_ipic(unsigned int irq,
 	struct qe_ic *qe_ic = irq_desc_get_handler_data(desc);
 	unsigned int cascade_irq = qe_ic_get_high_irq(qe_ic);
 
-	ipipe_pre_cascade_eoi(desc);
+	ipipe_pre_cascade_noeoi(desc);
 
 	if (cascade_irq != NO_IRQ)
 		qe_ic_cascade_irq(qe_ic, cascade_irq);
 
-	ipipe_post_cascade_eoi(desc);
+	ipipe_post_cascade_noeoi(desc);
 }
 
 static inline void qe_ic_cascade_low_mpic(unsigned int irq,
