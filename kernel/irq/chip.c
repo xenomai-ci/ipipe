@@ -575,6 +575,9 @@ handle_fasteoi_irq(unsigned int irq, struct irq_desc *desc)
 		goto out;
 	}
 
+	if (desc->status & IRQ_ONESHOT)
+		mask_irq(desc);
+
 	desc->status |= IRQ_INPROGRESS;
 	desc->status &= ~IRQ_PENDING;
 	raw_spin_unlock(&desc->lock);
