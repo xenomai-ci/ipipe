@@ -100,7 +100,11 @@ EXPORT_SYMBOL_GPL(flush_fp_to_thread);
 
 void enable_kernel_fp(void)
 {
+	unsigned long flags;
+
 	WARN_ON(preemptible());
+
+	local_irq_save_hw_cond(flags);
 
 #ifdef CONFIG_SMP
 	if (current->thread.regs && (current->thread.regs->msr & MSR_FP))
@@ -110,6 +114,7 @@ void enable_kernel_fp(void)
 #else
 	giveup_fpu(last_task_used_math);
 #endif /* CONFIG_SMP */
+	local_irq_restore_hw_cond(flags);
 }
 EXPORT_SYMBOL(enable_kernel_fp);
 
@@ -532,7 +537,7 @@ struct task_struct *__switch_to(struct task_struct *prev,
 	}
 #endif /* CONFIG_PPC_BOOK3S_64 */
 
-	local_irq_save(flags);
+	local_irq_save_hw(flags);
 
 	account_system_vtime(current);
 	account_process_vtime(current);
@@ -553,7 +558,7 @@ struct task_struct *__switch_to(struct task_struct *prev,
 	}
 #endif /* CONFIG_PPC_BOOK3S_64 */
 
-	local_irq_restore(flags);
+	local_irq_restore_hw(flags);
 
 	return last;
 }
@@ -1108,6 +1113,7 @@ static inline int valid_irq_stack(unsigned long sp, struct task_struct *p,
 	return 0;
 }
 
+#ifdef CONFIG_IRQSTACKS
 int validate_sp(unsigned long sp, struct task_struct *p,
 		       unsigned long nbytes)
 {
@@ -1119,6 +1125,13 @@ int validate_sp(unsigned long sp, struct task_struct *p,
 
 	return valid_irq_stack(sp, p, nbytes);
 }
+#else
+int validate_sp(unsigned long sp, struct task_struct *p,
+		       unsigned long nbytes)
+{
+	return 0;
+}
+#endif
 
 EXPORT_SYMBOL(validate_sp);
 
@@ -1225,7 +1238,7 @@ void dump_stack(void)
 }
 EXPORT_SYMBOL(dump_stack);
 
-#ifdef CONFIG_PPC64
+#ifdef CONFIG_RUNLATCH
 void ppc64_runlatch_on(void)
 {
 	unsigned long ctrl;

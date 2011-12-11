@@ -119,6 +119,9 @@ EXPORT_SYMBOL(flush_dcache_range);
 #ifdef CONFIG_SMP
 #ifdef CONFIG_PPC32
 EXPORT_SYMBOL(smp_hw_index);
+#ifdef CONFIG_IPIPE
+EXPORT_SYMBOL(smp_logical_index);
+#endif
 #endif
 #endif
 

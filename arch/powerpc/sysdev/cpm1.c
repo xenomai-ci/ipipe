@@ -59,22 +59,34 @@ static struct irq_host *cpm_pic_host;
 static void cpm_mask_irq(struct irq_data *d)
 {
 	unsigned int cpm_vec = (unsigned int)irqd_to_hwirq(d);
+	unsigned long flags;
 
+	local_irq_save_hw_cond(flags);
+	ipipe_irq_lock(d->irq);
 	clrbits32(&cpic_reg->cpic_cimr, (1 << cpm_vec));
+	local_irq_restore_hw_cond(flags);
 }
 
 static void cpm_unmask_irq(struct irq_data *d)
 {
 	unsigned int cpm_vec = (unsigned int)irqd_to_hwirq(d);
-
+	unsigned long flags;
+ 
+	local_irq_save_hw_cond(flags);
 	setbits32(&cpic_reg->cpic_cimr, (1 << cpm_vec));
+	ipipe_irq_unlock(d->irq);
+	local_irq_restore_hw_cond(flags);
 }
 
 static void cpm_end_irq(struct irq_data *d)
 {
 	unsigned int cpm_vec = (unsigned int)irqd_to_hwirq(d);
-
+	unsigned long flags;
+ 
+	local_irq_save_hw_cond(flags);
 	out_be32(&cpic_reg->cpic_cisr, (1 << cpm_vec));
+	clrbits32(&cpic_reg->cpic_cimr, (1 << cpm_vec));
+	local_irq_restore_hw_cond(flags);
 }
 
 static struct irq_chip cpm_pic = {

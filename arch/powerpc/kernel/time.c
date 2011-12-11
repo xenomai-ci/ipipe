@@ -127,6 +127,8 @@ struct decrementer_clock {
 
 static DEFINE_PER_CPU(struct decrementer_clock, decrementers);
 
+DEFINE_PER_CPU(int, disarm_decr);
+
 #ifdef CONFIG_PPC_ISERIES
 static unsigned long __initdata iSeries_recal_titan;
 static signed long __initdata iSeries_recal_tb;
@@ -578,12 +580,14 @@ void timer_interrupt(struct pt_regs * regs)
 	struct pt_regs *old_regs;
 	struct decrementer_clock *decrementer =  &__get_cpu_var(decrementers);
 	struct clock_event_device *evt = &decrementer->event;
+	int cpu = smp_processor_id();
 	u64 now;
 
 	/* Ensure a positive value is written to the decrementer, or else
 	 * some CPUs will continue to take decrementer exceptions.
 	 */
-	set_dec(DECREMENTER_MAX);
+	if (!per_cpu(disarm_decr, cpu))
+		set_dec(DECREMENTER_MAX);
 
 	/* Some implementations of hotplug will get timer interrupts while
 	 * offline, just ignore these
@@ -601,7 +605,14 @@ void timer_interrupt(struct pt_regs * regs)
 #endif
 
 	old_regs = set_irq_regs(regs);
+#ifndef CONFIG_IPIPE
+	/*
+	 * The timer interrupt is a virtual one when the I-pipe is
+	 * active, therefore we already called irq_enter() for it (see
+	 * __ipipe_run_isr).
+	 */
 	irq_enter();
+#endif
 
 	if (test_irq_work_pending()) {
 		clear_irq_work_pending();
@@ -614,11 +625,11 @@ void timer_interrupt(struct pt_regs * regs)
 #endif
 
 	now = get_tb_or_rtc();
-	if (now >= decrementer->next_tb) {
+	if (per_cpu(disarm_decr, cpu) || now >= decrementer->next_tb) {
 		decrementer->next_tb = ~(u64)0;
 		if (evt->event_handler)
 			evt->event_handler(evt);
-	} else {
+	} else if (!per_cpu(disarm_decr, cpu)) {
 		now = decrementer->next_tb - now;
 		if (now <= DECREMENTER_MAX)
 			set_dec((int)now);
@@ -637,7 +648,9 @@ void timer_interrupt(struct pt_regs * regs)
 	}
 #endif
 
+#ifndef CONFIG_IPIPE
 	irq_exit();
+#endif
 	set_irq_regs(old_regs);
 
 	trace_timer_interrupt_exit(regs);

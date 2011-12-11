@@ -44,13 +44,14 @@
 
 static void cpm2_cascade(unsigned int irq, struct irq_desc *desc)
 {
-	struct irq_chip *chip = irq_desc_get_chip(desc);
 	int cascade_irq;
 
-	while ((cascade_irq = cpm2_get_irq()) >= 0)
-		generic_handle_irq(cascade_irq);
+	ipipe_pre_cascade_eoi(desc);
 
-	chip->irq_eoi(&desc->irq_data);
+	while ((cascade_irq = cpm2_get_irq()) >= 0)
+		ipipe_handle_chained_irq(cascade_irq);
+
+	ipipe_post_cascade_eoi(desc);
 }
 #endif /* CONFIG_CPM2 */
 

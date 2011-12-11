@@ -223,8 +223,10 @@ void __init early_setup(unsigned long dt_ptr)
 #ifdef CONFIG_SMP
 void early_setup_secondary(void)
 {
+#ifdef CONFIG_SOFTDISABLE
 	/* Mark interrupts enabled in PACA */
 	get_paca()->soft_enabled = 0;
+#endif
 
 	/* Initialize the hash table or TLB handling */
 	early_init_mmu_secondary();
@@ -340,6 +342,12 @@ static void __init initialize_cache_info(void)
  */
 void __init setup_system(void)
 {
+#ifdef CONFIG_IPIPE
+	/* Early temporary init, before per-cpu areas are moved to
+	 * their final location. */
+	get_paca()->root_percpu = (u64)&ipipe_percpudom(&ipipe_root, status, 0);
+#endif
+
 	DBG(" -> setup_system()\n");
 
 	/* Apply the CPUs-specific and firmware specific fixups to kernel
@@ -458,6 +466,7 @@ static u64 safe_stack_limit(void)
 #endif
 }
 
+#ifdef CONFIG_IRQSTACKS
 static void __init irqstack_early_init(void)
 {
 	u64 limit = safe_stack_limit();
@@ -476,6 +485,9 @@ static void __init irqstack_early_init(void)
 					    THREAD_SIZE, limit));
 	}
 }
+#else
+#define irqstack_early_init()
+#endif
 
 #ifdef CONFIG_PPC_BOOK3E
 static void __init exc_lvl_early_init(void)
@@ -665,6 +677,10 @@ void __init setup_per_cpu_areas(void)
                 __per_cpu_offset[cpu] = delta + pcpu_unit_offsets[cpu];
 		paca[cpu].data_offset = __per_cpu_offset[cpu];
 	}
+#ifdef CONFIG_IPIPE
+	/* Reset pointer to the relocated per-cpu root domain data. */
+	get_paca()->root_percpu = (u64)&ipipe_percpudom(&ipipe_root, status, 0);
+#endif
 }
 #endif
 
