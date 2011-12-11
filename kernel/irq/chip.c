@@ -575,6 +575,9 @@ handle_fasteoi_irq(unsigned int irq, struct irq_desc *desc)
 		goto out;
 	}
 
+	if (desc->status & IRQ_ONESHOT)
+		mask_irq(desc);
+
 	desc->status |= IRQ_INPROGRESS;
 	desc->status &= ~IRQ_PENDING;
 	raw_spin_unlock(&desc->lock);
@@ -586,7 +589,8 @@ handle_fasteoi_irq(unsigned int irq, struct irq_desc *desc)
 	raw_spin_lock(&desc->lock);
 	desc->status &= ~IRQ_INPROGRESS;
 #ifdef CONFIG_IPIPE
-	desc->irq_data.chip->irq_unmask(&desc->irq_data);
+	if (!(desc->status & IRQ_MASKED))
+		desc->irq_data.chip->irq_unmask(&desc->irq_data);
 out:
 #else
 out:
