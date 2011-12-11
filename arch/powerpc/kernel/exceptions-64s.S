@@ -355,22 +355,7 @@ do_stab_bolted_pSeries:
 	STD_EXCEPTION_PSERIES(., 0xf40, vsx_unavailable)
 	KVM_HANDLER_PR(PACA_EXGEN, EXC_STD, 0xf40)
 
-/*
- * An interrupt came in while soft-disabled; clear EE in SRR1,
- * clear paca->hard_enabled and return.
- */
-masked_interrupt:
-	stb	r10,PACAHARDIRQEN(r13)
-	mtcrf	0x80,r9
-	ld	r9,PACA_EXGEN+EX_R9(r13)
-	mfspr	r10,SPRN_SRR1
-	rldicl	r10,r10,48,1		/* clear MSR_EE */
-	rotldi	r10,r10,16
-	mtspr	SPRN_SRR1,r10
-	ld	r10,PACA_EXGEN+EX_R10(r13)
-	GET_SCRATCH0(r13)
-	rfid
-	b	.
+#ifdef CONFIG_SOFTDISABLE
 
 masked_Hinterrupt:
 	stb	r10,PACAHARDIRQEN(r13)
@@ -437,6 +422,8 @@ slb_miss_user_pseries:
 #endif
 #endif
 
+#endif /* CONFIG_SOFTDISABLE */
+
 	.align	7
 	.globl	__end_interrupts
 __end_interrupts:
@@ -464,11 +451,16 @@ machine_check_common:
 	FINISH_NAP
 	DISABLE_INTS
 	bl	.save_nvgprs
+	TRACE_DISABLE_INTS
 	addi	r3,r1,STACK_FRAME_OVERHEAD
 	bl	.machine_check_exception
 	b	.ret_from_except
 
+#ifdef CONFIG_IPIPE
+	IPIPE_EXCEPTION_COMMON_LITE(0x900, decrementer, .__ipipe_grab_timer)
+#else /* !CONFIG_IPIPE */
 	STD_EXCEPTION_COMMON_LITE(0x900, decrementer, .timer_interrupt)
+#endif /* CONFIG_IPIPE */
 	STD_EXCEPTION_COMMON(0xa00, trap_0a, .unknown_exception)
 	STD_EXCEPTION_COMMON(0xb00, trap_0b, .unknown_exception)
 	STD_EXCEPTION_COMMON(0xd00, single_step, .single_step_exception)
@@ -733,6 +725,7 @@ unrecov_slb:
 	EXCEPTION_PROLOG_COMMON(0x4100, PACA_EXSLB)
 	DISABLE_INTS
 	bl	.save_nvgprs
+ 	TRACE_DISABLE_INTS
 1:	addi	r3,r1,STACK_FRAME_OVERHEAD
 	bl	.unrecoverable_exception
 	b	1b
@@ -742,15 +735,23 @@ unrecov_slb:
 	.globl hardware_interrupt_entry
 hardware_interrupt_common:
 	EXCEPTION_PROLOG_COMMON(0x500, PACA_EXGEN)
-	FINISH_NAP
 hardware_interrupt_entry:
+#ifdef CONFIG_IPIPE
+	DISABLE_INTS_REALLY
+	TRACE_DISABLE_INTS_REALLY
+	addi	r3,r1,STACK_FRAME_OVERHEAD
+	bl	.__ipipe_grab_irq
+	b	.__ipipe_ret_from_except_lite
+#else /* !CONFIG_IPIPE */
 	DISABLE_INTS
+ 	FINISH_NAP
 BEGIN_FTR_SECTION
 	bl	.ppc64_runlatch_on
 END_FTR_SECTION_IFSET(CPU_FTR_CTRL)
 	addi	r3,r1,STACK_FRAME_OVERHEAD
 	bl	.do_IRQ
 	b	.ret_from_except_lite
+#endif /* CONFIG_IPIPE */
 
 #ifdef CONFIG_PPC_970_NAP
 power4_fixup_nap:
@@ -774,8 +775,9 @@ alignment_common:
 	std	r3,_DAR(r1)
 	std	r4,_DSISR(r1)
 	bl	.save_nvgprs
-	addi	r3,r1,STACK_FRAME_OVERHEAD
+	TRACE_ENABLE_INTS
 	ENABLE_INTS
+	addi	r3,r1,STACK_FRAME_OVERHEAD
 	bl	.alignment_exception
 	b	.ret_from_except
 
@@ -784,8 +786,9 @@ alignment_common:
 program_check_common:
 	EXCEPTION_PROLOG_COMMON(0x700, PACA_EXGEN)
 	bl	.save_nvgprs
-	addi	r3,r1,STACK_FRAME_OVERHEAD
+	TRACE_ENABLE_INTS
 	ENABLE_INTS
+	addi	r3,r1,STACK_FRAME_OVERHEAD
 	bl	.program_check_exception
 	b	.ret_from_except
 
@@ -795,8 +798,9 @@ fp_unavailable_common:
 	EXCEPTION_PROLOG_COMMON(0x800, PACA_EXGEN)
 	bne	1f			/* if from user, just load it up */
 	bl	.save_nvgprs
-	addi	r3,r1,STACK_FRAME_OVERHEAD
+	TRACE_ENABLE_INTS
 	ENABLE_INTS
+	addi	r3,r1,STACK_FRAME_OVERHEAD
 	bl	.kernel_fp_unavailable_exception
 	BUG_OPCODE
 1:	bl	.load_up_fpu
@@ -815,8 +819,9 @@ BEGIN_FTR_SECTION
 END_FTR_SECTION_IFSET(CPU_FTR_ALTIVEC)
 #endif
 	bl	.save_nvgprs
-	addi	r3,r1,STACK_FRAME_OVERHEAD
+	TRACE_ENABLE_INTS
 	ENABLE_INTS
+	addi	r3,r1,STACK_FRAME_OVERHEAD
 	bl	.altivec_unavailable_exception
 	b	.ret_from_except
 
@@ -849,12 +854,23 @@ __end_handlers:
  * ret_from_except or ret_from_except_lite instead of this.
  */
 fast_exc_return_irq:			/* restores irq state too */
+#ifdef CONFIG_SOFTDISABLE
 	ld	r3,SOFTE(r1)
 	TRACE_AND_RESTORE_IRQ(r3);
 	ld	r12,_MSR(r1)
 	rldicl	r4,r12,49,63		/* get MSR_EE to LSB */
 	stb	r4,PACAHARDIRQEN(r13)	/* restore paca->hard_enabled */
 	b	1f
+#else
+#ifdef CONFIG_IPIPE
+	ld	r3,SOFTE(r1)		/* currently hard-disabled, so this is safe */
+	nor	r3,r3,r3
+	ld	r4,PACAROOTPCPU(r13)
+	ld	r5,0(r4)
+	insrdi	r5,r3,1,63
+	std	r5,0(r4)
+#endif	/* CONFIG_IPIPE */
+#endif	/* CONFIG_SOFTDISABLE */
 
 	.globl	fast_exception_return
 fast_exception_return:
@@ -895,6 +911,7 @@ fast_exception_return:
 
 unrecov_fer:
 	bl	.save_nvgprs
+	TRACE_DISABLE_INTS
 1:	addi	r3,r1,STACK_FRAME_OVERHEAD
 	bl	.unrecoverable_exception
 	b	1b
@@ -994,9 +1011,18 @@ END_FW_FTR_SECTION_IFCLR(FW_FEATURE_ISERIES)
 	 * to what it was before the trap.  Note that .arch_local_irq_restore
 	 * handles any interrupts pending at this point.
 	 */
+#ifdef CONFIG_SOFTDISABLE
 	ld	r3,SOFTE(r1)
 	TRACE_AND_RESTORE_IRQ_PARTIAL(r3, 11f)
 	bl	.arch_local_irq_restore
+#else
+#ifdef CONFIG_IPIPE
+	ld	r3,SOFTE(r1)
+	nor	r3,r3,r3
+	andi.	r3,r3,1
+	bl	__ipipe_restore_if_root
+#endif
+#endif
 	b	11f
 
 /* We have a data breakpoint exception - handle it */
@@ -1010,6 +1036,7 @@ handle_dabr_fault:
 
 /* Here we have a page fault that hash_page can't handle. */
 handle_page_fault:
+	TRACE_ENABLE_INTS
 	ENABLE_INTS
 11:	ld	r4,_DAR(r1)
 	ld	r5,_DSISR(r1)

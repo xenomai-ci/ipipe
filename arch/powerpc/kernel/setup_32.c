@@ -52,6 +52,9 @@ int boot_cpuid_phys;
 EXPORT_SYMBOL_GPL(boot_cpuid_phys);
 
 int smp_hw_index[NR_CPUS];
+#ifdef CONFIG_IPIPE
+int smp_logical_index[NR_CPUS];
+#endif
 
 unsigned long ISA_DMA_THRESHOLD;
 unsigned int DMA_MODE_READ;

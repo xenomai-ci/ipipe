@@ -182,8 +182,11 @@ interrupt_base:
 		/* Instruction Storage Interrupt */
 	INSTRUCTION_STORAGE_EXCEPTION
 
-	/* External Input Interrupt */
-	EXCEPTION(0x0500, ExternalInput, do_IRQ, EXC_XFER_LITE)
+#ifdef CONFIG_IPIPE
+	EXCEPTION(0x0500, ExternalInput, __ipipe_grab_irq, EXC_XFER_IPIPE)
+#else /* !CONFIG_IPIPE */
+ 	EXCEPTION(0x0500, ExternalInput, do_IRQ, EXC_XFER_LITE)
+#endif /* CONFIG_IPIPE */
 
 	/* Alignment Interrupt */
 	ALIGNMENT_EXCEPTION

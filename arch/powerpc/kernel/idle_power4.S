@@ -34,9 +34,11 @@ END_FTR_SECTION_IFCLR(CPU_FTR_CAN_NAP)
 	rldicl	r0,r7,48,1
 	rotldi	r0,r0,16
 	mtmsrd	r0,1			/* hard-disable interrupts */
+#ifdef CONFIG_SOFTDISABLE	
 	li	r0,1
 	stb	r0,PACASOFTIRQEN(r13)	/* we'll hard-enable shortly */
 	stb	r0,PACAHARDIRQEN(r13)
+#endif /* CONFIG_SOFTDISABLE */
 BEGIN_FTR_SECTION
 	DSSALL
 	sync
