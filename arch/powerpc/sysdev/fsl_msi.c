@@ -185,6 +185,8 @@ out_free:
 
 static void fsl_msi_cascade(unsigned int irq, struct irq_desc *desc)
 {
+	struct irq_chip *chip = irq_desc_get_chip(desc);
+	struct irq_data *idata = irq_desc_get_irq_data(desc);
 	unsigned int cascade_irq;
 	struct fsl_msi *msi_data;
 	int msir_index = -1;
@@ -193,18 +195,18 @@ static void fsl_msi_cascade(unsigned int irq, struct irq_desc *desc)
 	u32 have_shift = 0;
 	struct fsl_msi_cascade_data *cascade_data;
 
-	cascade_data = (struct fsl_msi_cascade_data *)get_irq_data(irq);
+	cascade_data = irq_get_handler_data(irq);
 	msi_data = cascade_data->msi_data;
 
 	if ((msi_data->feature &  FSL_PIC_IP_MASK) == FSL_PIC_IP_IPIC) {
-		if (desc->chip->mask_ack)
-			desc->chip->mask_ack(irq);
+		if (chip->irq_mask_ack)
+			chip->irq_mask_ack(idata);
 		else {
-			desc->chip->mask(irq);
-			desc->chip->ack(irq);
+			chip->irq_mask(idata);
+			chip->irq_ack(idata);
 		}
 	} else
-		desc->chip->eoi(irq);
+		chip->irq_eoi(idata);
 
 	msir_index = cascade_data->index;
 
@@ -233,7 +235,7 @@ static void fsl_msi_cascade(unsigned int irq, struct irq_desc *desc)
 		msir_value = msir_value >> (intr_index + 1);
 	}
 
-	desc->chip->unmask(irq);
+	chip->irq_unmask(idata);
 }
 
 #else /* !CONFIG_IPIPE */
