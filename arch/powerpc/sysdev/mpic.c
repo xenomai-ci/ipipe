@@ -30,6 +30,7 @@
 #include <linux/slab.h>
 #include <linux/syscore_ops.h>
 #include <linux/ratelimit.h>
+#include <linux/ipipe.h>
 
 #include <asm/ptrace.h>
 #include <asm/signal.h>
