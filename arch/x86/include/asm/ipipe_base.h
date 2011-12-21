@@ -211,4 +211,6 @@ void __ipipe_serial_debug(const char *fmt, ...);
 
 #endif	/* !__ASSEMBLY__ */
 
+#define __IPIPE_FEATURE_SYSINFO_V2	1
+
 #endif	/* !__X86_IPIPE_BASE_H */

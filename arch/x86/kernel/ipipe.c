@@ -52,7 +52,7 @@
 #include <asm/traps.h>
 #include <asm/tsc.h>
 
-int __ipipe_tick_irq = 0;	/* Legacy timer */
+int __ipipe_hrtimer_irq = 0;	/* Legacy timer */
 
 DEFINE_PER_CPU(struct pt_regs, __ipipe_tick_regs);
 
@@ -91,14 +91,11 @@ int ipipe_trigger_irq(unsigned int irq)
 
 int ipipe_get_sysinfo(struct ipipe_sysinfo *info)
 {
-	info->ncpus = num_online_cpus();
-	info->cpufreq = ipipe_cpu_freq();
-	info->archdep.tmirq = __ipipe_tick_irq;
-#ifdef CONFIG_X86_TSC
-	info->archdep.tmfreq = ipipe_cpu_freq();
-#else	/* !CONFIG_X86_TSC */
-	info->archdep.tmfreq = CLOCK_TICK_RATE;
-#endif	/* CONFIG_X86_TSC */
+	info->sys_nr_cpus = num_online_cpus();
+	info->sys_cpu_freq = __ipipe_cpu_freq;
+	info->sys_hrtimer_irq = __ipipe_hrtimer_irq;
+	info->sys_hrtimer_freq = __ipipe_hrtimer_freq;
+	info->sys_hrclock_freq = __ipipe_hrclock_freq;
 
 	return 0;
 }
@@ -776,7 +773,7 @@ finalize_nosync:
 	 * information.
 	 */
 
-	if (irq == __ipipe_tick_irq) {
+	if (irq == __ipipe_hrtimer_irq) {
 		tick_regs = &__raw_get_cpu_var(__ipipe_tick_regs);
 		tick_regs->flags = regs->flags;
 		tick_regs->cs = regs->cs;
@@ -833,7 +830,7 @@ void update_vsyscall_tz(void)
 }
 #endif /* CONFIG_X86_32 */
 
-EXPORT_SYMBOL(__ipipe_tick_irq);
+EXPORT_SYMBOL_GPL(__ipipe_hrtimer_irq);
 
 #ifdef CONFIG_SPARSE_IRQ
 EXPORT_SYMBOL_GPL(irq_to_desc);
