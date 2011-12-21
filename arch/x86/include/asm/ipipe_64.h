@@ -39,10 +39,14 @@
 	(t) = ((unsigned long)__a) | (((unsigned long)__d)<<32); \
 } while(0)
 
-extern unsigned cpu_khz;
-#define ipipe_cpu_freq() ({ unsigned long __freq = (1000UL * cpu_khz); __freq; })
-#define ipipe_tsc2ns(t)	(((t) * 1000UL) / (ipipe_cpu_freq() / 1000000UL))
-#define ipipe_tsc2us(t)	((t) / (ipipe_cpu_freq() / 1000000UL))
+extern unsigned int cpu_khz;
+extern int __ipipe_hrtimer_irq;
+#define __ipipe_cpu_freq	({ unsigned long long __freq = (1000ULL * cpu_khz); __freq; })
+#define __ipipe_hrtimer_freq	__ipipe_cpu_freq
+#define __ipipe_hrclock_freq	__ipipe_cpu_freq
+
+#define ipipe_tsc2ns(t)	(((t) * 1000UL) / (__ipipe_cpu_freq / 1000000UL))
+#define ipipe_tsc2us(t)	((t) / (__ipipe_cpu_freq / 1000000UL))
 
 /* Private interface -- Internal use only */
 

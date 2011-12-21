@@ -29,7 +29,6 @@
 #include <asm/ptrace.h>
 
 #define ipipe_read_tsc(t)  __asm__ __volatile__("rdtsc" : "=A" (t))
-#define ipipe_cpu_freq() ({ unsigned long long __freq = cpu_has_tsc?(1000LL * cpu_khz):CLOCK_TICK_RATE; __freq; })
 
 #define ipipe_tsc2ns(t) \
 ({ \
@@ -46,6 +45,12 @@
 })
 
 /* Private interface -- Internal use only */
+
+extern unsigned int cpu_khz;
+extern int __ipipe_hrtimer_irq;
+#define __ipipe_cpu_freq	({ unsigned long long __freq = cpu_has_tsc?(1000ULL * cpu_khz):CLOCK_TICK_RATE; __freq; })
+#define __ipipe_hrtimer_freq	__ipipe_cpu_freq
+#define __ipipe_hrclock_freq	__ipipe_cpu_freq
 
 int __ipipe_handle_irq(struct pt_regs *regs);
 

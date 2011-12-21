@@ -74,16 +74,11 @@ do {						\
 struct ipipe_domain;
 
 struct ipipe_sysinfo {
-
-	int ncpus;		/* Number of CPUs on board */
-	u64 cpufreq;		/* CPU frequency (in Hz) */
-
-	/* Arch-dependent block */
-
-	struct {
-		unsigned tmirq;	/* Timer tick IRQ */
-		u64 tmfreq;	/* Timer frequency */
-	} archdep;
+	int sys_nr_cpus;	/* Number of CPUs on board */
+	int sys_hrtimer_irq;	/* hrtimer device IRQ */
+	u64 sys_hrtimer_freq;	/* hrtimer device frequency */
+	u64 sys_hrclock_freq;	/* hrclock device frequency */
+	u64 sys_cpu_freq;	/* CPU frequency (Hz) */
 };
 
 /* Private interface -- Internal use only */
@@ -92,6 +87,7 @@ struct ipipe_sysinfo {
 #define __ipipe_init_platform()		do { } while(0)
 #define __ipipe_enable_irq(irq)		irq_to_desc(irq)->chip->enable(irq)
 #define __ipipe_disable_irq(irq)	irq_to_desc(irq)->chip->disable(irq)
+#define __ipipe_tick_irq		__ipipe_hrtimer_irq /* compat */
 
 #ifdef CONFIG_SMP
 void __ipipe_hook_critical_ipi(struct ipipe_domain *ipd);
@@ -109,20 +105,18 @@ void __ipipe_do_critical_sync(unsigned irq, void *cookie);
 
 void __ipipe_serial_debug(const char *fmt, ...);
 
-extern int __ipipe_tick_irq;
-
 #ifdef CONFIG_X86_LOCAL_APIC
 #define ipipe_update_tick_evtdev(evtdev)				\
 	do {								\
 		if (strcmp((evtdev)->name, "lapic") == 0)		\
-			__ipipe_tick_irq =				\
+			__ipipe_hrtimer_irq =				\
 				ipipe_apic_vector_irq(LOCAL_TIMER_VECTOR); \
 		else							\
-			__ipipe_tick_irq = 0;				\
+			__ipipe_hrtimer_irq = 0;			\
 	} while (0)
 #else
 #define ipipe_update_tick_evtdev(evtdev)				\
-	__ipipe_tick_irq = 0
+	__ipipe_hrtimer_irq = 0
 #endif
 
 int __ipipe_check_lapic(void);
