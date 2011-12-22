@@ -1001,47 +1001,6 @@ unlock_and_exit:
 	return ret;
 }
 
-/* ipipe_control_irq() -- Change control mode of a pipelined interrupt. */
-
-int ipipe_control_irq(struct ipipe_domain *ipd, unsigned int irq,
-		      unsigned clrmask, unsigned setmask)
-{
-	unsigned long flags;
-	int ret = 0;
-
-	if (irq >= IPIPE_NR_IRQS)
-		return -EINVAL;
-
-	flags = ipipe_critical_enter(NULL);
-
-	if (ipd->irqs[irq].control & IPIPE_SYSTEM_MASK) {
-		ret = -EPERM;
-		goto out;
-	}
-
-	if (ipd->irqs[irq].handler == NULL)
-		setmask &= ~(IPIPE_HANDLE_MASK | IPIPE_STICKY_MASK);
-
-	if ((setmask & IPIPE_STICKY_MASK) != 0)
-		setmask |= IPIPE_HANDLE_MASK;
-
-	if ((clrmask & (IPIPE_HANDLE_MASK | IPIPE_STICKY_MASK)) != 0)	/* If one goes, both go. */
-		clrmask |= (IPIPE_HANDLE_MASK | IPIPE_STICKY_MASK);
-
-	ipd->irqs[irq].control &= ~clrmask;
-	ipd->irqs[irq].control |= setmask;
-
-	if ((setmask & IPIPE_ENABLE_MASK) != 0)
-		__ipipe_enable_irq(irq);
-	else if ((clrmask & IPIPE_ENABLE_MASK) != 0)
-		__ipipe_disable_irq(irq);
-
-out:
-	ipipe_critical_exit(flags);
-
-	return ret;
-}
-
 /* __ipipe_dispatch_event() -- Low-level event dispatcher. */
 
 int __ipipe_dispatch_event (unsigned event, void *data)
@@ -2144,7 +2103,6 @@ void ipipe_prepare_panic(void)
 EXPORT_SYMBOL_GPL(ipipe_prepare_panic);
 
 EXPORT_SYMBOL(ipipe_virtualize_irq);
-EXPORT_SYMBOL(ipipe_control_irq);
 EXPORT_SYMBOL(ipipe_suspend_domain);
 EXPORT_SYMBOL(ipipe_alloc_virq);
 EXPORT_PER_CPU_SYMBOL(ipipe_percpu_domain);

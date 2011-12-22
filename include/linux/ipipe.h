@@ -426,11 +426,6 @@ int ipipe_virtualize_irq(struct ipipe_domain *ipd,
 			 ipipe_irq_ackfn_t acknowledge,
 			 unsigned modemask);
 
-int ipipe_control_irq(struct ipipe_domain *ipd,
-		      unsigned int irq,
-		      unsigned clrmask,
-		      unsigned setmask);
-
 unsigned ipipe_alloc_virq(void);
 
 int ipipe_free_virq(unsigned virq);
