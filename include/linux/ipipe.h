@@ -86,12 +86,7 @@ static inline void ipipe_context_check_off(void) { }
 #define __BUILTIN_RETURN_ADDRESS1 ((unsigned long)__builtin_return_address(1))
 #endif /* !BUILTIN_RETURN_ADDRESS */
 
-#define IPIPE_ROOT_PRIO		100
-#define IPIPE_ROOT_ID		0
 #define IPIPE_ROOT_NPTDKEYS	4	/* Must be <= BITS_PER_LONG */
-
-#define IPIPE_RESET_TIMER	0x1
-#define IPIPE_GRAB_TIMER	0x2
 
 /* Global domain flags */
 #define IPIPE_SPRINTK_FLAG	0	/* Synchronous printk() allowed */
@@ -151,7 +146,6 @@ typedef int (*ipipe_event_handler_t)(unsigned event,
 				     struct ipipe_domain *from,
 				     void *data);
 struct ipipe_domain {
-
 	int slot;			/* Slot number in percpu domain data array. */
 	struct list_head p_link;	/* Link in pipeline */
 	ipipe_event_handler_t evhand[IPIPE_NR_EVENTS]; /* Event handlers. */
@@ -164,23 +158,14 @@ struct ipipe_domain {
 		void *cookie;
 	} ____cacheline_aligned irqs[IPIPE_NR_IRQS];
 
-	int priority;
-	void *pdd;
 	unsigned long flags;
-	unsigned domid;
 	const char *name;
 	struct mutex mutex;
-};
-
-#define IPIPE_HEAD_PRIORITY	(-1) /* For domains always heading the pipeline */
-
-struct ipipe_domain_attr {
-
-	unsigned domid;		/* Domain identifier -- Magic value set by caller */
-	const char *name;	/* Domain name -- Warning: won't be dup'ed! */
-	int priority;		/* Priority in interrupt pipeline */
-	void (*entry) (void);	/* Domain entry point */
-	void *pdd;		/* Per-domain (opaque) data pointer */
+#ifdef CONFIG_IPIPE_LEGACY
+	unsigned int domid;
+	int priority;
+	void *pdd;
+#endif
 };
 
 #define __ipipe_irq_cookie(ipd, irq)		(ipd)->irqs[irq].cookie
@@ -214,14 +199,6 @@ void __ipipe_init_tracer(void);
 #define ipipe_init_proc()	do { } while(0)
 #endif	/* CONFIG_PROC_FS */
 
-void __ipipe_init_stage(struct ipipe_domain *ipd);
-
-void __ipipe_cleanup_domain(struct ipipe_domain *ipd);
-
-void __ipipe_add_domain_proc(struct ipipe_domain *ipd);
-
-void __ipipe_remove_domain_proc(struct ipipe_domain *ipd);
-
 void __ipipe_flush_printk(unsigned irq, void *cookie);
 
 void __ipipe_walk_pipeline(struct list_head *pos);
@@ -230,9 +207,9 @@ void __ipipe_pend_irq(unsigned irq, struct list_head *head);
 
 int __ipipe_dispatch_event(unsigned event, void *data);
 
-void __ipipe_dispatch_wired_nocheck(struct ipipe_domain *head, unsigned irq);
+void __ipipe_dispatch_wired_nocheck(unsigned int irq);
 
-void __ipipe_dispatch_wired(struct ipipe_domain *head, unsigned irq);
+void __ipipe_dispatch_wired(unsigned int irq);
 
 void __ipipe_sync_stage(void);
 
@@ -412,10 +389,10 @@ do {									\
 
 /* Public interface */
 
-int ipipe_register_domain(struct ipipe_domain *ipd,
-			  struct ipipe_domain_attr *attr);
+void ipipe_register_head(struct ipipe_domain *ipd,
+			 const char *name);
 
-int ipipe_unregister_domain(struct ipipe_domain *ipd);
+void ipipe_unregister_head(struct ipipe_domain *ipd);
 
 void ipipe_suspend_domain(void);
 
@@ -556,8 +533,6 @@ static inline void ipipe_restore_pipeline_head(unsigned long x)
 
 #define ipipe_restore_pipeline(x) \
 	ipipe_restore_pipeline_from(ipipe_current_domain, (x))
-
-void ipipe_init_attr(struct ipipe_domain_attr *attr);
 
 int ipipe_get_sysinfo(struct ipipe_sysinfo *sysinfo);
 

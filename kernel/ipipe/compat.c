@@ -20,3 +20,60 @@
  *
  * I-pipe legacy interface.
  */
+#include <linux/version.h>
+#include <linux/module.h>
+#include <linux/init.h>
+#include <linux/kernel.h>
+#include <linux/ipipe.h>
+
+void ipipe_init_attr(struct ipipe_domain_attr *attr)
+{
+	attr->name = "anon";
+	attr->domid = 1;
+	attr->entry = NULL;
+	attr->priority = IPIPE_ROOT_PRIO;
+	attr->pdd = NULL;
+}
+EXPORT_SYMBOL_GPL(ipipe_init_attr);
+
+int ipipe_register_domain(struct ipipe_domain *ipd,
+			  struct ipipe_domain_attr *attr)
+{
+	struct ipipe_percpu_domain_data *p;
+	unsigned long flags;
+
+	BUG_ON(attr->priority != IPIPE_HEAD_PRIORITY);
+
+	ipipe_register_head(ipd, attr->name);
+	ipd->domid = attr->domid;
+	ipd->pdd = attr->pdd;
+	ipd->priority = INT_MAX;
+
+	if (attr->entry == NULL)
+		return 0;
+
+	local_irq_save_hw_smp(flags);
+	__ipipe_current_domain = ipd;
+	local_irq_restore_hw_smp(flags);
+	attr->entry();
+	local_irq_save_hw(flags);
+	__ipipe_current_domain = ipipe_root_domain;
+	p = ipipe_root_cpudom_ptr();
+
+	if (__ipipe_ipending_p(p) &&
+	    !test_bit(IPIPE_STALL_FLAG, &p->status))
+		__ipipe_sync_pipeline();
+
+	local_irq_restore_hw(flags);
+
+	return 0;
+}
+EXPORT_SYMBOL_GPL(ipipe_register_domain);
+
+int ipipe_unregister_domain(struct ipipe_domain *ipd)
+{
+	ipipe_unregister_head(ipd);
+
+	return 0;
+}
+EXPORT_SYMBOL_GPL(ipipe_unregister_domain);

@@ -65,6 +65,8 @@ extern struct ipipe_domain ipipe_root;
 
 #define ipipe_root_domain (&ipipe_root)
 
+extern struct ipipe_domain *ipipe_head_domain;
+
 void __ipipe_unstall_root(void);
 
 void __ipipe_restore_root(unsigned long x);

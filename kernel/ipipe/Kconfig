@@ -5,13 +5,6 @@ config IPIPE
 	  Activate this option if you want the interrupt pipeline to be
 	  compiled in.
 
-config IPIPE_DOMAINS
-	int "Max domains"
-	depends on IPIPE
-	default 4
-	---help---
-	The maximum number of I-pipe domains to run concurrently.
-
 config IPIPE_LEGACY
 	bool "Legacy interface"
 	default y

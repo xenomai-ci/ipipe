@@ -39,6 +39,9 @@ struct ipipe_percpu_domain_data {
 	u64 evsync;
 };
 
+#define IPIPE_ROOT_SLOT			0
+#define IPIPE_HEAD_SLOT			1
+
 /*
  * CAREFUL: all accessors based on __raw_get_cpu_var() you may find in
  * this file should be used only while hw interrupts are off, to
@@ -50,7 +53,7 @@ struct ipipe_percpu_domain_data {
 #define ipipe_cpudom_ptr(ipd)	\
 	(&__ipipe_get_cpu_var(ipipe_percpu_darray)[(ipd)->slot])
 #else
-DECLARE_PER_CPU(struct ipipe_percpu_domain_data *, ipipe_percpu_daddr[CONFIG_IPIPE_DOMAINS]);
+DECLARE_PER_CPU(struct ipipe_percpu_domain_data *, ipipe_percpu_daddr[2]);
 #define ipipe_percpudom_ptr(ipd, cpu)	\
 	(per_cpu(ipipe_percpu_daddr, cpu)[(ipd)->slot])
 #define ipipe_cpudom_ptr(ipd)	\
@@ -59,10 +62,7 @@ DECLARE_PER_CPU(struct ipipe_percpu_domain_data *, ipipe_percpu_daddr[CONFIG_IPI
 #define ipipe_percpudom(ipd, var, cpu)	(ipipe_percpudom_ptr(ipd, cpu)->var)
 #define ipipe_cpudom_var(ipd, var)	(ipipe_cpudom_ptr(ipd)->var)
 
-#define IPIPE_ROOT_SLOT			0
-#define IPIPE_HEAD_SLOT			(CONFIG_IPIPE_DOMAINS - 1)
-
-DECLARE_PER_CPU(struct ipipe_percpu_domain_data, ipipe_percpu_darray[CONFIG_IPIPE_DOMAINS]);
+DECLARE_PER_CPU(struct ipipe_percpu_domain_data, ipipe_percpu_darray[2]);
 
 DECLARE_PER_CPU(struct ipipe_domain *, ipipe_percpu_domain);
 

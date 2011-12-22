@@ -26,7 +26,6 @@
 #include <linux/init.h>
 #include <linux/kernel.h>
 #include <linux/sched.h>
-#include <linux/sched.h>
 #include <linux/kallsyms.h>
 #include <linux/interrupt.h>
 #include <linux/bitops.h>
@@ -43,9 +42,9 @@ static int __ipipe_ptd_key_count;
 
 static unsigned long __ipipe_ptd_key_map;
 
-static unsigned long __ipipe_domain_slot_map;
-
 struct ipipe_domain ipipe_root;
+
+struct ipipe_domain *ipipe_head_domain = &ipipe_root;
 
 #ifdef CONFIG_SMP
 
@@ -80,12 +79,12 @@ extern unsigned long __ipipe_root_status
 __attribute__((alias(__stringify(ipipe_percpu_darray))));
 EXPORT_SYMBOL(__ipipe_root_status);
 
-DEFINE_PER_CPU(struct ipipe_percpu_domain_data *, ipipe_percpu_daddr[CONFIG_IPIPE_DOMAINS]) =
+DEFINE_PER_CPU(struct ipipe_percpu_domain_data *, ipipe_percpu_daddr[2]) =
 { [IPIPE_ROOT_SLOT] = (struct ipipe_percpu_domain_data *)ipipe_percpu_darray };
 EXPORT_PER_CPU_SYMBOL(ipipe_percpu_daddr);
 #endif /* !CONFIG_SMP */
 
-DEFINE_PER_CPU(struct ipipe_percpu_domain_data, ipipe_percpu_darray[CONFIG_IPIPE_DOMAINS]) =
+DEFINE_PER_CPU(struct ipipe_percpu_domain_data, ipipe_percpu_darray[2]) =
 { [IPIPE_ROOT_SLOT] = { .status = IPIPE_STALL_MASK } }; /* Root domain stalled on each CPU at startup. */
 
 DEFINE_PER_CPU(struct ipipe_domain *, ipipe_percpu_domain) = { &ipipe_root };
@@ -107,6 +106,183 @@ int __ipipe_event_monitors[IPIPE_NR_EVENTS];
 DECLARE_PER_CPU(struct tick_device, tick_cpu_device);
 
 static DEFINE_PER_CPU(struct ipipe_tick_device, ipipe_tick_cpu_device);
+
+#ifdef CONFIG_PROC_FS
+
+struct proc_dir_entry *ipipe_proc_root;
+
+static int __ipipe_version_info_proc(char *page,
+				     char **start,
+				     off_t off, int count, int *eof, void *data)
+{
+	int len = sprintf(page, "%s\n", IPIPE_VERSION_STRING);
+
+	len -= off;
+
+	if (len <= off + count)
+		*eof = 1;
+
+	*start = page + off;
+
+	if(len > count)
+		len = count;
+
+	if(len < 0)
+		len = 0;
+
+	return len;
+}
+
+static int __ipipe_common_info_show(struct seq_file *p, void *data)
+{
+	struct ipipe_domain *ipd = (struct ipipe_domain *)p->private;
+	char handling, stickiness, lockbit, exclusive, virtuality;
+
+	unsigned long ctlbits;
+	unsigned irq;
+
+	seq_printf(p, "       +----- Handling ([A]ccepted, [G]rabbed, [W]ired, [D]iscarded)\n");
+	seq_printf(p, "       |+---- Sticky\n");
+	seq_printf(p, "       ||+--- Locked\n");
+	seq_printf(p, "       |||+-- Exclusive\n");
+	seq_printf(p, "       ||||+- Virtual\n");
+	seq_printf(p, "[IRQ]  |||||\n");
+
+	mutex_lock(&ipd->mutex);
+
+	for (irq = 0; irq < IPIPE_NR_IRQS; irq++) {
+		/* Remember to protect against
+		 * ipipe_virtual_irq/ipipe_control_irq if more fields
+		 * get involved. */
+		ctlbits = ipd->irqs[irq].control;
+
+		if (irq >= IPIPE_NR_XIRQS && !ipipe_virtual_irq_p(irq))
+			/*
+			 * There might be a hole between the last external
+			 * IRQ and the first virtual one; skip it.
+			 */
+			continue;
+
+		if (ipipe_virtual_irq_p(irq)
+		    && !test_bit(irq - IPIPE_VIRQ_BASE, &__ipipe_virtual_irq_map))
+			/* Non-allocated virtual IRQ; skip it. */
+			continue;
+
+		/*
+		 * Statuses are as follows:
+		 * o "accepted" means handled _and_ passed down the pipeline.
+		 * o "grabbed" means handled, but the interrupt might be
+		 * terminated _or_ passed down the pipeline depending on
+		 * what the domain handler asks for to the I-pipe.
+		 * o "wired" is basically the same as "grabbed", except that
+		 * the interrupt is unconditionally delivered to an invariant
+		 * pipeline head domain.
+		 * o "passed" means unhandled by the domain but passed
+		 * down the pipeline.
+		 * o "discarded" means unhandled and _not_ passed down the
+		 * pipeline. The interrupt merely disappears from the
+		 * current domain down to the end of the pipeline.
+		 */
+		if (ctlbits & IPIPE_HANDLE_MASK) {
+			if (ctlbits & IPIPE_PASS_MASK)
+				handling = 'A';
+			else if (ctlbits & IPIPE_WIRED_MASK)
+				handling = 'W';
+			else
+				handling = 'G';
+		} else if (ctlbits & IPIPE_PASS_MASK)
+			/* Do not output if no major action is taken. */
+			continue;
+		else
+			handling = 'D';
+
+		if (ctlbits & IPIPE_STICKY_MASK)
+			stickiness = 'S';
+		else
+			stickiness = '.';
+
+		if (ctlbits & IPIPE_LOCK_MASK)
+			lockbit = 'L';
+		else
+			lockbit = '.';
+
+		if (ctlbits & IPIPE_EXCLUSIVE_MASK)
+			exclusive = 'X';
+		else
+			exclusive = '.';
+
+		if (ipipe_virtual_irq_p(irq))
+			virtuality = 'V';
+		else
+			virtuality = '.';
+
+		seq_printf(p, " %3u:  %c%c%c%c%c\n",
+			     irq, handling, stickiness, lockbit, exclusive, virtuality);
+	}
+
+#ifdef CONFIG_IPIPE_LEGACY
+	seq_printf(p, "[Domain info]\n");
+
+	seq_printf(p, "id=0x%.8x\n", ipd->domid);
+
+	if (test_bit(IPIPE_AHEAD_FLAG,&ipd->flags))
+		seq_printf(p, "priority=topmost\n");
+	else
+		seq_printf(p, "priority=%d\n", ipd->priority);
+#endif /* CONFIG_IPIPE_LEGACY */
+
+	mutex_unlock(&ipd->mutex);
+
+	return 0;
+}
+
+static int __ipipe_common_info_open(struct inode *inode, struct file *file)
+{
+	return single_open(file, __ipipe_common_info_show, PROC_I(inode)->pde->data);
+}
+
+static struct file_operations __ipipe_info_proc_ops = {
+	.owner		= THIS_MODULE,
+	.open		= __ipipe_common_info_open,
+	.read		= seq_read,
+	.llseek		= seq_lseek,
+	.release	= single_release,
+};
+
+void add_domain_proc(struct ipipe_domain *ipd)
+{
+	struct proc_dir_entry *e = create_proc_entry(ipd->name, 0444, ipipe_proc_root);
+	if (e) {
+		e->proc_fops = &__ipipe_info_proc_ops;
+		e->data = (void*) ipd;
+	}
+}
+
+void remove_domain_proc(struct ipipe_domain *ipd)
+{
+	remove_proc_entry(ipd->name,ipipe_proc_root);
+}
+
+void __init ipipe_init_proc(void)
+{
+	ipipe_proc_root = create_proc_entry("ipipe",S_IFDIR, 0);
+	create_proc_read_entry("version",0444,ipipe_proc_root,&__ipipe_version_info_proc,NULL);
+	add_domain_proc(ipipe_root_domain);
+
+	__ipipe_init_tracer();
+}
+
+#else
+
+static inline void add_domain_proc(struct ipipe_domain *ipd)
+{
+}
+
+static inline void remove_domain_proc(struct ipipe_domain *ipd)
+{
+}
+
+#endif	/* CONFIG_PROC_FS */
 
 int ipipe_request_tickdev(const char *devname,
 			  void (*emumode)(enum clock_event_mode mode,
@@ -209,55 +385,7 @@ void ipipe_release_tickdev(int cpu)
 	ipipe_critical_exit(flags);
 }
 
-void __init ipipe_init_early(void)
-{
-	struct ipipe_domain *ipd = &ipipe_root;
-
-	/*
-	 * Do the early init stuff. At this point, the kernel does not
-	 * provide much services yet: be careful.
-	 */
-	__ipipe_check_platform(); /* Do platform dependent checks first. */
-
-	/*
-	 * A lightweight registration code for the root domain. We are
-	 * running on the boot CPU, hw interrupts are off, and
-	 * secondary CPUs are still lost in space.
-	 */
-
-	/* Reserve percpu data slot #0 for the root domain. */
-	ipd->slot = 0;
-	set_bit(0, &__ipipe_domain_slot_map);
-
-	ipd->name = "Linux";
-	ipd->domid = IPIPE_ROOT_ID;
-	ipd->priority = IPIPE_ROOT_PRIO;
-
-	__ipipe_init_stage(ipd);
-
-	list_add_tail(&ipd->p_link, &__ipipe_pipeline);
-
-	__ipipe_init_platform();
-
-#ifdef CONFIG_PRINTK
-	__ipipe_printk_virq = ipipe_alloc_virq();	/* Cannot fail here. */
-	ipd->irqs[__ipipe_printk_virq].handler = &__ipipe_flush_printk;
-	ipd->irqs[__ipipe_printk_virq].cookie = NULL;
-	ipd->irqs[__ipipe_printk_virq].acknowledge = NULL;
-	ipd->irqs[__ipipe_printk_virq].control = IPIPE_HANDLE_MASK;
-#endif /* CONFIG_PRINTK */
-}
-
-void __init ipipe_init(void)
-{
-	/* Now we may engage the pipeline. */
-	__ipipe_enable_pipeline();
-
-	printk(KERN_INFO "I-pipe %s: pipeline enabled.\n",
-	       IPIPE_VERSION_STRING);
-}
-
-void __ipipe_init_stage(struct ipipe_domain *ipd)
+static void init_stage(struct ipipe_domain *ipd)
 {
 	struct ipipe_percpu_domain_data *p;
 	unsigned long status;
@@ -285,26 +413,141 @@ void __ipipe_init_stage(struct ipipe_domain *ipd)
 	__ipipe_hook_critical_ipi(ipd);
 }
 
-void __ipipe_cleanup_domain(struct ipipe_domain *ipd)
+void __init ipipe_init_early(void)
 {
-	ipipe_unstall_pipeline_from(ipd);
+	struct ipipe_domain *ipd = &ipipe_root;
 
-#ifdef CONFIG_SMP
-	{
-		struct ipipe_percpu_domain_data *p;
-		int cpu;
+	/*
+	 * Do the early init stuff. At this point, the kernel does not
+	 * provide much services yet: be careful.
+	 */
+	__ipipe_check_platform(); /* Do platform dependent checks first. */
 
-		for_each_online_cpu(cpu) {
-			p = ipipe_percpudom_ptr(ipd, cpu);
-			while (__ipipe_ipending_p(p))
-				cpu_relax();
-		}
-	}
-#else
-	__raw_get_cpu_var(ipipe_percpu_daddr)[ipd->slot] = NULL;
+	/*
+	 * A lightweight registration code for the root domain. We are
+	 * running on the boot CPU, hw interrupts are off, and
+	 * secondary CPUs are still lost in space.
+	 */
+
+	/* Reserve percpu data slot #0 for the root domain. */
+	ipd->slot = IPIPE_ROOT_SLOT;
+	ipd->name = "Linux";
+#ifdef CONFIG_IPIPE_LEGACY
+	ipd->domid = IPIPE_ROOT_ID;
+	ipd->priority = IPIPE_ROOT_PRIO;
+#endif
+	init_stage(ipd);
+
+	list_add_tail(&ipd->p_link, &__ipipe_pipeline);
+
+	__ipipe_init_platform();
+
+#ifdef CONFIG_PRINTK
+	__ipipe_printk_virq = ipipe_alloc_virq();	/* Cannot fail here. */
+	ipd->irqs[__ipipe_printk_virq].handler = &__ipipe_flush_printk;
+	ipd->irqs[__ipipe_printk_virq].cookie = NULL;
+	ipd->irqs[__ipipe_printk_virq].acknowledge = NULL;
+	ipd->irqs[__ipipe_printk_virq].control = IPIPE_HANDLE_MASK;
+#endif /* CONFIG_PRINTK */
+}
+
+void __init ipipe_init(void)
+{
+	/* Now we may engage the pipeline. */
+	__ipipe_enable_pipeline();
+
+	printk(KERN_INFO "I-pipe %s: pipeline enabled.\n",
+	       IPIPE_VERSION_STRING);
+}
+
+void ipipe_register_head(struct ipipe_domain *ipd, const char *name)
+{
+	unsigned long flags;
+
+	BUG_ON(!ipipe_root_domain_p || ipd == &ipipe_root);
+
+#ifndef CONFIG_SMP
+	/*
+	 * Set up the perdomain pointers for direct access to the
+	 * percpu domain data. This saves a costly multiply each time
+	 * we need to refer to the contents of the percpu domain data
+	 * array.
+	 */
+	__raw_get_cpu_var(ipipe_percpu_daddr)[IPIPE_HEAD_SLOT] =
+		&__raw_get_cpu_var(ipipe_percpu_darray)[IPIPE_HEAD_SLOT];
 #endif
 
-	clear_bit(ipd->slot, &__ipipe_domain_slot_map);
+	ipd->name = name;
+	ipd->slot = IPIPE_HEAD_SLOT;
+	ipd->flags = 0;
+	__set_bit(IPIPE_AHEAD_FLAG, &ipd->flags);
+	init_stage(ipd);
+	INIT_LIST_HEAD(&ipd->p_link);
+	flags = ipipe_critical_enter(NULL);
+	list_add(&ipd->p_link, &__ipipe_pipeline);
+	ipipe_head_domain = ipd;
+	ipipe_critical_exit(flags);
+	add_domain_proc(ipd);
+
+	printk(KERN_INFO "I-pipe: head domain %s registered.\n", name);
+}
+
+#ifdef CONFIG_SMP
+
+static inline void cleanup_head(struct ipipe_domain *ipd)
+{
+	struct ipipe_percpu_domain_data *p;
+	unsigned long flags;
+	unsigned int irq;
+	int cpu;
+
+	/*
+	 * Wait for the logged events to drain on other processors
+	 * before eventually removing the domain from the pipeline.
+	 */
+
+	ipipe_unstall_pipeline_from(ipd);
+
+	flags = ipipe_critical_enter(NULL);
+
+	for (irq = 0; irq < IPIPE_NR_IRQS; irq++) {
+		clear_bit(IPIPE_HANDLE_FLAG, &ipd->irqs[irq].control);
+		clear_bit(IPIPE_WIRED_FLAG, &ipd->irqs[irq].control);
+		clear_bit(IPIPE_STICKY_FLAG, &ipd->irqs[irq].control);
+		set_bit(IPIPE_PASS_FLAG, &ipd->irqs[irq].control);
+	}
+
+	ipipe_critical_exit(flags);
+
+	for_each_online_cpu(cpu) {
+		p = ipipe_percpudom_ptr(ipd, cpu);
+		while (__ipipe_ipending_p(p))
+			cpu_relax();
+	}
+}
+
+#else /* !CONFIG_SMP */
+
+static inline void cleanup_head(struct ipipe_domain *ipd)
+{
+	ipipe_unstall_pipeline_from(ipd);
+	__raw_get_cpu_var(ipipe_percpu_daddr)[IPIPE_HEAD_SLOT] = NULL;
+}
+
+#endif /* !CONFIG_SMP */
+
+void ipipe_unregister_head(struct ipipe_domain *ipd)
+{
+	BUG_ON(!ipipe_root_domain_p || ipd != ipipe_head_domain);
+
+	cleanup_head(ipd);
+	mutex_lock(&ipd->mutex);
+	remove_domain_proc(ipd);
+	list_del_init(&ipd->p_link);
+	mutex_unlock(&ipd->mutex);
+	ipipe_head_domain = &ipipe_root;
+
+	printk(KERN_INFO "I-pipe: head domain %s unregistered.\n", ipd->name);
 }
 
 void __ipipe_unstall_root(void)
@@ -664,7 +907,7 @@ static inline void __ipipe_set_irq_held(struct ipipe_percpu_domain_data *p,
 }
 
 /* Must be called hw IRQs off. */
-void __ipipe_set_irq_pending(struct ipipe_domain *ipd, unsigned irq)
+void __ipipe_set_irq_pending(struct ipipe_domain *ipd, unsigned int irq)
 {
 	struct ipipe_percpu_domain_data *p = ipipe_cpudom_ptr(ipd);
 	int l0b = irq / BITS_PER_LONG;
@@ -870,10 +1113,6 @@ unsigned ipipe_alloc_virq(void)
 	return irq;
 }
 
-/*
- * ipipe_virtualize_irq() -- Set a per-domain pipelined interrupt
- * handler.
- */
 int ipipe_virtualize_irq(struct ipipe_domain *ipd,
 			 unsigned int irq,
 			 ipipe_irq_handler_t handler,
@@ -1064,49 +1303,27 @@ int __ipipe_dispatch_event (unsigned event, void *data)
 	return !propagate;
 }
 
-/*
- * __ipipe_dispatch_wired -- Wired interrupt dispatcher. Wired
- * interrupts are immediately and unconditionally delivered to the
- * domain heading the pipeline upon receipt, and such domain must have
- * been registered as an invariant head for the system (priority ==
- * IPIPE_HEAD_PRIORITY). The motivation for using wired interrupts is
- * to get an extra-fast dispatching path for those IRQs, by relying on
- * a straightforward logic based on assumptions that must always be
- * true for invariant head domains.  The following assumptions are
- * made when dealing with such interrupts:
- *
- * 1- Wired interrupts are purely dynamic, i.e. the decision to
- * propagate them down the pipeline must be done from the head domain
- * ISR.
- * 2- Wired interrupts cannot be shared or sticky.
- * 3- The root domain cannot be an invariant pipeline head, in
- * consequence of what the root domain cannot handle wired
- * interrupts.
- * 4- Wired interrupts must have a valid acknowledge handler for the
- * head domain (if needed, see __ipipe_handle_irq).
- *
- * Called with hw interrupts off.
- */
-
-void __ipipe_dispatch_wired(struct ipipe_domain *head, unsigned irq)
+void __ipipe_dispatch_wired(unsigned int irq)
 {
-	struct ipipe_percpu_domain_data *p = ipipe_cpudom_ptr(head);
+	struct ipipe_percpu_domain_data *p = ipipe_cpudom_ptr(ipipe_head_domain);
 
 	if (test_bit(IPIPE_STALL_FLAG, &p->status)) {
-		__ipipe_set_irq_pending(head, irq);
+		__ipipe_set_irq_pending(ipipe_head_domain, irq);
 		return;
 	}
 
-	__ipipe_dispatch_wired_nocheck(head, irq);
+	__ipipe_dispatch_wired_nocheck(irq);
 }
 
-void __ipipe_dispatch_wired_nocheck(struct ipipe_domain *head, unsigned irq) /* hw interrupts off */
+void __ipipe_dispatch_wired_nocheck(unsigned int irq) /* hw interrupts off */
 {
-	struct ipipe_percpu_domain_data *p = ipipe_cpudom_ptr(head);
+	struct ipipe_percpu_domain_data *p = ipipe_cpudom_ptr(ipipe_head_domain);
+	struct ipipe_domain *head = ipipe_head_domain;
 	struct ipipe_domain *old;
 
 	old = __ipipe_current_domain;
-	__ipipe_current_domain = head; /* Switch to the head domain. */
+	/* Switch to the head domain. */
+	__ipipe_current_domain = head;
 
 	p->irqall[irq]++;
 	__set_bit(IPIPE_STALL_FLAG, &p->status);
@@ -1242,191 +1459,6 @@ void __ipipe_sync_stage(void)
 	__clear_bit(IPIPE_STALL_FLAG, &p->status);
 }
 
-/* ipipe_register_domain() -- Link a new domain to the pipeline. */
-
-int ipipe_register_domain(struct ipipe_domain *ipd,
-			  struct ipipe_domain_attr *attr)
-{
-	struct ipipe_percpu_domain_data *p;
-	struct list_head *pos = NULL;
-	struct ipipe_domain *_ipd;
-	unsigned long flags;
-
-	if (!ipipe_root_domain_p) {
-		printk(KERN_WARNING
-		       "I-pipe: Only the root domain may register a new domain.\n");
-		return -EPERM;
-	}
-
-	flags = ipipe_critical_enter(NULL);
-
-	if (attr->priority == IPIPE_HEAD_PRIORITY) {
-		if (test_bit(IPIPE_HEAD_SLOT, &__ipipe_domain_slot_map)) {
-			ipipe_critical_exit(flags);
-			return -EAGAIN;	/* Cannot override current head. */
-		}
-		ipd->slot = IPIPE_HEAD_SLOT;
-	} else
-		ipd->slot = ffz(__ipipe_domain_slot_map);
-
-	if (ipd->slot < CONFIG_IPIPE_DOMAINS) {
-		set_bit(ipd->slot, &__ipipe_domain_slot_map);
-		list_for_each(pos, &__ipipe_pipeline) {
-			_ipd = list_entry(pos, struct ipipe_domain, p_link);
-			if (_ipd->domid == attr->domid)
-				break;
-		}
-	}
-
-	ipipe_critical_exit(flags);
-
-	if (pos != &__ipipe_pipeline) {
-		if (ipd->slot < CONFIG_IPIPE_DOMAINS)
-			clear_bit(ipd->slot, &__ipipe_domain_slot_map);
-		return -EBUSY;
-	}
-
-#ifndef CONFIG_SMP
-	/*
-	 * Set up the perdomain pointers for direct access to the
-	 * percpu domain data. This saves a costly multiply each time
-	 * we need to refer to the contents of the percpu domain data
-	 * array.
-	 */
-	__raw_get_cpu_var(ipipe_percpu_daddr)[ipd->slot] = &__raw_get_cpu_var(ipipe_percpu_darray)[ipd->slot];
-#endif
-
-	ipd->name = attr->name;
-	ipd->domid = attr->domid;
-	ipd->pdd = attr->pdd;
-	ipd->flags = 0;
-
-	if (attr->priority == IPIPE_HEAD_PRIORITY) {
-		ipd->priority = INT_MAX;
-		__set_bit(IPIPE_AHEAD_FLAG,&ipd->flags);
-	}
-	else
-		ipd->priority = attr->priority;
-
-	__ipipe_init_stage(ipd);
-
-	INIT_LIST_HEAD(&ipd->p_link);
-
-#ifdef CONFIG_PROC_FS
-	__ipipe_add_domain_proc(ipd);
-#endif /* CONFIG_PROC_FS */
-
-	flags = ipipe_critical_enter(NULL);
-
-	list_for_each(pos, &__ipipe_pipeline) {
-		_ipd = list_entry(pos, struct ipipe_domain, p_link);
-		if (ipd->priority > _ipd->priority)
-			break;
-	}
-
-	list_add_tail(&ipd->p_link, pos);
-
-	ipipe_critical_exit(flags);
-
-	printk(KERN_INFO "I-pipe: Domain %s registered.\n", ipd->name);
-
-	if (attr->entry == NULL)
-		return 0;
-
-	/*
-	 * Finally, allow the new domain to perform its initialization
-	 * duties.
-	 */
-	local_irq_save_hw_smp(flags);
-	__ipipe_current_domain = ipd;
-	local_irq_restore_hw_smp(flags);
-	attr->entry();
-	local_irq_save_hw(flags);
-	__ipipe_current_domain = ipipe_root_domain;
-	p = ipipe_root_cpudom_ptr();
-
-	if (__ipipe_ipending_p(p) &&
-	    !test_bit(IPIPE_STALL_FLAG, &p->status))
-		__ipipe_sync_pipeline();
-
-	local_irq_restore_hw(flags);
-
-	return 0;
-}
-
-/* ipipe_unregister_domain() -- Remove a domain from the pipeline. */
-
-int ipipe_unregister_domain(struct ipipe_domain *ipd)
-{
-	unsigned long flags;
-
-	if (!ipipe_root_domain_p) {
-		printk(KERN_WARNING
-		       "I-pipe: Only the root domain may unregister a domain.\n");
-		return -EPERM;
-	}
-
-	if (ipd == ipipe_root_domain) {
-		printk(KERN_WARNING
-		       "I-pipe: Cannot unregister the root domain.\n");
-		return -EPERM;
-	}
-#ifdef CONFIG_SMP
-	{
-		struct ipipe_percpu_domain_data *p;
-		unsigned int irq;
-		int cpu;
-
-		/*
-		 * In the SMP case, wait for the logged events to drain on
-		 * other processors before eventually removing the domain
-		 * from the pipeline.
-		 */
-
-		ipipe_unstall_pipeline_from(ipd);
-
-		flags = ipipe_critical_enter(NULL);
-
-		for (irq = 0; irq < IPIPE_NR_IRQS; irq++) {
-			clear_bit(IPIPE_HANDLE_FLAG, &ipd->irqs[irq].control);
-			clear_bit(IPIPE_WIRED_FLAG, &ipd->irqs[irq].control);
-			clear_bit(IPIPE_STICKY_FLAG, &ipd->irqs[irq].control);
-			set_bit(IPIPE_PASS_FLAG, &ipd->irqs[irq].control);
-		}
-
-		ipipe_critical_exit(flags);
-
-		for_each_online_cpu(cpu) {
-			p = ipipe_percpudom_ptr(ipd, cpu);
-			while (__ipipe_ipending_p(p))
-				cpu_relax();
-		}
-	}
-#endif	/* CONFIG_SMP */
-
-	mutex_lock(&ipd->mutex);
-
-#ifdef CONFIG_PROC_FS
-	__ipipe_remove_domain_proc(ipd);
-#endif /* CONFIG_PROC_FS */
-
-	/*
-	 * Simply remove the domain from the pipeline and we are almost done.
-	 */
-
-	flags = ipipe_critical_enter(NULL);
-	list_del_init(&ipd->p_link);
-	ipipe_critical_exit(flags);
-
-	__ipipe_cleanup_domain(ipd);
-
-	mutex_unlock(&ipd->mutex);
-
-	printk(KERN_INFO "I-pipe: Domain %s unregistered.\n", ipd->name);
-
-	return 0;
-}
-
 /*
  * ipipe_propagate_irq() -- Force a given IRQ propagation on behalf of
  * a running interrupt handler to the next domain down the pipeline.
@@ -1463,15 +1495,6 @@ int ipipe_free_virq(unsigned virq)
 	clear_bit(virq - IPIPE_VIRQ_BASE, &__ipipe_virtual_irq_map);
 
 	return 0;
-}
-
-void ipipe_init_attr(struct ipipe_domain_attr *attr)
-{
-	attr->name = "anon";
-	attr->domid = 1;
-	attr->entry = NULL;
-	attr->priority = IPIPE_ROOT_PRIO;
-	attr->pdd = NULL;
 }
 
 /*
@@ -1799,171 +1822,6 @@ void *ipipe_get_ptd (int key)
 	return current->ptd[key];
 }
 
-#ifdef CONFIG_PROC_FS
-
-struct proc_dir_entry *ipipe_proc_root;
-
-static int __ipipe_version_info_proc(char *page,
-				     char **start,
-				     off_t off, int count, int *eof, void *data)
-{
-	int len = sprintf(page, "%s\n", IPIPE_VERSION_STRING);
-
-	len -= off;
-
-	if (len <= off + count)
-		*eof = 1;
-
-	*start = page + off;
-
-	if(len > count)
-		len = count;
-
-	if(len < 0)
-		len = 0;
-
-	return len;
-}
-
-static int __ipipe_common_info_show(struct seq_file *p, void *data)
-{
-	struct ipipe_domain *ipd = (struct ipipe_domain *)p->private;
-	char handling, stickiness, lockbit, exclusive, virtuality;
-
-	unsigned long ctlbits;
-	unsigned irq;
-
-	seq_printf(p, "       +----- Handling ([A]ccepted, [G]rabbed, [W]ired, [D]iscarded)\n");
-	seq_printf(p, "       |+---- Sticky\n");
-	seq_printf(p, "       ||+--- Locked\n");
-	seq_printf(p, "       |||+-- Exclusive\n");
-	seq_printf(p, "       ||||+- Virtual\n");
-	seq_printf(p, "[IRQ]  |||||\n");
-
-	mutex_lock(&ipd->mutex);
-
-	for (irq = 0; irq < IPIPE_NR_IRQS; irq++) {
-		/* Remember to protect against
-		 * ipipe_virtual_irq/ipipe_control_irq if more fields
-		 * get involved. */
-		ctlbits = ipd->irqs[irq].control;
-
-		if (irq >= IPIPE_NR_XIRQS && !ipipe_virtual_irq_p(irq))
-			/*
-			 * There might be a hole between the last external
-			 * IRQ and the first virtual one; skip it.
-			 */
-			continue;
-
-		if (ipipe_virtual_irq_p(irq)
-		    && !test_bit(irq - IPIPE_VIRQ_BASE, &__ipipe_virtual_irq_map))
-			/* Non-allocated virtual IRQ; skip it. */
-			continue;
-
-		/*
-		 * Statuses are as follows:
-		 * o "accepted" means handled _and_ passed down the pipeline.
-		 * o "grabbed" means handled, but the interrupt might be
-		 * terminated _or_ passed down the pipeline depending on
-		 * what the domain handler asks for to the I-pipe.
-		 * o "wired" is basically the same as "grabbed", except that
-		 * the interrupt is unconditionally delivered to an invariant
-		 * pipeline head domain.
-		 * o "passed" means unhandled by the domain but passed
-		 * down the pipeline.
-		 * o "discarded" means unhandled and _not_ passed down the
-		 * pipeline. The interrupt merely disappears from the
-		 * current domain down to the end of the pipeline.
-		 */
-		if (ctlbits & IPIPE_HANDLE_MASK) {
-			if (ctlbits & IPIPE_PASS_MASK)
-				handling = 'A';
-			else if (ctlbits & IPIPE_WIRED_MASK)
-				handling = 'W';
-			else
-				handling = 'G';
-		} else if (ctlbits & IPIPE_PASS_MASK)
-			/* Do not output if no major action is taken. */
-			continue;
-		else
-			handling = 'D';
-
-		if (ctlbits & IPIPE_STICKY_MASK)
-			stickiness = 'S';
-		else
-			stickiness = '.';
-
-		if (ctlbits & IPIPE_LOCK_MASK)
-			lockbit = 'L';
-		else
-			lockbit = '.';
-
-		if (ctlbits & IPIPE_EXCLUSIVE_MASK)
-			exclusive = 'X';
-		else
-			exclusive = '.';
-
-		if (ipipe_virtual_irq_p(irq))
-			virtuality = 'V';
-		else
-			virtuality = '.';
-
-		seq_printf(p, " %3u:  %c%c%c%c%c\n",
-			     irq, handling, stickiness, lockbit, exclusive, virtuality);
-	}
-
-	seq_printf(p, "[Domain info]\n");
-
-	seq_printf(p, "id=0x%.8x\n", ipd->domid);
-
-	if (test_bit(IPIPE_AHEAD_FLAG,&ipd->flags))
-		seq_printf(p, "priority=topmost\n");
-	else
-		seq_printf(p, "priority=%d\n", ipd->priority);
-
-	mutex_unlock(&ipd->mutex);
-
-	return 0;
-}
-
-static int __ipipe_common_info_open(struct inode *inode, struct file *file)
-{
-	return single_open(file, __ipipe_common_info_show, PROC_I(inode)->pde->data);
-}
-
-static struct file_operations __ipipe_info_proc_ops = {
-	.owner		= THIS_MODULE,
-	.open		= __ipipe_common_info_open,
-	.read		= seq_read,
-	.llseek		= seq_lseek,
-	.release	= single_release,
-};
-
-void __ipipe_add_domain_proc(struct ipipe_domain *ipd)
-{
-	struct proc_dir_entry *e = create_proc_entry(ipd->name, 0444, ipipe_proc_root);
-	if (e) {
-		e->proc_fops = &__ipipe_info_proc_ops;
-		e->data = (void*) ipd;
-	}
-}
-
-void __ipipe_remove_domain_proc(struct ipipe_domain *ipd)
-{
-	remove_proc_entry(ipd->name,ipipe_proc_root);
-}
-
-void __init ipipe_init_proc(void)
-{
-	ipipe_proc_root = create_proc_entry("ipipe",S_IFDIR, 0);
-	create_proc_read_entry("version",0444,ipipe_proc_root,&__ipipe_version_info_proc,NULL);
-	__ipipe_add_domain_proc(ipipe_root_domain);
-
-	__ipipe_init_tracer();
-}
-
-#endif	/* CONFIG_PROC_FS */
-
 #ifdef CONFIG_IPIPE_DEBUG_CONTEXT
 
 DEFINE_PER_CPU(int, ipipe_percpu_context_check) = { 1 };
@@ -1975,12 +1833,15 @@ void ipipe_check_context(struct ipipe_domain *border_domain)
         struct ipipe_domain *this_domain; 
         unsigned long flags;
 	int cpu;
+
+	if (border_domain != ipipe_root_domain)
+		return;
  
         local_irq_save_hw_smp(flags); 
 
         this_domain = __ipipe_current_domain; 
         p = ipipe_head_cpudom_ptr(); 
-        if (likely(this_domain->priority <= border_domain->priority && 
+        if (likely(this_domain == ipipe_root_domain && 
 		   !test_bit(IPIPE_STALL_FLAG, &p->status))) { 
                 local_irq_restore_hw_smp(flags); 
                 return; 
@@ -1998,7 +1859,7 @@ void ipipe_check_context(struct ipipe_domain *border_domain)
 	ipipe_trace_panic_freeze();
 	ipipe_set_printk_sync(__ipipe_current_domain);
 
-	if (this_domain->priority > border_domain->priority)
+	if (this_domain != ipipe_root_domain)
 		printk(KERN_ERR "I-pipe: Detected illicit call from domain "
 				"'%s'\n"
 		       KERN_ERR "        into a service reserved for domain "
@@ -2034,7 +1895,7 @@ int notrace __ipipe_check_percpu_access(void)
 	 * Only the root domain may implement preemptive CPU migration
 	 * of tasks, so anything above in the pipeline should be fine.
 	 */
-	if (this_domain->priority > IPIPE_ROOT_PRIO)
+	if (this_domain != ipipe_root_domain)
 		goto out;
 
 	if (raw_irqs_disabled_flags(flags))
@@ -2111,10 +1972,7 @@ EXPORT_SYMBOL(__ipipe_spin_unlock_irqrestore);
 EXPORT_SYMBOL(__ipipe_pipeline);
 EXPORT_SYMBOL(__ipipe_lock_irq);
 EXPORT_SYMBOL(__ipipe_unlock_irq);
-EXPORT_SYMBOL(ipipe_register_domain);
-EXPORT_SYMBOL(ipipe_unregister_domain);
 EXPORT_SYMBOL(ipipe_free_virq);
-EXPORT_SYMBOL(ipipe_init_attr);
 EXPORT_SYMBOL(ipipe_catch_event);
 EXPORT_SYMBOL(ipipe_alloc_ptdkey);
 EXPORT_SYMBOL(ipipe_free_ptdkey);

@@ -22,4 +22,27 @@
 #ifndef __LINUX_IPIPE_COMPAT_H
 #define __LINUX_IPIPE_COMPAT_H
 
+#ifndef __LINUX_IPIPE_H
+#error "Do not include this file directly, use linux/ipipe.h instead"
+#endif
+
+#define IPIPE_HEAD_PRIORITY	(-1)
+#define IPIPE_ROOT_PRIO		100
+#define IPIPE_ROOT_ID		0
+
+struct ipipe_domain_attr {
+	unsigned int domid;
+	const char *name;
+	int priority;
+	void (*entry) (void);
+	void *pdd;
+};
+
+void ipipe_init_attr(struct ipipe_domain_attr *attr);
+
+int ipipe_register_domain(struct ipipe_domain *ipd,
+			  struct ipipe_domain_attr *attr);
+
+int ipipe_unregister_domain(struct ipipe_domain *ipd);
+
 #endif	/* !__LINUX_IPIPE_COMPAT_H */
