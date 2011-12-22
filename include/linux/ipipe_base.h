@@ -97,9 +97,7 @@ static inline void ipipe_check_context(struct ipipe_domain *border_ipd) { }
 
 /* Generic features */
 
-#ifdef CONFIG_GENERIC_CLOCKEVENTS
 #define __IPIPE_FEATURE_REQUEST_TICKDEV		1
-#endif
 #define __IPIPE_FEATURE_DELAYED_ATOMICSW	1
 #define __IPIPE_FEATURE_FASTPEND_IRQ		1
 #define __IPIPE_FEATURE_TRACE_EVENT		1

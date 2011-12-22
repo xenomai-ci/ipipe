@@ -104,8 +104,6 @@ unsigned __ipipe_printk_virq;
 
 int __ipipe_event_monitors[IPIPE_NR_EVENTS];
 
-#ifdef CONFIG_GENERIC_CLOCKEVENTS
-
 DECLARE_PER_CPU(struct tick_device, tick_cpu_device);
 
 static DEFINE_PER_CPU(struct ipipe_tick_device, ipipe_tick_cpu_device);
@@ -210,8 +208,6 @@ void ipipe_release_tickdev(int cpu)
 
 	ipipe_critical_exit(flags);
 }
-
-#endif /* CONFIG_GENERIC_CLOCKEVENTS */
 
 void __init ipipe_init_early(void)
 {
@@ -2132,10 +2128,8 @@ EXPORT_SYMBOL(__ipipe_event_monitors);
 #if defined(CONFIG_IPIPE_DEBUG_INTERNAL) && defined(CONFIG_SMP)
 EXPORT_SYMBOL(__ipipe_check_percpu_access);
 #endif
-#ifdef CONFIG_GENERIC_CLOCKEVENTS
 EXPORT_SYMBOL(ipipe_request_tickdev);
 EXPORT_SYMBOL(ipipe_release_tickdev);
-#endif
 
 EXPORT_SYMBOL(ipipe_critical_enter);
 EXPORT_SYMBOL(ipipe_critical_exit);

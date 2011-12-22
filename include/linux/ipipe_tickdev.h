@@ -22,9 +22,11 @@
 #ifndef __LINUX_IPIPE_TICKDEV_H
 #define __LINUX_IPIPE_TICKDEV_H
 
-#include <linux/clocksource.h>
-
 #ifdef CONFIG_IPIPE
+
+#include <linux/clocksource.h>
+#include <linux/clockchips.h>
+
 /*
  * NOTE: When modifying this structure, make sure to keep the Xenomai
  * definition include/nucleus/vdso.h in sync.
@@ -40,10 +42,6 @@ struct ipipe_hostrt_data {
 	u32 mult;
 	u32 shift;
 };
-
-#ifdef CONFIG_GENERIC_CLOCKEVENTS
-
-#include <linux/clockchips.h>
 
 struct tick_device;
 
@@ -71,8 +69,6 @@ int ipipe_request_tickdev(const char *devname,
 			  int cpu, unsigned long *tmfreq);
 
 void ipipe_release_tickdev(int cpu);
-
-#endif /* CONFIG_GENERIC_CLOCKEVENTS */
 
 #ifdef CONFIG_HAVE_IPIPE_HOSTRT
 void ipipe_update_hostrt(struct timespec *wall_time,
