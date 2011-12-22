@@ -76,19 +76,9 @@ static void (*__ipipe_cpu_sync) (void);
  * pointer to the root domain data safely by statically initializing
  * its value (local_irq*() routines depend on this).
  */
-#if __GNUC__ >= 4
 extern unsigned long __ipipe_root_status
 __attribute__((alias(__stringify(ipipe_percpu_darray))));
 EXPORT_SYMBOL(__ipipe_root_status);
-#else /* __GNUC__ < 4 */
-/*
- * Work around a GCC 3.x issue making alias symbols unusable as
- * constant initializers.
- */
-unsigned long *const __ipipe_root_status_addr =
-	&__raw_get_cpu_var(ipipe_percpu_darray)[IPIPE_ROOT_SLOT].status;
-EXPORT_SYMBOL(__ipipe_root_status_addr);
-#endif /* __GNUC__ < 4 */
 
 DEFINE_PER_CPU(struct ipipe_percpu_domain_data *, ipipe_percpu_daddr[CONFIG_IPIPE_DOMAINS]) =
 { [IPIPE_ROOT_SLOT] = (struct ipipe_percpu_domain_data *)ipipe_percpu_darray };
