@@ -12,6 +12,13 @@ config IPIPE_DOMAINS
 	---help---
 	The maximum number of I-pipe domains to run concurrently.
 
+config IPIPE_LEGACY
+	bool "Legacy interface"
+	default y
+	---help---
+	  Activate this option if you want to control the interrupt
+	  pipeline via the legacy interface.
+
 config IPIPE_DELAYED_ATOMICSW
        bool
        depends on IPIPE
