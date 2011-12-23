@@ -138,26 +138,22 @@ static void
 __ipipe_trace_point_type(char *buf, struct ipipe_trace_point *point);
 static void __ipipe_print_symname(struct seq_file *m, unsigned long eip);
 
+static inline void store_states(struct ipipe_domain *ipd,
+				struct ipipe_trace_point *point, int pos)
+{
+	if (test_bit(IPIPE_STALL_FLAG, &ipipe_cpudom_var(ipd, status)))
+		point->flags |= 1 << (pos + IPIPE_TFLG_DOMSTATE_SHIFT);
+
+	if (ipd == __ipipe_current_domain)
+		point->flags |= pos << IPIPE_TFLG_CURRDOM_SHIFT;
+}
 
 static notrace void
 __ipipe_store_domain_states(struct ipipe_trace_point *point)
 {
-	struct ipipe_domain *ipd;
-	struct list_head *pos;
-	int i = 0;
-
-	list_for_each_prev(pos, &__ipipe_pipeline) {
-		ipd = list_entry(pos, struct ipipe_domain, p_link);
-
-		if (test_bit(IPIPE_STALL_FLAG, &ipipe_cpudom_var(ipd, status)))
-			point->flags |= 1 << (i + IPIPE_TFLG_DOMSTATE_SHIFT);
-
-		if (ipd == __ipipe_current_domain)
-			point->flags |= i << IPIPE_TFLG_CURRDOM_SHIFT;
-
-		if (++i > IPIPE_TFLG_DOMSTATE_BITS)
-			break;
-	}
+	store_states(ipipe_root_domain, point, 0);
+	if (ipipe_head_domain != ipipe_root_domain)
+		store_states(ipipe_head_domain, point, 1);
 }
 
 static notrace int __ipipe_get_free_trace_path(int old, int cpu)
@@ -871,22 +867,17 @@ static void __ipipe_print_symname(struct seq_file *m, unsigned long eip)
 
 static void __ipipe_print_headline(struct seq_file *m)
 {
+	const char *name[2];
+
 	seq_printf(m, "Calibrated minimum trace-point overhead: %lu.%03lu "
 		   "us\n\n", trace_overhead/1000, trace_overhead%1000);
 
 	if (verbose_trace) {
-		const char *name[4] = { [0 ... 3] = "<unused>" };
-		struct list_head *pos;
-		int i = 0;
-
-		list_for_each_prev(pos, &__ipipe_pipeline) {
-			struct ipipe_domain *ipd =
-				list_entry(pos, struct ipipe_domain, p_link);
-
-			name[i] = ipd->name;
-			if (++i > 3)
-				break;
-		}
+		name[0] = ipipe_root_domain->name;
+		if (ipipe_head_domain != ipipe_root_domain)
+			name[1] = ipipe_head_domain->name;
+		else
+			name[1] = "<unused>";
 
 		seq_printf(m,
 		           " +----- Hard IRQs ('|': locked)\n"

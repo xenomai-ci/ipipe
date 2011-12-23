@@ -147,7 +147,6 @@ typedef int (*ipipe_event_handler_t)(unsigned event,
 				     void *data);
 struct ipipe_domain {
 	int slot;			/* Slot number in percpu domain data array. */
-	struct list_head p_link;	/* Link in pipeline */
 	ipipe_event_handler_t evhand[IPIPE_NR_EVENTS]; /* Event handlers. */
 	unsigned long long evself;	/* Self-monitored event bits. */
 
@@ -176,8 +175,6 @@ extern unsigned __ipipe_printk_virq;
 
 extern unsigned long __ipipe_virtual_irq_map;
 
-extern struct list_head __ipipe_pipeline;
-
 extern int __ipipe_event_monitors[];
 
 /* Private interface */
@@ -201,9 +198,7 @@ void __ipipe_init_tracer(void);
 
 void __ipipe_flush_printk(unsigned irq, void *cookie);
 
-void __ipipe_walk_pipeline(struct list_head *pos);
-
-void __ipipe_pend_irq(unsigned irq, struct list_head *head);
+void __ipipe_pend_irq(struct ipipe_domain *ipd, unsigned int irq);
 
 int __ipipe_dispatch_event(unsigned event, void *data);
 
@@ -211,7 +206,9 @@ void __ipipe_dispatch_wired_nocheck(unsigned int irq);
 
 void __ipipe_dispatch_wired(unsigned int irq);
 
-void __ipipe_sync_stage(void);
+void __ipipe_do_sync_stage(void);
+
+void __ipipe_do_sync_pipeline(struct ipipe_domain *top);
 
 void __ipipe_set_irq_pending(struct ipipe_domain *ipd, unsigned irq);
 
@@ -233,9 +230,26 @@ static inline void ipipe_irq_unlock(unsigned irq)
 	__ipipe_unlock_irq(__ipipe_current_domain, irq);
 }
 
-#ifndef __ipipe_sync_pipeline
-#define __ipipe_sync_pipeline() __ipipe_sync_stage()
+#ifndef __ipipe_sync_check
+#define __ipipe_sync_check	1
 #endif
+
+static inline void __ipipe_sync_stage(void)
+{
+	if (likely(__ipipe_sync_check))
+		__ipipe_do_sync_stage();
+}
+
+static inline void __ipipe_sync_pipeline(struct ipipe_domain *top)
+{
+	if (__ipipe_current_domain != top) {
+		__ipipe_do_sync_pipeline(top);
+		return;
+	}
+
+	if (!test_bit(IPIPE_STALL_FLAG, &ipipe_cpudom_var(top, status)))
+		__ipipe_sync_stage();
+}
 
 #ifndef __ipipe_do_root_xirq
 #define __ipipe_do_root_xirq(ipd, irq)			\
@@ -255,16 +269,7 @@ static inline void ipipe_irq_unlock(unsigned irq)
 #define __ipipe_run_irqtail(irq) do { } while(0)
 #endif
 
-#define __ipipe_pipeline_head_p(ipd) (&(ipd)->p_link == __ipipe_pipeline.next)
-
 #define __ipipe_ipending_p(p)	((p)->irqpend_himap != 0)
-
-/*
- * Keep the following as a macro, so that client code could check for
- * the support of the invariant pipeline head optimization.
- */
-#define __ipipe_pipeline_head() \
-	list_entry(__ipipe_pipeline.next, struct ipipe_domain, p_link)
 
 #define local_irq_enable_hw_cond()		local_irq_enable_hw()
 #define local_irq_disable_hw_cond()		local_irq_disable_hw()
@@ -318,7 +323,7 @@ static inline void local_irq_restore_nosync(unsigned long x)
 #define ipipe_root_domain_p	(ipipe_current_domain == ipipe_root_domain)
 
 /* This has to be called with hw IRQs off. */
-#define __ipipe_head_domain_p   __ipipe_pipeline_head_p(__ipipe_current_domain)
+#define __ipipe_head_domain_p   (__ipipe_current_domain == ipipe_head_domain)
 
 static inline int __ipipe_event_monitored_p(int ev)
 {
@@ -409,25 +414,21 @@ int ipipe_free_virq(unsigned virq);
 
 int ipipe_trigger_irq(unsigned irq);
 
-static inline void __ipipe_propagate_irq(unsigned irq)
+static inline void __ipipe_propagate_irq(unsigned int irq)
 {
-	struct list_head *next = __ipipe_current_domain->p_link.next;
-	if (next == &ipipe_root.p_link) {
-		/* Fast path: root must handle all interrupts. */
+	if (likely(!__ipipe_root_domain_p))
+		/* The root domain must handle all interrupts. */
 		__ipipe_set_irq_pending(&ipipe_root, irq);
-		return;
-	}
-	__ipipe_pend_irq(irq, next);
 }
 
-static inline void __ipipe_schedule_irq(unsigned irq)
+static inline void __ipipe_schedule_irq(unsigned int irq)
 {
-	__ipipe_pend_irq(irq, &__ipipe_current_domain->p_link);
+	__ipipe_pend_irq(__ipipe_current_domain, irq);
 }
 
 static inline void __ipipe_schedule_irq_head(unsigned irq)
 {
-	__ipipe_set_irq_pending(__ipipe_pipeline_head(), irq);
+	__ipipe_set_irq_pending(ipipe_head_domain, irq);
 }
 
 static inline void __ipipe_schedule_irq_root(unsigned irq)
@@ -659,6 +660,8 @@ static inline void ipipe_nmi_exit(void)
 
 #define ipipe_clear_flags(p)		do { (p)->ipipe_flags = 0; } while (0)
 
+#include <linux/ipipe-compat.h>
+
 #else	/* !CONFIG_IPIPE */
 
 #define ipipe_init_early()		do { } while(0)
@@ -707,12 +710,8 @@ static inline int ipipe_test_foreign_stack(void)
 #define local_irq_restore_full(vflags, rflags)	do { (void)(vflags); local_irq_restore(rflags); } while(0)
 #define local_irq_restore_nosync(vflags)	local_irq_restore(vflags)
 
-#define __ipipe_pipeline_head_p(ipd)	1
-
 #define ipipe_root_only(ipd)	do { } while(0)
 
 #endif	/* CONFIG_IPIPE */
-
-#include <linux/ipipe-compat.h>
 
 #endif	/* !__LINUX_IPIPE_H */

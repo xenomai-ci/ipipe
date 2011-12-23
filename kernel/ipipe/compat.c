@@ -62,7 +62,7 @@ int ipipe_register_domain(struct ipipe_domain *ipd,
 
 	if (__ipipe_ipending_p(p) &&
 	    !test_bit(IPIPE_STALL_FLAG, &p->status))
-		__ipipe_sync_pipeline();
+		__ipipe_sync_stage();
 
 	local_irq_restore_hw(flags);
 

@@ -26,7 +26,7 @@
 #error "Do not include this file directly, use linux/ipipe.h instead"
 #endif
 
-#ifdef CONFIG_IPIPE
+#ifdef CONFIG_IPIPE_LEGACY
 
 #define IPIPE_HEAD_PRIORITY	(-1)
 #define IPIPE_ROOT_PRIO		100
@@ -54,10 +54,12 @@ static inline void ipipe_check_context(struct ipipe_domain *border_ipd)
 #endif /* !CONFIG_IPIPE_DEBUG_CONTEXT */
 }
 
-#else /* !CONFIG_IPIPE */
+/*
+ * Keep the following as a macro, so that client code could check for
+ * the support of the invariant pipeline head optimization.
+ */
+#define __ipipe_pipeline_head() ipipe_head_domain
 
-#define ipipe_check_context(ipd)	do { } while(0)
-
-#endif /* !CONFIG_IPIPE */
+#endif /* CONFIG_IPIPE_LEGACY */
 
 #endif	/* !__LINUX_IPIPE_COMPAT_H */

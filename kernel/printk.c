@@ -786,18 +786,10 @@ asmlinkage int printk(const char *fmt, ...)
 	    oops_in_progress)
 		cs = ipipe_disable_context_check(ipipe_processor_id());
 	else if (__ipipe_root_domain_p) {
-		struct ipipe_domain *dom;
-
-		list_for_each_entry(dom, &__ipipe_pipeline, p_link) {
-			if (dom == ipipe_root_domain)
-				break;
-			if (test_bit(IPIPE_STALL_FLAG,
-				     &ipipe_cpudom_var(dom, status))
-			    || raw_irqs_disabled_flags(flags)) {
-				sprintk = 0;
-				break;
-			}
-		}
+		if (raw_irqs_disabled_flags(flags) ||
+		    (ipipe_head_domain != ipipe_root_domain &&
+		     test_bit(IPIPE_STALL_FLAG, &ipipe_head_cpudom_var(status))))
+			sprintk = 0;
 	} else
 		sprintk = 0;
 
