@@ -557,7 +557,7 @@ void __ipipe_unstall_root(void)
         local_irq_disable_hw();
 
 	/* This helps catching bad usage from assembly call sites. */
-	ipipe_check_context(ipipe_root_domain);
+	ipipe_root_only();
 
 	p = ipipe_root_cpudom_ptr();
 
@@ -571,7 +571,7 @@ void __ipipe_unstall_root(void)
 
 void __ipipe_restore_root(unsigned long x)
 {
-	ipipe_check_context(ipipe_root_domain);
+	ipipe_root_only();
 
 	if (x)
 		__ipipe_stall_root();
@@ -1827,16 +1827,13 @@ void *ipipe_get_ptd (int key)
 DEFINE_PER_CPU(int, ipipe_percpu_context_check) = { 1 };
 DEFINE_PER_CPU(int, ipipe_saved_context_check_state);
 
-void ipipe_check_context(struct ipipe_domain *border_domain)
+void ipipe_root_only(void)
 {
         struct ipipe_percpu_domain_data *p; 
         struct ipipe_domain *this_domain; 
         unsigned long flags;
 	int cpu;
 
-	if (border_domain != ipipe_root_domain)
-		return;
- 
         local_irq_save_hw_smp(flags); 
 
         this_domain = __ipipe_current_domain; 
@@ -1860,21 +1857,19 @@ void ipipe_check_context(struct ipipe_domain *border_domain)
 	ipipe_set_printk_sync(__ipipe_current_domain);
 
 	if (this_domain != ipipe_root_domain)
-		printk(KERN_ERR "I-pipe: Detected illicit call from domain "
-				"'%s'\n"
-		       KERN_ERR "        into a service reserved for domain "
-				"'%s' and below.\n",
-		       this_domain->name, border_domain->name);
+		printk(KERN_ERR
+		       "I-pipe: Detected illicit call from head domain '%s'\n"
+		       KERN_ERR "        into a regular Linux service\n",
+		       this_domain->name);
 	else
-		printk(KERN_ERR "I-pipe: Detected stalled topmost domain, "
+		printk(KERN_ERR "I-pipe: Detected stalled head domain, "
 				"probably caused by a bug.\n"
 				"        A critical section may have been "
 				"left unterminated.\n");
 	dump_stack();
 	ipipe_trace_panic_dump();
 }
-
-EXPORT_SYMBOL(ipipe_check_context);
+EXPORT_SYMBOL_GPL(ipipe_root_only);
 
 #endif /* CONFIG_IPIPE_DEBUG_CONTEXT */
 

@@ -4150,7 +4150,7 @@ notrace unsigned long get_parent_ip(unsigned long addr)
 
 void __kprobes add_preempt_count(int val)
 {
- 	ipipe_check_context(ipipe_root_domain);
+ 	ipipe_root_only();
 #ifdef CONFIG_DEBUG_PREEMPT
 	/*
 	 * Underflow?
@@ -4173,7 +4173,7 @@ EXPORT_SYMBOL(add_preempt_count);
 
 void __kprobes sub_preempt_count(int val)
 {
- 	ipipe_check_context(ipipe_root_domain);
+ 	ipipe_root_only();
 #ifdef CONFIG_DEBUG_PREEMPT
 	/*
 	 * Underflow?
@@ -4222,7 +4222,7 @@ static noinline void __schedule_bug(struct task_struct *prev)
  */
 static inline void schedule_debug(struct task_struct *prev)
 {
-	ipipe_check_context(ipipe_root_domain);
+	ipipe_root_only();
 	/*
 	 * Test if we are atomic. Since do_exit() needs to call into
 	 * schedule() atomically, we ignore that path for now.
@@ -5974,7 +5974,7 @@ void __cpuinit init_idle(struct task_struct *idle, int cpu)
 
 	/* Set the preempt count _outside_ the spinlocks! */
 	task_thread_info(idle)->preempt_count = 0;
-	ipipe_check_context(ipipe_root_domain);
+	ipipe_root_only();
 
 	/*
 	 * The idle tasks have their own, simple scheduling class:

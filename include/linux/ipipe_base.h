@@ -92,9 +92,9 @@ void __ipipe_restore_root(unsigned long x);
 #define ipipe_put_cpu(flags)	ipipe_preempt_enable(flags)
  
 #ifdef CONFIG_IPIPE_DEBUG_CONTEXT
-void ipipe_check_context(struct ipipe_domain *border_ipd);
+void ipipe_root_only(void);
 #else /* !CONFIG_IPIPE_DEBUG_CONTEXT */
-static inline void ipipe_check_context(struct ipipe_domain *border_ipd) { }
+static inline void ipipe_root_only(void) { }
 #endif /* !CONFIG_IPIPE_DEBUG_CONTEXT */
 
 /* Generic features */
@@ -127,8 +127,6 @@ static inline void ipipe_check_context(struct ipipe_domain *border_ipd) { }
 		put_cpu();		\
 	} while (0)
 	
-#define ipipe_check_context(ipd)	do { } while(0)
-
 #endif	/* CONFIG_IPIPE */
 
 #endif	/* !__LINUX_IPIPE_BASE_H */

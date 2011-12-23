@@ -26,6 +26,8 @@
 #error "Do not include this file directly, use linux/ipipe.h instead"
 #endif
 
+#ifdef CONFIG_IPIPE
+
 #define IPIPE_HEAD_PRIORITY	(-1)
 #define IPIPE_ROOT_PRIO		100
 #define IPIPE_ROOT_ID		0
@@ -44,5 +46,18 @@ int ipipe_register_domain(struct ipipe_domain *ipd,
 			  struct ipipe_domain_attr *attr);
 
 int ipipe_unregister_domain(struct ipipe_domain *ipd);
+
+static inline void ipipe_check_context(struct ipipe_domain *border_ipd)
+{
+#ifdef CONFIG_IPIPE_DEBUG_CONTEXT
+	ipipe_root_only();
+#endif /* !CONFIG_IPIPE_DEBUG_CONTEXT */
+}
+
+#else /* !CONFIG_IPIPE */
+
+#define ipipe_check_context(ipd)	do { } while(0)
+
+#endif /* !CONFIG_IPIPE */
 
 #endif	/* !__LINUX_IPIPE_COMPAT_H */

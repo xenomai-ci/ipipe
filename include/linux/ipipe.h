@@ -659,8 +659,6 @@ static inline void ipipe_nmi_exit(void)
 
 #define ipipe_clear_flags(p)		do { (p)->ipipe_flags = 0; } while (0)
 
-#include <linux/ipipe-compat.h>
-
 #else	/* !CONFIG_IPIPE */
 
 #define ipipe_init_early()		do { } while(0)
@@ -711,6 +709,10 @@ static inline int ipipe_test_foreign_stack(void)
 
 #define __ipipe_pipeline_head_p(ipd)	1
 
+#define ipipe_root_only(ipd)	do { } while(0)
+
 #endif	/* CONFIG_IPIPE */
+
+#include <linux/ipipe-compat.h>
 
 #endif	/* !__LINUX_IPIPE_H */

@@ -16,11 +16,11 @@
   extern void sub_preempt_count(int val);
 #else
 # define add_preempt_count(val)	do {		\
-    ipipe_check_context(ipipe_root_domain);	\
+    ipipe_root_only();				\
     preempt_count() += (val);			\
   } while (0)
 # define sub_preempt_count(val)	do {		\
-    ipipe_check_context(ipipe_root_domain);	\
+    ipipe_root_only();				\
     preempt_count() -= (val);			\
   } while (0)
 #endif
