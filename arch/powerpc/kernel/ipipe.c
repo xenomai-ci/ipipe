@@ -333,8 +333,9 @@ int ipipe_trigger_irq(unsigned irq)
  */
 void __ipipe_handle_irq(int irq, struct pt_regs *regs)
 {
-	struct ipipe_domain *this_domain, *next_domain;
-	struct list_head *head, *pos;
+	struct ipipe_domain *ipd;
+	struct irq_desc *desc;
+	unsigned long control;
 	int m_ack;
 
 	/* Software-triggered IRQs do not need any ack. */
@@ -347,75 +348,55 @@ void __ipipe_handle_irq(int irq, struct pt_regs *regs)
 		return;
 	}
 #endif
-	this_domain = __ipipe_current_domain;
-
-	if (unlikely(test_bit(IPIPE_STICKY_FLAG, &this_domain->irqs[irq].control)))
-		head = &this_domain->p_link;
-	else {
-		head = __ipipe_pipeline.next;
-		next_domain = list_entry(head, struct ipipe_domain, p_link);
-		if (likely(test_bit(IPIPE_WIRED_FLAG, &next_domain->irqs[irq].control))) {
-			if (!m_ack && next_domain->irqs[irq].acknowledge)
-				next_domain->irqs[irq].acknowledge(irq, irq_to_desc(irq));
-			__ipipe_dispatch_wired(irq);
-			return;
+	
+	ipd = __ipipe_current_domain;
+	control = ipd->irqs[irq].control;
+	if (control & IPIPE_STICKY_MASK) {
+		if (!m_ack && ipd->irqs[irq].acknowledge) {
+			desc = irq_to_desc(irq);
+			ipd->irqs[irq].acknowledge(irq, desc);
 		}
+		__ipipe_set_irq_pending(ipd, irq);
+		goto sync;
 	}
 
-	/* Ack the interrupt. */
-
-	pos = head;
-
-	while (pos != &__ipipe_pipeline) {
-		next_domain = list_entry(pos, struct ipipe_domain, p_link);
-		prefetch(next_domain);
-		/*
-		 * For each domain handling the incoming IRQ, mark it as
-		 * pending in its log.
-		 */
-		if (test_bit(IPIPE_HANDLE_FLAG, &next_domain->irqs[irq].control)) {
-			/*
-			 * Domains that handle this IRQ are polled for
-			 * acknowledging it by decreasing priority order. The
-			 * interrupt must be made pending _first_ in the
-			 * domain's status flags before the PIC is unlocked.
-			 */
-			__ipipe_set_irq_pending(next_domain, irq);
-
-			if (!m_ack && next_domain->irqs[irq].acknowledge) {
-				next_domain->irqs[irq].acknowledge(irq, irq_to_desc(irq));
-				m_ack = 1;
-			}
+	ipd = ipipe_head_domain;
+	control = ipd->irqs[irq].control;
+	if (control & IPIPE_WIRED_MASK) {
+		if (!m_ack && ipd->irqs[irq].acknowledge) {
+			desc = irq_to_desc(irq);
+			ipd->irqs[irq].acknowledge(irq, desc);
 		}
-
-		/*
-		 * If the domain does not want the IRQ to be passed down the
-		 * interrupt pipe, exit the loop now.
-		 */
-		if (!test_bit(IPIPE_PASS_FLAG, &next_domain->irqs[irq].control))
-			break;
-
-		pos = next_domain->p_link.next;
+		__ipipe_dispatch_wired(irq);
+		return;
+	}
+next:
+	if (control & IPIPE_HANDLE_MASK) {
+		if (!m_ack && ipd->irqs[irq].acknowledge) {
+			desc = irq_to_desc(irq);
+			ipd->irqs[irq].acknowledge(irq, desc);
+			m_ack = 1;
+		}
+		__ipipe_set_irq_pending(ipd, irq);
 	}
 
+	if (ipd != ipipe_root_domain && (control & IPIPE_PASS_MASK) != 0) {
+		ipd = ipipe_root_domain;
+		control = ipd->irqs[irq].control;
+		goto next;
+	}
+sync:
 	/*
-	 * If the interrupt preempted the head domain, then do not
-	 * even try to walk the pipeline, unless an interrupt is
-	 * pending for it.
+	 * Optimize if we preempted the high priority head domain (not
+	 * the root one in absence of ipipe_register_head()): we don't
+	 * need to synchronize the pipeline unless there is a pending
+	 * interrupt for it.
 	 */
-	if (test_bit(IPIPE_AHEAD_FLAG, &this_domain->flags) &&
+	if (__ipipe_current_domain != ipipe_root_domain &&
 	    !__ipipe_ipending_p(ipipe_head_cpudom_ptr()))
 		return;
 
-	/*
-	 * Now walk the pipeline, yielding control to the highest
-	 * priority domain that has pending interrupt(s) or
-	 * immediately to the current domain if the interrupt has been
-	 * marked as 'sticky'. This search does not go beyond the
-	 * current domain in the pipeline.
-	 */
-
-	__ipipe_walk_pipeline(head);
+	__ipipe_sync_pipeline(ipipe_head_domain);
 }
 
 static int __ipipe_exit_irq(struct pt_regs *regs)
@@ -504,7 +485,7 @@ asmlinkage int __ipipe_grab_timer(struct pt_regs *regs)
 	struct ipipe_domain *ipd, *head;
 
 	ipd = __ipipe_current_domain;
-	head = __ipipe_pipeline_head();
+	head = ipipe_head_domain;
 
 	set_dec(DECREMENTER_MAX);
 
@@ -515,8 +496,6 @@ asmlinkage int __ipipe_grab_timer(struct pt_regs *regs)
 
 	if (ipd != &ipipe_root)
 		__raw_get_cpu_var(__ipipe_tick_regs).msr &= ~MSR_EE;
-	else if (unlikely(list_empty(&__ipipe_pipeline)))
-		head = ipd;
 
 	if (test_bit(IPIPE_WIRED_FLAG, &head->irqs[IPIPE_TIMER_VIRQ].control))
 		/*
@@ -664,7 +643,7 @@ asmlinkage int __ipipe_syscall_root(struct pt_regs *regs)
 
 	p = ipipe_root_cpudom_ptr();
 	if (__ipipe_ipending_p(p))
-		__ipipe_sync_pipeline();
+		__ipipe_sync_stage();
 
 #ifdef CONFIG_PPC32
 	local_irq_enable_hw();
