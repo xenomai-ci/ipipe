@@ -357,7 +357,7 @@ void __ipipe_handle_irq(int irq, struct pt_regs *regs)
 		if (likely(test_bit(IPIPE_WIRED_FLAG, &next_domain->irqs[irq].control))) {
 			if (!m_ack && next_domain->irqs[irq].acknowledge)
 				next_domain->irqs[irq].acknowledge(irq, irq_to_desc(irq));
-			__ipipe_dispatch_wired(next_domain, irq);
+			__ipipe_dispatch_wired(irq);
 			return;
 		}
 	}
@@ -529,7 +529,7 @@ asmlinkage int __ipipe_grab_timer(struct pt_regs *regs)
 		 * the head domain is obviously not stalled since we
 		 * got there).
 		 */
-		__ipipe_dispatch_wired_nocheck(head, IPIPE_TIMER_VIRQ);
+		__ipipe_dispatch_wired_nocheck(IPIPE_TIMER_VIRQ);
 	else
 		__ipipe_handle_irq(IPIPE_TIMER_VIRQ, NULL);
 
