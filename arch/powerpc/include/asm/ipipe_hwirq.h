@@ -158,7 +158,7 @@ static inline void local_irq_restore_hw(unsigned long x)
 #define arch_local_irq_disable()			\
 	({						\
 		unsigned long __x;			\
-		ipipe_check_context(ipipe_root_domain);	\
+		ipipe_root_only();					\
 		__x = (!__ipipe_test_and_stall_root()) << MSR_EE_LG;	\
 		barrier();						\
 		__x;					\
@@ -167,7 +167,7 @@ static inline void local_irq_restore_hw(unsigned long x)
 #define arch_local_irq_enable()				\
 	do {						\
 		barrier();				\
-		ipipe_check_context(ipipe_root_domain);	\
+		ipipe_root_only();			\
 		__ipipe_unstall_root();			\
 	} while (0)
 
