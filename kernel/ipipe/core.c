@@ -924,7 +924,7 @@ void __ipipe_set_irq_pending(struct ipipe_domain *ipd, unsigned int irq)
 }
 
 /* Must be called hw IRQs off. */
-void __ipipe_lock_irq(struct ipipe_domain *ipd, int cpu, unsigned irq)
+void __ipipe_lock_irq(struct ipipe_domain *ipd, unsigned int irq)
 {
 	struct ipipe_percpu_domain_data *p;
 	int l0b = irq / BITS_PER_LONG;
@@ -936,7 +936,7 @@ void __ipipe_lock_irq(struct ipipe_domain *ipd, int cpu, unsigned irq)
 	    test_and_set_bit(IPIPE_LOCK_FLAG, &ipd->irqs[irq].control))
 		return;
 
-	p = ipipe_percpudom_ptr(ipd, cpu);
+	p = ipipe_cpudom_ptr(ipd);
 	if (__test_and_clear_bit(irq, p->irqpend_lomap)) {
 		__set_bit(irq, p->irqheld_map);
 		if (p->irqpend_lomap[l0b] == 0)
@@ -945,7 +945,7 @@ void __ipipe_lock_irq(struct ipipe_domain *ipd, int cpu, unsigned irq)
 }
 
 /* Must be called hw IRQs off. */
-void __ipipe_unlock_irq(struct ipipe_domain *ipd, unsigned irq)
+void __ipipe_unlock_irq(struct ipipe_domain *ipd, unsigned int irq)
 {
 	struct ipipe_percpu_domain_data *p;
 	int l0b = irq / BITS_PER_LONG, cpu;

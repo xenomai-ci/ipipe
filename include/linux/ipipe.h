@@ -215,16 +215,16 @@ void __ipipe_sync_stage(void);
 
 void __ipipe_set_irq_pending(struct ipipe_domain *ipd, unsigned irq);
 
-void __ipipe_lock_irq(struct ipipe_domain *ipd, int cpu, unsigned irq);
+void __ipipe_lock_irq(struct ipipe_domain *ipd, unsigned int irq);
 
-void __ipipe_unlock_irq(struct ipipe_domain *ipd, unsigned irq);
+void __ipipe_unlock_irq(struct ipipe_domain *ipd, unsigned int irq);
 
 void __ipipe_pin_range_globally(unsigned long start, unsigned long end);
 
 /* Must be called hw IRQs off. */
 static inline void ipipe_irq_lock(unsigned irq)
 {
-	__ipipe_lock_irq(__ipipe_current_domain, ipipe_processor_id(), irq);
+	__ipipe_lock_irq(__ipipe_current_domain, irq);
 }
 
 /* Must be called hw IRQs off. */
