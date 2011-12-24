@@ -27,6 +27,7 @@
 #include <asm/processor.h>
 #include <asm/page.h>
 #include <linux/stringify.h>
+#include <ipipe/thread_info.h>
 
 /*
  * low level task data.
@@ -39,6 +40,8 @@ struct thread_info {
 						   <0 => BUG */
 	struct restart_block restart_block;
 	unsigned long	local_flags;		/* private flags for thread */
+
+	struct ipipe_threadinfo ipipe_data;
 
 	/* low level flags - has atomic operations done on it */
 	unsigned long	flags ____cacheline_aligned_in_smp;
