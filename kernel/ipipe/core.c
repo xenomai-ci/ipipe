@@ -1126,19 +1126,100 @@ next:
 	return ret;
 }
 
-void __ipipe_dispatch_wired(unsigned int irq)
+void __ipipe_dispatch_irq(unsigned int irq, int ackit) /* hw interrupts off */
 {
-	struct ipipe_percpu_domain_data *p = ipipe_cpudom_ptr(ipipe_head_domain);
+	struct ipipe_domain *ipd;
+	struct irq_desc *desc;
+	unsigned long control;
 
-	if (test_bit(IPIPE_STALL_FLAG, &p->status)) {
-		__ipipe_set_irq_pending(ipipe_head_domain, irq);
+	/*
+	 * Survival kit when reading this code:
+	 *
+	 * - we have two main situations, leading to three cases for
+	 *   handling interrupts:
+	 *
+	 *   a) the root domain is alone, no registered head domain
+	 *      => all interrupts are delivered via the fast dispatcher.
+	 *   b) a head domain is registered
+	 *      => head domain IRQs go through the fast dispatcher
+	 *      => root domain IRQs go through the interrupt log
+	 *
+	 * - when no head domain is registered, ipipe_head_domain ==
+	 *   ipipe_root_domain == &ipipe_root.
+	 *
+	 * - the caller tells us whether we should acknowledge this
+	 *   IRQ. Even virtual IRQs may require acknowledge on some
+	 *   platforms (e.g. arm/SMP).
+	 */
+
+#ifdef CONFIG_IPIPE_DEBUG
+	if (unlikely(irq >= IPIPE_NR_IRQS) ||
+	    (!ipipe_virtual_irq_p(irq) && irq_to_desc(irq) == NULL)) {
+		printk(KERN_ERR "I-pipe: spurious interrupt %u\n", irq);
+		return;
+	}
+#endif
+	/*
+	 * CAUTION: on some archs, virtual IRQs may have acknowledge
+	 * handlers.
+	 */
+	if (likely(ackit)) {
+		ipd = ipipe_head_domain;
+		control = ipd->irqs[irq].control;
+		if ((control & IPIPE_HANDLE_MASK) == 0)
+			ipd = ipipe_root_domain;
+		desc = ipipe_virtual_irq_p(irq) ? NULL : irq_to_desc(irq);
+		if (ipd->irqs[irq].acknowledge)
+			ipd->irqs[irq].acknowledge(irq, desc);
+	}
+
+	/*
+	 * Sticky interrupts must be handled early and separately, so
+	 * that we always process them on the current domain.
+	 */
+	ipd = __ipipe_current_domain;
+	control = ipd->irqs[irq].control;
+	if (control & IPIPE_STICKY_MASK)
+		goto log;
+
+	/*
+	 * In case we have no registered head domain
+	 * (i.e. ipipe_head_domain == &ipipe_root), we allow
+	 * interrupts to go through the fast dispatcher, since we
+	 * don't care for the latency induced by interrupt disabling
+	 * at CPU level. Otherwise, we must go through the interrupt
+	 * log, and leave the dispatching work ultimately to
+	 * __ipipe_do_sync_stage().
+	 */
+	ipd = ipipe_head_domain;
+	control = ipd->irqs[irq].control;
+	if (control & IPIPE_HANDLE_MASK) {
+		__ipipe_dispatch_irq_fast(irq);
 		return;
 	}
 
-	__ipipe_dispatch_wired_nocheck(irq);
+	/*
+	 * The root domain must handle all interrupts, so testing the
+	 * HANDLE bit for it would be pointless.
+	 */
+	ipd = ipipe_root_domain;
+log:
+	__ipipe_set_irq_pending(ipd, irq);
+
+	/*
+	 * Optimize if we preempted the high priority head domain (not
+	 * the root one in absence of ipipe_register_head()): we don't
+	 * need to synchronize the pipeline unless there is a pending
+	 * interrupt for it.
+	 */
+	if (__ipipe_current_domain != ipipe_root_domain &&
+	    !__ipipe_ipending_p(ipipe_head_cpudom_ptr()))
+		return;
+
+	__ipipe_sync_pipeline(ipipe_head_domain);
 }
 
-void __ipipe_dispatch_wired_nocheck(unsigned int irq) /* hw interrupts off */
+void __ipipe_dispatch_irq_fast_nocheck(unsigned int irq) /* hw interrupts off */
 {
 	struct ipipe_percpu_domain_data *p = ipipe_cpudom_ptr(ipipe_head_domain);
 	struct ipipe_domain *head = ipipe_head_domain;

@@ -195,23 +195,37 @@ void __ipipe_flush_printk(unsigned irq, void *cookie);
 
 void __ipipe_pend_irq(struct ipipe_domain *ipd, unsigned int irq);
 
+void __ipipe_dispatch_irq(unsigned int irq, int ackit);
+
 int __ipipe_dispatch_event(unsigned event, void *data);
 
-void __ipipe_dispatch_wired_nocheck(unsigned int irq);
+void __ipipe_dispatch_irq_fast_nocheck(unsigned int irq);
 
-void __ipipe_dispatch_wired(unsigned int irq);
+void __ipipe_set_irq_pending(struct ipipe_domain *ipd, unsigned irq);
 
 void __ipipe_do_sync_stage(void);
 
 void __ipipe_do_sync_pipeline(struct ipipe_domain *top);
-
-void __ipipe_set_irq_pending(struct ipipe_domain *ipd, unsigned irq);
 
 void __ipipe_lock_irq(unsigned int irq);
 
 void __ipipe_unlock_irq(unsigned int irq);
 
 void __ipipe_pin_range_globally(unsigned long start, unsigned long end);
+
+/* Must be called hw IRQs off. */
+static inline void __ipipe_dispatch_irq_fast(unsigned int irq)
+{
+	struct ipipe_percpu_domain_data *p;
+
+	p = ipipe_cpudom_ptr(ipipe_head_domain);
+	if (test_bit(IPIPE_STALL_FLAG, &p->status)) {
+		__ipipe_set_irq_pending(ipipe_head_domain, irq);
+		return;
+	}
+
+	__ipipe_dispatch_irq_fast_nocheck(irq);
+}
 
 /* Must be called hw IRQs off. */
 static inline void ipipe_irq_lock(unsigned int irq)
