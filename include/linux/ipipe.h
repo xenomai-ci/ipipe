@@ -27,6 +27,7 @@
 #include <linux/percpu.h>
 #include <linux/mutex.h>
 #include <linux/linkage.h>
+#include <linux/thread_info.h>
 #include <linux/ipipe_base.h>
 #include <asm/ipipe.h>
 #include <asm/bug.h>
@@ -652,6 +653,13 @@ static inline void ipipe_nmi_exit(void)
 	if (!test_bit(IPIPE_STALL_FLAG, &per_cpu(ipipe_nmi_saved_root, cpu)))
 		__clear_bit(IPIPE_STALL_FLAG, &ipipe_root_cpudom_var(status));
 }
+
+static inline struct ipipe_threadinfo *ipipe_current_threadinfo(void)
+{
+	return &current_thread_info()->ipipe_data;
+}
+
+#define ipipe_task_threadinfo(p) (&task_thread_info(p)->ipipe_data)
 
 #define ipipe_enable_notifier(p)			\
 	do {						\
