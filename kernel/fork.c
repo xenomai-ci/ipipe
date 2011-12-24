@@ -1384,7 +1384,9 @@ static struct task_struct *copy_process(unsigned long clone_flags,
 		threadgroup_fork_read_unlock(current);
 #ifdef CONFIG_IPIPE
 	p->ipipe_flags = 0;
+#ifdef CONFIG_IPIPE_LEGACY
 	memset(p->ptd, 0, sizeof(p->ptd));
+#endif
 #endif /* CONFIG_IPIPE */
 	perf_event_fork(p);
 	return p;

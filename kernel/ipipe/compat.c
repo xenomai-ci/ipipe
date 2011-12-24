@@ -24,7 +24,14 @@
 #include <linux/module.h>
 #include <linux/init.h>
 #include <linux/kernel.h>
+#include <linux/sched.h>
 #include <linux/ipipe.h>
+
+static int ptd_key_count;
+
+static unsigned long ptd_key_map;
+
+IPIPE_DECLARE_SPINLOCK(__ipipe_lock);
 
 void ipipe_init_attr(struct ipipe_domain_attr *attr)
 {
@@ -77,3 +84,60 @@ int ipipe_unregister_domain(struct ipipe_domain *ipd)
 	return 0;
 }
 EXPORT_SYMBOL_GPL(ipipe_unregister_domain);
+
+int ipipe_alloc_ptdkey(void)
+{
+	unsigned long flags;
+	int key = -1;
+
+	spin_lock_irqsave(&__ipipe_lock,flags);
+
+	if (ptd_key_count < IPIPE_ROOT_NPTDKEYS) {
+		key = ffz(ptd_key_map);
+		set_bit(key,&ptd_key_map);
+		ptd_key_count++;
+	}
+
+	spin_unlock_irqrestore(&__ipipe_lock,flags);
+
+	return key;
+}
+EXPORT_SYMBOL_GPL(ipipe_alloc_ptdkey);
+
+int ipipe_free_ptdkey(int key)
+{
+	unsigned long flags;
+
+	if (key < 0 || key >= IPIPE_ROOT_NPTDKEYS)
+		return -EINVAL;
+
+	spin_lock_irqsave(&__ipipe_lock,flags);
+
+	if (test_and_clear_bit(key,&ptd_key_map))
+		ptd_key_count--;
+
+	spin_unlock_irqrestore(&__ipipe_lock,flags);
+
+	return 0;
+}
+EXPORT_SYMBOL_GPL(ipipe_free_ptdkey);
+
+int ipipe_set_ptd(int key, void *value)
+{
+	if (key < 0 || key >= IPIPE_ROOT_NPTDKEYS)
+		return -EINVAL;
+
+	current->ptd[key] = value;
+
+	return 0;
+}
+EXPORT_SYMBOL_GPL(ipipe_set_ptd);
+
+void *ipipe_get_ptd(int key)
+{
+	if (key < 0 || key >= IPIPE_ROOT_NPTDKEYS)
+		return NULL;
+
+	return current->ptd[key];
+}
+EXPORT_SYMBOL_GPL(ipipe_get_ptd);

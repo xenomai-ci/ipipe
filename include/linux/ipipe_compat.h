@@ -31,6 +31,7 @@
 #define IPIPE_HEAD_PRIORITY	(-1)
 #define IPIPE_ROOT_PRIO		100
 #define IPIPE_ROOT_ID		0
+#define IPIPE_ROOT_NPTDKEYS	4
 
 #define IPIPE_DUMMY_FLAG	31
 #define IPIPE_WIRED_FLAG	IPIPE_HANDLE_FLAG
@@ -52,6 +53,14 @@ int ipipe_register_domain(struct ipipe_domain *ipd,
 			  struct ipipe_domain_attr *attr);
 
 int ipipe_unregister_domain(struct ipipe_domain *ipd);
+
+int ipipe_alloc_ptdkey(void);
+
+int ipipe_free_ptdkey(int key);
+
+int ipipe_set_ptd(int key, void *value);
+
+void *ipipe_get_ptd(int key);
 
 static inline void ipipe_check_context(struct ipipe_domain *border_ipd)
 {

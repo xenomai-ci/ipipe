@@ -1536,7 +1536,9 @@ struct task_struct {
 	struct rcu_head rcu;
 #ifdef CONFIG_IPIPE
 	unsigned int ipipe_flags;
+#ifdef CONFIG_IPIPE_LEGACY
 	void *ptd[IPIPE_ROOT_NPTDKEYS];
+#endif
 #endif
 
 	/*

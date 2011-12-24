@@ -38,10 +38,6 @@
 #include <linux/ipipe_tickdev.h>
 #include <linux/irq.h>
 
-static int __ipipe_ptd_key_count;
-
-static unsigned long __ipipe_ptd_key_map;
-
 struct ipipe_domain ipipe_root;
 EXPORT_SYMBOL_GPL(ipipe_root);
 
@@ -112,7 +108,7 @@ EXPORT_PER_CPU_SYMBOL_GPL(ipipe_percpu_daddr);
 
 #endif /* !CONFIG_SMP */
 
-static IPIPE_DEFINE_SPINLOCK(__ipipe_pipelock);
+IPIPE_DEFINE_SPINLOCK(__ipipe_lock);
 
 unsigned long __ipipe_virtual_irq_map;
 
@@ -977,7 +973,7 @@ unsigned ipipe_alloc_virq(void)
 	unsigned long flags, irq = 0;
 	int ipos;
 
-	spin_lock_irqsave(&__ipipe_pipelock, flags);
+	spin_lock_irqsave(&__ipipe_lock, flags);
 
 	if (__ipipe_virtual_irq_map != ~0) {
 		ipos = ffz(__ipipe_virtual_irq_map);
@@ -985,7 +981,7 @@ unsigned ipipe_alloc_virq(void)
 		irq = ipos + IPIPE_VIRQ_BASE;
 	}
 
-	spin_unlock_irqrestore(&__ipipe_pipelock, flags);
+	spin_unlock_irqrestore(&__ipipe_lock, flags);
 
 	return irq;
 }
@@ -1008,7 +1004,7 @@ int ipipe_virtualize_irq(struct ipipe_domain *ipd,
 	if (ipd->irqs[irq].control & IPIPE_SYSTEM_MASK)
 		return -EPERM;
 
-	spin_lock_irqsave(&__ipipe_pipelock, flags);
+	spin_lock_irqsave(&__ipipe_lock, flags);
 
 	old_handler = ipd->irqs[irq].handler;
 
@@ -1082,7 +1078,7 @@ int ipipe_virtualize_irq(struct ipipe_domain *ipd,
 
 unlock_and_exit:
 
-	spin_unlock_irqrestore(&__ipipe_pipelock, flags);
+	spin_unlock_irqrestore(&__ipipe_lock, flags);
 
 	return ret;
 }
@@ -1666,61 +1662,6 @@ void ipipe_update_hostrt(struct timespec *wall_time, struct clocksource *clock)
 }
 #endif /* CONFIG_HAVE_IPIPE_HOSTRT */
 
-int ipipe_alloc_ptdkey (void)
-{
-	unsigned long flags;
-	int key = -1;
-
-	spin_lock_irqsave(&__ipipe_pipelock,flags);
-
-	if (__ipipe_ptd_key_count < IPIPE_ROOT_NPTDKEYS) {
-		key = ffz(__ipipe_ptd_key_map);
-		set_bit(key,&__ipipe_ptd_key_map);
-		__ipipe_ptd_key_count++;
-	}
-
-	spin_unlock_irqrestore(&__ipipe_pipelock,flags);
-
-	return key;
-}
-
-int ipipe_free_ptdkey (int key)
-{
-	unsigned long flags;
-
-	if (key < 0 || key >= IPIPE_ROOT_NPTDKEYS)
-		return -EINVAL;
-
-	spin_lock_irqsave(&__ipipe_pipelock,flags);
-
-	if (test_and_clear_bit(key,&__ipipe_ptd_key_map))
-		__ipipe_ptd_key_count--;
-
-	spin_unlock_irqrestore(&__ipipe_pipelock,flags);
-
-	return 0;
-}
-
-int ipipe_set_ptd (int key, void *value)
-
-{
-	if (key < 0 || key >= IPIPE_ROOT_NPTDKEYS)
-		return -EINVAL;
-
-	current->ptd[key] = value;
-
-	return 0;
-}
-
-void *ipipe_get_ptd (int key)
-
-{
-	if (key < 0 || key >= IPIPE_ROOT_NPTDKEYS)
-		return NULL;
-
-	return current->ptd[key];
-}
-
 #ifdef CONFIG_IPIPE_DEBUG_CONTEXT
 
 DEFINE_PER_CPU(int, ipipe_percpu_context_check) = { 1 };
@@ -1859,10 +1800,6 @@ EXPORT_SYMBOL(__ipipe_spin_trylock_irqsave);
 EXPORT_SYMBOL(__ipipe_spin_unlock_irqrestore);
 EXPORT_SYMBOL(ipipe_free_virq);
 EXPORT_SYMBOL(ipipe_catch_event);
-EXPORT_SYMBOL(ipipe_alloc_ptdkey);
-EXPORT_SYMBOL(ipipe_free_ptdkey);
-EXPORT_SYMBOL(ipipe_set_ptd);
-EXPORT_SYMBOL(ipipe_get_ptd);
 EXPORT_SYMBOL(ipipe_set_irq_affinity);
 EXPORT_SYMBOL(ipipe_send_ipi);
 EXPORT_SYMBOL(__ipipe_set_irq_pending);

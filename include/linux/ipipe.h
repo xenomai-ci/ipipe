@@ -87,8 +87,6 @@ static inline void ipipe_context_check_off(void) { }
 #define __BUILTIN_RETURN_ADDRESS1 ((unsigned long)__builtin_return_address(1))
 #endif /* !BUILTIN_RETURN_ADDRESS */
 
-#define IPIPE_ROOT_NPTDKEYS	4	/* Must be <= BITS_PER_LONG */
-
 /* Global domain flags */
 #define IPIPE_SPRINTK_FLAG	0	/* Synchronous printk() allowed */
 
@@ -616,15 +614,6 @@ int ipipe_setscheduler_root(struct task_struct *p,
 int ipipe_reenter_root(struct task_struct *prev,
 		       int policy,
 		       int prio);
-
-int ipipe_alloc_ptdkey(void);
-
-int ipipe_free_ptdkey(int key);
-
-int ipipe_set_ptd(int key,
-		  void *value);
-
-void *ipipe_get_ptd(int key);
 
 int ipipe_disable_ondemand_mappings(struct task_struct *tsk);
 
