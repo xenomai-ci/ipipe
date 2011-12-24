@@ -275,7 +275,7 @@ void __ipipe_enable_pipeline(void)
 				     irq,
 				     &__ipipe_do_IRQ, NULL,
 				     &__ipipe_ack_irq,
-				     IPIPE_HANDLE_MASK | IPIPE_PASS_MASK);
+				     IPIPE_HANDLE_MASK);
 	/*
 	 * We use a virtual IRQ to handle the timer irq (decrementer trap)
 	 * which has been allocated early in __ipipe_init_platform().
@@ -284,7 +284,7 @@ void __ipipe_enable_pipeline(void)
 	ipipe_virtualize_irq(ipipe_root_domain,
 			     IPIPE_TIMER_VIRQ,
 			     &__ipipe_do_timer, NULL,
-			     NULL, IPIPE_HANDLE_MASK | IPIPE_PASS_MASK);
+			     NULL, IPIPE_HANDLE_MASK);
 
 	ipipe_critical_exit(flags);
 }
