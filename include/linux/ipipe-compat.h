@@ -32,6 +32,9 @@
 #define IPIPE_ROOT_PRIO		100
 #define IPIPE_ROOT_ID		0
 
+#define IPIPE_WIRED_FLAG	IPIPE_HANDLE_FLAG
+#define IPIPE_WIRED_MASK	(1 << IPIPE_WIRED_FLAG)
+
 struct ipipe_domain_attr {
 	unsigned int domid;
 	const char *name;

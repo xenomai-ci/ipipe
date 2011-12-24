@@ -184,8 +184,6 @@ static int __ipipe_common_info_show(struct seq_file *p, void *data)
 		if (ctlbits & IPIPE_HANDLE_MASK) {
 			if (ctlbits & IPIPE_PASS_MASK)
 				handling = 'A';
-			else if (ctlbits & IPIPE_WIRED_MASK)
-				handling = 'W';
 			else
 				handling = 'G';
 		} else if (ctlbits & IPIPE_PASS_MASK)
@@ -500,7 +498,6 @@ static inline void cleanup_head(struct ipipe_domain *ipd)
 
 	for (irq = 0; irq < IPIPE_NR_IRQS; irq++) {
 		clear_bit(IPIPE_HANDLE_FLAG, &ipd->irqs[irq].control);
-		clear_bit(IPIPE_WIRED_FLAG, &ipd->irqs[irq].control);
 		clear_bit(IPIPE_STICKY_FLAG, &ipd->irqs[irq].control);
 		set_bit(IPIPE_PASS_FLAG, &ipd->irqs[irq].control);
 	}
@@ -779,22 +776,28 @@ void __ipipe_set_irq_pending(struct ipipe_domain *ipd, unsigned int irq)
 }
 
 /* Must be called hw IRQs off. */
-void __ipipe_lock_irq(struct ipipe_domain *ipd, int cpu, unsigned int irq)
+void __ipipe_lock_irq(unsigned int irq)
 {
+	struct ipipe_domain *ipd = ipipe_root_domain;
 	struct ipipe_percpu_domain_data *p;
 	int l0b, l1b;
 
 	IPIPE_WARN_ONCE(!irqs_disabled_hw());
 
-	/* Wired interrupts cannot be locked (it is useless). */
-	if (test_bit(IPIPE_WIRED_FLAG, &ipd->irqs[irq].control) ||
-	    test_and_set_bit(IPIPE_LOCK_FLAG, &ipd->irqs[irq].control))
+	/*
+	 * Interrupts requested by a registered head domain cannot be
+	 * locked, since this would make no sense: interrupts are
+	 * globally masked at CPU level when the head domain is
+	 * stalled, so there is no way we could encounter the
+	 * situation IRQ locks are handling.
+	 */
+	if (test_and_set_bit(IPIPE_LOCK_FLAG, &ipd->irqs[irq].control))
 		return;
 
 	l0b = irq / (BITS_PER_LONG * BITS_PER_LONG);
 	l1b = irq / BITS_PER_LONG;
 
-	p = ipipe_percpudom_ptr(ipd, cpu);
+	p = ipipe_cpudom_ptr(ipd);
 	if (__test_and_clear_bit(irq, p->irqpend_lomap)) {
 		__set_bit(irq, p->irqheld_map);
 		if (p->irqpend_lomap[l1b] == 0) {
@@ -804,17 +807,18 @@ void __ipipe_lock_irq(struct ipipe_domain *ipd, int cpu, unsigned int irq)
 		}
 	}
 }
+EXPORT_SYMBOL_GPL(__ipipe_lock_irq);
 
 /* Must be called hw IRQs off. */
-void __ipipe_unlock_irq(struct ipipe_domain *ipd, unsigned int irq)
+void __ipipe_unlock_irq(unsigned int irq)
 {
+	struct ipipe_domain *ipd = ipipe_root_domain;
 	struct ipipe_percpu_domain_data *p;
 	int l0b, l1b, cpu;
 
 	IPIPE_WARN_ONCE(!irqs_disabled_hw());
 
-	if (unlikely(!test_and_clear_bit(IPIPE_LOCK_FLAG,
-					 &ipd->irqs[irq].control)))
+	if (!test_and_clear_bit(IPIPE_LOCK_FLAG, &ipd->irqs[irq].control))
 		return;
 
 	l0b = irq / (BITS_PER_LONG * BITS_PER_LONG);
@@ -830,6 +834,7 @@ void __ipipe_unlock_irq(struct ipipe_domain *ipd, unsigned int irq)
 		}
 	}
 }
+EXPORT_SYMBOL_GPL(__ipipe_unlock_irq);
 
 static inline int __ipipe_next_irq(struct ipipe_percpu_domain_data *p)
 {
@@ -892,16 +897,15 @@ void __ipipe_set_irq_pending(struct ipipe_domain *ipd, unsigned int irq)
 }
 
 /* Must be called hw IRQs off. */
-void __ipipe_lock_irq(struct ipipe_domain *ipd, unsigned int irq)
+void __ipipe_lock_irq(unsigned int irq)
 {
+	struct ipipe_domain *ipd = ipipe_root_domain;
 	struct ipipe_percpu_domain_data *p;
 	int l0b = irq / BITS_PER_LONG;
 
 	IPIPE_WARN_ONCE(!irqs_disabled_hw());
 
-	/* Wired interrupts cannot be locked (it is useless). */
-	if (test_bit(IPIPE_WIRED_FLAG, &ipd->irqs[irq].control) ||
-	    test_and_set_bit(IPIPE_LOCK_FLAG, &ipd->irqs[irq].control))
+	if (test_and_set_bit(IPIPE_LOCK_FLAG, &ipd->irqs[irq].control))
 		return;
 
 	p = ipipe_cpudom_ptr(ipd);
@@ -911,17 +915,18 @@ void __ipipe_lock_irq(struct ipipe_domain *ipd, unsigned int irq)
 			__clear_bit(l0b, &p->irqpend_himap);
 	}
 }
+EXPORT_SYMBOL_GPL(__ipipe_lock_irq);
 
 /* Must be called hw IRQs off. */
-void __ipipe_unlock_irq(struct ipipe_domain *ipd, unsigned int irq)
+void __ipipe_unlock_irq(unsigned int irq)
 {
+	struct ipipe_domain *ipd = ipipe_root_domain;
 	struct ipipe_percpu_domain_data *p;
 	int l0b = irq / BITS_PER_LONG, cpu;
 
 	IPIPE_WARN_ONCE(!irqs_disabled_hw());
 
-	if (unlikely(!test_and_clear_bit(IPIPE_LOCK_FLAG,
-					 &ipd->irqs[irq].control)))
+	if (!test_and_clear_bit(IPIPE_LOCK_FLAG, &ipd->irqs[irq].control))
 		return;
 
 	for_each_online_cpu(cpu) {
@@ -933,6 +938,7 @@ void __ipipe_unlock_irq(struct ipipe_domain *ipd, unsigned int irq)
 		}
 	}
 }
+EXPORT_SYMBOL_GPL(__ipipe_unlock_irq);
 
 static inline int __ipipe_next_irq(struct ipipe_percpu_domain_data *p)
 {
@@ -1058,10 +1064,6 @@ int ipipe_virtualize_irq(struct ipipe_domain *ipd,
 	if (ipd->irqs[irq].control & IPIPE_SYSTEM_MASK)
 		return -EPERM;
 
-	if (ipd == ipipe_root_domain)
-		/* Silently unwire interrupts for the root domain. */
-		modemask &= ~IPIPE_WIRED_MASK;
-
 	spin_lock_irqsave(&__ipipe_pipelock, flags);
 
 	old_handler = ipd->irqs[irq].handler;
@@ -1069,7 +1071,7 @@ int ipipe_virtualize_irq(struct ipipe_domain *ipd,
 	if (handler == NULL) {
 		modemask &=
 		    ~(IPIPE_HANDLE_MASK | IPIPE_STICKY_MASK |
-		      IPIPE_EXCLUSIVE_MASK | IPIPE_WIRED_MASK);
+		      IPIPE_EXCLUSIVE_MASK);
 
 		ipd->irqs[irq].handler = NULL;
 		ipd->irqs[irq].cookie = NULL;
@@ -1095,18 +1097,6 @@ int ipipe_virtualize_irq(struct ipipe_domain *ipd,
 	} else if ((modemask & IPIPE_EXCLUSIVE_MASK) != 0 && old_handler) {
 		ret = -EBUSY;
 		goto unlock_and_exit;
-	}
-
-	/*
-	 * Wired interrupts can only be delivered to domains always
-	 * heading the pipeline, and using dynamic propagation.
-	 */
-	if ((modemask & IPIPE_WIRED_MASK) != 0) {
-		if ((modemask & (IPIPE_PASS_MASK | IPIPE_STICKY_MASK)) != 0) {
-			ret = -EINVAL;
-			goto unlock_and_exit;
-		}
-		modemask |= IPIPE_HANDLE_MASK;
 	}
 
 	if ((modemask & IPIPE_STICKY_MASK) != 0)
@@ -1847,8 +1837,6 @@ EXPORT_SYMBOL(__ipipe_spin_lock_irqsave);
 EXPORT_SYMBOL(__ipipe_spin_trylock_irq);
 EXPORT_SYMBOL(__ipipe_spin_trylock_irqsave);
 EXPORT_SYMBOL(__ipipe_spin_unlock_irqrestore);
-EXPORT_SYMBOL(__ipipe_lock_irq);
-EXPORT_SYMBOL(__ipipe_unlock_irq);
 EXPORT_SYMBOL(ipipe_free_virq);
 EXPORT_SYMBOL(ipipe_catch_event);
 EXPORT_SYMBOL(ipipe_alloc_ptdkey);

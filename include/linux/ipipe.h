@@ -99,8 +99,7 @@ static inline void ipipe_context_check_off(void) { }
 #define IPIPE_STICKY_FLAG	3
 #define IPIPE_SYSTEM_FLAG	4
 #define IPIPE_LOCK_FLAG		5
-#define IPIPE_WIRED_FLAG	6
-#define IPIPE_EXCLUSIVE_FLAG	7
+#define IPIPE_EXCLUSIVE_FLAG	6
 
 #define IPIPE_HANDLE_MASK	(1 << IPIPE_HANDLE_FLAG)
 #define IPIPE_PASS_MASK		(1 << IPIPE_PASS_FLAG)
@@ -109,7 +108,6 @@ static inline void ipipe_context_check_off(void) { }
 #define IPIPE_STICKY_MASK	(1 << IPIPE_STICKY_FLAG)
 #define IPIPE_SYSTEM_MASK	(1 << IPIPE_SYSTEM_FLAG)
 #define IPIPE_LOCK_MASK		(1 << IPIPE_LOCK_FLAG)
-#define IPIPE_WIRED_MASK	(1 << IPIPE_WIRED_FLAG)
 #define IPIPE_EXCLUSIVE_MASK	(1 << IPIPE_EXCLUSIVE_FLAG)
 
 #define IPIPE_DEFAULT_MASK	(IPIPE_HANDLE_MASK|IPIPE_PASS_MASK)
@@ -211,22 +209,26 @@ void __ipipe_do_sync_pipeline(struct ipipe_domain *top);
 
 void __ipipe_set_irq_pending(struct ipipe_domain *ipd, unsigned irq);
 
-void __ipipe_lock_irq(struct ipipe_domain *ipd, unsigned int irq);
+void __ipipe_lock_irq(unsigned int irq);
 
-void __ipipe_unlock_irq(struct ipipe_domain *ipd, unsigned int irq);
+void __ipipe_unlock_irq(unsigned int irq);
 
 void __ipipe_pin_range_globally(unsigned long start, unsigned long end);
 
 /* Must be called hw IRQs off. */
-static inline void ipipe_irq_lock(unsigned irq)
+static inline void ipipe_irq_lock(unsigned int irq)
 {
-	__ipipe_lock_irq(__ipipe_current_domain, irq);
+	struct ipipe_domain *ipd = __ipipe_current_domain;
+	if (ipd == ipipe_root_domain)
+		__ipipe_lock_irq(irq);
 }
 
 /* Must be called hw IRQs off. */
-static inline void ipipe_irq_unlock(unsigned irq)
+static inline void ipipe_irq_unlock(unsigned int irq)
 {
-	__ipipe_unlock_irq(__ipipe_current_domain, irq);
+	struct ipipe_domain *ipd = __ipipe_current_domain;
+	if (ipd == ipipe_root_domain)
+		__ipipe_unlock_irq(irq);
 }
 
 #ifndef __ipipe_sync_check
