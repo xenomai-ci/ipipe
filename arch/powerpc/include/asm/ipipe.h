@@ -182,7 +182,13 @@ void __ipipe_register_ipi(unsigned int irq);
 
 DECLARE_PER_CPU(struct pt_regs, __ipipe_tick_regs);
 
-void __ipipe_handle_irq(int irq, struct pt_regs *regs);
+void __ipipe_dispatch_irq(unsigned int irq, int ackit);
+
+static inline void __ipipe_handle_irq(unsigned int irq, struct pt_regs *regs)
+{
+	/* NULL regs means software-triggered, no ack needed. */
+	__ipipe_dispatch_irq(irq, regs != NULL);
+}
 
 static inline void ipipe_handle_chained_irq(unsigned int irq)
 {

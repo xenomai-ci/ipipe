@@ -326,74 +326,6 @@ int ipipe_trigger_irq(unsigned irq)
 	return 1;
 }
 
-/*
- * __ipipe_handle_irq() -- IPIPE's generic IRQ handler. An optimistic
- * interrupt protection log is maintained here for each domain. Hw
- * interrupts are off on entry.
- */
-void __ipipe_handle_irq(int irq, struct pt_regs *regs)
-{
-	struct ipipe_domain *ipd;
-	struct irq_desc *desc;
-	unsigned long control;
-	int m_ack;
-
-	/* Software-triggered IRQs do not need any ack. */
-	m_ack = (regs == NULL);
-
-#ifdef CONFIG_IPIPE_DEBUG
-	if (unlikely(irq >= IPIPE_NR_IRQS) ||
-	    (!m_ack && irq_to_desc(irq) == NULL)) {
-		printk(KERN_ERR "I-pipe: spurious interrupt %d\n", irq);
-		return;
-	}
-#endif
-	
-	ipd = __ipipe_current_domain;
-	control = ipd->irqs[irq].control;
-	if (control & IPIPE_STICKY_MASK) {
-		if (!m_ack && ipd->irqs[irq].acknowledge) {
-			desc = irq_to_desc(irq);
-			ipd->irqs[irq].acknowledge(irq, desc);
-		}
-		__ipipe_set_irq_pending(ipd, irq);
-		goto sync;
-	}
-
-	ipd = ipipe_head_domain;
-	control = ipd->irqs[irq].control;
-	if (control & IPIPE_HANDLE_MASK) {
-		if (!m_ack && ipd->irqs[irq].acknowledge) {
-			desc = irq_to_desc(irq);
-			ipd->irqs[irq].acknowledge(irq, desc);
-		}
-		__ipipe_dispatch_wired(irq);
-		return;
-	}
-
-	ipd = ipipe_root_domain;
-	control = ipd->irqs[irq].control;
-	if (control & IPIPE_HANDLE_MASK) {
-		if (!m_ack && ipd->irqs[irq].acknowledge) {
-			desc = irq_to_desc(irq);
-			ipd->irqs[irq].acknowledge(irq, desc);
-		}
-		__ipipe_set_irq_pending(ipd, irq);
-	}
-sync:
-	/*
-	 * Optimize if we preempted the high priority head domain (not
-	 * the root one in absence of ipipe_register_head()): we don't
-	 * need to synchronize the pipeline unless there is a pending
-	 * interrupt for it.
-	 */
-	if (__ipipe_current_domain != ipipe_root_domain &&
-	    !__ipipe_ipending_p(ipipe_head_cpudom_ptr()))
-		return;
-
-	__ipipe_sync_pipeline(ipipe_head_domain);
-}
-
 static int __ipipe_exit_irq(struct pt_regs *regs)
 {
 	int root = __ipipe_root_domain_p;
@@ -504,7 +436,7 @@ asmlinkage int __ipipe_grab_timer(struct pt_regs *regs)
 	    !test_bit(IPIPE_HANDLE_FLAG, &head->irqs[IPIPE_TIMER_VIRQ].control))
 		__ipipe_handle_irq(IPIPE_TIMER_VIRQ, NULL);
 	else
-		__ipipe_dispatch_wired_nocheck(IPIPE_TIMER_VIRQ);
+		__ipipe_dispatch_irq_fast_nocheck(IPIPE_TIMER_VIRQ);
 
 	ipipe_trace_irq_exit(IPIPE_TIMER_VIRQ);
 
