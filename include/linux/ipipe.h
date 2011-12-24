@@ -661,7 +661,7 @@ static inline void ipipe_nmi_exit(void)
 
 #define ipipe_clear_flags(p)		do { (p)->ipipe_flags = 0; } while (0)
 
-#include <linux/ipipe-compat.h>
+#include <linux/ipipe_compat.h>
 
 #else	/* !CONFIG_IPIPE */
 

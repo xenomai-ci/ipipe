@@ -1,5 +1,5 @@
 /* -*- linux-c -*-
- * include/linux/ipipe-compat.h
+ * include/linux/ipipe_compat.h
  *
  * Copyright (C) 2012 Philippe Gerum.
  *
