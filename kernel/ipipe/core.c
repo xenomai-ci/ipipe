@@ -43,8 +43,28 @@ static int __ipipe_ptd_key_count;
 static unsigned long __ipipe_ptd_key_map;
 
 struct ipipe_domain ipipe_root;
+EXPORT_SYMBOL_GPL(ipipe_root);
 
 struct ipipe_domain *ipipe_head_domain = &ipipe_root;
+EXPORT_SYMBOL_GPL(ipipe_head_domain);
+
+DEFINE_PER_CPU(struct ipipe_percpu_domain_data, ipipe_percpu_darray[2]) = {
+	/* Root domain is stalled on each CPU at startup. */
+	[IPIPE_ROOT_SLOT] = { .status = IPIPE_STALL_MASK }
+};
+EXPORT_PER_CPU_SYMBOL_GPL(ipipe_percpu_darray);
+
+DEFINE_PER_CPU(struct ipipe_domain *, ipipe_percpu_domain) = {
+	&ipipe_root
+};
+EXPORT_PER_CPU_SYMBOL_GPL(ipipe_percpu_domain);
+
+/* Copy of root status during NMI */
+DEFINE_PER_CPU(unsigned long, ipipe_nmi_saved_root);
+
+DECLARE_PER_CPU(struct tick_device, tick_cpu_device);
+
+static DEFINE_PER_CPU(struct ipipe_tick_device, ipipe_tick_cpu_device);
 
 #ifdef CONFIG_SMP
 
@@ -77,19 +97,20 @@ static void (*__ipipe_cpu_sync) (void);
  */
 extern unsigned long __ipipe_root_status
 __attribute__((alias(__stringify(ipipe_percpu_darray))));
-EXPORT_SYMBOL(__ipipe_root_status);
+EXPORT_SYMBOL_GPL(__ipipe_root_status);
 
-DEFINE_PER_CPU(struct ipipe_percpu_domain_data *, ipipe_percpu_daddr[2]) =
-{ [IPIPE_ROOT_SLOT] = (struct ipipe_percpu_domain_data *)ipipe_percpu_darray };
-EXPORT_PER_CPU_SYMBOL(ipipe_percpu_daddr);
+/*
+ * Set up the perdomain pointers for direct access to the percpu
+ * domain data. This saves a costly multiply each time we need to
+ * refer to the contents of the percpu domain data array.
+ */
+DEFINE_PER_CPU(struct ipipe_percpu_domain_data *, ipipe_percpu_daddr[2]) = {
+	[IPIPE_ROOT_SLOT] = &ipipe_percpu_darray[0],
+	[IPIPE_HEAD_SLOT] = &ipipe_percpu_darray[1],
+};
+EXPORT_PER_CPU_SYMBOL_GPL(ipipe_percpu_daddr);
+
 #endif /* !CONFIG_SMP */
-
-DEFINE_PER_CPU(struct ipipe_percpu_domain_data, ipipe_percpu_darray[2]) =
-{ [IPIPE_ROOT_SLOT] = { .status = IPIPE_STALL_MASK } }; /* Root domain stalled on each CPU at startup. */
-
-DEFINE_PER_CPU(struct ipipe_domain *, ipipe_percpu_domain) = { &ipipe_root };
-
-DEFINE_PER_CPU(unsigned long, ipipe_nmi_saved_root); /* Copy of root status during NMI */
 
 static IPIPE_DEFINE_SPINLOCK(__ipipe_pipelock);
 
@@ -100,10 +121,6 @@ unsigned __ipipe_printk_virq;
 #endif /* CONFIG_PRINTK */
 
 int __ipipe_event_monitors[IPIPE_NR_EVENTS];
-
-DECLARE_PER_CPU(struct tick_device, tick_cpu_device);
-
-static DEFINE_PER_CPU(struct ipipe_tick_device, ipipe_tick_cpu_device);
 
 #ifdef CONFIG_PROC_FS
 
@@ -166,29 +183,8 @@ static int __ipipe_common_info_show(struct seq_file *p, void *data)
 			/* Non-allocated virtual IRQ; skip it. */
 			continue;
 
-		/*
-		 * Statuses are as follows:
-		 * o "accepted" means handled _and_ passed down the pipeline.
-		 * o "grabbed" means handled, but the interrupt might be
-		 * terminated _or_ passed down the pipeline depending on
-		 * what the domain handler asks for to the I-pipe.
-		 * o "wired" is basically the same as "grabbed", except that
-		 * the interrupt is unconditionally delivered to an invariant
-		 * pipeline head domain.
-		 * o "passed" means unhandled by the domain but passed
-		 * down the pipeline.
-		 * o "discarded" means unhandled and _not_ passed down the
-		 * pipeline. The interrupt merely disappears from the
-		 * current domain down to the end of the pipeline.
-		 */
-		if (ctlbits & IPIPE_HANDLE_MASK) {
-			if (ctlbits & IPIPE_PASS_MASK)
-				handling = 'A';
-			else
-				handling = 'G';
-		} else if (ctlbits & IPIPE_PASS_MASK)
-			/* Do not output if no major action is taken. */
-			continue;
+		if (ctlbits & IPIPE_HANDLE_MASK)
+			handling = 'G';
 		else
 			handling = 'D';
 
@@ -397,7 +393,7 @@ static void init_stage(struct ipipe_domain *ipd)
 	for (n = 0; n < IPIPE_NR_IRQS; n++) {
 		ipd->irqs[n].acknowledge = NULL;
 		ipd->irqs[n].handler = NULL;
-		ipd->irqs[n].control = IPIPE_PASS_MASK;	/* Pass but don't handle */
+		ipd->irqs[n].control = 0;
 	}
 
 	for (n = 0; n < IPIPE_NR_EVENTS; n++)
@@ -457,17 +453,6 @@ void ipipe_register_head(struct ipipe_domain *ipd, const char *name)
 {
 	BUG_ON(!ipipe_root_domain_p || ipd == &ipipe_root);
 
-#ifndef CONFIG_SMP
-	/*
-	 * Set up the perdomain pointers for direct access to the
-	 * percpu domain data. This saves a costly multiply each time
-	 * we need to refer to the contents of the percpu domain data
-	 * array.
-	 */
-	__raw_get_cpu_var(ipipe_percpu_daddr)[IPIPE_HEAD_SLOT] =
-		&__raw_get_cpu_var(ipipe_percpu_darray)[IPIPE_HEAD_SLOT];
-#endif
-
 	ipd->name = name;
 	ipd->slot = IPIPE_HEAD_SLOT;
 	ipd->flags = 0;
@@ -477,62 +462,21 @@ void ipipe_register_head(struct ipipe_domain *ipd, const char *name)
 
 	printk(KERN_INFO "I-pipe: head domain %s registered.\n", name);
 }
-
-#ifdef CONFIG_SMP
-
-static inline void cleanup_head(struct ipipe_domain *ipd)
-{
-	struct ipipe_percpu_domain_data *p;
-	unsigned long flags;
-	unsigned int irq;
-	int cpu;
-
-	/*
-	 * Wait for the logged events to drain on other processors
-	 * before eventually removing the domain from the pipeline.
-	 */
-
-	ipipe_unstall_pipeline_from(ipd);
-
-	flags = ipipe_critical_enter(NULL);
-
-	for (irq = 0; irq < IPIPE_NR_IRQS; irq++) {
-		clear_bit(IPIPE_HANDLE_FLAG, &ipd->irqs[irq].control);
-		clear_bit(IPIPE_STICKY_FLAG, &ipd->irqs[irq].control);
-		set_bit(IPIPE_PASS_FLAG, &ipd->irqs[irq].control);
-	}
-
-	ipipe_critical_exit(flags);
-
-	for_each_online_cpu(cpu) {
-		p = ipipe_percpudom_ptr(ipd, cpu);
-		while (__ipipe_ipending_p(p))
-			cpu_relax();
-	}
-}
-
-#else /* !CONFIG_SMP */
-
-static inline void cleanup_head(struct ipipe_domain *ipd)
-{
-	ipipe_unstall_pipeline_from(ipd);
-	__raw_get_cpu_var(ipipe_percpu_daddr)[IPIPE_HEAD_SLOT] = NULL;
-}
-
-#endif /* !CONFIG_SMP */
+EXPORT_SYMBOL_GPL(ipipe_register_head);
 
 void ipipe_unregister_head(struct ipipe_domain *ipd)
 {
 	BUG_ON(!ipipe_root_domain_p || ipd != ipipe_head_domain);
 
-	cleanup_head(ipd);
 	ipipe_head_domain = &ipipe_root;
+	smp_mb();
 	mutex_lock(&ipd->mutex);
 	remove_domain_proc(ipd);
 	mutex_unlock(&ipd->mutex);
 
 	printk(KERN_INFO "I-pipe: head domain %s unregistered.\n", ipd->name);
 }
+EXPORT_SYMBOL_GPL(ipipe_unregister_head);
 
 void __ipipe_unstall_root(void)
 {
@@ -1809,20 +1753,15 @@ EXPORT_SYMBOL(__ipipe_spin_unlock_debug);
 
 #endif /* CONFIG_IPIPE_DEBUG_INTERNAL && CONFIG_SMP */
 
-
 void ipipe_prepare_panic(void)
 {
 	ipipe_set_printk_sync(ipipe_current_domain);
 	ipipe_context_check_off();
 }
-
 EXPORT_SYMBOL_GPL(ipipe_prepare_panic);
 
 EXPORT_SYMBOL(ipipe_virtualize_irq);
 EXPORT_SYMBOL(ipipe_alloc_virq);
-EXPORT_PER_CPU_SYMBOL(ipipe_percpu_domain);
-EXPORT_PER_CPU_SYMBOL(ipipe_percpu_darray);
-EXPORT_SYMBOL(ipipe_root);
 EXPORT_SYMBOL(ipipe_stall_pipeline_from);
 EXPORT_SYMBOL(ipipe_test_and_stall_pipeline_from);
 EXPORT_SYMBOL(ipipe_test_and_unstall_pipeline_from);

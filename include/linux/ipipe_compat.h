@@ -32,8 +32,11 @@
 #define IPIPE_ROOT_PRIO		100
 #define IPIPE_ROOT_ID		0
 
+#define IPIPE_DUMMY_FLAG	31
 #define IPIPE_WIRED_FLAG	IPIPE_HANDLE_FLAG
 #define IPIPE_WIRED_MASK	(1 << IPIPE_WIRED_FLAG)
+#define IPIPE_PASS_FLAG		IPIPE_DUMMY_FLAG
+#define IPIPE_PASS_MASK		(1 << IPIPE_PASS_FLAG)
 
 struct ipipe_domain_attr {
 	unsigned int domid;
