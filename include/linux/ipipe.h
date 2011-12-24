@@ -90,7 +90,6 @@ static inline void ipipe_context_check_off(void) { }
 
 /* Global domain flags */
 #define IPIPE_SPRINTK_FLAG	0	/* Synchronous printk() allowed */
-#define IPIPE_AHEAD_FLAG	1	/* Domain always heads the pipeline */
 
 /* Interrupt control bits */
 #define IPIPE_HANDLE_FLAG	0

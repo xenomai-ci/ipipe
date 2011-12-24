@@ -223,7 +223,7 @@ static int __ipipe_common_info_show(struct seq_file *p, void *data)
 
 	seq_printf(p, "id=0x%.8x\n", ipd->domid);
 
-	if (test_bit(IPIPE_AHEAD_FLAG,&ipd->flags))
+	if (ipd != ipipe_root_domain)
 		seq_printf(p, "priority=topmost\n");
 	else
 		seq_printf(p, "priority=%d\n", ipd->priority);
@@ -473,7 +473,6 @@ void ipipe_register_head(struct ipipe_domain *ipd, const char *name)
 	ipd->name = name;
 	ipd->slot = IPIPE_HEAD_SLOT;
 	ipd->flags = 0;
-	__set_bit(IPIPE_AHEAD_FLAG, &ipd->flags);
 	init_stage(ipd);
 	ipipe_head_domain = ipd;
 	add_domain_proc(ipd);
@@ -1059,8 +1058,8 @@ int ipipe_virtualize_irq(struct ipipe_domain *ipd,
 	if (ipd->irqs[irq].control & IPIPE_SYSTEM_MASK)
 		return -EPERM;
 
-	if (!test_bit(IPIPE_AHEAD_FLAG, &ipd->flags))
-		/* Silently unwire interrupts for non-heading domains. */
+	if (ipd == ipipe_root_domain)
+		/* Silently unwire interrupts for the root domain. */
 		modemask &= ~IPIPE_WIRED_MASK;
 
 	spin_lock_irqsave(&__ipipe_pipelock, flags);
