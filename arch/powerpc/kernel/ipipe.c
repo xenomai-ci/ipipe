@@ -362,7 +362,7 @@ void __ipipe_handle_irq(int irq, struct pt_regs *regs)
 
 	ipd = ipipe_head_domain;
 	control = ipd->irqs[irq].control;
-	if (control & IPIPE_WIRED_MASK) {
+	if (control & IPIPE_HANDLE_MASK) {
 		if (!m_ack && ipd->irqs[irq].acknowledge) {
 			desc = irq_to_desc(irq);
 			ipd->irqs[irq].acknowledge(irq, desc);
@@ -370,20 +370,15 @@ void __ipipe_handle_irq(int irq, struct pt_regs *regs)
 		__ipipe_dispatch_wired(irq);
 		return;
 	}
-next:
+
+	ipd = ipipe_root_domain;
+	control = ipd->irqs[irq].control;
 	if (control & IPIPE_HANDLE_MASK) {
 		if (!m_ack && ipd->irqs[irq].acknowledge) {
 			desc = irq_to_desc(irq);
 			ipd->irqs[irq].acknowledge(irq, desc);
-			m_ack = 1;
 		}
 		__ipipe_set_irq_pending(ipd, irq);
-	}
-
-	if (ipd != ipipe_root_domain && (control & IPIPE_PASS_MASK) != 0) {
-		ipd = ipipe_root_domain;
-		control = ipd->irqs[irq].control;
-		goto next;
 	}
 sync:
 	/*
@@ -491,26 +486,25 @@ asmlinkage int __ipipe_grab_timer(struct pt_regs *regs)
 
 	ipipe_trace_irq_entry(IPIPE_TIMER_VIRQ);
 
-	__raw_get_cpu_var(__ipipe_tick_regs).msr = regs->msr; /* for timer_interrupt() */
+	__raw_get_cpu_var(__ipipe_tick_regs).msr = regs->msr;
 	__raw_get_cpu_var(__ipipe_tick_regs).nip = regs->nip;
-
 	if (ipd != &ipipe_root)
+		/* Tick should not be charged to Linux. */
 		__raw_get_cpu_var(__ipipe_tick_regs).msr &= ~MSR_EE;
 
-	if (test_bit(IPIPE_WIRED_FLAG, &head->irqs[IPIPE_TIMER_VIRQ].control))
-		/*
-		 * Finding a wired IRQ means that we do have a
-		 * registered head domain as well. The decrementer
-		 * interrupt requires no acknowledge, so we may branch
-		 * to the wired IRQ dispatcher directly. Additionally,
-		 * we may bypass checks for locked interrupts or
-		 * stalled stage (the decrementer cannot be locked and
-		 * the head domain is obviously not stalled since we
-		 * got there).
-		 */
-		__ipipe_dispatch_wired_nocheck(IPIPE_TIMER_VIRQ);
-	else
+	/*
+	 * If we have a registered head domain hooking the timer, we
+	 * may branch to the head dispatcher directly, since the
+	 * decrementer interrupt requires no acknowledge.
+	 * Additionally, we may bypass checks for locked interrupts or
+	 * stalled stage (i.e. the head domain is obviously not
+	 * stalled since we got there).
+	 */
+	if (head == ipipe_root_domain ||
+	    !test_bit(IPIPE_HANDLE_FLAG, &head->irqs[IPIPE_TIMER_VIRQ].control))
 		__ipipe_handle_irq(IPIPE_TIMER_VIRQ, NULL);
+	else
+		__ipipe_dispatch_wired_nocheck(IPIPE_TIMER_VIRQ);
 
 	ipipe_trace_irq_exit(IPIPE_TIMER_VIRQ);
 
