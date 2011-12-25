@@ -174,7 +174,7 @@ static inline void __switch_mm(struct mm_struct *prev, struct mm_struct *next,
 	 * sub architectures.
 	 */
 #ifdef CONFIG_IPIPE_WANT_PREEMPTIBLE_SWITCH
-	if (ipipe_root_domain_p) {
+	if (ipipe_root_p) {
 		do
 			__do_switch_mm(prev, next, tsk, cpu);
 		while (test_and_clear_thread_flag(TIF_MMSWITCH_INT));

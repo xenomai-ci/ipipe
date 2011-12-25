@@ -323,7 +323,7 @@ int ipipe_trigger_irq(unsigned irq)
 
 static int __ipipe_exit_irq(struct pt_regs *regs)
 {
-	int root = __ipipe_root_domain_p;
+	int root = __ipipe_root_p;
 
 	if (root) {
 #ifdef CONFIG_PPC_970_NAP
@@ -440,7 +440,7 @@ asmlinkage int __ipipe_grab_timer(struct pt_regs *regs)
 
 asmlinkage notrace int __ipipe_check_root(void) /* hw IRQs off */
 {
-	return __ipipe_root_domain_p;
+	return __ipipe_root_p;
 }
 
 #ifdef CONFIG_PPC64
@@ -455,7 +455,7 @@ asmlinkage notrace void __ipipe_restore_if_root(unsigned long x) /* hw IRQs on *
 
 	local_irq_save_hw(flags);
 
-	if (likely(!__ipipe_root_domain_p))
+	if (likely(!__ipipe_root_p))
 		goto done;
 
 	p = ipipe_root_cpudom_ptr();
@@ -521,7 +521,7 @@ asmlinkage int __ipipe_syscall_root(struct pt_regs *regs)
 	/* We ran DISABLE_INTS before being sent to the syscall
 	 * dispatcher, so we need to unstall the root stage, unless
 	 * the root domain is not current. */
-	if (__ipipe_root_domain_p)
+	if (__ipipe_root_p)
 		__clear_bit(IPIPE_STALL_FLAG, &p->status);
 #else
 	WARN_ON_ONCE(irqs_disabled_hw());
@@ -555,7 +555,7 @@ asmlinkage int __ipipe_syscall_root(struct pt_regs *regs)
 		__ipipe_dispatch_event(IPIPE_EVENT_RETURN, regs);
 	}
 
-        if (!__ipipe_root_domain_p) {
+        if (!__ipipe_root_p) {
 #ifdef CONFIG_PPC32
 		local_irq_enable_hw();
 #endif

@@ -64,7 +64,7 @@ DECLARE_PER_CPU(struct mm_struct *, ipipe_active_mm);
 
 #define task_hijacked(p)						\
 	({								\
-		int __x__ = ipipe_root_domain_p;			\
+		int __x__ = ipipe_root_p;				\
 		!__x__;							\
 	})
 
@@ -78,7 +78,7 @@ DECLARE_PER_CPU(struct mm_struct *, ipipe_active_mm);
 
 #define task_hijacked(p)						\
 	({								\
-		int __x__ = __ipipe_root_domain_p;			\
+		int __x__ = __ipipe_root_p;				\
 		if (__x__)						\
 			local_irq_enable_hw();				\
 		!__x__;							\
