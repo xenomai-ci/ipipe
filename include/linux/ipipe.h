@@ -444,68 +444,31 @@ static inline void ipipe_schedule_irq_root(unsigned irq)
 	__ipipe_set_irq_pending(&ipipe_root, irq);
 }
 
-void ipipe_stall_pipeline_from(struct ipipe_domain *ipd);
-
-unsigned long ipipe_test_and_stall_pipeline_from(struct ipipe_domain *ipd);
-
-unsigned long ipipe_test_and_unstall_pipeline_from(struct ipipe_domain *ipd);
-
-static inline void ipipe_unstall_pipeline_from(struct ipipe_domain *ipd)
-{
-	ipipe_test_and_unstall_pipeline_from(ipd);
-}
-
-void ipipe_restore_pipeline_from(struct ipipe_domain *ipd,
-					  unsigned long x);
-
-static inline unsigned long ipipe_test_pipeline_from(struct ipipe_domain *ipd)
-{
-	return test_bit(IPIPE_STALL_FLAG, &ipipe_cpudom_var(ipd, status));
-}
-
-static inline void ipipe_stall_pipeline_head(void)
+static inline void ipipe_stall_head(void)
 {
 	local_irq_disable_hw();
 	__set_bit(IPIPE_STALL_FLAG, &ipipe_head_cpudom_var(status));
 }
 
-static inline unsigned long ipipe_test_and_stall_pipeline_head(void)
+static inline unsigned long ipipe_test_and_stall_head(void)
 {
 	local_irq_disable_hw();
 	return __test_and_set_bit(IPIPE_STALL_FLAG, &ipipe_head_cpudom_var(status));
 }
 
-void ipipe_unstall_pipeline_head(void);
+void ipipe_unstall_head(void);
 
-void __ipipe_restore_pipeline_head(unsigned long x);
+void __ipipe_restore_head(unsigned long x);
 
-static inline void ipipe_restore_pipeline_head(unsigned long x)
+static inline void ipipe_restore_head(unsigned long x)
 {
 #ifdef CONFIG_IPIPE_DEBUG
 	if (WARN_ON_ONCE(!irqs_disabled_hw()))
 		local_irq_disable_hw();
 #endif
 	if ((x ^ test_bit(IPIPE_STALL_FLAG, &ipipe_head_cpudom_var(status))) & 1)
-		__ipipe_restore_pipeline_head(x);
+		__ipipe_restore_head(x);
 }
-
-#define ipipe_unstall_pipeline() \
-	ipipe_unstall_pipeline_from(ipipe_current_domain)
-
-#define ipipe_test_and_unstall_pipeline() \
-	ipipe_test_and_unstall_pipeline_from(ipipe_current_domain)
-
-#define ipipe_test_pipeline() \
-	ipipe_test_pipeline_from(ipipe_current_domain)
-
-#define ipipe_test_and_stall_pipeline() \
-	ipipe_test_and_stall_pipeline_from(ipipe_current_domain)
-
-#define ipipe_stall_pipeline() \
-	ipipe_stall_pipeline_from(ipipe_current_domain)
-
-#define ipipe_restore_pipeline(x) \
-	ipipe_restore_pipeline_from(ipipe_current_domain, (x))
 
 int ipipe_get_sysinfo(struct ipipe_sysinfo *sysinfo);
 

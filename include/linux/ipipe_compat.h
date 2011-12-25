@@ -94,6 +94,68 @@ static inline void __ipipe_schedule_irq_root(unsigned int irq)
 	ipipe_schedule_irq_root(irq);
 }
 
+static inline void ipipe_stall_pipeline_from(struct ipipe_domain *ipd)
+{
+	if (ipd != ipipe_root_domain)
+		ipipe_stall_head();
+	else
+		__ipipe_stall_root();
+}
+
+static inline
+unsigned long ipipe_test_and_stall_pipeline_from(struct ipipe_domain *ipd)
+{
+	if (ipd != ipipe_root_domain)
+		return ipipe_test_and_stall_head();
+
+	return __ipipe_test_and_stall_root();
+}
+
+static inline
+void ipipe_unstall_pipeline_from(struct ipipe_domain *ipd)
+{
+	if (ipd != ipipe_root_domain)
+		ipipe_unstall_head();
+	else
+		__ipipe_unstall_root();
+}
+
+static inline
+void ipipe_restore_pipeline_from(struct ipipe_domain *ipd,
+				 unsigned long x)
+{
+	if (ipd != ipipe_root_domain)
+		ipipe_restore_head(x);
+	else
+		__ipipe_restore_root(x);
+}
+
+static inline
+unsigned long ipipe_test_pipeline_from(struct ipipe_domain *ipd)
+{
+	return test_bit(IPIPE_STALL_FLAG, &ipipe_cpudom_var(ipd, status));
+}
+
+static inline void ipipe_stall_pipeline_head(void)
+{
+	ipipe_stall_head();
+}
+
+static inline unsigned long ipipe_test_and_stall_pipeline_head(void)
+{
+	return ipipe_test_and_stall_head();
+}
+
+static inline void ipipe_unstall_pipeline_head(void)
+{
+	ipipe_unstall_head();
+}
+
+static inline void ipipe_restore_pipeline_head(unsigned long x)
+{
+	ipipe_restore_head(x);
+}
+
 /*
  * Keep the following as a macro, so that client code could check for
  * the support of the invariant pipeline head optimization.

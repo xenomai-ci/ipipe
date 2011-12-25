@@ -492,6 +492,7 @@ void __ipipe_unstall_root(void)
 
         local_irq_enable_hw();
 }
+EXPORT_SYMBOL_GPL(__ipipe_unstall_root);
 
 void __ipipe_restore_root(unsigned long x)
 {
@@ -502,66 +503,9 @@ void __ipipe_restore_root(unsigned long x)
 	else
 		__ipipe_unstall_root();
 }
+EXPORT_SYMBOL_GPL(__ipipe_restore_root);
 
-void ipipe_stall_pipeline_from(struct ipipe_domain *ipd)
-{
-	unsigned long flags;
-	/*
-	 * We have to prevent against race on updating the status
-	 * variable _and_ CPU migration at the same time, so disable
-	 * hw IRQs here.
-	 */
-	local_irq_save_hw(flags);
-
-	__set_bit(IPIPE_STALL_FLAG, &ipipe_cpudom_var(ipd, status));
-
-	if (ipd != ipipe_head_domain)
-		local_irq_restore_hw(flags);
-}
-
-unsigned long ipipe_test_and_stall_pipeline_from(struct ipipe_domain *ipd)
-{
-	unsigned long flags, x;
-
-	/* See ipipe_stall_pipeline_from() */
-	local_irq_save_hw(flags);
-
-	x = __test_and_set_bit(IPIPE_STALL_FLAG, &ipipe_cpudom_var(ipd, status));
-
-	if (ipd != ipipe_head_domain)
-		local_irq_restore_hw(flags);
-
-	return x;
-}
-
-unsigned long ipipe_test_and_unstall_pipeline_from(struct ipipe_domain *ipd)
-{
-	unsigned long flags, x;
-
-	local_irq_save_hw(flags);
-
-	x = __test_and_clear_bit(IPIPE_STALL_FLAG, &ipipe_cpudom_var(ipd, status));
-
-	__ipipe_sync_pipeline(ipipe_head_domain);
-
-	if (likely(ipd == ipipe_head_domain))
-		local_irq_enable_hw();
-	else
-		local_irq_restore_hw(flags);
-
-	return x;
-}
-
-void ipipe_restore_pipeline_from(struct ipipe_domain *ipd,
-				 unsigned long x)
-{
-	if (x)
-		ipipe_stall_pipeline_from(ipd);
-	else
-		ipipe_unstall_pipeline_from(ipd);
-}
-
-void ipipe_unstall_pipeline_head(void)
+void ipipe_unstall_head(void)
 {
 	struct ipipe_percpu_domain_data *p = ipipe_head_cpudom_ptr();
 
@@ -574,8 +518,9 @@ void ipipe_unstall_pipeline_head(void)
 
 	local_irq_enable_hw();
 }
+EXPORT_SYMBOL_GPL(ipipe_unstall_head);
 
-void __ipipe_restore_pipeline_head(unsigned long x) /* hw interrupt off */
+void __ipipe_restore_head(unsigned long x) /* hw interrupt off */
 {
 	struct ipipe_percpu_domain_data *p = ipipe_head_cpudom_ptr();
 
@@ -585,13 +530,13 @@ void __ipipe_restore_pipeline_head(unsigned long x) /* hw interrupt off */
 		if (!warned &&
 		    __test_and_set_bit(IPIPE_STALL_FLAG, &p->status)) {
 			/*
-			 * Already stalled albeit ipipe_restore_pipeline_head()
+			 * Already stalled albeit ipipe_restore_head()
 			 * should have detected it? Send a warning once.
 			 */
 			local_irq_enable_hw();	
 			warned = 1;
 			printk(KERN_WARNING
-				   "I-pipe: ipipe_restore_pipeline_head() optimization failed.\n");
+				   "I-pipe: ipipe_restore_head() optimization failed.\n");
 			dump_stack();
 			local_irq_disable_hw();	
 		}
@@ -605,6 +550,7 @@ void __ipipe_restore_pipeline_head(unsigned long x) /* hw interrupt off */
 		local_irq_enable_hw();
 	}
 }
+EXPORT_SYMBOL_GPL(__ipipe_restore_head);
 
 void __ipipe_spin_lock_irq(ipipe_spinlock_t *lock)
 {
@@ -1788,14 +1734,6 @@ EXPORT_SYMBOL_GPL(ipipe_prepare_panic);
 
 EXPORT_SYMBOL(ipipe_virtualize_irq);
 EXPORT_SYMBOL(ipipe_alloc_virq);
-EXPORT_SYMBOL(ipipe_stall_pipeline_from);
-EXPORT_SYMBOL(ipipe_test_and_stall_pipeline_from);
-EXPORT_SYMBOL(ipipe_test_and_unstall_pipeline_from);
-EXPORT_SYMBOL(ipipe_restore_pipeline_from);
-EXPORT_SYMBOL(ipipe_unstall_pipeline_head);
-EXPORT_SYMBOL(__ipipe_restore_pipeline_head);
-EXPORT_SYMBOL(__ipipe_unstall_root);
-EXPORT_SYMBOL(__ipipe_restore_root);
 EXPORT_SYMBOL(__ipipe_spin_lock_irq);
 EXPORT_SYMBOL(__ipipe_spin_unlock_irq);
 EXPORT_SYMBOL(__ipipe_spin_lock_irqsave);
