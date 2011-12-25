@@ -69,6 +69,11 @@ static inline void ipipe_check_context(struct ipipe_domain *border_ipd)
 #endif /* !CONFIG_IPIPE_DEBUG_CONTEXT */
 }
 
+static inline void ipipe_set_printk_sync(struct ipipe_domain *ipd)
+{
+	ipipe_prepare_panic();
+}
+
 /*
  * Keep the following as a macro, so that client code could check for
  * the support of the invariant pipeline head optimization.

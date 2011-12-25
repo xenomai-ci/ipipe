@@ -715,6 +715,8 @@ static int have_callable_console(void)
 
 #ifdef CONFIG_IPIPE
 
+extern int __ipipe_printk_bypass;
+
 static IPIPE_DEFINE_SPINLOCK(__ipipe_printk_lock);
 
 static int __ipipe_printk_fill;
@@ -772,20 +774,20 @@ void __ipipe_flush_printk (unsigned virq, void *cookie)
 
 asmlinkage int printk(const char *fmt, ...)
 {
+	int sprintk = 1, cs = -1, cpu;
 	int r, fbytes, oldcount;
 	unsigned long flags;
-	int sprintk = 1;
-	int cs = -1;
 	va_list args;
 
 	va_start(args, fmt);
 
 	local_irq_save_hw(flags);
 
-	if (test_bit(IPIPE_SPRINTK_FLAG, &__ipipe_current_domain->flags) ||
-	    oops_in_progress)
-		cs = ipipe_disable_context_check(ipipe_processor_id());
-	else if (__ipipe_root_domain_p) {
+	cpu = ipipe_processor_id();
+
+	if (__ipipe_printk_bypass || oops_in_progress)
+		cs = ipipe_disable_context_check(cpu);
+	else if (__ipipe_current_domain == ipipe_root_domain) {
 		if (raw_irqs_disabled_flags(flags) ||
 		    (ipipe_head_domain != ipipe_root_domain &&
 		     test_bit(IPIPE_STALL_FLAG, &ipipe_head_cpudom_var(status))))
@@ -798,7 +800,7 @@ asmlinkage int printk(const char *fmt, ...)
 	if (sprintk) {
 		r = vprintk(fmt, args);
 		if (cs != -1)
-			ipipe_restore_context_check(ipipe_processor_id(), cs);
+			ipipe_restore_context_check(cpu, cs);
 		goto out;
 	}
 
@@ -806,10 +808,9 @@ asmlinkage int printk(const char *fmt, ...)
 
 	oldcount = __ipipe_printk_fill;
 	fbytes = __LOG_BUF_LEN - oldcount;
-
 	if (fbytes > 1)	{
 		r = vscnprintf(__ipipe_printk_buf + __ipipe_printk_fill,
-			       fbytes, fmt, args) + 1; /* account for the null byte */
+			       fbytes, fmt, args) + 1;
 		__ipipe_printk_fill += r;
 	} else
 		r = 0;
@@ -823,7 +824,9 @@ out:
 
 	return r;
 }
+
 #else /* !CONFIG_IPIPE */
+
 asmlinkage int printk(const char *fmt, ...)
 {
 	va_list args;
@@ -843,6 +846,7 @@ asmlinkage int printk(const char *fmt, ...)
 
 	return r;
 }
+
 #endif /* CONFIG_IPIPE */
 
 /* cpu currently holding logbuf_lock */

@@ -87,9 +87,6 @@ static inline void ipipe_context_check_off(void) { }
 #define __BUILTIN_RETURN_ADDRESS1 ((unsigned long)__builtin_return_address(1))
 #endif /* !BUILTIN_RETURN_ADDRESS */
 
-/* Global domain flags */
-#define IPIPE_SPRINTK_FLAG	0	/* Synchronous printk() allowed */
-
 /* Interrupt control bits */
 #define IPIPE_HANDLE_FLAG	0
 #define IPIPE_ENABLE_FLAG	1
@@ -556,16 +553,6 @@ unsigned long ipipe_critical_enter(void (*syncfn) (void));
 void ipipe_critical_exit(unsigned long flags);
 
 void ipipe_prepare_panic(void);
-
-static inline void ipipe_set_printk_sync(struct ipipe_domain *ipd)
-{
-	set_bit(IPIPE_SPRINTK_FLAG, &ipd->flags);
-}
-
-static inline void ipipe_set_printk_async(struct ipipe_domain *ipd)
-{
-	clear_bit(IPIPE_SPRINTK_FLAG, &ipd->flags);
-}
 
 static inline void ipipe_set_foreign_stack(struct ipipe_domain *ipd)
 {

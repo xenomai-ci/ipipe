@@ -114,6 +114,7 @@ unsigned long __ipipe_virtual_irq_map;
 
 #ifdef CONFIG_PRINTK
 unsigned __ipipe_printk_virq;
+int __ipipe_printk_bypass;
 #endif /* CONFIG_PRINTK */
 
 int __ipipe_event_monitors[IPIPE_NR_EVENTS];
@@ -1777,7 +1778,9 @@ EXPORT_SYMBOL(__ipipe_spin_unlock_debug);
 
 void ipipe_prepare_panic(void)
 {
-	ipipe_set_printk_sync(ipipe_current_domain);
+#ifdef CONFIG_PRINTK
+	__ipipe_printk_bypass = 1;
+#endif
 	ipipe_context_check_off();
 }
 EXPORT_SYMBOL_GPL(ipipe_prepare_panic);
