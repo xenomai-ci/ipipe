@@ -159,7 +159,7 @@ static inline void local_irq_restore_hw(unsigned long x)
 	({						\
 		unsigned long __x;			\
 		ipipe_root_only();					\
-		__x = (!__ipipe_test_and_stall_root()) << MSR_EE_LG;	\
+		__x = (!ipipe_test_and_stall_root()) << MSR_EE_LG;	\
 		barrier();						\
 		__x;					\
 	})
@@ -168,7 +168,7 @@ static inline void local_irq_restore_hw(unsigned long x)
 	do {						\
 		barrier();				\
 		ipipe_root_only();			\
-		__ipipe_unstall_root();			\
+		ipipe_unstall_root();			\
 	} while (0)
 
 static inline void arch_local_irq_restore(unsigned long x)
@@ -182,11 +182,11 @@ static inline void arch_local_irq_restore(unsigned long x)
 #define arch_local_save_flags()						\
 	({								\
 		unsigned long __x;					\
-		__x = (!__ipipe_test_root()) << MSR_EE_LG;		\
+		__x = (!ipipe_test_root()) << MSR_EE_LG;		\
 		__x;							\
 	})
 
-#define arch_irqs_disabled()		__ipipe_test_root()
+#define arch_irqs_disabled()		ipipe_test_root()
 #define arch_irqs_disabled_flags(x)	(((x) & MSR_EE) == 0)
 #define hard_irq_disable()		local_irq_disable_hw()
 

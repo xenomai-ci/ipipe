@@ -112,11 +112,11 @@
 
 #ifdef CONFIG_SMP
 
-void __ipipe_stall_root(void);
+void ipipe_stall_root(void);
 
-unsigned long __ipipe_test_and_stall_root(void);
+unsigned long ipipe_test_and_stall_root(void);
 
-unsigned long __ipipe_test_root(void);
+unsigned long ipipe_test_root(void);
 
 #else /* !CONFIG_SMP */
 
@@ -125,19 +125,19 @@ unsigned long __ipipe_test_root(void);
 /* Alias to ipipe_root_cpudom_var(status) */
 extern unsigned long __ipipe_root_status;
 
-static __inline__ void __ipipe_stall_root(void)
+static __inline__ void ipipe_stall_root(void)
 {
 	volatile unsigned long *p = &__ipipe_root_status;
 	set_bit(0, p);
 }
 
-static __inline__ unsigned long __ipipe_test_and_stall_root(void)
+static __inline__ unsigned long ipipe_test_and_stall_root(void)
 {
 	volatile unsigned long *p = &__ipipe_root_status;
 	return test_and_set_bit(0, p);
 }
 
-static __inline__ unsigned long __ipipe_test_root(void)
+static __inline__ unsigned long ipipe_test_root(void)
 {
 	volatile unsigned long *p = &__ipipe_root_status;
 	return test_bit(0, p);

@@ -164,7 +164,7 @@ out:
 	return 0;
 }
 
-void __ipipe_stall_root(void)
+void ipipe_stall_root(void)
 {
 	unsigned long flags;
 
@@ -172,8 +172,9 @@ void __ipipe_stall_root(void)
 	set_bit(IPIPE_STALL_FLAG, &ipipe_root_cpudom_var(status));
 	local_irq_restore_hw(flags);
 }
+EXPORT_SYMBOL_GPL(ipipe_stall_root);
 
-unsigned long __ipipe_test_and_stall_root(void)
+unsigned long ipipe_test_and_stall_root(void)
 {
 	unsigned long flags;
 	int x;
@@ -184,8 +185,9 @@ unsigned long __ipipe_test_and_stall_root(void)
 
 	return x;
 }
+EXPORT_SYMBOL_GPL(ipipe_test_root);
 
-unsigned long __ipipe_test_root(void)
+unsigned long ipipe_test_root(void)
 {
 	unsigned long flags;
 	int x;
@@ -196,6 +198,7 @@ unsigned long __ipipe_test_root(void)
 
 	return x;
 }
+EXPORT_SYMBOL(ipipe_test_and_stall_root);
 
 #endif	/* CONFIG_SMP */
 
@@ -578,11 +581,7 @@ void __ipipe_pin_range_globally(unsigned long start, unsigned long end)
 	/* We don't support this. */
 }
 
-#ifdef CONFIG_SMP
-EXPORT_SYMBOL(__ipipe_stall_root);
-EXPORT_SYMBOL(__ipipe_test_root);
-EXPORT_SYMBOL(__ipipe_test_and_stall_root);
-#else
+#ifndef CONFIG_SMP
 EXPORT_SYMBOL_GPL(last_task_used_math);
 #endif
 
