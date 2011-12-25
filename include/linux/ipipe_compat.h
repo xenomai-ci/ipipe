@@ -45,6 +45,8 @@
 #define IPIPE_EXCLUSIVE_FLAG	IPIPE_DUMMY_FLAG
 #define IPIPE_EXCLUSIVE_MASK	(1 << IPIPE_EXCLUSIVE_FLAG)
 
+#define IPIPE_NR_CPUS		NR_CPUS
+
 struct ipipe_domain_attr {
 	unsigned int domid;
 	const char *name;

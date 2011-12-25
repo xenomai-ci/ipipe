@@ -92,8 +92,6 @@ static inline void ipipe_context_check_off(void) { }
 
 #define IPIPE_EVENT_SELF        0x80000000
 
-#define IPIPE_NR_CPUS		NR_CPUS
-
 /* This accessor assumes hw IRQs are off on SMP; allows assignment. */
 #define __ipipe_current_domain	__ipipe_get_cpu_var(ipipe_percpu_domain)
 /* This read-only accessor makes sure that hw IRQs are off on SMP. */
