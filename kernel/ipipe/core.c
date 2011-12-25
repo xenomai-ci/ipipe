@@ -452,7 +452,6 @@ void ipipe_register_head(struct ipipe_domain *ipd, const char *name)
 
 	ipd->name = name;
 	ipd->slot = IPIPE_HEAD_SLOT;
-	ipd->flags = 0;
 	init_stage(ipd);
 	ipipe_head_domain = ipd;
 	add_domain_proc(ipd);

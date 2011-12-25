@@ -148,7 +148,6 @@ struct ipipe_domain {
 		void *cookie;
 	} ____cacheline_aligned irqs[IPIPE_NR_IRQS];
 
-	unsigned long flags;
 	const char *name;
 	struct mutex mutex;
 #ifdef CONFIG_IPIPE_LEGACY
