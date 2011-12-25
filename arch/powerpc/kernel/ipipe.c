@@ -70,12 +70,12 @@ cpumask_t __ipipe_dbrk_pending;	/* pending debugger break IPIs */
 
 void __ipipe_hook_critical_ipi(struct ipipe_domain *ipd)
 {
-	ipd->irqs[IPIPE_CRITICAL_IPI].acknowledge = NULL;
-	ipd->irqs[IPIPE_CRITICAL_IPI].handler = &__ipipe_do_critical_sync;
-	ipd->irqs[IPIPE_CRITICAL_IPI].cookie = NULL;
-	/* Immediately handle in the current domain but *never* pass */
-	ipd->irqs[IPIPE_CRITICAL_IPI].control =
-		IPIPE_HANDLE_MASK|IPIPE_STICKY_MASK|IPIPE_SYSTEM_MASK;
+	unsigned int ipi = IPIPE_CRITICAL_IPI;
+
+	ipd->irqs[ipi].ackfn = NULL;
+	ipd->irqs[ipi].handler = __ipipe_do_critical_sync;
+	ipd->irqs[ipi].cookie = NULL;
+	ipd->irqs[ipi].control = IPIPE_HANDLE_MASK|IPIPE_STICKY_MASK;
 }
 
 void __ipipe_register_ipi(unsigned int irq)
@@ -264,27 +264,22 @@ void __ipipe_enable_pipeline(void)
 
 	flags = ipipe_critical_enter(NULL);
 
-	/* First, virtualize all interrupts from the root domain. */
+	/* First, intercept all interrupts from the root domain. */
 
 	for (irq = 0; irq < NR_IRQS; irq++)
-		/*
-		 * May fail with -EINVAL for unallocated descriptors;
-		 * that's ok.
-		 */
-		ipipe_virtualize_irq(ipipe_root_domain,
-				     irq,
-				     &__ipipe_do_IRQ, NULL,
-				     &__ipipe_ack_irq,
-				     IPIPE_HANDLE_MASK);
+		ipipe_request_irq(ipipe_root_domain,
+				  irq,
+				  &__ipipe_do_IRQ, NULL,
+				  &__ipipe_ack_irq,
+				  0);
 	/*
-	 * We use a virtual IRQ to handle the timer irq (decrementer trap)
-	 * which has been allocated early in __ipipe_init_platform().
+	 * We use a virtual IRQ to handle the timer irq (decrementer
+	 * trap) which was allocated early in __ipipe_init_platform().
 	 */
-
-	ipipe_virtualize_irq(ipipe_root_domain,
-			     IPIPE_TIMER_VIRQ,
-			     &__ipipe_do_timer, NULL,
-			     NULL, IPIPE_HANDLE_MASK);
+	ipipe_request_irq(ipipe_root_domain,
+			  IPIPE_TIMER_VIRQ,
+			  &__ipipe_do_timer, NULL,
+			  NULL, 0);
 
 	ipipe_critical_exit(flags);
 }
