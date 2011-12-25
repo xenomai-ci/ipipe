@@ -87,25 +87,8 @@ static inline void ipipe_context_check_off(void) { }
 #define __BUILTIN_RETURN_ADDRESS1 ((unsigned long)__builtin_return_address(1))
 #endif /* !BUILTIN_RETURN_ADDRESS */
 
-/* Interrupt control bits */
-#define IPIPE_HANDLE_FLAG	0
-#define IPIPE_ENABLE_FLAG	1
-#define IPIPE_DYNAMIC_FLAG	IPIPE_HANDLE_FLAG
-#define IPIPE_STICKY_FLAG	2
-#define IPIPE_SYSTEM_FLAG	3
-#define IPIPE_LOCK_FLAG		4
-#define IPIPE_EXCLUSIVE_FLAG	5
-
-#define IPIPE_HANDLE_MASK	(1 << IPIPE_HANDLE_FLAG)
-#define IPIPE_ENABLE_MASK	(1 << IPIPE_ENABLE_FLAG)
-#define IPIPE_DYNAMIC_MASK	IPIPE_HANDLE_MASK
-#define IPIPE_STICKY_MASK	(1 << IPIPE_STICKY_FLAG)
-#define IPIPE_SYSTEM_MASK	(1 << IPIPE_SYSTEM_FLAG)
-#define IPIPE_LOCK_MASK		(1 << IPIPE_LOCK_FLAG)
-#define IPIPE_EXCLUSIVE_MASK	(1 << IPIPE_EXCLUSIVE_FLAG)
-
-#define IPIPE_DEFAULT_MASK	IPIPE_HANDLE_MASK
-#define IPIPE_STDROOT_MASK	(IPIPE_HANDLE_MASK|IPIPE_SYSTEM_MASK)
+/* ipipe_request_irq(..., irqflags) */
+#define IPIPE_IRQF_STICKY	IPIPE_STICKY_MASK
 
 #define IPIPE_EVENT_SELF        0x80000000
 
@@ -126,9 +109,6 @@ static inline void ipipe_context_check_off(void) { }
 
 #define ipipe_virtual_irq_p(irq)	((irq) >= IPIPE_VIRQ_BASE && \
 					 (irq) < IPIPE_NR_IRQS)
-
-#define IPIPE_SAME_HANDLER	((ipipe_irq_handler_t)(-1))
-
 struct irq_desc;
 
 typedef void (*ipipe_irq_ackfn_t)(unsigned irq, struct irq_desc *desc);
@@ -143,7 +123,7 @@ struct ipipe_domain {
 
 	struct ipipe_irqdesc {
 		unsigned long control;
-		ipipe_irq_ackfn_t acknowledge;
+		ipipe_irq_ackfn_t ackfn;
 		ipipe_irq_handler_t handler;
 		void *cookie;
 	} ____cacheline_aligned irqs[IPIPE_NR_IRQS];
@@ -409,12 +389,15 @@ void ipipe_unregister_head(struct ipipe_domain *ipd);
 
 void ipipe_suspend_domain(void);
 
-int ipipe_virtualize_irq(struct ipipe_domain *ipd,
-			 unsigned irq,
-			 ipipe_irq_handler_t handler,
-			 void *cookie,
-			 ipipe_irq_ackfn_t acknowledge,
-			 unsigned modemask);
+int ipipe_request_irq(struct ipipe_domain *ipd,
+		      unsigned int irq,
+		      ipipe_irq_handler_t handler,
+		      void *cookie,
+		      ipipe_irq_ackfn_t ackfn,
+		      int irqflags);
+
+void ipipe_free_irq(struct ipipe_domain *ipd,
+		    unsigned int irq);
 
 unsigned ipipe_alloc_virq(void);
 

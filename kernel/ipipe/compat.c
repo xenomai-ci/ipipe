@@ -141,3 +141,20 @@ void *ipipe_get_ptd(int key)
 	return current->ptd[key];
 }
 EXPORT_SYMBOL_GPL(ipipe_get_ptd);
+
+int ipipe_virtualize_irq(struct ipipe_domain *ipd,
+			 unsigned int irq,
+			 ipipe_irq_handler_t handler,
+			 void *cookie,
+			 ipipe_irq_ackfn_t ackfn,
+			 unsigned int modemask)
+{
+	if (handler == NULL) {
+		ipipe_free_irq(ipd, irq);
+		return 0;
+	}
+
+	return ipipe_request_irq(ipd, irq, handler, cookie, ackfn,
+				 modemask & IPIPE_IRQF_STICKY);
+}
+EXPORT_SYMBOL_GPL(ipipe_virtualize_irq);

@@ -672,7 +672,7 @@ __fixup_irq_handler(struct irq_desc *desc, irq_flow_handler_t handle, int is_cha
 	}
 
 	/* Suppress intermediate trampoline routine. */
-	ipipe_root_domain->irqs[desc->irq_data.irq].acknowledge = desc->ipipe_ack;
+	ipipe_root_domain->irqs[desc->irq_data.irq].ackfn = desc->ipipe_ack;
 
 	return handle;
 }

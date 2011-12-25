@@ -58,6 +58,14 @@
 #define IPIPE_STALL_MASK	(1L << IPIPE_STALL_FLAG)
 #define IPIPE_NOSTACK_MASK	(1L << IPIPE_NOSTACK_FLAG)
 
+/* Interrupt control bits */
+#define IPIPE_HANDLE_FLAG	0
+#define IPIPE_STICKY_FLAG	1
+#define IPIPE_LOCK_FLAG		2
+#define IPIPE_HANDLE_MASK	(1 << IPIPE_HANDLE_FLAG)
+#define IPIPE_STICKY_MASK	(1 << IPIPE_STICKY_FLAG)
+#define IPIPE_LOCK_MASK		(1 << IPIPE_LOCK_FLAG)
+
 typedef void (*ipipe_irq_handler_t)(unsigned int irq,
 				    void *cookie);
 

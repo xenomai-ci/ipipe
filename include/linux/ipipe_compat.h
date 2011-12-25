@@ -38,6 +38,12 @@
 #define IPIPE_WIRED_MASK	(1 << IPIPE_WIRED_FLAG)
 #define IPIPE_PASS_FLAG		IPIPE_DUMMY_FLAG
 #define IPIPE_PASS_MASK		(1 << IPIPE_PASS_FLAG)
+#define IPIPE_DYNAMIC_FLAG	IPIPE_HANDLE_FLAG
+#define IPIPE_DYNAMIC_MASK	(1 << IPIPE_DYNAMIC_FLAG)
+#define IPIPE_SYSTEM_FLAG	IPIPE_DUMMY_FLAG
+#define IPIPE_SYSTEM_MASK	(1 << IPIPE_SYSTEM_FLAG)
+#define IPIPE_EXCLUSIVE_FLAG	IPIPE_DUMMY_FLAG
+#define IPIPE_EXCLUSIVE_MASK	(1 << IPIPE_EXCLUSIVE_FLAG)
 
 struct ipipe_domain_attr {
 	unsigned int domid;
@@ -61,6 +67,13 @@ int ipipe_free_ptdkey(int key);
 int ipipe_set_ptd(int key, void *value);
 
 void *ipipe_get_ptd(int key);
+
+int ipipe_virtualize_irq(struct ipipe_domain *ipd,
+			 unsigned int irq,
+			 ipipe_irq_handler_t handler,
+			 void *cookie,
+			 ipipe_irq_ackfn_t ackfn,
+			 unsigned int modemask);
 
 static inline void ipipe_check_context(struct ipipe_domain *border_ipd)
 {

@@ -148,17 +148,15 @@ static int __ipipe_version_info_proc(char *page,
 static int __ipipe_common_info_show(struct seq_file *p, void *data)
 {
 	struct ipipe_domain *ipd = (struct ipipe_domain *)p->private;
-	char handling, stickiness, lockbit, exclusive, virtuality;
-
+	char handling, stickiness, lockbit, virtuality;
 	unsigned long ctlbits;
 	unsigned irq;
 
-	seq_printf(p, "       +----- Handling ([A]ccepted, [G]rabbed, [W]ired, [D]iscarded)\n");
-	seq_printf(p, "       |+---- Sticky\n");
-	seq_printf(p, "       ||+--- Locked\n");
-	seq_printf(p, "       |||+-- Exclusive\n");
-	seq_printf(p, "       ||||+- Virtual\n");
-	seq_printf(p, "[IRQ]  |||||\n");
+	seq_printf(p, "       +---- Handled\n");
+	seq_printf(p, "       |+--- Sticky\n");
+	seq_printf(p, "       ||+-- Locked\n");
+	seq_printf(p, "       |||+- Virtual\n");
+	seq_printf(p, "[IRQ]  ||||\n");
 
 	mutex_lock(&ipd->mutex);
 
@@ -181,9 +179,9 @@ static int __ipipe_common_info_show(struct seq_file *p, void *data)
 			continue;
 
 		if (ctlbits & IPIPE_HANDLE_MASK)
-			handling = 'G';
+			handling = 'H';
 		else
-			handling = 'D';
+			handling = '.';
 
 		if (ctlbits & IPIPE_STICKY_MASK)
 			stickiness = 'S';
@@ -195,30 +193,14 @@ static int __ipipe_common_info_show(struct seq_file *p, void *data)
 		else
 			lockbit = '.';
 
-		if (ctlbits & IPIPE_EXCLUSIVE_MASK)
-			exclusive = 'X';
-		else
-			exclusive = '.';
-
 		if (ipipe_virtual_irq_p(irq))
 			virtuality = 'V';
 		else
 			virtuality = '.';
 
-		seq_printf(p, " %3u:  %c%c%c%c%c\n",
-			     irq, handling, stickiness, lockbit, exclusive, virtuality);
+		seq_printf(p, " %3u:  %c%c%c%c\n",
+			     irq, handling, stickiness, lockbit, virtuality);
 	}
-
-#ifdef CONFIG_IPIPE_LEGACY
-	seq_printf(p, "[Domain info]\n");
-
-	seq_printf(p, "id=0x%.8x\n", ipd->domid);
-
-	if (ipd != ipipe_root_domain)
-		seq_printf(p, "priority=topmost\n");
-	else
-		seq_printf(p, "priority=%d\n", ipd->priority);
-#endif /* CONFIG_IPIPE_LEGACY */
 
 	mutex_unlock(&ipd->mutex);
 
@@ -388,7 +370,7 @@ static void init_stage(struct ipipe_domain *ipd)
 	}
 
 	for (n = 0; n < IPIPE_NR_IRQS; n++) {
-		ipd->irqs[n].acknowledge = NULL;
+		ipd->irqs[n].ackfn = NULL;
 		ipd->irqs[n].handler = NULL;
 		ipd->irqs[n].control = 0;
 	}
@@ -432,7 +414,7 @@ void __init ipipe_init_early(void)
 	__ipipe_printk_virq = ipipe_alloc_virq();	/* Cannot fail here. */
 	ipd->irqs[__ipipe_printk_virq].handler = &__ipipe_flush_printk;
 	ipd->irqs[__ipipe_printk_virq].cookie = NULL;
-	ipd->irqs[__ipipe_printk_virq].acknowledge = NULL;
+	ipd->irqs[__ipipe_printk_virq].ackfn = NULL;
 	ipd->irqs[__ipipe_printk_virq].control = IPIPE_HANDLE_MASK;
 #endif /* CONFIG_PRINTK */
 }
@@ -934,102 +916,66 @@ unsigned ipipe_alloc_virq(void)
 	return irq;
 }
 
-int ipipe_virtualize_irq(struct ipipe_domain *ipd,
-			 unsigned int irq,
-			 ipipe_irq_handler_t handler,
-			 void *cookie,
-			 ipipe_irq_ackfn_t acknowledge,
-			 unsigned modemask)
+int ipipe_request_irq(struct ipipe_domain *ipd,
+		      unsigned int irq,
+		      ipipe_irq_handler_t handler,
+		      void *cookie,
+		      ipipe_irq_ackfn_t ackfn,
+		      int irqflags)
 {
-	ipipe_irq_handler_t old_handler;
-	struct irq_desc *desc;
 	unsigned long flags;
 	int ret = 0;
 
-	if (irq >= IPIPE_NR_IRQS)
+	if (handler == NULL ||
+	    (irq >= NR_IRQS && !ipipe_virtual_irq_p(irq)) ||
+	    (irqflags & ~IPIPE_STICKY_MASK))
 		return -EINVAL;
-
-	if (ipd->irqs[irq].control & IPIPE_SYSTEM_MASK)
-		return -EPERM;
 
 	spin_lock_irqsave(&__ipipe_lock, flags);
 
-	old_handler = ipd->irqs[irq].handler;
-
-	if (handler == NULL) {
-		modemask &=
-		    ~(IPIPE_HANDLE_MASK | IPIPE_STICKY_MASK |
-		      IPIPE_EXCLUSIVE_MASK);
-
-		ipd->irqs[irq].handler = NULL;
-		ipd->irqs[irq].cookie = NULL;
-		ipd->irqs[irq].acknowledge = NULL;
-		ipd->irqs[irq].control = modemask;
-
-		if (irq < NR_IRQS && !ipipe_virtual_irq_p(irq)) {
-			desc = irq_to_desc(irq);
-			if (old_handler && desc)
-				__ipipe_disable_irqdesc(ipd, irq);
-		}
-
-		goto unlock_and_exit;
-	}
-
-	if (handler == IPIPE_SAME_HANDLER) {
-		cookie = ipd->irqs[irq].cookie;
-		handler = old_handler;
-		if (handler == NULL) {
-			ret = -EINVAL;
-			goto unlock_and_exit;
-		}
-	} else if ((modemask & IPIPE_EXCLUSIVE_MASK) != 0 && old_handler) {
+	if (ipd->irqs[irq].handler) {
 		ret = -EBUSY;
-		goto unlock_and_exit;
+		goto out;
 	}
 
-	if ((modemask & IPIPE_STICKY_MASK) != 0)
-		modemask |= IPIPE_HANDLE_MASK;
-
-	if (acknowledge == NULL)
-		/*
-		 * Acknowledge handler unspecified for a hw interrupt:
-		 * use the Linux-defined handler instead.
-		 */
-		acknowledge = ipipe_root_domain->irqs[irq].acknowledge;
+	if (ackfn == NULL)
+		ackfn = ipipe_root_domain->irqs[irq].ackfn;
 
 	ipd->irqs[irq].handler = handler;
 	ipd->irqs[irq].cookie = cookie;
-	ipd->irqs[irq].acknowledge = acknowledge;
-	ipd->irqs[irq].control = modemask;
+	ipd->irqs[irq].ackfn = ackfn;
+	ipd->irqs[irq].control = IPIPE_HANDLE_MASK|irqflags;
 
-	desc = irq_to_desc(irq);
-	if (desc == NULL)
-		goto unlock_and_exit;
-
-	if (irq < NR_IRQS && !ipipe_virtual_irq_p(irq)) {
+	if (irq < NR_IRQS)
 		__ipipe_enable_irqdesc(ipd, irq);
-		/*
-		 * IRQ enable/disable state is domain-sensitive, so we
-		 * may not change it for another domain. What is
-		 * allowed however is forcing some domain to handle an
-		 * interrupt source, by passing the proper 'ipd'
-		 * descriptor which thus may be different from
-		 * __ipipe_current_domain.
-		 */
-		if ((modemask & IPIPE_ENABLE_MASK) != 0) {
-			if (ipd != __ipipe_current_domain)
-				ret = -EPERM;
-			else
-				__ipipe_enable_irq(irq);
-		}
-	}
-
-unlock_and_exit:
-
+out:
 	spin_unlock_irqrestore(&__ipipe_lock, flags);
 
 	return ret;
 }
+EXPORT_SYMBOL_GPL(ipipe_request_irq);
+
+void ipipe_free_irq(struct ipipe_domain *ipd,
+		    unsigned int irq)
+{
+	unsigned long flags;
+
+	spin_lock_irqsave(&__ipipe_lock, flags);
+
+	if (ipd->irqs[irq].handler == NULL)
+		goto out;
+
+	ipd->irqs[irq].handler = NULL;
+	ipd->irqs[irq].cookie = NULL;
+	ipd->irqs[irq].ackfn = NULL;
+	ipd->irqs[irq].control = 0;
+
+	if (irq < NR_IRQS)
+		__ipipe_disable_irqdesc(ipd, irq);
+out:
+	spin_unlock_irqrestore(&__ipipe_lock, flags);
+}
+EXPORT_SYMBOL_GPL(ipipe_free_irq);
 
 int __ipipe_dispatch_event(unsigned int event, void *data)
 {
@@ -1113,8 +1059,8 @@ void __ipipe_dispatch_irq(unsigned int irq, int ackit) /* hw interrupts off */
 		if ((control & IPIPE_HANDLE_MASK) == 0)
 			ipd = ipipe_root_domain;
 		desc = ipipe_virtual_irq_p(irq) ? NULL : irq_to_desc(irq);
-		if (ipd->irqs[irq].acknowledge)
-			ipd->irqs[irq].acknowledge(irq, desc);
+		if (ipd->irqs[irq].ackfn)
+			ipd->irqs[irq].ackfn(irq, desc);
 	}
 
 	/*
@@ -1640,9 +1586,8 @@ void ipipe_root_only(void)
  
         local_irq_restore_hw_smp(flags); 
 
-	ipipe_context_check_off();
+	ipipe_prepare_panic();
 	ipipe_trace_panic_freeze();
-	ipipe_set_printk_sync(__ipipe_current_domain);
 
 	if (this_domain != ipipe_root_domain)
 		printk(KERN_ERR
@@ -1732,7 +1677,6 @@ void ipipe_prepare_panic(void)
 }
 EXPORT_SYMBOL_GPL(ipipe_prepare_panic);
 
-EXPORT_SYMBOL(ipipe_virtualize_irq);
 EXPORT_SYMBOL(ipipe_alloc_virq);
 EXPORT_SYMBOL(__ipipe_spin_lock_irq);
 EXPORT_SYMBOL(__ipipe_spin_unlock_irq);
