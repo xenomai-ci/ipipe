@@ -114,7 +114,7 @@ static inline void ipipe_stall_pipeline_from(struct ipipe_domain *ipd)
 	if (ipd != ipipe_root_domain)
 		ipipe_stall_head();
 	else
-		__ipipe_stall_root();
+		ipipe_stall_root();
 }
 
 static inline
@@ -123,7 +123,7 @@ unsigned long ipipe_test_and_stall_pipeline_from(struct ipipe_domain *ipd)
 	if (ipd != ipipe_root_domain)
 		return ipipe_test_and_stall_head();
 
-	return __ipipe_test_and_stall_root();
+	return ipipe_test_and_stall_root();
 }
 
 static inline
@@ -132,7 +132,7 @@ void ipipe_unstall_pipeline_from(struct ipipe_domain *ipd)
 	if (ipd != ipipe_root_domain)
 		ipipe_unstall_head();
 	else
-		__ipipe_unstall_root();
+		ipipe_unstall_root();
 }
 
 static inline
@@ -142,7 +142,7 @@ void ipipe_restore_pipeline_from(struct ipipe_domain *ipd,
 	if (ipd != ipipe_root_domain)
 		ipipe_restore_head(x);
 	else
-		__ipipe_restore_root(x);
+		ipipe_restore_root(x);
 }
 
 static inline

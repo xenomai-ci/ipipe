@@ -456,7 +456,7 @@ void ipipe_unregister_head(struct ipipe_domain *ipd)
 }
 EXPORT_SYMBOL_GPL(ipipe_unregister_head);
 
-void __ipipe_unstall_root(void)
+void ipipe_unstall_root(void)
 {
 	struct ipipe_percpu_domain_data *p;
 
@@ -474,18 +474,32 @@ void __ipipe_unstall_root(void)
 
         local_irq_enable_hw();
 }
-EXPORT_SYMBOL_GPL(__ipipe_unstall_root);
+EXPORT_SYMBOL_GPL(ipipe_unstall_root);
 
-void __ipipe_restore_root(unsigned long x)
+void ipipe_restore_root(unsigned long x)
 {
 	ipipe_root_only();
 
 	if (x)
-		__ipipe_stall_root();
+		ipipe_stall_root();
 	else
-		__ipipe_unstall_root();
+		ipipe_unstall_root();
 }
-EXPORT_SYMBOL_GPL(__ipipe_restore_root);
+EXPORT_SYMBOL_GPL(ipipe_restore_root);
+
+void __ipipe_restore_root_nosync(unsigned long x)
+{
+	struct ipipe_percpu_domain_data *p = ipipe_root_cpudom_ptr();
+
+	if (raw_irqs_disabled_flags(x)) {
+		__set_bit(IPIPE_STALL_FLAG, &p->status);
+		trace_hardirqs_off();
+	} else {
+		trace_hardirqs_on();
+		__clear_bit(IPIPE_STALL_FLAG, &p->status);
+	}
+}
+EXPORT_SYMBOL_GPL(__ipipe_restore_root_nosync);
 
 void ipipe_unstall_head(void)
 {

@@ -292,27 +292,6 @@ int __ipipe_send_ipi(unsigned ipi, cpumask_t cpumask);
 		local_irq_restore(vflags);		\
 	} while(0)
 
-static inline void __local_irq_restore_nosync(unsigned long x)
-{
-	struct ipipe_percpu_domain_data *p = ipipe_root_cpudom_ptr();
-
-	if (raw_irqs_disabled_flags(x)) {
-		__set_bit(IPIPE_STALL_FLAG, &p->status);
-		trace_hardirqs_off();
-	} else {
-		trace_hardirqs_on();
-		__clear_bit(IPIPE_STALL_FLAG, &p->status);
-	}
-}
-
-static inline void local_irq_restore_nosync(unsigned long x)
-{
-	unsigned long flags;
-	local_irq_save_hw_smp(flags);
-	__local_irq_restore_nosync(x);
-	local_irq_restore_hw_smp(flags);
-}
-
 #define __ipipe_root_p	(__ipipe_current_domain == ipipe_root_domain)
 #define ipipe_root_p	(ipipe_current_domain == ipipe_root_domain)
 
@@ -603,12 +582,8 @@ static inline int ipipe_test_foreign_stack(void)
 #define ipipe_nmi_enter()	do { } while (0)
 #define ipipe_nmi_exit()	do { } while (0)
 
-#define local_irq_disable_head()	local_irq_disable()
-
 #define local_irq_save_full(vflags, rflags)	do { (void)(vflags); local_irq_save(rflags); } while(0)
 #define local_irq_restore_full(vflags, rflags)	do { (void)(vflags); local_irq_restore(rflags); } while(0)
-#define local_irq_restore_nosync(vflags)	local_irq_restore(vflags)
-
 #define ipipe_root_only(ipd)	do { } while(0)
 
 #endif	/* CONFIG_IPIPE */

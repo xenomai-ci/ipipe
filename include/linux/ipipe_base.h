@@ -66,6 +66,14 @@
 #define IPIPE_STICKY_MASK	(1 << IPIPE_STICKY_FLAG)
 #define IPIPE_LOCK_MASK		(1 << IPIPE_LOCK_FLAG)
 
+#ifdef CONFIG_SMP
+#define local_irq_save_hw_smp(flags)		local_irq_save_hw(flags)
+#define local_irq_restore_hw_smp(flags)		local_irq_restore_hw(flags)
+#else /* !CONFIG_SMP */
+#define local_irq_save_hw_smp(flags)		do { (void)(flags); } while(0)
+#define local_irq_restore_hw_smp(flags)		do { } while(0)
+#endif /* CONFIG_SMP */
+
 typedef void (*ipipe_irq_handler_t)(unsigned int irq,
 				    void *cookie);
 
@@ -75,9 +83,19 @@ extern struct ipipe_domain ipipe_root;
 
 extern struct ipipe_domain *ipipe_head_domain;
 
-void __ipipe_unstall_root(void);
+void ipipe_unstall_root(void);
 
-void __ipipe_restore_root(unsigned long x);
+void ipipe_restore_root(unsigned long x);
+
+void __ipipe_restore_root_nosync(unsigned long x);
+
+static inline void ipipe_restore_root_nosync(unsigned long x)
+{
+	unsigned long flags;
+	local_irq_save_hw_smp(flags);
+	__ipipe_restore_root_nosync(x);
+	local_irq_restore_hw_smp(flags);
+}
 
 #define ipipe_preempt_disable(flags)		\
 	do {					\
