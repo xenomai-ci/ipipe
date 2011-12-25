@@ -4092,7 +4092,7 @@ static inline int ipipe_pin_pud_range(struct mm_struct *mm, pgd_t *pgd,
 	return 0;
 }
 
-int ipipe_disable_ondemand_mappings(struct task_struct *tsk)
+int __ipipe_disable_ondemand_mappings(struct task_struct *tsk)
 {
 	unsigned long addr, next, end;
 	struct vm_area_struct *vma;
@@ -4134,7 +4134,6 @@ int ipipe_disable_ondemand_mappings(struct task_struct *tsk)
 	mmput(mm);
 	return result;
 }
-
-EXPORT_SYMBOL(ipipe_disable_ondemand_mappings);
+EXPORT_SYMBOL_GPL(__ipipe_disable_ondemand_mappings);
 
 #endif

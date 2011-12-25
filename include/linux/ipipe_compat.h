@@ -171,6 +171,26 @@ static inline void ipipe_restore_pipeline_head(unsigned long x)
 	ipipe_restore_head(x);
 }
 
+static inline int ipipe_setscheduler_root(struct task_struct *p,
+					  int policy,
+					  int prio)
+{
+	return __ipipe_setscheduler_root(p, policy, prio);
+}
+
+static inline int ipipe_disable_ondemand_mappings(struct task_struct *p)
+{
+	return __ipipe_disable_ondemand_mappings(p);
+}
+
+static inline int ipipe_reenter_root(struct task_struct *prev,
+				     int policy,
+				     int prio)
+{
+	__ipipe_reenter_root(prev);
+	return 0;
+}
+
 /*
  * Keep the following as a macro, so that client code could check for
  * the support of the invariant pipeline head optimization.

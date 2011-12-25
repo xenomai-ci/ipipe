@@ -9374,10 +9374,9 @@ struct cgroup_subsys cpuacct_subsys = {
 };
 #endif	/* CONFIG_CGROUP_CPUACCT */
 
-
 #ifdef CONFIG_IPIPE
 
-int ipipe_setscheduler_root(struct task_struct *p, int policy, int prio)
+int __ipipe_setscheduler_root(struct task_struct *p, int policy, int prio)
 {
 	const struct sched_class *prev_class;
 	int oldprio, on_rq, running;
@@ -9411,23 +9410,16 @@ int ipipe_setscheduler_root(struct task_struct *p, int policy, int prio)
 
 	return 0;
 }
-EXPORT_SYMBOL_GPL(ipipe_setscheduler_root);
+EXPORT_SYMBOL_GPL(__ipipe_setscheduler_root);
 
-int ipipe_reenter_root(struct task_struct *prev, int policy, int prio)
+void __ipipe_reenter_root(struct task_struct *prev)
 {
 	struct rq *rq = this_rq();
 
 	finish_task_switch(rq, prev);
-
 	post_schedule(rq);
-
 	preempt_enable_no_resched();
-
-	if (current->policy != policy || current->rt_priority != prio)
-		return ipipe_setscheduler_root(current, policy, prio);
-
-	return 0;
 }
-EXPORT_SYMBOL_GPL(ipipe_reenter_root);
+EXPORT_SYMBOL_GPL(__ipipe_reenter_root);
 
 #endif /* CONFIG_IPIPE */

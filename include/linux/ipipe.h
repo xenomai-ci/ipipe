@@ -186,6 +186,14 @@ void __ipipe_unlock_irq(unsigned int irq);
 
 void __ipipe_pin_range_globally(unsigned long start, unsigned long end);
 
+int __ipipe_setscheduler_root(struct task_struct *p,
+			      int policy,
+			      int prio);
+
+int __ipipe_disable_ondemand_mappings(struct task_struct *p);
+
+void __ipipe_reenter_root(struct task_struct *prev);
+
 /* Must be called hw IRQs off. */
 static inline void __ipipe_dispatch_irq_fast(unsigned int irq)
 {
@@ -497,16 +505,6 @@ int ipipe_set_irq_affinity(unsigned int irq,
 
 int ipipe_send_ipi(unsigned ipi,
 		   cpumask_t cpumask);
-
-int ipipe_setscheduler_root(struct task_struct *p,
-			    int policy,
-			    int prio);
-
-int ipipe_reenter_root(struct task_struct *prev,
-		       int policy,
-		       int prio);
-
-int ipipe_disable_ondemand_mappings(struct task_struct *tsk);
 
 static inline void ipipe_nmi_enter(void)
 {
