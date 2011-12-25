@@ -307,11 +307,8 @@ static inline void local_irq_restore_nosync(unsigned long x)
 	local_irq_restore_hw_smp(flags);
 }
 
-#define __ipipe_root_domain_p	(__ipipe_current_domain == ipipe_root_domain)
-#define ipipe_root_domain_p	(ipipe_current_domain == ipipe_root_domain)
-
-/* This has to be called with hw IRQs off. */
-#define __ipipe_head_domain_p   (__ipipe_current_domain == ipipe_head_domain)
+#define __ipipe_root_p	(__ipipe_current_domain == ipipe_root_domain)
+#define ipipe_root_p	(ipipe_current_domain == ipipe_root_domain)
 
 static inline int __ipipe_event_monitored_p(int ev)
 {
@@ -407,7 +404,7 @@ int ipipe_trigger_irq(unsigned irq);
 
 static inline void ipipe_propagate_irq(unsigned int irq)
 {
-	if (likely(!__ipipe_root_domain_p))
+	if (likely(!__ipipe_root_p))
 		/* The root domain must handle all interrupts. */
 		__ipipe_set_irq_pending(&ipipe_root, irq);
 }
@@ -598,17 +595,17 @@ static inline int ipipe_test_foreign_stack(void)
 #define local_irq_save_hw_smp(flags)		do { (void)(flags); } while(0)
 #define local_irq_restore_hw_smp(flags)		do { } while(0)
 
-#define ipipe_irq_lock(irq)		do { } while(0)
-#define ipipe_irq_unlock(irq)		do { } while(0)
+#define ipipe_irq_lock(irq)	do { } while(0)
+#define ipipe_irq_unlock(irq)	do { } while(0)
 
-#define __ipipe_root_domain_p		1
-#define ipipe_root_domain_p		1
-#define ipipe_safe_current()		current
-#define ipipe_processor_id()		smp_processor_id()
-#define ipipe_clear_flags(p)		do { } while (0)
+#define __ipipe_root_p		1
+#define ipipe_root_p		1
+#define ipipe_safe_current()	current
+#define ipipe_processor_id()	smp_processor_id()
+#define ipipe_clear_flags(p)	do { } while (0)
 
-#define ipipe_nmi_enter()		do { } while (0)
-#define ipipe_nmi_exit()		do { } while (0)
+#define ipipe_nmi_enter()	do { } while (0)
+#define ipipe_nmi_exit()	do { } while (0)
 
 #define local_irq_disable_head()	local_irq_disable()
 

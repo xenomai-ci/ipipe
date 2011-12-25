@@ -430,7 +430,7 @@ void __init ipipe_init(void)
 
 void ipipe_register_head(struct ipipe_domain *ipd, const char *name)
 {
-	BUG_ON(!ipipe_root_domain_p || ipd == &ipipe_root);
+	BUG_ON(!ipipe_root_p || ipd == &ipipe_root);
 
 	ipd->name = name;
 	ipd->slot = IPIPE_HEAD_SLOT;
@@ -444,7 +444,7 @@ EXPORT_SYMBOL_GPL(ipipe_register_head);
 
 void ipipe_unregister_head(struct ipipe_domain *ipd)
 {
-	BUG_ON(!ipipe_root_domain_p || ipd != ipipe_head_domain);
+	BUG_ON(!ipipe_root_p || ipd != ipipe_head_domain);
 
 	ipipe_head_domain = &ipipe_root;
 	smp_mb();
@@ -1331,7 +1331,7 @@ ipipe_event_handler_t ipipe_catch_event(struct ipipe_domain *ipd,
 
 	ipipe_critical_exit(flags);
 
-	if (!handler && ipipe_root_domain_p) {
+	if (!handler && ipipe_root_p) {
 		/*
 		 * If we cleared a handler on behalf of the root
 		 * domain, we have to wait for any current invocation

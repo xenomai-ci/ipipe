@@ -82,13 +82,13 @@ void __ipipe_restore_root(unsigned long x);
 #define ipipe_preempt_disable(flags)		\
 	do {					\
 		local_irq_save_hw(flags);	\
-		if (__ipipe_root_domain_p)	\
+		if (__ipipe_root_p)	\
 			preempt_disable();	\
 	} while (0)
 
 #define ipipe_preempt_enable(flags)			\
 	do {						\
-		if (__ipipe_root_domain_p) {		\
+		if (__ipipe_root_p) {			\
 			preempt_enable_no_resched();	\
 			local_irq_restore_hw(flags);	\
 			preempt_check_resched();	\
