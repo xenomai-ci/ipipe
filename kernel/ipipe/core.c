@@ -714,6 +714,7 @@ void __ipipe_set_irq_pending(struct ipipe_domain *ipd, unsigned int irq)
 
 	p->irqall[irq]++;
 }
+EXPORT_SYMBOL_GPL(__ipipe_set_irq_pending);
 
 /* Must be called hw IRQs off. */
 void __ipipe_lock_irq(unsigned int irq)
@@ -835,6 +836,7 @@ void __ipipe_set_irq_pending(struct ipipe_domain *ipd, unsigned int irq)
 
 	p->irqall[irq]++;
 }
+EXPORT_SYMBOL_GPL(__ipipe_set_irq_pending);
 
 /* Must be called hw IRQs off. */
 void __ipipe_lock_irq(unsigned int irq)
@@ -1804,7 +1806,6 @@ EXPORT_SYMBOL(ipipe_free_virq);
 EXPORT_SYMBOL(ipipe_catch_event);
 EXPORT_SYMBOL(ipipe_set_irq_affinity);
 EXPORT_SYMBOL(ipipe_send_ipi);
-EXPORT_SYMBOL(__ipipe_set_irq_pending);
 EXPORT_SYMBOL(__ipipe_event_monitors);
 #if defined(CONFIG_IPIPE_DEBUG_INTERNAL) && defined(CONFIG_SMP)
 EXPORT_SYMBOL(__ipipe_check_percpu_access);

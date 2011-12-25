@@ -74,6 +74,26 @@ static inline void ipipe_set_printk_sync(struct ipipe_domain *ipd)
 	ipipe_prepare_panic();
 }
 
+static inline void __ipipe_propagate_irq(unsigned int irq)
+{
+	ipipe_propagate_irq(irq);
+}
+
+static inline void __ipipe_schedule_irq(unsigned int irq)
+{
+	ipipe_schedule_irq(irq);
+}
+
+static inline void __ipipe_schedule_irq_head(unsigned int irq)
+{
+	ipipe_schedule_irq_head(irq);
+}
+
+static inline void __ipipe_schedule_irq_root(unsigned int irq)
+{
+	ipipe_schedule_irq_root(irq);
+}
+
 /*
  * Keep the following as a macro, so that client code could check for
  * the support of the invariant pipeline head optimization.

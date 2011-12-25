@@ -422,62 +422,26 @@ int ipipe_free_virq(unsigned virq);
 
 int ipipe_trigger_irq(unsigned irq);
 
-static inline void __ipipe_propagate_irq(unsigned int irq)
+static inline void ipipe_propagate_irq(unsigned int irq)
 {
 	if (likely(!__ipipe_root_domain_p))
 		/* The root domain must handle all interrupts. */
 		__ipipe_set_irq_pending(&ipipe_root, irq);
 }
 
-static inline void __ipipe_schedule_irq(unsigned int irq)
+static inline void ipipe_schedule_irq(unsigned int irq)
 {
 	__ipipe_pend_irq(__ipipe_current_domain, irq);
 }
 
-static inline void __ipipe_schedule_irq_head(unsigned irq)
+static inline void ipipe_schedule_irq_head(unsigned irq)
 {
 	__ipipe_set_irq_pending(ipipe_head_domain, irq);
 }
 
-static inline void __ipipe_schedule_irq_root(unsigned irq)
-{
-	__ipipe_set_irq_pending(&ipipe_root, irq);
-}
-
-static inline void ipipe_propagate_irq(unsigned irq)
-{
-	unsigned long flags;
-
-	local_irq_save_hw(flags);
-	__ipipe_propagate_irq(irq);
-	local_irq_restore_hw(flags);
-}
-
-static inline void ipipe_schedule_irq(unsigned irq)
-{
-	unsigned long flags;
-
-	local_irq_save_hw(flags);
-	__ipipe_schedule_irq(irq);
-	local_irq_restore_hw(flags);
-}
-
-static inline void ipipe_schedule_irq_head(unsigned irq)
-{
-	unsigned long flags;
-
-	local_irq_save_hw(flags);
-	__ipipe_schedule_irq_head(irq);
-	local_irq_restore_hw(flags);
-}
-
 static inline void ipipe_schedule_irq_root(unsigned irq)
 {
-	unsigned long flags;
-
-	local_irq_save_hw(flags);
-	__ipipe_schedule_irq_root(irq);
-	local_irq_restore_hw(flags);
+	__ipipe_set_irq_pending(&ipipe_root, irq);
 }
 
 void ipipe_stall_pipeline_from(struct ipipe_domain *ipd);
