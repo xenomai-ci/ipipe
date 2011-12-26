@@ -257,30 +257,26 @@ static inline int __ipipe_event_monitored_p(int ev)
 
 #define ipipe_sigwake_notify(p)						\
 	do {								\
-		if (ipipe_notifier_enabled_p(p) &&			\
-		    __ipipe_event_monitored_p(IPIPE_EVENT_SIGWAKE))	\
+		if (ipipe_notifier_enabled_p(p))			\
 			__ipipe_dispatch_event(IPIPE_EVENT_SIGWAKE, p);	\
 	} while (0)
 
 #define ipipe_exit_notify(p)						\
 	do {								\
-		if (ipipe_notifier_enabled_p(p) &&			\
-		    __ipipe_event_monitored_p(IPIPE_EVENT_EXIT))	\
+		if (ipipe_notifier_enabled_p(p))			\
 			__ipipe_dispatch_event(IPIPE_EVENT_EXIT, p);	\
 	} while (0)
 
 #define ipipe_setsched_notify(p)					\
 	do {								\
-		if (ipipe_notifier_enabled_p(p) &&			\
-		    __ipipe_event_monitored_p(IPIPE_EVENT_SETSCHED))	\
+		if (ipipe_notifier_enabled_p(p))			\
 			__ipipe_dispatch_event(IPIPE_EVENT_SETSCHED, p); \
 	} while (0)
 
 #define ipipe_schedule_notify(prev, next)				\
 do {									\
 	if ((ipipe_notifier_enabled_p(next) ||				\
-	     ipipe_notifier_enabled_p(prev)) &&				\
-	    __ipipe_event_monitored_p(IPIPE_EVENT_SCHEDULE))		\
+	     ipipe_notifier_enabled_p(prev)))				\
 		__ipipe_dispatch_event(IPIPE_EVENT_SCHEDULE, next);	\
 } while (0)
 
@@ -290,8 +286,7 @@ do {									\
 		int __ret__ = 0;					\
 		local_irq_save_hw_smp(__flags__);			\
 		if ((test_bit(IPIPE_NOSTACK_FLAG, &ipipe_this_cpudom_var(status)) || \
-		     ipipe_notifier_enabled_p(current)) &&		\
-		    __ipipe_event_monitored_p(ex)) {			\
+		     ipipe_notifier_enabled_p(current))) {		\
 			local_irq_restore_hw_smp(__flags__);		\
 			__ret__ = __ipipe_dispatch_event(ex, regs);	\
 		} else							\
@@ -461,8 +456,7 @@ static inline struct ipipe_threadinfo *ipipe_current_threadinfo(void)
 /* hw IRQs off. */
 #define ipipe_return_notify(p)						\
 	do {								\
-		if (ipipe_notifier_enabled_p(p) &&			\
-		    __ipipe_event_monitored_p(IPIPE_EVENT_RETURN))	\
+		if (ipipe_notifier_enabled_p(p))			\
 			(p)->ipipe_flags |= PF_EVTRET;			\
 	} while (0)
 
