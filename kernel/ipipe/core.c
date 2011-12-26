@@ -1,7 +1,7 @@
 /* -*- linux-c -*-
  * linux/kernel/ipipe/core.c
  *
- * Copyright (C) 2002-2005 Philippe Gerum.
+ * Copyright (C) 2002-2012 Philippe Gerum.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -118,6 +118,7 @@ int __ipipe_printk_bypass;
 #endif /* CONFIG_PRINTK */
 
 int __ipipe_event_monitors[IPIPE_NR_EVENTS];
+EXPORT_SYMBOL_GPL(__ipipe_event_monitors);
 
 #ifdef CONFIG_PROC_FS
 
@@ -330,6 +331,7 @@ out:
 
 	return status;
 }
+EXPORT_SYMBOL_GPL(ipipe_request_tickdev);
 
 void ipipe_release_tickdev(int cpu)
 {
@@ -355,6 +357,7 @@ void ipipe_release_tickdev(int cpu)
 
 	ipipe_critical_exit(flags);
 }
+EXPORT_SYMBOL_GPL(ipipe_release_tickdev);
 
 static void init_stage(struct ipipe_domain *ipd)
 {
@@ -554,6 +557,7 @@ void __ipipe_spin_lock_irq(ipipe_spinlock_t *lock)
 	arch_spin_lock(&lock->arch_lock);
 	__set_bit(IPIPE_STALL_FLAG, &ipipe_this_cpudom_var(status));
 }
+EXPORT_SYMBOL_GPL(__ipipe_spin_lock_irq);
 
 void __ipipe_spin_unlock_irq(ipipe_spinlock_t *lock)
 {
@@ -561,6 +565,7 @@ void __ipipe_spin_unlock_irq(ipipe_spinlock_t *lock)
 	__clear_bit(IPIPE_STALL_FLAG, &ipipe_this_cpudom_var(status));
 	local_irq_enable_hw();
 }
+EXPORT_SYMBOL_GPL(__ipipe_spin_unlock_irq);
 
 unsigned long __ipipe_spin_lock_irqsave(ipipe_spinlock_t *lock)
 {
@@ -573,6 +578,7 @@ unsigned long __ipipe_spin_lock_irqsave(ipipe_spinlock_t *lock)
 
 	return arch_mangle_irq_bits(s, flags);
 }
+EXPORT_SYMBOL_GPL(__ipipe_spin_lock_irqsave);
 
 int __ipipe_spin_trylock_irqsave(ipipe_spinlock_t *lock,
 				 unsigned long *x)
@@ -590,6 +596,7 @@ int __ipipe_spin_trylock_irqsave(ipipe_spinlock_t *lock,
 
 	return 1;
 }
+EXPORT_SYMBOL_GPL(__ipipe_spin_trylock_irqsave);
 
 void __ipipe_spin_unlock_irqrestore(ipipe_spinlock_t *lock,
 				    unsigned long x)
@@ -599,6 +606,7 @@ void __ipipe_spin_unlock_irqrestore(ipipe_spinlock_t *lock,
 		__clear_bit(IPIPE_STALL_FLAG, &ipipe_this_cpudom_var(status));
 	local_irq_restore_hw(x);
 }
+EXPORT_SYMBOL_GPL(__ipipe_spin_unlock_irqrestore);
 
 int __ipipe_spin_trylock_irq(ipipe_spinlock_t *lock)
 {
@@ -613,6 +621,7 @@ int __ipipe_spin_trylock_irq(ipipe_spinlock_t *lock)
 
 	return 1;
 }
+EXPORT_SYMBOL_GPL(__ipipe_spin_trylock_irq);
 
 void __ipipe_spin_unlock_irqbegin(ipipe_spinlock_t *lock)
 {
@@ -907,12 +916,7 @@ void ipipe_suspend_domain(void)
 }
 EXPORT_SYMBOL_GPL(ipipe_suspend_domain);
 
-
-/* ipipe_alloc_virq() -- Allocate a pipelined virtual/soft interrupt.
- * Virtual interrupts are handled in exactly the same way than their
- * hw-generated counterparts wrt pipelining.
- */
-unsigned ipipe_alloc_virq(void)
+unsigned int ipipe_alloc_virq(void)
 {
 	unsigned long flags, irq = 0;
 	int ipos;
@@ -929,6 +933,18 @@ unsigned ipipe_alloc_virq(void)
 
 	return irq;
 }
+EXPORT_SYMBOL_GPL(ipipe_alloc_virq);
+
+int ipipe_free_virq(unsigned virq)
+{
+	if (!ipipe_virtual_irq_p(virq))
+		return -EINVAL;
+
+	clear_bit(virq - IPIPE_VIRQ_BASE, &__ipipe_virtual_irq_map);
+
+	return 0;
+}
+EXPORT_SYMBOL_GPL(ipipe_free_virq);
 
 int ipipe_request_irq(struct ipipe_domain *ipd,
 		      unsigned int irq,
@@ -1003,9 +1019,9 @@ int __ipipe_dispatch_event(unsigned int event, void *data)
 	ipd = ipipe_head_domain;
 	local_irq_save_hw(flags);
 next:
-	p = ipipe_cpudom_ptr(ipd);
 	handler = ipd->evhand[event];
 	if (handler) {
+		p = ipipe_cpudom_ptr(ipd);
 		__ipipe_current_domain = ipd;
 		p->evsync |= (1LL << event);
 		local_irq_restore_hw(flags);
@@ -1288,24 +1304,8 @@ void __ipipe_pend_irq(struct ipipe_domain *ipd, unsigned int irq)
 }
 EXPORT_SYMBOL_GPL(__ipipe_pend_irq);
 
-/* ipipe_free_virq() -- Release a virtual/soft interrupt. */
-
-int ipipe_free_virq(unsigned virq)
-{
-	if (!ipipe_virtual_irq_p(virq))
-		return -EINVAL;
-
-	clear_bit(virq - IPIPE_VIRQ_BASE, &__ipipe_virtual_irq_map);
-
-	return 0;
-}
-
-/*
- * ipipe_catch_event() -- Interpose or remove an event handler for a
- * given domain.
- */
 ipipe_event_handler_t ipipe_catch_event(struct ipipe_domain *ipd,
-					unsigned event,
+					unsigned int event,
 					ipipe_event_handler_t handler)
 {
 	ipipe_event_handler_t old_handler;
@@ -1385,6 +1385,7 @@ ipipe_event_handler_t ipipe_catch_event(struct ipipe_domain *ipd,
 
 	return old_handler;
 }
+EXPORT_SYMBOL_GPL(ipipe_catch_event);
 
 int ipipe_set_irq_affinity (unsigned int irq, cpumask_t cpumask)
 {
@@ -1399,9 +1400,9 @@ int ipipe_set_irq_affinity (unsigned int irq, cpumask_t cpumask)
 
 	return 0;
 }
+EXPORT_SYMBOL_GPL(ipipe_set_irq_affinity);
 
-int ipipe_send_ipi (unsigned ipi, cpumask_t cpumask)
-
+int ipipe_send_ipi(unsigned int ipi, cpumask_t cpumask)
 {
 #ifdef CONFIG_SMP
 	if (!ipipe_ipi_p(ipi))
@@ -1411,6 +1412,7 @@ int ipipe_send_ipi (unsigned ipi, cpumask_t cpumask)
 	return -EINVAL;
 #endif /* CONFIG_SMP */
 }
+EXPORT_SYMBOL_GPL(ipipe_send_ipi);
 
 #ifdef CONFIG_SMP
 
@@ -1440,12 +1442,6 @@ void __ipipe_do_critical_sync(unsigned int irq, void *cookie)
 }
 #endif	/* CONFIG_SMP */
 
-/*
- * ipipe_critical_enter() -- Grab the superlock excluding all CPUs but
- * the current one from a critical section. This lock is used when we
- * must enforce a global critical section for a single CPU in a
- * possibly SMP system whichever context the CPUs are running.
- */
 unsigned long ipipe_critical_enter(void (*syncfn)(void))
 {
 	unsigned long flags;
@@ -1523,8 +1519,7 @@ restart:
 
 	return flags;
 }
-
-/* ipipe_critical_exit() -- Release the superlock. */
+EXPORT_SYMBOL_GPL(ipipe_critical_enter);
 
 void ipipe_critical_exit(unsigned long flags)
 {
@@ -1544,6 +1539,7 @@ void ipipe_critical_exit(unsigned long flags)
 
 	local_irq_restore_hw(flags);
 }
+EXPORT_SYMBOL_GPL(ipipe_critical_exit);
 
 #ifdef CONFIG_HAVE_IPIPE_HOSTRT
 /*
@@ -1665,6 +1661,7 @@ out:
 
 	return ret;
 }
+EXPORT_SYMBOL_GPL(__ipipe_check_percpu_access);
 
 void __ipipe_spin_unlock_debug(unsigned long flags)
 {
@@ -1678,7 +1675,7 @@ void __ipipe_spin_unlock_debug(unsigned long flags)
 	 */
 	WARN_ON_ONCE(!raw_irqs_disabled_flags(flags) && irqs_disabled_hw());
 }
-EXPORT_SYMBOL(__ipipe_spin_unlock_debug);
+EXPORT_SYMBOL_GPL(__ipipe_spin_unlock_debug);
 
 #endif /* CONFIG_IPIPE_DEBUG_INTERNAL && CONFIG_SMP */
 
@@ -1690,26 +1687,3 @@ void ipipe_prepare_panic(void)
 	ipipe_context_check_off();
 }
 EXPORT_SYMBOL_GPL(ipipe_prepare_panic);
-
-EXPORT_SYMBOL(ipipe_alloc_virq);
-EXPORT_SYMBOL(__ipipe_spin_lock_irq);
-EXPORT_SYMBOL(__ipipe_spin_unlock_irq);
-EXPORT_SYMBOL(__ipipe_spin_lock_irqsave);
-EXPORT_SYMBOL(__ipipe_spin_trylock_irq);
-EXPORT_SYMBOL(__ipipe_spin_trylock_irqsave);
-EXPORT_SYMBOL(__ipipe_spin_unlock_irqrestore);
-EXPORT_SYMBOL(ipipe_free_virq);
-EXPORT_SYMBOL(ipipe_catch_event);
-EXPORT_SYMBOL(ipipe_set_irq_affinity);
-EXPORT_SYMBOL(ipipe_send_ipi);
-EXPORT_SYMBOL(__ipipe_event_monitors);
-#if defined(CONFIG_IPIPE_DEBUG_INTERNAL) && defined(CONFIG_SMP)
-EXPORT_SYMBOL(__ipipe_check_percpu_access);
-#endif
-EXPORT_SYMBOL(ipipe_request_tickdev);
-EXPORT_SYMBOL(ipipe_release_tickdev);
-
-EXPORT_SYMBOL(ipipe_critical_enter);
-EXPORT_SYMBOL(ipipe_critical_exit);
-EXPORT_SYMBOL(ipipe_trigger_irq);
-EXPORT_SYMBOL(ipipe_get_sysinfo);

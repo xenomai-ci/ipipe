@@ -459,7 +459,7 @@ void notrace ipipe_trace_begin(unsigned long v)
 	__ipipe_trace(IPIPE_TRACE_BEGIN, __BUILTIN_RETURN_ADDRESS0,
 	              __BUILTIN_RETURN_ADDRESS1, v);
 }
-EXPORT_SYMBOL(ipipe_trace_begin);
+EXPORT_SYMBOL_GPL(ipipe_trace_begin);
 
 void notrace ipipe_trace_end(unsigned long v)
 {
@@ -468,7 +468,7 @@ void notrace ipipe_trace_end(unsigned long v)
 	__ipipe_trace(IPIPE_TRACE_END, __BUILTIN_RETURN_ADDRESS0,
 	              __BUILTIN_RETURN_ADDRESS1, v);
 }
-EXPORT_SYMBOL(ipipe_trace_end);
+EXPORT_SYMBOL_GPL(ipipe_trace_end);
 
 void notrace ipipe_trace_freeze(unsigned long v)
 {
@@ -477,7 +477,7 @@ void notrace ipipe_trace_freeze(unsigned long v)
 	__ipipe_trace(IPIPE_TRACE_FREEZE, __BUILTIN_RETURN_ADDRESS0,
 	              __BUILTIN_RETURN_ADDRESS1, v);
 }
-EXPORT_SYMBOL(ipipe_trace_freeze);
+EXPORT_SYMBOL_GPL(ipipe_trace_freeze);
 
 void notrace ipipe_trace_special(unsigned char id, unsigned long v)
 {
@@ -487,7 +487,7 @@ void notrace ipipe_trace_special(unsigned char id, unsigned long v)
 	              __BUILTIN_RETURN_ADDRESS0,
 	              __BUILTIN_RETURN_ADDRESS1, v);
 }
-EXPORT_SYMBOL(ipipe_trace_special);
+EXPORT_SYMBOL_GPL(ipipe_trace_special);
 
 void notrace ipipe_trace_pid(pid_t pid, short prio)
 {
@@ -497,7 +497,7 @@ void notrace ipipe_trace_pid(pid_t pid, short prio)
 	              __BUILTIN_RETURN_ADDRESS0,
 	              __BUILTIN_RETURN_ADDRESS1, pid);
 }
-EXPORT_SYMBOL(ipipe_trace_pid);
+EXPORT_SYMBOL_GPL(ipipe_trace_pid);
 
 void notrace ipipe_trace_event(unsigned char id, unsigned long delay_tsc)
 {
@@ -507,7 +507,7 @@ void notrace ipipe_trace_event(unsigned char id, unsigned long delay_tsc)
 	              __BUILTIN_RETURN_ADDRESS0,
 	              __BUILTIN_RETURN_ADDRESS1, delay_tsc);
 }
-EXPORT_SYMBOL(ipipe_trace_event);
+EXPORT_SYMBOL_GPL(ipipe_trace_event);
 
 int ipipe_trace_max_reset(void)
 {
@@ -536,7 +536,7 @@ int ipipe_trace_max_reset(void)
 
 	return ret;
 }
-EXPORT_SYMBOL(ipipe_trace_max_reset);
+EXPORT_SYMBOL_GPL(ipipe_trace_max_reset);
 
 int ipipe_trace_frozen_reset(void)
 {
@@ -565,7 +565,7 @@ int ipipe_trace_frozen_reset(void)
 
 	return ret;
 }
-EXPORT_SYMBOL(ipipe_trace_frozen_reset);
+EXPORT_SYMBOL_GPL(ipipe_trace_frozen_reset);
 
 static void
 __ipipe_get_task_info(char *task_info, struct ipipe_trace_point *point,
@@ -622,6 +622,7 @@ __ipipe_get_event_date(char *buf,struct ipipe_trace_path *path,
 }
 
 #ifdef CONFIG_IPIPE_TRACE_PANIC
+
 void ipipe_trace_panic_freeze(void)
 {
 	unsigned long flags;
@@ -639,7 +640,7 @@ void ipipe_trace_panic_freeze(void)
 
 	local_irq_restore_hw(flags);
 }
-EXPORT_SYMBOL(ipipe_trace_panic_freeze);
+EXPORT_SYMBOL_GPL(ipipe_trace_panic_freeze);
 
 void ipipe_trace_panic_dump(void)
 {
@@ -714,7 +715,8 @@ void ipipe_trace_panic_dump(void)
 
 	panic_path = NULL;
 }
-EXPORT_SYMBOL(ipipe_trace_panic_dump);
+EXPORT_SYMBOL_GPL(ipipe_trace_panic_dump);
+
 #endif /* CONFIG_IPIPE_TRACE_PANIC */
 
 
