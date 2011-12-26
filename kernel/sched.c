@@ -3144,8 +3144,6 @@ asmlinkage void schedule_tail(struct task_struct *prev)
 #endif
 	if (current->set_child_tid)
 		put_user(task_pid_vnr(current), current->set_child_tid);
-
- 	ipipe_init_notify(current);
 }
 
 /*

@@ -299,12 +299,6 @@ do {									\
 		__ret__;						\
 	})
 
-#define ipipe_init_notify(p)						\
-	do {								\
-		if (__ipipe_event_monitored_p(IPIPE_EVENT_INIT))	\
-			__ipipe_dispatch_event(IPIPE_EVENT_INIT, p);	\
-	} while (0)
-
 #define ipipe_cleanup_notify(mm)					\
 	do {								\
 		if (__ipipe_event_monitored_p(IPIPE_EVENT_CLEANUP))	\
@@ -483,7 +477,6 @@ static inline struct ipipe_threadinfo *ipipe_current_threadinfo(void)
 #define ipipe_suspend_domain()		do { } while(0)
 #define ipipe_sigwake_notify(p)		do { } while(0)
 #define ipipe_setsched_notify(p)	do { } while(0)
-#define ipipe_init_notify(p)		do { } while(0)
 #define ipipe_exit_notify(p)		do { } while(0)
 #define ipipe_cleanup_notify(mm)	do { } while(0)
 #define ipipe_trap_notify(t,r)		0
