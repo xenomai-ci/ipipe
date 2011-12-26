@@ -347,7 +347,7 @@ static int __ipipe_exit_irq(struct pt_regs *regs)
 		 * always kernel-based).
 		 */
 		current->ipipe_flags &= ~PF_EVTRET;
-		__ipipe_dispatch_event(IPIPE_EVENT_RETURN, regs);
+		__ipipe_notify_trap(IPIPE_TRAP_MAYDAY, regs);
 	}
 
 	if (root &&
@@ -541,7 +541,7 @@ asmlinkage int __ipipe_syscall_root(struct pt_regs *regs)
 #ifdef CONFIG_PPC64
 	local_irq_enable_hw();
 #endif
-        ret = __ipipe_dispatch_event(IPIPE_EVENT_SYSCALL, regs);
+        ret = __ipipe_notify_syscall(regs);
 
 	local_irq_disable_hw();
 
@@ -551,7 +551,7 @@ asmlinkage int __ipipe_syscall_root(struct pt_regs *regs)
 	 */
 	if (current->ipipe_flags & PF_EVTRET) {
 		current->ipipe_flags &= ~PF_EVTRET;
-		__ipipe_dispatch_event(IPIPE_EVENT_RETURN, regs);
+		__ipipe_notify_trap(IPIPE_TRAP_MAYDAY, regs);
 	}
 
         if (!__ipipe_root_p) {

@@ -94,18 +94,8 @@
 #define IPIPE_TRAP_ALTASSIST	13	/* Altivec assist exception */
 #define IPIPE_TRAP_CACHE	14	/* Cache-locking exception (FSL) */
 #define IPIPE_TRAP_KFPUNAVAIL	15	/* FP unavailable exception */
-#define IPIPE_NR_FAULTS		16
-/* Pseudo-vectors used for kernel events */
-#define IPIPE_FIRST_EVENT		IPIPE_NR_FAULTS
-#define IPIPE_EVENT_SYSCALL		(IPIPE_FIRST_EVENT)
-#define IPIPE_EVENT_SCHEDULE		(IPIPE_FIRST_EVENT + 1)
-#define IPIPE_EVENT_SIGWAKE		(IPIPE_FIRST_EVENT + 2)
-#define IPIPE_EVENT_SETSCHED		(IPIPE_FIRST_EVENT + 3)
-#define IPIPE_EVENT_EXIT		(IPIPE_FIRST_EVENT + 4)
-#define IPIPE_EVENT_CLEANUP		(IPIPE_FIRST_EVENT + 5)
-#define IPIPE_EVENT_RETURN		(IPIPE_FIRST_EVENT + 6)
-#define IPIPE_LAST_EVENT		IPIPE_EVENT_RETURN
-#define IPIPE_NR_EVENTS			(IPIPE_LAST_EVENT + 1)
+#define IPIPE_TRAP_MAYDAY	16	/* Internal recovery trap */
+#define IPIPE_NR_FAULTS		17
 
 #ifndef __ASSEMBLY__
 
