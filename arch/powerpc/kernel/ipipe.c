@@ -535,8 +535,7 @@ asmlinkage int __ipipe_syscall_root(struct pt_regs *regs)
          * tail work has to be performed (for handling signals etc).
          */
 
-        if (!__ipipe_syscall_watched_p(current, regs->gpr[0]) ||
-            !__ipipe_event_monitored_p(IPIPE_EVENT_SYSCALL))
+        if (!__ipipe_syscall_watched_p(current, regs->gpr[0]))
                 return 0;
 
 #ifdef CONFIG_PPC64
