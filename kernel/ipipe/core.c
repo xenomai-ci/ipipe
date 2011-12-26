@@ -117,9 +117,6 @@ unsigned int __ipipe_printk_virq;
 int __ipipe_printk_bypass;
 #endif /* CONFIG_PRINTK */
 
-int __ipipe_event_monitors[IPIPE_NR_EVENTS];
-EXPORT_SYMBOL_GPL(__ipipe_event_monitors);
-
 #ifdef CONFIG_PROC_FS
 
 struct proc_dir_entry *ipipe_proc_root;
@@ -363,7 +360,7 @@ static void init_stage(struct ipipe_domain *ipd)
 {
 	struct ipipe_percpu_domain_data *p;
 	unsigned long status;
-	int cpu, n;
+	int cpu;
 
 	for_each_online_cpu(cpu) {
 		p = ipipe_percpudom_ptr(ipd, cpu);
@@ -372,17 +369,9 @@ static void init_stage(struct ipipe_domain *ipd)
 		p->status = status;
 	}
 
-	for (n = 0; n < IPIPE_NR_IRQS; n++) {
-		ipd->irqs[n].ackfn = NULL;
-		ipd->irqs[n].handler = NULL;
-		ipd->irqs[n].control = 0;
-	}
-
-	for (n = 0; n < IPIPE_NR_EVENTS; n++)
-		ipd->evhand[n] = NULL;
-
-	ipd->evself = 0LL;
+	memset(&ipd->irqs, 0, sizeof(ipd->irqs));
 	mutex_init(&ipd->mutex);
+	__ipipe_legacy_init_stage(ipd);
 
 	__ipipe_hook_critical_ipi(ipd);
 }
@@ -406,10 +395,6 @@ void __init ipipe_init_early(void)
 	/* Reserve percpu data slot #0 for the root domain. */
 	ipd->slot = IPIPE_ROOT_SLOT;
 	ipd->name = "Linux";
-#ifdef CONFIG_IPIPE_LEGACY
-	ipd->domid = IPIPE_ROOT_ID;
-	ipd->priority = IPIPE_ROOT_PRIO;
-#endif
 	init_stage(ipd);
 	__ipipe_init_platform();
 
@@ -875,7 +860,7 @@ next:
 			__ipipe_sync_stage();
 		else {
 			/* Switching to head. */
-			p->evsync = 0;
+			p->coflags &= ~__IPIPE_ALL_R;
 			__ipipe_current_domain = ipd;
 			__ipipe_sync_stage();
 			__ipipe_current_domain = ipipe_root_domain;
@@ -1007,11 +992,63 @@ out:
 }
 EXPORT_SYMBOL_GPL(ipipe_free_irq);
 
-int __ipipe_dispatch_event(unsigned int event, void *data)
+void ipipe_set_hooks(struct ipipe_domain *ipd, int enables)
+{
+	struct ipipe_percpu_domain_data *p;
+	unsigned long flags;
+	int cpu, wait;
+
+	if (ipd == ipipe_root_domain) {
+		IPIPE_WARN(enables & __IPIPE_TRAP_E);
+		enables &= ~__IPIPE_TRAP_E;
+	} else {
+		IPIPE_WARN(enables & __IPIPE_KEVENT_E);
+		enables &= ~__IPIPE_KEVENT_E;
+	}
+
+	flags = ipipe_critical_enter(NULL);
+
+	for_each_online_cpu(cpu) {
+		p = ipipe_percpudom_ptr(ipd, cpu);
+		p->coflags &= ~__IPIPE_ALL_E;
+		p->coflags |= enables;
+	}
+
+	wait = (enables ^ __IPIPE_ALL_E) << __IPIPE_SHIFT_R;
+	if (wait == 0 || !__ipipe_root_p) {
+		ipipe_critical_exit(flags);
+		return;
+	}
+
+	ipipe_cpudom_var(ipd, coflags) &= ~wait;
+
+	ipipe_critical_exit(flags);
+
+	/*
+	 * In case we cleared some hooks over the root domain, we have
+	 * to wait for any ongoing execution to finish, since our
+	 * caller might subsequently unmap the target domain code.
+	 *
+	 * We synchronize with the relevant __ipipe_notify_*()
+	 * helpers, disabling all hooks before we start waiting for
+	 * completion on all CPUs.
+	 */
+	for_each_online_cpu(cpu) {
+		while (ipipe_percpudom(ipd, coflags, cpu) & wait)
+			schedule_timeout_interruptible(HZ / 50);
+	}
+}
+EXPORT_SYMBOL_GPL(ipipe_set_hooks);
+
+int __weak ipipe_syscall_hook(struct ipipe_domain *ipd, struct pt_regs *regs)
+{
+	return 0;
+}
+
+int __ipipe_notify_syscall(struct pt_regs *regs)
 {
 	struct ipipe_domain *caller_domain, *this_domain, *ipd;
 	struct ipipe_percpu_domain_data *p;
-	ipipe_event_handler_t handler;
 	unsigned long flags;
 	int ret = 0;
 
@@ -1019,15 +1056,14 @@ int __ipipe_dispatch_event(unsigned int event, void *data)
 	ipd = ipipe_head_domain;
 	local_irq_save_hw(flags);
 next:
-	handler = ipd->evhand[event];
-	if (handler) {
-		p = ipipe_cpudom_ptr(ipd);
+	p = ipipe_cpudom_ptr(ipd);
+	if (likely(p->coflags & __IPIPE_SYSCALL_E)) {
 		__ipipe_current_domain = ipd;
-		p->evsync |= (1LL << event);
+		p->coflags |= __IPIPE_SYSCALL_R;
 		local_irq_restore_hw(flags);
-		ret = handler(event, caller_domain, data);
+		ret = ipipe_syscall_hook(caller_domain, regs);
 		local_irq_save_hw(flags);
-		p->evsync &= ~(1LL << event);
+		p->coflags &= ~__IPIPE_SYSCALL_R;
 		if (__ipipe_current_domain != ipd)
 			/* Account for domain migration. */
 			this_domain = __ipipe_current_domain;
@@ -1039,6 +1075,74 @@ next:
 	    ipd != ipipe_root_domain && ret == 0) {
 		ipd = ipipe_root_domain;
 		goto next;
+	}
+
+	local_irq_restore_hw(flags);
+
+	return ret;
+}
+
+int __weak ipipe_trap_hook(struct ipipe_trap_data *data)
+{
+	return 0;
+}
+
+int __ipipe_notify_trap(int exception, struct pt_regs *regs)
+{
+	struct ipipe_percpu_domain_data *p;
+	struct ipipe_trap_data data;
+	struct ipipe_domain *ipd;
+	unsigned long flags;
+	int ret = 0;
+
+	local_irq_save_hw(flags);
+
+	/*
+	 * We send a notification about all traps raised over the head
+	 * domain.
+	 */
+	ipd = __ipipe_current_domain;
+	if (ipd == ipipe_root_domain)
+		goto out;
+
+	p = ipipe_cpudom_ptr(ipd);
+	if (likely(p->coflags & __IPIPE_TRAP_E)) {
+		p->coflags |= __IPIPE_TRAP_R;
+		local_irq_restore_hw(flags);
+		data.exception = exception;
+		data.regs = regs;
+		ret = ipipe_trap_hook(&data);
+		local_irq_save_hw(flags);
+		p->coflags &= ~__IPIPE_TRAP_R;
+	}
+out:
+	local_irq_restore_hw(flags);
+
+	return ret;
+}
+
+int __weak ipipe_kevent_hook(int kevent, void *data)
+{
+	return 0;
+}
+
+int __ipipe_notify_kevent(int kevent, void *data)
+{
+	struct ipipe_percpu_domain_data *p;
+	unsigned long flags;
+	int ret = 0;
+
+	ipipe_root_only();
+
+	local_irq_save_hw(flags);
+
+	p = ipipe_root_cpudom_ptr();
+	if (likely(p->coflags & __IPIPE_KEVENT_E)) {
+		p->coflags |= __IPIPE_KEVENT_R;
+		local_irq_restore_hw(flags);
+		ret = ipipe_kevent_hook(kevent, data);
+		local_irq_save_hw(flags);
+		p->coflags &= ~__IPIPE_KEVENT_R;
 	}
 
 	local_irq_restore_hw(flags);
@@ -1304,89 +1408,6 @@ void __ipipe_pend_irq(struct ipipe_domain *ipd, unsigned int irq)
 }
 EXPORT_SYMBOL_GPL(__ipipe_pend_irq);
 
-ipipe_event_handler_t ipipe_catch_event(struct ipipe_domain *ipd,
-					unsigned int event,
-					ipipe_event_handler_t handler)
-{
-	ipipe_event_handler_t old_handler;
-	unsigned long flags;
-	int self = 0, cpu;
-
-	if (event & IPIPE_EVENT_SELF) {
-		event &= ~IPIPE_EVENT_SELF;
-		self = 1;
-	}
-
-	if (event >= IPIPE_NR_EVENTS)
-		return NULL;
-
-	flags = ipipe_critical_enter(NULL);
-
-	if (!(old_handler = xchg(&ipd->evhand[event],handler)))	{
-		if (handler) {
-			if (self)
-				ipd->evself |= (1LL << event);
-			else
-				__ipipe_event_monitors[event]++;
-		}
-	}
-	else if (!handler) {
-		if (ipd->evself & (1LL << event))
-			ipd->evself &= ~(1LL << event);
-		else
-			__ipipe_event_monitors[event]--;
-	} else if ((ipd->evself & (1LL << event)) && !self) {
-			__ipipe_event_monitors[event]++;
-			ipd->evself &= ~(1LL << event);
-	} else if (!(ipd->evself & (1LL << event)) && self) {
-			__ipipe_event_monitors[event]--;
-			ipd->evself |= (1LL << event);
-	}
-
-	ipipe_critical_exit(flags);
-
-	if (!handler && ipipe_root_p) {
-		/*
-		 * If we cleared a handler on behalf of the root
-		 * domain, we have to wait for any current invocation
-		 * to drain, since our caller might subsequently unmap
-		 * the target domain. To this aim, this code
-		 * synchronizes with __ipipe_dispatch_event(),
-		 * guaranteeing that either the dispatcher sees a null
-		 * handler in which case it discards the invocation
-		 * (which also prevents from entering a livelock), or
-		 * finds a valid handler and calls it. Symmetrically,
-		 * ipipe_catch_event() ensures that the called code
-		 * won't be unmapped under our feet until the event
-		 * synchronization flag is cleared for the given event
-		 * on all CPUs.
-		 */
-		preempt_disable();
-		cpu = smp_processor_id();
-		/*
-		 * Hack: this solves the potential migration issue
-		 * raised in __ipipe_dispatch_event(). This is a
-		 * work-around which makes the assumption that other
-		 * CPUs will subsequently, either process at least one
-		 * interrupt for the target domain, or call
-		 * __ipipe_dispatch_event() without going through a
-		 * migration while running the handler at least once;
-		 * practically, this is safe on any normally running
-		 * system.
-		 */
-		ipipe_percpudom(ipd, evsync, cpu) &= ~(1LL << event);
-		preempt_enable();
-
-		for_each_online_cpu(cpu) {
-			while (ipipe_percpudom(ipd, evsync, cpu) & (1LL << event))
-				schedule_timeout_interruptible(HZ / 50);
-		}
-	}
-
-	return old_handler;
-}
-EXPORT_SYMBOL_GPL(ipipe_catch_event);
-
 int ipipe_set_irq_affinity (unsigned int irq, cpumask_t cpumask)
 {
 #ifdef CONFIG_SMP
@@ -1542,28 +1563,27 @@ void ipipe_critical_exit(unsigned long flags)
 EXPORT_SYMBOL_GPL(ipipe_critical_exit);
 
 #ifdef CONFIG_HAVE_IPIPE_HOSTRT
+
 /*
  * NOTE: The architecture specific code must only call this function
  * when a clocksource suitable for CLOCK_HOST_REALTIME is enabled.
+ * The event receiver is responsible for providing proper locking.
  */
 void ipipe_update_hostrt(struct timespec *wall_time, struct clocksource *clock)
 {
-	struct ipipe_hostrt_data hostrt_data;
+	struct ipipe_hostrt_data data;
 
-	hostrt_data.live = 1;
-	hostrt_data.cycle_last = clock->cycle_last;
-	hostrt_data.mask = clock->mask;
-	hostrt_data.mult = clock->mult;
-	hostrt_data.shift = clock->shift;
-	hostrt_data.wall_time_sec = wall_time->tv_sec;
-	hostrt_data.wall_time_nsec = wall_time->tv_nsec;
-	hostrt_data.wall_to_monotonic = __get_wall_to_monotonic();
-
-	/* Note: The event receiver is responsible for providing
-	   proper locking */
-	if (__ipipe_event_monitored_p(IPIPE_EVENT_HOSTRT))
-		__ipipe_dispatch_event(IPIPE_EVENT_HOSTRT, &hostrt_data);
+	data.live = 1;
+	data.cycle_last = clock->cycle_last;
+	data.mask = clock->mask;
+	data.mult = clock->mult;
+	data.shift = clock->shift;
+	data.wall_time_sec = wall_time->tv_sec;
+	data.wall_time_nsec = wall_time->tv_nsec;
+	data.wall_to_monotonic = __get_wall_to_monotonic();
+	__ipipe_notify_kevent(IPIPE_KEVT_HOSTRT, &data);
 }
+
 #endif /* CONFIG_HAVE_IPIPE_HOSTRT */
 
 #ifdef CONFIG_IPIPE_DEBUG_CONTEXT

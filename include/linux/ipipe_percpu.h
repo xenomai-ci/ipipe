@@ -36,11 +36,24 @@ struct ipipe_percpu_domain_data {
 	unsigned long irqpend_lomap[IPIPE_IRQ_LOMAPSZ];
 	unsigned long irqheld_map[IPIPE_IRQ_LOMAPSZ];
 	unsigned long irqall[IPIPE_NR_IRQS];
-	u64 evsync;
+	int coflags;
 };
 
-#define IPIPE_ROOT_SLOT			0
-#define IPIPE_HEAD_SLOT			1
+#define IPIPE_ROOT_SLOT  0
+#define IPIPE_HEAD_SLOT  1
+
+#define __IPIPE_SYSCALL_P  0
+#define __IPIPE_TRAP_P     1
+#define __IPIPE_KEVENT_P   2
+#define __IPIPE_SYSCALL_E (1 << __IPIPE_SYSCALL_P)
+#define __IPIPE_TRAP_E	  (1 << __IPIPE_TRAP_P)
+#define __IPIPE_KEVENT_E  (1 << __IPIPE_KEVENT_P)
+#define __IPIPE_ALL_E	   0x7
+#define __IPIPE_SYSCALL_R (8 << __IPIPE_SYSCALL_P)
+#define __IPIPE_TRAP_R	  (8 << __IPIPE_TRAP_P)
+#define __IPIPE_KEVENT_R  (8 << __IPIPE_KEVENT_P)
+#define __IPIPE_SHIFT_R	   3
+#define __IPIPE_ALL_R	  (__IPIPE_ALL_E << __IPIPE_SHIFT_R)
 
 /*
  * CAREFUL: all accessors based on __raw_get_cpu_var() you may find in
@@ -85,5 +98,10 @@ DECLARE_PER_CPU(int, ipipe_saved_context_check_state);
 	(&__ipipe_get_cpu_var(ipipe_percpu_darray)[IPIPE_HEAD_SLOT])
 
 #define ipipe_head_cpudom_var(var)	ipipe_head_cpudom_ptr()->var
+
+static inline int __ipipe_ipending_p(struct ipipe_percpu_domain_data *p)
+{
+	return p->irqpend_himap != 0;
+}
 
 #endif	/* !__LINUX_IPIPE_PERCPU_H */

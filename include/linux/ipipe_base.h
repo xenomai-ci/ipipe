@@ -74,6 +74,21 @@
 #define local_irq_restore_hw_smp(flags)		do { } while(0)
 #endif /* CONFIG_SMP */
 
+struct pt_regs;
+struct ipipe_domain;
+
+struct ipipe_trap_data {
+	int exception;
+	struct pt_regs *regs;
+};
+
+#define IPIPE_KEVT_SCHEDULE	0
+#define IPIPE_KEVT_SIGWAKE	1
+#define IPIPE_KEVT_SETSCHED	2
+#define IPIPE_KEVT_EXIT		3
+#define IPIPE_KEVT_CLEANUP	4
+#define IPIPE_KEVT_HOSTRT	5
+
 typedef void (*ipipe_irq_handler_t)(unsigned int irq,
 				    void *cookie);
 
@@ -136,6 +151,36 @@ static inline void ipipe_root_only(void) { }
 #define __IPIPE_FEATURE_PREPARE_PANIC		1
 #define __IPIPE_FEATURE_ROOT_PREEMPT_NOTIFIER	1
 #define __IPIPE_FEATURE_CONTROL_IRQ		1
+
+#ifdef CONFIG_IPIPE_LEGACY
+
+#define IPIPE_FIRST_EVENT	IPIPE_NR_FAULTS
+#define IPIPE_EVENT_SCHEDULE	IPIPE_FIRST_EVENT
+#define IPIPE_EVENT_SIGWAKE	(IPIPE_FIRST_EVENT + 1)
+#define IPIPE_EVENT_SETSCHED	(IPIPE_FIRST_EVENT + 2)
+#define IPIPE_EVENT_EXIT	(IPIPE_FIRST_EVENT + 3)
+#define IPIPE_EVENT_CLEANUP	(IPIPE_FIRST_EVENT + 4)
+#define IPIPE_EVENT_HOSTRT	(IPIPE_FIRST_EVENT + 5)
+#define IPIPE_EVENT_SYSCALL	(IPIPE_FIRST_EVENT + 6)
+#define IPIPE_LAST_EVENT	IPIPE_EVENT_SYSCALL
+#define IPIPE_NR_EVENTS		(IPIPE_LAST_EVENT + 1)
+
+typedef int (*ipipe_event_handler_t)(unsigned int event,
+				     struct ipipe_domain *from,
+				     void *data);
+struct ipipe_legacy_context {
+	unsigned int domid;
+	int priority;
+	void *pdd;
+	ipipe_event_handler_t handlers[IPIPE_NR_EVENTS];
+};
+
+#else /* !CONFIG_IPIPE_LEGACY */
+
+struct ipipe_legacy_context {
+};
+
+#endif /* !CONFIG_IPIPE_LEGACY */
 
 #else /* !CONFIG_IPIPE */
 

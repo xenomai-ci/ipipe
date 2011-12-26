@@ -47,6 +47,9 @@
 
 #define IPIPE_NR_CPUS		NR_CPUS
 
+#define IPIPE_EVENT_SELF        0x80000000
+#define IPIPE_EVENT_RETURN	IPIPE_TRAP_MAYDAY
+
 struct ipipe_domain_attr {
 	unsigned int domid;
 	const char *name;
@@ -77,11 +80,13 @@ int ipipe_virtualize_irq(struct ipipe_domain *ipd,
 			 ipipe_irq_ackfn_t ackfn,
 			 unsigned int modemask);
 
+ipipe_event_handler_t ipipe_catch_event(struct ipipe_domain *ipd,
+					unsigned int event,
+					ipipe_event_handler_t handler);
+
 static inline void ipipe_check_context(struct ipipe_domain *border_ipd)
 {
-#ifdef CONFIG_IPIPE_DEBUG_CONTEXT
 	ipipe_root_only();
-#endif /* !CONFIG_IPIPE_DEBUG_CONTEXT */
 }
 
 static inline void ipipe_set_printk_sync(struct ipipe_domain *ipd)
@@ -196,6 +201,14 @@ static inline int ipipe_reenter_root(struct task_struct *prev,
  * the support of the invariant pipeline head optimization.
  */
 #define __ipipe_pipeline_head() ipipe_head_domain
+
+void __ipipe_legacy_init_stage(struct ipipe_domain *ipd);
+
+#else
+
+static inline void __ipipe_legacy_init_stage(struct ipipe_domain *ipd)
+{
+}
 
 #endif /* CONFIG_IPIPE_LEGACY */
 

@@ -52,9 +52,9 @@ int ipipe_register_domain(struct ipipe_domain *ipd,
 	BUG_ON(attr->priority != IPIPE_HEAD_PRIORITY);
 
 	ipipe_register_head(ipd, attr->name);
-	ipd->domid = attr->domid;
-	ipd->pdd = attr->pdd;
-	ipd->priority = INT_MAX;
+	ipd->legacy.domid = attr->domid;
+	ipd->legacy.pdd = attr->pdd;
+	ipd->legacy.priority = INT_MAX;
 
 	if (attr->entry == NULL)
 		return 0;
@@ -158,3 +158,105 @@ int ipipe_virtualize_irq(struct ipipe_domain *ipd,
 				 modemask & IPIPE_IRQF_STICKY);
 }
 EXPORT_SYMBOL_GPL(ipipe_virtualize_irq);
+
+static int null_handler(unsigned int event,
+			struct ipipe_domain *from, void *data)
+{
+	/*
+	 * Legacy mode users will trap all events, at worst most
+	 * frequent ones. Therefore it is actually faster to run a
+	 * dummy handler once in a while rather than testing for a
+	 * null handler pointer each time an event is fired.
+	 */
+	return 0;
+}
+
+ipipe_event_handler_t ipipe_catch_event(struct ipipe_domain *ipd,
+					unsigned int event,
+					ipipe_event_handler_t handler)
+{
+	ipipe_event_handler_t oldhandler;
+	int n, enables = 0;
+
+	if (event & IPIPE_EVENT_SELF) {
+		event &= ~IPIPE_EVENT_SELF;
+		IPIPE_WARN(event >= IPIPE_NR_FAULTS);
+	}
+
+	if (event >= IPIPE_NR_EVENTS)
+		return NULL;
+
+	/*
+	 * It makes no sense to receive a SETSCHED notification from
+	 * the head domain, this introduces a useless domain switch
+	 * for running a handler which ought to be doing root specific
+	 * things. Unfortunately, some client domains using the legacy
+	 * interface still ask for this, so we silently fix their
+	 * request. This prevents ipipe_set_hooks() from yelling at us
+	 * because of an attempt to enable kernel event notifications
+	 * for the head domain.
+	 */
+	if (event == IPIPE_EVENT_SETSCHED)
+		ipd = ipipe_root_domain;
+
+	oldhandler = ipd->legacy.handlers[event];
+	ipd->legacy.handlers[event] = handler ?: null_handler;
+
+	for (n = 0; n < IPIPE_NR_FAULTS; n++) {
+		if (ipd->legacy.handlers[n] != null_handler) {
+			enables |= __IPIPE_TRAP_E;
+			break;
+		}
+	}
+
+	for (n = IPIPE_FIRST_EVENT; n < IPIPE_LAST_EVENT; n++) {
+		if (ipd->legacy.handlers[n] != null_handler) {
+			enables |= __IPIPE_KEVENT_E;
+			break;
+		}
+	}
+
+	if (ipd->legacy.handlers[IPIPE_EVENT_SYSCALL] != null_handler)
+		enables |= __IPIPE_SYSCALL_E;
+
+	ipipe_set_hooks(ipd, enables);
+
+	return oldhandler == null_handler ? NULL : oldhandler;
+}
+EXPORT_SYMBOL_GPL(ipipe_catch_event);
+
+int ipipe_syscall_hook(struct ipipe_domain *ipd, struct pt_regs *regs)
+{
+	const int event = IPIPE_EVENT_SYSCALL;
+	return ipipe_current_domain->legacy.handlers[event](event, ipd, regs);
+}
+
+int ipipe_trap_hook(struct ipipe_trap_data *data)
+{
+	struct ipipe_domain *ipd = ipipe_head_domain;
+	struct pt_regs *regs = data->regs;
+	int ex = data->exception;
+
+	return ipd->legacy.handlers[ex](ex, ipd, regs);
+}
+
+int ipipe_kevent_hook(int kevent, void *data)
+{
+	unsigned int event = IPIPE_FIRST_EVENT + kevent;
+	struct ipipe_domain *ipd = ipipe_root_domain;
+
+	return ipd->legacy.handlers[event](event, ipd, data);
+}
+
+void __ipipe_legacy_init_stage(struct ipipe_domain *ipd)
+{
+	int n;
+
+	for (n = 0; n < IPIPE_NR_EVENTS; n++)
+		ipd->legacy.handlers[n] = null_handler;
+
+	if (ipd == &ipipe_root) {
+		ipd->legacy.domid = IPIPE_ROOT_ID;
+		ipd->legacy.priority = IPIPE_ROOT_PRIO;
+	}
+}
