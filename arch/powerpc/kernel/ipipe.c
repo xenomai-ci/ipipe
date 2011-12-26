@@ -297,13 +297,9 @@ int ipipe_get_sysinfo(struct ipipe_sysinfo *info)
 
 	return 0;
 }
+EXPORT_SYMBOL_GPL(ipipe_get_sysinfo);
 
-/*
- * ipipe_trigger_irq() -- Push the interrupt at front of the pipeline
- * just like if it has been actually received from a hw source. Also
- * works for virtual interrupts.
- */
-int ipipe_trigger_irq(unsigned irq)
+int ipipe_trigger_irq(unsigned int irq)
 {
 	unsigned long flags;
 
@@ -323,6 +319,7 @@ int ipipe_trigger_irq(unsigned irq)
 
 	return 1;
 }
+EXPORT_SYMBOL_GPL(ipipe_trigger_irq);
 
 static int __ipipe_exit_irq(struct pt_regs *regs)
 {
