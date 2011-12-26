@@ -29,51 +29,8 @@
 #include <linux/linkage.h>
 #include <linux/thread_info.h>
 #include <linux/ipipe_base.h>
+#include <linux/ipipe_debug.h>
 #include <asm/ipipe.h>
-#include <asm/bug.h>
-
-#ifdef CONFIG_IPIPE_DEBUG_CONTEXT
-
-#include <linux/cpumask.h>
-#include <asm/system.h>
-
-static inline int ipipe_disable_context_check(int cpu)
-{
-	return xchg(&per_cpu(ipipe_percpu_context_check, cpu), 0);
-}
-
-static inline void ipipe_restore_context_check(int cpu, int old_state)
-{
-	per_cpu(ipipe_percpu_context_check, cpu) = old_state;
-}
-
-static inline void ipipe_context_check_off(void)
-{
-	int cpu;
-	for_each_online_cpu(cpu)
-		per_cpu(ipipe_percpu_context_check, cpu) = 0;
-}
-
-#else	/* !CONFIG_IPIPE_DEBUG_CONTEXT */
-
-static inline int ipipe_disable_context_check(int cpu)
-{
-	return 0;
-}
-
-static inline void ipipe_restore_context_check(int cpu, int old_state) { }
-
-static inline void ipipe_context_check_off(void) { }
-
-#endif	/* !CONFIG_IPIPE_DEBUG_CONTEXT */
-
-#ifdef CONFIG_IPIPE_DEBUG_INTERNAL
-#define IPIPE_WARN(c)		WARN_ON(c)
-#define IPIPE_WARN_ONCE(c)	WARN_ON_ONCE(c)
-#else
-#define IPIPE_WARN(c)		do { (void)(c); } while (0)
-#define IPIPE_WARN_ONCE(c)	do { (void)(c); } while (0)
-#endif
 
 #ifdef CONFIG_IPIPE
 
@@ -81,11 +38,6 @@ static inline void ipipe_context_check_off(void) { }
 #define IPIPE_RELEASE_NUMBER	((IPIPE_MAJOR_NUMBER << 16) | \
 				 (IPIPE_MINOR_NUMBER <<  8) | \
 				 (IPIPE_PATCH_NUMBER))
-
-#ifndef BROKEN_BUILTIN_RETURN_ADDRESS
-#define __BUILTIN_RETURN_ADDRESS0 ((unsigned long)__builtin_return_address(0))
-#define __BUILTIN_RETURN_ADDRESS1 ((unsigned long)__builtin_return_address(1))
-#endif /* !BUILTIN_RETURN_ADDRESS */
 
 /* ipipe_request_irq(..., irqflags) */
 #define IPIPE_IRQF_STICKY	IPIPE_STICKY_MASK
@@ -109,9 +61,9 @@ static inline void ipipe_context_check_off(void) { }
 					 (irq) < IPIPE_NR_IRQS)
 struct irq_desc;
 
-typedef void (*ipipe_irq_ackfn_t)(unsigned irq, struct irq_desc *desc);
+typedef void (*ipipe_irq_ackfn_t)(unsigned int irq, struct irq_desc *desc);
 
-typedef int (*ipipe_event_handler_t)(unsigned event,
+typedef int (*ipipe_event_handler_t)(unsigned int event,
 				     struct ipipe_domain *from,
 				     void *data);
 struct ipipe_domain {
@@ -139,7 +91,7 @@ struct ipipe_domain {
 #define __ipipe_irq_handler(ipd, irq)		(ipd)->irqs[irq].handler
 #define __ipipe_cpudata_irq_hits(ipd, cpu, irq)	ipipe_percpudom(ipd, irqall, cpu)[irq]
 
-extern unsigned __ipipe_printk_virq;
+extern unsigned int __ipipe_printk_virq;
 
 extern unsigned long __ipipe_virtual_irq_map;
 
@@ -164,17 +116,17 @@ void __ipipe_init_tracer(void);
 #define ipipe_init_proc()	do { } while(0)
 #endif	/* CONFIG_PROC_FS */
 
-void __ipipe_flush_printk(unsigned irq, void *cookie);
+void __ipipe_flush_printk(unsigned int irq, void *cookie);
 
 void __ipipe_pend_irq(struct ipipe_domain *ipd, unsigned int irq);
 
 void __ipipe_dispatch_irq(unsigned int irq, int ackit);
 
-int __ipipe_dispatch_event(unsigned event, void *data);
+int __ipipe_dispatch_event(unsigned int event, void *data);
 
 void __ipipe_dispatch_irq_fast_nocheck(unsigned int irq);
 
-void __ipipe_set_irq_pending(struct ipipe_domain *ipd, unsigned irq);
+void __ipipe_set_irq_pending(struct ipipe_domain *ipd, unsigned int irq);
 
 void __ipipe_do_sync_stage(void);
 
@@ -193,6 +145,8 @@ int __ipipe_setscheduler_root(struct task_struct *p,
 int __ipipe_disable_ondemand_mappings(struct task_struct *p);
 
 void __ipipe_reenter_root(struct task_struct *prev);
+
+void __ipipe_do_critical_sync(unsigned int irq, void *cookie);
 
 /* Must be called hw IRQs off. */
 static inline void __ipipe_dispatch_irq_fast(unsigned int irq)
@@ -265,20 +219,15 @@ static inline void __ipipe_sync_pipeline(struct ipipe_domain *top)
 
 #define __ipipe_ipending_p(p)	((p)->irqpend_himap != 0)
 
+#ifdef CONFIG_SMP
+int __ipipe_set_irq_affinity(unsigned int irq, cpumask_t cpumask);
+int __ipipe_send_ipi(unsigned int ipi, cpumask_t cpumask);
+#endif /* CONFIG_SMP */
+
 #define local_irq_enable_hw_cond()		local_irq_enable_hw()
 #define local_irq_disable_hw_cond()		local_irq_disable_hw()
 #define local_irq_save_hw_cond(flags)		local_irq_save_hw(flags)
 #define local_irq_restore_hw_cond(flags)	local_irq_restore_hw(flags)
-
-#ifdef CONFIG_SMP
-int __ipipe_set_irq_affinity(unsigned irq, cpumask_t cpumask);
-int __ipipe_send_ipi(unsigned ipi, cpumask_t cpumask);
-#define local_irq_save_hw_smp(flags)		local_irq_save_hw(flags)
-#define local_irq_restore_hw_smp(flags)		local_irq_restore_hw(flags)
-#else /* !CONFIG_SMP */
-#define local_irq_save_hw_smp(flags)		do { (void)(flags); } while(0)
-#define local_irq_restore_hw_smp(flags)		do { } while(0)
-#endif /* CONFIG_SMP */
 
 #define local_irq_save_full(vflags, rflags)		\
 	do {						\
@@ -381,11 +330,11 @@ int ipipe_request_irq(struct ipipe_domain *ipd,
 void ipipe_free_irq(struct ipipe_domain *ipd,
 		    unsigned int irq);
 
-unsigned ipipe_alloc_virq(void);
+unsigned int ipipe_alloc_virq(void);
 
-int ipipe_free_virq(unsigned virq);
+int ipipe_free_virq(unsigned int virq);
 
-int ipipe_trigger_irq(unsigned irq);
+int ipipe_trigger_irq(unsigned int irq);
 
 static inline void ipipe_propagate_irq(unsigned int irq)
 {
@@ -399,12 +348,12 @@ static inline void ipipe_schedule_irq(unsigned int irq)
 	__ipipe_pend_irq(__ipipe_current_domain, irq);
 }
 
-static inline void ipipe_schedule_irq_head(unsigned irq)
+static inline void ipipe_schedule_irq_head(unsigned int irq)
 {
 	__ipipe_set_irq_pending(ipipe_head_domain, irq);
 }
 
-static inline void ipipe_schedule_irq_root(unsigned irq)
+static inline void ipipe_schedule_irq_root(unsigned int irq)
 {
 	__ipipe_set_irq_pending(&ipipe_root, irq);
 }
@@ -427,19 +376,14 @@ void __ipipe_restore_head(unsigned long x);
 
 static inline void ipipe_restore_head(unsigned long x)
 {
-#ifdef CONFIG_IPIPE_DEBUG
-	if (WARN_ON_ONCE(!irqs_disabled_hw()))
-		local_irq_disable_hw();
-#endif
+	ipipe_check_irqoff();
 	if ((x ^ test_bit(IPIPE_STALL_FLAG, &ipipe_head_cpudom_var(status))) & 1)
 		__ipipe_restore_head(x);
 }
 
 int ipipe_get_sysinfo(struct ipipe_sysinfo *sysinfo);
 
-void __ipipe_do_critical_sync(unsigned irq, void *cookie);
-
-unsigned long ipipe_critical_enter(void (*syncfn) (void));
+unsigned long ipipe_critical_enter(void (*syncfn)(void));
 
 void ipipe_critical_exit(unsigned long flags);
 
@@ -476,13 +420,13 @@ static inline int ipipe_test_foreign_stack(void)
 #endif
 
 ipipe_event_handler_t ipipe_catch_event(struct ipipe_domain *ipd,
-					unsigned event,
+					unsigned int event,
 					ipipe_event_handler_t handler);
 
 int ipipe_set_irq_affinity(unsigned int irq,
 			   cpumask_t cpumask);
 
-int ipipe_send_ipi(unsigned ipi,
+int ipipe_send_ipi(unsigned int ipi,
 		   cpumask_t cpumask);
 
 static inline void ipipe_nmi_enter(void)
@@ -491,22 +435,14 @@ static inline void ipipe_nmi_enter(void)
 
 	per_cpu(ipipe_nmi_saved_root, cpu) = ipipe_root_cpudom_var(status);
 	__set_bit(IPIPE_STALL_FLAG, &ipipe_root_cpudom_var(status));
-
-#ifdef CONFIG_IPIPE_DEBUG_CONTEXT
-	per_cpu(ipipe_saved_context_check_state, cpu) =
-		ipipe_disable_context_check(cpu);
-#endif /* CONFIG_IPIPE_DEBUG_CONTEXT */
+	ipipe_save_context_nmi(cpu);
 }
 
 static inline void ipipe_nmi_exit(void)
 {
 	int cpu = ipipe_processor_id();
 
-#ifdef CONFIG_IPIPE_DEBUG_CONTEXT
-	ipipe_restore_context_check
-		(cpu, per_cpu(ipipe_saved_context_check_state, cpu));
-#endif /* CONFIG_IPIPE_DEBUG_CONTEXT */
-
+	ipipe_restore_context_nmi(cpu);
 	if (!test_bit(IPIPE_STALL_FLAG, &per_cpu(ipipe_nmi_saved_root, cpu)))
 		__clear_bit(IPIPE_STALL_FLAG, &ipipe_root_cpudom_var(status));
 }

@@ -113,7 +113,7 @@ IPIPE_DEFINE_SPINLOCK(__ipipe_lock);
 unsigned long __ipipe_virtual_irq_map;
 
 #ifdef CONFIG_PRINTK
-unsigned __ipipe_printk_virq;
+unsigned int __ipipe_printk_virq;
 int __ipipe_printk_bypass;
 #endif /* CONFIG_PRINTK */
 
@@ -150,7 +150,7 @@ static int __ipipe_common_info_show(struct seq_file *p, void *data)
 	struct ipipe_domain *ipd = (struct ipipe_domain *)p->private;
 	char handling, stickiness, lockbit, virtuality;
 	unsigned long ctlbits;
-	unsigned irq;
+	unsigned int irq;
 
 	seq_printf(p, "       +---- Handled\n");
 	seq_printf(p, "       |+--- Sticky\n");
@@ -1386,7 +1386,7 @@ ipipe_event_handler_t ipipe_catch_event(struct ipipe_domain *ipd,
 	return old_handler;
 }
 
-int ipipe_set_irq_affinity (unsigned irq, cpumask_t cpumask)
+int ipipe_set_irq_affinity (unsigned int irq, cpumask_t cpumask)
 {
 #ifdef CONFIG_SMP
 	if (irq >= IPIPE_NR_XIRQS)
@@ -1415,7 +1415,7 @@ int ipipe_send_ipi (unsigned ipi, cpumask_t cpumask)
 #ifdef CONFIG_SMP
 
 /* Always called with hw interrupts off. */
-void __ipipe_do_critical_sync(unsigned irq, void *cookie)
+void __ipipe_do_critical_sync(unsigned int irq, void *cookie)
 {
 	int cpu = ipipe_processor_id();
 

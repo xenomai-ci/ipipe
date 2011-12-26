@@ -27,6 +27,11 @@
 
 #include <linux/types.h>
 
+#ifndef BROKEN_BUILTIN_RETURN_ADDRESS
+#define __BUILTIN_RETURN_ADDRESS0 ((unsigned long)__builtin_return_address(0))
+#define __BUILTIN_RETURN_ADDRESS1 ((unsigned long)__builtin_return_address(1))
+#endif /* !BUILTIN_RETURN_ADDRESS */
+
 void ipipe_trace_begin(unsigned long v);
 void ipipe_trace_end(unsigned long v);
 void ipipe_trace_freeze(unsigned long v);
