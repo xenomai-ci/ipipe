@@ -5,6 +5,10 @@ config IPIPE
 	  Activate this option if you want the interrupt pipeline to be
 	  compiled in.
 
+config IPIPE_CORE
+	def_bool y
+	depends on IPIPE
+
 config IPIPE_LEGACY
 	bool "Legacy interface"
 	default y
