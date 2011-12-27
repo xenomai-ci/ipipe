@@ -257,6 +257,10 @@ static inline void ipipe_post_cascade_eoi(struct irq_desc *desc)
 	chip->irq_unmask(&desc->irq_data);
 }
 
+static inline void ipipe_mute_pic(void) { }
+
+static inline void ipipe_unmute_pic(void) { }
+
 #else /* !CONFIG_IPIPE */
 
 #include <linux/interrupt.h>
