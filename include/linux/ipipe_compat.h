@@ -213,6 +213,7 @@ void __ipipe_legacy_init_stage(struct ipipe_domain *ipd);
 #define __IPIPE_FEATURE_ENABLE_NOTIFIER		1
 #define __IPIPE_FEATURE_PREPARE_PANIC		1
 #define __IPIPE_FEATURE_SYSINFO_V2		1
+#define __IPIPE_FEATURE_PIC_MUTE		1
 
 #else
 
