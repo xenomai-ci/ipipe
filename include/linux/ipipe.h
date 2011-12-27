@@ -39,9 +39,6 @@
 				 (IPIPE_MINOR_NUMBER <<  8) | \
 				 (IPIPE_PATCH_NUMBER))
 
-/* ipipe_request_irq(..., irqflags) */
-#define IPIPE_IRQF_STICKY	IPIPE_STICKY_MASK
-
 /* ipipe_set_hooks(..., enables) */
 #define IPIPE_SYSCALL	__IPIPE_SYSCALL_E
 #define IPIPE_TRAP	__IPIPE_TRAP_E
@@ -279,8 +276,7 @@ int ipipe_request_irq(struct ipipe_domain *ipd,
 		      unsigned int irq,
 		      ipipe_irq_handler_t handler,
 		      void *cookie,
-		      ipipe_irq_ackfn_t ackfn,
-		      int irqflags);
+		      ipipe_irq_ackfn_t ackfn);
 
 void ipipe_free_irq(struct ipipe_domain *ipd,
 		    unsigned int irq);

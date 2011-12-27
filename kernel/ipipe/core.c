@@ -146,15 +146,14 @@ static int __ipipe_version_info_proc(char *page,
 static int __ipipe_common_info_show(struct seq_file *p, void *data)
 {
 	struct ipipe_domain *ipd = (struct ipipe_domain *)p->private;
-	char handling, stickiness, lockbit, virtuality;
+	char handling, lockbit, virtuality;
 	unsigned long ctlbits;
 	unsigned int irq;
 
-	seq_printf(p, "       +---- Handled\n");
-	seq_printf(p, "       |+--- Sticky\n");
-	seq_printf(p, "       ||+-- Locked\n");
-	seq_printf(p, "       |||+- Virtual\n");
-	seq_printf(p, "[IRQ]  ||||\n");
+	seq_printf(p, "       +--- Handled\n");
+	seq_printf(p, "       |+-- Locked\n");
+	seq_printf(p, "       ||+- Virtual\n");
+	seq_printf(p, "[IRQ]  |||\n");
 
 	mutex_lock(&ipd->mutex);
 
@@ -181,11 +180,6 @@ static int __ipipe_common_info_show(struct seq_file *p, void *data)
 		else
 			handling = '.';
 
-		if (ctlbits & IPIPE_STICKY_MASK)
-			stickiness = 'S';
-		else
-			stickiness = '.';
-
 		if (ctlbits & IPIPE_LOCK_MASK)
 			lockbit = 'L';
 		else
@@ -196,8 +190,8 @@ static int __ipipe_common_info_show(struct seq_file *p, void *data)
 		else
 			virtuality = '.';
 
-		seq_printf(p, " %3u:  %c%c%c%c\n",
-			     irq, handling, stickiness, lockbit, virtuality);
+		seq_printf(p, " %3u:  %c%c%c\n",
+			     irq, handling, lockbit, virtuality);
 	}
 
 	mutex_unlock(&ipd->mutex);
@@ -935,15 +929,13 @@ int ipipe_request_irq(struct ipipe_domain *ipd,
 		      unsigned int irq,
 		      ipipe_irq_handler_t handler,
 		      void *cookie,
-		      ipipe_irq_ackfn_t ackfn,
-		      int irqflags)
+		      ipipe_irq_ackfn_t ackfn)
 {
 	unsigned long flags;
 	int ret = 0;
 
 	if (handler == NULL ||
-	    (irq >= NR_IRQS && !ipipe_virtual_irq_p(irq)) ||
-	    (irqflags & ~IPIPE_STICKY_MASK))
+	    (irq >= NR_IRQS && !ipipe_virtual_irq_p(irq)))
 		return -EINVAL;
 
 	spin_lock_irqsave(&__ipipe_lock, flags);
@@ -959,7 +951,7 @@ int ipipe_request_irq(struct ipipe_domain *ipd,
 	ipd->irqs[irq].handler = handler;
 	ipd->irqs[irq].cookie = cookie;
 	ipd->irqs[irq].ackfn = ackfn;
-	ipd->irqs[irq].control = IPIPE_HANDLE_MASK|irqflags;
+	ipd->irqs[irq].control = IPIPE_HANDLE_MASK;
 
 	if (irq < NR_IRQS)
 		__ipipe_enable_irqdesc(ipd, irq);

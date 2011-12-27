@@ -154,8 +154,7 @@ int ipipe_virtualize_irq(struct ipipe_domain *ipd,
 		return 0;
 	}
 
-	return ipipe_request_irq(ipd, irq, handler, cookie, ackfn,
-				 modemask & IPIPE_IRQF_STICKY);
+	return ipipe_request_irq(ipd, irq, handler, cookie, ackfn);
 }
 EXPORT_SYMBOL_GPL(ipipe_virtualize_irq);
 
