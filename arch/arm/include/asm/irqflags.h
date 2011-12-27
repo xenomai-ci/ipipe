@@ -180,13 +180,13 @@ void __ipipe_restore_root(unsigned long flags);
 } while (0)
 #define local_irq_save_hw(x) do { \
 	local_save_flags_hw(x); \
-	if (!arch_irqs_disable_flags(x)) { \
+	if (!arch_irqs_disabled_flags(x)) { \
 		local_irq_disable_hw_notrace(); \
 		ipipe_trace_begin(0x80000001); \
 	} \
 } while (0)
 #define local_irq_restore_hw(x) do { \
-	if (!arch_irqs_disable_flags(x)) \
+	if (!arch_irqs_disabled_flags(x)) \
 		ipipe_trace_end(0x80000001); \
 	local_irq_restore_hw_notrace(x); \
 } while (0)
