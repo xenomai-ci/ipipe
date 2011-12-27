@@ -338,14 +338,14 @@ static int __ipipe_exit_irq(struct pt_regs *regs)
 	}
 
 	if (user_mode(regs) &&
-	    (current->ipipe.flags & PF_EVTRET) != 0) {
+	    (current->ipipe.flags & PF_MAYDAY) != 0) {
 		/*
 		 * Testing for user_regs() eliminates foreign stack
 		 * contexts, including from careless domains which did
 		 * not set the foreign stack bit (foreign stacks are
 		 * always kernel-based).
 		 */
-		current->ipipe.flags &= ~PF_EVTRET;
+		current->ipipe.flags &= ~PF_MAYDAY;
 		__ipipe_notify_trap(IPIPE_TRAP_MAYDAY, regs);
 	}
 
@@ -548,8 +548,8 @@ asmlinkage int __ipipe_syscall_root(struct pt_regs *regs)
 	 * This is the end of the syscall path, so we may
 	 * safely assume a valid Linux task stack here.
 	 */
-	if (current->ipipe.flags & PF_EVTRET) {
-		current->ipipe.flags &= ~PF_EVTRET;
+	if (current->ipipe.flags & PF_MAYDAY) {
+		current->ipipe.flags &= ~PF_MAYDAY;
 		__ipipe_notify_trap(IPIPE_TRAP_MAYDAY, regs);
 	}
 

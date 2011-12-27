@@ -59,7 +59,7 @@ DECLARE_PER_CPU(struct mm_struct *, ipipe_active_mm);
 #define prepare_arch_switch(next)			\
 	do {						\
 		local_irq_enable_hw();			\
-		ipipe_schedule_notify(current ,next);	\
+		__ipipe_report_schedule(current, next);	\
 	} while(0)
 
 #define task_hijacked(p)						\
@@ -72,7 +72,7 @@ DECLARE_PER_CPU(struct mm_struct *, ipipe_active_mm);
 
 #define prepare_arch_switch(next)			\
 	do {						\
-		ipipe_schedule_notify(current ,next);	\
+		__ipipe_report_schedule(current, next);	\
 		local_irq_disable_hw();			\
 	} while(0)
 

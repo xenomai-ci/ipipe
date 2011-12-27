@@ -205,7 +205,8 @@ int __ipipe_notify_trap(int exception, struct pt_regs *regs);
 
 int __ipipe_notify_kevent(int event, void *data);
 
-#define __ipipe_report_trap(ex, regs)	__ipipe_notify_trap(ex, regs)
+#define __ipipe_report_trap(exception, regs)				\
+	__ipipe_notify_trap(exception, regs)
 
 #define __ipipe_report_sigwake(p)					\
 	do {								\

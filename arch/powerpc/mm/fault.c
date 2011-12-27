@@ -128,7 +128,7 @@ int __kprobes do_page_fault(struct pt_regs *regs, unsigned long address,
 	int trap = TRAP(regs);
  	int is_exec = trap == 0x400;
 
-	if (ipipe_trap_notify(IPIPE_TRAP_ACCESS,regs))
+	if (__ipipe_report_trap(IPIPE_TRAP_ACCESS,regs))
 	    	return 0;
 
 	mm = current->mm;
