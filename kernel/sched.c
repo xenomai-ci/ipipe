@@ -5247,7 +5247,7 @@ recheck:
 	oldprio = p->prio;
 	prev_class = p->sched_class;
 	__setscheduler(rq, p, policy, param->sched_priority);
-  	ipipe_setsched_notify(p);
+  	__ipipe_report_setsched(p);
 
 	if (running)
 		p->sched_class->set_curr_task(rq);
@@ -9394,7 +9394,7 @@ int __ipipe_setscheduler_root(struct task_struct *p, int policy, int prio)
 	oldprio = p->prio;
 	prev_class = p->sched_class;
 	__setscheduler(rq, p, policy, prio);
-	ipipe_setsched_notify(p);
+	__ipipe_report_setsched(p);
 
 	if (running)
 		p->sched_class->set_curr_task(rq);

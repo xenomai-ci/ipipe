@@ -10,7 +10,8 @@ config IPIPE_CORE
 	depends on IPIPE
 
 config IPIPE_LEGACY
-	bool "Legacy interface"
+	bool "I-pipe legacy interface"
+	depends on IPIPE
 	default y
 	---help---
 	  Activate this option if you want to control the interrupt

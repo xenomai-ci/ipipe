@@ -39,14 +39,14 @@
 				 (IPIPE_MINOR_NUMBER <<  8) | \
 				 (IPIPE_PATCH_NUMBER))
 
-/* ipipe_set_hooks(..., enables) */
-#define IPIPE_SYSCALL	__IPIPE_SYSCALL_E
-#define IPIPE_TRAP	__IPIPE_TRAP_E
-#define IPIPE_KEVENT	__IPIPE_KEVENT_E
+extern struct ipipe_domain ipipe_root;
 
-/* This accessor assumes hw IRQs are off on SMP; allows assignment. */
+#define ipipe_root_domain (&ipipe_root)
+
+extern struct ipipe_domain *ipipe_head_domain;
+
+/*  hw IRQs must be off on SMP; allows assignment. */
 #define __ipipe_current_domain	__ipipe_get_cpu_var(ipipe_percpu_domain)
-/* This read-only accessor makes sure that hw IRQs are off on SMP. */
 #define ipipe_current_domain				\
 	({						\
 		struct ipipe_domain *__ipd__;		\
@@ -60,14 +60,17 @@
 #define __ipipe_root_p	(__ipipe_current_domain == ipipe_root_domain)
 #define ipipe_root_p	(ipipe_current_domain == ipipe_root_domain)
 
-#define ipipe_virtual_irq_p(irq)	((irq) >= IPIPE_VIRQ_BASE && \
-					 (irq) < IPIPE_NR_IRQS)
+/* ipipe_set_hooks(..., enables) */
+#define IPIPE_SYSCALL	__IPIPE_SYSCALL_E
+#define IPIPE_TRAP	__IPIPE_TRAP_E
+#define IPIPE_KEVENT	__IPIPE_KEVENT_E
+
 struct irq_desc;
 
 typedef void (*ipipe_irq_ackfn_t)(unsigned int irq, struct irq_desc *desc);
 
 struct ipipe_domain {
-	int slot;			/* Slot number in percpu domain data array. */
+	int slot;
 	struct ipipe_irqdesc {
 		unsigned long control;
 		ipipe_irq_ackfn_t ackfn;
@@ -87,97 +90,34 @@ extern unsigned int __ipipe_printk_virq;
 
 extern unsigned long __ipipe_virtual_irq_map;
 
-/* Private interface */
-
-void ipipe_init_early(void);
-
-void ipipe_init(void);
-
-#ifdef CONFIG_PROC_FS
-void ipipe_init_proc(void);
-#ifdef CONFIG_IPIPE_TRACE
-void __ipipe_init_tracer(void);
-#else /* !CONFIG_IPIPE_TRACE */
-#define __ipipe_init_tracer()	do { } while(0)
-#endif /* CONFIG_IPIPE_TRACE */
-#else	/* !CONFIG_PROC_FS */
-#define ipipe_init_proc()	do { } while(0)
-#endif	/* CONFIG_PROC_FS */
-
-void __ipipe_flush_printk(unsigned int irq, void *cookie);
-
 void __ipipe_pend_irq(struct ipipe_domain *ipd, unsigned int irq);
 
-void __ipipe_dispatch_irq(unsigned int irq, int ackit);
-
-int __ipipe_notify_syscall(struct pt_regs *regs);
-
-int __ipipe_notify_trap(int exception, struct pt_regs *regs);
-
-int __ipipe_notify_kevent(int event, void *data);
-
-void __ipipe_dispatch_irq_fast_nocheck(unsigned int irq);
-
 void __ipipe_set_irq_pending(struct ipipe_domain *ipd, unsigned int irq);
-
-void __ipipe_do_sync_stage(void);
-
-void __ipipe_do_sync_pipeline(struct ipipe_domain *top);
-
-void __ipipe_lock_irq(unsigned int irq);
-
-void __ipipe_unlock_irq(unsigned int irq);
-
-void __ipipe_pin_range_globally(unsigned long start, unsigned long end);
 
 int __ipipe_setscheduler_root(struct task_struct *p,
 			      int policy,
 			      int prio);
 
-int __ipipe_disable_ondemand_mappings(struct task_struct *p);
-
 void __ipipe_reenter_root(struct task_struct *prev);
 
-void __ipipe_do_critical_sync(unsigned int irq, void *cookie);
+int __ipipe_disable_ondemand_mappings(struct task_struct *p);
 
-/* Must be called hw IRQs off. */
-static inline void __ipipe_dispatch_irq_fast(unsigned int irq)
+static inline void __ipipe_nmi_enter(void)
 {
-	struct ipipe_percpu_domain_data *p;
+	int cpu = ipipe_processor_id();
 
-	p = ipipe_cpudom_ptr(ipipe_head_domain);
-	if (test_bit(IPIPE_STALL_FLAG, &p->status)) {
-		__ipipe_set_irq_pending(ipipe_head_domain, irq);
-		return;
-	}
-
-	__ipipe_dispatch_irq_fast_nocheck(irq);
+	per_cpu(ipipe_nmi_saved_root, cpu) = ipipe_root_cpudom_var(status);
+	__set_bit(IPIPE_STALL_FLAG, &ipipe_root_cpudom_var(status));
+	ipipe_save_context_nmi(cpu);
 }
 
-/* Must be called hw IRQs off. */
-static inline void ipipe_irq_lock(unsigned int irq)
+static inline void __ipipe_nmi_exit(void)
 {
-	struct ipipe_domain *ipd = __ipipe_current_domain;
-	if (ipd == ipipe_root_domain)
-		__ipipe_lock_irq(irq);
-}
+	int cpu = ipipe_processor_id();
 
-/* Must be called hw IRQs off. */
-static inline void ipipe_irq_unlock(unsigned int irq)
-{
-	struct ipipe_domain *ipd = __ipipe_current_domain;
-	if (ipd == ipipe_root_domain)
-		__ipipe_unlock_irq(irq);
-}
-
-#ifndef __ipipe_sync_check
-#define __ipipe_sync_check	1
-#endif
-
-static inline void __ipipe_sync_stage(void)
-{
-	if (likely(__ipipe_sync_check))
-		__ipipe_do_sync_stage();
+	ipipe_restore_context_nmi(cpu);
+	if (!test_bit(IPIPE_STALL_FLAG, &per_cpu(ipipe_nmi_saved_root, cpu)))
+		__clear_bit(IPIPE_STALL_FLAG, &ipipe_root_cpudom_var(status));
 }
 
 static inline void __ipipe_sync_pipeline(struct ipipe_domain *top)
@@ -189,81 +129,6 @@ static inline void __ipipe_sync_pipeline(struct ipipe_domain *top)
 	if (!test_bit(IPIPE_STALL_FLAG, &ipipe_cpudom_var(top, status)))
 		__ipipe_sync_stage();
 }
-
-#ifndef __ipipe_do_root_xirq
-#define __ipipe_do_root_xirq(ipd, irq)			\
-	(ipd)->irqs[irq].handler(irq, (ipd)->irqs[irq].cookie)
-#endif
-
-#ifndef __ipipe_check_root_resched
-#ifdef CONFIG_PREEMPT
-#define __ipipe_check_root_resched()	\
-	(preempt_count() == 0 && need_resched())
-#else
-#define __ipipe_check_root_resched()	0
-#endif
-#endif
-
-#ifndef __ipipe_run_irqtail
-#define __ipipe_run_irqtail(irq) do { } while(0)
-#endif
-
-#ifdef CONFIG_SMP
-int __ipipe_set_irq_affinity(unsigned int irq, cpumask_t cpumask);
-int __ipipe_send_ipi(unsigned int ipi, cpumask_t cpumask);
-#endif /* CONFIG_SMP */
-
-#define local_irq_enable_hw_cond()		local_irq_enable_hw()
-#define local_irq_disable_hw_cond()		local_irq_disable_hw()
-#define local_irq_save_hw_cond(flags)		local_irq_save_hw(flags)
-#define local_irq_restore_hw_cond(flags)	local_irq_restore_hw(flags)
-
-#define local_irq_save_full(vflags, rflags)		\
-	do {						\
-		local_irq_save(vflags);			\
-		local_irq_save_hw(rflags);		\
-	} while(0)
-
-#define local_irq_restore_full(vflags, rflags)		\
-	do {						\
-		local_irq_restore_hw(rflags);		\
-		local_irq_restore(vflags);		\
-	} while(0)
-
-#define ipipe_notifier_enabled_p(p)					\
-	(((p)->ipipe.flags) & PF_EVNOTIFY)
-
-#define ipipe_trap_notify(ex, regs)	__ipipe_notify_trap(ex, regs)
-
-#define ipipe_sigwake_notify(p)						\
-	do {								\
-		if (ipipe_notifier_enabled_p(p))			\
-			__ipipe_notify_kevent(IPIPE_KEVT_SIGWAKE, p);	\
-	} while (0)
-
-#define ipipe_exit_notify(p)						\
-	do {								\
-		if (ipipe_notifier_enabled_p(p))			\
-			__ipipe_notify_kevent(IPIPE_KEVT_EXIT, p);	\
-	} while (0)
-
-#define ipipe_setsched_notify(p)					\
-	do {								\
-		if (ipipe_notifier_enabled_p(p))			\
-			__ipipe_notify_kevent(IPIPE_KEVT_SETSCHED, p); \
-	} while (0)
-
-#define ipipe_schedule_notify(prev, next)				\
-do {									\
-	if ((ipipe_notifier_enabled_p(next) ||				\
-	     ipipe_notifier_enabled_p(prev)))				\
-		__ipipe_notify_kevent(IPIPE_KEVT_SCHEDULE, next);	\
-} while (0)
-
-#define ipipe_cleanup_notify(mm)					\
-	__ipipe_notify_kevent(IPIPE_KEVT_CLEANUP, mm)
-
-/* Public interface */
 
 void ipipe_register_head(struct ipipe_domain *ipd,
 			 const char *name);
@@ -379,22 +244,20 @@ int ipipe_set_irq_affinity(unsigned int irq,
 int ipipe_send_ipi(unsigned int ipi,
 		   cpumask_t cpumask);
 
-static inline void ipipe_nmi_enter(void)
+/* Must be called hw IRQs off. */
+static inline void ipipe_irq_lock(unsigned int irq)
 {
-	int cpu = ipipe_processor_id();
-
-	per_cpu(ipipe_nmi_saved_root, cpu) = ipipe_root_cpudom_var(status);
-	__set_bit(IPIPE_STALL_FLAG, &ipipe_root_cpudom_var(status));
-	ipipe_save_context_nmi(cpu);
+	struct ipipe_domain *ipd = __ipipe_current_domain;
+	if (ipd == ipipe_root_domain)
+		__ipipe_lock_irq(irq);
 }
 
-static inline void ipipe_nmi_exit(void)
+/* Must be called hw IRQs off. */
+static inline void ipipe_irq_unlock(unsigned int irq)
 {
-	int cpu = ipipe_processor_id();
-
-	ipipe_restore_context_nmi(cpu);
-	if (!test_bit(IPIPE_STALL_FLAG, &per_cpu(ipipe_nmi_saved_root, cpu)))
-		__clear_bit(IPIPE_STALL_FLAG, &ipipe_root_cpudom_var(status));
+	struct ipipe_domain *ipd = __ipipe_current_domain;
+	if (ipd == ipipe_root_domain)
+		__ipipe_unlock_irq(irq);
 }
 
 static inline struct ipipe_threadinfo *ipipe_current_threadinfo(void)
@@ -411,61 +274,34 @@ static inline struct ipipe_threadinfo *ipipe_current_threadinfo(void)
 
 #define ipipe_disable_notifier(p)				\
 	do {							\
-		(p)->ipipe.flags &= ~(PF_EVNOTIFY|PF_EVTRET);	\
+		(p)->ipipe.flags &= ~(PF_EVNOTIFY|PF_MAYDAY);	\
 	} while (0)
 
-/* hw IRQs off. */
-#define ipipe_return_notify(p)						\
-	do {								\
-		if (ipipe_notifier_enabled_p(p))			\
-			(p)->ipipe.flags |= PF_EVTRET;			\
-	} while (0)
+#define ipipe_notifier_enabled_p(p)				\
+	(((p)->ipipe.flags) & PF_EVNOTIFY)
 
 #include <linux/ipipe_compat.h>
 
 #else	/* !CONFIG_IPIPE */
 
-#define ipipe_init_early()		do { } while(0)
-#define ipipe_init()			do { } while(0)
-#define ipipe_suspend_domain()		do { } while(0)
-#define ipipe_sigwake_notify(p)		do { } while(0)
-#define ipipe_setsched_notify(p)	do { } while(0)
-#define ipipe_exit_notify(p)		do { } while(0)
-#define ipipe_cleanup_notify(mm)	do { } while(0)
-#define ipipe_trap_notify(ex, regs)	0
-#define ipipe_init_proc()		do { } while(0)
+#define __ipipe_root_p		1
+#define ipipe_root_p		1
 
-static inline void __ipipe_pin_range_globally(unsigned long start,
-					      unsigned long end)
-{
-}
+static inline void __ipipe_nmi_enter(void) { }
+
+static inline void __ipipe_nmi_exit(void) { }
+
+#define ipipe_safe_current()	current
+#define ipipe_processor_id()	smp_processor_id()
 
 static inline int ipipe_test_foreign_stack(void)
 {
 	return 0;
 }
 
-#define local_irq_enable_hw_cond()		do { } while(0)
-#define local_irq_disable_hw_cond()		do { } while(0)
-#define local_irq_save_hw_cond(flags)		do { (void)(flags); } while(0)
-#define local_irq_restore_hw_cond(flags)	do { } while(0)
-#define local_irq_save_hw_smp(flags)		do { (void)(flags); } while(0)
-#define local_irq_restore_hw_smp(flags)		do { } while(0)
+static inline void ipipe_irq_lock(unsigned int irq) { }
 
-#define ipipe_irq_lock(irq)	do { } while(0)
-#define ipipe_irq_unlock(irq)	do { } while(0)
-
-#define __ipipe_root_p		1
-#define ipipe_root_p		1
-#define ipipe_safe_current()	current
-#define ipipe_processor_id()	smp_processor_id()
-
-#define ipipe_nmi_enter()	do { } while (0)
-#define ipipe_nmi_exit()	do { } while (0)
-
-#define local_irq_save_full(vflags, rflags)	do { (void)(vflags); local_irq_save(rflags); } while(0)
-#define local_irq_restore_full(vflags, rflags)	do { (void)(vflags); local_irq_restore(rflags); } while(0)
-#define ipipe_root_only(ipd)	do { } while(0)
+static inline void ipipe_irq_unlock(unsigned int irq) { }
 
 #endif	/* CONFIG_IPIPE */
 

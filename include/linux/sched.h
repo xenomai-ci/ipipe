@@ -1813,8 +1813,8 @@ extern void thread_group_times(struct task_struct *p, cputime_t *ut, cputime_t *
 #define PF_FREEZER_NOSIG 0x80000000	/* Freezer won't send signals to it */
 
 /* p->ipipe.flags */
-#define PF_EVTRET	0x1	/* EVENT_RETURN is pending */
-#define PF_EVNOTIFY	0x2	/* Notify other domains about internal events */
+#define PF_MAYDAY	0x1	/* MAYDAY call is pending */
+#define PF_EVNOTIFY	0x2	/* Notify head domain about kernel events */
 
 /*
  * Only the _current_ task can read/write to tsk->flags, but other

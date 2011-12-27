@@ -226,7 +226,7 @@ void remove_domain_proc(struct ipipe_domain *ipd)
 	remove_proc_entry(ipd->name,ipipe_proc_root);
 }
 
-void __init ipipe_init_proc(void)
+void __init __ipipe_init_proc(void)
 {
 	ipipe_proc_root = create_proc_entry("ipipe",S_IFDIR, 0);
 	create_proc_read_entry("version",0444,ipipe_proc_root,&__ipipe_version_info_proc,NULL);
@@ -370,7 +370,7 @@ static void init_stage(struct ipipe_domain *ipd)
 	__ipipe_hook_critical_ipi(ipd);
 }
 
-void __init ipipe_init_early(void)
+void __init __ipipe_init_early(void)
 {
 	struct ipipe_domain *ipd = &ipipe_root;
 
@@ -401,7 +401,7 @@ void __init ipipe_init_early(void)
 #endif /* CONFIG_PRINTK */
 }
 
-void __init ipipe_init(void)
+void __init __ipipe_init(void)
 {
 	/* Now we may engage the pipeline. */
 	__ipipe_enable_pipeline();
@@ -1233,6 +1233,19 @@ log:
 		return;
 
 	__ipipe_sync_pipeline(ipipe_head_domain);
+}
+
+void __ipipe_dispatch_irq_fast(unsigned int irq) /* hw interrupts off */
+{
+	struct ipipe_percpu_domain_data *p;
+
+	p = ipipe_cpudom_ptr(ipipe_head_domain);
+	if (test_bit(IPIPE_STALL_FLAG, &p->status)) {
+		__ipipe_set_irq_pending(ipipe_head_domain, irq);
+		return;
+	}
+
+	__ipipe_dispatch_irq_fast_nocheck(irq);
 }
 
 void __ipipe_dispatch_irq_fast_nocheck(unsigned int irq) /* hw interrupts off */
