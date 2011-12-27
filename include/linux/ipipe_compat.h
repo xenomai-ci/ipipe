@@ -206,6 +206,14 @@ static inline int ipipe_reenter_root(struct task_struct *prev,
 
 void __ipipe_legacy_init_stage(struct ipipe_domain *ipd);
 
+#define __IPIPE_FEATURE_REQUEST_TICKDEV		1
+#define __IPIPE_FEATURE_DELAYED_ATOMICSW	1
+#define __IPIPE_FEATURE_FASTPEND_IRQ		1
+#define __IPIPE_FEATURE_TRACE_EVENT		1
+#define __IPIPE_FEATURE_ENABLE_NOTIFIER		1
+#define __IPIPE_FEATURE_PREPARE_PANIC		1
+#define __IPIPE_FEATURE_SYSINFO_V2		1
+
 #else
 
 static inline void __ipipe_legacy_init_stage(struct ipipe_domain *ipd)

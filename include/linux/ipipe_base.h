@@ -266,20 +266,6 @@ void ipipe_root_only(void);
 static inline void ipipe_root_only(void) { }
 #endif /* !CONFIG_IPIPE_DEBUG_CONTEXT */
 
-/* Generic features */
-
-#define __IPIPE_FEATURE_REQUEST_TICKDEV		1
-#define __IPIPE_FEATURE_DELAYED_ATOMICSW	1
-#define __IPIPE_FEATURE_FASTPEND_IRQ		1
-#define __IPIPE_FEATURE_TRACE_EVENT		1
-#define __IPIPE_FEATURE_ENABLE_NOTIFIER		1
-#ifdef CONFIG_HAVE_IPIPE_HOSTRT
-#define __IPIPE_FEATURE_HOSTRT			1
-#endif
-#define __IPIPE_FEATURE_PREPARE_PANIC		1
-#define __IPIPE_FEATURE_ROOT_PREEMPT_NOTIFIER	1
-#define __IPIPE_FEATURE_CONTROL_IRQ		1
-
 struct ipipe_task_info {
 	unsigned long flags;
 };
