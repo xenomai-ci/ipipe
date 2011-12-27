@@ -273,8 +273,7 @@ void __ipipe_enable_pipeline(void)
 		ipipe_request_irq(ipipe_root_domain,
 				  irq,
 				  &__ipipe_do_IRQ, NULL,
-				  &__ipipe_ack_irq,
-				  0);
+				  &__ipipe_ack_irq);
 	/*
 	 * We use a virtual IRQ to handle the timer irq (decrementer
 	 * trap) which was allocated early in __ipipe_init_platform().
@@ -282,7 +281,7 @@ void __ipipe_enable_pipeline(void)
 	ipipe_request_irq(ipipe_root_domain,
 			  IPIPE_TIMER_VIRQ,
 			  &__ipipe_do_timer, NULL,
-			  NULL, 0);
+			  NULL);
 
 	ipipe_critical_exit(flags);
 }
