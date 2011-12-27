@@ -231,7 +231,7 @@ int __ipipe_send_ipi(unsigned int ipi, cpumask_t cpumask);
 	} while(0)
 
 #define ipipe_notifier_enabled_p(p)					\
-	(((p)->ipipe_flags) & PF_EVNOTIFY)
+	(((p)->ipipe.flags) & PF_EVNOTIFY)
 
 #define ipipe_trap_notify(ex, regs)	__ipipe_notify_trap(ex, regs)
 
@@ -406,24 +406,19 @@ static inline struct ipipe_threadinfo *ipipe_current_threadinfo(void)
 
 #define ipipe_enable_notifier(p)			\
 	do {						\
-		(p)->ipipe_flags |= PF_EVNOTIFY;	\
+		(p)->ipipe.flags |= PF_EVNOTIFY;	\
 	} while (0)
 
 #define ipipe_disable_notifier(p)				\
 	do {							\
-		(p)->ipipe_flags &= ~(PF_EVNOTIFY|PF_EVTRET);	\
+		(p)->ipipe.flags &= ~(PF_EVNOTIFY|PF_EVTRET);	\
 	} while (0)
 
 /* hw IRQs off. */
 #define ipipe_return_notify(p)						\
 	do {								\
 		if (ipipe_notifier_enabled_p(p))			\
-			(p)->ipipe_flags |= PF_EVTRET;			\
-	} while (0)
-
-#define ipipe_clear_flags(p)			\
-	do {					\
-		(p)->ipipe_flags = 0;		\
+			(p)->ipipe.flags |= PF_EVTRET;			\
 	} while (0)
 
 #include <linux/ipipe_compat.h>
@@ -464,7 +459,6 @@ static inline int ipipe_test_foreign_stack(void)
 #define ipipe_root_p		1
 #define ipipe_safe_current()	current
 #define ipipe_processor_id()	smp_processor_id()
-#define ipipe_clear_flags(p)	do { } while (0)
 
 #define ipipe_nmi_enter()	do { } while (0)
 #define ipipe_nmi_exit()	do { } while (0)

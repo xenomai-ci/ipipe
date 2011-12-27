@@ -152,6 +152,10 @@ static inline void ipipe_root_only(void) { }
 #define __IPIPE_FEATURE_ROOT_PREEMPT_NOTIFIER	1
 #define __IPIPE_FEATURE_CONTROL_IRQ		1
 
+struct ipipe_task_info {
+	unsigned long flags;
+};
+
 #ifdef CONFIG_IPIPE_LEGACY
 
 #define IPIPE_FIRST_EVENT	IPIPE_NR_FAULTS
@@ -175,19 +179,41 @@ struct ipipe_legacy_context {
 	ipipe_event_handler_t handlers[IPIPE_NR_EVENTS];
 };
 
+#define ipipe_init_taskinfo(p)				\
+	do {						\
+		ipipe_clear_taskflags(p);		\
+		memset(p->ptd, 0, sizeof(p->ptd));	\
+	} while (0)
+
 #else /* !CONFIG_IPIPE_LEGACY */
 
 struct ipipe_legacy_context {
 };
 
+#define ipipe_init_taskinfo(p)				\
+	do {						\
+		ipipe_clear_taskflags(p);		\
+	} while (0)
+
 #endif /* !CONFIG_IPIPE_LEGACY */
+
+#define ipipe_clear_taskflags(p)	\
+	do {				\
+		(p)->ipipe.flags = 0;	\
+	} while (0)
 
 #else /* !CONFIG_IPIPE */
 
-#define ipipe_preempt_disable(flags)	   \
-	do {				   \
-		preempt_disable();	   \
-		(void)(flags);		   \
+struct ipipe_task_info {
+};
+
+#define ipipe_init_taskinfo(p)		do { } while (0)
+#define ipipe_clear_taskflags(p)	do { } while (0)
+
+#define ipipe_preempt_disable(flags)	\
+	do {				\
+		preempt_disable();	\
+		(void)(flags);		\
 	} while (0)
 #define ipipe_preempt_enable(flags)	preempt_enable()
 

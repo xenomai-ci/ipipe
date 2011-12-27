@@ -1534,11 +1534,9 @@ struct task_struct {
 	short pref_node_fork;
 #endif
 	struct rcu_head rcu;
-#ifdef CONFIG_IPIPE
-	unsigned int ipipe_flags;
+	struct ipipe_task_info ipipe;
 #ifdef CONFIG_IPIPE_LEGACY
 	void *ptd[IPIPE_ROOT_NPTDKEYS];
-#endif
 #endif
 
 	/*
@@ -1814,7 +1812,7 @@ extern void thread_group_times(struct task_struct *p, cputime_t *ut, cputime_t *
 #define PF_FREEZER_SKIP	0x40000000	/* Freezer should not count it as freezable */
 #define PF_FREEZER_NOSIG 0x80000000	/* Freezer won't send signals to it */
 
-/* p->ipipe_flags */
+/* p->ipipe.flags */
 #define PF_EVTRET	0x1	/* EVENT_RETURN is pending */
 #define PF_EVNOTIFY	0x2	/* Notify other domains about internal events */
 
