@@ -18,9 +18,7 @@ config IPIPE_LEGACY
 	  pipeline via the legacy interface.
 
 config IPIPE_DELAYED_ATOMICSW
-       bool
-       depends on IPIPE
-       default n
+       def_bool y if IPIPE_LEGACY
 
 config IPIPE_UNMASKED_CONTEXT_SWITCH
        bool

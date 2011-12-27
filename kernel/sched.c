@@ -3193,11 +3193,8 @@ context_switch(struct rq *rq, struct task_struct *prev,
 
 	barrier();
 
-#ifdef CONFIG_IPIPE_DELAYED_ATOMICSW
 	current->state &= ~TASK_ATOMICSWITCH;
-#else
-	prev->state &= ~TASK_ATOMICSWITCH;
-#endif
+
 	if (task_hijacked(prev))
 		return 1;
 
