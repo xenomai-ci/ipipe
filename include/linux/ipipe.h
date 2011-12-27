@@ -90,8 +90,6 @@ extern unsigned int __ipipe_printk_virq;
 
 extern unsigned long __ipipe_virtual_irq_map;
 
-void __ipipe_pend_irq(struct ipipe_domain *ipd, unsigned int irq);
-
 void __ipipe_set_irq_pending(struct ipipe_domain *ipd, unsigned int irq);
 
 int __ipipe_setscheduler_root(struct task_struct *p,
@@ -146,6 +144,8 @@ int ipipe_request_irq(struct ipipe_domain *ipd,
 void ipipe_free_irq(struct ipipe_domain *ipd,
 		    unsigned int irq);
 
+void ipipe_raise_irq(unsigned int irq);
+
 void ipipe_set_hooks(struct ipipe_domain *ipd,
 		     int enables);
 
@@ -153,26 +153,12 @@ unsigned int ipipe_alloc_virq(void);
 
 int ipipe_free_virq(unsigned int virq);
 
-int ipipe_trigger_irq(unsigned int irq);
-
-static inline void ipipe_propagate_irq(unsigned int irq)
-{
-	if (likely(!__ipipe_root_p))
-		/* The root domain must handle all interrupts. */
-		__ipipe_set_irq_pending(&ipipe_root, irq);
-}
-
-static inline void ipipe_schedule_irq(unsigned int irq)
-{
-	__ipipe_pend_irq(__ipipe_current_domain, irq);
-}
-
-static inline void ipipe_schedule_irq_head(unsigned int irq)
+static inline void ipipe_post_irq_head(unsigned int irq)
 {
 	__ipipe_set_irq_pending(ipipe_head_domain, irq);
 }
 
-static inline void ipipe_schedule_irq_root(unsigned int irq)
+static inline void ipipe_post_irq_root(unsigned int irq)
 {
 	__ipipe_set_irq_pending(&ipipe_root, irq);
 }

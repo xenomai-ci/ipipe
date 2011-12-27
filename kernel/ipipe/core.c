@@ -1394,25 +1394,6 @@ void __ipipe_do_sync_stage(void)
 	__clear_bit(IPIPE_STALL_FLAG, &p->status);
 }
 
-void __ipipe_pend_irq(struct ipipe_domain *ipd, unsigned int irq)
-{
-#ifdef CONFIG_IPIPE_DEBUG
-	BUG_ON(irq >= IPIPE_NR_IRQS ||
-	       (ipipe_virtual_irq_p(irq)
-		&& !test_bit(irq - IPIPE_VIRQ_BASE, &__ipipe_virtual_irq_map)));
-#endif
-	if (test_bit(IPIPE_HANDLE_FLAG, &ipd->irqs[irq].control)) {
-		__ipipe_set_irq_pending(ipd, irq);
-		return;
-	}
-	if (ipd != ipipe_root_domain) {
-		ipd = ipipe_root_domain;
-		if (test_bit(IPIPE_HANDLE_FLAG, &ipd->irqs[irq].control))
-			__ipipe_set_irq_pending(ipd, irq);
-	}
-}
-EXPORT_SYMBOL_GPL(__ipipe_pend_irq);
-
 int ipipe_set_irq_affinity (unsigned int irq, cpumask_t cpumask)
 {
 #ifdef CONFIG_SMP

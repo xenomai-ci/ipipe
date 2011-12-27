@@ -96,22 +96,23 @@ static inline void ipipe_set_printk_sync(struct ipipe_domain *ipd)
 
 static inline void __ipipe_propagate_irq(unsigned int irq)
 {
-	ipipe_propagate_irq(irq);
-}
-
-static inline void __ipipe_schedule_irq(unsigned int irq)
-{
-	ipipe_schedule_irq(irq);
+	ipipe_post_irq_root(irq);
 }
 
 static inline void __ipipe_schedule_irq_head(unsigned int irq)
 {
-	ipipe_schedule_irq_head(irq);
+	ipipe_post_irq_head(irq);
 }
 
 static inline void __ipipe_schedule_irq_root(unsigned int irq)
 {
-	ipipe_schedule_irq_root(irq);
+	ipipe_post_irq_root(irq);
+}
+
+static inline int ipipe_trigger_irq(unsigned int irq)
+{
+	ipipe_raise_irq(irq);
+	return 1;
 }
 
 static inline void ipipe_stall_pipeline_from(struct ipipe_domain *ipd)

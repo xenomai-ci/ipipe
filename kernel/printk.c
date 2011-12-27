@@ -818,7 +818,7 @@ asmlinkage int printk(const char *fmt, ...)
 	spin_unlock_irqrestore(&__ipipe_printk_lock, flags);
 
 	if (oldcount == 0)
-		ipipe_trigger_irq(__ipipe_printk_virq);
+		ipipe_raise_irq(__ipipe_printk_virq);
 out:
 	va_end(args);
 
