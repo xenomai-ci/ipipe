@@ -59,7 +59,7 @@ void cpu_idle(void)
 		tick_nohz_stop_sched_tick(1);
 		while (!need_resched() && !cpu_should_die()) {
 			ppc64_runlatch_off();
-			ipipe_suspend_domain();
+			__ipipe_idle();
 
 			if (ppc_md.power_save) {
 				clear_thread_flag(TIF_POLLING_NRFLAG);
