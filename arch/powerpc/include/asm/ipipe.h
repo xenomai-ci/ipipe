@@ -62,10 +62,18 @@ DECLARE_PER_CPU(struct mm_struct *, ipipe_active_mm);
 		__ipipe_report_schedule(current, next);	\
 	} while(0)
 
-#define task_hijacked(p)						\
+#define task_hijacked_p(prev)						\
 	({								\
-		int __x__ = ipipe_root_p;				\
-		!__x__;							\
+		int __x__;						\
+		local_irq_disable_hw();					\
+		__x__ = !__ipipe_root_p;				\
+		if (__x__) {						\
+			struct ipipe_percpu_domain_data *p;		\
+			p = ipipe_head_cpudom_ptr();			\
+			p->task_hijacked = prev;			\
+		}							\
+		local_irq_enable_hw();					\
+		__x__;							\
 	})
 
 static inline struct mm_struct *ipipe_get_active_mm(void)
@@ -81,12 +89,17 @@ static inline struct mm_struct *ipipe_get_active_mm(void)
 		local_irq_disable_hw();			\
 	} while(0)
 
-#define task_hijacked(p)						\
+#define task_hijacked_p(prev)						\
 	({								\
-		int __x__ = __ipipe_root_p;				\
-		if (__x__)						\
+		int __x__ = !__ipipe_root_p;				\
+		if (!__x__)						\
 			local_irq_enable_hw();				\
-		!__x__;							\
+		else {							\
+			struct ipipe_percpu_domain_data *p;		\
+			p = ipipe_head_cpudom_ptr();			\
+			p->task_hijacked = prev;			\
+		}							\
+		__x__;							\
 	})
 
 #define ipipe_get_active_mm()  (current->active_mm)
@@ -272,7 +285,7 @@ static inline void ipipe_unmute_pic(void) { }
 
 #include <linux/interrupt.h>
 
-#define task_hijacked(p)	0
+#define task_hijacked_p(prev)	0
 
 #define ipipe_handle_chained_irq(irq)	generic_handle_irq(irq)
 
