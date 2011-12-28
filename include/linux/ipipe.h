@@ -251,6 +251,35 @@ static inline struct ipipe_threadinfo *ipipe_current_threadinfo(void)
 
 #define ipipe_task_threadinfo(p) (&task_thread_info(p)->ipipe_data)
 
+static inline void ipipe_enable_irq(unsigned int irq)
+{
+	struct irq_desc *desc = irq_to_desc(irq);
+	struct irq_chip *chip = irq_desc_get_chip(desc);
+
+	if (WARN_ON_ONCE(chip->irq_unmask == NULL))
+		return;
+
+	chip->irq_unmask(&desc->irq_data);
+}
+
+static inline void ipipe_disable_irq(unsigned int irq)
+{
+	struct irq_desc *desc = irq_to_desc(irq);
+	struct irq_chip *chip = irq_desc_get_chip(desc);
+
+	if (WARN_ON_ONCE(chip->irq_mask == NULL))
+		return;
+
+	chip->irq_mask(&desc->irq_data);
+}
+
+static inline void ipipe_end_irq(unsigned int irq)
+{
+	struct irq_desc *desc = irq_to_desc(irq);
+
+	desc->ipipe_end(irq, desc);
+}
+
 #define ipipe_enable_notifier(p)			\
 	do {						\
 		(p)->ipipe.flags |= PF_EVNOTIFY;	\
