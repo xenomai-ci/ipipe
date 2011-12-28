@@ -298,27 +298,15 @@ int ipipe_get_sysinfo(struct ipipe_sysinfo *info)
 }
 EXPORT_SYMBOL_GPL(ipipe_get_sysinfo);
 
-int ipipe_trigger_irq(unsigned int irq)
+void ipipe_raise_irq(unsigned int irq)
 {
 	unsigned long flags;
 
-#ifdef CONFIG_IPIPE_DEBUG
-	if (irq >= IPIPE_NR_IRQS)
-		return -EINVAL;
-	if (ipipe_virtual_irq_p(irq)) {
-		if (!test_bit(irq - IPIPE_VIRQ_BASE,
-			      &__ipipe_virtual_irq_map))
-			return -EINVAL;
-	} else if (irq_to_desc(irq) == NULL)
-		return -EINVAL;
-#endif
 	local_irq_save_hw(flags);
 	__ipipe_handle_irq(irq, NULL);
 	local_irq_restore_hw(flags);
-
-	return 1;
 }
-EXPORT_SYMBOL_GPL(ipipe_trigger_irq);
+EXPORT_SYMBOL_GPL(ipipe_raise_irq);
 
 static int __ipipe_exit_irq(struct pt_regs *regs)
 {
