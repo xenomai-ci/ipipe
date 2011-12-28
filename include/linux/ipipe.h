@@ -133,8 +133,6 @@ void ipipe_register_head(struct ipipe_domain *ipd,
 
 void ipipe_unregister_head(struct ipipe_domain *ipd);
 
-void ipipe_suspend_domain(void);
-
 int ipipe_request_irq(struct ipipe_domain *ipd,
 		      unsigned int irq,
 		      ipipe_irq_handler_t handler,

@@ -141,6 +141,11 @@ void __ipipe_dispatch_irq_fast_nocheck(unsigned int irq);
 
 void __ipipe_do_critical_sync(unsigned int irq, void *cookie);
 
+static inline void __ipipe_idle(void)
+{
+	ipipe_unstall_root();
+}
+
 #ifndef __ipipe_sync_check
 #define __ipipe_sync_check	1
 #endif
@@ -330,7 +335,7 @@ static inline void __ipipe_init(void) { }
 
 static inline void __ipipe_init_proc(void) { }
 
-static inline void ipipe_suspend_domain(void) { }
+static inline void __ipipe_idle(void) { }
 
 static inline void __ipipe_report_sigwake(struct task_struct *p) { }
 

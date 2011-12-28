@@ -868,33 +868,6 @@ next:
 }
 EXPORT_SYMBOL_GPL(__ipipe_do_sync_pipeline);
 
-void ipipe_suspend_domain(void)
-{
-	struct ipipe_percpu_domain_data *p;
-	struct ipipe_domain *ipd;
-	unsigned long flags;
-
-	local_irq_save_hw(flags);
-
-	ipd = __ipipe_current_domain;
-	p = ipipe_cpudom_ptr(ipd);
-	clear_bit(IPIPE_STALL_FLAG, &p->status);
-	if (__ipipe_ipending_p(p))
-		__ipipe_sync_stage();
-
-	if (ipd != ipipe_root_domain) {
-		ipd = ipipe_root_domain;
-		p = ipipe_cpudom_ptr(ipd);
-		__ipipe_current_domain = ipd;
-		if (!test_bit(IPIPE_STALL_FLAG, &p->status) &&
-		    __ipipe_ipending_p(p))
-			__ipipe_sync_stage();
-	}
-
-	local_irq_restore_hw(flags);
-}
-EXPORT_SYMBOL_GPL(ipipe_suspend_domain);
-
 unsigned int ipipe_alloc_virq(void)
 {
 	unsigned long flags, irq = 0;
