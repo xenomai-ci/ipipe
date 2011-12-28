@@ -173,6 +173,17 @@ static inline unsigned long ipipe_test_and_stall_head(void)
 	return __test_and_set_bit(IPIPE_STALL_FLAG, &ipipe_head_cpudom_var(status));
 }
 
+static inline unsigned long ipipe_test_head(void)
+{
+	unsigned long flags, ret;
+
+	local_irq_save_hw_smp(flags);
+	ret = test_bit(IPIPE_STALL_FLAG, &ipipe_head_cpudom_var(status));
+	local_irq_restore_hw_smp(flags);
+
+	return ret;
+}
+
 void ipipe_unstall_head(void);
 
 void __ipipe_restore_head(unsigned long x);
