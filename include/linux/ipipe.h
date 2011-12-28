@@ -229,7 +229,7 @@ int ipipe_send_ipi(unsigned int ipi,
 		   cpumask_t cpumask);
 
 /* Must be called hw IRQs off. */
-static inline void ipipe_irq_lock(unsigned int irq)
+static inline void ipipe_lock_irq(unsigned int irq)
 {
 	struct ipipe_domain *ipd = __ipipe_current_domain;
 	if (ipd == ipipe_root_domain)
@@ -237,7 +237,7 @@ static inline void ipipe_irq_lock(unsigned int irq)
 }
 
 /* Must be called hw IRQs off. */
-static inline void ipipe_irq_unlock(unsigned int irq)
+static inline void ipipe_unlock_irq(unsigned int irq)
 {
 	struct ipipe_domain *ipd = __ipipe_current_domain;
 	if (ipd == ipipe_root_domain)
@@ -312,9 +312,9 @@ static inline int ipipe_test_foreign_stack(void)
 	return 0;
 }
 
-static inline void ipipe_irq_lock(unsigned int irq) { }
+static inline void ipipe_lock_irq(unsigned int irq) { }
 
-static inline void ipipe_irq_unlock(unsigned int irq) { }
+static inline void ipipe_unlock_irq(unsigned int irq) { }
 
 #endif	/* CONFIG_IPIPE */
 
