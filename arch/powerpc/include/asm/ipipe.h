@@ -68,6 +68,11 @@ DECLARE_PER_CPU(struct mm_struct *, ipipe_active_mm);
 		!__x__;							\
 	})
 
+static inline struct mm_struct *ipipe_get_active_mm(void)
+{
+	return per_cpu(ipipe_active_mm, ipipe_processor_id());
+}
+
 #else /* !CONFIG_IPIPE_WANT_PREEMPTIBLE_SWITCH */
 
 #define prepare_arch_switch(next)			\
@@ -83,6 +88,8 @@ DECLARE_PER_CPU(struct mm_struct *, ipipe_active_mm);
 			local_irq_enable_hw();				\
 		!__x__;							\
 	})
+
+#define ipipe_get_active_mm()  (current->active_mm)
 
 #endif /* !CONFIG_IPIPE_WANT_PREEMPTIBLE_SWITCH */
 
