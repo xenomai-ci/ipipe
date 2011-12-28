@@ -301,8 +301,15 @@ static inline void ipipe_end_irq(unsigned int irq)
 		(p)->ipipe.flags &= ~(PF_EVNOTIFY|PF_MAYDAY);	\
 	} while (0)
 
-#define ipipe_notifier_enabled_p(p)				\
+#define ipipe_notifier_enabled_p(p)			\
 	(((p)->ipipe.flags) & PF_EVNOTIFY)
+
+#define ipipe_raise_mayday(p)				\
+	do {						\
+		ipipe_check_irqoff();			\
+		if (ipipe_notifier_enabled_p(p))	\
+			(p)->ipipe.flags |= PF_MAYDAY;	\
+	} while (0)
 
 #include <linux/ipipe_compat.h>
 

@@ -197,7 +197,7 @@ static inline int ipipe_reenter_root(struct task_struct *prev,
 	return 0;
 }
 
-#define ipipe_return_notify(p)	__ipipe_report_mayday(p)
+#define ipipe_return_notify(p)	ipipe_raise_mayday(p)
 
 /*
  * Keep the following as a macro, so that client code could check for

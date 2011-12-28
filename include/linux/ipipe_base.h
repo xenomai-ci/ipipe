@@ -241,13 +241,6 @@ do {									\
 #define __ipipe_report_cleanup(mm)					\
 	__ipipe_notify_kevent(IPIPE_KEVT_CLEANUP, mm)
 
-/* hw IRQs off. */
-#define __ipipe_report_mayday(p)					\
-	do {								\
-		if (ipipe_notifier_enabled_p(p))			\
-			(p)->ipipe.flags |= PF_MAYDAY;			\
-	} while (0)
-
 #define local_irq_enable_hw_cond()		local_irq_enable_hw()
 #define local_irq_disable_hw_cond()		local_irq_disable_hw()
 #define local_irq_save_hw_cond(flags)		local_irq_save_hw(flags)
