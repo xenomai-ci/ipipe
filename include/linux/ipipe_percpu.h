@@ -26,6 +26,7 @@
 #include <asm/ptrace.h>
 
 struct ipipe_domain;
+struct task_struct;
 
 struct ipipe_percpu_domain_data {
 	unsigned long status;	/* <= Must be first in struct. */
@@ -36,6 +37,7 @@ struct ipipe_percpu_domain_data {
 	unsigned long irqpend_lomap[IPIPE_IRQ_LOMAPSZ];
 	unsigned long irqheld_map[IPIPE_IRQ_LOMAPSZ];
 	unsigned long irqall[IPIPE_NR_IRQS];
+	struct task_struct *task_hijacked;
 	int coflags;
 };
 

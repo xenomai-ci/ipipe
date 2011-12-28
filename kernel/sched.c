@@ -3195,7 +3195,7 @@ context_switch(struct rq *rq, struct task_struct *prev,
 
 	current->state &= ~TASK_ATOMICSWITCH;
 
-	if (task_hijacked(prev))
+	if (task_hijacked_p(prev))
 		return 1;
 
 	/*
@@ -9407,10 +9407,17 @@ int __ipipe_setscheduler_root(struct task_struct *p, int policy, int prio)
 }
 EXPORT_SYMBOL_GPL(__ipipe_setscheduler_root);
 
-void __ipipe_reenter_root(struct task_struct *prev)
+void __ipipe_reenter_root(void)
 {
+	struct ipipe_percpu_domain_data *p;
 	struct rq *rq = this_rq();
+	struct task_struct *prev;
+	unsigned long flags;
 
+	local_irq_save_hw_smp(flags);
+	p = ipipe_head_cpudom_ptr();
+	prev = p->task_hijacked;
+	local_irq_restore_hw_smp(flags);
 	finish_task_switch(rq, prev);
 	post_schedule(rq);
 	preempt_enable_no_resched();

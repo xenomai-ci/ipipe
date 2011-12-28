@@ -96,7 +96,7 @@ int __ipipe_setscheduler_root(struct task_struct *p,
 			      int policy,
 			      int prio);
 
-void __ipipe_reenter_root(struct task_struct *prev);
+void __ipipe_reenter_root(void);
 
 int __ipipe_disable_ondemand_mappings(struct task_struct *p);
 

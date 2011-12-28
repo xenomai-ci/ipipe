@@ -193,7 +193,7 @@ static inline int ipipe_reenter_root(struct task_struct *prev,
 				     int policy,
 				     int prio)
 {
-	__ipipe_reenter_root(prev);
+	__ipipe_reenter_root();
 	return 0;
 }
 
