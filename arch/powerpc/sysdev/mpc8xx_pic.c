@@ -37,7 +37,7 @@ static void mpc8xx_unmask_irq(struct irq_data *d)
 	local_irq_save_hw_cond(flags);
 	ppc_cached_irq_mask[word] |= (1 << (31-bit));
 	out_be32(&siu_reg->sc_simask, ppc_cached_irq_mask[word]);
-	ipipe_irq_unlock(d->irq);
+	ipipe_unlock_irq(d->irq);
 	local_irq_restore_hw_cond(flags);
 }
 
@@ -51,7 +51,7 @@ static void mpc8xx_mask_irq(struct irq_data *d)
 	word = irq_nr >> 5;
 
 	local_irq_save_hw_cond(flags);
-	ipipe_irq_lock(d->irq);
+	ipipe_lock_irq(d->irq);
 	ppc_cached_irq_mask[word] &= ~(1 << (31-bit));
 	out_be32(&siu_reg->sc_simask, ppc_cached_irq_mask[word]);
 	local_irq_restore_hw_cond(flags);

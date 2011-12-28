@@ -51,7 +51,7 @@ static void pq2ads_pci_mask_irq(struct irq_data *d)
 
 		setbits32(&priv->regs->mask, 1 << irq);
 		mb();
-		ipipe_irq_lock(d->irq);
+		ipipe_lock_irq(d->irq);
 
 		raw_spin_unlock_irqrestore(&pci_pic_lock, flags);
 	}
@@ -67,7 +67,7 @@ static void pq2ads_pci_unmask_irq(struct irq_data *d)
 
 		raw_spin_lock_irqsave(&pci_pic_lock, flags);
 		clrbits32(&priv->regs->mask, 1 << irq);
-		ipipe_irq_unlock(d->irq);
+		ipipe_unlock_irq(d->irq);
 		raw_spin_unlock_irqrestore(&pci_pic_lock, flags);
 	}
 }

@@ -62,7 +62,7 @@ static void cpm_mask_irq(struct irq_data *d)
 	unsigned long flags;
 
 	local_irq_save_hw_cond(flags);
-	ipipe_irq_lock(d->irq);
+	ipipe_lock_irq(d->irq);
 	clrbits32(&cpic_reg->cpic_cimr, (1 << cpm_vec));
 	local_irq_restore_hw_cond(flags);
 }
@@ -74,7 +74,7 @@ static void cpm_unmask_irq(struct irq_data *d)
  
 	local_irq_save_hw_cond(flags);
 	setbits32(&cpic_reg->cpic_cimr, (1 << cpm_vec));
-	ipipe_irq_unlock(d->irq);
+	ipipe_unlock_irq(d->irq);
 	local_irq_restore_hw_cond(flags);
 }
 

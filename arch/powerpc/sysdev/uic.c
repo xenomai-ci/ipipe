@@ -68,7 +68,7 @@ static void uic_unmask_irq(struct irq_data *d)
 	er = mfdcr(uic->dcrbase + UIC_ER);
 	er |= sr;
 	mtdcr(uic->dcrbase + UIC_ER, er);
-	ipipe_irq_unlock(d->irq);
+	ipipe_unlock_irq(d->irq);
 	spin_unlock_irqrestore(&uic->lock, flags);
 }
 
@@ -80,7 +80,7 @@ static void uic_mask_irq(struct irq_data *d)
 	u32 er;
 
 	spin_lock_irqsave(&uic->lock, flags);
-	ipipe_irq_lock(d->irq);
+	ipipe_lock_irq(d->irq);
 	er = mfdcr(uic->dcrbase + UIC_ER);
 	er &= ~(1 << (31 - src));
 	mtdcr(uic->dcrbase + UIC_ER, er);

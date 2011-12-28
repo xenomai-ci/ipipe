@@ -693,7 +693,7 @@ void mpic_unmask_irq(struct irq_data *d)
 	unsigned long flags;
 
 	spin_lock_irqsave(&mpic_lock, flags);
-	ipipe_irq_unlock(d->irq);
+	ipipe_unlock_irq(d->irq);
 	__mpic_unmask_irq(d);
 	spin_unlock_irqrestore(&mpic_lock, flags);
 }
@@ -726,7 +726,7 @@ void mpic_mask_irq(struct irq_data *d)
 
 	spin_lock_irqsave(&mpic_lock, flags);
 	__mpic_mask_irq(d);
-	ipipe_irq_lock(d->irq);
+	ipipe_lock_irq(d->irq);
 	spin_unlock_irqrestore(&mpic_lock, flags);
 }
 
