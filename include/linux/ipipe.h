@@ -151,7 +151,7 @@ void ipipe_set_hooks(struct ipipe_domain *ipd,
 
 unsigned int ipipe_alloc_virq(void);
 
-int ipipe_free_virq(unsigned int virq);
+void ipipe_free_virq(unsigned int virq);
 
 static inline void ipipe_post_irq_head(unsigned int irq)
 {

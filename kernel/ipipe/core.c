@@ -914,14 +914,10 @@ unsigned int ipipe_alloc_virq(void)
 }
 EXPORT_SYMBOL_GPL(ipipe_alloc_virq);
 
-int ipipe_free_virq(unsigned virq)
+void ipipe_free_virq(unsigned int virq)
 {
-	if (!ipipe_virtual_irq_p(virq))
-		return -EINVAL;
-
 	clear_bit(virq - IPIPE_VIRQ_BASE, &__ipipe_virtual_irq_map);
-
-	return 0;
+	smp_mb__after_clear_bit();
 }
 EXPORT_SYMBOL_GPL(ipipe_free_virq);
 
