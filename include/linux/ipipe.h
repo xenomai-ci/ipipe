@@ -293,11 +293,13 @@ static inline void ipipe_end_irq(unsigned int irq)
 
 #define ipipe_enable_notifier(p)			\
 	do {						\
+		barrier();				\
 		(p)->ipipe.flags |= PF_EVNOTIFY;	\
 	} while (0)
 
 #define ipipe_disable_notifier(p)				\
 	do {							\
+		barrier();					\
 		(p)->ipipe.flags &= ~(PF_EVNOTIFY|PF_MAYDAY);	\
 	} while (0)
 
