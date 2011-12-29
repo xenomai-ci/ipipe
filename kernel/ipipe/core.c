@@ -1251,6 +1251,56 @@ void __ipipe_dispatch_irq_fast_nocheck(unsigned int irq) /* hw interrupts off */
 	__ipipe_do_sync_pipeline(head);
 }
 
+#ifdef CONFIG_KVM
+
+void __ipipe_register_guest(struct kvm_vcpu *vcpu)
+{
+	struct ipipe_percpu_domain_data *p;
+	unsigned long flags;
+
+	local_irq_save_hw_smp(flags);
+	p = ipipe_root_cpudom_ptr(); 
+	p->guest_vcpu = vcpu;
+	local_irq_restore_hw_smp(flags);
+}
+
+void __ipipe_enter_guest(void)
+{
+	struct ipipe_percpu_domain_data *p;
+	unsigned long flags;
+
+	local_irq_save_hw_smp(flags);
+	p = ipipe_root_cpudom_ptr();
+	__set_bit(IPIPE_GUEST_FLAG, &p->status);
+	local_irq_restore_hw_smp(flags);
+}
+
+void __ipipe_exit_guest(void)
+{
+	struct ipipe_percpu_domain_data *p;
+	unsigned long flags;
+
+	local_irq_save_hw_smp(flags);
+	p = ipipe_root_cpudom_ptr();
+	__clear_bit(IPIPE_GUEST_FLAG, &p->status);
+	local_irq_restore_hw_smp(flags);
+}
+
+void __ipipe_notify_guest_preemption(void)
+{
+	struct ipipe_percpu_domain_data *p;
+
+	ipipe_check_irqoff();
+	p = ipipe_root_cpudom_ptr();
+	if (test_bit(IPIPE_GUEST_FLAG, &p->status)) {
+		__ipipe_handle_guest_preemption(p->guest_vcpu);
+		__clear_bit(IPIPE_GUEST_FLAG, &p->status);
+	}
+}
+EXPORT_SYMBOL_GPL(__ipipe_notify_guest_preemption);
+
+#endif /* CONFIG_KVM */
+
 #ifdef CONFIG_TRACE_IRQFLAGS
 #define root_stall_after_handler()	local_irq_disable()
 #else

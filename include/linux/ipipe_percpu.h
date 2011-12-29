@@ -27,6 +27,7 @@
 
 struct ipipe_domain;
 struct task_struct;
+struct kvm_vcpu;
 
 struct ipipe_percpu_domain_data {
 	unsigned long status;	/* <= Must be first in struct. */
@@ -38,6 +39,7 @@ struct ipipe_percpu_domain_data {
 	unsigned long irqheld_map[IPIPE_IRQ_LOMAPSZ];
 	unsigned long irqall[IPIPE_NR_IRQS];
 	struct task_struct *task_hijacked;
+	struct kvm_vcpu *guest_vcpu;
 	int coflags;
 };
 

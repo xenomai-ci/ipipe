@@ -57,10 +57,12 @@ static inline int ipipe_virtual_irq_p(unsigned int irq)
 #endif
 
 /* Per-cpu pipeline status */
-#define IPIPE_STALL_FLAG	0
-#define IPIPE_NOSTACK_FLAG	1
+#define IPIPE_STALL_FLAG	0 /* interrupts (virtually) disabled. */
+#define IPIPE_NOSTACK_FLAG	1 /* running on foreign stack. */
+#define IPIPE_GUEST_FLAG	2 /* root entered guest mode. */
 #define IPIPE_STALL_MASK	(1L << IPIPE_STALL_FLAG)
 #define IPIPE_NOSTACK_MASK	(1L << IPIPE_NOSTACK_FLAG)
+#define IPIPE_GUEST_MASK	(1L << IPIPE_GUEST_FLAG)
 
 /* Interrupt control bits */
 #define IPIPE_HANDLE_FLAG	0
@@ -79,6 +81,7 @@ static inline int ipipe_virtual_irq_p(unsigned int irq)
 #endif /* CONFIG_SMP */
 
 struct pt_regs;
+struct kvm_vcpu;
 struct ipipe_domain;
 
 struct ipipe_trap_data {
@@ -240,6 +243,15 @@ do {									\
 
 #define __ipipe_report_cleanup(mm)					\
 	__ipipe_notify_kevent(IPIPE_KEVT_CLEANUP, mm)
+
+/* KVM-side calls. */
+void __ipipe_register_guest(struct kvm_vcpu *vcpu);
+void __ipipe_enter_guest(void);
+void __ipipe_exit_guest(void);
+void __ipipe_handle_guest_preemption(struct kvm_vcpu *vcpu);
+
+/* Client-side call through ipipe_notify_root_preemption(). */
+void __ipipe_notify_guest_preemption(void);
 
 #define local_irq_enable_hw_cond()		local_irq_enable_hw()
 #define local_irq_disable_hw_cond()		local_irq_disable_hw()
