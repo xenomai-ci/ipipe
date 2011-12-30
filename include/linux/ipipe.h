@@ -228,11 +228,13 @@ static inline int ipipe_test_foreign_stack(void)
 	})
 #endif
 
-int ipipe_set_irq_affinity(unsigned int irq,
-			   cpumask_t cpumask);
+#ifdef CONFIG_SMP
+void ipipe_set_irq_affinity(unsigned int irq,
+			    cpumask_t cpumask);
 
-int ipipe_send_ipi(unsigned int ipi,
-		   cpumask_t cpumask);
+void ipipe_send_ipi(unsigned int ipi,
+		    cpumask_t cpumask);
+#endif
 
 static inline void ipipe_restore_root_nosync(unsigned long x)
 {

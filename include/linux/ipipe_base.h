@@ -78,14 +78,6 @@ static inline int ipipe_virtual_irq_p(unsigned int irq)
 #define IPIPE_STICKY_MASK	(1 << IPIPE_STICKY_FLAG)
 #define IPIPE_LOCK_MASK		(1 << IPIPE_LOCK_FLAG)
 
-#ifdef CONFIG_SMP
-#define hard_smp_local_irq_save(flags)		hard_local_irq_save(flags)
-#define hard_smp_local_irq_restore(flags)	hard_local_irq_restore(flags)
-#else /* !CONFIG_SMP */
-#define hard_smp_local_irq_save(flags)		do { (void)(flags); } while(0)
-#define hard_smp_local_irq_restore(flags)	do { } while(0)
-#endif /* CONFIG_SMP */
-
 struct pt_regs;
 struct kvm_vcpu;
 struct ipipe_domain;
@@ -125,14 +117,6 @@ void ipipe_unstall_root(void);
 void ipipe_restore_root(unsigned long x);
 
 void __ipipe_restore_root_nosync(unsigned long x);
-
-static inline void ipipe_restore_root_nosync(unsigned long x)
-{
-	unsigned long flags;
-	hard_smp_local_irq_save(flags);
-	__ipipe_restore_root_nosync(x);
-	hard_smp_local_irq_restore(flags);
-}
 
 void __ipipe_dispatch_irq(unsigned int irq, int ackit);
 
@@ -182,11 +166,6 @@ static inline void __ipipe_sync_stage(void)
 #ifndef __ipipe_run_irqtail
 #define __ipipe_run_irqtail(irq) do { } while(0)
 #endif
-
-#ifdef CONFIG_SMP
-int __ipipe_set_irq_affinity(unsigned int irq, cpumask_t cpumask);
-int __ipipe_send_ipi(unsigned int ipi, cpumask_t cpumask);
-#endif /* CONFIG_SMP */
 
 void __ipipe_flush_printk(unsigned int irq, void *cookie);
 

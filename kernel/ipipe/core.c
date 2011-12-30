@@ -1336,7 +1336,7 @@ void __ipipe_preempt_schedule_irq(void)
 		sub_preempt_count(PREEMPT_ACTIVE);
 	}
 
-	__local_irq_restore_nosync(flags);
+	__ipipe_restore_root_nosync(flags);
 }
 
 #else /* !CONFIG_PREEMPT */
@@ -1413,33 +1413,6 @@ void __ipipe_do_sync_stage(void)
 	__clear_bit(IPIPE_STALL_FLAG, &p->status);
 }
 
-int ipipe_set_irq_affinity (unsigned int irq, cpumask_t cpumask)
-{
-#ifdef CONFIG_SMP
-	if (irq >= IPIPE_NR_XIRQS)
-		/* Allow changing affinity of external IRQs only. */
-		return -EINVAL;
-
-	if (num_online_cpus() > 1)
-		return __ipipe_set_irq_affinity(irq,cpumask);
-#endif /* CONFIG_SMP */
-
-	return 0;
-}
-EXPORT_SYMBOL_GPL(ipipe_set_irq_affinity);
-
-int ipipe_send_ipi(unsigned int ipi, cpumask_t cpumask)
-{
-#ifdef CONFIG_SMP
-	if (!ipipe_ipi_p(ipi))
-		return -EINVAL;
-	return __ipipe_send_ipi(ipi,cpumask);
-#else /* !CONFIG_SMP */
-	return -EINVAL;
-#endif /* CONFIG_SMP */
-}
-EXPORT_SYMBOL_GPL(ipipe_send_ipi);
-
 #ifdef CONFIG_SMP
 
 /* Always called with hw interrupts off. */
@@ -1507,7 +1480,7 @@ restart:
 			 */
 			cpus_andnot(allbutself, cpu_online_map,
 				    __ipipe_cpu_pass_map);
-			__ipipe_send_ipi(IPIPE_CRITICAL_IPI, allbutself);
+			ipipe_send_ipi(IPIPE_CRITICAL_IPI, allbutself);
 
 			loops = IPIPE_CRITICAL_TIMEOUT;
 
