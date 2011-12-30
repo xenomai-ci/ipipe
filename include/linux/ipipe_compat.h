@@ -244,6 +244,15 @@ static inline void local_irq_restore_hw(unsigned long flags)
 
 void __ipipe_legacy_init_stage(struct ipipe_domain *ipd);
 
+/*
+ * These values have no real meaning from a versioning POV, however
+ * they are guaranteed to look more recent than any legacy patch
+ * release ever published in the past.
+ */
+#define IPIPE_MAJOR_NUMBER  3
+#define IPIPE_MINOR_NUMBER  0
+#define IPIPE_PATCH_NUMBER  0
+
 #define __IPIPE_FEATURE_REQUEST_TICKDEV		1
 #define __IPIPE_FEATURE_FASTPEND_IRQ		1
 #define __IPIPE_FEATURE_TRACE_EVENT		1
