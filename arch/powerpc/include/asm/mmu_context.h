@@ -49,7 +49,7 @@ static inline void __mmswitch_head(int cpu)
 	 * through the switch, there is no additional penalty anyway.
 	 */
 #if defined(CONFIG_PPC_MMU_NOHASH) && defined(CONFIG_SMP)
-	local_irq_disable_hw();
+	hard_local_irq_disable();
 #endif
 	per_cpu(ipipe_active_mm, cpu) = NULL;
 }
@@ -58,14 +58,14 @@ static inline void __mmswitch_tail(struct mm_struct *next, int cpu)
 {
 	per_cpu(ipipe_active_mm, cpu) = next;
 #if defined(CONFIG_PPC_MMU_NOHASH) && defined(CONFIG_SMP)
-	local_irq_enable_hw();
+	hard_local_irq_enable();
 #endif
 }
 
 static inline void __mmactivate_head(void)
 {
 #if defined(CONFIG_PPC_MMU_NOHASH) && defined(CONFIG_SMP)
-	local_irq_disable_hw();
+	hard_local_irq_disable();
 #else
 	preempt_disable();
 #endif
@@ -75,7 +75,7 @@ static inline void __mmactivate_head(void)
 static inline void __mmactivate_tail(void)
 {
 #if defined(CONFIG_PPC_MMU_NOHASH) && defined(CONFIG_SMP)
-	local_irq_enable_hw();
+	hard_local_irq_enable();
 #else
 	preempt_enable();
 #endif
@@ -86,7 +86,7 @@ static inline void __mmactivate_tail(void)
 static inline void __mmswitch_head(int cpu)
 {
 #ifdef CONFIG_IPIPE_DEBUG_INTERNAL
-	WARN_ON_ONCE(!irqs_disabled_hw());
+	WARN_ON_ONCE(!hard_irqs_disabled());
 #endif
 }
 
@@ -97,14 +97,14 @@ static inline void __mmswitch_tail(struct mm_struct *next, int cpu)
 static inline void __mmactivate_head(void)
 {
 #ifdef CONFIG_IPIPE_DEBUG_INTERNAL
-	WARN_ON_ONCE(irqs_disabled_hw());
+	WARN_ON_ONCE(hard_irqs_disabled());
 #endif
-	local_irq_disable_hw_cond();
+	hard_cond_local_irq_disable();
 }
 
 static inline void __mmactivate_tail(void)
 {
-	local_irq_enable_hw_cond();
+	hard_cond_local_irq_enable();
 }
 
 #endif  /* !IPIPE_WANT_PREEMPTIBLE_SWITCH */
@@ -189,11 +189,11 @@ static inline void switch_mm(struct mm_struct *prev, struct mm_struct *next,
 {
 #ifndef CONFIG_IPIPE_WANT_PREEMPTIBLE_SWITCH
 	unsigned long flags;
-	local_irq_save_hw(flags);
+	flags = hard_local_irq_save();
 #endif /* !CONFIG_IPIPE_WANT_PREEMPTIBLE_SWITCH */
 	__switch_mm(prev, next, tsk);
 #ifndef CONFIG_IPIPE_WANT_PREEMPTIBLE_SWITCH
-	local_irq_restore_hw(flags);
+	hard_local_irq_restore(flags);
 #endif /* !CONFIG_IPIPE_WANT_PREEMPTIBLE_SWITCH */
 	return;
 }

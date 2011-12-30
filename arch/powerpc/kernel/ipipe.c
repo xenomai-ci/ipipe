@@ -141,7 +141,7 @@ int __ipipe_send_ipi(unsigned ipi, cpumask_t cpumask)
 	unsigned long flags;
 	int cpu, me;
 
-	local_irq_save_hw(flags);
+	flags = hard_local_irq_save();
 
 	ipi -= IPIPE_MSG_IPI_OFFSET;
 	for_each_online_cpu(cpu) {
@@ -159,7 +159,7 @@ int __ipipe_send_ipi(unsigned ipi, cpumask_t cpumask)
 			smp_ops->message_pass(cpu, PPC_MSG_IPIPE_DEMUX);
 	}
 out:
-	local_irq_restore_hw(flags);
+	hard_local_irq_restore(flags);
 
 	return 0;
 }
@@ -168,9 +168,10 @@ void ipipe_stall_root(void)
 {
 	unsigned long flags;
 
-	local_irq_save_hw(flags);
+	ipipe_root_only();
+	flags = hard_local_irq_save();
 	set_bit(IPIPE_STALL_FLAG, &ipipe_root_cpudom_var(status));
-	local_irq_restore_hw(flags);
+	hard_local_irq_restore(flags);
 }
 EXPORT_SYMBOL_GPL(ipipe_stall_root);
 
@@ -179,9 +180,10 @@ unsigned long ipipe_test_and_stall_root(void)
 	unsigned long flags;
 	int x;
 
-	local_irq_save_hw(flags);
+	ipipe_root_only();
+	flags = hard_local_irq_save();
 	x = test_and_set_bit(IPIPE_STALL_FLAG, &ipipe_root_cpudom_var(status));
-	local_irq_restore_hw(flags);
+	hard_local_irq_restore(flags);
 
 	return x;
 }
@@ -192,9 +194,9 @@ unsigned long ipipe_test_root(void)
 	unsigned long flags;
 	int x;
 
-	local_irq_save_hw(flags);
+	flags = hard_local_irq_save();
 	x = test_bit(IPIPE_STALL_FLAG, &ipipe_root_cpudom_var(status));
-	local_irq_restore_hw(flags);
+	hard_local_irq_restore(flags);
 
 	return x;
 }
@@ -302,9 +304,9 @@ void ipipe_raise_irq(unsigned int irq)
 {
 	unsigned long flags;
 
-	local_irq_save_hw(flags);
+	flags = hard_local_irq_save();
 	__ipipe_handle_irq(irq, NULL);
-	local_irq_restore_hw(flags);
+	hard_local_irq_restore(flags);
 }
 EXPORT_SYMBOL_GPL(ipipe_raise_irq);
 
@@ -440,7 +442,7 @@ asmlinkage notrace void __ipipe_restore_if_root(unsigned long x) /* hw IRQs on *
 	struct ipipe_percpu_domain_data *p;
 	unsigned long flags;
 
-	local_irq_save_hw(flags);
+	flags = hard_local_irq_save();
 
 	if (likely(!__ipipe_root_p))
 		goto done;
@@ -464,7 +466,7 @@ asmlinkage notrace void __ipipe_restore_if_root(unsigned long x) /* hw IRQs on *
 		lv1_get_version_info(&tmp);
 	}
 done:
-	local_irq_restore_hw(flags);
+	hard_local_irq_restore(flags);
 }
 
 #endif /* CONFIG_PPC64 */
@@ -497,7 +499,7 @@ asmlinkage int __ipipe_syscall_root(struct pt_regs *regs)
         int ret;
 
 #ifdef CONFIG_PPC64
-	WARN_ON_ONCE(!irqs_disabled_hw());
+	WARN_ON_ONCE(!hard_irqs_disabled());
 	/*
 	 * Unlike ppc32, hw interrupts are off on entry here.  We did
 	 * not copy the stall state on entry yet, so do it now.
@@ -511,7 +513,7 @@ asmlinkage int __ipipe_syscall_root(struct pt_regs *regs)
 	if (__ipipe_root_p)
 		__clear_bit(IPIPE_STALL_FLAG, &p->status);
 #else
-	WARN_ON_ONCE(irqs_disabled_hw());
+	WARN_ON_ONCE(hard_irqs_disabled());
 #endif
         /*
          * This routine either returns:
@@ -526,11 +528,11 @@ asmlinkage int __ipipe_syscall_root(struct pt_regs *regs)
                 return 0;
 
 #ifdef CONFIG_PPC64
-	local_irq_enable_hw();
+	hard_local_irq_enable();
 #endif
         ret = __ipipe_notify_syscall(regs);
 
-	local_irq_disable_hw();
+	hard_local_irq_disable();
 
 	/*
 	 * This is the end of the syscall path, so we may
@@ -543,7 +545,7 @@ asmlinkage int __ipipe_syscall_root(struct pt_regs *regs)
 
         if (!__ipipe_root_p) {
 #ifdef CONFIG_PPC32
-		local_irq_enable_hw();
+		hard_local_irq_enable();
 #endif
 		return 1;
 	}
@@ -553,7 +555,7 @@ asmlinkage int __ipipe_syscall_root(struct pt_regs *regs)
 		__ipipe_sync_stage();
 
 #ifdef CONFIG_PPC32
-	local_irq_enable_hw();
+	hard_local_irq_enable();
 #endif
 
 	return -ret;

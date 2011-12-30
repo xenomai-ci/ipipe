@@ -168,10 +168,10 @@ void switch_stab(struct task_struct *tsk, struct mm_struct *mm)
 	unsigned long pc = KSTK_EIP(tsk);
 	unsigned long stack = KSTK_ESP(tsk);
 	unsigned long unmapped_base;
-#ifdef CONFIG_IPIPE
 	unsigned long flags;
 
-	local_save_flags_hw(flags);
+#ifdef CONFIG_IPIPE
+	flags = hard_local_save_flags();
 #else
  	WARN_ON(!irqs_disabled());
 #endif
@@ -218,9 +218,8 @@ void switch_stab(struct task_struct *tsk, struct mm_struct *mm)
 
 	__get_cpu_var(stab_cache_ptr) = 0;
 
-#ifdef CONFIG_IPIPE
-	local_irq_restore_hw(flags);
-#endif
+	hard_cond_local_irq_restore(flags);
+
 	/* Now preload some entries for the new task */
 	if (test_tsk_thread_flag(tsk, TIF_32BIT))
 		unmapped_base = TASK_UNMAPPED_BASE_USER32;

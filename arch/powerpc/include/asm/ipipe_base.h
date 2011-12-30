@@ -117,12 +117,14 @@ extern unsigned long __ipipe_root_status;
 static __inline__ void ipipe_stall_root(void)
 {
 	volatile unsigned long *p = &__ipipe_root_status;
+	ipipe_root_only();
 	set_bit(0, p);
 }
 
 static __inline__ unsigned long ipipe_test_and_stall_root(void)
 {
 	volatile unsigned long *p = &__ipipe_root_status;
+	ipipe_root_only();
 	return test_and_set_bit(0, p);
 }
 

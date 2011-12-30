@@ -34,11 +34,11 @@ static void mpc8xx_unmask_irq(struct irq_data *d)
 	bit = irq_nr & 0x1f;
 	word = irq_nr >> 5;
 
-	local_irq_save_hw_cond(flags);
+	flags = hard_cond_local_irq_save();
 	ppc_cached_irq_mask[word] |= (1 << (31-bit));
 	out_be32(&siu_reg->sc_simask, ppc_cached_irq_mask[word]);
 	ipipe_unlock_irq(d->irq);
-	local_irq_restore_hw_cond(flags);
+	hard_cond_local_irq_restore(flags);
 }
 
 static void mpc8xx_mask_irq(struct irq_data *d)
@@ -50,11 +50,11 @@ static void mpc8xx_mask_irq(struct irq_data *d)
 	bit = irq_nr & 0x1f;
 	word = irq_nr >> 5;
 
-	local_irq_save_hw_cond(flags);
+	flags = hard_cond_local_irq_save();
 	ipipe_lock_irq(d->irq);
 	ppc_cached_irq_mask[word] &= ~(1 << (31-bit));
 	out_be32(&siu_reg->sc_simask, ppc_cached_irq_mask[word]);
-	local_irq_restore_hw_cond(flags);
+	hard_cond_local_irq_restore(flags);
 }
 
 static void mpc8xx_ack(struct irq_data *d)
@@ -76,11 +76,11 @@ static void mpc8xx_mask_ack_irq(struct irq_data *d)
 	bit = irq_nr & 0x1f;
 	word = irq_nr >> 5;
 
-	local_irq_save_hw_cond(flags);
+	flags = hard_cond_local_irq_save();
 	ppc_cached_irq_mask[word] &= ~(1 << (31-bit));
 	out_be32(&siu_reg->sc_simask, ppc_cached_irq_mask[word]);
 	out_be32(&siu_reg->sc_sipend, 1 << (31-bit));
-	local_irq_restore_hw_cond(flags);
+	hard_cond_local_irq_restore(flags);
 }
 #endif
 
@@ -93,10 +93,10 @@ static void mpc8xx_end_irq(struct irq_data *d)
 	bit = irq_nr & 0x1f;
 	word = irq_nr >> 5;
 
-	local_irq_save_hw_cond(flags);
+	flags = hard_cond_local_irq_save();
 	ppc_cached_irq_mask[word] |= (1 << (31-bit));
 	out_be32(&siu_reg->sc_simask, ppc_cached_irq_mask[word]);
-	local_irq_restore_hw_cond(flags);
+	hard_cond_local_irq_restore(flags);
 }
 
 static int mpc8xx_set_irq_type(struct irq_data *d, unsigned int flow_type)

@@ -58,21 +58,21 @@ DECLARE_PER_CPU(struct mm_struct *, ipipe_active_mm);
 
 #define prepare_arch_switch(next)			\
 	do {						\
-		local_irq_enable_hw();			\
+		hard_local_irq_enable();		\
 		__ipipe_report_schedule(current, next);	\
 	} while(0)
 
 #define task_hijacked_p(prev)						\
 	({								\
 		int __x__;						\
-		local_irq_disable_hw();					\
+		hard_local_irq_disable();				\
 		__x__ = !__ipipe_root_p;				\
 		if (__x__) {						\
 			struct ipipe_percpu_domain_data *p;		\
 			p = ipipe_head_cpudom_ptr();			\
 			p->task_hijacked = prev;			\
 		}							\
-		local_irq_enable_hw();					\
+		hard_local_irq_enable();				\
 		__x__;							\
 	})
 
@@ -86,14 +86,14 @@ static inline struct mm_struct *ipipe_get_active_mm(void)
 #define prepare_arch_switch(next)			\
 	do {						\
 		__ipipe_report_schedule(current, next);	\
-		local_irq_disable_hw();			\
+		hard_local_irq_disable();		\
 	} while(0)
 
 #define task_hijacked_p(prev)						\
 	({								\
 		int __x__ = !__ipipe_root_p;				\
 		if (!__x__)						\
-			local_irq_enable_hw();				\
+			hard_local_irq_enable();			\
 		else {							\
 			struct ipipe_percpu_domain_data *p;		\
 			p = ipipe_head_cpudom_ptr();			\

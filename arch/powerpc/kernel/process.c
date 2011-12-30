@@ -104,7 +104,7 @@ void enable_kernel_fp(void)
 
 	WARN_ON(preemptible());
 
-	local_irq_save_hw_cond(flags);
+	flags = hard_cond_local_irq_save();
 
 #ifdef CONFIG_SMP
 	if (current->thread.regs && (current->thread.regs->msr & MSR_FP))
@@ -114,7 +114,7 @@ void enable_kernel_fp(void)
 #else
 	giveup_fpu(last_task_used_math);
 #endif /* CONFIG_SMP */
-	local_irq_restore_hw_cond(flags);
+	hard_cond_local_irq_restore(flags);
 }
 EXPORT_SYMBOL(enable_kernel_fp);
 
@@ -537,7 +537,7 @@ struct task_struct *__switch_to(struct task_struct *prev,
 	}
 #endif /* CONFIG_PPC_BOOK3S_64 */
 
-	local_irq_save_hw(flags);
+	flags = hard_local_irq_save();
 
 	account_system_vtime(current);
 	account_process_vtime(current);
@@ -558,7 +558,7 @@ struct task_struct *__switch_to(struct task_struct *prev,
 	}
 #endif /* CONFIG_PPC_BOOK3S_64 */
 
-	local_irq_restore_hw(flags);
+	hard_local_irq_restore(flags);
 
 	return last;
 }

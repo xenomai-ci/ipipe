@@ -937,7 +937,7 @@ int mpic_set_irq_type(struct irq_data *d, unsigned int flow_type)
 	else
 		vecpri = mpic_type_to_vecpri(mpic, flow_type);
 
-	local_irq_save_hw_cond(flags);
+	flags = hard_cond_local_irq_save();
 
 	vold = mpic_irq_read(src, MPIC_INFO(IRQ_VECTOR_PRI));
 	vnew = vold & ~(MPIC_INFO(VECPRI_POLARITY_MASK) |
@@ -945,6 +945,8 @@ int mpic_set_irq_type(struct irq_data *d, unsigned int flow_type)
 	vnew |= vecpri;
 	if (vold != vnew)
 		mpic_irq_write(src, MPIC_INFO(IRQ_VECTOR_PRI), vnew);
+
+	hard_cond_local_irq_restore(flags);
 
 	return IRQ_SET_MASK_OK_NOCOPY;;
 }

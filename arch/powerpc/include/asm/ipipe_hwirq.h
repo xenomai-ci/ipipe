@@ -24,12 +24,12 @@
 #ifdef CONFIG_PPC32
 
 #if defined(CONFIG_BOOKE)
-#define local_irq_restore_hw_notrace(x)	__asm__ __volatile__("wrtee %0" : : "r" (x) : "memory")
+#define hard_local_irq_restore_notrace(x)	__asm__ __volatile__("wrtee %0" : : "r" (x) : "memory")
 #else
-#define local_irq_restore_hw_notrace(x)	mtmsr(x)
+#define hard_local_irq_restore_notrace(x)	mtmsr(x)
 #endif
 
-static inline void local_irq_disable_hw_notrace(void)
+static inline void hard_local_irq_disable_notrace(void)
 {
 #ifdef CONFIG_BOOKE
 	__asm__ __volatile__("wrteei 0": : :"memory");
@@ -39,7 +39,7 @@ static inline void local_irq_disable_hw_notrace(void)
 #endif
 }
 
-static inline void local_irq_enable_hw_notrace(void)
+static inline void hard_local_irq_enable_notrace(void)
 {
 #ifdef CONFIG_BOOKE
 	__asm__ __volatile__("wrteei 1": : :"memory");
@@ -49,15 +49,15 @@ static inline void local_irq_enable_hw_notrace(void)
 #endif
 }
 
-static inline void local_irq_save_ptr_hw(unsigned long *x)
+static inline unsigned long hard_local_irq_save_notrace(void)
 {
 	unsigned long msr = mfmsr();
-	*x = msr;
 #ifdef CONFIG_BOOKE
 	__asm__ __volatile__("wrteei 0": : :"memory");
 #else
 	mtmsr(msr & ~MSR_EE);
 #endif
+	return msr;
 }
 
 #else /* CONFIG_PPC64 */
@@ -65,40 +65,37 @@ static inline void local_irq_save_ptr_hw(unsigned long *x)
 #include <asm/paca.h>
 
 #ifdef CONFIG_PPC_BOOK3E
-static inline void local_irq_disable_hw_notrace(void)
+static inline void hard_local_irq_disable_notrace(void)
 {
 	__asm__ __volatile__("wrteei 0": : :"memory");
 }
 
-static inline void local_irq_enable_hw_notrace(void)
+static inline void hard_local_irq_enable_notrace(void)
 {
 	__asm__ __volatile__("wrteei 1": : :"memory");
 }
 #else /* !CONFIG_PPC_BOOK3E */
-static inline void local_irq_disable_hw_notrace(void)
+static inline void hard_local_irq_disable_notrace(void)
 {
 	__mtmsrd(mfmsr() & ~MSR_EE, 1);
 }
 
-static inline void local_irq_enable_hw_notrace(void)
+static inline void hard_local_irq_enable_notrace(void)
 {
 	__mtmsrd(mfmsr() | MSR_EE, 1);
 }
 #endif /* !CONFIG_PPC_BOOK3E */
 
-static inline void local_irq_save_ptr_hw(unsigned long *x)
+static inline unsigned long hard_local_irq_save(void)
 {
 	unsigned long msr = mfmsr();
-	local_irq_disable_hw_notrace();
-	__asm__ __volatile__("": : :"memory");
-	*x = msr;
+	hard_local_irq_disable_notrace();
+	return msr;
 }
 
-#define local_irq_restore_hw_notrace(x)	__mtmsrd(x, 1)
+#define hard_local_irq_restore_notrace(x)	__mtmsrd(x, 1)
 
 #endif /* CONFIG_PPC64 */
-
-#define local_irq_save_hw_notrace(x)	local_irq_save_ptr_hw(&(x))
 
 #ifdef CONFIG_IPIPE
 
@@ -109,56 +106,70 @@ static inline void local_irq_save_ptr_hw(unsigned long *x)
 #error "CONFIG_SOFTDISABLE and CONFIG_IPIPE are mutually exclusive"
 #endif
 
-#define irqs_disabled_hw()		((mfmsr() & MSR_EE) == 0)
-#define local_save_flags_hw(x)		((x) = mfmsr())
-#define arch_irqs_disabled_flags(x)	(((x) & MSR_EE) == 0)
+static inline int arch_irqs_disabled_flags(unsigned long flags)
+{
+	return (flags & MSR_EE) == 0;
+}
+
+static inline int hard_irqs_disabled(void)
+{
+	return arch_irqs_disabled_flags(mfmsr());
+}
+
+static inline unsigned long hard_local_save_flags(void)
+{
+	return mfmsr();
+}
 
 #ifdef CONFIG_IPIPE_TRACE_IRQSOFF
 
-static inline void local_irq_disable_hw(void)
+static inline void hard_local_irq_disable(void)
 {
-	if (!irqs_disabled_hw()) {
-		local_irq_disable_hw_notrace();
+	if (!hard_irqs_disabled()) {
+		hard_local_irq_disable_notrace();
 		ipipe_trace_begin(0x80000000);
 	}
 }
 
-static inline void local_irq_enable_hw(void)
+static inline void hard_local_irq_enable(void)
 {
-	if (irqs_disabled_hw()) {
+	if (hard_irqs_disabled()) {
 		ipipe_trace_end(0x80000000);
-		local_irq_enable_hw_notrace();
+		hard_local_irq_enable_notrace();
 	}
 }
 
-#define local_irq_save_hw(x)			       \
-	do {					       \
-		local_irq_save_ptr_hw(&(x));	       \
-		if (!irqs_disabled_flags(x))	       \
-			ipipe_trace_begin(0x80000001); \
-	} while(0)
+static inline unsigned long hard_local_irq_save(void)
+{
+	unsigned long flags
 
-static inline void local_irq_restore_hw(unsigned long x)
+	flags = hard_local_irq_save_notrace();
+	if (!irqs_disabled_flags(flags))
+		ipipe_trace_begin(0x80000001);
+
+	return flags;
+}
+
+static inline void hard_local_irq_restore(unsigned long x)
 {
 	if (!arch_irqs_disabled_flags(x))
 		ipipe_trace_end(0x80000001);
 
-	local_irq_restore_hw_notrace(x);
+	hard_local_irq_restore_notrace(x);
 }
 
 #else /* !CONFIG_IPIPE_TRACE_IRQSOFF */
 
-#define local_irq_disable_hw    local_irq_disable_hw_notrace
-#define local_irq_enable_hw     local_irq_enable_hw_notrace
-#define local_irq_save_hw       local_irq_save_hw_notrace
-#define local_irq_restore_hw    local_irq_restore_hw_notrace
+#define hard_local_irq_disable    hard_local_irq_disable_notrace
+#define hard_local_irq_enable     hard_local_irq_enable_notrace
+#define hard_local_irq_save       hard_local_irq_save_notrace
+#define hard_local_irq_restore    hard_local_irq_restore_notrace
 
 #endif /* CONFIG_IPIPE_TRACE_IRQSOFF */
 
 #define arch_local_irq_disable()			\
 	({						\
 		unsigned long __x;			\
-		ipipe_root_only();					\
 		__x = (!ipipe_test_and_stall_root()) << MSR_EE_LG;	\
 		barrier();						\
 		__x;					\
@@ -167,7 +178,6 @@ static inline void local_irq_restore_hw(unsigned long x)
 #define arch_local_irq_enable()				\
 	do {						\
 		barrier();				\
-		ipipe_root_only();			\
 		ipipe_unstall_root();			\
 	} while (0)
 
@@ -188,7 +198,7 @@ static inline void arch_local_irq_restore(unsigned long x)
 
 #define arch_irqs_disabled()		ipipe_test_root()
 #define arch_irqs_disabled_flags(x)	(((x) & MSR_EE) == 0)
-#define hard_irq_disable()		local_irq_disable_hw()
+#define hard_irq_disable()		hard_local_irq_disable()
 
 static inline unsigned long arch_mangle_irq_bits(int virt, unsigned long real)
 {
@@ -208,12 +218,25 @@ static inline int arch_demangle_irq_bits(unsigned long *x)
 
 #else /* !CONFIG_IPIPE */
 
-#define local_irq_save_hw(x)	do { (x) = arch_local_irq_save(); } while (0)
-#define local_irq_restore_hw(x)	arch_local_irq_restore(x)
-#define local_irq_enable_hw()	arch_local_irq_enable()
-#define local_irq_disable_hw()	arch_local_irq_disable()
-#define irqs_disabled_hw()	arch_irqs_disabled()
+#define hard_local_irq_save()		arch_local_irq_save()
+#define hard_local_irq_restore(x)	arch_local_irq_restore(x)
+#define hard_local_irq_enable()		arch_local_irq_enable()
+#define hard_local_irq_disable()	arch_local_irq_disable()
+#define hard_irqs_disabled()		arch_irqs_disabled()
+
+#define hard_cond_local_irq_enable()		do { } while(0)
+#define hard_cond_local_irq_disable()		do { } while(0)
+#define hard_cond_local_irq_save()		0
+#define hard_cond_local_irq_restore(flags)	do { (void)(flags); } while(0)
 
 #endif /* !CONFIG_IPIPE */
+
+#if defined(CONFIG_SMP) && defined(CONFIG_IPIPE)
+#define hard_smp_local_irq_save()		hard_local_irq_save()
+#define hard_smp_local_irq_restore(flags)	hard_local_irq_restore(flags)
+#else /* !CONFIG_SMP */
+#define hard_smp_local_irq_save()		0
+#define hard_smp_local_irq_restore(flags)	do { (void)(flags); } while(0)
+#endif /* CONFIG_SMP */
 
 #endif /* !_ASM_POWERPC_IPIPE_HWIRQ_H */

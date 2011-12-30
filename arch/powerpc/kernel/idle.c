@@ -68,7 +68,7 @@ void cpu_idle(void)
 				 * is ordered w.r.t. need_resched() test.
 				 */
 				smp_mb();
-				local_irq_disable_hw();
+				hard_local_irq_disable();
 
 				/* Don't trace irqs off for idle */
 				stop_critical_timings();
@@ -79,7 +79,7 @@ void cpu_idle(void)
 
 				start_critical_timings();
 
-				local_irq_enable_hw();
+				hard_local_irq_enable();
 				set_thread_flag(TIF_POLLING_NRFLAG);
 
 			} else {

@@ -201,7 +201,7 @@ void switch_mmu_context(struct mm_struct *prev, struct mm_struct *next)
 		cpu, next, next->context.active, next->context.id);
 
 #ifdef CONFIG_SMP
-	WARN_ON(!irqs_disabled_hw());
+	WARN_ON(!hard_irqs_disabled());
 	/* Mark us active and the previous one not anymore */
 	next->context.active++;
 	if (prev) {

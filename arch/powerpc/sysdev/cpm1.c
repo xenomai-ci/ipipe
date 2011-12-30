@@ -61,10 +61,10 @@ static void cpm_mask_irq(struct irq_data *d)
 	unsigned int cpm_vec = (unsigned int)irqd_to_hwirq(d);
 	unsigned long flags;
 
-	local_irq_save_hw_cond(flags);
+	flags = hard_cond_local_irq_save();
 	ipipe_lock_irq(d->irq);
 	clrbits32(&cpic_reg->cpic_cimr, (1 << cpm_vec));
-	local_irq_restore_hw_cond(flags);
+	hard_cond_local_irq_restore(flags);
 }
 
 static void cpm_unmask_irq(struct irq_data *d)
@@ -72,10 +72,10 @@ static void cpm_unmask_irq(struct irq_data *d)
 	unsigned int cpm_vec = (unsigned int)irqd_to_hwirq(d);
 	unsigned long flags;
  
-	local_irq_save_hw_cond(flags);
+	flags = hard_cond_local_irq_save();
 	setbits32(&cpic_reg->cpic_cimr, (1 << cpm_vec));
 	ipipe_unlock_irq(d->irq);
-	local_irq_restore_hw_cond(flags);
+	hard_cond_local_irq_restore(flags);
 }
 
 static void cpm_end_irq(struct irq_data *d)
@@ -83,10 +83,10 @@ static void cpm_end_irq(struct irq_data *d)
 	unsigned int cpm_vec = (unsigned int)irqd_to_hwirq(d);
 	unsigned long flags;
  
-	local_irq_save_hw_cond(flags);
+	flags = hard_cond_local_irq_save();
 	out_be32(&cpic_reg->cpic_cisr, (1 << cpm_vec));
 	clrbits32(&cpic_reg->cpic_cimr, (1 << cpm_vec));
-	local_irq_restore_hw_cond(flags);
+	hard_cond_local_irq_restore(flags);
 }
 
 static struct irq_chip cpm_pic = {

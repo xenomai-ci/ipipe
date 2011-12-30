@@ -148,7 +148,7 @@ static long native_hpte_insert(unsigned long hpte_group, unsigned long va,
 			hpte_group, va, pa, rflags, vflags, psize);
 	}
 
-	local_irq_save_hw(flags);
+	flags = hard_local_irq_save();
 
 	for (i = 0; i < HPTES_PER_GROUP; i++) {
 		if (! (hptep->v & HPTE_V_VALID)) {
@@ -163,7 +163,7 @@ static long native_hpte_insert(unsigned long hpte_group, unsigned long va,
 	}
 
 	if (i == HPTES_PER_GROUP) {
-		local_irq_restore_hw(flags);
+		hard_local_irq_restore(flags);
 		return -1;
 	}
 
@@ -202,7 +202,7 @@ static long native_hpte_insert(unsigned long hpte_group, unsigned long va,
 	 */
 	hptep->v = hpte_v;
 
-	local_irq_restore_hw(flags);
+	hard_local_irq_restore(flags);
 
 	__asm__ __volatile__ ("ptesync" : : : "memory");
 
@@ -221,7 +221,7 @@ static long native_hpte_remove(unsigned long hpte_group)
 	/* pick a random entry to start at */
 	slot_offset = mftb() & 0x7;
 
-	local_irq_save_hw(flags);
+	flags = hard_local_irq_save();
 
 	for (i = 0; i < HPTES_PER_GROUP; i++) {
 		hptep = htab_address + hpte_group + slot_offset;
@@ -242,14 +242,14 @@ static long native_hpte_remove(unsigned long hpte_group)
 	}
 
 	if (i == HPTES_PER_GROUP) {
-		local_irq_restore_hw(flags);
+		hard_local_irq_restore(flags);
 		return -1;
 	}
 
 	/* Invalidate the hpte. NOTE: this also unlocks it */
 	hptep->v = 0;
 
-	local_irq_restore_hw(flags);
+	hard_local_irq_restore(flags);
 
 	return i;
 }
@@ -267,7 +267,7 @@ static long native_hpte_updatepp(unsigned long slot, unsigned long newpp,
 	DBG_LOW("    update(va=%016lx, avpnv=%016lx, hash=%016lx, newpp=%x)",
 		va, want_v & HPTE_V_AVPN, slot, newpp);
 
-	local_irq_save_hw(flags);
+	flags = hard_local_irq_save();
 
 	native_lock_hpte(hptep);
 
@@ -285,7 +285,7 @@ static long native_hpte_updatepp(unsigned long slot, unsigned long newpp,
 	}
 	native_unlock_hpte(hptep);
 
-	local_irq_restore_hw(flags);
+	hard_local_irq_restore(flags);
 
 	/* Ensure it is out of the tlb too. */
 	tlbie(va, psize, ssize, local);

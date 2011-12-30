@@ -1034,7 +1034,7 @@ int hash_page(unsigned long ea, unsigned long access, unsigned long trap)
 		}
 	}
 
-	local_irq_save_hw(flags);
+	flags = hard_local_irq_save();
 
 	if (user_region) {
 		if (psize != get_paca_psize(ea)) {
@@ -1048,7 +1048,7 @@ int hash_page(unsigned long ea, unsigned long access, unsigned long trap)
 		slb_vmalloc_update();
 	}
 
-	local_irq_restore_hw(flags);
+	hard_local_irq_restore(flags);
 #else
 	(void)flags;
 #endif /* CONFIG_PPC_64K_PAGES */

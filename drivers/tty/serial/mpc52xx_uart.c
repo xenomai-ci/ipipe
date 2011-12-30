@@ -1468,7 +1468,7 @@ void __ipipe_serial_debug(const char *fmt, ...)
         va_end(ap);
         count = strlen(buf);
 
-        local_irq_save_hw(flags);
+        flags = hard_local_irq_save();
 
 	/* Write all the chars */
 	for (n = 0, s = buf; n < count; n++, s++) {
@@ -1477,7 +1477,7 @@ void __ipipe_serial_debug(const char *fmt, ...)
 		psc_ops->write_char(port, *s);
 	}
 
-        local_irq_restore_hw(flags);
+        hard_local_irq_restore(flags);
 }
 
 #endif
