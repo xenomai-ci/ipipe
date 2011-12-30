@@ -284,10 +284,6 @@ static inline void ipipe_notify_root_preemption(void) { }
 
 #include <linux/interrupt.h>
 
-#define task_hijacked_p(prev)	0
-
-#define ipipe_handle_chained_irq(irq)	generic_handle_irq(irq)
-
 #define ipipe_mm_switch_protect(flags)		do { (void)(flags); } while(0)
 #define ipipe_mm_switch_unprotect(flags)	do { (void)(flags); } while(0)
 #define	ipipe_pre_cascade_noeoi(desc)		do { } while (0)
@@ -300,9 +296,7 @@ static inline void ipipe_post_cascade_eoi(struct irq_desc *desc)
 	chip->irq_eoi(&desc->irq_data);
 }
 
-#define __ipipe_serial_debug(fmt, args...)	do { } while (0)
-
-#endif /* CONFIG_IPIPE */
+#endif /* !CONFIG_IPIPE */
 
 #define ipipe_update_tick_evtdev(evtdev)	do { } while (0)
 
