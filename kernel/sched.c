@@ -9414,10 +9414,10 @@ void __ipipe_reenter_root(void)
 	struct task_struct *prev;
 	unsigned long flags;
 
-	local_irq_save_hw_smp(flags);
+	flags = hard_smp_local_irq_save();
 	p = ipipe_head_cpudom_ptr();
 	prev = p->task_hijacked;
-	local_irq_restore_hw_smp(flags);
+	hard_smp_local_irq_restore(flags);
 	finish_task_switch(rq, prev);
 	post_schedule(rq);
 	preempt_enable_no_resched();

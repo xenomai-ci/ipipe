@@ -34,11 +34,6 @@
 
 #ifdef CONFIG_IPIPE
 
-#define IPIPE_VERSION_STRING	IPIPE_ARCH_STRING
-#define IPIPE_RELEASE_NUMBER	((IPIPE_MAJOR_NUMBER << 16) | \
-				 (IPIPE_MINOR_NUMBER <<  8) | \
-				 (IPIPE_PATCH_NUMBER))
-
 extern struct ipipe_domain ipipe_root;
 
 #define ipipe_root_domain (&ipipe_root)
@@ -51,9 +46,9 @@ extern struct ipipe_domain *ipipe_head_domain;
 	({						\
 		struct ipipe_domain *__ipd__;		\
 		unsigned long __flags__;		\
-		local_irq_save_hw_smp(__flags__);	\
+		__flags__ = hard_smp_local_irq_save();	\
 		__ipd__ = __ipipe_current_domain;	\
-		local_irq_restore_hw_smp(__flags__);	\
+		hard_smp_local_irq_restore(__flags__);	\
 		__ipd__;				\
 	})
 
@@ -163,13 +158,13 @@ static inline void ipipe_post_irq_root(unsigned int irq)
 
 static inline void ipipe_stall_head(void)
 {
-	local_irq_disable_hw();
+	hard_local_irq_disable();
 	__set_bit(IPIPE_STALL_FLAG, &ipipe_head_cpudom_var(status));
 }
 
 static inline unsigned long ipipe_test_and_stall_head(void)
 {
-	local_irq_disable_hw();
+	hard_local_irq_disable();
 	return __test_and_set_bit(IPIPE_STALL_FLAG, &ipipe_head_cpudom_var(status));
 }
 
@@ -177,9 +172,9 @@ static inline unsigned long ipipe_test_head(void)
 {
 	unsigned long flags, ret;
 
-	local_irq_save_hw_smp(flags);
+	flags = hard_smp_local_irq_save();
 	ret = test_bit(IPIPE_STALL_FLAG, &ipipe_head_cpudom_var(status));
-	local_irq_restore_hw_smp(flags);
+	hard_smp_local_irq_restore(flags);
 
 	return ret;
 }
@@ -222,15 +217,15 @@ static inline int ipipe_test_foreign_stack(void)
 }
 
 #ifndef ipipe_safe_current
-#define ipipe_safe_current()					\
-({								\
-	struct task_struct *p;					\
-	unsigned long flags;					\
-	local_irq_save_hw_smp(flags);				\
-	p = ipipe_test_foreign_stack() ? &init_task : current;	\
-	local_irq_restore_hw_smp(flags);			\
-	p; \
-})
+#define ipipe_safe_current()						\
+	({								\
+		struct task_struct *__p__;				\
+		unsigned long __flags__;				\
+		__flags__ = hard_smp_local_irq_save();			\
+		__p__ = ipipe_test_foreign_stack() ? &init_task : current; \
+		hard_smp_local_irq_restore(__flags__);			\
+		__p__;							\
+	})
 #endif
 
 int ipipe_set_irq_affinity(unsigned int irq,
@@ -238,6 +233,15 @@ int ipipe_set_irq_affinity(unsigned int irq,
 
 int ipipe_send_ipi(unsigned int ipi,
 		   cpumask_t cpumask);
+
+static inline void ipipe_restore_root_nosync(unsigned long x)
+{
+	unsigned long flags;
+
+	flags = hard_smp_local_irq_save();
+	__ipipe_restore_root_nosync(x);
+	hard_smp_local_irq_restore(flags);
+}
 
 /* Must be called hw IRQs off. */
 static inline void ipipe_lock_irq(unsigned int irq)

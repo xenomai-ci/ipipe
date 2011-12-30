@@ -781,7 +781,7 @@ asmlinkage int printk(const char *fmt, ...)
 
 	va_start(args, fmt);
 
-	local_irq_save_hw(flags);
+	flags = hard_local_irq_save();
 
 	cpu = ipipe_processor_id();
 
@@ -795,7 +795,7 @@ asmlinkage int printk(const char *fmt, ...)
 	} else
 		sprintk = 0;
 
-	local_irq_restore_hw(flags);
+	hard_local_irq_restore(flags);
 
 	if (sprintk) {
 		r = vprintk(fmt, args);

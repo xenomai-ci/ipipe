@@ -18,7 +18,7 @@ notrace unsigned int debug_smp_processor_id(void)
 	if (likely(preempt_count))
 		goto out;
 
-	if (irqs_disabled() || irqs_disabled_hw())
+	if (irqs_disabled() || hard_irqs_disabled())
 		goto out;
 
 	/*

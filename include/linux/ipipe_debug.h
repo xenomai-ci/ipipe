@@ -87,8 +87,8 @@ static inline void ipipe_restore_context_nmi(int cpu) { }
 
 static inline void ipipe_check_irqoff(void)
 {
-	if (WARN_ON_ONCE(!irqs_disabled_hw()))
-		local_irq_disable_hw();
+	if (WARN_ON_ONCE(!hard_irqs_disabled()))
+		hard_local_irq_disable();
 }
 
 #else /* !CONFIG_IPIPE_DEBUG */

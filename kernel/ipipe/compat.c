@@ -59,19 +59,19 @@ int ipipe_register_domain(struct ipipe_domain *ipd,
 	if (attr->entry == NULL)
 		return 0;
 
-	local_irq_save_hw_smp(flags);
+	flags = hard_smp_local_irq_save();
 	__ipipe_current_domain = ipd;
-	local_irq_restore_hw_smp(flags);
+	hard_smp_local_irq_restore(flags);
+
 	attr->entry();
-	local_irq_save_hw(flags);
+
+	flags = hard_local_irq_save();
 	__ipipe_current_domain = ipipe_root_domain;
 	p = ipipe_root_cpudom_ptr();
-
 	if (__ipipe_ipending_p(p) &&
 	    !test_bit(IPIPE_STALL_FLAG, &p->status))
 		__ipipe_sync_stage();
-
-	local_irq_restore_hw(flags);
+	hard_local_irq_restore(flags);
 
 	return 0;
 }

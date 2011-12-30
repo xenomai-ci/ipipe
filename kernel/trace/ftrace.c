@@ -3412,9 +3412,9 @@ static int ftrace_process_locs(struct module *mod,
 	}
 
 #ifdef CONFIG_IPIPE
-	local_irq_save_hw_notrace(flags);
+	flags = hard_local_irq_save_notrace();
 	ftrace_update_code(mod);
-	local_irq_restore_hw_notrace(flags);
+	hard_local_irq_restore_notrace(flags);
 #else
 	/*
 	 * We only need to disable interrupts on start up
@@ -3510,9 +3510,9 @@ void __init ftrace_init(void)
 	/* Keep the ftrace pointer to the stub */
 	addr = (unsigned long)ftrace_stub;
 
-	local_irq_save_hw_notrace(flags);
+	flags = hard_local_irq_save_notrace();
 	ftrace_dyn_arch_init(&addr);
-	local_irq_restore_hw_notrace(flags);
+	hard_local_irq_restore_notrace(flags);
 
 	/* ftrace_dyn_arch_init places the return code in addr */
 	if (addr)

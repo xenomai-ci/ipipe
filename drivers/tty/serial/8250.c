@@ -3196,7 +3196,7 @@ void __weak __ipipe_serial_debug(const char *fmt, ...)
 
         touch_nmi_watchdog();
 
-        local_irq_save_hw(flags);
+        flags = hard_local_irq_save();
 
         /*
          *      First save the IER then disable the interrupts
@@ -3217,7 +3217,7 @@ void __weak __ipipe_serial_debug(const char *fmt, ...)
         wait_for_xmitr(up, BOTH_EMPTY);
         serial_out(up, UART_IER, ier);
 
-        local_irq_restore_hw(flags);
+        hard_local_irq_restore(flags);
 }
 
 #endif

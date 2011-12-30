@@ -25,6 +25,12 @@
 
 #ifdef CONFIG_IPIPE
 
+#ifdef CONFIG_IPIPE_DEBUG_CONTEXT
+void ipipe_root_only(void);
+#else /* !CONFIG_IPIPE_DEBUG_CONTEXT */
+static inline void ipipe_root_only(void) { }
+#endif /* !CONFIG_IPIPE_DEBUG_CONTEXT */
+
 #include <asm/ipipe_base.h>
 
 #define __bpl_up(x)		(((x)+(BITS_PER_LONG-1)) & ~(BITS_PER_LONG-1))
@@ -73,11 +79,11 @@ static inline int ipipe_virtual_irq_p(unsigned int irq)
 #define IPIPE_LOCK_MASK		(1 << IPIPE_LOCK_FLAG)
 
 #ifdef CONFIG_SMP
-#define local_irq_save_hw_smp(flags)		local_irq_save_hw(flags)
-#define local_irq_restore_hw_smp(flags)		local_irq_restore_hw(flags)
+#define hard_smp_local_irq_save(flags)		hard_local_irq_save(flags)
+#define hard_smp_local_irq_restore(flags)	hard_local_irq_restore(flags)
 #else /* !CONFIG_SMP */
-#define local_irq_save_hw_smp(flags)		do { (void)(flags); } while(0)
-#define local_irq_restore_hw_smp(flags)		do { } while(0)
+#define hard_smp_local_irq_save(flags)		do { (void)(flags); } while(0)
+#define hard_smp_local_irq_restore(flags)	do { } while(0)
 #endif /* CONFIG_SMP */
 
 struct pt_regs;
@@ -123,9 +129,9 @@ void __ipipe_restore_root_nosync(unsigned long x);
 static inline void ipipe_restore_root_nosync(unsigned long x)
 {
 	unsigned long flags;
-	local_irq_save_hw_smp(flags);
+	hard_smp_local_irq_save(flags);
 	__ipipe_restore_root_nosync(x);
-	local_irq_restore_hw_smp(flags);
+	hard_smp_local_irq_restore(flags);
 }
 
 void __ipipe_dispatch_irq(unsigned int irq, int ackit);
@@ -187,21 +193,21 @@ void __ipipe_flush_printk(unsigned int irq, void *cookie);
 void __ipipe_pin_range_globally(unsigned long start,
 				unsigned long end);
 
-#define __ipipe_preempt_disable(flags)		\
-	do {					\
-		local_irq_save_hw(flags);	\
-		if (__ipipe_root_p)		\
-			preempt_disable();	\
+#define __ipipe_preempt_disable(flags)			\
+	do {						\
+		(flags) = hard_local_irq_save();	\
+		if (__ipipe_root_p)			\
+			preempt_disable();		\
 	} while (0)
 
 #define __ipipe_preempt_enable(flags)			\
 	do {						\
 		if (__ipipe_root_p) {			\
 			preempt_enable_no_resched();	\
-			local_irq_restore_hw(flags);	\
+			hard_local_irq_restore(flags);	\
 			preempt_check_resched();	\
 		} else					\
-			local_irq_restore_hw(flags);	\
+			hard_local_irq_restore(flags);	\
 	} while (0)
 
 #define __ipipe_get_cpu(flags)	({ __ipipe_preempt_disable(flags); ipipe_processor_id(); })
@@ -253,28 +259,10 @@ void __ipipe_handle_guest_preemption(struct kvm_vcpu *vcpu);
 /* Client-side call through ipipe_notify_root_preemption(). */
 void __ipipe_notify_guest_preemption(void);
 
-#define local_irq_enable_hw_cond()		local_irq_enable_hw()
-#define local_irq_disable_hw_cond()		local_irq_disable_hw()
-#define local_irq_save_hw_cond(flags)		local_irq_save_hw(flags)
-#define local_irq_restore_hw_cond(flags)	local_irq_restore_hw(flags)
-
-#define local_irq_save_full(vflags, rflags)		\
-	do {						\
-		local_irq_save(vflags);			\
-		local_irq_save_hw(rflags);		\
-	} while(0)
-
-#define local_irq_restore_full(vflags, rflags)		\
-	do {						\
-		local_irq_restore_hw(rflags);		\
-		local_irq_restore(vflags);		\
-	} while(0)
-
-#ifdef CONFIG_IPIPE_DEBUG_CONTEXT
-void ipipe_root_only(void);
-#else /* !CONFIG_IPIPE_DEBUG_CONTEXT */
-static inline void ipipe_root_only(void) { }
-#endif /* !CONFIG_IPIPE_DEBUG_CONTEXT */
+#define hard_cond_local_irq_enable()		hard_local_irq_enable()
+#define hard_cond_local_irq_disable()		hard_local_irq_disable()
+#define hard_cond_local_irq_save()		hard_local_irq_save()
+#define hard_cond_local_irq_restore(flags)	hard_local_irq_restore(flags)
 
 struct ipipe_task_info {
 	unsigned long flags;
@@ -375,16 +363,6 @@ static inline void __ipipe_pin_range_globally(unsigned long start,
 	} while (0)
 	
 static inline void ipipe_root_only(void) { }
-
-#define local_irq_enable_hw_cond()		do { } while(0)
-#define local_irq_disable_hw_cond()		do { } while(0)
-#define local_irq_save_hw_cond(flags)		do { (void)(flags); } while(0)
-#define local_irq_restore_hw_cond(flags)	do { } while(0)
-#define local_irq_save_hw_smp(flags)		do { (void)(flags); } while(0)
-#define local_irq_restore_hw_smp(flags)		do { } while(0)
-
-#define local_irq_save_full(vflags, rflags)	do { (void)(vflags); local_irq_save(rflags); } while(0)
-#define local_irq_restore_full(vflags, rflags)	do { (void)(vflags); local_irq_restore(rflags); } while(0)
 
 #endif	/* CONFIG_IPIPE */
 

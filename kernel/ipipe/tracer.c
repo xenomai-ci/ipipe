@@ -268,7 +268,7 @@ __ipipe_trace(enum ipipe_trace_type type, unsigned long eip,
 	unsigned long flags;
 	int cpu;
 
-	local_irq_save_hw_notrace(flags);
+	flags = hard_local_irq_save_notrace();
 
 	cpu = ipipe_processor_id();
  restart:
@@ -394,7 +394,7 @@ __ipipe_trace(enum ipipe_trace_type type, unsigned long eip,
 			              old_tp->nmi_saved_v);
 	}
 
-	local_irq_restore_hw_notrace(flags);
+	hard_local_irq_restore_notrace(flags);
 }
 
 static unsigned long __ipipe_global_path_lock(void)
@@ -632,13 +632,13 @@ void ipipe_trace_panic_freeze(void)
 		return;
 
 	ipipe_trace_enable = 0;
-	local_irq_save_hw_notrace(flags);
+	flags = hard_local_irq_save_notrace();
 
 	cpu = ipipe_processor_id();
 
 	panic_path = &per_cpu(trace_path, cpu)[per_cpu(active_path, cpu)];
 
-	local_irq_restore_hw(flags);
+	hard_local_irq_restore(flags);
 }
 EXPORT_SYMBOL_GPL(ipipe_trace_panic_freeze);
 
@@ -957,9 +957,9 @@ static void *__ipipe_max_prtrace_start(struct seq_file *m, loff_t *pos)
 				print_post_trace;
 
 		length_usecs = ipipe_tsc2us(print_path->length);
-		seq_printf(m, "I-pipe worst-case tracing service on %s/ipipe-%s\n"
-			"------------------------------------------------------------\n",
-			UTS_RELEASE, IPIPE_ARCH_STRING);
+		seq_printf(m, "I-pipe worst-case tracing service on %s/ipipe release #%d\n"
+			   "-------------------------------------------------------------\n",
+			UTS_RELEASE, IPIPE_CORE_RELEASE);
 		seq_printf(m, "CPU: %d, Begin: %lld cycles, Trace Points: "
 			"%d (-%d/+%d), Length: %lu us\n",
 			cpu, print_path->point[print_path->begin].timestamp,
@@ -1119,10 +1119,9 @@ static void *__ipipe_frozen_prtrace_start(struct seq_file *m, loff_t *pos)
 			print_pre_trace = IPIPE_TRACE_POINTS - 2 -
 				print_post_trace;
 
-		seq_printf(m, "I-pipe frozen back-tracing service on %s/ipipe-%s\n"
-			"------------------------------------------------------"
-			"------\n",
-			UTS_RELEASE, IPIPE_ARCH_STRING);
+		seq_printf(m, "I-pipe frozen back-tracing service on %s/ipipe release #%d\n"
+			      "------------------------------------------------------------\n",
+			   UTS_RELEASE, IPIPE_CORE_RELEASE);
 		seq_printf(m, "CPU: %d, Freeze: %lld cycles, Trace Points: %d (+%d)\n",
 			cpu, print_path->point[print_path->begin].timestamp,
 			print_pre_trace+1, print_post_trace);
@@ -1380,7 +1379,7 @@ void __init __ipipe_init_tracer(void)
 #endif /* CONFIG_IPIPE_TRACE_VMALLOC */
 
 	/* Calculate minimum overhead of __ipipe_trace() */
-	local_irq_disable_hw();
+	hard_local_irq_disable();
 	for (i = 0; i < 100; i++) {
 		ipipe_read_tsc(start);
 		__ipipe_trace(IPIPE_TRACE_FUNC, __BUILTIN_RETURN_ADDRESS0,
@@ -1391,7 +1390,7 @@ void __init __ipipe_init_tracer(void)
 		if (end < min)
 			min = end;
 	}
-	local_irq_enable_hw();
+	hard_local_irq_enable();
 	trace_overhead = ipipe_tsc2ns(min);
 
 #ifdef CONFIG_IPIPE_TRACE_ENABLE

@@ -121,14 +121,14 @@ typedef struct {
 
 #define arch_spin_lock_irq(lock)					\
 	do {								\
-		local_irq_disable_hw();					\
+		hard_local_irq_disable();				\
 		arch_spin_lock(lock);					\
 	} while (0)
 
 #define arch_spin_unlock_irq(lock)					\
 	do {								\
 		arch_spin_unlock(lock);					\
-		local_irq_enable_hw();					\
+		hard_local_irq_enable();				\
 	} while (0)
 
 typedef struct {

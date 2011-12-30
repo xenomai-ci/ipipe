@@ -485,7 +485,7 @@ asmlinkage void __init start_kernel(void)
 
 	cgroup_init_early();
 
-	local_irq_disable_hw();
+	hard_local_irq_disable();
 	early_boot_irqs_disabled = true;
 
 /*

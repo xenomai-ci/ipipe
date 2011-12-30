@@ -205,6 +205,43 @@ static inline int ipipe_reenter_root(struct task_struct *prev,
  */
 #define __ipipe_pipeline_head() ipipe_head_domain
 
+static inline int irqs_disabled_hw(void)
+{
+	return hard_irqs_disabled();
+}
+
+static inline void local_irq_disable_hw(void)
+{
+	hard_local_irq_disable();
+}
+
+static inline void local_irq_enable_hw(void)
+{
+	hard_local_irq_enable();
+}
+
+#define local_irq_save_hw(flags)			\
+	do {						\
+		(flags) = hard_local_irq_save();	\
+	} while (0)
+
+static inline void local_irq_restore_hw(unsigned long flags)
+{
+	hard_local_irq_restore(flags);
+}
+
+#define local_irq_save_hw_smp(flags)			\
+	do {						\
+		(flags) = hard_smp_local_irq_save();	\
+	} while (0)
+#define local_irq_restore_hw_smp(flags)   hard_smp_local_irq_restore(flags)
+
+#define local_irq_save_hw_cond(flags)			\
+	do {						\
+		(flags) = hard_cond_local_irq_save();	\
+	} while (0)
+#define local_irq_restore_hw_cond(flags)  hard_cond_local_irq_restore(flags)
+
 void __ipipe_legacy_init_stage(struct ipipe_domain *ipd);
 
 #define __IPIPE_FEATURE_REQUEST_TICKDEV		1
