@@ -46,10 +46,7 @@
 #include <asm/paca.h>
 #endif
 
-#define IPIPE_ARCH_STRING	"2.13-06"
-#define IPIPE_MAJOR_NUMBER	2
-#define IPIPE_MINOR_NUMBER	13
-#define IPIPE_PATCH_NUMBER	6
+#define IPIPE_CORE_RELEASE	1
 
 #ifdef CONFIG_IPIPE_WANT_PREEMPTIBLE_SWITCH
 
