@@ -903,6 +903,8 @@ int ipipe_request_irq(struct ipipe_domain *ipd,
 	unsigned long flags;
 	int ret = 0;
 
+	ipipe_root_only();
+
 	if (handler == NULL ||
 	    (irq >= NR_IRQS && !ipipe_virtual_irq_p(irq)))
 		return -EINVAL;
@@ -935,6 +937,8 @@ void ipipe_free_irq(struct ipipe_domain *ipd,
 		    unsigned int irq)
 {
 	unsigned long flags;
+
+	ipipe_root_only();
 
 	spin_lock_irqsave(&__ipipe_lock, flags);
 
