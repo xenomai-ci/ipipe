@@ -119,24 +119,20 @@ static void __ipipe_ipi_demux(int irq, struct pt_regs *regs)
 	__ipipe_end_irq(irq);
 }
 
-int __ipipe_set_irq_affinity(unsigned irq, cpumask_t cpumask)
+void ipipe_set_irq_affinity(unsigned int irq, cpumask_t cpumask)
 {
-	if (irq_get_chip(irq)->irq_set_affinity == NULL)
-		return -EINVAL;
-
-	if (cpus_empty(cpumask))
-		return -EINVAL;
+	if (WARN_ON_ONCE(irq_get_chip(irq)->irq_set_affinity == NULL))
+		return;
 
 	cpus_and(cpumask, cpumask, cpu_online_map);
-	if (cpus_empty(cpumask))
-		return -EINVAL;
+	if (WARN_ON_ONCE(cpus_empty(cpumask)))
+		return;
 
 	irq_get_chip(irq)->irq_set_affinity(irq_get_irq_data(irq), &cpumask, true);
-
-	return 0;
 }
+EXPORT_SYMBOL_GPL(ipipe_set_irq_affinity);
 
-int __ipipe_send_ipi(unsigned ipi, cpumask_t cpumask)
+void ipipe_send_ipi(unsigned int ipi, cpumask_t cpumask)
 {
 	unsigned long flags;
 	int cpu, me;
@@ -160,9 +156,8 @@ int __ipipe_send_ipi(unsigned ipi, cpumask_t cpumask)
 	}
 out:
 	hard_local_irq_restore(flags);
-
-	return 0;
 }
+EXPORT_SYMBOL_GPL(ipipe_send_ipi);
 
 void ipipe_stall_root(void)
 {
