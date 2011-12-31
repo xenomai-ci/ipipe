@@ -281,6 +281,8 @@ static inline void ipipe_mute_pic(void) { }
 
 static inline void ipipe_unmute_pic(void) { }
 
+static inline void ipipe_notify_root_preemption(void) { }
+
 #else /* !CONFIG_IPIPE */
 
 #include <linux/interrupt.h>
