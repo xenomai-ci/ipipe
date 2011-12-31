@@ -138,9 +138,10 @@ static __inline__ unsigned long ipipe_test_root(void)
 
 #endif /* !__ASSEMBLY__ */
 
+#ifdef CONFIG_IPIPE_LEGACY
 #define __IPIPE_FEATURE_PREEMPTIBLE_SWITCH	1
-#define __IPIPE_FEATURE_SYSINFO_V2		1
 #define __IPIPE_FEATURE_HARDENED_SWITCHMM	1
+#endif
 
 #endif /* CONFIG_IPIPE */
 
