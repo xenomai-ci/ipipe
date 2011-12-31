@@ -341,8 +341,16 @@ static inline void __ipipe_pin_range_globally(unsigned long start,
 		put_cpu();		\
 	} while (0)
 	
+#define task_hijacked_p(prev)		0
+
+#define __ipipe_root_tick_p(regs)	1
+
+#define ipipe_handle_chained_irq(irq)		generic_handle_irq(irq)
+
+#define __ipipe_serial_debug(fmt, args...)	do { } while (0)
+
 static inline void ipipe_root_only(void) { }
 
-#endif	/* CONFIG_IPIPE */
+#endif	/* !CONFIG_IPIPE */
 
 #endif	/* !__LINUX_IPIPE_BASE_H */

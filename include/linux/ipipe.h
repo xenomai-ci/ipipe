@@ -342,6 +342,6 @@ static inline void ipipe_lock_irq(unsigned int irq) { }
 
 static inline void ipipe_unlock_irq(unsigned int irq) { }
 
-#endif	/* CONFIG_IPIPE */
+#endif	/* !CONFIG_IPIPE */
 
 #endif	/* !__LINUX_IPIPE_H */
