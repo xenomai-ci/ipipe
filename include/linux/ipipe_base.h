@@ -25,6 +25,8 @@
 
 #ifdef CONFIG_IPIPE
 
+#define IPIPE_CORE_APIREV  1
+
 #ifdef CONFIG_IPIPE_DEBUG_CONTEXT
 void ipipe_root_only(void);
 #else /* !CONFIG_IPIPE_DEBUG_CONTEXT */
