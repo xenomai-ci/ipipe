@@ -9371,42 +9371,6 @@ struct cgroup_subsys cpuacct_subsys = {
 
 #ifdef CONFIG_IPIPE
 
-int __ipipe_setscheduler_root(struct task_struct *p, int policy, int prio)
-{
-	const struct sched_class *prev_class;
-	int oldprio, on_rq, running;
-	unsigned long flags;
-	struct rq *rq;
-
-	rq = task_rq_lock(p, &flags);
-	on_rq = p->on_rq;
-	running = task_current(rq, p);
-	if (on_rq)
-		deactivate_task(rq, p, 0);
-	if (running)
-		p->sched_class->put_prev_task(rq, p);
-
-	p->sched_reset_on_fork = 0;
-
-	oldprio = p->prio;
-	prev_class = p->sched_class;
-	__setscheduler(rq, p, policy, prio);
-	__ipipe_report_setsched(p);
-
-	if (running)
-		p->sched_class->set_curr_task(rq);
-	if (on_rq)
-		activate_task(rq, p, 0);
-
-	check_class_changed(rq, p, prev_class, oldprio);
-	task_rq_unlock(rq, p, &flags);
-
-	rt_mutex_adjust_pi(p);
-
-	return 0;
-}
-EXPORT_SYMBOL_GPL(__ipipe_setscheduler_root);
-
 void __ipipe_reenter_root(void)
 {
 	struct ipipe_percpu_domain_data *p;

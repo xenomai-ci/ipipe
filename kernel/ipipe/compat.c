@@ -186,10 +186,10 @@ ipipe_event_handler_t ipipe_catch_event(struct ipipe_domain *ipd,
 		return NULL;
 
 	/*
-	 * It makes no sense to receive a SETSCHED notification from
-	 * the head domain, this introduces a useless domain switch
-	 * for running a handler which ought to be doing root specific
-	 * things. Unfortunately, some client domains using the legacy
+	 * It makes no sense to run a SETSCHED notification handler
+	 * over the head domain, this introduces a useless domain
+	 * switch for doing work which ought to be root specific.
+	 * Unfortunately, some client domains using the legacy
 	 * interface still ask for this, so we silently fix their
 	 * request. This prevents ipipe_set_hooks() from yelling at us
 	 * because of an attempt to enable kernel event notifications
@@ -223,6 +223,13 @@ ipipe_event_handler_t ipipe_catch_event(struct ipipe_domain *ipd,
 	return oldhandler == null_handler ? NULL : oldhandler;
 }
 EXPORT_SYMBOL_GPL(ipipe_catch_event);
+
+int ipipe_setscheduler_root(struct task_struct *p, int policy, int prio)
+{
+	struct sched_param param = { .sched_priority = prio };
+	return sched_setscheduler_nocheck(p, policy, &param);
+}
+EXPORT_SYMBOL_GPL(ipipe_setscheduler_root);
 
 int ipipe_syscall_hook(struct ipipe_domain *ipd, struct pt_regs *regs)
 {

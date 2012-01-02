@@ -84,6 +84,10 @@ ipipe_event_handler_t ipipe_catch_event(struct ipipe_domain *ipd,
 					unsigned int event,
 					ipipe_event_handler_t handler);
 
+int ipipe_setscheduler_root(struct task_struct *p,
+			    int policy,
+			    int prio);
+
 static inline void ipipe_check_context(struct ipipe_domain *border_ipd)
 {
 	ipipe_root_only();
@@ -175,13 +179,6 @@ static inline void ipipe_unstall_pipeline_head(void)
 static inline void ipipe_restore_pipeline_head(unsigned long x)
 {
 	ipipe_restore_head(x);
-}
-
-static inline int ipipe_setscheduler_root(struct task_struct *p,
-					  int policy,
-					  int prio)
-{
-	return __ipipe_setscheduler_root(p, policy, prio);
 }
 
 static inline int ipipe_disable_ondemand_mappings(struct task_struct *p)
