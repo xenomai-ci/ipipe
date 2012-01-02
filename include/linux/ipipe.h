@@ -77,6 +77,11 @@ struct ipipe_domain {
 	struct ipipe_legacy_context legacy;
 };
 
+struct ipipe_work_header {
+	size_t size;
+	void (*handler)(struct ipipe_work_header *work);
+};
+
 #define __ipipe_irq_cookie(ipd, irq)		(ipd)->irqs[irq].cookie
 #define __ipipe_irq_handler(ipd, irq)		(ipd)->irqs[irq].handler
 #define __ipipe_cpudata_irq_hits(ipd, cpu, irq)	ipipe_percpudom(ipd, irqall, cpu)[irq]
@@ -86,10 +91,6 @@ extern unsigned int __ipipe_printk_virq;
 extern unsigned long __ipipe_virtual_irq_map;
 
 void __ipipe_set_irq_pending(struct ipipe_domain *ipd, unsigned int irq);
-
-int __ipipe_setscheduler_root(struct task_struct *p,
-			      int policy,
-			      int prio);
 
 void __ipipe_reenter_root(void);
 
@@ -189,6 +190,17 @@ static inline void ipipe_restore_head(unsigned long x)
 	if ((x ^ test_bit(IPIPE_STALL_FLAG, &ipipe_head_cpudom_var(status))) & 1)
 		__ipipe_restore_head(x);
 }
+
+void __ipipe_post_work_root(struct ipipe_work_header *work);
+
+#define ipipe_post_work_root(p, header)			\
+	do {						\
+		void header_not_at_start(void);		\
+		if (offsetof(typeof(*(p)), header)) {	\
+			header_not_at_start();		\
+		}					\
+		__ipipe_post_work_root(&(p)->header);	\
+	} while (0)
 
 int ipipe_get_sysinfo(struct ipipe_sysinfo *sysinfo);
 

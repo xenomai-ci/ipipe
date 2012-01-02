@@ -62,6 +62,15 @@ DECLARE_PER_CPU(struct tick_device, tick_cpu_device);
 
 static DEFINE_PER_CPU(struct ipipe_tick_device, ipipe_tick_cpu_device);
 
+/* Up to 2k of pending work data per CPU. */
+#define WORKBUF_SIZE 2048
+static DEFINE_PER_CPU_ALIGNED(unsigned char[WORKBUF_SIZE], work_buf);
+static DEFINE_PER_CPU(void *, work_tail);
+
+unsigned int __ipipe_work_virq;
+
+static void __ipipe_do_work(unsigned int virq, void *cookie);
+
 #ifdef CONFIG_SMP
 
 #define IPIPE_CRITICAL_TIMEOUT	1000000
@@ -373,6 +382,7 @@ static void init_stage(struct ipipe_domain *ipd)
 void __init __ipipe_init_early(void)
 {
 	struct ipipe_domain *ipd = &ipipe_root;
+	int cpu;
 
 	/*
 	 * Do the early init stuff. At this point, the kernel does not
@@ -393,12 +403,21 @@ void __init __ipipe_init_early(void)
 	__ipipe_init_platform();
 
 #ifdef CONFIG_PRINTK
-	__ipipe_printk_virq = ipipe_alloc_virq();	/* Cannot fail here. */
-	ipd->irqs[__ipipe_printk_virq].handler = &__ipipe_flush_printk;
+	__ipipe_printk_virq = ipipe_alloc_virq();
+	ipd->irqs[__ipipe_printk_virq].handler = __ipipe_flush_printk;
 	ipd->irqs[__ipipe_printk_virq].cookie = NULL;
 	ipd->irqs[__ipipe_printk_virq].ackfn = NULL;
 	ipd->irqs[__ipipe_printk_virq].control = IPIPE_HANDLE_MASK;
 #endif /* CONFIG_PRINTK */
+
+	__ipipe_work_virq = ipipe_alloc_virq();
+	ipd->irqs[__ipipe_work_virq].handler = __ipipe_do_work;
+	ipd->irqs[__ipipe_work_virq].cookie = NULL;
+	ipd->irqs[__ipipe_work_virq].ackfn = NULL;
+	ipd->irqs[__ipipe_work_virq].control = IPIPE_HANDLE_MASK;
+
+	for_each_online_cpu(cpu)
+		per_cpu(work_tail, cpu) = per_cpu(work_buf, cpu);
 }
 
 void __init __ipipe_init(void)
@@ -1689,3 +1708,62 @@ void ipipe_prepare_panic(void)
 	ipipe_context_check_off();
 }
 EXPORT_SYMBOL_GPL(ipipe_prepare_panic);
+
+static void __ipipe_do_work(unsigned int virq, void *cookie)
+{
+	struct ipipe_work_header *work;
+	unsigned long flags;
+	void *curr, *tail;
+	int cpu;
+
+	/*
+	 * Work is dispatched in enqueuing order. This interrupt
+	 * context can't migrate to another CPU.
+	 */
+	cpu = smp_processor_id();
+	curr = per_cpu(work_buf, cpu);
+
+	for (;;) {
+		flags = hard_local_irq_save();
+		tail = per_cpu(work_tail, cpu);
+		if (curr == tail) {
+			per_cpu(work_tail, cpu) = per_cpu(work_buf, cpu);
+			hard_local_irq_restore(flags);
+			return;
+		}
+		work = curr;
+		curr += work->size;
+		hard_local_irq_restore(flags);
+		work->handler(work);
+	}
+}
+
+void __ipipe_post_work_root(struct ipipe_work_header *work)
+{
+	unsigned long flags;
+	void *tail;
+	int cpu;
+
+	/*
+	 * Subtle: we want to use the head stall/unstall operators,
+	 * not the hard_* routines to protect against races. This way,
+	 * we ensure that a root-based caller will trigger the virq
+	 * handling immediately when unstalling the head stage, as a
+	 * result of calling __ipipe_sync_pipeline() under the hood.
+	 */
+	flags = ipipe_test_and_stall_head();
+	tail = per_cpu(work_tail, cpu);
+	cpu = ipipe_processor_id();
+
+	if (WARN_ON_ONCE((unsigned char *)tail + work->size >=
+			 per_cpu(work_buf, cpu) + WORKBUF_SIZE))
+		goto out;
+
+	/* Work handling is deferred, so data has to be copied. */
+	memcpy(tail, work, work->size);
+	per_cpu(work_tail, cpu) = tail + work->size;
+	ipipe_post_irq_root(__ipipe_work_virq);
+out:
+	ipipe_restore_head(flags);
+}
+EXPORT_SYMBOL_GPL(__ipipe_post_work_root);
