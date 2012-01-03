@@ -50,6 +50,8 @@
 #define IPIPE_EVENT_SELF        0x80000000
 #define IPIPE_EVENT_RETURN	IPIPE_TRAP_MAYDAY
 
+#define TASK_ATOMICSWITCH	TASK_HARDENING
+
 struct ipipe_domain_attr {
 	unsigned int domid;
 	const char *name;

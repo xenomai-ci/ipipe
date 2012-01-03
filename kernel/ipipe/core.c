@@ -55,6 +55,11 @@ DEFINE_PER_CPU(struct ipipe_domain *, ipipe_percpu_domain) = {
 };
 EXPORT_PER_CPU_SYMBOL_GPL(ipipe_percpu_domain);
 
+#ifdef CONFIG_IPIPE_WANT_PREEMPTIBLE_SWITCH
+DEFINE_PER_CPU(struct mm_struct *, ipipe_active_mm);
+EXPORT_PER_CPU_SYMBOL(ipipe_active_mm);
+#endif
+
 /* Copy of root status during NMI */
 DEFINE_PER_CPU(unsigned long, ipipe_nmi_saved_root);
 
@@ -1132,6 +1137,58 @@ int __ipipe_notify_kevent(int kevent, void *data)
 	hard_local_irq_restore(flags);
 
 	return ret;
+}
+
+void __weak ipipe_migration_hook(struct task_struct *p)
+{
+}
+
+static void complete_domain_migration(void) /* hw IRQs off */
+{
+	struct ipipe_percpu_domain_data *pd;
+	struct task_struct *p;
+
+	pd = ipipe_head_cpudom_ptr();
+	p = pd->task_hijacked;
+	if (p) {
+		p->state &= ~TASK_HARDENING;
+		pd->task_hijacked = NULL;
+		ipipe_migration_hook(p);
+	}
+}
+
+void __ipipe_complete_domain_migration(void)
+{
+	unsigned long flags;
+
+	ipipe_root_only();
+	flags = hard_local_irq_save();
+	complete_domain_migration();
+	hard_local_irq_restore(flags);
+}
+EXPORT_SYMBOL_GPL(__ipipe_complete_domain_migration);
+
+int __ipipe_switch_tail(void)
+{
+	int x;
+
+#ifdef CONFIG_IPIPE_WANT_PREEMPTIBLE_SWITCH
+	hard_local_irq_disable();
+#endif
+	x = __ipipe_root_p;
+
+#ifdef CONFIG_IPIPE_LEGACY
+	current->state &= ~TASK_HARDENING;
+#else
+	complete_domain_migration();
+#endif	/* !CONFIG_IPIPE_LEGACY */
+
+#ifndef CONFIG_IPIPE_WANT_PREEMPTIBLE_SWITCH
+	if (x)
+#endif
+		hard_local_irq_enable();
+
+	return !x;
 }
 
 void __ipipe_dispatch_irq(unsigned int irq, int ackit) /* hw interrupts off */

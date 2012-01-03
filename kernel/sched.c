@@ -2691,7 +2691,7 @@ try_to_wake_up(struct task_struct *p, unsigned int state, int wake_flags)
 	smp_wmb();
 	raw_spin_lock_irqsave(&p->pi_lock, flags);
 	if (!(p->state & state) ||
-	    (p->state & (TASK_NOWAKEUP|TASK_ATOMICSWITCH)))
+	    (p->state & (TASK_NOWAKEUP|TASK_HARDENING)))
 		goto out;
 
 	success = 1; /* we're going to change ->state */
@@ -3130,6 +3130,8 @@ asmlinkage void schedule_tail(struct task_struct *prev)
 {
 	struct rq *rq = this_rq();
 
+	__ipipe_complete_domain_migration();
+
 	finish_task_switch(rq, prev);
 
 	/*
@@ -3193,9 +3195,7 @@ context_switch(struct rq *rq, struct task_struct *prev,
 
 	barrier();
 
-	current->state &= ~TASK_ATOMICSWITCH;
-
-	if (task_hijacked_p(prev))
+	if (unlikely(__ipipe_switch_tail()))
 		return 1;
 
 	/*
@@ -4283,7 +4283,7 @@ need_resched:
 	rcu_note_context_switch(cpu);
 	prev = rq->curr;
 
- 	if (unlikely(prev->state & TASK_ATOMICSWITCH))
+ 	if (unlikely(prev->state & TASK_HARDENING))
 		/* Pop one disable level -- one still remains. */
 		preempt_enable();
 
@@ -4344,7 +4344,7 @@ need_resched:
 		cpu = smp_processor_id();
 		rq = cpu_rq(cpu);
 	} else {
-  		prev->state &= ~TASK_ATOMICSWITCH;
+  		prev->state &= ~TASK_HARDENING;
 		raw_spin_unlock_irq(&rq->lock);
 	}
 
@@ -9371,18 +9371,37 @@ struct cgroup_subsys cpuacct_subsys = {
 
 #ifdef CONFIG_IPIPE
 
-void __ipipe_reenter_root(void)
+int __ipipe_migrate_head(void)
 {
-	struct ipipe_percpu_domain_data *p;
-	struct rq *rq = this_rq();
-	struct task_struct *prev;
+	struct ipipe_percpu_domain_data *pd;
+	struct task_struct *p = current;
 	unsigned long flags;
 
+	preempt_disable();
+
 	flags = hard_smp_local_irq_save();
-	p = ipipe_head_cpudom_ptr();
-	prev = p->task_hijacked;
+	pd = ipipe_head_cpudom_ptr();
+	pd->task_hijacked = p;
 	hard_smp_local_irq_restore(flags);
-	finish_task_switch(rq, prev);
+
+	set_current_state(TASK_INTERRUPTIBLE | TASK_HARDENING);
+	sched_submit_work(p);
+	if (likely(__schedule()))
+		return 0;
+
+	if (signal_pending(p))
+		return -ERESTARTSYS;
+
+	BUG();
+}
+EXPORT_SYMBOL_GPL(__ipipe_migrate_head);
+
+void __ipipe_reenter_root(void)
+{
+	struct task_struct *p = current;
+	struct rq *rq = this_rq();
+
+	finish_task_switch(rq, p);
 	post_schedule(rq);
 	preempt_enable_no_resched();
 }

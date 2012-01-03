@@ -77,6 +77,14 @@ struct ipipe_domain {
 	struct ipipe_legacy_context legacy;
 };
 
+struct ipipe_sysinfo {
+	int sys_nr_cpus;	/* Number of CPUs on board */
+	int sys_hrtimer_irq;	/* hrtimer device IRQ */
+	u64 sys_hrtimer_freq;	/* hrtimer device frequency */
+	u64 sys_hrclock_freq;	/* hrclock device frequency */
+	u64 sys_cpu_freq;	/* CPU frequency (Hz) */
+};
+
 struct ipipe_work_header {
 	size_t size;
 	void (*handler)(struct ipipe_work_header *work);
@@ -92,9 +100,43 @@ extern unsigned long __ipipe_virtual_irq_map;
 
 void __ipipe_set_irq_pending(struct ipipe_domain *ipd, unsigned int irq);
 
+void __ipipe_complete_domain_migration(void);
+
+int __ipipe_switch_tail(void);
+
+int __ipipe_migrate_head(void);
+
 void __ipipe_reenter_root(void);
 
 int __ipipe_disable_ondemand_mappings(struct task_struct *p);
+
+#ifdef CONFIG_IPIPE_WANT_PREEMPTIBLE_SWITCH
+
+struct mm;
+DECLARE_PER_CPU(struct mm_struct *, ipipe_active_mm);
+
+#define prepare_arch_switch(next)			\
+	do {						\
+		hard_local_irq_enable();		\
+		__ipipe_report_schedule(current, next);	\
+	} while(0)
+
+static inline struct mm_struct *ipipe_get_active_mm(void)
+{
+	return per_cpu(ipipe_active_mm, ipipe_processor_id());
+}
+
+#else /* !CONFIG_IPIPE_WANT_PREEMPTIBLE_SWITCH */
+
+#define prepare_arch_switch(next)			\
+	do {						\
+		__ipipe_report_schedule(current, next);	\
+		hard_local_irq_disable();		\
+	} while(0)
+
+#define ipipe_get_active_mm()  (current->active_mm)
+
+#endif /* !CONFIG_IPIPE_WANT_PREEMPTIBLE_SWITCH */
 
 static inline void __ipipe_nmi_enter(void)
 {
@@ -337,6 +379,13 @@ static inline void ipipe_end_irq(unsigned int irq)
 
 #define __ipipe_root_p		1
 #define ipipe_root_p		1
+
+static inline void __ipipe_complete_domain_migration(void) { }
+
+static inline int __ipipe_switch_tail(void)
+{
+	return 0;
+}
 
 static inline void __ipipe_nmi_enter(void) { }
 
