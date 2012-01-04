@@ -108,8 +108,6 @@ void __ipipe_serial_debug(const char *fmt, ...);
 
 asmlinkage void __ipipe_call_irqtail(unsigned long addr);
 
-DECLARE_PER_CPU(struct pt_regs, __ipipe_tick_regs);
-
 extern unsigned long __ipipe_core_clock;
 
 extern unsigned long __ipipe_freq_scale;

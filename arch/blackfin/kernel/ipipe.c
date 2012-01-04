@@ -35,8 +35,6 @@
 #include <linux/atomic.h>
 #include <asm/irq_handler.h>
 
-DEFINE_PER_CPU(struct pt_regs, __ipipe_tick_regs);
-
 asmlinkage void asm_do_IRQ(unsigned int irq, struct pt_regs *regs);
 
 static void __ipipe_no_irqtail(void);
