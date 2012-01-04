@@ -60,6 +60,8 @@ DEFINE_PER_CPU(struct mm_struct *, ipipe_active_mm);
 EXPORT_PER_CPU_SYMBOL(ipipe_active_mm);
 #endif
 
+DEFINE_PER_CPU(struct pt_regs, __ipipe_tick_regs);
+
 /* Copy of root status during NMI */
 DEFINE_PER_CPU(unsigned long, ipipe_nmi_saved_root);
 

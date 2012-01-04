@@ -34,6 +34,7 @@ static inline void ipipe_root_only(void) { }
 #endif /* !CONFIG_IPIPE_DEBUG_CONTEXT */
 
 #include <asm/ipipe_base.h>
+#include <asm/percpu.h>
 
 #define __bpl_up(x)		(((x)+(BITS_PER_LONG-1)) & ~(BITS_PER_LONG-1))
 /* Number of virtual IRQs (must be a multiple of BITS_PER_LONG) */
@@ -168,6 +169,8 @@ static inline void __ipipe_sync_stage(void)
 #ifndef __ipipe_run_irqtail
 #define __ipipe_run_irqtail(irq) do { } while(0)
 #endif
+
+DECLARE_PER_CPU(struct pt_regs, __ipipe_tick_regs);
 
 void __ipipe_flush_printk(unsigned int irq, void *cookie);
 

@@ -30,6 +30,7 @@
 #include <linux/thread_info.h>
 #include <linux/ipipe_base.h>
 #include <linux/ipipe_debug.h>
+#include <asm/ptrace.h>
 #include <asm/ipipe.h>
 
 #ifdef CONFIG_IPIPE
