@@ -44,36 +44,7 @@
 #define ipipe_processor_id()	0
 #endif	/* CONFIG_SMP */
 
-#define prepare_arch_switch(next)			\
-	do {						\
-		__ipipe_report_schedule(current, next);	\
-		hard_local_irq_disable();		\
-	} while (0)
-
-#define task_hijacked_p(prev)						\
-	({								\
-		int __x__ = !__ipipe_root_p;				\
-		if (!__x__)						\
-			hard_local_irq_enable();			\
-		else {							\
-			struct ipipe_percpu_domain_data *p;		\
-			p = ipipe_head_cpudom_ptr();			\
-			p->task_hijacked = prev;			\
-		}							\
-		__x__;							\
-	})
-
-#define ipipe_get_active_mm()  (current->active_mm)
-
 struct ipipe_domain;
-
-struct ipipe_sysinfo {
-	int sys_nr_cpus;	/* Number of CPUs on board */
-	int sys_hrtimer_irq;	/* hrtimer device IRQ */
-	u64 sys_hrtimer_freq;	/* hrtimer device frequency */
-	u64 sys_hrclock_freq;	/* hrclock device frequency */
-	u64 sys_cpu_freq;	/* CPU frequency (Hz) */
-};
 
 #define ipipe_read_tsc(t)					\
 	({							\
