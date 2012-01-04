@@ -50,8 +50,6 @@ static void __ipipe_do_IRQ(unsigned irq, void *cookie);
 
 static void __ipipe_do_timer(unsigned irq, void *cookie);
 
-DEFINE_PER_CPU(struct pt_regs, __ipipe_tick_regs);
-
 #define DECREMENTER_MAX	0x7fffffff
 
 #ifdef CONFIG_SMP

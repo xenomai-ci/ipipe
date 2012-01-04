@@ -134,8 +134,6 @@ void __ipipe_register_ipi(unsigned int irq);
 #define __ipipe_hook_critical_ipi(ipd)	do { } while(0)
 #endif /* CONFIG_SMP */
 
-DECLARE_PER_CPU(struct pt_regs, __ipipe_tick_regs);
-
 void __ipipe_dispatch_irq(unsigned int irq, int ackit);
 
 static inline void __ipipe_handle_irq(unsigned int irq, struct pt_regs *regs)
