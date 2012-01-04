@@ -48,70 +48,7 @@
 
 #define IPIPE_CORE_RELEASE	1
 
-#ifdef CONFIG_IPIPE_WANT_PREEMPTIBLE_SWITCH
-
-struct mm;
-DECLARE_PER_CPU(struct mm_struct *, ipipe_active_mm);
-
-#define prepare_arch_switch(next)			\
-	do {						\
-		hard_local_irq_enable();		\
-		__ipipe_report_schedule(current, next);	\
-	} while(0)
-
-#define task_hijacked_p(prev)						\
-	({								\
-		int __x__;						\
-		hard_local_irq_disable();				\
-		__x__ = !__ipipe_root_p;				\
-		if (__x__) {						\
-			struct ipipe_percpu_domain_data *p;		\
-			p = ipipe_head_cpudom_ptr();			\
-			p->task_hijacked = prev;			\
-		}							\
-		hard_local_irq_enable();				\
-		__x__;							\
-	})
-
-static inline struct mm_struct *ipipe_get_active_mm(void)
-{
-	return per_cpu(ipipe_active_mm, ipipe_processor_id());
-}
-
-#else /* !CONFIG_IPIPE_WANT_PREEMPTIBLE_SWITCH */
-
-#define prepare_arch_switch(next)			\
-	do {						\
-		__ipipe_report_schedule(current, next);	\
-		hard_local_irq_disable();		\
-	} while(0)
-
-#define task_hijacked_p(prev)						\
-	({								\
-		int __x__ = !__ipipe_root_p;				\
-		if (!__x__)						\
-			hard_local_irq_enable();			\
-		else {							\
-			struct ipipe_percpu_domain_data *p;		\
-			p = ipipe_head_cpudom_ptr();			\
-			p->task_hijacked = prev;			\
-		}							\
-		__x__;							\
-	})
-
-#define ipipe_get_active_mm()  (current->active_mm)
-
-#endif /* !CONFIG_IPIPE_WANT_PREEMPTIBLE_SWITCH */
-
 struct ipipe_domain;
-
-struct ipipe_sysinfo {
-	int sys_nr_cpus;	/* Number of CPUs on board */
-	int sys_hrtimer_irq;	/* hrtimer device IRQ */
-	u64 sys_hrtimer_freq;	/* hrtimer device frequency */
-	u64 sys_hrclock_freq;	/* hrclock device frequency */
-	u64 sys_cpu_freq;	/* CPU frequency (Hz) */
-};
 
 #ifdef CONFIG_DEBUGGER
 extern cpumask_t __ipipe_dbrk_pending;
