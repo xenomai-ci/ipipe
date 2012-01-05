@@ -23,7 +23,11 @@
 #ifndef __LINUX_IPIPE_BASE_H
 #define __LINUX_IPIPE_BASE_H
 
+struct kvm_vcpu;
+
 #ifdef CONFIG_IPIPE
+
+#include <asm/ptrace.h>
 
 #define IPIPE_CORE_APIREV  1
 
@@ -33,8 +37,14 @@ void ipipe_root_only(void);
 static inline void ipipe_root_only(void) { }
 #endif /* !CONFIG_IPIPE_DEBUG_CONTEXT */
 
+typedef void (*ipipe_irq_handler_t)(unsigned int irq,
+				    void *cookie);
+
+void ipipe_unstall_root(void);
+
+void ipipe_restore_root(unsigned long x);
+
 #include <asm/ipipe_base.h>
-#include <asm/percpu.h>
 
 #define __bpl_up(x)		(((x)+(BITS_PER_LONG-1)) & ~(BITS_PER_LONG-1))
 /* Number of virtual IRQs (must be a multiple of BITS_PER_LONG) */
@@ -82,7 +92,6 @@ static inline int ipipe_virtual_irq_p(unsigned int irq)
 #define IPIPE_LOCK_MASK		(1 << IPIPE_LOCK_FLAG)
 
 struct pt_regs;
-struct kvm_vcpu;
 struct ipipe_domain;
 
 struct ipipe_trap_data {
@@ -96,9 +105,6 @@ struct ipipe_trap_data {
 #define IPIPE_KEVT_EXIT		3
 #define IPIPE_KEVT_CLEANUP	4
 #define IPIPE_KEVT_HOSTRT	5
-
-typedef void (*ipipe_irq_handler_t)(unsigned int irq,
-				    void *cookie);
 
 void __ipipe_init_early(void);
 
@@ -114,10 +120,6 @@ static inline void __ipipe_init_tracer(void) { }
 #else	/* !CONFIG_PROC_FS */
 static inline void __ipipe_init_proc(void) { }
 #endif	/* CONFIG_PROC_FS */
-
-void ipipe_unstall_root(void);
-
-void ipipe_restore_root(unsigned long x);
 
 void __ipipe_restore_root_nosync(unsigned long x);
 
@@ -169,8 +171,6 @@ static inline void __ipipe_sync_stage(void)
 #ifndef __ipipe_run_irqtail
 #define __ipipe_run_irqtail(irq) do { } while(0)
 #endif
-
-DECLARE_PER_CPU(struct pt_regs, __ipipe_tick_regs);
 
 void __ipipe_flush_printk(unsigned int irq, void *cookie);
 
@@ -351,6 +351,14 @@ static inline void __ipipe_pin_range_globally(unsigned long start,
 #define ipipe_handle_chained_irq(irq)		generic_handle_irq(irq)
 
 #define __ipipe_serial_debug(fmt, args...)	do { } while (0)
+
+static inline void __ipipe_register_guest(struct kvm_vcpu *vcpu) { }
+
+static inline void __ipipe_enter_guest(void) { }
+
+static inline void __ipipe_exit_guest(void) { }
+
+static inline void __ipipe_handle_guest_preemption(struct kvm_vcpu *vcpu) { }
 
 static inline void ipipe_root_only(void) { }
 

@@ -70,14 +70,14 @@ int ipipe_request_tickdev(const char *devname,
 
 void ipipe_release_tickdev(int cpu);
 
-#ifdef CONFIG_HAVE_IPIPE_HOSTRT
+#endif /* CONFIG_IPIPE */
+
+#if defined(CONFIG_IPIPE) && defined(CONFIG_HAVE_IPIPE_HOSTRT)
 void ipipe_update_hostrt(struct timespec *wall_time,
 			 struct clocksource *clock);
 #else /* !CONFIG_IPIPE_HOSTRT */
 static inline void
 ipipe_update_hostrt(struct timespec *wall_time, struct clocksource *clock) {}
 #endif
-
-#endif /* CONFIG_IPIPE */
 
 #endif /* !__LINUX_IPIPE_TICKDEV_H */

@@ -27,6 +27,7 @@
 #include <linux/percpu.h>
 #include <linux/mutex.h>
 #include <linux/linkage.h>
+#include <linux/irq.h>
 #include <linux/thread_info.h>
 #include <linux/ipipe_base.h>
 #include <linux/ipipe_debug.h>
@@ -98,6 +99,8 @@ struct ipipe_work_header {
 extern unsigned int __ipipe_printk_virq;
 
 extern unsigned long __ipipe_virtual_irq_map;
+
+DECLARE_PER_CPU(struct pt_regs, __ipipe_tick_regs);
 
 void __ipipe_set_irq_pending(struct ipipe_domain *ipd, unsigned int irq);
 
@@ -284,12 +287,13 @@ static inline int ipipe_test_foreign_stack(void)
 #endif
 
 #ifdef CONFIG_SMP
-void ipipe_set_irq_affinity(unsigned int irq,
-			    cpumask_t cpumask);
-
-void ipipe_send_ipi(unsigned int ipi,
-		    cpumask_t cpumask);
-#endif
+void ipipe_set_irq_affinity(unsigned int irq, cpumask_t cpumask);
+void ipipe_send_ipi(unsigned int ipi, cpumask_t cpumask);
+#else  /* !CONFIG_SMP */
+static inline
+void ipipe_set_irq_affinity(unsigned int irq, cpumask_t cpumask) { }
+static inline void ipipe_send_ipi(unsigned int ipi, cpumask_t cpumask) { }
+#endif	/* CONFIG_SMP */
 
 static inline void ipipe_restore_root_nosync(unsigned long x)
 {

@@ -22,11 +22,12 @@
 #ifndef __LINUX_IPIPE_DEBUG_H
 #define __LINUX_IPIPE_DEBUG_H
 
+#ifdef CONFIG_IPIPE
+
+#include <linux/ipipe_percpu.h>
+
 #ifdef CONFIG_IPIPE_DEBUG_CONTEXT
 
-#include <linux/cpumask.h>
-#include <linux/ipipe_percpu.h>
-#include <asm/system.h>
 #include <asm/bug.h>
 
 static inline int ipipe_disable_context_check(int cpu)
@@ -96,5 +97,7 @@ static inline void ipipe_check_irqoff(void)
 static inline void ipipe_check_irqoff(void) { }
 
 #endif /* !CONFIG_IPIPE_DEBUG */
+
+#endif /* CONFIG_IPIPE */
 
 #endif /* !__LINUX_IPIPE_DEBUG_H */
