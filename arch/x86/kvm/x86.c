@@ -38,6 +38,7 @@
 #include <linux/iommu.h>
 #include <linux/intel-iommu.h>
 #include <linux/cpufreq.h>
+#include <linux/ipipe.h>
 #include <linux/user-return-notifier.h>
 #include <linux/srcu.h>
 #include <linux/slab.h>
@@ -105,6 +106,7 @@ struct kvm_shared_msrs_global {
 struct kvm_shared_msrs {
 	struct user_return_notifier urn;
 	bool registered;
+	bool dirty;
 	struct kvm_shared_msr_values {
 		u64 host;
 		u64 curr;
@@ -161,22 +163,36 @@ static inline void kvm_async_pf_hash_reset(struct kvm_vcpu *vcpu)
 		vcpu->arch.apf.gfns[i] = ~0;
 }
 
+static void kvm_restore_shared_msrs(struct kvm_shared_msrs *locals)
+{
+	struct kvm_shared_msr_values *values;
+	unsigned long flags;
+	unsigned int slot;
+
+	flags = hard_cond_local_irq_save();
+	if (locals->dirty) {
+		for (slot = 0; slot < shared_msrs_global.nr; ++slot) {
+			values = &locals->values[slot];
+			if (values->host != values->curr) {
+				wrmsrl(shared_msrs_global.msrs[slot],
+				       values->host);
+				values->curr = values->host;
+			}
+		}
+		locals->dirty = false;
+	}
+	hard_cond_local_irq_restore(flags);
+}
+
 static void kvm_on_user_return(struct user_return_notifier *urn)
 {
-	unsigned slot;
 	struct kvm_shared_msrs *locals
 		= container_of(urn, struct kvm_shared_msrs, urn);
-	struct kvm_shared_msr_values *values;
 
-	for (slot = 0; slot < shared_msrs_global.nr; ++slot) {
-		values = &locals->values[slot];
-		if (values->host != values->curr) {
-			wrmsrl(shared_msrs_global.msrs[slot], values->host);
-			values->curr = values->host;
-		}
-	}
+	kvm_restore_shared_msrs(locals);
 	locals->registered = false;
 	user_return_notifier_unregister(urn);
+	__ipipe_exit_guest();
 }
 
 static void shared_msr_update(unsigned slot, u32 msr)
@@ -222,6 +238,7 @@ void kvm_set_shared_msr(unsigned slot, u64 value, u64 mask)
 		return;
 	smsr->values[slot].curr = value;
 	wrmsrl(shared_msrs_global.msrs[slot], value);
+	smsr->dirty = true;
 	if (!smsr->registered) {
 		smsr->urn.on_user_return = kvm_on_user_return;
 		user_return_notifier_register(&smsr->urn);
@@ -2226,16 +2243,38 @@ void kvm_arch_vcpu_load(struct kvm_vcpu *vcpu, int cpu)
 		vcpu->cpu = cpu;
 	}
 
+	__ipipe_register_guest(vcpu);
 	accumulate_steal_time(vcpu);
 	kvm_make_request(KVM_REQ_STEAL_UPDATE, vcpu);
 }
 
 void kvm_arch_vcpu_put(struct kvm_vcpu *vcpu)
 {
+	struct kvm_shared_msrs *smsr = &__get_cpu_var(shared_msrs);
+	unsigned long flags;
+
+	flags = hard_cond_local_irq_save();
+
 	kvm_x86_ops->vcpu_put(vcpu);
 	kvm_put_guest_fpu(vcpu);
 	kvm_get_msr(vcpu, MSR_IA32_TSC, &vcpu->arch.last_guest_tsc);
+
+	if (!smsr->dirty)
+		__ipipe_exit_guest();
+
+	hard_cond_local_irq_restore(flags);
 }
+
+#ifdef CONFIG_IPIPE
+
+void __ipipe_handle_guest_preemption(struct kvm_vcpu *vcpu)
+{
+	kvm_arch_vcpu_put(vcpu);
+	kvm_restore_shared_msrs(&__get_cpu_var(shared_msrs));
+	__ipipe_exit_guest();
+}
+
+#endif
 
 static int is_efer_nx(void)
 {
@@ -5627,6 +5666,10 @@ static int vcpu_enter_guest(struct kvm_vcpu *vcpu)
 	}
 
 	preempt_disable();
+	local_irq_disable();
+	hard_cond_local_irq_disable();
+
+	__ipipe_enter_guest();
 
 	kvm_x86_ops->prepare_guest_switch(vcpu);
 	if (vcpu->fpu_active)
@@ -5640,13 +5683,11 @@ static int vcpu_enter_guest(struct kvm_vcpu *vcpu)
 	 */
 	smp_mb();
 
-	local_irq_disable();
-
 	if (vcpu->mode == EXITING_GUEST_MODE || vcpu->requests
 	    || need_resched() || signal_pending(current)) {
 		vcpu->mode = OUTSIDE_GUEST_MODE;
 		smp_wmb();
-		local_irq_enable();
+		hard_cond_local_irq_enable();
 		preempt_enable();
 		kvm_x86_ops->cancel_injection(vcpu);
 		r = 1;
@@ -5682,6 +5723,7 @@ static int vcpu_enter_guest(struct kvm_vcpu *vcpu)
 
 	vcpu->mode = OUTSIDE_GUEST_MODE;
 	smp_wmb();
+	hard_cond_local_irq_enable();
 	local_irq_enable();
 
 	++vcpu->stat.exits;

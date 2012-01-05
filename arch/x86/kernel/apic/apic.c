@@ -449,7 +449,7 @@ static void lapic_timer_setup(enum clock_event_mode mode,
 	if (evt->features & CLOCK_EVT_FEAT_DUMMY)
 		return;
 
-	local_irq_save(flags);
+	flags = hard_local_irq_save();
 
 	switch (mode) {
 	case CLOCK_EVT_MODE_PERIODIC:
@@ -469,7 +469,7 @@ static void lapic_timer_setup(enum clock_event_mode mode,
 		break;
 	}
 
-	local_irq_restore(flags);
+	hard_local_irq_restore(flags);
 }
 
 /*
@@ -998,7 +998,7 @@ void lapic_shutdown(void)
 	if (!cpu_has_apic && !apic_from_smp_config())
 		return;
 
-	local_irq_save(flags);
+	flags = hard_local_irq_save();
 
 #ifdef CONFIG_X86_32
 	if (!enabled_via_apicbase)
@@ -1008,7 +1008,12 @@ void lapic_shutdown(void)
 		disable_local_APIC();
 
 
-	local_irq_restore(flags);
+	hard_local_irq_restore(flags);
+}
+
+int __ipipe_check_lapic(void)
+{
+	return !(lapic_clockevent.features & CLOCK_EVT_FEAT_DUMMY);
 }
 
 /*
@@ -1280,7 +1285,7 @@ void __cpuinit setup_local_APIC(void)
 			value = apic_read(APIC_ISR + i*0x10);
 			for (j = 31; j >= 0; j--) {
 				if (value & (1<<j)) {
-					ack_APIC_irq();
+					__ack_APIC_irq();
 					acked++;
 				}
 			}
@@ -1800,7 +1805,7 @@ void smp_spurious_interrupt(struct pt_regs *regs)
 	 */
 	v = apic_read(APIC_ISR + ((SPURIOUS_APIC_VECTOR & ~0x1f) >> 1));
 	if (v & (1 << (SPURIOUS_APIC_VECTOR & 0x1f)))
-		ack_APIC_irq();
+		__ack_APIC_irq();
 
 	inc_irq_stat(irq_spurious_count);
 
@@ -2091,13 +2096,13 @@ static int lapic_suspend(void)
 		apic_pm_state.apic_thmr = apic_read(APIC_LVTTHMR);
 #endif
 
-	local_irq_save(flags);
+	flags = hard_local_irq_save();
 	disable_local_APIC();
 
 	if (intr_remapping_enabled)
 		disable_intr_remapping();
 
-	local_irq_restore(flags);
+	hard_local_irq_restore(flags);
 	return 0;
 }
 
@@ -2110,7 +2115,7 @@ static void lapic_resume(void)
 	if (!apic_pm_state.active)
 		return;
 
-	local_irq_save(flags);
+	flags = hard_local_irq_save();
 	if (intr_remapping_enabled) {
 		/*
 		 * IO-APIC and PIC have their own resume routines.
@@ -2164,7 +2169,7 @@ static void lapic_resume(void)
 	if (intr_remapping_enabled)
 		reenable_intr_remapping(x2apic_mode);
 
-	local_irq_restore(flags);
+	hard_local_irq_restore(flags);
 }
 
 /*
