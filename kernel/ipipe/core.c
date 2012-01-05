@@ -1335,14 +1335,15 @@ void __ipipe_dispatch_irq_fast_nocheck(unsigned int irq) /* hw interrupts off */
 
 #ifdef CONFIG_KVM
 
+#include <linux/mmu_notifier.h>
+#include <linux/kvm_host.h>
+
 void __ipipe_register_guest(struct kvm_vcpu *vcpu)
 {
-	struct ipipe_percpu_domain_data *p;
 	unsigned long flags;
 
 	flags = hard_smp_local_irq_save();
-	p = ipipe_root_cpudom_ptr(); 
-	p->guest_vcpu = vcpu;
+	ipipe_percpudom(ipipe_root_domain, guest_vcpu, vcpu->cpu) = vcpu;
 	hard_smp_local_irq_restore(flags);
 }
 
