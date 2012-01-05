@@ -1813,8 +1813,8 @@ void __ipipe_post_work_root(struct ipipe_work_header *work)
 	 * result of calling __ipipe_sync_pipeline() under the hood.
 	 */
 	flags = ipipe_test_and_stall_head();
-	tail = per_cpu(work_tail, cpu);
 	cpu = ipipe_processor_id();
+	tail = per_cpu(work_tail, cpu);
 
 	if (WARN_ON_ONCE((unsigned char *)tail + work->size >=
 			 per_cpu(work_buf, cpu) + WORKBUF_SIZE))
