@@ -37,9 +37,11 @@
 
 asmlinkage void asm_do_IRQ(unsigned int irq, struct pt_regs *regs);
 
+static void __ipipe_do_IRQ(unsigned int irq, void *cookie);
+
 static void __ipipe_no_irqtail(void);
 
-unsigned long __ipipe_irq_tail_hook = (unsigned long)&__ipipe_no_irqtail;
+unsigned long __ipipe_irq_tail_hook = (unsigned long)__ipipe_no_irqtail;
 EXPORT_SYMBOL_GPL(__ipipe_irq_tail_hook);
 
 unsigned long __ipipe_core_clock;
@@ -71,7 +73,7 @@ void __ipipe_enable_pipeline(void)
 
 	for (irq = 0; irq < NR_IRQS; ++irq)
 		ipipe_request_irq(ipipe_root_domain, irq,
-				  (ipipe_irq_handler_t)asm_do_IRQ, NULL,
+				  ipipe_do_IRQ, NULL,
 				  __ipipe_ack_irq);
 }
 
@@ -162,6 +164,12 @@ asmlinkage int __ipipe_syscall_root(struct pt_regs *regs)
 	hard_local_irq_enable();
 
 	return -ret;
+}
+
+static void __ipipe_do_IRQ(unsigned int irq, void *cookie)
+{
+	struct pt_regs *regs = &__raw_get_cpu_var(__ipipe_tick_regs);
+	asm_do_IRQ(irq, regs);
 }
 
 static void __ipipe_no_irqtail(void)

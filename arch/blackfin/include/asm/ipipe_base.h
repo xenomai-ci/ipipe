@@ -63,9 +63,6 @@ static inline unsigned long __ipipe_ffnz(unsigned long ul)
 	return ffs(ul) - 1;
 }
 
-#define __ipipe_do_root_xirq(ipd, irq)					\
-	((ipd)->irqs[irq].handler(irq, &__raw_get_cpu_var(__ipipe_tick_regs)))
-
 #define __ipipe_run_irqtail(irq)  /* Must be a macro */			\
 	do {								\
 		unsigned long __pending;				\
