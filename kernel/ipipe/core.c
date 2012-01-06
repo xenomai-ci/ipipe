@@ -1474,7 +1474,7 @@ void __ipipe_do_sync_stage(void)
 			while (__ipipe_check_root_resched())
 				__ipipe_preempt_schedule_irq();
 		} else {
-			__ipipe_do_root_xirq(ipd, irq);
+			ipd->irqs[irq].handler(irq, ipd->irqs[irq].cookie);
 			root_stall_after_handler();
 			hard_local_irq_disable();
 		}

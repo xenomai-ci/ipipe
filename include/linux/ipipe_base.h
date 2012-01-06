@@ -152,11 +152,6 @@ static inline void __ipipe_sync_stage(void)
 		__ipipe_do_sync_stage();
 }
 
-#ifndef __ipipe_do_root_xirq
-#define __ipipe_do_root_xirq(ipd, irq)			\
-	(ipd)->irqs[irq].handler(irq, (ipd)->irqs[irq].cookie)
-#endif
-
 #ifndef __ipipe_check_root_resched
 #ifdef CONFIG_PREEMPT
 #define __ipipe_check_root_resched()	\
