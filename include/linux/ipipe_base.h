@@ -135,8 +135,6 @@ void __ipipe_unlock_irq(unsigned int irq);
 
 void __ipipe_dispatch_irq_fast(unsigned int irq);
 
-void __ipipe_dispatch_irq_fast_nocheck(unsigned int irq);
-
 void __ipipe_do_critical_sync(unsigned int irq, void *cookie);
 
 static inline void __ipipe_idle(void)

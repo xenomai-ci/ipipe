@@ -1288,22 +1288,14 @@ log:
 
 void __ipipe_dispatch_irq_fast(unsigned int irq) /* hw interrupts off */
 {
-	struct ipipe_percpu_domain_data *p;
-
-	p = ipipe_cpudom_ptr(ipipe_head_domain);
-	if (test_bit(IPIPE_STALL_FLAG, &p->status)) {
-		__ipipe_set_irq_pending(ipipe_head_domain, irq);
-		return;
-	}
-
-	__ipipe_dispatch_irq_fast_nocheck(irq);
-}
-
-void __ipipe_dispatch_irq_fast_nocheck(unsigned int irq) /* hw interrupts off */
-{
 	struct ipipe_percpu_domain_data *p = ipipe_cpudom_ptr(ipipe_head_domain);
 	struct ipipe_domain *head = ipipe_head_domain;
 	struct ipipe_domain *old;
+
+	if (unlikely(test_bit(IPIPE_STALL_FLAG, &p->status))) {
+		__ipipe_set_irq_pending(head, irq);
+		return;
+	}
 
 	old = __ipipe_current_domain;
 	/* Switch to the head domain. */
