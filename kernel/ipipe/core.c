@@ -932,7 +932,7 @@ int ipipe_request_irq(struct ipipe_domain *ipd,
 	ipipe_root_only();
 
 	if (handler == NULL ||
-	    (irq >= NR_IRQS && !ipipe_virtual_irq_p(irq)))
+	    (irq >= IPIPE_NR_XIRQS && !ipipe_virtual_irq_p(irq)))
 		return -EINVAL;
 
 	spin_lock_irqsave(&__ipipe_lock, flags);
