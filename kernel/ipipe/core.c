@@ -173,16 +173,12 @@ static int __ipipe_common_info_show(struct seq_file *p, void *data)
 	mutex_lock(&ipd->mutex);
 
 	for (irq = 0; irq < IPIPE_NR_IRQS; irq++) {
-		/* Remember to protect against
-		 * ipipe_virtual_irq/ipipe_control_irq if more fields
-		 * get involved. */
 		ctlbits = ipd->irqs[irq].control;
-
+		/*
+		 * There might be a hole between the last external IRQ
+		 * and the first virtual one; skip it.
+		 */
 		if (irq >= IPIPE_NR_XIRQS && !ipipe_virtual_irq_p(irq))
-			/*
-			 * There might be a hole between the last external
-			 * IRQ and the first virtual one; skip it.
-			 */
 			continue;
 
 		if (ipipe_virtual_irq_p(irq)
@@ -1220,7 +1216,7 @@ void __ipipe_dispatch_irq(unsigned int irq, int ackit) /* hw interrupts off */
 
 #ifdef CONFIG_IPIPE_DEBUG
 	if (unlikely(irq >= IPIPE_NR_IRQS) ||
-	    (!ipipe_virtual_irq_p(irq) && irq_to_desc(irq) == NULL)) {
+	    (irq < NR_IRQS && irq_to_desc(irq) == NULL)) {
 		printk(KERN_ERR "I-pipe: spurious interrupt %u\n", irq);
 		return;
 	}
@@ -1234,7 +1230,7 @@ void __ipipe_dispatch_irq(unsigned int irq, int ackit) /* hw interrupts off */
 		control = ipd->irqs[irq].control;
 		if ((control & IPIPE_HANDLE_MASK) == 0)
 			ipd = ipipe_root_domain;
-		desc = ipipe_virtual_irq_p(irq) ? NULL : irq_to_desc(irq);
+		desc = irq >= NR_IRQS ? NULL : irq_to_desc(irq);
 		if (ipd->irqs[irq].ackfn)
 			ipd->irqs[irq].ackfn(irq, desc);
 	}
