@@ -401,15 +401,12 @@ asmlinkage int __ipipe_grab_timer(struct pt_regs *regs)
 	 * If we have a registered head domain hooking the timer, we
 	 * may branch to the head dispatcher directly, since the
 	 * decrementer interrupt requires no acknowledge.
-	 * Additionally, we may bypass checks for locked interrupts or
-	 * stalled stage (i.e. the head domain is obviously not
-	 * stalled since we got there).
 	 */
 	if (head == ipipe_root_domain ||
 	    !test_bit(IPIPE_HANDLE_FLAG, &head->irqs[IPIPE_TIMER_VIRQ].control))
 		__ipipe_handle_irq(IPIPE_TIMER_VIRQ, NULL);
 	else
-		__ipipe_dispatch_irq_fast_nocheck(IPIPE_TIMER_VIRQ);
+		__ipipe_dispatch_irq_fast(IPIPE_TIMER_VIRQ);
 
 	ipipe_trace_irq_exit(IPIPE_TIMER_VIRQ);
 
