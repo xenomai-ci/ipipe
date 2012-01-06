@@ -46,9 +46,9 @@
 #error "BOOK3E/64bit architecture not supported, yet"
 #endif
 
-static void __ipipe_do_IRQ(unsigned irq, void *cookie);
+static void __ipipe_do_IRQ(unsigned int irq, void *cookie);
 
-static void __ipipe_do_timer(unsigned irq, void *cookie);
+static void __ipipe_do_timer(unsigned int irq, void *cookie);
 
 #define DECREMENTER_MAX	0x7fffffff
 
@@ -236,13 +236,13 @@ void __ipipe_init_platform(void)
 #endif
 }
 
-void __ipipe_end_irq(unsigned irq)
+void __ipipe_end_irq(unsigned int irq)
 {
 	struct irq_desc *desc = irq_to_desc(irq);
 	desc->ipipe_end(irq, desc);
 }
 
-static void __ipipe_ack_irq(unsigned irq, struct irq_desc *desc)
+static void __ipipe_ack_irq(unsigned int irq, struct irq_desc *desc)
 {
 	desc->ipipe_ack(irq, desc);
 }
@@ -254,24 +254,27 @@ static void __ipipe_ack_irq(unsigned irq, struct irq_desc *desc)
 void __ipipe_enable_pipeline(void)
 {
 	unsigned long flags;
-	unsigned irq;
+	unsigned int irq;
 
 	flags = ipipe_critical_enter(NULL);
 
-	/* First, intercept all interrupts from the root domain. */
-
+	/* First, intercept all interrupts from the root
+	 * domain. Regular Linux interrupt handlers will receive
+	 * &__raw_get_cpu_var(__ipipe_tick_regs) for external IRQs,
+	 * whatever cookie is passed here.
+	 */
 	for (irq = 0; irq < NR_IRQS; irq++)
 		ipipe_request_irq(ipipe_root_domain,
 				  irq,
-				  &__ipipe_do_IRQ, NULL,
-				  &__ipipe_ack_irq);
+				  __ipipe_do_IRQ, NULL,
+				  __ipipe_ack_irq);
 	/*
 	 * We use a virtual IRQ to handle the timer irq (decrementer
 	 * trap) which was allocated early in __ipipe_init_platform().
 	 */
 	ipipe_request_irq(ipipe_root_domain,
 			  IPIPE_TIMER_VIRQ,
-			  &__ipipe_do_timer, NULL,
+			  __ipipe_do_timer, NULL,
 			  NULL);
 
 	ipipe_critical_exit(flags);
@@ -361,12 +364,13 @@ asmlinkage int __ipipe_grab_irq(struct pt_regs *regs)
 	return __ipipe_exit_irq(regs);
 }
 
-static void __ipipe_do_IRQ(unsigned irq, void *cookie)
+static void __ipipe_do_IRQ(unsigned int irq, void *cookie)
 {
-	struct pt_regs *old_regs;
+	struct pt_regs *regs, *old_regs;
 
-	/* Provide a valid register frame, even if not the exact one. */
-	old_regs = set_irq_regs(&__raw_get_cpu_var(__ipipe_tick_regs));
+	/* Any sensible register frame will do for non-timer IRQs. */
+	regs = &__raw_get_cpu_var(__ipipe_tick_regs);
+	old_regs = set_irq_regs(regs);
 	irq_enter();
 	check_stack_overflow();
 	handle_one_irq(irq);
@@ -374,7 +378,7 @@ static void __ipipe_do_IRQ(unsigned irq, void *cookie)
 	set_irq_regs(old_regs);
 }
 
-static void __ipipe_do_timer(unsigned irq, void *cookie)
+static void __ipipe_do_timer(unsigned int irq, void *cookie)
 {
 	check_stack_overflow();
 	timer_interrupt(&__raw_get_cpu_var(__ipipe_tick_regs));
