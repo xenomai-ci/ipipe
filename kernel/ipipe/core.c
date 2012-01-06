@@ -97,7 +97,6 @@ static atomic_t __ipipe_critical_count = ATOMIC_INIT(0);
 static void (*__ipipe_cpu_sync) (void);
 
 #else /* !CONFIG_SMP */
-
 /*
  * Create an alias to the unique root status, so that arch-dep code
  * may get simple and easy access to this percpu variable.  We also
@@ -1497,15 +1496,17 @@ void __ipipe_do_critical_sync(unsigned int irq, void *cookie)
 
 	cpu_set(cpu, __ipipe_cpu_sync_map);
 
-	/* Now we are in sync with the lock requestor running on another
-	   CPU. Enter a spinning wait until he releases the global
-	   lock. */
+	/*
+	 * Now we are in sync with the lock requestor running on
+	 * another CPU. Enter a spinning wait until he releases the
+	 * global lock.
+	 */
 	spin_lock(&__ipipe_cpu_barrier);
 
 	/* Got it. Now get out. */
 
+	/* Call the sync routine if any. */
 	if (__ipipe_cpu_sync)
-		/* Call the sync routine if any. */
 		__ipipe_cpu_sync();
 
 	cpu_set(cpu, __ipipe_cpu_pass_map);
@@ -1514,81 +1515,76 @@ void __ipipe_do_critical_sync(unsigned int irq, void *cookie)
 
 	cpu_clear(cpu, __ipipe_cpu_sync_map);
 }
+
 #endif	/* CONFIG_SMP */
 
 unsigned long ipipe_critical_enter(void (*syncfn)(void))
 {
-	unsigned long flags;
+	int cpu __maybe_unused, n __maybe_unused;
+	unsigned long flags, loops __maybe_unused;
+	cpumask_t allbutself __maybe_unused;
 
 	flags = hard_local_irq_save();
 
+	if (num_online_cpus() == 1)
+		return flags;
+
 #ifdef CONFIG_SMP
-	if (num_online_cpus() > 1) {
-		int cpu = ipipe_processor_id();
-		cpumask_t allbutself;
-		unsigned long loops;
 
-		if (!cpu_test_and_set(cpu, __ipipe_cpu_lock_map)) {
-			while (test_and_set_bit(0, &__ipipe_critical_lock)) {
-				int n = 0;
+	cpu = ipipe_processor_id();
+	if (!cpu_test_and_set(cpu, __ipipe_cpu_lock_map)) {
+		while (test_and_set_bit(0, &__ipipe_critical_lock)) {
+			n = 0;
+			hard_local_irq_enable();
 
-				hard_local_irq_enable();
+			do
+				cpu_relax();
+			while (++n < cpu);
 
-				do {
-					cpu_relax();
-				} while (++n < cpu);
-
-				hard_local_irq_disable();
-			}
-
+			hard_local_irq_disable();
+		}
 restart:
-			spin_lock(&__ipipe_cpu_barrier);
+		spin_lock(&__ipipe_cpu_barrier);
 
-			__ipipe_cpu_sync = syncfn;
+		__ipipe_cpu_sync = syncfn;
 
-			cpus_clear(__ipipe_cpu_pass_map);
-			cpu_set(cpu, __ipipe_cpu_pass_map);
+		cpus_clear(__ipipe_cpu_pass_map);
+		cpu_set(cpu, __ipipe_cpu_pass_map);
 
+		/*
+		 * Send the sync IPI to all processors but the current
+		 * one.
+		 */
+		cpus_andnot(allbutself, cpu_online_map, __ipipe_cpu_pass_map);
+		ipipe_send_ipi(IPIPE_CRITICAL_IPI, allbutself);
+		loops = IPIPE_CRITICAL_TIMEOUT;
+
+		while (!cpus_equal(__ipipe_cpu_sync_map, allbutself)) {
+			if (--loops > 0) {
+				cpu_relax();
+				continue;
+			}
 			/*
-			 * Send the sync IPI to all processors but the current
-			 * one.
+			 * We ran into a deadlock due to a contended
+			 * rwlock. Cancel this round and retry.
 			 */
-			cpus_andnot(allbutself, cpu_online_map,
-				    __ipipe_cpu_pass_map);
-			ipipe_send_ipi(IPIPE_CRITICAL_IPI, allbutself);
+			__ipipe_cpu_sync = NULL;
 
-			loops = IPIPE_CRITICAL_TIMEOUT;
-
-			while (!cpus_equal(__ipipe_cpu_sync_map, allbutself)) {
+			spin_unlock(&__ipipe_cpu_barrier);
+			/*
+			 * Ensure all CPUs consumed the IPI to avoid
+			 * running __ipipe_cpu_sync prematurely. This
+			 * usually resolves the deadlock reason too.
+			 */
+			while (!cpus_equal(cpu_online_map, __ipipe_cpu_pass_map))
 				cpu_relax();
 
-				if (--loops == 0) {
-					/*
-					 * We ran into a deadlock due to a
-					 * contended rwlock. Cancel this round
-					 * and retry.
-					 */
-					__ipipe_cpu_sync = NULL;
-
-					spin_unlock(&__ipipe_cpu_barrier);
-
-					/*
-					 * Ensure all CPUs consumed the IPI to
-					 * avoid running __ipipe_cpu_sync
-					 * prematurely. This usually resolves
-					 * the deadlock reason too.
-					 */
-					while (!cpus_equal(cpu_online_map,
-							   __ipipe_cpu_pass_map))
-						cpu_relax();
-
-					goto restart;
-				}
-			}
+			goto restart;
 		}
-
-		atomic_inc(&__ipipe_critical_count);
 	}
+
+	atomic_inc(&__ipipe_critical_count);
+
 #endif	/* CONFIG_SMP */
 
 	return flags;
@@ -1597,19 +1593,21 @@ EXPORT_SYMBOL_GPL(ipipe_critical_enter);
 
 void ipipe_critical_exit(unsigned long flags)
 {
-#ifdef CONFIG_SMP
-	if (num_online_cpus() > 1 &&
-	    atomic_dec_and_test(&__ipipe_critical_count)) {
-		spin_unlock(&__ipipe_cpu_barrier);
+	if (num_online_cpus() == 1) {
+		hard_local_irq_restore(flags);
+		return;
+	}
 
+#ifdef CONFIG_SMP
+	if (atomic_dec_and_test(&__ipipe_critical_count)) {
+		spin_unlock(&__ipipe_cpu_barrier);
 		while (!cpus_empty(__ipipe_cpu_sync_map))
 			cpu_relax();
-
 		cpu_clear(ipipe_processor_id(), __ipipe_cpu_lock_map);
 		clear_bit(0, &__ipipe_critical_lock);
 		smp_mb__after_clear_bit();
 	}
-#endif	/* CONFIG_SMP */
+#endif /* CONFIG_SMP */
 
 	hard_local_irq_restore(flags);
 }
