@@ -1043,9 +1043,9 @@ int __ipipe_notify_syscall(struct pt_regs *regs)
 	unsigned long flags;
 	int ret = 0;
 
+	flags = hard_local_irq_save();
 	caller_domain = this_domain = __ipipe_current_domain;
 	ipd = ipipe_head_domain;
-	flags = hard_local_irq_save();
 next:
 	p = ipipe_cpudom_ptr(ipd);
 	if (likely(p->coflags & __IPIPE_SYSCALL_E)) {
