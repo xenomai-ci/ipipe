@@ -1182,6 +1182,7 @@ asmlinkage int __ipipe_grab_irq(int vec, struct pt_regs *regs)
 {
 	struct ipipe_percpu_domain_data *p = ipipe_root_cpudom_ptr();
 	struct ipipe_domain *this_domain = __ipipe_current_domain;
+	struct pt_regs *tick_regs;
 	int irq, s = 0;
 
 	irq = vec_to_irq(vec);
@@ -1193,12 +1194,13 @@ asmlinkage int __ipipe_grab_irq(int vec, struct pt_regs *regs)
 		bfin_write_TIMER_STATUS(1); /* Latch TIMIL0 */
 #endif
 		/* This is basically what we need from the register frame. */
-		__raw_get_cpu_var(__ipipe_tick_regs).ipend = regs->ipend;
-		__raw_get_cpu_var(__ipipe_tick_regs).pc = regs->pc;
+		tick_regs = __this_cpu_ptr(&ipipe_percpu.tick_regs);
+		tick_regs->ipend = regs->ipend;
+		tick_regs->pc = regs->pc;
 		if (this_domain != ipipe_root_domain)
-			__raw_get_cpu_var(__ipipe_tick_regs).ipend &= ~0x10;
+			tick_regs->ipend &= ~0x10;
 		else
-			__raw_get_cpu_var(__ipipe_tick_regs).ipend |= 0x10;
+			tick_regs->ipend |= 0x10;
 	}
 
 	/*

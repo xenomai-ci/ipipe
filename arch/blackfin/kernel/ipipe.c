@@ -168,7 +168,7 @@ asmlinkage int __ipipe_syscall_root(struct pt_regs *regs)
 
 static void __ipipe_do_IRQ(unsigned int irq, void *cookie)
 {
-	struct pt_regs *regs = &__raw_get_cpu_var(__ipipe_tick_regs);
+	struct pt_regs *regs = __this_cpu_ptr(&ipipe_percpu.tick_regs);
 	asm_do_IRQ(irq, regs);
 }
 
