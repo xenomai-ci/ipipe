@@ -108,7 +108,6 @@ unsigned long ipipe_test_root(void);
 
 #include <linux/bitops.h>
 
-/* Alias to ipipe_root_cpudom_var(status) */
 extern unsigned long __ipipe_root_status;
 
 static __inline__ void ipipe_stall_root(void)

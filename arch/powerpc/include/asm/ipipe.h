@@ -32,7 +32,7 @@
 #include <asm/irq.h>
 #include <asm/bitops.h>
 #include <asm/time.h>
-#include <linux/ipipe_percpu.h>
+#include <linux/ipipe_domain.h>
 #include <linux/irq.h>
 #include <linux/list.h>
 #include <linux/cpumask.h>

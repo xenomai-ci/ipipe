@@ -345,7 +345,7 @@ void __init setup_system(void)
 #ifdef CONFIG_IPIPE
 	/* Early temporary init, before per-cpu areas are moved to
 	 * their final location. */
-	get_paca()->root_percpu = (u64)&ipipe_percpudom(&ipipe_root, status, 0);
+	get_paca()->root_percpu = (u64)&ipipe_percpu_context(&ipipe_root, 0)->status;
 #endif
 
 	DBG(" -> setup_system()\n");
@@ -679,7 +679,7 @@ void __init setup_per_cpu_areas(void)
 	}
 #ifdef CONFIG_IPIPE
 	/* Reset pointer to the relocated per-cpu root domain data. */
-	get_paca()->root_percpu = (u64)&ipipe_percpudom(&ipipe_root, status, 0);
+	get_paca()->root_percpu = (u64)&ipipe_percpu_context(&ipipe_root, 0)->status;
 #endif
 }
 #endif

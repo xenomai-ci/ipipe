@@ -159,7 +159,7 @@ void ipipe_stall_root(void)
 
 	ipipe_root_only();
 	flags = hard_local_irq_save();
-	set_bit(IPIPE_STALL_FLAG, &ipipe_root_cpudom_var(status));
+	set_bit(IPIPE_STALL_FLAG, &__ipipe_root_status);
 	hard_local_irq_restore(flags);
 }
 EXPORT_SYMBOL_GPL(ipipe_stall_root);
@@ -171,7 +171,7 @@ unsigned long ipipe_test_and_stall_root(void)
 
 	ipipe_root_only();
 	flags = hard_local_irq_save();
-	x = test_and_set_bit(IPIPE_STALL_FLAG, &ipipe_root_cpudom_var(status));
+	x = test_and_set_bit(IPIPE_STALL_FLAG, &__ipipe_root_status);
 	hard_local_irq_restore(flags);
 
 	return x;
@@ -184,7 +184,7 @@ unsigned long ipipe_test_root(void)
 	int x;
 
 	flags = hard_local_irq_save();
-	x = test_bit(IPIPE_STALL_FLAG, &ipipe_root_cpudom_var(status));
+	x = test_bit(IPIPE_STALL_FLAG, &__ipipe_root_status);
 	hard_local_irq_restore(flags);
 
 	return x;
@@ -331,8 +331,7 @@ static int __ipipe_exit_irq(struct pt_regs *regs)
 		__ipipe_notify_trap(IPIPE_TRAP_MAYDAY, regs);
 	}
 
-	if (root &&
-	    !test_bit(IPIPE_STALL_FLAG, &ipipe_root_cpudom_var(status)))
+	if (root && !test_bit(IPIPE_STALL_FLAG, &__ipipe_root_status))
 		return 1;
 
 	return 0;
@@ -439,7 +438,7 @@ asmlinkage notrace void __ipipe_restore_if_root(unsigned long x) /* hw IRQs on *
 	if (likely(!__ipipe_root_p))
 		goto done;
 
-	p = ipipe_root_cpudom_ptr();
+	p = ipipe_this_cpu_root_context();
 
 	if (x)
 		__set_bit(IPIPE_STALL_FLAG, &p->status);
@@ -496,7 +495,7 @@ asmlinkage int __ipipe_syscall_root(struct pt_regs *regs)
 	 * Unlike ppc32, hw interrupts are off on entry here.  We did
 	 * not copy the stall state on entry yet, so do it now.
 	 */
-	p = ipipe_root_cpudom_ptr();
+	p = ipipe_this_cpu_root_context();
 	regs->softe = !test_bit(IPIPE_STALL_FLAG, &p->status);
 
 	/* We ran DISABLE_INTS before being sent to the syscall
@@ -542,7 +541,7 @@ asmlinkage int __ipipe_syscall_root(struct pt_regs *regs)
 		return 1;
 	}
 
-	p = ipipe_root_cpudom_ptr();
+	p = ipipe_this_cpu_root_context();
 	if (__ipipe_ipending_p(p))
 		__ipipe_sync_stage();
 

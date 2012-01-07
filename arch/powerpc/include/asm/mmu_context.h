@@ -38,7 +38,7 @@ extern void drop_cop(unsigned long acop, struct mm_struct *mm);
 
 #ifdef CONFIG_IPIPE_WANT_PREEMPTIBLE_SWITCH
 
-static inline void __mmswitch_head(int cpu)
+static inline void __mmswitch_head(void)
 {
 	/*
 	 * mmu_context_nohash in SMP mode is tracking an activity
@@ -51,12 +51,12 @@ static inline void __mmswitch_head(int cpu)
 #if defined(CONFIG_PPC_MMU_NOHASH) && defined(CONFIG_SMP)
 	hard_local_irq_disable();
 #endif
-	per_cpu(ipipe_percpu, cpu).active_mm = NULL;
+	__this_cpu_write(ipipe_percpu.active_mm, NULL);
 }
 
-static inline void __mmswitch_tail(struct mm_struct *next, int cpu)
+static inline void __mmswitch_tail(struct mm_struct *next)
 {
-	per_cpu(ipipe_percpu, cpu).active_mm = next;
+	__this_cpu_write(ipipe_percpu.active_mm, next);
 #if defined(CONFIG_PPC_MMU_NOHASH) && defined(CONFIG_SMP)
 	hard_local_irq_enable();
 #endif
@@ -69,7 +69,7 @@ static inline void __mmactivate_head(void)
 #else
 	preempt_disable();
 #endif
-	per_cpu(ipipe_percpu, smp_processor_id()).active_mm = NULL;
+	__this_cpu_write(ipipe_percpu.active_mm, NULL);
 }
 
 static inline void __mmactivate_tail(void)
@@ -83,14 +83,14 @@ static inline void __mmactivate_tail(void)
 
 #else  /* !IPIPE_WANT_PREEMPTIBLE_SWITCH */
 
-static inline void __mmswitch_head(int cpu)
+static inline void __mmswitch_head(void)
 {
 #ifdef CONFIG_IPIPE_DEBUG_INTERNAL
 	WARN_ON_ONCE(!hard_irqs_disabled());
 #endif
 }
 
-static inline void __mmswitch_tail(struct mm_struct *next, int cpu)
+static inline void __mmswitch_tail(struct mm_struct *next)
 {
 }
 
@@ -110,9 +110,9 @@ static inline void __mmactivate_tail(void)
 #endif  /* !IPIPE_WANT_PREEMPTIBLE_SWITCH */
 
 static inline void __do_switch_mm(struct mm_struct *prev, struct mm_struct *next,
-				  struct task_struct *tsk, int cpu)
+				  struct task_struct *tsk)
 {
-	__mmswitch_head(cpu);
+	__mmswitch_head();
 	barrier();
 #ifdef CONFIG_PPC_STD_MMU_64
 	/* mm state is undefined. */
@@ -125,7 +125,7 @@ static inline void __do_switch_mm(struct mm_struct *prev, struct mm_struct *next
 	switch_mmu_context(prev, next);
 #endif
 	barrier();
-	__mmswitch_tail(next, cpu);
+	__mmswitch_tail(next);
 }
 
 /*
@@ -176,12 +176,12 @@ static inline void __switch_mm(struct mm_struct *prev, struct mm_struct *next,
 #ifdef CONFIG_IPIPE_WANT_PREEMPTIBLE_SWITCH
 	if (ipipe_root_p) {
 		do
-			__do_switch_mm(prev, next, tsk, cpu);
+			__do_switch_mm(prev, next, tsk);
 		while (test_and_clear_thread_flag(TIF_MMSWITCH_INT));
 		return;
 	} /* Falldown wanted for non-root context. */
 #endif /* CONFIG_IPIPE_WANT_PREEMPTIBLE_SWITCH */
-	__do_switch_mm(prev, next, tsk, cpu);
+	__do_switch_mm(prev, next, tsk);
 }
 
 static inline void switch_mm(struct mm_struct *prev, struct mm_struct *next,
