@@ -260,7 +260,7 @@ void __ipipe_enable_pipeline(void)
 
 	/* First, intercept all interrupts from the root
 	 * domain. Regular Linux interrupt handlers will receive
-	 * &__raw_get_cpu_var(__ipipe_tick_regs) for external IRQs,
+	 * __this_cpu_ptr(&ipipe_percpu.tick_regs) for external IRQs,
 	 * whatever cookie is passed here.
 	 */
 	for (irq = 0; irq < NR_IRQS; irq++)
@@ -369,7 +369,7 @@ static void __ipipe_do_IRQ(unsigned int irq, void *cookie)
 	struct pt_regs *regs, *old_regs;
 
 	/* Any sensible register frame will do for non-timer IRQs. */
-	regs = &__raw_get_cpu_var(__ipipe_tick_regs);
+	regs = __this_cpu_ptr(&ipipe_percpu.tick_regs);
 	old_regs = set_irq_regs(regs);
 	irq_enter();
 	check_stack_overflow();
@@ -381,12 +381,13 @@ static void __ipipe_do_IRQ(unsigned int irq, void *cookie)
 static void __ipipe_do_timer(unsigned int irq, void *cookie)
 {
 	check_stack_overflow();
-	timer_interrupt(&__raw_get_cpu_var(__ipipe_tick_regs));
+	timer_interrupt(__this_cpu_ptr(&ipipe_percpu.tick_regs));
 }
 
 asmlinkage int __ipipe_grab_timer(struct pt_regs *regs)
 {
 	struct ipipe_domain *ipd, *head;
+	struct pt_regs *tick_regs;
 
 	ipd = __ipipe_current_domain;
 	head = ipipe_head_domain;
@@ -395,11 +396,12 @@ asmlinkage int __ipipe_grab_timer(struct pt_regs *regs)
 
 	ipipe_trace_irq_entry(IPIPE_TIMER_VIRQ);
 
-	__raw_get_cpu_var(__ipipe_tick_regs).msr = regs->msr;
-	__raw_get_cpu_var(__ipipe_tick_regs).nip = regs->nip;
+	tick_regs = __this_cpu_ptr(&ipipe_percpu.tick_regs);
+	tick_regs->msr = regs->msr;
+	tick_regs->nip = regs->nip;
 	if (ipd != &ipipe_root)
 		/* Tick should not be charged to Linux. */
-		__raw_get_cpu_var(__ipipe_tick_regs).msr &= ~MSR_EE;
+		tick_regs->msr &= ~MSR_EE;
 
 	/*
 	 * If we have a registered head domain hooking the timer, we

@@ -43,20 +43,20 @@ static inline void __mmswitch_head(int cpu)
 	/*
 	 * mmu_context_nohash in SMP mode is tracking an activity
 	 * counter into the mm struct. Therefore, we make sure the
-	 * kernel always sees the ipipe_active_mm update and the
-	 * actual switch as a single atomic operation. Since the
+	 * kernel always sees the ipipe_percpu.active_mm update and
+	 * the actual switch as a single atomic operation. Since the
 	 * related code already requires to hard disable irqs all
 	 * through the switch, there is no additional penalty anyway.
 	 */
 #if defined(CONFIG_PPC_MMU_NOHASH) && defined(CONFIG_SMP)
 	hard_local_irq_disable();
 #endif
-	per_cpu(ipipe_active_mm, cpu) = NULL;
+	per_cpu(ipipe_percpu, cpu).active_mm = NULL;
 }
 
 static inline void __mmswitch_tail(struct mm_struct *next, int cpu)
 {
-	per_cpu(ipipe_active_mm, cpu) = next;
+	per_cpu(ipipe_percpu, cpu).active_mm = next;
 #if defined(CONFIG_PPC_MMU_NOHASH) && defined(CONFIG_SMP)
 	hard_local_irq_enable();
 #endif
@@ -69,7 +69,7 @@ static inline void __mmactivate_head(void)
 #else
 	preempt_disable();
 #endif
-	per_cpu(ipipe_active_mm, smp_processor_id()) = NULL;
+	per_cpu(ipipe_percpu, smp_processor_id()).active_mm = NULL;
 }
 
 static inline void __mmactivate_tail(void)
