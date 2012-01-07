@@ -9373,17 +9373,11 @@ struct cgroup_subsys cpuacct_subsys = {
 
 int __ipipe_migrate_head(void)
 {
-	struct ipipe_percpu_domain_data *pd;
 	struct task_struct *p = current;
-	unsigned long flags;
 
 	preempt_disable();
 
-	flags = hard_smp_local_irq_save();
-	pd = ipipe_head_cpudom_ptr();
-	pd->task_hijacked = p;
-	hard_smp_local_irq_restore(flags);
-
+	__this_cpu_write(ipipe_percpu.task_hijacked, p);
 	set_current_state(TASK_INTERRUPTIBLE | TASK_HARDENING);
 	sched_submit_work(p);
 	if (likely(__schedule()))
@@ -9398,9 +9392,10 @@ EXPORT_SYMBOL_GPL(__ipipe_migrate_head);
 
 void __ipipe_reenter_root(void)
 {
-	struct task_struct *p = current;
 	struct rq *rq = this_rq();
+	struct task_struct *p;
 
+	p = __this_cpu_read(ipipe_percpu.rqlock_owner);
 	finish_task_switch(rq, p);
 	post_schedule(rq);
 	preempt_enable_no_resched();

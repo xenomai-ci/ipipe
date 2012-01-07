@@ -29,6 +29,12 @@ struct ipipe_domain;
 struct task_struct;
 struct kvm_vcpu;
 
+struct ipipe_percpu_data {
+	struct task_struct *task_hijacked;
+	struct task_struct *rqlock_owner;
+	struct kvm_vcpu *guest_vcpu;
+};
+
 struct ipipe_percpu_domain_data {
 	unsigned long status;	/* <= Must be first in struct. */
 	unsigned long irqpend_himap;
@@ -38,8 +44,6 @@ struct ipipe_percpu_domain_data {
 	unsigned long irqpend_lomap[IPIPE_IRQ_LOMAPSZ];
 	unsigned long irqheld_map[IPIPE_IRQ_LOMAPSZ];
 	unsigned long irqall[IPIPE_NR_IRQS];
-	struct task_struct *task_hijacked;
-	struct kvm_vcpu *guest_vcpu;
 	int coflags;
 };
 
@@ -80,6 +84,8 @@ DECLARE_PER_CPU(struct ipipe_percpu_domain_data *, ipipe_percpu_daddr[2]);
 #define ipipe_cpudom_var(ipd, var)	(ipipe_cpudom_ptr(ipd)->var)
 
 DECLARE_PER_CPU(struct ipipe_percpu_domain_data, ipipe_percpu_darray[2]);
+
+DECLARE_PER_CPU(struct ipipe_percpu_data, ipipe_percpu);
 
 DECLARE_PER_CPU(struct ipipe_domain *, ipipe_percpu_domain);
 

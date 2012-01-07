@@ -220,8 +220,10 @@ int __ipipe_notify_kevent(int event, void *data);
 #define __ipipe_report_schedule(prev, next)				\
 do {									\
 	if ((ipipe_notifier_enabled_p(next) ||				\
-	     ipipe_notifier_enabled_p(prev)))				\
+	     ipipe_notifier_enabled_p(prev))) {				\
+		__this_cpu_write(ipipe_percpu.rqlock_owner, prev);	\
 		__ipipe_notify_kevent(IPIPE_KEVT_SCHEDULE, next);	\
+	}								\
 } while (0)
 
 #define __ipipe_report_cleanup(mm)					\

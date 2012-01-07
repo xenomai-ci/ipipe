@@ -55,6 +55,9 @@ DEFINE_PER_CPU(struct ipipe_domain *, ipipe_percpu_domain) = {
 };
 EXPORT_PER_CPU_SYMBOL_GPL(ipipe_percpu_domain);
 
+DEFINE_PER_CPU(struct ipipe_percpu_data, ipipe_percpu);
+EXPORT_PER_CPU_SYMBOL_GPL(ipipe_percpu);
+
 #ifdef CONFIG_IPIPE_WANT_PREEMPTIBLE_SWITCH
 DEFINE_PER_CPU(struct mm_struct *, ipipe_active_mm);
 EXPORT_PER_CPU_SYMBOL(ipipe_active_mm);
@@ -1142,10 +1145,10 @@ void __weak ipipe_migration_hook(struct task_struct *p)
 
 static void complete_domain_migration(void) /* hw IRQs off */
 {
-	struct ipipe_percpu_domain_data *pd;
+	struct ipipe_percpu_data *pd;
 	struct task_struct *p;
 
-	pd = ipipe_head_cpudom_ptr();
+	pd = __this_cpu_ptr(&ipipe_percpu);
 	p = pd->task_hijacked;
 	if (p) {
 		p->state &= ~TASK_HARDENING;
@@ -1327,11 +1330,7 @@ void __ipipe_dispatch_irq_fast(unsigned int irq) /* hw interrupts off */
 
 void __ipipe_register_guest(struct kvm_vcpu *vcpu)
 {
-	unsigned long flags;
-
-	flags = hard_smp_local_irq_save();
-	ipipe_percpudom(ipipe_root_domain, guest_vcpu, vcpu->cpu) = vcpu;
-	hard_smp_local_irq_restore(flags);
+	per_cpu(ipipe_percpu, vcpu->cpu).guest_vcpu = vcpu;
 }
 
 void __ipipe_enter_guest(void)
@@ -1359,11 +1358,13 @@ void __ipipe_exit_guest(void)
 void __ipipe_notify_guest_preemption(void)
 {
 	struct ipipe_percpu_domain_data *p;
+	struct kvm_vcpu *vcpu;
 
 	ipipe_check_irqoff();
 	p = ipipe_root_cpudom_ptr();
 	if (test_bit(IPIPE_GUEST_FLAG, &p->status)) {
-		__ipipe_handle_guest_preemption(p->guest_vcpu);
+		vcpu = __this_cpu_read(ipipe_percpu.guest_vcpu);
+		__ipipe_handle_guest_preemption(vcpu);
 		__clear_bit(IPIPE_GUEST_FLAG, &p->status);
 	}
 }
