@@ -73,13 +73,13 @@ void __ipipe_enable_pipeline(void)
 
 	for (irq = 0; irq < NR_IRQS; ++irq)
 		ipipe_request_irq(ipipe_root_domain, irq,
-				  ipipe_do_IRQ, NULL,
+				  __ipipe_do_IRQ, NULL,
 				  __ipipe_ack_irq);
 }
 
 void __ipipe_handle_irq(unsigned int irq, struct pt_regs *regs) /* hw IRQs off */
 {
-	struct ipipe_percpu_domain_data *p = ipipe_root_cpudom_ptr();
+	struct ipipe_percpu_domain_data *p = ipipe_this_cpu_root_context();
 	int ackit, s = -1;
 
 	if (test_bit(IPIPE_SYNCDEFER_FLAG, &p->status))
@@ -156,7 +156,7 @@ asmlinkage int __ipipe_syscall_root(struct pt_regs *regs)
 	if (!__ipipe_root_p)
 		ret = -1;
 	else {
-		p = ipipe_root_cpudom_ptr();
+		p = ipipe_this_cpu_root_context();
 		if (__ipipe_ipending_p(p))
 			__ipipe_sync_stage();
 	}
@@ -179,7 +179,7 @@ static void __ipipe_no_irqtail(void)
 int __ipipe_do_sync_check(void)
 {
 	return !(ipipe_root_p &&
-		 test_bit(IPIPE_SYNCDEFER_FLAG, &ipipe_root_cpudom_var(status)));
+		 test_bit(IPIPE_SYNCDEFER_FLAG, &__ipipe_root_status));
 }
 
 int ipipe_get_sysinfo(struct ipipe_sysinfo *info)
@@ -219,7 +219,7 @@ asmlinkage void __ipipe_sync_root(void)
 
 	clear_thread_flag(TIF_IRQ_SYNC);
 
-	p = ipipe_root_cpudom_ptr();
+	p = ipipe_this_cpu_root_context();
 	if (__ipipe_ipending_p(p))
 		__ipipe_sync_stage();
 
@@ -237,12 +237,12 @@ asmlinkage void __ipipe_hard_disable_root_irqs(void)
 	 * the real-time domain.
 	 */
 	bfin_sti(__ipipe_irq_lvmask);
-	__set_bit(IPIPE_STALL_FLAG, &ipipe_root_cpudom_var(status));
+	__set_bit(IPIPE_STALL_FLAG, &__ipipe_root_status);
 }
 
 asmlinkage void __ipipe_hard_enable_root_irqs(void)
 {
-	__clear_bit(IPIPE_STALL_FLAG, &ipipe_root_cpudom_var(status));
+	__clear_bit(IPIPE_STALL_FLAG, &__ipipe_root_status);
 	bfin_sti(bfin_irq_flags);
 }
 

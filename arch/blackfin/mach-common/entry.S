@@ -825,11 +825,11 @@ ENDPROC(_resume)
 
 ENTRY(_ret_from_exception)
 #ifdef CONFIG_IPIPE
-	p2.l = _ipipe_percpu_domain;
-	p2.h = _ipipe_percpu_domain;
+	p2.l = _ipipe_percpu;
+	p2.h = _ipipe_percpu;
 	r0.l = _ipipe_root;
 	r0.h = _ipipe_root;
-	r2 = [p2];
+	r2 = [p2+IPIPE_CURRENT_DOMAIN];
 	cc = r0 == r2;
 	if !cc jump 4f;  /* not on behalf of the root domain, get out */
 #endif /* CONFIG_IPIPE */

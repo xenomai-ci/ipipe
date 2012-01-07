@@ -28,7 +28,7 @@
 #include <linux/list.h>
 #include <linux/threads.h>
 #include <linux/irq.h>
-#include <linux/ipipe_percpu.h>
+#include <linux/ipipe_domain.h>
 #include <asm/ptrace.h>
 #include <asm/irq.h>
 #include <asm/bitops.h>

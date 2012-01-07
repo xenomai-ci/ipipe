@@ -42,7 +42,6 @@
 
 #ifndef __ASSEMBLY__
 
-/* Alias to ipipe_root_cpudom_var(status) */
 extern unsigned long __ipipe_root_status;
 
 void ipipe_stall_root(void);

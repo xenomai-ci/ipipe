@@ -1180,7 +1180,7 @@ __attribute__((l1_text))
 #endif
 asmlinkage int __ipipe_grab_irq(int vec, struct pt_regs *regs)
 {
-	struct ipipe_percpu_domain_data *p = ipipe_root_cpudom_ptr();
+	struct ipipe_percpu_domain_data *p = ipipe_this_cpu_root_context();
 	struct ipipe_domain *this_domain = __ipipe_current_domain;
 	struct pt_regs *tick_regs;
 	int irq, s = 0;
