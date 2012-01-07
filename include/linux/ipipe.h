@@ -25,8 +25,6 @@
 #include <linux/spinlock.h>
 #include <linux/cache.h>
 #include <linux/percpu.h>
-#include <linux/mutex.h>
-#include <linux/linkage.h>
 #include <linux/irq.h>
 #include <linux/thread_info.h>
 #include <linux/ipipe_base.h>
@@ -36,48 +34,12 @@
 
 #ifdef CONFIG_IPIPE
 
-extern struct ipipe_domain ipipe_root;
-
-#define ipipe_root_domain (&ipipe_root)
-
-extern struct ipipe_domain *ipipe_head_domain;
-
-/*  hw IRQs must be off on SMP; allows assignment. */
-#define __ipipe_current_domain	__ipipe_get_cpu_var(ipipe_percpu_domain)
-#define ipipe_current_domain				\
-	({						\
-		struct ipipe_domain *__ipd__;		\
-		unsigned long __flags__;		\
-		__flags__ = hard_smp_local_irq_save();	\
-		__ipd__ = __ipipe_current_domain;	\
-		hard_smp_local_irq_restore(__flags__);	\
-		__ipd__;				\
-	})
-
-#define __ipipe_root_p	(__ipipe_current_domain == ipipe_root_domain)
-#define ipipe_root_p	(ipipe_current_domain == ipipe_root_domain)
+#include <linux/ipipe_domain.h>
 
 /* ipipe_set_hooks(..., enables) */
 #define IPIPE_SYSCALL	__IPIPE_SYSCALL_E
 #define IPIPE_TRAP	__IPIPE_TRAP_E
 #define IPIPE_KEVENT	__IPIPE_KEVENT_E
-
-struct irq_desc;
-
-typedef void (*ipipe_irq_ackfn_t)(unsigned int irq, struct irq_desc *desc);
-
-struct ipipe_domain {
-	int slot;
-	struct ipipe_irqdesc {
-		unsigned long control;
-		ipipe_irq_ackfn_t ackfn;
-		ipipe_irq_handler_t handler;
-		void *cookie;
-	} ____cacheline_aligned irqs[IPIPE_NR_IRQS];
-	const char *name;
-	struct mutex mutex;
-	struct ipipe_legacy_context legacy;
-};
 
 struct ipipe_sysinfo {
 	int sys_nr_cpus;	/* Number of CPUs on board */
@@ -92,13 +54,7 @@ struct ipipe_work_header {
 	void (*handler)(struct ipipe_work_header *work);
 };
 
-#define __ipipe_irq_cookie(ipd, irq)		(ipd)->irqs[irq].cookie
-#define __ipipe_irq_handler(ipd, irq)		(ipd)->irqs[irq].handler
-#define __ipipe_cpudata_irq_hits(ipd, cpu, irq)	ipipe_percpudom(ipd, irqall, cpu)[irq]
-
 extern unsigned int __ipipe_printk_virq;
-
-extern unsigned long __ipipe_virtual_irq_map;
 
 void __ipipe_set_irq_pending(struct ipipe_domain *ipd, unsigned int irq);
 
@@ -139,8 +95,8 @@ static inline struct mm_struct *ipipe_get_active_mm(void)
 
 static inline void __ipipe_nmi_enter(void)
 {
-	__this_cpu_write(ipipe_percpu.nmi_state, ipipe_root_cpudom_var(status));
-	__set_bit(IPIPE_STALL_FLAG, &ipipe_root_cpudom_var(status));
+	__this_cpu_write(ipipe_percpu.nmi_state, __ipipe_root_status);
+	__set_bit(IPIPE_STALL_FLAG, &__ipipe_root_status);
 	ipipe_save_context_nmi();
 }
 
@@ -148,7 +104,7 @@ static inline void __ipipe_nmi_exit(void)
 {
 	ipipe_restore_context_nmi();
 	if (!test_bit(IPIPE_STALL_FLAG, __this_cpu_ptr(&ipipe_percpu.nmi_state)))
-		__clear_bit(IPIPE_STALL_FLAG, &ipipe_root_cpudom_var(status));
+		__clear_bit(IPIPE_STALL_FLAG, &__ipipe_root_status);
 }
 
 static inline void __ipipe_sync_pipeline(struct ipipe_domain *top)
@@ -157,7 +113,7 @@ static inline void __ipipe_sync_pipeline(struct ipipe_domain *top)
 		__ipipe_do_sync_pipeline(top);
 		return;
 	}
-	if (!test_bit(IPIPE_STALL_FLAG, &ipipe_cpudom_var(top, status)))
+	if (!test_bit(IPIPE_STALL_FLAG, &ipipe_this_cpu_context(top)->status))
 		__ipipe_sync_stage();
 }
 
@@ -197,13 +153,13 @@ static inline void ipipe_post_irq_root(unsigned int irq)
 static inline void ipipe_stall_head(void)
 {
 	hard_local_irq_disable();
-	__set_bit(IPIPE_STALL_FLAG, &ipipe_head_cpudom_var(status));
+	__set_bit(IPIPE_STALL_FLAG, &__ipipe_head_status);
 }
 
 static inline unsigned long ipipe_test_and_stall_head(void)
 {
 	hard_local_irq_disable();
-	return __test_and_set_bit(IPIPE_STALL_FLAG, &ipipe_head_cpudom_var(status));
+	return __test_and_set_bit(IPIPE_STALL_FLAG, &__ipipe_head_status);
 }
 
 static inline unsigned long ipipe_test_head(void)
@@ -211,7 +167,7 @@ static inline unsigned long ipipe_test_head(void)
 	unsigned long flags, ret;
 
 	flags = hard_smp_local_irq_save();
-	ret = test_bit(IPIPE_STALL_FLAG, &ipipe_head_cpudom_var(status));
+	ret = test_bit(IPIPE_STALL_FLAG, &__ipipe_head_status);
 	hard_smp_local_irq_restore(flags);
 
 	return ret;
@@ -224,7 +180,7 @@ void __ipipe_restore_head(unsigned long x);
 static inline void ipipe_restore_head(unsigned long x)
 {
 	ipipe_check_irqoff();
-	if ((x ^ test_bit(IPIPE_STALL_FLAG, &ipipe_head_cpudom_var(status))) & 1)
+	if ((x ^ test_bit(IPIPE_STALL_FLAG, &__ipipe_head_status)) & 1)
 		__ipipe_restore_head(x);
 }
 
@@ -250,19 +206,19 @@ void ipipe_prepare_panic(void);
 static inline void ipipe_set_foreign_stack(struct ipipe_domain *ipd)
 {
 	/* Must be called hw interrupts off. */
-	__set_bit(IPIPE_NOSTACK_FLAG, &ipipe_cpudom_var(ipd, status));
+	__set_bit(IPIPE_NOSTACK_FLAG, &ipipe_this_cpu_context(ipd)->status);
 }
 
 static inline void ipipe_clear_foreign_stack(struct ipipe_domain *ipd)
 {
 	/* Must be called hw interrupts off. */
-	__clear_bit(IPIPE_NOSTACK_FLAG, &ipipe_cpudom_var(ipd, status));
+	__clear_bit(IPIPE_NOSTACK_FLAG, &ipipe_this_cpu_context(ipd)->status);
 }
 
 static inline int ipipe_test_foreign_stack(void)
 {
 	/* Must be called hw interrupts off. */
-	return test_bit(IPIPE_NOSTACK_FLAG, &ipipe_this_cpudom_var(status));
+	return test_bit(IPIPE_NOSTACK_FLAG, &__ipipe_current_context->status);
 }
 
 #ifndef ipipe_safe_current

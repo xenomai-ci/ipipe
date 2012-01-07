@@ -60,14 +60,14 @@ int ipipe_register_domain(struct ipipe_domain *ipd,
 		return 0;
 
 	flags = hard_smp_local_irq_save();
-	__ipipe_current_domain = ipd;
+	__ipipe_set_current_domain(ipd);
 	hard_smp_local_irq_restore(flags);
 
 	attr->entry();
 
 	flags = hard_local_irq_save();
-	__ipipe_current_domain = ipipe_root_domain;
-	p = ipipe_root_cpudom_ptr();
+	__ipipe_set_current_domain(ipipe_root_domain);
+	p = ipipe_this_cpu_root_context();
 	if (__ipipe_ipending_p(p) &&
 	    !test_bit(IPIPE_STALL_FLAG, &p->status))
 		__ipipe_sync_stage();

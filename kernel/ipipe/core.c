@@ -20,23 +20,21 @@
  *
  * Architecture-independent I-PIPE core support.
  */
-
 #include <linux/version.h>
 #include <linux/module.h>
-#include <linux/init.h>
 #include <linux/kernel.h>
 #include <linux/sched.h>
 #include <linux/kallsyms.h>
-#include <linux/interrupt.h>
 #include <linux/bitops.h>
 #include <linux/tick.h>
+#include <linux/interrupt.h>
 #ifdef CONFIG_PROC_FS
 #include <linux/proc_fs.h>
 #include <linux/seq_file.h>
 #endif	/* CONFIG_PROC_FS */
 #include <linux/ipipe_trace.h>
 #include <linux/ipipe_tickdev.h>
-#include <linux/irq.h>
+#include <linux/ipipe.h>
 
 struct ipipe_domain ipipe_root;
 EXPORT_SYMBOL_GPL(ipipe_root);
@@ -44,18 +42,21 @@ EXPORT_SYMBOL_GPL(ipipe_root);
 struct ipipe_domain *ipipe_head_domain = &ipipe_root;
 EXPORT_SYMBOL_GPL(ipipe_head_domain);
 
-DEFINE_PER_CPU(struct ipipe_percpu_domain_data, ipipe_percpu_darray[2]) = {
-	/* Root domain is stalled on each CPU at startup. */
-	[IPIPE_ROOT_SLOT] = { .status = IPIPE_STALL_MASK }
+#ifdef CONFIG_SMP
+static __initdata struct ipipe_percpu_domain_data bootup_context = {
+	.status = IPIPE_STALL_MASK,
+	.domain = &ipipe_root,
 };
-EXPORT_PER_CPU_SYMBOL_GPL(ipipe_percpu_darray);
-
-DEFINE_PER_CPU(struct ipipe_domain *, ipipe_percpu_domain) = {
-	&ipipe_root
-};
-EXPORT_PER_CPU_SYMBOL_GPL(ipipe_percpu_domain);
+#else
+#define bootup_context ipipe_percpu.root
+#endif	/* !CONFIG_SMP */
 
 DEFINE_PER_CPU(struct ipipe_percpu_data, ipipe_percpu) = {
+	.root = {
+		.status = IPIPE_STALL_MASK,
+		.domain = &ipipe_root,
+	},
+	.curr = &bootup_context,
 #ifdef CONFIG_IPIPE_DEBUG_CONTEXT
 	.context_check = 1,
 #endif
@@ -88,33 +89,19 @@ static void (*__ipipe_cpu_sync) (void);
 #else /* !CONFIG_SMP */
 /*
  * Create an alias to the unique root status, so that arch-dep code
- * may get simple and easy access to this percpu variable.  We also
- * create an array of pointers to the percpu domain data; this tends
- * to produce a better code when reaching non-root domains. We make
- * sure that the early boot code would be able to dereference the
- * pointer to the root domain data safely by statically initializing
- * its value (local_irq*() routines depend on this).
+ * may get fast access to this percpu variable including from
+ * assembly.  A hard-coded assumption is that root.status appears at
+ * offset #0 of the ipipe_percpu struct.
  */
 extern unsigned long __ipipe_root_status
-__attribute__((alias(__stringify(ipipe_percpu_darray))));
+__attribute__((alias(__stringify(ipipe_percpu))));
 EXPORT_SYMBOL_GPL(__ipipe_root_status);
-
-/*
- * Set up the perdomain pointers for direct access to the percpu
- * domain data. This saves a costly multiply each time we need to
- * refer to the contents of the percpu domain data array.
- */
-DEFINE_PER_CPU(struct ipipe_percpu_domain_data *, ipipe_percpu_daddr[2]) = {
-	[IPIPE_ROOT_SLOT] = &ipipe_percpu_darray[0],
-	[IPIPE_HEAD_SLOT] = &ipipe_percpu_darray[1],
-};
-EXPORT_PER_CPU_SYMBOL_GPL(ipipe_percpu_daddr);
 
 #endif /* !CONFIG_SMP */
 
 IPIPE_DEFINE_SPINLOCK(__ipipe_lock);
 
-unsigned long __ipipe_virtual_irq_map;
+static unsigned long __ipipe_virtual_irq_map;
 
 #ifdef CONFIG_PRINTK
 unsigned int __ipipe_printk_virq;
@@ -352,28 +339,65 @@ EXPORT_SYMBOL_GPL(ipipe_release_tickdev);
 
 static void init_stage(struct ipipe_domain *ipd)
 {
-	struct ipipe_percpu_domain_data *p;
-	unsigned long status;
-	int cpu;
-
-	for_each_online_cpu(cpu) {
-		p = ipipe_percpudom_ptr(ipd, cpu);
-		status = p->status;
-		memset(p, 0, sizeof(*p));
-		p->status = status;
-	}
-
 	memset(&ipd->irqs, 0, sizeof(ipd->irqs));
 	mutex_init(&ipd->mutex);
 	__ipipe_legacy_init_stage(ipd);
-
 	__ipipe_hook_critical_ipi(ipd);
 }
+
+static inline int root_context_offset(void)
+{
+	void root_context_not_at_start_of_ipipe_percpu(void);
+
+	/* ipipe_percpu.root must be found at offset #0. */
+
+	if (offsetof(struct ipipe_percpu_data, root))
+		root_context_not_at_start_of_ipipe_percpu();
+
+	return 0;
+}
+
+#ifdef CONFIG_SMP
+
+static inline void fixup_percpu_data(void)
+{
+	struct ipipe_percpu_data *p;
+	int cpu;
+
+	/*
+	 * ipipe_percpu.curr cannot be assigned statically to
+	 * &ipipe_percpu.root, due to the dynamic nature of percpu
+	 * data. So we make ipipe_percpu.curr refer to a temporary
+	 * boot up context in static memory, until we can fixup all
+	 * context pointers in this routine, after per-cpu areas have
+	 * been eventually set up. The temporary context data is
+	 * copied to per_cpu(ipipe_percpu, 0).root in the same move.
+	 *
+	 * Obviously, this code must run over the boot CPU, before SMP
+	 * operations start.
+	 */
+	BUG_ON(smp_processor_id() || !irqs_disabled());
+
+	per_cpu(ipipe_percpu, 0).root = bootup_context;
+
+	for_each_possible_cpu(cpu) {
+		p = &per_cpu(ipipe_percpu, cpu);
+		p->curr = &p->root;
+	}
+}
+
+#else /* !CONFIG_SMP */
+
+static inline void fixup_percpu_data(void) { }
+
+#endif /* CONFIG_SMP */
 
 void __init __ipipe_init_early(void)
 {
 	struct ipipe_domain *ipd = &ipipe_root;
 	int cpu;
+
+	fixup_percpu_data();
 
 	/*
 	 * Do the early init stuff. At this point, the kernel does not
@@ -387,9 +411,8 @@ void __init __ipipe_init_early(void)
 	 * secondary CPUs are still lost in space.
 	 */
 
-	/* Reserve percpu data slot #0 for the root domain. */
-	ipd->slot = IPIPE_ROOT_SLOT;
 	ipd->name = "Linux";
+	ipd->context_offset = root_context_offset();
 	init_stage(ipd);
 	__ipipe_init_platform();
 
@@ -420,13 +443,30 @@ void __init __ipipe_init(void)
 	       IPIPE_CORE_RELEASE);
 }
 
+static inline void init_head_stage(struct ipipe_domain *ipd)
+{
+	struct ipipe_percpu_domain_data *p;
+	int cpu;
+
+	/* Must be set first, used in ipipe_percpu_context(). */
+	ipd->context_offset = offsetof(struct ipipe_percpu_data, head);
+
+	for_each_online_cpu(cpu) {
+		p = ipipe_percpu_context(ipd, cpu);
+		memset(p, 0, sizeof(*p));
+		p->domain = ipd;
+	}
+
+	init_stage(ipd);
+}
+
 void ipipe_register_head(struct ipipe_domain *ipd, const char *name)
 {
 	BUG_ON(!ipipe_root_p || ipd == &ipipe_root);
 
 	ipd->name = name;
-	ipd->slot = IPIPE_HEAD_SLOT;
-	init_stage(ipd);
+	init_head_stage(ipd);
+	barrier();
 	ipipe_head_domain = ipd;
 	add_domain_proc(ipd);
 
@@ -457,7 +497,7 @@ void ipipe_unstall_root(void)
 	/* This helps catching bad usage from assembly call sites. */
 	ipipe_root_only();
 
-	p = ipipe_root_cpudom_ptr();
+	p = ipipe_this_cpu_root_context();
 
         __clear_bit(IPIPE_STALL_FLAG, &p->status);
 
@@ -481,7 +521,7 @@ EXPORT_SYMBOL_GPL(ipipe_restore_root);
 
 void __ipipe_restore_root_nosync(unsigned long x)
 {
-	struct ipipe_percpu_domain_data *p = ipipe_root_cpudom_ptr();
+	struct ipipe_percpu_domain_data *p = ipipe_this_cpu_root_context();
 
 	if (raw_irqs_disabled_flags(x)) {
 		__set_bit(IPIPE_STALL_FLAG, &p->status);
@@ -495,7 +535,7 @@ EXPORT_SYMBOL_GPL(__ipipe_restore_root_nosync);
 
 void ipipe_unstall_head(void)
 {
-	struct ipipe_percpu_domain_data *p = ipipe_head_cpudom_ptr();
+	struct ipipe_percpu_domain_data *p = ipipe_this_cpu_head_context();
 
 	hard_local_irq_disable();
 
@@ -510,7 +550,7 @@ EXPORT_SYMBOL_GPL(ipipe_unstall_head);
 
 void __ipipe_restore_head(unsigned long x) /* hw interrupt off */
 {
-	struct ipipe_percpu_domain_data *p = ipipe_head_cpudom_ptr();
+	struct ipipe_percpu_domain_data *p = ipipe_this_cpu_head_context();
 
 	if (x) {
 #ifdef CONFIG_DEBUG_KERNEL
@@ -544,14 +584,14 @@ void __ipipe_spin_lock_irq(ipipe_spinlock_t *lock)
 {
 	hard_local_irq_disable();
 	arch_spin_lock(&lock->arch_lock);
-	__set_bit(IPIPE_STALL_FLAG, &ipipe_this_cpudom_var(status));
+	__set_bit(IPIPE_STALL_FLAG, &__ipipe_current_context->status);
 }
 EXPORT_SYMBOL_GPL(__ipipe_spin_lock_irq);
 
 void __ipipe_spin_unlock_irq(ipipe_spinlock_t *lock)
 {
 	arch_spin_unlock(&lock->arch_lock);
-	__clear_bit(IPIPE_STALL_FLAG, &ipipe_this_cpudom_var(status));
+	__clear_bit(IPIPE_STALL_FLAG, &__ipipe_current_context->status);
 	hard_local_irq_enable();
 }
 EXPORT_SYMBOL_GPL(__ipipe_spin_unlock_irq);
@@ -563,7 +603,7 @@ unsigned long __ipipe_spin_lock_irqsave(ipipe_spinlock_t *lock)
 
 	flags = hard_local_irq_save();
 	arch_spin_lock(&lock->arch_lock);
-	s = __test_and_set_bit(IPIPE_STALL_FLAG, &ipipe_this_cpudom_var(status));
+	s = __test_and_set_bit(IPIPE_STALL_FLAG, &__ipipe_current_context->status);
 
 	return arch_mangle_irq_bits(s, flags);
 }
@@ -580,7 +620,7 @@ int __ipipe_spin_trylock_irqsave(ipipe_spinlock_t *lock,
 		hard_local_irq_restore(flags);
 		return 0;
 	}
-	s = __test_and_set_bit(IPIPE_STALL_FLAG, &ipipe_this_cpudom_var(status));
+	s = __test_and_set_bit(IPIPE_STALL_FLAG, &__ipipe_current_context->status);
 	*x = arch_mangle_irq_bits(s, flags);
 
 	return 1;
@@ -592,7 +632,7 @@ void __ipipe_spin_unlock_irqrestore(ipipe_spinlock_t *lock,
 {
 	arch_spin_unlock(&lock->arch_lock);
 	if (!arch_demangle_irq_bits(&x))
-		__clear_bit(IPIPE_STALL_FLAG, &ipipe_this_cpudom_var(status));
+		__clear_bit(IPIPE_STALL_FLAG, &__ipipe_current_context->status);
 	hard_local_irq_restore(x);
 }
 EXPORT_SYMBOL_GPL(__ipipe_spin_unlock_irqrestore);
@@ -606,7 +646,7 @@ int __ipipe_spin_trylock_irq(ipipe_spinlock_t *lock)
 		hard_local_irq_restore(flags);
 		return 0;
 	}
-	__set_bit(IPIPE_STALL_FLAG, &ipipe_this_cpudom_var(status));
+	__set_bit(IPIPE_STALL_FLAG, &__ipipe_current_context->status);
 
 	return 1;
 }
@@ -620,7 +660,7 @@ void __ipipe_spin_unlock_irqbegin(ipipe_spinlock_t *lock)
 void __ipipe_spin_unlock_irqcomplete(unsigned long x)
 {
 	if (!arch_demangle_irq_bits(&x))
-		__clear_bit(IPIPE_STALL_FLAG, &ipipe_this_cpudom_var(status));
+		__clear_bit(IPIPE_STALL_FLAG, &__ipipe_current_context->status);
 	hard_local_irq_restore(x);
 }
 
@@ -637,7 +677,7 @@ static inline void __ipipe_set_irq_held(struct ipipe_percpu_domain_data *p,
 /* Must be called hw IRQs off. */
 void __ipipe_set_irq_pending(struct ipipe_domain *ipd, unsigned int irq)
 {
-	struct ipipe_percpu_domain_data *p = ipipe_cpudom_ptr(ipd);
+	struct ipipe_percpu_domain_data *p = ipipe_this_cpu_context(ipd);
 	int l0b, l1b;
 
 	IPIPE_WARN_ONCE(!hard_irqs_disabled());
@@ -678,7 +718,7 @@ void __ipipe_lock_irq(unsigned int irq)
 	l0b = irq / (BITS_PER_LONG * BITS_PER_LONG);
 	l1b = irq / BITS_PER_LONG;
 
-	p = ipipe_cpudom_ptr(ipd);
+	p = ipipe_this_cpu_context(ipd);
 	if (__test_and_clear_bit(irq, p->irqpend_lomap)) {
 		__set_bit(irq, p->irqheld_map);
 		if (p->irqpend_lomap[l1b] == 0) {
@@ -706,7 +746,7 @@ void __ipipe_unlock_irq(unsigned int irq)
 	l1b = irq / BITS_PER_LONG;
 
 	for_each_online_cpu(cpu) {
-		p = ipipe_percpudom_ptr(ipd, cpu);
+		p = ipipe_this_cpu_root_context();
 		if (test_and_clear_bit(irq, p->irqheld_map)) {
 			/* We need atomic ops here: */
 			set_bit(irq, p->irqpend_lomap);
@@ -763,7 +803,7 @@ static inline void __ipipe_set_irq_held(struct ipipe_percpu_domain_data *p,
 /* Must be called hw IRQs off. */
 void __ipipe_set_irq_pending(struct ipipe_domain *ipd, unsigned int irq)
 {
-	struct ipipe_percpu_domain_data *p = ipipe_cpudom_ptr(ipd);
+	struct ipipe_percpu_domain_data *p = ipipe_this_cpu_context(ipd);
 	int l0b = irq / BITS_PER_LONG;
 
 	IPIPE_WARN_ONCE(!hard_irqs_disabled());
@@ -781,16 +821,16 @@ EXPORT_SYMBOL_GPL(__ipipe_set_irq_pending);
 /* Must be called hw IRQs off. */
 void __ipipe_lock_irq(unsigned int irq)
 {
-	struct ipipe_domain *ipd = ipipe_root_domain;
 	struct ipipe_percpu_domain_data *p;
 	int l0b = irq / BITS_PER_LONG;
 
 	IPIPE_WARN_ONCE(!hard_irqs_disabled());
 
-	if (test_and_set_bit(IPIPE_LOCK_FLAG, &ipd->irqs[irq].control))
+	if (test_and_set_bit(IPIPE_LOCK_FLAG,
+			     &ipipe_root_domain->irqs[irq].control))
 		return;
 
-	p = ipipe_cpudom_ptr(ipd);
+	p = ipipe_this_cpu_root_context();
 	if (__test_and_clear_bit(irq, p->irqpend_lomap)) {
 		__set_bit(irq, p->irqheld_map);
 		if (p->irqpend_lomap[l0b] == 0)
@@ -812,7 +852,7 @@ void __ipipe_unlock_irq(unsigned int irq)
 		return;
 
 	for_each_online_cpu(cpu) {
-		p = ipipe_percpudom_ptr(ipd, cpu);
+		p = ipipe_percpu_context(ipd, cpu);
 		if (test_and_clear_bit(irq, p->irqheld_map)) {
 			/* We need atomic ops here: */
 			set_bit(irq, p->irqpend_lomap);
@@ -855,7 +895,7 @@ void __ipipe_do_sync_pipeline(struct ipipe_domain *top)
 	IPIPE_WARN_ONCE(__ipipe_current_domain != ipipe_root_domain);
 	ipd = top;
 next:
-	p = ipipe_cpudom_ptr(ipd);
+	p = ipipe_this_cpu_context(ipd);
 	if (test_bit(IPIPE_STALL_FLAG, &p->status))
 		return;
 
@@ -865,9 +905,9 @@ next:
 		else {
 			/* Switching to head. */
 			p->coflags &= ~__IPIPE_ALL_R;
-			__ipipe_current_domain = ipd;
+			__ipipe_set_current_context(p);
 			__ipipe_sync_stage();
-			__ipipe_current_domain = ipipe_root_domain;
+			__ipipe_set_current_domain(ipipe_root_domain);
 		}
 	}
 
@@ -984,7 +1024,7 @@ void ipipe_set_hooks(struct ipipe_domain *ipd, int enables)
 	flags = ipipe_critical_enter(NULL);
 
 	for_each_online_cpu(cpu) {
-		p = ipipe_percpudom_ptr(ipd, cpu);
+		p = ipipe_percpu_context(ipd, cpu);
 		p->coflags &= ~__IPIPE_ALL_E;
 		p->coflags |= enables;
 	}
@@ -995,7 +1035,7 @@ void ipipe_set_hooks(struct ipipe_domain *ipd, int enables)
 		return;
 	}
 
-	ipipe_cpudom_var(ipd, coflags) &= ~wait;
+	ipipe_this_cpu_context(ipd)->coflags &= ~wait;
 
 	ipipe_critical_exit(flags);
 
@@ -1009,7 +1049,7 @@ void ipipe_set_hooks(struct ipipe_domain *ipd, int enables)
 	 * completion on all CPUs.
 	 */
 	for_each_online_cpu(cpu) {
-		while (ipipe_percpudom(ipd, coflags, cpu) & wait)
+		while (ipipe_percpu_context(ipd, cpu)->coflags & wait)
 			schedule_timeout_interruptible(HZ / 50);
 	}
 }
@@ -1031,9 +1071,9 @@ int __ipipe_notify_syscall(struct pt_regs *regs)
 	caller_domain = this_domain = __ipipe_current_domain;
 	ipd = ipipe_head_domain;
 next:
-	p = ipipe_cpudom_ptr(ipd);
+	p = ipipe_this_cpu_context(ipd);
 	if (likely(p->coflags & __IPIPE_SYSCALL_E)) {
-		__ipipe_current_domain = ipd;
+		__ipipe_set_current_context(p);
 		p->coflags |= __IPIPE_SYSCALL_R;
 		hard_local_irq_restore(flags);
 		ret = ipipe_syscall_hook(caller_domain, regs);
@@ -1043,7 +1083,7 @@ next:
 			/* Account for domain migration. */
 			this_domain = __ipipe_current_domain;
 		else
-			__ipipe_current_domain = this_domain;
+			__ipipe_set_current_domain(this_domain);
 	}
 
 	if (this_domain == ipipe_root_domain &&
@@ -1066,21 +1106,19 @@ int __ipipe_notify_trap(int exception, struct pt_regs *regs)
 {
 	struct ipipe_percpu_domain_data *p;
 	struct ipipe_trap_data data;
-	struct ipipe_domain *ipd;
 	unsigned long flags;
 	int ret = 0;
 
 	flags = hard_local_irq_save();
 
 	/*
-	 * We send a notification about all traps raised over the head
-	 * domain.
+	 * We send a notification about all traps raised over a
+	 * registered head domain only.
 	 */
-	ipd = __ipipe_current_domain;
-	if (ipd == ipipe_root_domain)
+	if (__ipipe_root_p)
 		goto out;
 
-	p = ipipe_cpudom_ptr(ipd);
+	p = ipipe_this_cpu_head_context();
 	if (likely(p->coflags & __IPIPE_TRAP_E)) {
 		p->coflags |= __IPIPE_TRAP_R;
 		hard_local_irq_restore(flags);
@@ -1111,7 +1149,7 @@ int __ipipe_notify_kevent(int kevent, void *data)
 
 	flags = hard_local_irq_save();
 
-	p = ipipe_root_cpudom_ptr();
+	p = ipipe_this_cpu_root_context();
 	if (likely(p->coflags & __IPIPE_KEVENT_E)) {
 		p->coflags |= __IPIPE_KEVENT_R;
 		hard_local_irq_restore(flags);
@@ -1258,13 +1296,12 @@ log:
 	__ipipe_set_irq_pending(ipd, irq);
 
 	/*
-	 * Optimize if we preempted the high priority head domain (not
-	 * the root one in absence of ipipe_register_head()): we don't
-	 * need to synchronize the pipeline unless there is a pending
-	 * interrupt for it.
+	 * Optimize if we preempted a registered high priority head
+	 * domain: we don't need to synchronize the pipeline unless
+	 * there is a pending interrupt for it.
 	 */
-	if (__ipipe_current_domain != ipipe_root_domain &&
-	    !__ipipe_ipending_p(ipipe_head_cpudom_ptr()))
+	if (!__ipipe_root_p &&
+	    !__ipipe_ipending_p(ipipe_this_cpu_head_context()))
 		return;
 
 	__ipipe_sync_pipeline(ipipe_head_domain);
@@ -1272,18 +1309,17 @@ log:
 
 void __ipipe_dispatch_irq_fast(unsigned int irq) /* hw interrupts off */
 {
-	struct ipipe_percpu_domain_data *p = ipipe_cpudom_ptr(ipipe_head_domain);
-	struct ipipe_domain *head = ipipe_head_domain;
-	struct ipipe_domain *old;
+	struct ipipe_percpu_domain_data *p = ipipe_this_cpu_leading_context(), *old;
+	struct ipipe_domain *head = p->domain;
 
 	if (unlikely(test_bit(IPIPE_STALL_FLAG, &p->status))) {
 		__ipipe_set_irq_pending(head, irq);
 		return;
 	}
 
-	old = __ipipe_current_domain;
+	old = __ipipe_current_context;
 	/* Switch to the head domain. */
-	__ipipe_current_domain = head;
+	__ipipe_set_current_context(p);
 
 	p->irqall[irq]++;
 	__set_bit(IPIPE_STALL_FLAG, &p->status);
@@ -1293,9 +1329,9 @@ void __ipipe_dispatch_irq_fast(unsigned int irq) /* hw interrupts off */
 	barrier();
 	__clear_bit(IPIPE_STALL_FLAG, &p->status);
 
-	if (__ipipe_current_domain == head) {
-		__ipipe_current_domain = old;
-		if (old == head) {
+	if (__ipipe_current_context == p) {
+		__ipipe_set_current_context(old);
+		if (old == p) {
 			if (__ipipe_ipending_p(p))
 				__ipipe_sync_stage();
 			return;
@@ -1325,7 +1361,7 @@ void __ipipe_enter_guest(void)
 	unsigned long flags;
 
 	flags = hard_smp_local_irq_save();
-	p = ipipe_root_cpudom_ptr();
+	p = ipipe_this_cpu_root_context();
 	__set_bit(IPIPE_GUEST_FLAG, &p->status);
 	hard_smp_local_irq_restore(flags);
 }
@@ -1336,7 +1372,7 @@ void __ipipe_exit_guest(void)
 	unsigned long flags;
 
 	flags = hard_smp_local_irq_save();
-	p = ipipe_root_cpudom_ptr();
+	p = ipipe_this_cpu_root_context();
 	__clear_bit(IPIPE_GUEST_FLAG, &p->status);
 	hard_smp_local_irq_restore(flags);
 }
@@ -1347,7 +1383,7 @@ void __ipipe_notify_guest_preemption(void)
 	struct kvm_vcpu *vcpu;
 
 	ipipe_check_irqoff();
-	p = ipipe_root_cpudom_ptr();
+	p = ipipe_this_cpu_root_context();
 	if (test_bit(IPIPE_GUEST_FLAG, &p->status)) {
 		vcpu = __this_cpu_read(ipipe_percpu.guest_vcpu);
 		__ipipe_handle_guest_preemption(vcpu);
@@ -1384,7 +1420,7 @@ void __ipipe_preempt_schedule_irq(void)
 	 * preempt_schedule_irq() stalled the root stage before
 	 * returning to us, and now.
 	 */
-	p = ipipe_root_cpudom_ptr();
+	p = ipipe_this_cpu_root_context();
 	if (unlikely(__ipipe_ipending_p(p))) {
 		add_preempt_count(PREEMPT_ACTIVE);
 		trace_hardirqs_on();
@@ -1417,8 +1453,8 @@ void __ipipe_do_sync_stage(void)
 	struct ipipe_domain *ipd;
 	int irq;
 
-	ipd = __ipipe_current_domain;
-	p = ipipe_cpudom_ptr(ipd);
+	p = __ipipe_current_context;
+	ipd = p->domain;
 
 	__set_bit(IPIPE_STALL_FLAG, &p->status);
 	smp_wmb();
@@ -1461,7 +1497,7 @@ void __ipipe_do_sync_stage(void)
 			hard_local_irq_disable();
 		}
 
-		p = ipipe_cpudom_ptr(__ipipe_current_domain);
+		p = __ipipe_current_context;
 	}
 
 	if (ipd == ipipe_root_domain)
@@ -1625,16 +1661,14 @@ void ipipe_update_hostrt(struct timespec *wall_time, struct clocksource *clock)
 
 void ipipe_root_only(void)
 {
-        struct ipipe_percpu_domain_data *p; 
         struct ipipe_domain *this_domain; 
         unsigned long flags;
 
         flags = hard_smp_local_irq_save();
 
-        this_domain = __ipipe_current_domain; 
-        p = ipipe_head_cpudom_ptr(); 
-        if (likely(this_domain == ipipe_root_domain && 
-		   !test_bit(IPIPE_STALL_FLAG, &p->status))) { 
+        this_domain = __ipipe_current_domain;
+        if (likely(this_domain == ipipe_root_domain &&
+		   !test_bit(IPIPE_STALL_FLAG, &__ipipe_head_status))) { 
                 hard_smp_local_irq_restore(flags); 
                 return; 
         } 
@@ -1677,7 +1711,11 @@ int notrace __ipipe_check_percpu_access(void)
 
 	flags = hard_local_irq_save_notrace();
 
-	this_domain = __raw_get_cpu_var(ipipe_percpu_domain);
+	/*
+	 * Don't use __ipipe_current_domain here, this would recurse
+	 * indefinitely.
+	 */
+	this_domain = __this_cpu_read(ipipe_percpu.curr)->domain;
 
 	/*
 	 * Only the root domain may implement preemptive CPU migration
@@ -1696,7 +1734,7 @@ int notrace __ipipe_check_percpu_access(void)
 	 * disabled, and no migration could occur.
 	 */
 	if (this_domain == ipipe_root_domain) {
-		p = ipipe_root_cpudom_ptr(); 
+		p = ipipe_this_cpu_root_context(); 
 		if (test_bit(IPIPE_STALL_FLAG, &p->status))
 			goto out;
 	}

@@ -141,7 +141,7 @@ static void __ipipe_print_symname(struct seq_file *m, unsigned long eip);
 static inline void store_states(struct ipipe_domain *ipd,
 				struct ipipe_trace_point *point, int pos)
 {
-	if (test_bit(IPIPE_STALL_FLAG, &ipipe_cpudom_var(ipd, status)))
+	if (test_bit(IPIPE_STALL_FLAG, &ipipe_this_cpu_context(ipd)->status))
 		point->flags |= 1 << (pos + IPIPE_TFLG_DOMSTATE_SHIFT);
 
 	if (ipd == __ipipe_current_domain)

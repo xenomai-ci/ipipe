@@ -788,7 +788,7 @@ asmlinkage int printk(const char *fmt, ...)
 	else if (__ipipe_current_domain == ipipe_root_domain) {
 		if (raw_irqs_disabled_flags(flags) ||
 		    (ipipe_head_domain != ipipe_root_domain &&
-		     test_bit(IPIPE_STALL_FLAG, &ipipe_head_cpudom_var(status))))
+		     test_bit(IPIPE_STALL_FLAG, &__ipipe_head_status)))
 			sprintk = 0;
 	} else
 		sprintk = 0;

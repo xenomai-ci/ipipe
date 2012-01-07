@@ -27,8 +27,6 @@ struct kvm_vcpu;
 
 #ifdef CONFIG_IPIPE
 
-#include <asm/ptrace.h>
-
 #define IPIPE_CORE_APIREV  1
 
 #ifdef CONFIG_IPIPE_DEBUG_CONTEXT
@@ -45,6 +43,7 @@ void ipipe_unstall_root(void);
 void ipipe_restore_root(unsigned long x);
 
 #include <asm/ipipe_base.h>
+#include <linux/compiler.h>
 
 #define __bpl_up(x)		(((x)+(BITS_PER_LONG-1)) & ~(BITS_PER_LONG-1))
 /* Number of virtual IRQs (must be a multiple of BITS_PER_LONG) */

@@ -160,7 +160,7 @@ void ipipe_restore_pipeline_from(struct ipipe_domain *ipd,
 static inline
 unsigned long ipipe_test_pipeline_from(struct ipipe_domain *ipd)
 {
-	return test_bit(IPIPE_STALL_FLAG, &ipipe_cpudom_var(ipd, status));
+	return test_bit(IPIPE_STALL_FLAG, &ipipe_this_cpu_context(ipd)->status);
 }
 
 static inline void ipipe_stall_pipeline_head(void)
