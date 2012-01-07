@@ -27,12 +27,22 @@
 
 struct ipipe_domain;
 struct task_struct;
+struct mm_struct;
 struct kvm_vcpu;
 
 struct ipipe_percpu_data {
+	struct pt_regs tick_regs;
 	struct task_struct *task_hijacked;
 	struct task_struct *rqlock_owner;
 	struct kvm_vcpu *guest_vcpu;
+	unsigned long nmi_state;
+#ifdef CONFIG_IPIPE_WANT_PREEMPTIBLE_SWITCH
+	struct mm_struct *active_mm;
+#endif
+#ifdef CONFIG_IPIPE_DEBUG_CONTEXT
+	int context_check;
+	int context_check_saved;
+#endif
 };
 
 struct ipipe_percpu_domain_data {
@@ -88,13 +98,6 @@ DECLARE_PER_CPU(struct ipipe_percpu_domain_data, ipipe_percpu_darray[2]);
 DECLARE_PER_CPU(struct ipipe_percpu_data, ipipe_percpu);
 
 DECLARE_PER_CPU(struct ipipe_domain *, ipipe_percpu_domain);
-
-DECLARE_PER_CPU(unsigned long, ipipe_nmi_saved_root);
-
-#ifdef CONFIG_IPIPE_DEBUG_CONTEXT
-DECLARE_PER_CPU(int, ipipe_percpu_context_check);
-DECLARE_PER_CPU(int, ipipe_saved_context_check_state);
-#endif
 
 #define ipipe_root_cpudom_ptr()		\
 	(&__ipipe_get_cpu_var(ipipe_percpu_darray)[IPIPE_ROOT_SLOT])

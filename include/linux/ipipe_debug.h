@@ -30,49 +30,48 @@
 
 #include <asm/bug.h>
 
-static inline int ipipe_disable_context_check(int cpu)
+static inline int ipipe_disable_context_check(void)
 {
-	return xchg(&per_cpu(ipipe_percpu_context_check, cpu), 0);
+	return xchg(__this_cpu_ptr(&ipipe_percpu.context_check), 0);
 }
 
-static inline void ipipe_restore_context_check(int cpu, int old_state)
+static inline void ipipe_restore_context_check(int old_state)
 {
-	per_cpu(ipipe_percpu_context_check, cpu) = old_state;
+	__this_cpu_write(ipipe_percpu.context_check, old_state);
 }
 
 static inline void ipipe_context_check_off(void)
 {
 	int cpu;
 	for_each_online_cpu(cpu)
-		per_cpu(ipipe_percpu_context_check, cpu) = 0;
+		per_cpu(ipipe_percpu, cpu).context_check = 0;
 }
 
-static inline void ipipe_save_context_nmi(int cpu)
+static inline void ipipe_save_context_nmi(void)
 {
-	per_cpu(ipipe_saved_context_check_state, cpu) =
-		ipipe_disable_context_check(cpu);
+	int state = ipipe_disable_context_check();
+	__this_cpu_write(ipipe_percpu.context_check_saved, state);
 }
 
-static inline void ipipe_restore_context_nmi(int cpu)
+static inline void ipipe_restore_context_nmi(void)
 {
-	ipipe_restore_context_check
-		(cpu, per_cpu(ipipe_saved_context_check_state, cpu));
+	ipipe_restore_context_check(__this_cpu_read(ipipe_percpu.context_check_saved));
 }
 
 #else	/* !CONFIG_IPIPE_DEBUG_CONTEXT */
 
-static inline int ipipe_disable_context_check(int cpu)
+static inline int ipipe_disable_context_check(void)
 {
 	return 0;
 }
 
-static inline void ipipe_restore_context_check(int cpu, int old_state) { }
+static inline void ipipe_restore_context_check(int old_state) { }
 
 static inline void ipipe_context_check_off(void) { }
 
-static inline void ipipe_save_context_nmi(int cpu) { }
+static inline void ipipe_save_context_nmi(void) { }
 
-static inline void ipipe_restore_context_nmi(int cpu) { }
+static inline void ipipe_restore_context_nmi(void) { }
 
 #endif	/* !CONFIG_IPIPE_DEBUG_CONTEXT */
 

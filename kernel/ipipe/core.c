@@ -55,18 +55,12 @@ DEFINE_PER_CPU(struct ipipe_domain *, ipipe_percpu_domain) = {
 };
 EXPORT_PER_CPU_SYMBOL_GPL(ipipe_percpu_domain);
 
-DEFINE_PER_CPU(struct ipipe_percpu_data, ipipe_percpu);
-EXPORT_PER_CPU_SYMBOL_GPL(ipipe_percpu);
-
-#ifdef CONFIG_IPIPE_WANT_PREEMPTIBLE_SWITCH
-DEFINE_PER_CPU(struct mm_struct *, ipipe_active_mm);
-EXPORT_PER_CPU_SYMBOL(ipipe_active_mm);
+DEFINE_PER_CPU(struct ipipe_percpu_data, ipipe_percpu) = {
+#ifdef CONFIG_IPIPE_DEBUG_CONTEXT
+	.context_check = 1,
 #endif
-
-DEFINE_PER_CPU(struct pt_regs, __ipipe_tick_regs);
-
-/* Copy of root status during NMI */
-DEFINE_PER_CPU(unsigned long, ipipe_nmi_saved_root);
+};
+EXPORT_PER_CPU_SYMBOL_GPL(ipipe_percpu);
 
 DECLARE_PER_CPU(struct tick_device, tick_cpu_device);
 
@@ -76,27 +70,19 @@ static DEFINE_PER_CPU(struct ipipe_tick_device, ipipe_tick_cpu_device);
 #define WORKBUF_SIZE 2048
 static DEFINE_PER_CPU_ALIGNED(unsigned char[WORKBUF_SIZE], work_buf);
 static DEFINE_PER_CPU(void *, work_tail);
-
-unsigned int __ipipe_work_virq;
+static unsigned int __ipipe_work_virq;
 
 static void __ipipe_do_work(unsigned int virq, void *cookie);
 
 #ifdef CONFIG_SMP
 
 #define IPIPE_CRITICAL_TIMEOUT	1000000
-
 static cpumask_t __ipipe_cpu_sync_map;
-
 static cpumask_t __ipipe_cpu_lock_map;
-
 static cpumask_t __ipipe_cpu_pass_map;
-
 static unsigned long __ipipe_critical_lock;
-
 static IPIPE_DEFINE_SPINLOCK(__ipipe_cpu_barrier);
-
 static atomic_t __ipipe_critical_count = ATOMIC_INIT(0);
-
 static void (*__ipipe_cpu_sync) (void);
 
 #else /* !CONFIG_SMP */
@@ -1637,15 +1623,11 @@ void ipipe_update_hostrt(struct timespec *wall_time, struct clocksource *clock)
 
 #ifdef CONFIG_IPIPE_DEBUG_CONTEXT
 
-DEFINE_PER_CPU(int, ipipe_percpu_context_check) = { 1 };
-DEFINE_PER_CPU(int, ipipe_saved_context_check_state);
-
 void ipipe_root_only(void)
 {
         struct ipipe_percpu_domain_data *p; 
         struct ipipe_domain *this_domain; 
         unsigned long flags;
-	int cpu;
 
         flags = hard_smp_local_irq_save();
 
@@ -1657,8 +1639,7 @@ void ipipe_root_only(void)
                 return; 
         } 
  
-	cpu = ipipe_processor_id();
-        if (!per_cpu(ipipe_percpu_context_check, cpu)) { 
+        if (!__this_cpu_read(ipipe_percpu.context_check)) { 
                 hard_smp_local_irq_restore(flags); 
                 return; 
         } 

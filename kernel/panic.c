@@ -323,7 +323,7 @@ void oops_enter(void)
 	tracing_off();
 	/* can't trust the integrity of the kernel anymore: */
 	ipipe_trace_panic_freeze();
-	ipipe_disable_context_check(ipipe_processor_id());
+	ipipe_disable_context_check();
 	debug_locks_off();
 	do_oops_enter_exit();
 }

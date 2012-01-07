@@ -100,8 +100,6 @@ extern unsigned int __ipipe_printk_virq;
 
 extern unsigned long __ipipe_virtual_irq_map;
 
-DECLARE_PER_CPU(struct pt_regs, __ipipe_tick_regs);
-
 void __ipipe_set_irq_pending(struct ipipe_domain *ipd, unsigned int irq);
 
 void __ipipe_complete_domain_migration(void);
@@ -116,9 +114,6 @@ int __ipipe_disable_ondemand_mappings(struct task_struct *p);
 
 #ifdef CONFIG_IPIPE_WANT_PREEMPTIBLE_SWITCH
 
-struct mm;
-DECLARE_PER_CPU(struct mm_struct *, ipipe_active_mm);
-
 #define prepare_arch_switch(next)			\
 	do {						\
 		hard_local_irq_enable();		\
@@ -127,7 +122,7 @@ DECLARE_PER_CPU(struct mm_struct *, ipipe_active_mm);
 
 static inline struct mm_struct *ipipe_get_active_mm(void)
 {
-	return per_cpu(ipipe_active_mm, ipipe_processor_id());
+	return __this_cpu_read(ipipe_percpu.active_mm);
 }
 
 #else /* !CONFIG_IPIPE_WANT_PREEMPTIBLE_SWITCH */
@@ -144,19 +139,15 @@ static inline struct mm_struct *ipipe_get_active_mm(void)
 
 static inline void __ipipe_nmi_enter(void)
 {
-	int cpu = ipipe_processor_id();
-
-	per_cpu(ipipe_nmi_saved_root, cpu) = ipipe_root_cpudom_var(status);
+	__this_cpu_write(ipipe_percpu.nmi_state, ipipe_root_cpudom_var(status));
 	__set_bit(IPIPE_STALL_FLAG, &ipipe_root_cpudom_var(status));
-	ipipe_save_context_nmi(cpu);
+	ipipe_save_context_nmi();
 }
 
 static inline void __ipipe_nmi_exit(void)
 {
-	int cpu = ipipe_processor_id();
-
-	ipipe_restore_context_nmi(cpu);
-	if (!test_bit(IPIPE_STALL_FLAG, &per_cpu(ipipe_nmi_saved_root, cpu)))
+	ipipe_restore_context_nmi();
+	if (!test_bit(IPIPE_STALL_FLAG, __this_cpu_ptr(&ipipe_percpu.nmi_state)))
 		__clear_bit(IPIPE_STALL_FLAG, &ipipe_root_cpudom_var(status));
 }
 

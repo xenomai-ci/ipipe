@@ -774,7 +774,7 @@ void __ipipe_flush_printk (unsigned virq, void *cookie)
 
 asmlinkage int printk(const char *fmt, ...)
 {
-	int sprintk = 1, cs = -1, cpu;
+	int sprintk = 1, cs = -1;
 	int r, fbytes, oldcount;
 	unsigned long flags;
 	va_list args;
@@ -783,10 +783,8 @@ asmlinkage int printk(const char *fmt, ...)
 
 	flags = hard_local_irq_save();
 
-	cpu = ipipe_processor_id();
-
 	if (__ipipe_printk_bypass || oops_in_progress)
-		cs = ipipe_disable_context_check(cpu);
+		cs = ipipe_disable_context_check();
 	else if (__ipipe_current_domain == ipipe_root_domain) {
 		if (raw_irqs_disabled_flags(flags) ||
 		    (ipipe_head_domain != ipipe_root_domain &&
@@ -800,7 +798,7 @@ asmlinkage int printk(const char *fmt, ...)
 	if (sprintk) {
 		r = vprintk(fmt, args);
 		if (cs != -1)
-			ipipe_restore_context_check(cpu, cs);
+			ipipe_restore_context_check(cs);
 		goto out;
 	}
 
