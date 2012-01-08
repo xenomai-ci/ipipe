@@ -91,10 +91,10 @@ static void __ipipe_ipi_demux(int irq, struct pt_regs *regs)
 	kstat_incr_irqs_this_cpu(irq, desc);
 
 	while (per_cpu(ipipe_ipi_message, cpu).value & IPIPE_MSG_IPI_MASK) {
-		for (ipi = IPIPE_MSG_CRITICAL_IPI; ipi <= IPIPE_MSG_SERVICE_IPI4; ++ipi) {
+		for (ipi = IPIPE_MSG_CRITICAL_IPI; ipi <= IPIPE_MSG_RESCHEDULE_IPI; ++ipi) {
 			if (test_and_clear_bit(ipi, &per_cpu(ipipe_ipi_message, cpu).value)) {
 				mb();
-				__ipipe_handle_irq(ipi + IPIPE_MSG_IPI_OFFSET, NULL);
+				__ipipe_handle_irq(ipi + IPIPE_BASE_IPI_OFFSET, NULL);
 			}
 		}
 	}
@@ -133,7 +133,7 @@ void ipipe_send_ipi(unsigned int ipi, cpumask_t cpumask)
 
 	flags = hard_local_irq_save();
 
-	ipi -= IPIPE_MSG_IPI_OFFSET;
+	ipi -= IPIPE_BASE_IPI_OFFSET;
 	for_each_online_cpu(cpu) {
 		if (cpu_isset(cpu, cpumask))
 			set_bit(ipi, &per_cpu(ipipe_ipi_message, cpu).value);
@@ -196,43 +196,20 @@ EXPORT_SYMBOL(ipipe_test_and_stall_root);
 void __ipipe_init_platform(void)
 {
 	unsigned int virq;
-
 	/*
-	 * Allocate a virtual IRQ for the decrementer trap early to
-	 * get it mapped to IPIPE_VIRQ_BASE
+	 * Allocate all the virtual IRQs we need. We expect fixed virq
+	 * numbers starting at IPIPE_VIRQ_BASE, so we request them
+	 * early in init_platform().
 	 */
-
 	virq = ipipe_alloc_virq();
-
-	if (virq != IPIPE_TIMER_VIRQ)
-		panic("I-pipe: cannot reserve timer virq #%d (got #%d)",
-		      IPIPE_TIMER_VIRQ, virq);
-
+	BUG_ON(virq != IPIPE_TIMER_VIRQ);
 #ifdef CONFIG_SMP
 	virq = ipipe_alloc_virq();
-	if (virq != IPIPE_CRITICAL_IPI)
-		panic("I-pipe: cannot reserve critical IPI virq #%d (got #%d)",
-		      IPIPE_CRITICAL_IPI, virq);
+	BUG_ON(virq != IPIPE_CRITICAL_IPI);
 	virq = ipipe_alloc_virq();
-	if (virq != IPIPE_SERVICE_IPI0)
-		panic("I-pipe: cannot reserve service IPI 0 virq #%d (got #%d)",
-		      IPIPE_SERVICE_IPI0, virq);
+	BUG_ON(virq != IPIPE_HRTIMER_IPI);
 	virq = ipipe_alloc_virq();
-	if (virq != IPIPE_SERVICE_IPI1)
-		panic("I-pipe: cannot reserve service IPI 1 virq #%d (got #%d)",
-		      IPIPE_SERVICE_IPI1, virq);
-	virq = ipipe_alloc_virq();
-	if (virq != IPIPE_SERVICE_IPI2)
-		panic("I-pipe: cannot reserve service IPI 2 virq #%d (got #%d)",
-		      IPIPE_SERVICE_IPI2, virq);
-	virq = ipipe_alloc_virq();
-	if (virq != IPIPE_SERVICE_IPI3)
-		panic("I-pipe: cannot reserve service IPI 3 virq #%d (got #%d)",
-		      IPIPE_SERVICE_IPI3, virq);
-	virq = ipipe_alloc_virq();
-	if (virq != IPIPE_SERVICE_IPI4)
-		panic("I-pipe: cannot reserve service IPI 4 virq #%d (got #%d)",
-		      IPIPE_SERVICE_IPI4, virq);
+	BUG_ON(virq != IPIPE_RESCHEDULE_IPI);
 #endif
 }
 
