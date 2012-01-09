@@ -229,6 +229,11 @@ static inline void local_irq_restore_hw(unsigned long flags)
 	hard_local_irq_restore(flags);
 }
 
+#define local_save_flags_hw(flags)			\
+	do {						\
+		(flags) = hard_local_save_flags();	\
+	} while (0)
+
 #define local_irq_save_hw_smp(flags)			\
 	do {						\
 		(flags) = hard_smp_local_irq_save();	\
