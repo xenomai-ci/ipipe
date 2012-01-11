@@ -404,7 +404,7 @@ handle_fasteoi_irq(unsigned int irq, struct irq_desc *desc)
 
 #ifdef CONFIG_IPIPE
 	/* XXX: IRQCHIP_EOI_IF_HANDLED is ignored. */
-	if (!(desc->status & IRQ_MASKED))
+	if (!(irqd_irq_masked(&desc->irq_data)))
 		desc->irq_data.chip->irq_unmask(&desc->irq_data);
 out_eoi:
 #else
