@@ -4337,12 +4337,12 @@ static inline void sched_submit_work(struct task_struct *tsk)
 		blk_schedule_flush_plug(tsk);
 }
 
-asmlinkage void __sched schedule(void)
+asmlinkage int __sched schedule(void)
 {
 	struct task_struct *tsk = current;
 
 	sched_submit_work(tsk);
-	__schedule();
+	return __schedule();
 }
 EXPORT_SYMBOL(schedule);
 
