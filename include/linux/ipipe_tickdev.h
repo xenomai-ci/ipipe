@@ -75,11 +75,14 @@ void ipipe_release_tickdev(int cpu);
 #endif /* CONFIG_GENERIC_CLOCKEVENTS */
 
 #ifdef CONFIG_HAVE_IPIPE_HOSTRT
-void ipipe_update_hostrt(struct timespec *wall_time,
-			 struct clocksource *clock);
+void ipipe_update_hostrt(struct timespec *wall_time, struct timespec *wtm,
+			 struct clocksource *clock, u32 mult);
 #else /* !CONFIG_IPIPE_HOSTRT */
 static inline void
-ipipe_update_hostrt(struct timespec *wall_time, struct clocksource *clock) {}
+ipipe_update_hostrt(struct timespec *wall_time, struct timespec *wtm,
+		    struct clocksource *clock, u32 mult)
+{
+}
 #endif
 
 #endif /* CONFIG_IPIPE */

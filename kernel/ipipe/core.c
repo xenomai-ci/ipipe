@@ -1779,18 +1779,19 @@ void ipipe_critical_exit(unsigned long flags)
  * NOTE: The architecture specific code must only call this function
  * when a clocksource suitable for CLOCK_HOST_REALTIME is enabled.
  */
-void ipipe_update_hostrt(struct timespec *wall_time, struct clocksource *clock)
+void ipipe_update_hostrt(struct timespec *wall_time, struct timespec *wtm,
+			 struct clocksource *clock, u32 mult)
 {
 	struct ipipe_hostrt_data hostrt_data;
 
 	hostrt_data.live = 1;
 	hostrt_data.cycle_last = clock->cycle_last;
 	hostrt_data.mask = clock->mask;
-	hostrt_data.mult = clock->mult;
+	hostrt_data.mult = mult;
 	hostrt_data.shift = clock->shift;
 	hostrt_data.wall_time_sec = wall_time->tv_sec;
 	hostrt_data.wall_time_nsec = wall_time->tv_nsec;
-	hostrt_data.wall_to_monotonic = __get_wall_to_monotonic();
+	hostrt_data.wall_to_monotonic = *wtm;
 
 	/* Note: The event receiver is responsible for providing
 	   proper locking */
