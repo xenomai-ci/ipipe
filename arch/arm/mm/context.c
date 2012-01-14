@@ -12,6 +12,7 @@
 #include <linux/mm.h>
 #include <linux/smp.h>
 #include <linux/percpu.h>
+#include <linux/module.h>
 
 #include <asm/mmu_context.h>
 #include <asm/tlbflush.h>
@@ -23,6 +24,7 @@ DEFINE_PER_CPU(struct mm_struct *, current_mm);
 #endif
 
 #if defined(CONFIG_IPIPE) && defined(CONFIG_SMP)
+EXPORT_SYMBOL_GPL(current_mm);
 /*
  * We shall be able to serve interrupts while attempting to grab the
  * ASID lock on entry to __new_context(). This is a prerequisite for
