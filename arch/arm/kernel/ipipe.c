@@ -223,14 +223,13 @@ EXPORT_SYMBOL_GPL(__ipipe_send_vnmi);
 
 static void __ipipe_relay_ext_hrtimer(unsigned int irq, void *cookie)
 {
-	int cpu = ipipe_processor_id();
 	/*
 	 * We are running over the root domain here, so hw IRQs are
 	 * ON.  Therefore, we have to use the atomic form of
 	 * __ipipe_schedule_irq_root(). Don't mess with that, or you
 	 * may lose interrupt notifications.
 	 */
-	ipipe_schedule_irq_root(__ipipe_mach_ext_hrtimer(cpu));
+	ipipe_schedule_irq_root(__ipipe_mach_ext_hrtimer(ipipe_processor_id()));
 }
 
 #endif	/* CONFIG_SMP */
@@ -567,7 +566,7 @@ void __ipipe_exit_irq(struct pt_regs *regs)
 
 asmlinkage void __ipipe_grab_irq(int irq, struct pt_regs *regs)
 {
-	int cpu = ipipe_processor_id();
+	const int cpu = ipipe_processor_id();
 #ifdef irq_finish
 	/* AT91 specific workaround */
 	irq_finish(irq);
@@ -582,6 +581,8 @@ asmlinkage void __ipipe_grab_irq(int irq, struct pt_regs *regs)
 	 * platforms won't change this value though.
 	 */
 	if (likely(__ipipe_mach_ext_hrtimer(cpu) == irq)) {
+		struct pt_regs *tick_regs;
+
 		__ipipe_mach_hrtimer_debug(irq);
 		irq = __ipipe_mach_localtimer(irq);
 		/*
@@ -591,11 +592,12 @@ asmlinkage void __ipipe_grab_irq(int irq, struct pt_regs *regs)
 		 * that other interrupt handlers don't actually care for such
 		 * information.
 		 */
-		__raw_get_cpu_var(__ipipe_tick_regs).ARM_cpsr =
-			(ipipe_root_domain_p
+		tick_regs = &per_cpu(__ipipe_tick_regs, cpu);
+		tick_regs->ARM_cpsr =
+			(per_cpu(ipipe_percpu_domain, cpu) == ipipe_root_domain
 			 ? regs->ARM_cpsr
 			 : regs->ARM_cpsr | PSR_I_BIT);
-		__raw_get_cpu_var(__ipipe_tick_regs).ARM_pc = regs->ARM_pc;
+		tick_regs->ARM_pc = regs->ARM_pc;
 	}
 
 #ifdef CONFIG_IPIPE_TRACE_IRQSOFF

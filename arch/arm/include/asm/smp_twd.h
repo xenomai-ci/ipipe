@@ -28,11 +28,7 @@ extern void __iomem *twd_base;
 
 #define __ipipe_mach_ipi_p(irq) ((irq) < 16)
 
-#define __ipipe_mach_ext_hrtimer(cpu)		\
-	({					\
-		(void)(cpu);			\
-		__ipipe_mach_hrtimer_irq;	\
-	})
+#define __ipipe_mach_ext_hrtimer(cpu) __ipipe_mach_hrtimer_irq
 
 #define __ipipe_mach_localtimer(irq) (irq)
 
