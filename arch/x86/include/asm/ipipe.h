@@ -87,6 +87,11 @@ int __ipipe_check_tickdev(const char *devname);
 
 #define __ipipe_root_tick_p(regs)	((regs)->flags & X86_EFLAGS_IF)
 
+static inline void ipipe_notify_root_preemption(void)
+{
+	__ipipe_notify_vm_preemption();
+}
+
 #else /* !CONFIG_IPIPE */
 
 #define ipipe_mm_switch_protect(flags)		do { (void)(flags); } while(0)

@@ -1411,9 +1411,9 @@ static void vmx_load_host_state(struct vcpu_vmx *vmx)
 {
 	unsigned long flags;
 
-	ipipe_preempt_disable(flags);
+	flags = hard_preempt_disable();
 	__vmx_load_host_state(vmx);
-	ipipe_preempt_enable(flags);
+	hard_preempt_enable(flags);
 }
 
 /*
@@ -6185,6 +6185,9 @@ static struct kvm_vcpu *vmx_create_vcpu(struct kvm *kvm, unsigned int id)
 
 	vmx->nested.current_vmptr = -1ull;
 	vmx->nested.current_vmcs12 = NULL;
+#ifdef CONFIG_IPIPE
+	vmx->vcpu.ipipe_notifier.handler = __ipipe_handle_vm_preemption;
+#endif
 
 	return &vmx->vcpu;
 

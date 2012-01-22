@@ -192,7 +192,7 @@ static void kvm_on_user_return(struct user_return_notifier *urn)
 	kvm_restore_shared_msrs(locals);
 	locals->registered = false;
 	user_return_notifier_unregister(urn);
-	__ipipe_exit_guest();
+	__ipipe_exit_vm();
 }
 
 static void shared_msr_update(unsigned slot, u32 msr)
@@ -2243,7 +2243,6 @@ void kvm_arch_vcpu_load(struct kvm_vcpu *vcpu, int cpu)
 		vcpu->cpu = cpu;
 	}
 
-	__ipipe_register_guest(vcpu);
 	accumulate_steal_time(vcpu);
 	kvm_make_request(KVM_REQ_STEAL_UPDATE, vcpu);
 }
@@ -2260,19 +2259,23 @@ void kvm_arch_vcpu_put(struct kvm_vcpu *vcpu)
 	kvm_get_msr(vcpu, MSR_IA32_TSC, &vcpu->arch.last_guest_tsc);
 
 	if (!smsr->dirty)
-		__ipipe_exit_guest();
+		__ipipe_exit_vm();
 
 	hard_cond_local_irq_restore(flags);
 }
 
 #ifdef CONFIG_IPIPE
 
-void __ipipe_handle_guest_preemption(struct kvm_vcpu *vcpu)
+void __ipipe_handle_vm_preemption(struct ipipe_vm_notifier *nfy)
 {
+	struct kvm_vcpu *vcpu;
+
+	vcpu = container_of(nfy, struct kvm_vcpu, ipipe_notifier);
 	kvm_arch_vcpu_put(vcpu);
-	kvm_restore_shared_msrs(&__get_cpu_var(shared_msrs));
-	__ipipe_exit_guest();
+	kvm_restore_shared_msrs(__this_cpu_ptr(&shared_msrs));
+	__ipipe_exit_vm();
 }
+EXPORT_SYMBOL_GPL(__ipipe_handle_vm_preemption);
 
 #endif
 
@@ -5669,7 +5672,7 @@ static int vcpu_enter_guest(struct kvm_vcpu *vcpu)
 	local_irq_disable();
 	hard_cond_local_irq_disable();
 
-	__ipipe_enter_guest();
+	__ipipe_enter_vm(&vcpu->ipipe_notifier);
 
 	kvm_x86_ops->prepare_guest_switch(vcpu);
 	if (vcpu->fpu_active)

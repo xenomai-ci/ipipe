@@ -89,6 +89,7 @@
 
 struct pt_regs;
 struct irq_desc;
+struct ipipe_vm_notifier;
 
 static inline unsigned __ipipe_get_irq_vector(int irq)
 {
@@ -116,6 +117,8 @@ int __ipipe_handle_irq(struct pt_regs *regs);
 void __ipipe_ack_edge_irq(unsigned int irq, struct irq_desc *desc);
 
 void __ipipe_end_edge_irq(unsigned int irq, struct irq_desc *desc);
+
+void __ipipe_handle_vm_preemption(struct ipipe_vm_notifier *nfy);
 
 extern int __ipipe_hrtimer_irq;
 
