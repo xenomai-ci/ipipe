@@ -30,8 +30,8 @@
 
 struct task_struct;
 struct mm_struct;
-struct kvm_vcpu;
 struct irq_desc;
+struct ipipe_vm_notifier;
 
 #define __IPIPE_SYSCALL_P  0
 #define __IPIPE_TRAP_P     1
@@ -99,7 +99,7 @@ struct ipipe_percpu_data {
 	struct pt_regs tick_regs;
 	struct task_struct *task_hijacked;
 	struct task_struct *rqlock_owner;
-	struct kvm_vcpu *guest_vcpu;
+	struct ipipe_vm_notifier *vm_notifier;
 	unsigned long nmi_state;
 #ifdef CONFIG_IPIPE_WANT_PREEMPTIBLE_SWITCH
 	struct mm_struct *active_mm;

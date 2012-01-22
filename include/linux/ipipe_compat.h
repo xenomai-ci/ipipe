@@ -196,6 +196,11 @@ static inline int ipipe_reenter_root(struct task_struct *prev,
 	return 0;
 }
 
+static inline void ipipe_root_preempt_notify(void)
+{
+	ipipe_notify_root_preemption();
+}
+
 #define ipipe_return_notify(p)	ipipe_raise_mayday(p)
 
 /*

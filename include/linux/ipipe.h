@@ -107,6 +107,28 @@ static inline void __ipipe_nmi_exit(void)
 		__clear_bit(IPIPE_STALL_FLAG, &__ipipe_root_status);
 }
 
+/* KVM-side calls, hw IRQs off. */
+static inline void __ipipe_enter_vm(struct ipipe_vm_notifier *vmf)
+{
+	struct ipipe_percpu_data *p;
+
+	p = __ipipe_this_cpu_ptr(&ipipe_percpu);
+	p->vm_notifier = vmf;
+	barrier();
+}
+
+static inline void __ipipe_exit_vm(void)
+{
+	struct ipipe_percpu_data *p;
+
+	p = __ipipe_this_cpu_ptr(&ipipe_percpu);
+	p->vm_notifier = NULL;
+	barrier();
+}
+
+/* Client-side call, hw IRQs off. */
+void __ipipe_notify_vm_preemption(void);
+
 static inline void __ipipe_sync_pipeline(struct ipipe_domain *top)
 {
 	if (__ipipe_current_domain != top) {

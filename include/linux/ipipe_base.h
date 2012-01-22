@@ -24,6 +24,7 @@
 #define __LINUX_IPIPE_BASE_H
 
 struct kvm_vcpu;
+struct ipipe_vm_notifier;
 
 #ifdef CONFIG_IPIPE
 
@@ -77,10 +78,8 @@ static inline int ipipe_virtual_irq_p(unsigned int irq)
 /* Per-cpu pipeline status */
 #define IPIPE_STALL_FLAG	0 /* interrupts (virtually) disabled. */
 #define IPIPE_NOSTACK_FLAG	1 /* running on foreign stack. */
-#define IPIPE_GUEST_FLAG	2 /* root entered guest mode. */
 #define IPIPE_STALL_MASK	(1L << IPIPE_STALL_FLAG)
 #define IPIPE_NOSTACK_MASK	(1L << IPIPE_NOSTACK_FLAG)
-#define IPIPE_GUEST_MASK	(1L << IPIPE_GUEST_FLAG)
 
 /* Interrupt control bits */
 #define IPIPE_HANDLE_FLAG	0
@@ -104,6 +103,10 @@ struct ipipe_trap_data {
 #define IPIPE_KEVT_EXIT		3
 #define IPIPE_KEVT_CLEANUP	4
 #define IPIPE_KEVT_HOSTRT	5
+
+struct ipipe_vm_notifier {
+	void (*handler)(struct ipipe_vm_notifier *nfy);
+};
 
 void __ipipe_init_early(void);
 
@@ -169,14 +172,16 @@ void __ipipe_flush_printk(unsigned int irq, void *cookie);
 void __ipipe_pin_range_globally(unsigned long start,
 				unsigned long end);
 
-#define __ipipe_preempt_disable(flags)			\
-	do {						\
-		(flags) = hard_local_irq_save();	\
+#define hard_preempt_disable()				\
+	({						\
+		unsigned long __flags__;		\
+		__flags__ = hard_local_irq_save();	\
 		if (__ipipe_root_p)			\
 			preempt_disable();		\
-	} while (0)
+		__flags__;				\
+	})
 
-#define __ipipe_preempt_enable(flags)			\
+#define hard_preempt_enable(flags)			\
 	do {						\
 		if (__ipipe_root_p) {			\
 			preempt_enable_no_resched();	\
@@ -228,14 +233,7 @@ do {									\
 #define __ipipe_report_cleanup(mm)					\
 	__ipipe_notify_kevent(IPIPE_KEVT_CLEANUP, mm)
 
-/* KVM-side calls. */
-void __ipipe_register_guest(struct kvm_vcpu *vcpu);
-void __ipipe_enter_guest(void);
-void __ipipe_exit_guest(void);
-void __ipipe_handle_guest_preemption(struct kvm_vcpu *vcpu);
-
-/* Client-side call through ipipe_notify_root_preemption(). */
-void __ipipe_notify_guest_preemption(void);
+void __ipipe_notify_vm_preemption(void);
 
 #define hard_cond_local_irq_enable()		hard_local_irq_enable()
 #define hard_cond_local_irq_disable()		hard_local_irq_disable()
@@ -326,12 +324,8 @@ static inline void __ipipe_pin_range_globally(unsigned long start,
 					      unsigned long end)
 { }
 
-#define __ipipe_preempt_disable(flags)	\
-	do {				\
-		preempt_disable();	\
-		(void)(flags);		\
-	} while (0)
-#define __ipipe_preempt_enable(flags)	preempt_enable()
+#define hard_preempt_disable()		({ preempt_disable(); 0; })
+#define hard_preempt_enable(flags)	({ preempt_enable(); (void)(flags); })
 
 #define __ipipe_get_cpu(flags)		({ (void)(flags); get_cpu(); })
 #define __ipipe_put_cpu(flags)		\
@@ -346,13 +340,11 @@ static inline void __ipipe_pin_range_globally(unsigned long start,
 
 #define __ipipe_serial_debug(fmt, args...)	do { } while (0)
 
-static inline void __ipipe_register_guest(struct kvm_vcpu *vcpu) { }
+#define __ipipe_enter_vm(vmf)	do { } while (0)
 
-static inline void __ipipe_enter_guest(void) { }
+static inline void __ipipe_exit_vm(void) { }
 
-static inline void __ipipe_exit_guest(void) { }
-
-static inline void __ipipe_handle_guest_preemption(struct kvm_vcpu *vcpu) { }
+static inline void __ipipe_notify_vm_preemption(void) { }
 
 static inline void ipipe_root_only(void) { }
 

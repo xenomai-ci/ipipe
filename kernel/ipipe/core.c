@@ -1215,6 +1215,19 @@ int __ipipe_switch_tail(void)
 	return !x;
 }
 
+void __ipipe_notify_vm_preemption(void)
+{
+	struct ipipe_vm_notifier *vmf;
+	struct ipipe_percpu_data *p;
+
+	ipipe_check_irqoff();
+	p = __ipipe_this_cpu_ptr(&ipipe_percpu);
+	vmf = p->vm_notifier;
+	if (unlikely(vmf))
+		vmf->handler(vmf);
+}
+EXPORT_SYMBOL_GPL(__ipipe_notify_vm_preemption);
+
 void __ipipe_dispatch_irq(unsigned int irq, int ackit) /* hw interrupts off */
 {
 	struct ipipe_domain *ipd;
@@ -1344,55 +1357,6 @@ void __ipipe_dispatch_irq_fast(unsigned int irq) /* hw interrupts off */
 	 */
 	__ipipe_do_sync_pipeline(head);
 }
-
-#ifdef CONFIG_KVM
-
-#include <linux/mmu_notifier.h>
-#include <linux/kvm_host.h>
-
-void __ipipe_register_guest(struct kvm_vcpu *vcpu)
-{
-	per_cpu(ipipe_percpu, vcpu->cpu).guest_vcpu = vcpu;
-}
-
-void __ipipe_enter_guest(void)
-{
-	struct ipipe_percpu_domain_data *p;
-	unsigned long flags;
-
-	flags = hard_smp_local_irq_save();
-	p = ipipe_this_cpu_root_context();
-	__set_bit(IPIPE_GUEST_FLAG, &p->status);
-	hard_smp_local_irq_restore(flags);
-}
-
-void __ipipe_exit_guest(void)
-{
-	struct ipipe_percpu_domain_data *p;
-	unsigned long flags;
-
-	flags = hard_smp_local_irq_save();
-	p = ipipe_this_cpu_root_context();
-	__clear_bit(IPIPE_GUEST_FLAG, &p->status);
-	hard_smp_local_irq_restore(flags);
-}
-
-void __ipipe_notify_guest_preemption(void)
-{
-	struct ipipe_percpu_domain_data *p;
-	struct kvm_vcpu *vcpu;
-
-	ipipe_check_irqoff();
-	p = ipipe_this_cpu_root_context();
-	if (test_bit(IPIPE_GUEST_FLAG, &p->status)) {
-		vcpu = __this_cpu_read(ipipe_percpu.guest_vcpu);
-		__ipipe_handle_guest_preemption(vcpu);
-		__clear_bit(IPIPE_GUEST_FLAG, &p->status);
-	}
-}
-EXPORT_SYMBOL_GPL(__ipipe_notify_guest_preemption);
-
-#endif /* CONFIG_KVM */
 
 #ifdef CONFIG_TRACE_IRQFLAGS
 #define root_stall_after_handler()	local_irq_disable()
