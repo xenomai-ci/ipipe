@@ -16,7 +16,9 @@ config X86_64
 ### Arch settings
 config X86
 	def_bool y
-	select HAVE_IPIPE_HOSTRT if IPIPE
+	select IPIPE_HAVE_HOSTRT if IPIPE
+	select IPIPE_HAVE_VM_NOTIFIER if IPIPE
+	select HAVE_IPIPE_HOSTRT if IPIPE_LEGACY
 	select HAVE_AOUT if X86_32
 	select HAVE_UNSTABLE_SCHED_CLOCK
 	select HAVE_IDE
