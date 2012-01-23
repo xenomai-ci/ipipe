@@ -269,13 +269,16 @@ void __ipipe_legacy_init_stage(struct ipipe_domain *ipd);
 #define __IPIPE_FEATURE_PREPARE_PANIC		1
 #define __IPIPE_FEATURE_SYSINFO_V2		1
 #define __IPIPE_FEATURE_PIC_MUTE		1
+#ifdef CONFIG_IPIPE_HAVE_VM_NOTIFIER
+#define __IPIPE_FEATURE_ROOTPREEMPT_NOTIFIER	1
+#endif
 
-#else
+#else  /* !CONFIG_IPIPE_LEGACY */
 
 static inline void __ipipe_legacy_init_stage(struct ipipe_domain *ipd)
 {
 }
 
-#endif /* CONFIG_IPIPE_LEGACY */
+#endif /* !CONFIG_IPIPE_LEGACY */
 
 #endif	/* !__LINUX_IPIPE_COMPAT_H */

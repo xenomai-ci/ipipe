@@ -1596,7 +1596,7 @@ void ipipe_critical_exit(unsigned long flags)
 }
 EXPORT_SYMBOL_GPL(ipipe_critical_exit);
 
-#ifdef CONFIG_HAVE_IPIPE_HOSTRT
+#ifdef CONFIG_IPIPE_HAVE_HOSTRT
 
 /*
  * NOTE: The architecture specific code must only call this function
@@ -1619,7 +1619,7 @@ void ipipe_update_hostrt(struct timespec *wall_time, struct clocksource *clock)
 	__ipipe_notify_kevent(IPIPE_KEVT_HOSTRT, &data);
 }
 
-#endif /* CONFIG_HAVE_IPIPE_HOSTRT */
+#endif /* CONFIG_IPIPE_HAVE_HOSTRT */
 
 #ifdef CONFIG_IPIPE_DEBUG_CONTEXT
 

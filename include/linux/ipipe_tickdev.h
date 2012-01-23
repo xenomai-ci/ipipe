@@ -72,10 +72,10 @@ void ipipe_release_tickdev(int cpu);
 
 #endif /* CONFIG_IPIPE */
 
-#if defined(CONFIG_IPIPE) && defined(CONFIG_HAVE_IPIPE_HOSTRT)
+#if defined(CONFIG_IPIPE) && defined(CONFIG_IPIPE_HAVE_HOSTRT)
 void ipipe_update_hostrt(struct timespec *wall_time,
 			 struct clocksource *clock);
-#else /* !CONFIG_IPIPE_HOSTRT */
+#else
 static inline void
 ipipe_update_hostrt(struct timespec *wall_time, struct clocksource *clock) {}
 #endif
