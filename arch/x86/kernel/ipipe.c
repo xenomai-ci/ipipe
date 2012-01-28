@@ -70,6 +70,7 @@ void ipipe_raise_irq(unsigned int irq)
 	__ipipe_handle_irq(&regs);
 	hard_local_irq_restore(flags);
 }
+EXPORT_SYMBOL_GPL(ipipe_raise_irq);
 
 int ipipe_get_sysinfo(struct ipipe_sysinfo *info)
 {
@@ -81,6 +82,7 @@ int ipipe_get_sysinfo(struct ipipe_sysinfo *info)
 
 	return 0;
 }
+EXPORT_SYMBOL_GPL(ipipe_get_sysinfo);
 
 #ifdef CONFIG_X86_UV
 asmlinkage void uv_bau_message_interrupt(struct pt_regs *regs);
