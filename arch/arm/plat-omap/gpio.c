@@ -1231,7 +1231,7 @@ static void gpio_demux_inner(struct gpio_bank *bank, u32 isr, int nonroot)
 			continue;
 
 #ifdef CONFIG_IPIPE
-		if (nonroot) {
+		if (!nonroot) {
 			local_irq_enable_hw();
 			local_irq_disable_hw();
 		}
@@ -1272,7 +1272,11 @@ static void gpio_irq_handler(unsigned int irq, struct irq_desc *desc)
 	u32 retrigger = 0;
 	int unmasked = 0;
 
+#ifndef CONFIG_IPIPE
 	desc->irq_data.chip->irq_ack(&desc->irq_data);
+#else /* CONFIG_IPIPE */
+	desc->irq_data.chip->irq_mask_ack(&desc->irq_data);
+#endif /* CONFIG_IPIPE */
 
 	bank = get_irq_data(irq);
 #ifdef CONFIG_ARCH_OMAP1
@@ -1332,12 +1336,14 @@ static void gpio_irq_handler(unsigned int irq, struct irq_desc *desc)
 		_clear_gpio_irqbank(bank, isr_saved & ~level_mask);
 		_enable_gpio_irqbank(bank, isr_saved & ~level_mask, 1);
 
+#ifndef CONFIG_IPIPE
 		/* if there is only edge sensitive GPIO pin interrupts
 		configured, we could unmask GPIO bank interrupt immediately */
 		if (!level_mask && !unmasked) {
 			unmasked = 1;
 			desc->irq_data.chip->irq_unmask(&desc->irq_data);
 		}
+#endif /* !CONFIG_IPIPE */
 
 		isr |= retrigger;
 		retrigger = 0;
