@@ -883,20 +883,18 @@ static void __ipipe_print_headline(struct seq_file *m)
 
 		seq_printf(m,
 		           " +----- Hard IRQs ('|': locked)\n"
-		           " |+---- %s\n"
-		           " ||+--- %s\n"
-		           " |||+-- %s\n"
-		           " ||||+- %s%s\n"
-		           " |||||                        +---------- "
+		           " |+-- %s\n"
+		           " ||+- %s%s\n"
+		           " |||                          +---------- "
 		               "Delay flag ('+': > %d us, '!': > %d us)\n"
-		           " |||||                        |        +- "
+		           " |||                          |        +- "
 		               "NMI noise ('N')\n"
-		           " |||||                        |        |\n"
+		           " |||                          |        |\n"
 		           "      Type    User Val.   Time    Delay  Function "
 		               "(Parent)\n",
-		           name[3], name[2], name[1], name[0],
-		           name[0] ? " ('*': domain stalled, '+': current, "
-		               "'#': current+stalled)" : "",
+		           name[1], name[0],
+		           " ('*': domain stalled, '+': current, "
+			   "'#': current+stalled)",
 		           IPIPE_DELAY_NOTE/1000, IPIPE_DELAY_WARN/1000);
 	} else
 		seq_printf(m,
