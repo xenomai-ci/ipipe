@@ -30,10 +30,10 @@
 #include <linux/ipipe_percpu.h>
 #include <linux/ipipe_trace.h>
 
-#define IPIPE_ARCH_STRING	"1.18-05"
+#define IPIPE_ARCH_STRING	"1.18-06"
 #define IPIPE_MAJOR_NUMBER	1
 #define IPIPE_MINOR_NUMBER	18
-#define IPIPE_PATCH_NUMBER	5
+#define IPIPE_PATCH_NUMBER	6
 
 #ifdef CONFIG_SMP
 #define ipipe_processor_id()	hard_smp_processor_id()
