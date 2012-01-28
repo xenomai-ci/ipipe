@@ -86,7 +86,7 @@ static inline void hard_local_irq_enable_notrace(void)
 }
 #endif /* !CONFIG_PPC_BOOK3E */
 
-static inline unsigned long hard_local_irq_save(void)
+static inline unsigned long hard_local_irq_save_notrace(void)
 {
 	unsigned long msr = mfmsr();
 	hard_local_irq_disable_notrace();
