@@ -79,7 +79,7 @@ struct pci_event {
 	} data;
 };
 
-static DEFINE_SPINLOCK(pending_irqs_lock);
+static IPIPE_DEFINE_SPINLOCK(pending_irqs_lock);
 static int num_pending_irqs;
 static int pending_irqs[NR_IRQS];
 

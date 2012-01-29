@@ -189,9 +189,9 @@ static void native_stop_other_cpus(int wait)
 			udelay(1);
 	}
 
-	local_irq_save(flags);
+	flags = hard_local_irq_save();
 	disable_local_APIC();
-	local_irq_restore(flags);
+	hard_local_irq_restore(flags);
 }
 
 /*

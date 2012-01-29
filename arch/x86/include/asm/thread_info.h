@@ -22,6 +22,7 @@ struct exec_domain;
 #include <asm/processor.h>
 #include <asm/ftrace.h>
 #include <linux/atomic.h>
+#include <ipipe/thread_info.h>
 
 struct thread_info {
 	struct task_struct	*task;		/* main task structure */
@@ -41,6 +42,7 @@ struct thread_info {
 	__u8			supervisor_stack[0];
 #endif
 	int			uaccess_err;
+	struct ipipe_threadinfo ipipe_data;
 };
 
 #define INIT_THREAD_INFO(tsk)			\

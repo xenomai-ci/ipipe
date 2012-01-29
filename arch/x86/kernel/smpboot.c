@@ -241,7 +241,7 @@ static void __cpuinit smp_callin(void)
 /*
  * Activate a secondary processor.
  */
-notrace static void __cpuinit start_secondary(void *unused)
+static void __cpuinit start_secondary(void *unused)
 {
 	/*
 	 * Don't put *anything* before cpu_init(), SMP booting is too
@@ -832,7 +832,7 @@ do_rest:
 int __cpuinit native_cpu_up(unsigned int cpu)
 {
 	int apicid = apic->cpu_present_to_apicid(cpu);
-	unsigned long flags;
+ 	unsigned long vflags, rflags;
 	int err;
 
 	WARN_ON(irqs_disabled());
@@ -871,9 +871,11 @@ int __cpuinit native_cpu_up(unsigned int cpu)
 	 * Check TSC synchronization with the AP (keep irqs disabled
 	 * while doing so):
 	 */
-	local_irq_save(flags);
+	local_irq_save(vflags);
+	rflags = hard_local_irq_save();
 	check_tsc_sync_source(cpu);
-	local_irq_restore(flags);
+	hard_local_irq_restore(rflags);
+	local_irq_restore(vflags);
 
 	while (!cpu_online(cpu)) {
 		cpu_relax();

@@ -9,6 +9,7 @@
 #include <linux/module.h>
 #include <linux/i8253.h>
 #include <linux/smp.h>
+#include <linux/ipipe.h>
 
 /*
  * Protects access to I/O ports
@@ -32,6 +33,12 @@ static cycle_t i8253_read(struct clocksource *cs)
 	unsigned long flags;
 	int count;
 	u32 jifs;
+
+#ifdef CONFIG_IPIPE
+	if (ipipe_root_domain != ipipe_head_domain)
+		/* We don't really own the PIT. */
+		return (cycle_t)(jiffies * LATCH) + (LATCH - 1) - old_count;
+#endif /* CONFIG_IPIPE */
 
 	raw_spin_lock_irqsave(&i8253_lock, flags);
 	/*

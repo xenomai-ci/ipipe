@@ -121,12 +121,17 @@ int __kprobes do_page_fault(struct pt_regs *regs, unsigned long address,
 			    unsigned long error_code)
 {
 	struct vm_area_struct * vma;
-	struct mm_struct *mm = current->mm;
+	struct mm_struct *mm;
 	siginfo_t info;
 	int code = SEGV_MAPERR;
 	int is_write = 0, ret;
 	int trap = TRAP(regs);
  	int is_exec = trap == 0x400;
+
+	if (__ipipe_report_trap(IPIPE_TRAP_ACCESS,regs))
+	    	return 0;
+
+	mm = current->mm;
 
 #if !(defined(CONFIG_4xx) || defined(CONFIG_BOOKE))
 	/*

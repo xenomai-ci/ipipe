@@ -48,6 +48,30 @@
 #define EX_LR		72
 #define EX_CFAR		80
 
+#ifdef CONFIG_SOFTDISABLE
+#define COPY_SOFTISTATE(mreg)			\
+	lbz	mreg,PACASOFTIRQEN(r13);	\
+	std	mreg,SOFTE(r1);
+#define TEST_SOFTISTATE(mreg, dlabel)		\
+	lbz	mreg,PACASOFTIRQEN(r13);	\
+	cmpwi	mreg,0;				\
+	beq-	dlabel;
+#else
+#ifdef CONFIG_IPIPE
+/* Do NOT alter Rc(eq) in this code;  our caller uses it. */
+#define COPY_SOFTISTATE(mreg)			\
+	ld	mreg,PACAROOTPCPU(r13);		\
+	ld	mreg,0(mreg);			\
+	nor	mreg,mreg,mreg;			\
+	clrldi	mreg,mreg,63;			\
+	std	mreg,SOFTE(r1);
+#define TEST_SOFTISTATE(mreg, dlabel)
+#else
+#define COPY_SOFTISTATE(mreg)
+#define TEST_SOFTISTATE(mreg, dlabel)
+#endif
+#endif
+
 /*
  * We're short on space and time in the exception prolog, so we can't
  * use the normal SET_REG_IMMEDIATE macro. Normally we just need the
@@ -199,9 +223,8 @@ do_kvm_##n:								\
 	std	r9,_LINK(r1);						   \
 	mfctr	r10;			/* save CTR in stackframe	*/ \
 	std	r10,_CTR(r1);						   \
-	lbz	r10,PACASOFTIRQEN(r13);				   \
+	COPY_SOFTISTATE(r10);						   \
 	mfspr	r11,SPRN_XER;		/* save XER in stackframe	*/ \
-	std	r10,SOFTE(r1);						   \
 	std	r11,_XER(r1);						   \
 	li	r9,(n)+1;						   \
 	std	r9,_TRAP(r1);		/* set trap number		*/ \
@@ -233,9 +256,7 @@ label##_hv:						\
 				 EXC_HV, KVMTEST, vec)
 
 #define __SOFTEN_TEST(h)						\
-	lbz	r10,PACASOFTIRQEN(r13);					\
-	cmpwi	r10,0;							\
-	beq	masked_##h##interrupt
+	TEST_SOFTISTATE(r10, masked_##h##interrupt);			\
 #define _SOFTEN_TEST(h)	__SOFTEN_TEST(h)
 
 #define SOFTEN_TEST_PR(vec)						\
@@ -272,6 +293,28 @@ label##_hv:								\
 	_MASKABLE_EXCEPTION_PSERIES(vec, label,				\
 				    EXC_HV, SOFTEN_TEST_HV)
 
+#ifdef CONFIG_IPIPE
+/* IBM legacy I-Series are not supported. */
+#define ENABLE_INTS				\
+	ld	r12,_MSR(r1);			\
+	mfmsr	r11;				\
+	rlwimi	r11,r12,0,MSR_EE;		\
+	mtmsrd	r11,1
+#define DISABLE_INTS	/* We lie, mostly... */	\
+	ld	r11,PACAROOTPCPU(r13);		\
+	ld	r10,0(r11);			\
+	ori	r10,r10,1;			\
+	std	r10,0(r11);			\
+	mfmsr	r10;				\
+	ori	r10,r10,MSR_EE;			\
+	mtmsrd	r10,1;
+#define DISABLE_INTS_REALLY			\
+	mfmsr	r11;				\
+	rldicl	r11,r11,48,1;/* clear MSR_EE */	\
+	rotldi	r11,r11,16;			\
+	mtmsrd	r11,1;
+#else /* !CONFIG_IPIPE */
+
 #ifdef CONFIG_PPC_ISERIES
 #define DISABLE_INTS				\
 	li	r11,0;				\
@@ -299,6 +342,8 @@ END_FW_FTR_SECTION_IFSET(FW_FEATURE_ISERIES)
 	rlwimi	r11,r12,0,MSR_EE;		\
 	mtmsrd	r11,1
 
+#endif /* !CONFIG_IPIPE */
+
 #define STD_EXCEPTION_COMMON(trap, label, hdlr)		\
 	.align	7;					\
 	.globl label##_common;				\
@@ -306,6 +351,7 @@ label##_common:						\
 	EXCEPTION_PROLOG_COMMON(trap, PACA_EXGEN);	\
 	DISABLE_INTS;					\
 	bl	.save_nvgprs;				\
+	TRACE_DISABLE_INTS;				\
 	addi	r3,r1,STACK_FRAME_OVERHEAD;		\
 	bl	hdlr;					\
 	b	.ret_from_except
@@ -322,6 +368,7 @@ label##_common:						\
 	FINISH_NAP;					\
 	DISABLE_INTS;					\
 	bl	.save_nvgprs;				\
+	TRACE_DISABLE_INTS;				\
 	addi	r3,r1,STACK_FRAME_OVERHEAD;		\
 	bl	hdlr;					\
 	b	.ret_from_except
@@ -336,9 +383,23 @@ label##_common:						\
 BEGIN_FTR_SECTION					\
 	bl	.ppc64_runlatch_on;			\
 END_FTR_SECTION_IFSET(CPU_FTR_CTRL)			\
+	TRACE_DISABLE_INTS;				\
 	addi	r3,r1,STACK_FRAME_OVERHEAD;		\
 	bl	hdlr;					\
 	b	.ret_from_except_lite
+
+#ifdef CONFIG_IPIPE
+#define IPIPE_EXCEPTION_COMMON_LITE(trap, label, hdlr)	\
+	.align	7;					\
+	.globl label##_common;				\
+label##_common:						\
+	EXCEPTION_PROLOG_COMMON(trap, PACA_EXGEN);	\
+	DISABLE_INTS_REALLY;				\
+	TRACE_DISABLE_INTS_REALLY;			\
+	addi	r3,r1,STACK_FRAME_OVERHEAD;		\
+	bl	hdlr;					\
+	b	.__ipipe_ret_from_except_lite
+#endif /* CONFIG_IPIPE */
 
 /*
  * When the idle code in power4_idle puts the CPU into NAP mode,

@@ -1078,7 +1078,7 @@
 
 #define proc_trap()	asm volatile("trap")
 
-#ifdef CONFIG_PPC64
+#ifdef CONFIG_RUNLATCH
 
 extern void ppc64_runlatch_on(void);
 extern void __ppc64_runlatch_off(void);

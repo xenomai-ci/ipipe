@@ -6,6 +6,7 @@
 #include <asm/cpufeature.h>
 #include <asm/cmpxchg.h>
 #include <asm/nops.h>
+#include <asm/percpu.h>
 
 #include <linux/kernel.h>
 #include <linux/irqflags.h>
@@ -24,6 +25,8 @@ struct tss_struct;
 void __switch_to_xtra(struct task_struct *prev_p, struct task_struct *next_p,
 		      struct tss_struct *tss);
 extern void show_regs_common(void);
+
+DECLARE_PER_CPU(unsigned long, __ipipe_cr2);
 
 #ifdef CONFIG_X86_32
 
@@ -125,8 +128,12 @@ do {									\
 #define switch_to(prev, next, last) \
 	asm volatile(SAVE_CONTEXT					  \
 	     "movq %%rsp,%P[threadrsp](%[prev])\n\t" /* save RSP */	  \
+	     "movq $thread_return,%P[threadrip](%[prev])\n\t" /* save RIP */	  \
 	     "movq %P[threadrsp](%[next]),%%rsp\n\t" /* restore RSP */	  \
-	     "call __switch_to\n\t"					  \
+ 	     "pushq %P[threadrip](%[next])\n\t" /* restore RIP */	  \
+ 	     "jmp __switch_to\n\t"					  \
+  	     ".globl thread_return\n\t"					  \
+	     "thread_return:\n\t"					  \
 	     "movq "__percpu_arg([current_task])",%%rsi\n\t"		  \
 	     __switch_canary						  \
 	     "movq %P[thread_info](%%rsi),%%r8\n\t"			  \
@@ -138,6 +145,7 @@ do {									\
 	       __switch_canary_oparam					  \
 	     : [next] "S" (next), [prev] "D" (prev),			  \
 	       [threadrsp] "i" (offsetof(struct task_struct, thread.sp)), \
+	       [threadrip] "i" (offsetof(struct task_struct, thread.rip)), \
 	       [ti_flags] "i" (offsetof(struct thread_info, flags)),	  \
 	       [_tif_fork] "i" (_TIF_FORK),			  	  \
 	       [thread_info] "i" (offsetof(struct task_struct, stack)),   \
@@ -314,15 +322,23 @@ static inline void write_cr0(unsigned long x)
 	native_write_cr0(x);
 }
 
+#ifdef CONFIG_IPIPE
+#define read_cr2()	__this_cpu_read(__ipipe_cr2)
+#else
 static inline unsigned long read_cr2(void)
 {
 	return native_read_cr2();
 }
+#endif
 
+#ifdef CONFIG_IPIPE
+#define write_cr2(x)	__this_cpu_write(__ipipe_cr2, x)
+#else
 static inline void write_cr2(unsigned long x)
 {
 	native_write_cr2(x);
 }
+#endif
 
 static inline unsigned long read_cr3(void)
 {

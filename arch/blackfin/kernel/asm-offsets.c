@@ -153,5 +153,9 @@ int main(void)
 	DEFINE(SIZEOF_CORELOCK, sizeof(struct corelock_slot));
 #endif
 
+#ifdef CONFIG_IPIPE
+	DEFINE(IPIPE_CURRENT_DOMAIN, offsetof(struct ipipe_percpu_data, curr));
+#endif
+
 	return 0;
 }

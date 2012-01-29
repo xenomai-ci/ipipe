@@ -310,11 +310,14 @@ static inline void __clear_fpu(struct task_struct *tsk)
 static inline void kernel_fpu_begin(void)
 {
 	struct thread_info *me = current_thread_info();
+	unsigned long flags;
 	preempt_disable();
+	flags = hard_cond_local_irq_save();
 	if (me->status & TS_USEDFPU)
 		__save_init_fpu(me->task);
 	else
 		clts();
+	hard_cond_local_irq_restore(flags);
 }
 
 static inline void kernel_fpu_end(void)
