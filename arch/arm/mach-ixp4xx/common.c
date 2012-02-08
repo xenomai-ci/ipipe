@@ -37,6 +37,7 @@
 #include <asm/page.h>
 #include <asm/irq.h>
 #include <asm/sched_clock.h>
+#include <asm/gpio.h>
 
 #include <asm/mach/map.h>
 #include <asm/mach/irq.h>
@@ -376,11 +377,54 @@ static struct platform_device *ixp46x_devices[] __initdata = {
 unsigned long ixp4xx_exp_bus_size;
 EXPORT_SYMBOL(ixp4xx_exp_bus_size);
 
+static int ixp4xx_gpio_direction_input(struct gpio_chip *chip, unsigned gpio)
+{
+	gpio_line_config(gpio, IXP4XX_GPIO_IN);
+
+	return 0;
+}
+
+static int ixp4xx_gpio_direction_output(struct gpio_chip *chip, unsigned gpio,
+					int level)
+{
+	gpio_line_set(gpio, level);
+	gpio_line_config(gpio, IXP4XX_GPIO_OUT);
+
+	return 0;
+}
+
+static int ixp4xx_gpio_get_value(struct gpio_chip *chip, unsigned gpio)
+{
+	int value;
+
+	gpio_line_get(gpio, &value);
+
+	return value;
+}
+
+static void ixp4xx_gpio_set_value(struct gpio_chip *chip, unsigned gpio,
+				  int value)
+{
+	gpio_line_set(gpio, value);
+}
+
+static struct gpio_chip ixp4xx_gpio_chip = {
+	.label			= "IXP4XX_GPIO_CHIP",
+	.direction_input	= ixp4xx_gpio_direction_input,
+	.direction_output	= ixp4xx_gpio_direction_output,
+	.get			= ixp4xx_gpio_get_value,
+	.set			= ixp4xx_gpio_set_value,
+	.base			= 0,
+	.ngpio			= 16,
+};
+
 void __init ixp4xx_sys_init(void)
 {
 	ixp4xx_exp_bus_size = SZ_16M;
 
 	platform_add_devices(ixp4xx_devices, ARRAY_SIZE(ixp4xx_devices));
+
+	gpiochip_add(&ixp4xx_gpio_chip);
 
 	if (cpu_is_ixp46x()) {
 		int region;

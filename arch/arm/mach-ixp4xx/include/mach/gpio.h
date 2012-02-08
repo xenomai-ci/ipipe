@@ -27,49 +27,31 @@
 
 #include <linux/kernel.h>
 #include <mach/hardware.h>
+#include <asm-generic/gpio.h>			/* cansleep wrappers */
 
 #define __ARM_GPIOLIB_COMPLEX
 
-static inline int gpio_request(unsigned gpio, const char *label)
-{
-	return 0;
-}
-
-static inline void gpio_free(unsigned gpio)
-{
-	might_sleep();
-
-	return;
-}
-
-static inline int gpio_direction_input(unsigned gpio)
-{
-	gpio_line_config(gpio, IXP4XX_GPIO_IN);
-	return 0;
-}
-
-static inline int gpio_direction_output(unsigned gpio, int level)
-{
-	gpio_line_set(gpio, level);
-	gpio_line_config(gpio, IXP4XX_GPIO_OUT);
-	return 0;
-}
+#define NR_BUILTIN_GPIO 16
 
 static inline int gpio_get_value(unsigned gpio)
 {
-	int value;
-
-	gpio_line_get(gpio, &value);
-
-	return value;
+	if (gpio < NR_BUILTIN_GPIO) {
+		int value;
+		gpio_line_get(gpio, &value);
+		return value;
+	} else
+		return __gpio_get_value(gpio);
 }
 
 static inline void gpio_set_value(unsigned gpio, int value)
 {
-	gpio_line_set(gpio, value);
+	if (gpio < NR_BUILTIN_GPIO)
+		gpio_line_set(gpio, value);
+	else
+		__gpio_set_value(gpio, value);
 }
 
-#include <asm-generic/gpio.h>			/* cansleep wrappers */
+#define gpio_cansleep __gpio_cansleep
 
 extern int gpio_to_irq(int gpio);
 #define gpio_to_irq gpio_to_irq
