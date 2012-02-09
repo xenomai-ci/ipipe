@@ -1596,7 +1596,7 @@ void ipipe_critical_exit(unsigned long flags)
 }
 EXPORT_SYMBOL_GPL(ipipe_critical_exit);
 
-#ifdef CONFIG_IPIPE_HAVE_HOSTRT
+#if defined(CONFIG_IPIPE_HAVE_HOSTRT) || defined(CONFIG_HAVE_IPIPE_HOSTRT)
 
 /*
  * NOTE: The architecture specific code must only call this function
