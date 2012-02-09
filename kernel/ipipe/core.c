@@ -1603,7 +1603,8 @@ EXPORT_SYMBOL_GPL(ipipe_critical_exit);
  * when a clocksource suitable for CLOCK_HOST_REALTIME is enabled.
  * The event receiver is responsible for providing proper locking.
  */
-void ipipe_update_hostrt(struct timespec *wall_time, struct clocksource *clock)
+void ipipe_update_hostrt(struct timespec *wall_time, struct timespec *wtm,
+			 struct clocksource *clock, u32 mult)
 {
 	struct ipipe_hostrt_data data;
 
@@ -1611,11 +1612,11 @@ void ipipe_update_hostrt(struct timespec *wall_time, struct clocksource *clock)
 	data.live = 1;
 	data.cycle_last = clock->cycle_last;
 	data.mask = clock->mask;
-	data.mult = clock->mult;
+	data.mult = mult;
 	data.shift = clock->shift;
 	data.wall_time_sec = wall_time->tv_sec;
 	data.wall_time_nsec = wall_time->tv_nsec;
-	data.wall_to_monotonic = get_wall_to_monotonic();
+	data.wall_to_monotonic = *wtm;
 	__ipipe_notify_kevent(IPIPE_KEVT_HOSTRT, &data);
 }
 
