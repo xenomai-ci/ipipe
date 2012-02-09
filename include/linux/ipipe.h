@@ -47,6 +47,7 @@ struct ipipe_sysinfo {
 	u64 sys_hrtimer_freq;	/* hrtimer device frequency */
 	u64 sys_hrclock_freq;	/* hrclock device frequency */
 	u64 sys_cpu_freq;	/* CPU frequency (Hz) */
+	struct ipipe_arch_sysinfo arch;
 };
 
 struct ipipe_work_header {
