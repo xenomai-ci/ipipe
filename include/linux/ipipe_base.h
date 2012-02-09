@@ -191,9 +191,9 @@ void __ipipe_pin_range_globally(unsigned long start,
 			hard_local_irq_restore(flags);	\
 	} while (0)
 
-#define __ipipe_get_cpu(flags)	({ __ipipe_preempt_disable(flags); ipipe_processor_id(); })
-#define __ipipe_put_cpu(flags)	__ipipe_preempt_enable(flags)
- 
+#define __ipipe_get_cpu(flags)	({ (flags) = hard_preempt_disable(); ipipe_processor_id(); })
+#define __ipipe_put_cpu(flags)	hard_preempt_enable(flags)
+
 int __ipipe_notify_syscall(struct pt_regs *regs);
 
 int __ipipe_notify_trap(int exception, struct pt_regs *regs);
@@ -333,7 +333,7 @@ static inline void __ipipe_pin_range_globally(unsigned long start,
 		(void)(flags);		\
 		put_cpu();		\
 	} while (0)
-	
+
 #define __ipipe_root_tick_p(regs)	1
 
 #define ipipe_handle_chained_irq(irq)		generic_handle_irq(irq)
