@@ -567,7 +567,9 @@ handle_percpu_irq(unsigned int irq, struct irq_desc *desc)
 
 #ifdef CONFIG_IPIPE
 	handle_irq_event_percpu(desc, desc->action);
-	(void)chip;
+
+	if (chip->irq_eoi && !irqd_irq_masked(&desc->irq_data))
+		chip->irq_unmask(&desc->irq_data);
 #else
 	if (chip->irq_ack)
 		chip->irq_ack(&desc->irq_data);
@@ -614,6 +616,9 @@ void handle_percpu_devid_irq(unsigned int irq, struct irq_desc *desc)
 #ifndef CONFIG_IPIPE
 	if (chip->irq_eoi)
 		chip->irq_eoi(&desc->irq_data);
+#else
+	if (chip->irq_eoi && !irqd_irq_masked(&desc->irq_data))
+		chip->irq_unmask(&desc->irq_data);
 #endif
 }
 
@@ -665,6 +670,8 @@ void __ipipe_ack_percpu_irq(unsigned irq, struct irq_desc *desc)
 
 void __ipipe_end_percpu_irq(unsigned irq, struct irq_desc *desc)
 {
+	if (desc->irq_data.chip->irq_eoi)
+		desc->irq_data.chip->irq_unmask(&desc->irq_data);
 }
 
 void __ipipe_end_edge_irq(unsigned irq, struct irq_desc *desc)
