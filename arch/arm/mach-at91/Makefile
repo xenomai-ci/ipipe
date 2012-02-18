@@ -101,4 +101,5 @@ obj-$(CONFIG_ARCH_AT91SAM9263)	+= at91_ipipe_time.o
 obj-$(CONFIG_ARCH_AT91SAM9RL)	+= at91_ipipe_time.o
 obj-$(CONFIG_ARCH_AT91SAM9G20)  += at91_ipipe_time.o
 obj-$(CONFIG_ARCH_AT91X40)	+= at91_ipipe_time.o
+obj-$(CONFIG_ARCH_AT91SAM9G45)	+= at91_ipipe_time.o
 endif
