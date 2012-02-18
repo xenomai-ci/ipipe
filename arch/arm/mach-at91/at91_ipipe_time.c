@@ -6,6 +6,9 @@
  * Adaptation to AT91SAM926x:
  * Copyright (C) 2007 Gregory CLEMENT, Adeneo
  *
+ * Adaptation to AT91SAM9G45:
+ * Copyright (C) 2011 Gregory CLEMENT, Free Electrons
+ *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
  * published by the Free Software Foundation.
@@ -56,6 +59,10 @@
 #define AT91_ID_TC0 AT91X40_ID_TC0
 #define AT91_ID_TC1 AT91X40_ID_TC1
 #define AT91_ID_TC2 AT91X40_ID_TC2
+#elif defined(CONFIG_ARCH_AT91SAM9G45)
+#define AT91_ID_TC0 AT91SAM9G45_ID_TCB
+#define AT91_ID_TC1 AT91SAM9G45_ID_TCB
+#define AT91_ID_TC2 AT91SAM9G45_ID_TCB
 #else
 #error "AT91 processor unsupported by Adeos"
 #endif
@@ -147,12 +154,14 @@ at91_tc_set_mode(enum clock_event_mode mode, struct clock_event_device *dev)
 	if (mode == CLOCK_EVT_MODE_PERIODIC) {
 		unsigned long v;
 
-#ifndef CONFIG_ARCH_AT91SAM9263
-		clk_enable(clk_get(NULL, "tc"
-				   __stringify(CONFIG_IPIPE_AT91_TC) "_clk"));
-#else /* AT91SAM9263 */
+#ifdef CONFIG_ARCH_AT91SAM9263
 		clk_enable(clk_get(NULL, "tcb_clk"));
-#endif /* AT91SAM9263 */
+#elif CONFIG_ARCH_AT91SAM9G45
+		clk_enable(clk_get(NULL, "tcb0_clk"));
+#else /* AT91SAM9263 and AT91SAM9G45*/
+		clk_enable(clk_get(NULL, "tc"
+						   __stringify(CONFIG_IPIPE_AT91_TC) "_clk"));
+#endif 
 
 		/* No Sync. */
 		at91_tc_write(AT91_TC_BCR, 0);
@@ -247,7 +256,7 @@ void __init at91_timer_init(void)
 	(void) at91_sys_read(AT91_ST_SR);	/* Clear any pending interrupts */
 #elif defined(CONFIG_ARCH_AT91SAM9260) || defined(CONFIG_ARCH_AT91SAM9261) \
 	|| defined(CONFIG_ARCH_AT91SAM9263) || defined(CONFIG_ARCH_AT91SAM9RL) \
-	|| defined(CONFIG_ARCH_AT91SAM9G20)
+	|| defined(CONFIG_ARCH_AT91SAM9G20) || defined(CONFIG_ARCH_AT91SAM9G45)
 	at91_sys_write(AT91_PIT_MR, 0);
 
 	/* Clear any pending interrupts */
@@ -304,7 +313,7 @@ void __init at91_timer_init(void)
 struct sys_timer at91rm9200_timer = {
 #elif defined(CONFIG_ARCH_AT91SAM9260) || defined(CONFIG_ARCH_AT91SAM9261) \
 	|| defined(CONFIG_ARCH_AT91SAM9263) || defined(CONFIG_ARCH_AT91SAM9RL) \
-	|| defined(CONFIG_ARCH_AT91SAM9G20)
+	|| defined(CONFIG_ARCH_AT91SAM9G20) || defined(CONFIG_ARCH_AT91SAM9G45)
 struct sys_timer at91sam926x_timer = {
 #elif defined(CONFIG_ARCH_AT91X40)
 struct sys_timer at91x40_timer = {
