@@ -137,7 +137,7 @@ __ipipe_freerunning_16:
 	ldr	r0, .LCfr16_cntr_addr
 /* User-space entry-point: r0 is the hardware counter virtual address */
 1:	myldrd	r2, r3, r1, .LCfr16_last_tsc
-	ldr	ip, [r0]
+	ldrh	ip, [r0]
 #ifndef CONFIG_CPU_BIG_ENDIAN
 /* Little endian */
 	ldr	r1, .LCfr16_last_tsc
@@ -180,7 +180,7 @@ __ipipe_decrementer_16:
 #ifndef CONFIG_CPU_BIG_ENDIAN
 /* Little endian */
 1:	ldr	r1, .LCdec16_last_tsc
-	ldr	ip, [r0]
+	ldrh	ip, [r0]
 	ldr	r2, .LCdec16_last_cnt
 	subs 	ip, r2, ip
 	addcc	ip, ip, #0x10000
@@ -192,7 +192,7 @@ __ipipe_decrementer_16:
 #else /* Big endian */
 /* Little endian */
 1:	ldr	r1, .LCdec16_last_tsc + 4
-	ldr	ip, [r0]
+	ldrh	ip, [r0]
 	ldr	r2, .LCdec16_last_cnt
 	subs 	ip, r2, ip
 	addcc	ip, ip, #0x10000
