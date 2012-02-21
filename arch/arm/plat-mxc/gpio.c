@@ -163,30 +163,8 @@ static void mxc_gpio_irq_handler(struct mxc_gpio_port *port, u32 irq_stat)
 {
 	u32 gpio_irq_no_base = port->virtual_irq_start;
 
-#ifdef CONFIG_IPIPE
-	/* Handle high priority domains interrupts first */
-	u32 nonroot_gpios = irq_stat & port->nonroot_gpios;
-
-	irq_stat &= ~nonroot_gpios;
-	while (nonroot_gpios != 0) {
-		int irqoffset = fls(nonroot_gpios) - 1;
-
-		if (port->both_edges & (1 << irqoffset))
-			mxc_flip_edge(port, irqoffset);
-
-		ipipe_handle_chained_irq(gpio_irq_no_base + irqoffset);
-
-		nonroot_gpios &= ~(1 << irqoffset);
-	}
-#endif
-
 	while (irq_stat != 0) {
 		int irqoffset = fls(irq_stat) - 1;
-
-#ifdef CONFIG_IPIPE
-		local_irq_enable_hw();
-		local_irq_disable_hw();
-#endif /* CONFIG_IPIPE */
 
 		if (port->both_edges & (1 << irqoffset))
 			mxc_flip_edge(port, irqoffset);
@@ -203,18 +181,10 @@ static void mx3_gpio_irq_handler(u32 irq, struct irq_desc *desc)
 	u32 irq_stat;
 	struct mxc_gpio_port *port = irq_get_handler_data(irq);
 
-#ifdef CONFIG_IPIPE
-	desc->irq_data.chip->irq_mask_ack(&desc->irq_data);
-#endif /* CONFIG_IPIPE */
-
 	irq_stat = __raw_readl(port->base + GPIO_ISR) &
 			__raw_readl(port->base + GPIO_IMR);
 
 	mxc_gpio_irq_handler(port, irq_stat);
-
-#ifdef CONFIG_IPIPE
-	desc->irq_data.chip->irq_unmask(&desc->irq_data);
-#endif /* CONFIG_IPIPE */
 }
 
 /* MX2 has one interrupt *for all* gpio ports */
@@ -223,10 +193,6 @@ static void mx2_gpio_irq_handler(u32 irq, struct irq_desc *desc)
 	int i;
 	u32 irq_msk, irq_stat;
 	struct mxc_gpio_port *port = irq_get_handler_data(irq);
-
-#ifdef CONFIG_IPIPE
-	desc->irq_data.chip->irq_mask_ack(&desc->irq_data);
-#endif /* CONFIG_IPIPE */
 
 	/* walk through all interrupt status registers */
 	for (i = 0; i < gpio_table_size; i++) {
@@ -238,10 +204,6 @@ static void mx2_gpio_irq_handler(u32 irq, struct irq_desc *desc)
 		if (irq_stat)
 			mxc_gpio_irq_handler(&port[i], irq_stat);
 	}
-
-#ifdef CONFIG_IPIPE
-	desc->irq_data.chip->irq_unmask(&desc->irq_data);
-#endif /* CONFIG_IPIPE */
 }
 
 /*
