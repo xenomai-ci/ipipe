@@ -46,6 +46,9 @@
 
 struct ipipe_domain;
 
+struct ipipe_arch_sysinfo {
+};
+
 #define ipipe_read_tsc(t)					\
 	({							\
 	unsigned long __cy2;					\
