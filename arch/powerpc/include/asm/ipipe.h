@@ -50,6 +50,9 @@
 
 struct ipipe_domain;
 
+struct ipipe_arch_sysinfo {
+};
+
 #ifdef CONFIG_DEBUGGER
 extern cpumask_t __ipipe_dbrk_pending;
 #endif
