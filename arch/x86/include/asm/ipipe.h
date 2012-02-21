@@ -28,6 +28,9 @@
 
 struct ipipe_domain;
 
+struct ipipe_arch_sysinfo {
+};
+
 /*
  * The logical processor id and the current Linux task are read from the PDA,
  * so this is always safe, regardless of the underlying stack.
