@@ -109,7 +109,7 @@ void update_vsyscall(struct timespec *wall_time, struct timespec *wtm,
 	write_sequnlock_irqrestore(&vsyscall_gtod_data.lock, flags);
 
 	if (clock == &clocksource_tsc)
-		ipipe_update_hostrt(wall_time, clock);
+		ipipe_update_hostrt(wall_time, wtm, clock, mult);
 }
 
 static void warn_bad_vsyscall(const char *level, struct pt_regs *regs,

@@ -552,10 +552,10 @@ int __ipipe_syscall_root(struct pt_regs *regs)
 	 * tail work has to be performed (for handling signals etc).
 	 */
 
-        if (!__ipipe_syscall_watched_p(current, regs->orig_ax))
-                return 0;
+	if (!__ipipe_syscall_watched_p(current, regs->orig_ax))
+		return 0;
 
-        ret = __ipipe_notify_syscall(regs);
+	ret = __ipipe_notify_syscall(regs);
 
 	flags = hard_local_irq_save();
 
@@ -658,7 +658,7 @@ void update_vsyscall(struct timespec *wall_time, struct timespec *wtm,
 		     struct clocksource *clock, u32 mult)
 {
        if (clock == &clocksource_tsc)
-	       ipipe_update_hostrt(wall_time, clock);
+	       ipipe_update_hostrt(wall_time, wtm, clock, mult);
 }
 
 void update_vsyscall_tz(void)
