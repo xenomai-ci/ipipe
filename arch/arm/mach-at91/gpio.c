@@ -24,12 +24,11 @@
 
 #include <mach/hardware.h>
 #include <mach/at91_pio.h>
+#include "at91_ipipe.h"
 #ifdef CONFIG_IPIPE
 #include <asm/irq.h>
 
-#ifdef __IPIPE_MACH_HAVE_PIC_MUTE
 DEFINE_PER_CPU(__ipipe_irqbits_t, __ipipe_muted_irqs);
-#endif /* __IPIPE_MACH_HAVE_PIC_MUTE */
 #endif /* CONFIG_IPIPE */
 
 #include "generic.h"
@@ -448,8 +447,8 @@ static void gpio_irq_handler(unsigned irq, struct irq_desc *desc)
 	/* now it may re-trigger */
 }
 
-#if defined(CONFIG_IPIPE) && defined(__IPIPE_MACH_HAVE_PIC_MUTE)
-void __ipipe_mach_enable_irqdesc(struct ipipe_domain *ipd, unsigned irq)
+#if defined(CONFIG_IPIPE)
+static void at91_enable_irqdesc(struct ipipe_domain *ipd, unsigned irq)
 {
 	struct irq_desc *desc = irq_to_desc(irq);
 	struct irq_data *idata = irq_desc_get_irq_data(desc);
@@ -465,7 +464,7 @@ void __ipipe_mach_enable_irqdesc(struct ipipe_domain *ipd, unsigned irq)
 	}
 }
 
-void __ipipe_mach_disable_irqdesc(struct ipipe_domain *ipd, unsigned irq)
+static void at91_disable_irqdesc(struct ipipe_domain *ipd, unsigned irq)
 {
 	struct irq_desc *desc = irq_to_desc(irq);
 	struct irq_data *idata = irq_desc_get_irq_data(desc);
@@ -481,7 +480,7 @@ void __ipipe_mach_disable_irqdesc(struct ipipe_domain *ipd, unsigned irq)
 	}
 }
 
-void ipipe_mute_pic(void)
+static void at91_mute_pic(void)
 {
 	struct at91_gpio_chip *prev, *chip = NULL;
 	unsigned long unmasked, muted;
@@ -506,7 +505,7 @@ void ipipe_mute_pic(void)
 	at91_sys_write(AT91_AIC_IDCR, muted);
 }
 
-void ipipe_unmute_pic(void)
+static void at91_unmute_pic(void)
 {
 	struct at91_gpio_chip *prev, *chip = NULL;
 	unsigned long muted;
@@ -524,7 +523,19 @@ void ipipe_unmute_pic(void)
 		__raw_writel(muted, chip->regbase + PIO_IER);
 	}
 }
-#endif /* CONFIG_IPIPE && __IPIPE_MACH_HAVE_PIC_MUTE */
+
+void at91_pic_muter_register(void)
+{
+	struct ipipe_mach_pic_muter at91_pic_muter = {
+		.enable_irqdesc = at91_enable_irqdesc,
+		.disable_irqdesc = at91_disable_irqdesc,
+		.mute = at91_mute_pic,
+		.unmute = at91_unmute_pic,
+	};
+
+	ipipe_pic_muter_register(&at91_pic_muter);
+}
+#endif /* CONFIG_IPIPE */
 
 /*--------------------------------------------------------------------------*/
 
