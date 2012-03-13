@@ -45,8 +45,8 @@ extern int __ipipe_hrtimer_irq;
 #define __ipipe_hrtimer_freq	__ipipe_cpu_freq
 #define __ipipe_hrclock_freq	__ipipe_cpu_freq
 
-#define ipipe_tsc2ns(t)	(((t) * 1000UL) / (__ipipe_clock_freq / 1000000UL))
-#define ipipe_tsc2us(t)	((t) / (__ipipe_clock_freq / 1000000UL))
+#define ipipe_tsc2ns(t)	(((t) * 1000UL) / (__ipipe_cpu_freq / 1000000UL))
+#define ipipe_tsc2us(t)	((t) / (__ipipe_cpu_freq / 1000000UL))
 
 /* Private interface -- Internal use only */
 
