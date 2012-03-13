@@ -150,29 +150,40 @@ unsigned long long __ipipe_mach_get_tsc(void);
 #define __ipipe_check_platform()	do { } while(0)
 #define __ipipe_enable_irq(irq)		enable_irq(irq)
 #define __ipipe_disable_irq(irq)	disable_irq(irq)
-void __ipipe_enable_irqdesc(struct ipipe_domain *ipd, unsigned irq);
-#ifndef __IPIPE_MACH_HAVE_PIC_MUTE
-#define __ipipe_disable_irqdesc(ipd, irq) do { } while(0)
-#define ipipe_mute_pic() do { } while(0)
-#define ipipe_unmute_pic() do { } while(0)
-#else /* __IPIPE_MACH_HAVE_PIC_MUTE */
+
+/* PIC muting */
+struct ipipe_mach_pic_muter {
+	void (*enable_irqdesc)(struct ipipe_domain *ipd, unsigned irq);
+	void (*disable_irqdesc)(struct ipipe_domain *ipd, unsigned irq);
+	void (*mute)(void);
+	void (*unmute)(void);
+};
+
 typedef unsigned long
 __ipipe_irqbits_t[(NR_IRQS + BITS_PER_LONG - 1) / BITS_PER_LONG];
+
+extern struct ipipe_mach_pic_muter ipipe_pic_muter;
 extern __ipipe_irqbits_t __ipipe_irqbits;
 
-void __ipipe_mach_enable_irqdesc(struct ipipe_domain *ipd, unsigned irq);
+void ipipe_pic_muter_register(struct ipipe_mach_pic_muter *muter);
 
-void __ipipe_mach_disable_irqdesc(struct ipipe_domain *ipd, unsigned irq);
+void __ipipe_enable_irqdesc(struct ipipe_domain *ipd, unsigned irq);
 
 void __ipipe_disable_irqdesc(struct ipipe_domain *ipd, unsigned irq);
 
-void ipipe_mute_pic(void);
+static inline void ipipe_mute_pic(void)
+{
+	if (ipipe_pic_muter.mute)
+		ipipe_pic_muter.mute();
+}
 
-void ipipe_unmute_pic(void);
-#endif /* __IPIPE_MACH_HAVE_PIC_MUTE */
+static inline void ipipe_unmute_pic(void)
+{
+	if (ipipe_pic_muter.unmute)
+		ipipe_pic_muter.unmute();
+}
 
 #define ipipe_notify_root_preemption() do { } while(0)
-
 
 #ifdef CONFIG_SMP
 void __ipipe_init_platform(void);
@@ -235,6 +246,8 @@ static inline unsigned long __ipipe_ffnz(unsigned long ul)
 #define __ipipe_root_tick_p(regs) (!arch_irqs_disabled_flags(regs->ARM_cpsr))
 
 #else /* !CONFIG_IPIPE */
+
+#define __ipipe_update_tsc()	do { } while(0)
 
 #define ipipe_update_tick_evtdev(evtdev)	do { } while(0)
 

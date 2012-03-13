@@ -51,11 +51,8 @@
 #include <asm/mmu_context.h>
 #include <asm/exception.h>
 
-/* Next tick date (timebase value). */
-#ifdef __IPIPE_MACH_HAVE_PIC_MUTE
 __ipipe_irqbits_t __ipipe_irqbits;
 IPIPE_DEFINE_SPINLOCK(__ipipe_irqbits_lock);
-#endif /* __IPIPE_MACH_HAVE_PIC_MUTE */
 
 static void __ipipe_do_IRQ(unsigned irq, void *cookie);
 
@@ -247,12 +244,27 @@ static void __ipipe_ack_irq(unsigned irq, struct irq_desc *desc)
 	desc->ipipe_ack(irq, desc);
 }
 
+struct ipipe_mach_pic_muter ipipe_pic_muter;
+EXPORT_SYMBOL_GPL(ipipe_pic_muter);
+
+void ipipe_pic_muter_register(struct ipipe_mach_pic_muter *muter)
+{
+	ipipe_pic_muter = *muter;
+}
+
 void __ipipe_enable_irqdesc(struct ipipe_domain *ipd, unsigned irq)
 {
 	unsigned long flags;
-	irq_to_desc(irq)->depth = 0;
 
-#ifdef __IPIPE_MACH_HAVE_PIC_MUTE
+	if (ipd != &ipipe_root) {
+		struct irq_desc *desc = irq_to_desc(irq);
+		if(desc && !desc->action)
+			enable_irq(irq);
+	}
+
+	if (!ipipe_pic_muter.enable_irqdesc)
+		return;
+
 	spin_lock_irqsave(&__ipipe_irqbits_lock, flags);
 	if (ipd == &ipipe_root)
 		__ipipe_irqbits[irq / BITS_PER_LONG]
@@ -262,19 +274,18 @@ void __ipipe_enable_irqdesc(struct ipipe_domain *ipd, unsigned irq)
 			&= ~(1 << (irq % BITS_PER_LONG));
 	spin_unlock_irqrestore(&__ipipe_irqbits_lock, flags);
 
-	__ipipe_mach_enable_irqdesc(ipd, irq);
-#else
-	(void) flags;
-#endif /* __IPIPE_MACH_HAVE_PIC_MUTE */
+	ipipe_pic_muter.enable_irqdesc(ipd, irq);
 }
 EXPORT_SYMBOL_GPL(__ipipe_enable_irqdesc);
 
-#ifdef __IPIPE_MACH_HAVE_PIC_MUTE
 void __ipipe_disable_irqdesc(struct ipipe_domain *ipd, unsigned irq)
 {
 	unsigned long flags;
 
-	__ipipe_mach_disable_irqdesc(ipd, irq);
+	if (!ipipe_pic_muter.disable_irqdesc)
+		return;
+
+	ipipe_pic_muter.disable_irqdesc(ipd, irq);
 
 	spin_lock_irqsave(&__ipipe_irqbits_lock, flags);
 	if (ipd == &ipipe_root || !ipipe_root.irqs[irq].handler)
@@ -282,11 +293,13 @@ void __ipipe_disable_irqdesc(struct ipipe_domain *ipd, unsigned irq)
 			&= ~(1 << (irq % BITS_PER_LONG));
 	spin_unlock_irqrestore(&__ipipe_irqbits_lock, flags);
 
+	if (ipd != &ipipe_root) {
+		struct irq_desc *desc = irq_to_desc(irq);
+		if(desc && !desc->action)
+			disable_irq(irq);
+	}
 }
 EXPORT_SYMBOL_GPL(__ipipe_disable_irqdesc);
-EXPORT_SYMBOL_GPL(ipipe_mute_pic);
-EXPORT_SYMBOL_GPL(ipipe_unmute_pic);
-#endif /* __IPIPE_MACH_HAVE_PIC_MUTE */
 
 /*
  * __ipipe_enable_pipeline() -- We are running on the boot CPU, hw
