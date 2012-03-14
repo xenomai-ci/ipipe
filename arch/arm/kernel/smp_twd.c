@@ -21,6 +21,7 @@
 #include <linux/err.h>
 #include <linux/ipipe.h>
 #include <linux/export.h>
+#include <linux/ipipe_tickdev.h>
 
 #include <asm/smp_twd.h>
 #include <asm/localtimer.h>
@@ -34,55 +35,13 @@ static unsigned long twd_timer_rate;
 
 static struct clock_event_device __percpu **twd_evt;
 #if defined(CONFIG_IPIPE) && defined(CONFIG_SMP)
+static DEFINE_PER_CPU(struct ipipe_timer, itimer);
+
 void __iomem *gt_base;
 
-unsigned __ipipe_twd_hrtimer_freq;
-
-unsigned int __ipipe_mach_ticks_per_jiffy;
-EXPORT_SYMBOL_GPL(__ipipe_mach_ticks_per_jiffy);
-
-int __ipipe_mach_timerstolen;
-EXPORT_SYMBOL_GPL(__ipipe_mach_timerstolen);
-
-static DEFINE_PER_CPU(int, timer_mode) = {
-	CLOCK_EVT_MODE_SHUTDOWN
-};
-
-void __ipipe_ack_localtimer(unsigned irq, struct irq_desc *desc)
+static void twd_ack(void)
 {
-	desc->ipipe_ack(irq, desc);
 	writel_relaxed(1, twd_base + TWD_TIMER_INTSTAT);
-	desc->ipipe_end(irq, desc);
-}
-
-void __ipipe_mach_set_dec(unsigned long delay)
-{
-	if (delay <= 0xf) {
-		ipipe_raise_irq(__ipipe_mach_hrtimer_irq);
-		return;
-	}
-
-	writel_relaxed(delay, twd_base + TWD_TIMER_COUNTER);
-}
-EXPORT_SYMBOL_GPL(__ipipe_mach_set_dec);
-
-unsigned long __ipipe_mach_get_dec(void)
-{
-	return __raw_readl(twd_base + TWD_TIMER_COUNTER);
-}
-
-int __ipipe_check_tickdev(const char *devname)
-{
-	return !strcmp(devname, "local_timer");
-}
-
-int twd_timer_ack(void)
-{
-	/*
-	 * Always true if we get there, already handled early by the
-	 * pipeline.
-	 */
-	return 1;
 }
 
 static struct __ipipe_tscinfo tsc_info;
@@ -135,7 +94,7 @@ void twd_hrtimer_debug(unsigned int irq) /* hw interrupt off */
 	}
 }
 #endif /* CONFIG_IPIPE_DEBUG_INTERNAL */
-#else /* !CONFIG_IPIPE || !CONFIG_SMP*/
+#endif /* CONFIG_IPIPE && CONFIG_SMP */
 
 /*
  * local_timer_ack: checks for a local timer interrupt.
@@ -152,7 +111,6 @@ int twd_timer_ack(void)
 
 	return 0;
 }
-#endif /* !CONFIG_IPIPE || !CONFIG_SMP*/
 
 static void twd_set_mode(enum clock_event_mode mode,
 			struct clock_event_device *clk)
@@ -176,9 +134,6 @@ static void twd_set_mode(enum clock_event_mode mode,
 	}
 
 	__raw_writel(ctrl, twd_base + TWD_TIMER_CONTROL);
-#if defined(CONFIG_IPIPE) && defined(CONFIG_SMP)
-	per_cpu(timer_mode, smp_processor_id()) = mode;
-#endif
 }
 
 static int twd_set_next_event(unsigned long evt,
@@ -243,10 +198,14 @@ static irqreturn_t twd_handler(int irq, void *dev_id)
 {
 	struct clock_event_device *evt = *(struct clock_event_device **)dev_id;
 
-	if (twd_timer_ack()) {
 #ifdef CONFIG_IPIPE
-		__ipipe_tsc_update();
+	if (evt->ipipe_stolen)
+		goto handle;
 #endif /* CONFIG_IPIPE */
+
+	if (twd_timer_ack()) {
+	  handle:
+		__ipipe_tsc_update();
 		evt->event_handler(evt);
 		return IRQ_HANDLED;
 	}
@@ -296,11 +255,13 @@ void __cpuinit twd_timer_setup(struct clock_event_device *clk)
 		twd_calibrate_rate();
 
 #if defined(CONFIG_IPIPE) && defined(CONFIG_SMP)
-	__ipipe_twd_hrtimer_freq = twd_timer_rate;
-	printk(KERN_INFO "I-pipe, %u.%03u MHz timer\n",
-	       __ipipe_twd_hrtimer_freq / 1000000,
-	       (__ipipe_twd_hrtimer_freq % 1000000) / 1000);
-	__ipipe_mach_ticks_per_jiffy = (twd_timer_rate + HZ / 2) / HZ;
+	printk(KERN_INFO "I-pipe, %lu.%03lu MHz timer\n",
+	       twd_timer_rate / 1000000,
+	       (twd_timer_rate % 1000000) / 1000);
+	clk->ipipe_timer = __this_cpu_ptr(&itimer);
+	clk->ipipe_timer->irq = clk->irq;
+	clk->ipipe_timer->ack = twd_ack;
+	clk->ipipe_timer->min_delay_ticks = 0xf;
 #endif
 
 	clk->name = "local_timer";

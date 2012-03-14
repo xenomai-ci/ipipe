@@ -101,9 +101,7 @@ int gpio_bank_count;
 #define GPIO_BIT(bank, gpio) (1 << GPIO_INDEX(bank, gpio))
 
 #ifdef CONFIG_IPIPE
-#ifdef __IPIPE_MACH_HAVE_PIC_MUTE
 DEFINE_PER_CPU(__ipipe_irqbits_t, __ipipe_muted_irqs);
-#endif /* __IPIPE_MACH_HAVE_PIC_MUTE */
 #endif /* CONFIG_IPIPE */
 
 static void _set_gpio_direction(struct gpio_bank *bank, int gpio, int is_input)
@@ -168,7 +166,7 @@ static inline void _gpio_rmw(void __iomem *base, u32 reg, u32 mask, bool set)
 {
 	int l = __raw_readl(base + reg);
 
-	if (set) 
+	if (set)
 		l |= mask;
 	else
 		l &= ~mask;
@@ -1297,8 +1295,7 @@ static int __devinit omap_gpio_probe(struct platform_device *pdev)
 	return 0;
 }
 
-#if defined(CONFIG_IPIPE) && defined(__IPIPE_MACH_HAVE_PIC_MUTE)
-
+#if defined(CONFIG_IPIPE) && defined(CONFIG_ARCH_OMAP2PLUS)
 extern void omap2_intc_mute(void);
 extern void omap2_intc_unmute(void);
 extern void omap3_intc_mute(void);
@@ -1308,79 +1305,21 @@ extern void gic_mute(void);
 extern void gic_unmute(void);
 extern void gic_set_irq_prio(int irq, int hi);
 
-void __ipipe_mach_pic_set_irq_prio(int irq, int hi)
+static inline void omap2plus_pic_set_irq_prio(int irq, int hi)
 {
-#if defined(CONFIG_ARCH_OMAP3)
 	if (cpu_is_omap34xx())
 		omap3_intc_set_irq_prio(irq, hi);
-#endif /* OMAP3 */
-#if defined(CONFIG_ARCH_OMAP4)
 	if (cpu_is_omap44xx())
 		gic_set_irq_prio(irq, hi);
-#endif /* OMAP4 */
 }
 
-/* Multi OMAP2: run-time selection */
-#ifdef MULTI_OMAP2
-void __ipipe_mach_pic_mute(void)
-{
-#if defined(CONFIG_ARCH_OMAP2420) || defined (CONFIG_ARM_OMAP2430)
-	if (cpu_is_omap24xx())
-		omap2_intc_mute();
-#endif /* OMAP2 */
-#if defined(CONFIG_ARCH_OMAP3)
-	if (cpu_is_omap34xx())
-		omap3_intc_mute();
-#endif /* OMAP3 */
-#if defined(CONFIG_ARCH_OMAP4)
-	if (cpu_is_omap44xx())
-		gic_mute();
-#endif /* OMAP4 */
-}
-
-void __ipipe_mach_pic_unmute(void)
-{
-#if defined(CONFIG_ARCH_OMAP2420) || defined (CONFIG_ARM_OMAP2430)
-	if (cpu_is_omap24xx())
-		omap2_intc_unmute();
-#endif /* OMAP2 */
-#if defined(CONFIG_ARCH_OMAP3)
-	if (cpu_is_omap34xx())
-		omap3_intc_unmute();
-#endif /* OMAP3 */
-#if defined(CONFIG_ARCH_OMAP4)
-	if (cpu_is_omap44xx())
-		gic_unmute();
-#endif /* OMAP4 */
-}
-
-/* OMAP2 */
-#elif defined(CONFIG_ARCH_OMAP2420) || defined (CONFIG_ARM_OMAP2430)
-#define __ipipe_mach_pic_mute omap2_intc_mute
-#define __ipipe_mach_pic_unmute omap2_intc_unmute
-
-/* OMAP3 */
-#elif defined(CONFIG_ARCH_OMAP3)
-#define __ipipe_mach_pic_mute omap3_intc_mute
-#define __ipipe_mach_pic_unmute omap3_intc_unmute
-
-/* OMAP4 */
-#elif defined(CONFIG_ARCH_OMAP4)
-#define __ipipe_mach_pic_mute gic_mute
-#define __ipipe_mach_pic_unmute gic_unmute
-#endif /* OMAP4 */
-
-void __ipipe_mach_enable_irqdesc(struct ipipe_domain *ipd, unsigned irq)
+static void omap2plus_enable_irqdesc(struct ipipe_domain *ipd, unsigned irq)
 {
 	struct irq_desc *desc = irq_to_desc(irq);
 	struct irq_data *idata = irq_desc_get_irq_data(desc);
 	struct irq_chip *chip = irq_data_get_irq_chip(idata);
 
-	if (chip == &gpio_irq_chip
-#ifdef CONFIG_ARCH_OMAP1
-	    || desc->chip == &mpuio_irq_chip
-#endif
-	    ) {
+	if (chip == &gpio_irq_chip) {
 		/* It is a gpio. */
 		struct gpio_bank *bank = irq_data_get_irq_chip_data(idata);
 
@@ -1389,45 +1328,39 @@ void __ipipe_mach_enable_irqdesc(struct ipipe_domain *ipd, unsigned irq)
 			if (bank->nonroot_gpios == (1 << (irq % 32))) {
 				__ipipe_irqbits[(bank->irq / 32)]
 					&= ~(1 << (bank->irq % 32));
-				__ipipe_mach_pic_set_irq_prio(bank->irq, 1);
+				omap2plus_pic_set_irq_prio(bank->irq, 1);
 			}
 		}
 	} else
-		__ipipe_mach_pic_set_irq_prio(irq, ipd != &ipipe_root);
+		omap2plus_pic_set_irq_prio(irq, ipd != &ipipe_root);
 }
 
-void __ipipe_mach_disable_irqdesc(struct ipipe_domain *ipd, unsigned irq)
+static void omap2plus_disable_irqdesc(struct ipipe_domain *ipd, unsigned irq)
 {
 	struct irq_desc *desc = irq_to_desc(irq);
 	struct irq_data *idata = irq_desc_get_irq_data(desc);
 	struct irq_chip *chip = irq_data_get_irq_chip(idata);
 
-	if (chip == &gpio_irq_chip
-#ifdef CONFIG_ARCH_OMAP1
-	    || desc->chip == &mpuio_irq_chip
-#endif
-	    ) {
+	if (chip == &gpio_irq_chip) {
 		/* It is a gpio. */
 		struct gpio_bank *bank = irq_data_get_irq_chip_data(idata);
 
 		if (ipd != &ipipe_root) {
 			bank->nonroot_gpios &= ~(1 << (irq % 32));
 			if (!bank->nonroot_gpios) {
-				__ipipe_mach_pic_set_irq_prio(bank->irq, 0);
+				omap2plus_pic_set_irq_prio(bank->irq, 0);
 				__ipipe_irqbits[(bank->irq / 32)]
 					|= (1 << (bank->irq % 32));
 			}
 		}
 	} else if (ipd != &ipipe_root)
-		__ipipe_mach_pic_set_irq_prio(irq, 0);
+		omap2plus_pic_set_irq_prio(irq, 0);
 }
 
-void ipipe_mute_pic(void)
+static inline void omap2plus_mute_gpio(void)
 {
 	unsigned muted;
 	unsigned i;
-
-	__ipipe_mach_pic_mute();
 
 	for (i = 0; i < gpio_bank_count; i++) {
 		struct gpio_bank *bank = &gpio_bank[i];
@@ -1443,7 +1376,28 @@ void ipipe_mute_pic(void)
 	}
 }
 
-void ipipe_unmute_pic(void)
+static void omap2_mute_pic(void)
+{
+	omap2_intc_mute();
+
+	omap2plus_mute_gpio();
+}
+
+static void omap3_mute_pic(void)
+{
+	omap3_intc_mute();
+
+	omap2plus_mute_gpio();
+}
+
+static void omap4_mute_pic(void)
+{
+	gic_mute();
+
+	omap2plus_mute_gpio();
+}
+
+static inline void omap2plus_unmute_gpio(void)
 {
 	unsigned muted;
 	unsigned i;
@@ -1457,10 +1411,54 @@ void ipipe_unmute_pic(void)
 		if (muted)
 			_enable_gpio_irqbank(bank, muted);
 	}
-
-	__ipipe_mach_pic_unmute();
 }
-#endif /* CONFIG_IPIPE && __IPIPE_MACH_HAVE_PIC_MUTE */
+
+static void omap2_unmute_pic(void)
+{
+	omap2plus_unmute_gpio();
+
+	omap2_intc_unmute();
+}
+
+static void omap3_unmute_pic(void)
+{
+	omap2plus_unmute_gpio();
+
+	omap3_intc_unmute();
+}
+
+static void omap4_unmute_pic(void)
+{
+	omap2plus_unmute_gpio();
+
+	gic_unmute();
+}
+
+static int omap2plus_pic_muter_register(void)
+{
+	struct ipipe_mach_pic_muter muter = {
+		.enable_irqdesc = omap2plus_enable_irqdesc,
+		.disable_irqdesc = omap2plus_disable_irqdesc,
+	};
+
+	if (cpu_is_omap24xx()) {
+		muter.mute = omap2_mute_pic;
+		muter.unmute = omap2_unmute_pic;
+	}
+	if (cpu_is_omap34xx()) {
+		muter.mute = omap3_mute_pic;
+		muter.unmute = omap3_unmute_pic;
+	}
+	if (cpu_is_omap44xx()) {
+		muter.mute = omap4_mute_pic;
+		muter.unmute = omap4_unmute_pic;
+	}
+	if(cpu_class_is_omap2())
+		ipipe_pic_muter_register(&muter);
+	return 0;
+}
+arch_initcall(omap2plus_pic_muter_register);
+#endif /* CONFIG_IPIPE */
 
 #if defined(CONFIG_ARCH_OMAP16XX) || defined(CONFIG_ARCH_OMAP2PLUS)
 static int omap_gpio_suspend(void)
