@@ -276,7 +276,7 @@ void __init gic_cascade_irq(unsigned int gic_nr, unsigned int irq)
 	irq_set_chained_handler(irq, gic_handle_cascade_irq);
 }
 
-#if defined(CONFIG_IPIPE) && defined(__IPIPE_MACH_HAVE_PIC_MUTE)
+#if defined(CONFIG_IPIPE)
 DECLARE_PER_CPU(__ipipe_irqbits_t, __ipipe_muted_irqs);
 
 void gic_mute(void)
@@ -307,7 +307,8 @@ void gic_set_irq_prio(int irq, int hi)
 
 	writeb_relaxed(hi ? 0x10 : 0xa0, dist_base + GIC_DIST_PRI + irq);
 }
-#endif /* __IPIPE_MACH_HAVE_PIC_MUTE */
+#endif /* CONFIG_IPIPE */
+
 static void __init gic_dist_init(struct gic_chip_data *gic)
 {
 	unsigned int i, irq;
@@ -389,11 +390,11 @@ static void __cpuinit gic_cpu_init(struct gic_chip_data *gic)
 	 * Set priority on PPI and SGI interrupts
 	 */
 	for (i = 0; i < 32; i += 4)
-#if !defined(CONFIG_IPIPE) || !defined(__IPIPE_MACH_HAVE_PIC_MUTE)
+#if !defined(CONFIG_IPIPE)
 		writel_relaxed(0xa0a0a0a0, dist_base + GIC_DIST_PRI + i * 4 / 4);
-#else /* IPIPE && FEATURE_PIC_MUTE */
+#else /* IPIPE */
 		writel_relaxed(0x10101010, dist_base + GIC_DIST_PRI + i * 4 / 4);
-#endif /* IPIPE && FEATURE_PIC_MUTE */
+#endif /* IPIPE */
 
 	writel_relaxed(0xf0, base + GIC_CPU_PRIMASK);
 	writel_relaxed(1, base + GIC_CPU_CTRL);

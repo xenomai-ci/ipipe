@@ -210,9 +210,10 @@ void __init ti816x_init_irq(void)
 	omap_init_irq(OMAP34XX_IC_BASE, 128);
 }
 
-#if defined(CONFIG_IPIPE) && defined(__IPIPE_MACH_HAVE_PIC_MUTE)
+#if defined(CONFIG_IPIPE) && defined(CONFIG_ARCH_OMAP2PLUS)
 DECLARE_PER_CPU(__ipipe_irqbits_t, __ipipe_muted_irqs);
 
+#ifdef CONFIG_ARCH_OMAP3
 void omap3_intc_mute(void)
 {
 	struct omap_irq_bank *bank = &irq_banks[0];
@@ -237,7 +238,9 @@ void omap3_intc_set_irq_prio(int irq, int hi)
 
 	intc_bank_write_reg(hi ? 0 : 0xfc, bank, INTC_PRIO + 4 * irq);
 }
+#endif /* CONFIG_ARCH_OMAP3 */
 
+#ifdef CONFIG_ARCH_OMAP2
 void omap2_intc_mute(void)
 {
 	struct omap_irq_bank *bank = &irq_banks[0];
@@ -270,7 +273,8 @@ void omap2_intc_unmute(void)
 					    INTC_MIR_CLEAR0 + 0x20 * i);
 	}
 }
-#endif /* __IPIPE_MACH_HAVE_PIC_MUTE */
+#endif /* CONFIG_ARCH_OMAP2 */
+#endif /* CONFIG_IPIPE && ARCH_OMAP2PLUS */
 
 #ifdef CONFIG_ARCH_OMAP3
 static struct omap3_intc_regs intc_context[ARRAY_SIZE(irq_banks)];

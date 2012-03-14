@@ -436,10 +436,6 @@
 #define INTCPS_NR_MIR_REGS	3
 #define INTCPS_NR_IRQS		96
 
-#ifndef CONFIG_ARCH_OMAP1
-#define __IPIPE_MACH_HAVE_PIC_MUTE
-#endif /* OMAP2 || OMAP3 || OMAP4 */
-
 #ifndef __ASSEMBLY__
 extern void __iomem *omap_irq_base;
 void omap1_init_irq(void);
