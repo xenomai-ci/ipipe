@@ -454,7 +454,8 @@ int __ipipe_handle_exception(struct pt_regs *regs, long error_code, int vector)
 		ipipe_trace_panic_freeze();
 
 		/* Always warn about user land and unfixable faults. */
-		if ((error_code & 4) || !search_exception_tables(instruction_pointer(regs))) {
+		if (user_mode_vm(regs) ||
+		    !search_exception_tables(instruction_pointer(regs))) {
 			printk(KERN_ERR "BUG: Unhandled exception over domain"
 			       " %s at 0x%lx - switching to ROOT\n",
 			       ipd->name, instruction_pointer(regs));
