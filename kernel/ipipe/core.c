@@ -434,7 +434,7 @@ void __init __ipipe_init_early(void)
 	ipd->irqs[__ipipe_work_virq].ackfn = NULL;
 	ipd->irqs[__ipipe_work_virq].control = IPIPE_HANDLE_MASK;
 
-	for_each_online_cpu(cpu)
+	for_each_possible_cpu(cpu)
 		per_cpu(work_tail, cpu) = per_cpu(work_buf, cpu);
 }
 
