@@ -97,6 +97,7 @@ struct ipipe_percpu_data {
 	struct ipipe_percpu_domain_data head;
 	struct ipipe_percpu_domain_data *curr;
 	struct pt_regs tick_regs;
+	unsigned hrtimer_irq;
 	struct task_struct *task_hijacked;
 	struct task_struct *rqlock_owner;
 	struct ipipe_vm_notifier *vm_notifier;
