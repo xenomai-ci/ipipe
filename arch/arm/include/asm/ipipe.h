@@ -78,14 +78,7 @@ struct ipipe_arch_sysinfo {
 
 /* arch specific stuff */
 extern char __ipipe_tsc_area[];
-extern int __ipipe_mach_timerstolen;
-extern unsigned int __ipipe_mach_ticks_per_jiffy;
-extern void __ipipe_mach_acktimer(void);
-extern void __ipipe_mach_set_dec(unsigned long);
-extern void __ipipe_mach_release_timer(void);
-extern unsigned long __ipipe_mach_get_dec(void);
 void __ipipe_mach_get_tscinfo(struct __ipipe_tscinfo *info);
-int __ipipe_check_tickdev(const char *devname);
 
 #ifdef CONFIG_IPIPE_ARM_KUSER_TSC
 unsigned long long __ipipe_tsc_get(void) __attribute__((long_call));
@@ -96,63 +89,22 @@ extern unsigned long __ipipe_kuser_tsc_freq;
 #else /* ! generic tsc */
 unsigned long long __ipipe_mach_get_tsc(void);
 #define __ipipe_tsc_get() __ipipe_mach_get_tsc()
+#ifndef __ipipe_mach_hrclock_freq
+#define __ipipe_mach_hrclock_freq __ipipe_hrtimer_freq
+#endif /* !__ipipe_mach_hrclock_freq */
 #endif /* ! generic tsc */
 
 #ifndef __ipipe_cpu_freq
 #define __ipipe_cpu_freq __ipipe_mach_hrclock_freq
 #endif
-#ifndef __ipipe_mach_hrtimer_freq
-#define __ipipe_mach_hrtimer_freq (HZ * __ipipe_mach_ticks_per_jiffy)
-#endif
-#ifndef __ipipe_mach_hrclock_freq
-#define	__ipipe_mach_hrclock_freq __ipipe_mach_hrtimer_freq
-#endif
-/*
- * hrtimer IRQ advertised to domains. Defaults to the contents of the
- * __ipipe_mach_timerint variable found in legacy platform supports.
- * May be overridden on SMP platforms with distinct per-CPU timer
- * interrupts.
- */
-#ifndef __ipipe_mach_hrtimer_irq
-extern int __ipipe_mach_timerint;
-#define __ipipe_mach_hrtimer_irq	__ipipe_mach_timerint
-#endif
-#ifndef __ipipe_mach_ext_hrtimer
-/*
- * hrtimer external IRQ number for the given CPU. Same as the internal
- * hrtimer IRQ number by default.
- */
-#define __ipipe_mach_ext_hrtimer(cpu)				\
-	({							\
-		(void)(cpu);					\
-		__ipipe_mach_hrtimer_irq;			\
-	})
-#define __ipipe_mach_ext_hrtimer_p(irq)				\
-	((irq) == __ipipe_mach_hrtimer_irq)
-#endif
-#ifndef __ipipe_mach_localtimer
-/*
- * Some SMP platforms may use different IRQ numbers depending on the
- * CPU, remapping them to a single virq to advertise a common local
- * timer interrupt to domains. The macro below provides the hrtimer
- * IRQ number after remapping, if any. By default, there is no
- * remapping.
- */
-#define __ipipe_mach_localtimer(ext_irq)  (ext_irq)
-#endif
 #ifndef __ipipe_mach_doirq
-#define __ipipe_mach_doirq(irq)		__ipipe_do_IRQ
+#define __ipipe_mach_doirq(irq) __ipipe_do_IRQ
 #endif
 #ifndef __ipipe_mach_ackirq
-#define __ipipe_mach_ackirq(irq)			\
-	({						\
-		__ipipe_mach_ext_hrtimer_p(irq)		\
-			? __ipipe_ack_timerirq		\
-			: __ipipe_ack_irq;		\
-	})
+#define __ipipe_mach_ackirq(irq) __ipipe_ack_irq
 #endif
 #ifndef __ipipe_mach_hrtimer_debug
-#define __ipipe_mach_hrtimer_debug(irq)	do { } while(0)
+#define __ipipe_mach_hrtimer_debug(irq) do { } while(0)
 #endif
 
 #ifdef CONFIG_IPIPE_WANT_PREEMPTIBLE_SWITCH
