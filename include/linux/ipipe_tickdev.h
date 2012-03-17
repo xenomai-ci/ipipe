@@ -22,14 +22,14 @@
 #ifndef __LINUX_IPIPE_TICKDEV_H
 #define __LINUX_IPIPE_TICKDEV_H
 
-#ifdef CONFIG_IPIPE
-
+#include <linux/list.h>
+#include <linux/cpumask.h>
+#include <linux/clockchips.h>
+#include <linux/ipipe_domain.h>
 #include <linux/clocksource.h>
 
-/*
- * NOTE: When modifying this structure, make sure to keep the Xenomai
- * definition include/nucleus/vdso.h in sync.
- */
+#ifdef CONFIG_IPIPE
+
 struct ipipe_hostrt_data {
 	short live;
 	seqcount_t seqcount;
@@ -42,6 +42,86 @@ struct ipipe_hostrt_data {
 	u32 shift;
 };
 
+#ifdef CONFIG_IPIPE_TIMERS
+
+struct ipipe_timer {
+	unsigned irq;
+	void (*request)(struct ipipe_timer *timer, int steal);
+	void (*set)(unsigned long ticks, void *timer);
+	void (*ack)(void);
+	void (*release)(struct ipipe_timer *timer);
+
+	/* Only if registering a timer directly */
+	const char *name;
+	unsigned rating;
+	unsigned long freq;
+	unsigned min_delay_ticks;
+	const struct cpumask *cpumask;
+
+	/* For internal use */
+	void *timer_set;	/* pointer passed to ->set() callback */
+	struct clock_event_device *host_timer;
+	struct list_head holder;
+	u32 real_mult;
+	u32 real_shift;
+	void (*real_set_mode)(enum clock_event_mode mode,
+			      struct clock_event_device *cdev);
+	int (*real_set_next_event)(unsigned long evt,
+				   struct clock_event_device *cdev);
+};
+
+#define __ipipe_mach_hrtimer_irq __ipipe_this_cpu_read(ipipe_percpu.hrtimer_irq)
+
+extern unsigned long __ipipe_mach_hrtimer_freq;
+
+/*
+ * Called by clockevents_register_device, to register a piggybacked
+ * ipipe timer, if there is one
+ */
+void ipipe_host_timer_register(struct clock_event_device *clkevt);
+
+/*
+ * Register a standalone ipipe timer
+ */
+void ipipe_timer_register(struct ipipe_timer *timer);
+
+/*
+ * Chooses the best timer for each cpu. Take over its handling.
+ */
+int ipipe_timers_request(void);
+
+/*
+ * Release the per-cpu timers
+ */
+void ipipe_timers_release(void);
+
+/*
+ * Start handling the per-cpu timer irq, and intercepting the linux clockevent
+ * device callbacks.
+ */
+int ipipe_timer_start(void (*tick_handler)(void),
+		      void (*emumode)(enum clock_event_mode mode,
+				      struct clock_event_device *cdev),
+		      int (*emutick)(unsigned long evt,
+				     struct clock_event_device *cdev),
+		      unsigned cpu, unsigned long *tmfreq);
+
+/*
+ * Stop handling a per-cpu timer
+ */
+void ipipe_timer_stop(unsigned cpu);
+
+/*
+ * Program the timer
+ */
+void ipipe_timer_set(unsigned long delay);
+
+const char *ipipe_timer_name(void);
+
+unsigned ipipe_timer_ns2ticks(struct ipipe_timer *timer, unsigned ns);
+
+#else /* !CONFIG_IPIPE_TIMERS */
+
 #ifdef CONFIG_GENERIC_CLOCKEVENTS
 
 #include <linux/clockchips.h>
@@ -50,32 +130,38 @@ struct tick_device;
 
 struct ipipe_tick_device {
 
-	void (*emul_set_mode)(enum clock_event_mode,
-			      struct clock_event_device *cdev);
-	int (*emul_set_tick)(unsigned long delta,
+       void (*emul_set_mode)(enum clock_event_mode,
 			     struct clock_event_device *cdev);
-	void (*real_set_mode)(enum clock_event_mode mode,
-			      struct clock_event_device *cdev);
-	int (*real_set_tick)(unsigned long delta,
+       int (*emul_set_tick)(unsigned long delta,
+			    struct clock_event_device *cdev);
+       void (*real_set_mode)(enum clock_event_mode mode,
 			     struct clock_event_device *cdev);
-	struct tick_device *slave;
-	unsigned long real_max_delta_ns;
-	unsigned long real_mult;
-	int real_shift;
+       int (*real_set_tick)(unsigned long delta,
+			    struct clock_event_device *cdev);
+       struct tick_device *slave;
+       unsigned long real_max_delta_ns;
+       unsigned long real_mult;
+       int real_shift;
 };
 
 int ipipe_request_tickdev(const char *devname,
-			  void (*emumode)(enum clock_event_mode mode,
-					  struct clock_event_device *cdev),
-			  int (*emutick)(unsigned long evt,
+			 void (*emumode)(enum clock_event_mode mode,
 					 struct clock_event_device *cdev),
-			  int cpu, unsigned long *tmfreq);
+			 int (*emutick)(unsigned long evt,
+					struct clock_event_device *cdev),
+			 int cpu, unsigned long *tmfreq);
 
 void ipipe_release_tickdev(int cpu);
 
 #endif /* CONFIG_GENERIC_CLOCKEVENTS */
 
-#endif /* CONFIG_IPIPE */
+#endif /* !CONFIG_IPIPE_TIMERS */
+
+#else /* !CONFIG_IPIPE */
+
+#define ipipe_host_timer_register(clkevt) do { } while (0)
+
+#endif /* !CONFIG_IPIPE */
 
 #if defined(CONFIG_IPIPE) && \
 	(defined(CONFIG_IPIPE_HAVE_HOSTRT) || defined(CONFIG_HAVE_IPIPE_HOSTRT))
@@ -87,4 +173,4 @@ ipipe_update_hostrt(struct timespec *wall_time, struct timespec *wtm,
 		    struct clocksource *clock, u32 mult) {}
 #endif
 
-#endif /* !__LINUX_IPIPE_TICKDEV_H */
+#endif /* __LINUX_IPIPE_TICKDEV_H */
