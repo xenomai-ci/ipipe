@@ -490,18 +490,6 @@ static void ipi_timer(void)
 }
 
 #ifdef CONFIG_IPIPE
-
-void __ipipe_mach_release_timer(void)
-{
-	int cpu = ipipe_processor_id();
-	struct clock_event_device *evt = &per_cpu(percpu_clockevent, cpu);
-
-	evt->set_mode(evt->mode, evt);
-	if (evt->mode == CLOCK_EVT_MODE_ONESHOT)
-		evt->set_next_event(__ipipe_mach_ticks_per_jiffy, evt);
-}
-EXPORT_SYMBOL_GPL(__ipipe_mach_release_timer);
-
 void ipipe_send_ipi(unsigned ipi, cpumask_t cpumask)
 {
 	enum ipi_msg_type msg = ipi - IPIPE_FIRST_IPI + IPI_IPIPE_FIRST;

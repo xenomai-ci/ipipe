@@ -41,6 +41,7 @@
 #include <linux/irqnr.h>
 #include <linux/prefetch.h>
 #include <linux/ipipe_domain.h>
+#include <linux/ipipe_tickdev.h>
 #include <asm/system.h>
 #include <asm/atomic.h>
 #include <asm/hardirq.h>
@@ -212,16 +213,6 @@ void __ipipe_send_vnmi(void (*fn)(void *), cpumask_t cpumask, void *arg)
 	spin_unlock_irqrestore(&__ipipe_vnmi.lock, flags);
 }
 EXPORT_SYMBOL_GPL(__ipipe_send_vnmi);
-
-static void __ipipe_relay_ext_hrtimer(unsigned int irq, void *cookie)
-{
-	unsigned long flags;
-
-	flags = hard_local_irq_save();
-	ipipe_post_irq_root(__ipipe_mach_ext_hrtimer(ipipe_processor_id()));
-	hard_local_irq_restore(flags);
-}
-
 #endif	/* CONFIG_SMP */
 
 /*
@@ -243,7 +234,7 @@ int ipipe_get_sysinfo(struct ipipe_sysinfo *info)
 {
 	info->sys_nr_cpus = num_online_cpus();
 	info->sys_cpu_freq = __ipipe_cpu_freq;
-	info->sys_hrtimer_irq = __ipipe_mach_hrtimer_irq;
+	info->sys_hrtimer_irq = per_cpu(ipipe_percpu.hrtimer_irq, 0);
 	info->sys_hrtimer_freq = __ipipe_mach_hrtimer_freq;
 	info->sys_hrclock_freq = __ipipe_mach_hrclock_freq;
 	__ipipe_mach_get_tscinfo(&info->arch.tsc);
@@ -254,13 +245,6 @@ int ipipe_get_sysinfo(struct ipipe_sysinfo *info)
 static void __ipipe_ack_irq(unsigned irq, struct irq_desc *desc)
 {
 	desc->ipipe_ack(irq, desc);
-}
-
-static void __maybe_unused __ipipe_ack_timerirq(unsigned int irq, struct irq_desc *desc)
-{
-	desc->ipipe_ack(irq, desc);
-	__ipipe_mach_acktimer();
-	desc->ipipe_end(irq, desc);
 }
 
 void __ipipe_enable_irqdesc(struct ipipe_domain *ipd, unsigned irq)
@@ -323,33 +307,12 @@ void __ipipe_enable_pipeline(void)
 #endif
 	flags = ipipe_critical_enter(NULL);
 
-	/* First, virtualize all interrupts from the root domain. */
-
+	/* virtualize all interrupts from the root domain. */
 	for (irq = 0; irq < NR_IRQS; irq++)
 		ipipe_request_irq(ipipe_root_domain,
 				  irq,
 				  (ipipe_irq_handler_t)__ipipe_mach_doirq(irq),
 				  NULL, __ipipe_mach_ackirq(irq));
-#ifdef CONFIG_SMP
-	/*
-	 * If the external hrtimer IRQ is remapped internally to a
-	 * common localtimer IRQ number, we have to relay the virtual
-	 * localtimer interrupt reaching the root stage to the proper
-	 * external IRQ handlers defined by the kernel.
-	 *
-	 * NOTE: we don't make any assumption regarding whether the
-	 * virtual localtimer interrupt should be acked or not, so we
-	 * set the ack handler as the platform-specific
-	 * __ipipe_mach_ackirq() tells us, like for any other
-	 * interrupt.
-	 */
-	if (__ipipe_mach_ext_hrtimer(0) != __ipipe_mach_hrtimer_irq)
-		ipipe_request_irq(ipipe_root_domain,
-				  __ipipe_mach_hrtimer_irq,
-				  __ipipe_relay_ext_hrtimer,
-				  NULL,
-				  __ipipe_mach_ackirq(__ipipe_mach_hrtimer_irq));
-#endif
 
 	ipipe_critical_exit(flags);
 }
@@ -473,7 +436,7 @@ void __ipipe_exit_irq(struct pt_regs *regs)
 /* hw irqs off */
 asmlinkage void __exception __ipipe_grab_irq(int irq, struct pt_regs *regs)
 {
-	const int cpu = ipipe_processor_id();
+	struct ipipe_percpu_data *p = __ipipe_this_cpu_ptr(&ipipe_percpu);
 #ifdef irq_finish
 	/* AT91 specific workaround */
 	irq_finish(irq);
@@ -481,20 +444,10 @@ asmlinkage void __exception __ipipe_grab_irq(int irq, struct pt_regs *regs)
 
 	ipipe_trace_irq_entry(irq);
 
-	/*
-	 * Some SMP platforms may remap different per-CPU local timer
-	 * interrupts onto a single (usually virtual) IRQ, so that the
-	 * I-pipe advertises the same local timer IRQ number to the
-	 * client domains, regardless of the CPU. So we first check
-	 * whether we received an external hrtimer IRQ for the current
-	 * CPU, then remap it to its local timer number if so - most
-	 * platforms won't change this value though.
-	 */
-	if (likely(__ipipe_mach_ext_hrtimer(cpu) == irq)) {
-		struct ipipe_percpu_data *p;
+	if (!p->hrtimer_irq)
+		goto copy_regs;
 
-		__ipipe_mach_hrtimer_debug(irq);
-		irq = __ipipe_mach_localtimer(irq);
+	if (irq == p->hrtimer_irq) {
 		/*
 		 * Given our deferred dispatching model for regular IRQs, we
 		 * only record CPU regs for the last timer interrupt, so that
@@ -502,14 +455,14 @@ asmlinkage void __exception __ipipe_grab_irq(int irq, struct pt_regs *regs)
 		 * that other interrupt handlers don't actually care for such
 		 * information.
 		 */
-		p = &per_cpu(ipipe_percpu, cpu);
+	       __ipipe_mach_hrtimer_debug(irq);
+	  copy_regs:
 		p->tick_regs.ARM_cpsr =
 			(p->curr == &p->root
 			 ? regs->ARM_cpsr
 			 : regs->ARM_cpsr | PSR_I_BIT);
 		p->tick_regs.ARM_pc = regs->ARM_pc;
 	}
-
 
 	__ipipe_handle_irq(irq, regs);
 
