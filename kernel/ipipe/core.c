@@ -1324,12 +1324,16 @@ log:
 	__ipipe_sync_pipeline(ipipe_head_domain);
 }
 
+#ifdef CONFIG_TRACE_IRQFLAGS
+#define root_stall_after_handler()	local_irq_disable()
+#else
+#define root_stall_after_handler()	do { } while (0)
+#endif
+
 void __ipipe_dispatch_irq_fast(unsigned int irq) /* hw interrupts off */
 {
 	struct ipipe_percpu_domain_data *p = ipipe_this_cpu_leading_context(), *old;
 	struct ipipe_domain *head = p->domain;
-
-	IPIPE_WARN_ONCE(head == ipipe_root_domain && ipipe_virtual_irq_p(irq));
 
 	if (unlikely(test_bit(IPIPE_STALL_FLAG, &p->status))) {
 		__ipipe_set_irq_pending(head, irq);
@@ -1343,10 +1347,22 @@ void __ipipe_dispatch_irq_fast(unsigned int irq) /* hw interrupts off */
 	p->irqall[irq]++;
 	__set_bit(IPIPE_STALL_FLAG, &p->status);
 	barrier();
-	head->irqs[irq].handler(irq, head->irqs[irq].cookie);
+
+	if (likely(head != ipipe_root_domain)) {
+		head->irqs[irq].handler(irq, head->irqs[irq].cookie);
+		__ipipe_run_irqtail(irq);
+	} else {
+		if (ipipe_virtual_irq_p(irq)) {
+			irq_enter();
+			head->irqs[irq].handler(irq, head->irqs[irq].cookie);
+			irq_exit();
+		} else
+			head->irqs[irq].handler(irq, head->irqs[irq].cookie);
+
+		root_stall_after_handler();
+	}
+
 	hard_local_irq_disable();
-	__ipipe_run_irqtail(irq);
-	barrier();
 	__clear_bit(IPIPE_STALL_FLAG, &p->status);
 
 	if (__ipipe_current_context == p) {
@@ -1364,12 +1380,6 @@ void __ipipe_dispatch_irq_fast(unsigned int irq) /* hw interrupts off */
 	 */
 	__ipipe_do_sync_pipeline(head);
 }
-
-#ifdef CONFIG_TRACE_IRQFLAGS
-#define root_stall_after_handler()	local_irq_disable()
-#else
-#define root_stall_after_handler()	do { } while (0)
-#endif
 
 #ifdef CONFIG_PREEMPT
 
