@@ -301,6 +301,9 @@ do_page_fault(unsigned long addr, unsigned int fsr, struct pt_regs *regs)
 	if (__ipipe_report_trap(IPIPE_TRAP_ACCESS,regs))
 		return 0;
 
+	ipipe_stall_root();
+	hard_local_irq_enable();
+
 	tsk = current;
 	mm  = tsk->mm;
 
@@ -435,6 +438,9 @@ do_translation_fault(unsigned long addr, unsigned int fsr,
 	if (__ipipe_report_trap(IPIPE_TRAP_ACCESS,regs))
 		return 0;
 
+	ipipe_stall_root();
+	hard_local_irq_enable();
+
 	if (user_mode(regs))
 		goto bad_area;
 
@@ -500,6 +506,9 @@ do_sect_fault(unsigned long addr, unsigned int fsr, struct pt_regs *regs)
 
 	if (__ipipe_report_trap(IPIPE_TRAP_SECTION,regs))
 		return 0;
+
+	ipipe_stall_root();
+	hard_local_irq_enable();
 
 	do_bad_area(addr, fsr, regs);
 	return 0;
@@ -596,6 +605,9 @@ do_DataAbort(unsigned long addr, unsigned int fsr, struct pt_regs *regs)
 	if (__ipipe_report_trap(IPIPE_TRAP_UNKNOWN,regs))
 		return;
 
+	ipipe_stall_root();
+	hard_local_irq_enable();
+
 	printk(KERN_ALERT "Unhandled fault: %s (0x%03x) at 0x%08lx\n",
 		inf->name, fsr, addr);
 
@@ -604,6 +616,9 @@ do_DataAbort(unsigned long addr, unsigned int fsr, struct pt_regs *regs)
 	info.si_code  = inf->code;
 	info.si_addr  = (void __user *)addr;
 	arm_notify_die("", regs, &info, fsr, 0);
+
+	hard_local_irq_disable();
+	__ipipe_root_status &= ~IPIPE_STALL_FLAG;
 }
 
 
@@ -664,6 +679,9 @@ do_PrefetchAbort(unsigned long addr, unsigned int ifsr, struct pt_regs *regs)
 	if (!inf->fn(addr, ifsr | FSR_LNX_PF, regs))
 		return;
 
+	ipipe_stall_root();
+	hard_local_irq_enable();
+
 	printk(KERN_ALERT "Unhandled prefetch abort: %s (0x%03x) at 0x%08lx\n",
 		inf->name, ifsr, addr);
 
@@ -672,6 +690,9 @@ do_PrefetchAbort(unsigned long addr, unsigned int ifsr, struct pt_regs *regs)
 	info.si_code  = inf->code;
 	info.si_addr  = (void __user *)addr;
 	arm_notify_die("", regs, &info, ifsr, 0);
+
+	hard_local_irq_disable();
+	__ipipe_root_status &= ~IPIPE_STALL_FLAG;
 }
 
 static int __init exceptions_init(void)

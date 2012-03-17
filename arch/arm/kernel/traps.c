@@ -432,6 +432,12 @@ asmlinkage void do_unexp_fiq (struct pt_regs *regs)
  */
 asmlinkage void bad_mode(struct pt_regs *regs, int reason)
 {
+	if (__ipipe_report_trap(IPIPE_TRAP_UNKNOWN,regs))
+		return;
+
+	ipipe_stall_root();
+	hard_local_irq_enable();
+
 	console_verbose();
 
 	printk(KERN_CRIT "Bad mode in %s handler detected\n", handler[reason]);
@@ -439,6 +445,9 @@ asmlinkage void bad_mode(struct pt_regs *regs, int reason)
 	die("Oops - bad mode", regs, 0);
 	local_irq_disable();
 	panic("bad mode");
+
+	hard_local_irq_disable();
+	__ipipe_root_status &= ~IPIPE_STALL_FLAG;
 }
 
 static int bad_syscall(int n, struct pt_regs *regs)
