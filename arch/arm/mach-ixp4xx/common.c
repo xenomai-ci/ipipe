@@ -29,6 +29,8 @@
 #include <linux/clockchips.h>
 #include <linux/io.h>
 #include <linux/export.h>
+#include <linux/ipipe.h>
+#include <linux/ipipe_tickdev.h>
 
 #include <mach/udc.h>
 #include <mach/hardware.h>
@@ -48,14 +50,6 @@ static void __init ixp4xx_clockevent_init(void);
 static struct clock_event_device clockevent_ixp4xx;
 
 #ifdef CONFIG_IPIPE
-#include <linux/ipipe.h>
-int __ipipe_mach_timerint = IRQ_IXP4XX_TIMER1;
-int __ipipe_mach_timerstolen = 0;
-unsigned int __ipipe_mach_ticks_per_jiffy = LATCH;
-EXPORT_SYMBOL_GPL(__ipipe_mach_timerint);
-EXPORT_SYMBOL_GPL(__ipipe_mach_timerstolen);
-EXPORT_SYMBOL_GPL(__ipipe_mach_ticks_per_jiffy);
-
 static int ixp4xx_timer_initialized;
 
 #define ONE_SHOT_ENABLE (IXP4XX_OST_ENABLE|IXP4XX_OST_ONE_SHOT)
@@ -98,8 +92,9 @@ void __ipipe_mach_get_tscinfo(struct __ipipe_tscinfo *info)
 #endif /* !CONFIG_SMP */
 
 static void ipipe_mach_update_tsc(void);
-
-#endif /* CONFIG_IPIPE */
+#else /* !CONFIG_IPIPE */
+#define ipipe_mach_update_tsc() do { } while (0)
+#endif /* !CONFIG_IPIPE */
 
 /*************************************************************************
  * IXP4xx chipset I/O mapping
@@ -314,6 +309,11 @@ void __init ixp4xx_init_irq(void)
 	}
 }
 
+static inline void ixp4xx_timer_ack(void)
+{
+	/* Clear Pending Interrupt by writing '1' to it */
+	*IXP4XX_OSST = IXP4XX_OSST_TIMER_1_PEND;
+}
 
 /*************************************************************************
  * IXP4xx timer tick
@@ -325,12 +325,12 @@ static irqreturn_t ixp4xx_timer_interrupt(int irq, void *dev_id)
 {
 	struct clock_event_device *evt = dev_id;
 
-#ifndef CONFIG_IPIPE
-	/* Clear Pending Interrupt by writing '1' to it */
-	*IXP4XX_OSST = IXP4XX_OSST_TIMER_1_PEND;
-#else /* CONFIG_IPIPE */
-	ipipe_mach_update_tsc();
+#ifdef CONFIG_IPIPE
+	if (!evt->ipipe_stolen)
 #endif /* CONFIG_IPIPE */
+		ixp4xx_timer_ack();
+
+	ipipe_mach_update_tsc();
 
 	evt->event_handler(evt);
 
@@ -591,10 +591,10 @@ static void ixp4xx_set_mode(enum clock_event_mode mode,
 }
 
 #ifdef CONFIG_IPIPE
-int __ipipe_check_tickdev(const char *devname)
-{
-	return !strcmp(devname, clockevent_ixp4xx.name);
-}
+static struct ipipe_timer itimer = {
+	.irq = IRQ_IXP4XX_TIMER1,
+	.min_delay_ticks = 333, /* 5 usec with the 66.66 MHz system clock */
+};
 #endif /* CONFIG_IPIPE */
 
 static struct clock_event_device clockevent_ixp4xx = {
@@ -604,6 +604,9 @@ static struct clock_event_device clockevent_ixp4xx = {
 	.shift		= 24,
 	.set_mode	= ixp4xx_set_mode,
 	.set_next_event	= ixp4xx_set_next_event,
+#ifdef CONFIG_IPIPE
+	.ipipe_timer    = &itimer,
+#endif /* CONFIG_IPIPE */
 };
 
 static void __init ixp4xx_clockevent_init(void)
@@ -620,12 +623,6 @@ static void __init ixp4xx_clockevent_init(void)
 }
 
 #ifdef CONFIG_IPIPE
-void __ipipe_mach_acktimer(void)
-{
-	/* Clear Pending Interrupt by writing '1' to it */
-	*IXP4XX_OSST = IXP4XX_OSST_TIMER_1_PEND;
-}
-
 static void ipipe_mach_update_tsc(void)
 {
 	union tsc_reg *local_tsc;
@@ -664,48 +661,4 @@ notrace unsigned long long __ipipe_mach_get_tsc(void)
 }
 
 EXPORT_SYMBOL(__ipipe_mach_get_tsc);
-
-/*
- * Reprogram the timer
- *
- * The timer is aperiodic (most of the time) when running Xenomai, so
- * __ipipe_mach_set_dec is called for each timer tick and programs the
- * timer hardware for the next tick.
- *
- */
-#define MIN_DELAY 333 /* 5 usec with the 66.66 MHz system clock */
-
-void __ipipe_mach_set_dec(unsigned long delay)
-{
-	if (delay > MIN_DELAY) {
-		*IXP4XX_OSRT1 = delay | ONE_SHOT_ENABLE;
-	} else {
-		ipipe_raise_irq(IRQ_IXP4XX_TIMER1);
-	}
-}
-
-EXPORT_SYMBOL(__ipipe_mach_set_dec);
-
-/*
- * This returns the number of clock ticks remaining.
- */
-unsigned long __ipipe_mach_get_dec(void)
-{
-	return(*IXP4XX_OST1); /* remaining */
-}
-
-EXPORT_SYMBOL(__ipipe_mach_get_dec);
-
-void __ipipe_mach_release_timer(void)
-{
-	unsigned long flags;
-
-	flags = hard_local_irq_save();
-	ixp4xx_set_mode(clockevent_ixp4xx.mode, &clockevent_ixp4xx);
-	if (clockevent_ixp4xx.mode == CLOCK_EVT_MODE_ONESHOT)
-		ixp4xx_set_next_event(LATCH, &clockevent_ixp4xx);
-	hard_local_irq_restore(flags);
-}
-EXPORT_SYMBOL(__ipipe_mach_release_timer);
-
 #endif /* CONFIG_IPIPE */
