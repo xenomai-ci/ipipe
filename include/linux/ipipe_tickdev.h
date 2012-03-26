@@ -153,6 +153,8 @@ int ipipe_request_tickdev(const char *devname,
 
 void ipipe_release_tickdev(int cpu);
 
+#define ipipe_host_timer_register(clkevt) do { } while (0)
+
 #endif /* CONFIG_GENERIC_CLOCKEVENTS */
 
 #endif /* !CONFIG_IPIPE_TIMERS */

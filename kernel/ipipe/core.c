@@ -231,6 +231,8 @@ static inline void remove_domain_proc(struct ipipe_domain *ipd)
 
 #if !defined(CONFIG_IPIPE_TIMERS) && defined(CONFIG_GENERIC_CLOCKEVENTS)
 
+#include <linux/ipipe_tickdev.h>
+
 DECLARE_PER_CPU(struct tick_device, tick_cpu_device);
 
 static DEFINE_PER_CPU(struct ipipe_tick_device, ipipe_tick_cpu_device);
