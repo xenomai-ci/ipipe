@@ -129,9 +129,7 @@ asmlinkage void __exception_irq_entry tzic_handle_irq(struct pt_regs *regs)
 	} while (handled);
 }
 
-#if defined(CONFIG_IPIPE) && defined(__IPIPE_MACH_HAVE_PIC_MUTE)
-DEFINE_PER_CPU(__ipipe_irqbits_t, __ipipe_muted_irqs);
-
+#if defined(CONFIG_IPIPE)
 void tzic_set_irq_prio(unsigned irq, unsigned hi)
 {
 	if (irq >= MXC_INTERNAL_IRQS)
@@ -140,16 +138,16 @@ void tzic_set_irq_prio(unsigned irq, unsigned hi)
 	__raw_writeb(hi ? 0 : 0x80, tzic_base + TZIC_PRIORITY0 + irq);
 }
 
-void ipipe_mute_pic(void)
+void tzic_mute_pic(void)
 {
 	__raw_writel(0x10, tzic_base + TZIC_PRIOMASK);
 }
 
-void ipipe_unmute_pic(void)
+void tzic_unmute_pic(void)
 {
 	__raw_writel(0xf0, tzic_base + TZIC_PRIOMASK);
 }
-#endif /* CONFIG_IPIPE && __IPIPE_MACH_HAVE_PIC_MUTE */
+#endif /* CONFIG_IPIPE */
 
 /*
  * This function initializes the TZIC hardware and disables all the

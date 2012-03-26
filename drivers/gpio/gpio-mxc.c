@@ -497,22 +497,29 @@ static struct platform_driver mxc_gpio_driver = {
 	.id_table	= mxc_gpio_devtype,
 };
 
-static int __init gpio_mxc_init(void)
-{
-	return platform_driver_register(&mxc_gpio_driver);
-}
-postcore_initcall(gpio_mxc_init);
-
-MODULE_AUTHOR("Freescale Semiconductor, "
-	      "Daniel Mack <danielncaiaq.de>, "
-	      "Juergen Beisert <kernel@pengutronix.de>");
-MODULE_DESCRIPTION("Freescale MXC GPIO");
-MODULE_LICENSE("GPL");
-
-#if defined(CONFIG_IPIPE) && defined(__IPIPE_MACH_HAVE_PIC_MUTE)
+#if defined(CONFIG_IPIPE) && \
+	(defined(CONFIG_MXC_TZIC) || defined(CONFIG_ARM_GIC))
+#ifdef CONFIG_MXC_TZIC
+#include <mach/hardware.h>
+#endif /* CONFIG_MXC_TZIC */
 extern void tzic_set_irq_prio(int irq, int hi);
+extern void tzic_mute_pic(void);
+extern void tzic_unmute_pic(void);
+extern void gic_mute(void);
+extern void gic_unmute(void);
+extern void gic_set_irq_prio(int irq, int hi);
 
-void __ipipe_mach_enable_irqdesc(struct ipipe_domain *ipd, unsigned irq)
+static void mxc_set_irq_prio(int irq, int hi)
+{
+#ifdef CONFIG_ARM_GIC
+	gic_set_irq_prio(irq, hi);
+#elif defined(CONFIG_MXC_TZIC)
+	if (cpu_is_mx50() || cpu_is_mx51() || cpu_is_mx53())
+		tzic_set_irq_prio(irq, hi);
+#endif /* TZIC */
+}
+
+static void mxc_enable_irqdesc(struct ipipe_domain *ipd, unsigned irq)
 {
 	struct irq_desc *desc = irq_to_desc(irq);
 	struct irq_chip *chip = irq_desc_get_chip(desc);
@@ -527,14 +534,14 @@ void __ipipe_mach_enable_irqdesc(struct ipipe_domain *ipd, unsigned irq)
 			if (port->nonroot_gpios == (1 << (gpio % 32))) {
 				__ipipe_irqbits[(port->irq / 32)]
 					&= ~(1 << (port->irq % 32));
-				tzic_set_irq_prio(port->irq, 1);
+				mxc_set_irq_prio(port->irq, 1);
 			}
 		}
 	} else
-		tzic_set_irq_prio(irq, ipd != &ipipe_root);
+		mxc_set_irq_prio(irq, ipd != &ipipe_root);
 }
 
-void __ipipe_mach_disable_irqdesc(struct ipipe_domain *ipd, unsigned irq)
+static void mxc_disable_irqdesc(struct ipipe_domain *ipd, unsigned irq)
 {
 	struct irq_desc *desc = irq_to_desc(irq);
 	struct irq_chip *chip = irq_desc_get_chip(desc);
@@ -547,12 +554,51 @@ void __ipipe_mach_disable_irqdesc(struct ipipe_domain *ipd, unsigned irq)
 		if (ipd != &ipipe_root) {
 			port->nonroot_gpios &= ~(1 << (gpio % 32));
 			if (!port->nonroot_gpios) {
-				tzic_set_irq_prio(port->irq, 0);
+				mxc_set_irq_prio(port->irq, 0);
 				__ipipe_irqbits[(port->irq / 32)]
 					|= (1 << (port->irq % 32));
 			}
 		}
 	} else if (ipd != &ipipe_root)
-		tzic_set_irq_prio(irq, 0);
+		mxc_set_irq_prio(irq, 0);
 }
-#endif /* CONFIG_IPIPE && __IPIPE_MACH_HAVE_PIC_MUTE */
+
+static int mxc_pic_muter_register(void)
+{
+#ifdef CONFIG_ARM_GIC
+	struct ipipe_mach_pic_muter gic_pic_muter = {
+		.enable_irqdesc = mxc_enable_irqdesc,
+		.disable_irqdesc = mxc_disable_irqdesc,
+		.mute = gic_mute_pic,
+		.unmute = gic_unmute_pic,
+	};
+
+	ipipe_pic_muter_register(&gic_pic_muter);
+#elif defined(CONFIG_MXC_TZIC)
+	struct ipipe_mach_pic_muter tzic_pic_muter = {
+		.enable_irqdesc = mxc_enable_irqdesc,
+		.disable_irqdesc = mxc_disable_irqdesc,
+		.mute = tzic_mute_pic,
+		.unmute = tzic_unmute_pic,
+	};
+
+	if (cpu_is_mx50() || cpu_is_mx51() || cpu_is_mx53())
+		ipipe_pic_muter_register(&tzic_pic_muter);
+#endif /* TZIC */
+	return 0;
+}
+arch_initcall(mxc_pic_muter_register);
+
+#endif /* CONFIG_IPIPE */
+
+static int __init gpio_mxc_init(void)
+{
+	return platform_driver_register(&mxc_gpio_driver);
+}
+postcore_initcall(gpio_mxc_init);
+
+MODULE_AUTHOR("Freescale Semiconductor, "
+	      "Daniel Mack <danielncaiaq.de>, "
+	      "Juergen Beisert <kernel@pengutronix.de>");
+MODULE_DESCRIPTION("Freescale MXC GPIO");
+MODULE_LICENSE("GPL");
