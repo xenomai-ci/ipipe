@@ -23,6 +23,9 @@ config IPIPE_HAVE_HOSTRT
 config IPIPE_HAVE_PIC_MUTE
        bool
 
+config IPIPE_TIMERS
+       bool
+
 config HAVE_IPIPE_HOSTRT
        depends on IPIPE_LEGACY
        bool

@@ -154,11 +154,11 @@ enter_lazy_tlb(struct mm_struct *mm, struct task_struct *tsk)
  * actually changed.
  */
 static inline void
-switch_mm(struct mm_struct *prev, struct mm_struct *next,
+__switch_mm(struct mm_struct *prev, struct mm_struct *next,
 	  struct task_struct *tsk)
 {
 #ifdef CONFIG_MMU
-	unsigned int cpu = smp_processor_id();
+	unsigned int cpu = ipipe_processor_id();
 
 #ifdef CONFIG_SMP
 	/* check for possible thread migration */
@@ -169,15 +169,67 @@ switch_mm(struct mm_struct *prev, struct mm_struct *next,
 	if (!cpumask_test_and_set_cpu(cpu, mm_cpumask(next)) || prev != next) {
 #ifdef CONFIG_SMP
 		struct mm_struct **crt_mm = &per_cpu(current_mm, cpu);
-		*crt_mm = next;
 #endif
-		check_context(next);
-		cpu_switch_mm(next->pgd, next, fcse_switch_mm(prev, next));
-		if (cache_is_vivt())
+#ifdef CONFIG_IPIPE_WANT_PREEMPTIBLE_SWITCH
+		if (ipipe_root_p) {
+			/* mark mm state as undefined. */
+			__this_cpu_write(ipipe_percpu.active_mm, NULL);
+			barrier();
+#ifdef CONFIG_SMP
+			*crt_mm = next;
+#endif
+			barrier();
+			check_context(next);
+			cpu_switch_mm(next->pgd, next,
+				      fcse_switch_mm(prev, next));
+			barrier();
+			__this_cpu_write(ipipe_percpu.active_mm, next);
+			while (test_and_clear_thread_flag(TIF_MMSWITCH_INT)) {
+				/* mark mm state as undefined. */
+				__this_cpu_write(ipipe_percpu.active_mm, NULL);
+#ifdef CONFIG_SMP
+				*crt_mm = next;
+#endif
+				barrier();
+				check_context(next);
+				cpu_switch_mm(next->pgd, next,
+					      fcse_switch_mm(NULL, next));
+				barrier();
+				__this_cpu_write(ipipe_percpu.active_mm, next);
+			}
+		} else
+#endif /* CONFIG_IPIPE_WANT_PREEMPTIBLE_SWITCH */
+		{
+#ifdef CONFIG_SMP
+			*crt_mm = next;
+#endif
+			check_context(next);
+			cpu_switch_mm(next->pgd, next,
+				      fcse_switch_mm(prev, next));
+		}
+#if defined(CONFIG_IPIPE) && defined(CONFIG_ARM_FCSE)
+		if (tsk)
+			set_tsk_thread_flag(tsk, TIF_SWITCHED);
+#endif /* CONFIG_IPIPE && CONFIG_ARM_FCSE */
+		if (cache_is_vivt() && prev)
 			cpumask_clear_cpu(cpu, mm_cpumask(prev));
 	} else
 		fcse_mark_dirty(next);
 #endif
+}
+
+static inline void
+switch_mm(struct mm_struct *prev, struct mm_struct *next,
+	  struct task_struct *tsk)
+{
+#ifndef CONFIG_IPIPE_WANT_PREEMPTIBLE_SWITCH
+	unsigned long flags;
+	flags = hard_local_irq_save();
+#endif /* !(CONFIG_IPIPE_WANT_PREEMPTIBLE_SWITCH) */
+	__switch_mm(prev, next, tsk);
+#ifndef CONFIG_IPIPE_WANT_PREEMPTIBLE_SWITCH
+	hard_local_irq_restore(flags);
+#endif /* !(CONFIG_IPIPE_WANT_PREEMPTIBLE_SWITCH) */
 }
 
 #define deactivate_mm(tsk,mm)	do { } while (0)

@@ -786,8 +786,8 @@ asmlinkage int printk(const char *fmt, ...)
 	if (__ipipe_printk_bypass || oops_in_progress)
 		cs = ipipe_disable_context_check();
 	else if (__ipipe_current_domain == ipipe_root_domain) {
-		if (raw_irqs_disabled_flags(flags) ||
-		    (ipipe_head_domain != ipipe_root_domain &&
+		if (ipipe_head_domain != ipipe_root_domain && 
+		    (raw_irqs_disabled_flags(flags) ||
 		     test_bit(IPIPE_STALL_FLAG, &__ipipe_head_status)))
 			sprintk = 0;
 	} else

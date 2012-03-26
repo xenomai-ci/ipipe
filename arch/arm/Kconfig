@@ -30,6 +30,7 @@ config ARM
 	select HAVE_SPARSE_IRQ
 	select GENERIC_IRQ_SHOW
 	select CPU_PM if (SUSPEND || CPU_IDLE)
+	select IPIPE_TIMERS if IPIPE
 	help
 	  The ARM series is a line of low-power-consumption RISC chip designs
 	  licensed by ARM Ltd and targeted at embedded applications and
@@ -54,6 +55,9 @@ config HAVE_SCHED_CLOCK
 	bool
 
 config GENERIC_GPIO
+	bool
+
+config GENERIC_TIME_VSYSCALL
 	bool
 
 config ARCH_USES_GETTIMEOFFSET
@@ -385,7 +389,7 @@ config ARCH_PRIMA2
 	select USE_OF
 	select ZONE_DMA
 	help
-          Support for CSR SiRFSoC ARM Cortex A9 Platform
+	  Support for CSR SiRFSoC ARM Cortex A9 Platform
 
 config ARCH_EBSA110
 	bool "EBSA-110"
@@ -948,6 +952,7 @@ config PLAT_SPEAR
 	bool "ST SPEAr"
 	select ARM_AMBA
 	select ARCH_REQUIRE_GPIOLIB
+	select IPIPE_ARM_KUSER_TSC if IPIPE
 	select CLKDEV_LOOKUP
 	select CLKSRC_MMIO
 	select GENERIC_CLOCKEVENTS
@@ -1123,6 +1128,15 @@ config PLAT_VERSATILE
 config ARM_TIMER_SP804
 	bool
 	select CLKSRC_MMIO
+
+if IPIPE
+config IPIPE_ARM_KUSER_TSC
+       bool
+       select GENERIC_TIME_VSYSCALL
+       select HAVE_IPIPE_HOSTRT if IPIPE_LEGACY
+       select IPIPE_HAVE_HOSTRT if !IPIPE_LEGACY
+       default y if ARCH_AT91 || ARM_TIMER_SP804 || ARCH_MXC || ARCH_OMAP || PLAT_PXA || PLAT_S3C24XX || ARCH_SA1100
+endif
 
 source arch/arm/mm/Kconfig
 
@@ -1559,6 +1573,8 @@ config LOCAL_TIMERS
 	  legacy IPI broadcast method.  Local timers allows the system
 	  accounting to be spread across the timer interval, preventing a
 	  "thundering herd" at every timer tick.
+
+source kernel/ipipe/Kconfig
 
 source kernel/Kconfig.preempt
 

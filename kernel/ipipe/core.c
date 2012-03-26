@@ -33,7 +33,6 @@
 #include <linux/seq_file.h>
 #endif	/* CONFIG_PROC_FS */
 #include <linux/ipipe_trace.h>
-#include <linux/ipipe_tickdev.h>
 #include <linux/ipipe.h>
 
 struct ipipe_domain ipipe_root;
@@ -62,10 +61,6 @@ DEFINE_PER_CPU(struct ipipe_percpu_data, ipipe_percpu) = {
 #endif
 };
 EXPORT_PER_CPU_SYMBOL_GPL(ipipe_percpu);
-
-DECLARE_PER_CPU(struct tick_device, tick_cpu_device);
-
-static DEFINE_PER_CPU(struct ipipe_tick_device, ipipe_tick_cpu_device);
 
 /* Up to 2k of pending work data per CPU. */
 #define WORKBUF_SIZE 2048
@@ -234,108 +229,116 @@ static inline void remove_domain_proc(struct ipipe_domain *ipd)
 
 #endif	/* CONFIG_PROC_FS */
 
+#if !defined(CONFIG_IPIPE_TIMERS) && defined(CONFIG_GENERIC_CLOCKEVENTS)
+
+DECLARE_PER_CPU(struct tick_device, tick_cpu_device);
+
+static DEFINE_PER_CPU(struct ipipe_tick_device, ipipe_tick_cpu_device);
+
 int ipipe_request_tickdev(const char *devname,
-			  void (*emumode)(enum clock_event_mode mode,
-					  struct clock_event_device *cdev),
-			  int (*emutick)(unsigned long delta,
+			 void (*emumode)(enum clock_event_mode mode,
 					 struct clock_event_device *cdev),
-			  int cpu, unsigned long *tmfreq)
+			 int (*emutick)(unsigned long delta,
+					struct clock_event_device *cdev),
+			 int cpu, unsigned long *tmfreq)
 {
-	struct ipipe_tick_device *itd;
-	struct tick_device *slave;
-	struct clock_event_device *evtdev;
-	unsigned long long freq;
-	unsigned long flags;
-	int status;
+       struct ipipe_tick_device *itd;
+       struct tick_device *slave;
+       struct clock_event_device *evtdev;
+       unsigned long long freq;
+       unsigned long flags;
+       int status;
 
-	flags = ipipe_critical_enter(NULL);
+       flags = ipipe_critical_enter(NULL);
 
-	itd = &per_cpu(ipipe_tick_cpu_device, cpu);
+       itd = &per_cpu(ipipe_tick_cpu_device, cpu);
 
-	if (itd->slave != NULL) {
-		status = -EBUSY;
-		goto out;
-	}
+       if (itd->slave != NULL) {
+	       status = -EBUSY;
+	       goto out;
+       }
 
-	slave = &per_cpu(tick_cpu_device, cpu);
+       slave = &per_cpu(tick_cpu_device, cpu);
 
-	if (strcmp(slave->evtdev->name, devname)) {
-		/*
-		 * No conflict so far with the current tick device,
-		 * check whether the requested device is sane and has
-		 * been blessed by the kernel.
-		 */
-		status = __ipipe_check_tickdev(devname) ?
-			CLOCK_EVT_MODE_UNUSED : CLOCK_EVT_MODE_SHUTDOWN;
-		goto out;
-	}
+       if (strcmp(slave->evtdev->name, devname)) {
+	       /*
+		* No conflict so far with the current tick device,
+		* check whether the requested device is sane and has
+		* been blessed by the kernel.
+		*/
+	       status = __ipipe_check_tickdev(devname) ?
+		       CLOCK_EVT_MODE_UNUSED : CLOCK_EVT_MODE_SHUTDOWN;
+	       goto out;
+       }
 
-	/*
-	 * Our caller asks for using the same clock event device for
-	 * ticking than we do, let's create a tick emulation device to
-	 * interpose on the set_next_event() method, so that we may
-	 * both manage the device in oneshot mode. Only the tick
-	 * emulation code will actually program the clockchip hardware
-	 * for the next shot, though.
-	 *
-	 * CAUTION: we still have to grab the tick device even when it
-	 * current runs in periodic mode, since the kernel may switch
-	 * to oneshot dynamically (highres/no_hz tick mode).
-	 */
+       /*
+	* Our caller asks for using the same clock event device for
+	* ticking than we do, let's create a tick emulation device to
+	* interpose on the set_next_event() method, so that we may
+	* both manage the device in oneshot mode. Only the tick
+	* emulation code will actually program the clockchip hardware
+	* for the next shot, though.
+	*
+	* CAUTION: we still have to grab the tick device even when it
+	* current runs in periodic mode, since the kernel may switch
+	* to oneshot dynamically (highres/no_hz tick mode).
+	*/
 
-	evtdev = slave->evtdev;
-	status = evtdev->mode;
+       evtdev = slave->evtdev;
+       status = evtdev->mode;
 
-        if (status == CLOCK_EVT_MODE_SHUTDOWN)
-                goto out;
+       if (status == CLOCK_EVT_MODE_SHUTDOWN)
+	       goto out;
 
-	itd->slave = slave;
-	itd->emul_set_mode = emumode;
-	itd->emul_set_tick = emutick;
-	itd->real_set_mode = evtdev->set_mode;
-	itd->real_set_tick = evtdev->set_next_event;
-	itd->real_max_delta_ns = evtdev->max_delta_ns;
-	itd->real_mult = evtdev->mult;
-	itd->real_shift = evtdev->shift;
-	freq = (1000000000ULL * evtdev->mult) >> evtdev->shift;
-	*tmfreq = (unsigned long)freq;
-	evtdev->set_mode = emumode;
-	evtdev->set_next_event = emutick;
-	evtdev->max_delta_ns = ULONG_MAX;
-	evtdev->mult = 1;
-	evtdev->shift = 0;
+       itd->slave = slave;
+       itd->emul_set_mode = emumode;
+       itd->emul_set_tick = emutick;
+       itd->real_set_mode = evtdev->set_mode;
+       itd->real_set_tick = evtdev->set_next_event;
+       itd->real_max_delta_ns = evtdev->max_delta_ns;
+       itd->real_mult = evtdev->mult;
+       itd->real_shift = evtdev->shift;
+       freq = (1000000000ULL * evtdev->mult) >> evtdev->shift;
+       *tmfreq = (unsigned long)freq;
+       evtdev->set_mode = emumode;
+       evtdev->set_next_event = emutick;
+       evtdev->max_delta_ns = ULONG_MAX;
+       evtdev->mult = 1;
+       evtdev->shift = 0;
 out:
-	ipipe_critical_exit(flags);
+       ipipe_critical_exit(flags);
 
-	return status;
+       return status;
 }
 EXPORT_SYMBOL_GPL(ipipe_request_tickdev);
 
 void ipipe_release_tickdev(int cpu)
 {
-	struct ipipe_tick_device *itd;
-	struct tick_device *slave;
-	struct clock_event_device *evtdev;
-	unsigned long flags;
+       struct ipipe_tick_device *itd;
+       struct tick_device *slave;
+       struct clock_event_device *evtdev;
+       unsigned long flags;
 
-	flags = ipipe_critical_enter(NULL);
+       flags = ipipe_critical_enter(NULL);
 
-	itd = &per_cpu(ipipe_tick_cpu_device, cpu);
+       itd = &per_cpu(ipipe_tick_cpu_device, cpu);
 
-	if (itd->slave != NULL) {
-		slave = &per_cpu(tick_cpu_device, cpu);
-		evtdev = slave->evtdev;
-		evtdev->set_mode = itd->real_set_mode;
-		evtdev->set_next_event = itd->real_set_tick;
-		evtdev->max_delta_ns = itd->real_max_delta_ns;
-		evtdev->mult = itd->real_mult;
-		evtdev->shift = itd->real_shift;
-		itd->slave = NULL;
-	}
+       if (itd->slave != NULL) {
+	       slave = &per_cpu(tick_cpu_device, cpu);
+	       evtdev = slave->evtdev;
+	       evtdev->set_mode = itd->real_set_mode;
+	       evtdev->set_next_event = itd->real_set_tick;
+	       evtdev->max_delta_ns = itd->real_max_delta_ns;
+	       evtdev->mult = itd->real_mult;
+	       evtdev->shift = itd->real_shift;
+	       itd->slave = NULL;
+       }
 
-	ipipe_critical_exit(flags);
+       ipipe_critical_exit(flags);
 }
 EXPORT_SYMBOL_GPL(ipipe_release_tickdev);
+
+#endif /* !CONFIG_IPIPE_TIMERS && CONFIG_GENERIC_CLOCKEVENTS */
 
 static void init_stage(struct ipipe_domain *ipd)
 {
@@ -430,7 +433,7 @@ void __init __ipipe_init_early(void)
 	ipd->irqs[__ipipe_work_virq].ackfn = NULL;
 	ipd->irqs[__ipipe_work_virq].control = IPIPE_HANDLE_MASK;
 
-	for_each_online_cpu(cpu)
+	for_each_possible_cpu(cpu)
 		per_cpu(work_tail, cpu) = per_cpu(work_buf, cpu);
 }
 
@@ -492,19 +495,19 @@ void ipipe_unstall_root(void)
 {
 	struct ipipe_percpu_domain_data *p;
 
-        hard_local_irq_disable();
+	hard_local_irq_disable();
 
 	/* This helps catching bad usage from assembly call sites. */
 	ipipe_root_only();
 
 	p = ipipe_this_cpu_root_context();
 
-        __clear_bit(IPIPE_STALL_FLAG, &p->status);
+	__clear_bit(IPIPE_STALL_FLAG, &p->status);
 
-        if (unlikely(__ipipe_ipending_p(p)))
-                __ipipe_sync_stage();
+	if (unlikely(__ipipe_ipending_p(p)))
+		__ipipe_sync_stage();
 
-        hard_local_irq_enable();
+	hard_local_irq_enable();
 }
 EXPORT_SYMBOL_GPL(ipipe_unstall_root);
 
@@ -561,12 +564,12 @@ void __ipipe_restore_head(unsigned long x) /* hw interrupt off */
 			 * Already stalled albeit ipipe_restore_head()
 			 * should have detected it? Send a warning once.
 			 */
-			hard_local_irq_enable();	
+			hard_local_irq_enable();
 			warned = 1;
 			printk(KERN_WARNING
 				   "I-pipe: ipipe_restore_head() optimization failed.\n");
 			dump_stack();
-			hard_local_irq_disable();	
+			hard_local_irq_disable();
 		}
 #else /* !CONFIG_DEBUG_KERNEL */
 		__set_bit(IPIPE_STALL_FLAG, &p->status);
@@ -807,7 +810,7 @@ void __ipipe_set_irq_pending(struct ipipe_domain *ipd, unsigned int irq)
 	int l0b = irq / BITS_PER_LONG;
 
 	IPIPE_WARN_ONCE(!hard_irqs_disabled());
-	
+
 	if (likely(!test_bit(IPIPE_LOCK_FLAG, &ipd->irqs[irq].control))) {
 		__set_bit(irq, p->irqpend_lomap);
 		__set_bit(l0b, &p->irqpend_himap);
@@ -1371,15 +1374,15 @@ void __ipipe_dispatch_irq_fast(unsigned int irq) /* hw interrupts off */
 
 asmlinkage void preempt_schedule_irq(void);
 
-void __ipipe_preempt_schedule_irq(void)
+asmlinkage void __sched __ipipe_preempt_schedule_irq(void)
 {
-	struct ipipe_percpu_domain_data *p; 
-	unsigned long flags;  
+	struct ipipe_percpu_domain_data *p;
+	unsigned long flags;
 
 	BUG_ON(!hard_irqs_disabled());
 	local_irq_save(flags);
 	hard_local_irq_enable();
-	preempt_schedule_irq(); /* Ok, may reschedule now. */  
+	preempt_schedule_irq(); /* Ok, may reschedule now. */
 	hard_local_irq_disable();
 
 	/*
@@ -1599,54 +1602,28 @@ void ipipe_critical_exit(unsigned long flags)
 }
 EXPORT_SYMBOL_GPL(ipipe_critical_exit);
 
-#ifdef CONFIG_IPIPE_HAVE_HOSTRT
-
-/*
- * NOTE: The architecture specific code must only call this function
- * when a clocksource suitable for CLOCK_HOST_REALTIME is enabled.
- * The event receiver is responsible for providing proper locking.
- */
-void ipipe_update_hostrt(struct timespec *wall_time, struct timespec *wtm,
-			 struct clocksource *clock, u32 mult)
-{
-	struct ipipe_hostrt_data data;
-
-	ipipe_root_only();
-	data.live = 1;
-	data.cycle_last = clock->cycle_last;
-	data.mask = clock->mask;
-	data.mult = mult;
-	data.shift = clock->shift;
-	data.wall_time_sec = wall_time->tv_sec;
-	data.wall_time_nsec = wall_time->tv_nsec;
-	data.wall_to_monotonic = *wtm;
-	__ipipe_notify_kevent(IPIPE_KEVT_HOSTRT, &data);
-}
-
-#endif /* CONFIG_IPIPE_HAVE_HOSTRT */
-
 #ifdef CONFIG_IPIPE_DEBUG_CONTEXT
 
 void ipipe_root_only(void)
 {
-        struct ipipe_domain *this_domain; 
-        unsigned long flags;
+	struct ipipe_domain *this_domain;
+	unsigned long flags;
 
-        flags = hard_smp_local_irq_save();
+	flags = hard_smp_local_irq_save();
 
-        this_domain = __ipipe_current_domain;
-        if (likely(this_domain == ipipe_root_domain &&
-		   !test_bit(IPIPE_STALL_FLAG, &__ipipe_head_status))) { 
-                hard_smp_local_irq_restore(flags); 
-                return; 
-        } 
- 
-        if (!__this_cpu_read(ipipe_percpu.context_check)) { 
-                hard_smp_local_irq_restore(flags); 
-                return; 
-        } 
- 
-        hard_smp_local_irq_restore(flags); 
+	this_domain = __ipipe_current_domain;
+	if (likely(this_domain == ipipe_root_domain &&
+		   !test_bit(IPIPE_STALL_FLAG, &__ipipe_head_status))) {
+		hard_smp_local_irq_restore(flags);
+		return;
+	}
+
+	if (!__this_cpu_read(ipipe_percpu.context_check)) {
+		hard_smp_local_irq_restore(flags);
+		return;
+	}
+
+	hard_smp_local_irq_restore(flags);
 
 	ipipe_prepare_panic();
 	ipipe_trace_panic_freeze();
@@ -1702,7 +1679,7 @@ int notrace __ipipe_check_percpu_access(void)
 	 * disabled, and no migration could occur.
 	 */
 	if (this_domain == ipipe_root_domain) {
-		p = ipipe_this_cpu_root_context(); 
+		p = ipipe_this_cpu_root_context();
 		if (test_bit(IPIPE_STALL_FLAG, &p->status))
 			goto out;
 	}

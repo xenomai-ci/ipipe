@@ -19,6 +19,8 @@
 #include <linux/kernel.h>
 #include <linux/time.h>
 #include <linux/irq.h>
+#include <linux/export.h>
+#include <linux/ipipe.h>
 #include <asm/mach/time.h>
 #include <mach/generic.h>
 #include <mach/hardware.h>
@@ -70,17 +72,45 @@ static void clockevent_set_mode(enum clock_event_mode mode,
 static int clockevent_next_event(unsigned long evt,
 				 struct clock_event_device *clk_event_dev);
 
+#ifdef CONFIG_IPIPE
+int __ipipe_mach_timerint = SPEAR_GPT0_CHAN0_IRQ;
+EXPORT_SYMBOL_GPL(__ipipe_mach_timerint);
+
+unsigned int __ipipe_mach_ticks_per_jiffy;
+EXPORT_SYMBOL_GPL(__ipipe_mach_ticks_per_jiffy);
+
+int __ipipe_mach_timerstolen;
+EXPORT_SYMBOL_GPL(__ipipe_mach_timerstolen);
+
+static unsigned prescale, max_delta_ticks;
+
+static struct __ipipe_tscinfo __maybe_unused tsc_info = {
+	.type = IPIPE_TSC_TYPE_FREERUNNING,
+	.u = {
+		{
+			.counter_paddr = SPEAR_GPT0_BASE + COUNT(CLKSRC),
+			.mask = 0x0000ffff,
+		},
+	},
+};
+#endif /* CONFIG_IPIPE */
+
 static void spear_clocksource_init(void)
 {
 	u32 tick_rate;
 	u16 val;
 
+	tick_rate = clk_get_rate(gpt_clk);
+#ifndef CONFIG_IPIPE
 	/* program the prescaler (/256)*/
 	writew(CTRL_PRESCALER256, gpt_base + CR(CLKSRC));
 
 	/* find out actual clock driving Timer */
-	tick_rate = clk_get_rate(gpt_clk);
 	tick_rate >>= CTRL_PRESCALER256;
+#else /* CONFIG_IPIPE */
+	writew(prescale, gpt_base + CR(CLKSRC));
+	tick_rate >>= prescale;
+#endif /* CONFIG_IPIPE */
 
 	writew(0xFFFF, gpt_base + LOAD(CLKSRC));
 
@@ -92,6 +122,12 @@ static void spear_clocksource_init(void)
 	/* register the clocksource */
 	clocksource_mmio_init(gpt_base + COUNT(CLKSRC), "tmr1", tick_rate,
 		200, 16, clocksource_mmio_readw_up);
+
+#ifdef CONFIG_IPIPE
+	tsc_info.counter_vaddr = (unsigned long)(gpt_base + COUNT(CLKSRC));
+	tsc_info.freq = tick_rate;
+	__ipipe_tsc_register(&tsc_info);
+#endif /* CONFIG_IPIPE */
 }
 
 static struct clock_event_device clkevt = {
@@ -115,8 +151,12 @@ static void clockevent_set_mode(enum clock_event_mode mode,
 
 	switch (mode) {
 	case CLOCK_EVT_MODE_PERIODIC:
+#ifndef CONFIG_IPIPE
 		period = clk_get_rate(gpt_clk) / HZ;
 		period >>= CTRL_PRESCALER16;
+#else /* !CONFIG_IPIPE */
+		period = __ipipe_mach_ticks_per_jiffy;
+#endif /* !CONFIG_IPIPE */
 		writew(period, gpt_base + LOAD(CLKEVT));
 
 		val = readw(gpt_base + CR(CLKEVT));
@@ -147,9 +187,16 @@ static int clockevent_next_event(unsigned long cycles,
 {
 	u16 val;
 
-	writew(cycles, gpt_base + LOAD(CLKEVT));
+#ifdef CONFIG_IPIPE
+	__ipipe_tsc_update();
+#endif /* CONFIG_IPIPE */
 
 	val = readw(gpt_base + CR(CLKEVT));
+	if ((val & CTRL_ENABLE))
+		writew(val & ~CTRL_ENABLE, gpt_base + CR(CLKEVT));
+
+	writew(cycles, gpt_base + LOAD(CLKEVT));
+
 	val |= CTRL_ENABLE | CTRL_INT_ENABLE;
 	writew(val, gpt_base + CR(CLKEVT));
 
@@ -160,12 +207,58 @@ static irqreturn_t spear_timer_interrupt(int irq, void *dev_id)
 {
 	struct clock_event_device *evt = &clkevt;
 
+#ifndef CONFIG_IPIPE
 	writew(INT_STATUS, gpt_base + IR(CLKEVT));
+#endif /* !CONFIG_IPIPE */
 
 	evt->event_handler(evt);
 
 	return IRQ_HANDLED;
 }
+
+#ifdef CONFIG_IPIPE
+int __ipipe_check_tickdev(const char *devname)
+{
+	return !strcmp(devname, clkevt.name);
+}
+
+void __ipipe_mach_set_dec(unsigned long delay)
+{
+	u16 val;
+
+	__ipipe_tsc_update();
+
+	if (delay > max_delta_ticks)
+		delay = max_delta_ticks;
+
+	/* Stop the timer */
+	val = readw(gpt_base + CR(CLKEVT));
+	if ((val & CTRL_ENABLE))
+		writew(val & ~CTRL_ENABLE, gpt_base + CR(CLKEVT));
+
+	/* Load the compare value */
+	writew(delay, gpt_base + LOAD(CLKEVT));
+
+	/* Start the timer */
+	val |= CTRL_ENABLE | CTRL_INT_ENABLE | CTRL_ONE_SHOT;
+	writew(val, gpt_base + CR(CLKEVT));
+}
+
+void __ipipe_mach_acktimer(void)
+{
+	writew(INT_STATUS, gpt_base + IR(CLKEVT));
+
+	if (__ipipe_mach_timerstolen || clkevt.mode == CLOCK_EVT_MODE_ONESHOT)
+		__ipipe_mach_set_dec(max_delta_ticks);
+}
+
+void __ipipe_mach_release_timer(void)
+{
+	clockevent_set_mode(clkevt.mode, &clkevt);
+	if (clkevt.mode == CLOCK_EVT_MODE_ONESHOT)
+		clockevent_next_event(LATCH, &clkevt);
+}
+#endif /* CONFIG_IPIPE */
 
 static struct irqaction spear_timer_irq = {
 	.name = "timer",
@@ -177,16 +270,29 @@ static void __init spear_clockevent_init(void)
 {
 	u32 tick_rate;
 
-	/* program the prescaler */
+	tick_rate = clk_get_rate(gpt_clk);
+#ifndef CONFIG_IPIPE
+	/* program the prescaler (/16)*/
 	writew(CTRL_PRESCALER16, gpt_base + CR(CLKEVT));
 
-	tick_rate = clk_get_rate(gpt_clk);
+	/* find out actual clock driving Timer */
 	tick_rate >>= CTRL_PRESCALER16;
+#else /* CONFIG_IPIPE */
+	/* Find the prescaler giving a precision under 1us */
+	for (prescale = CTRL_PRESCALER256; prescale != 0xffff; prescale--)
+		if ((tick_rate >> prescale) >= 1000000)
+			break;
+
+	writew(prescale, gpt_base + CR(CLKEVT));
+	tick_rate >>= prescale;
+
+	__ipipe_mach_ticks_per_jiffy = (tick_rate + HZ / 2) / HZ;
+	max_delta_ticks = 0xffff - tick_rate / 1000;
+#endif /* CONFIG_IPIPE */
 
 	clockevents_calc_mult_shift(&clkevt, tick_rate, SPEAR_MIN_RANGE);
 
-	clkevt.max_delta_ns = clockevent_delta2ns(0xfff0,
-			&clkevt);
+	clkevt.max_delta_ns = clockevent_delta2ns(0xfff0, &clkevt);
 	clkevt.min_delta_ns = clockevent_delta2ns(3, &clkevt);
 
 	clkevt.cpumask = cpumask_of(0);

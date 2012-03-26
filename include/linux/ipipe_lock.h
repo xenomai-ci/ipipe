@@ -163,7 +163,7 @@ extern int __bad_lock_type(void);
 #define IPIPE_DEFINE_SPINLOCK(x)	IPIPE_DEFINE_RAW_SPINLOCK(x)
 #define IPIPE_DECLARE_SPINLOCK(x)	IPIPE_DECLARE_RAW_SPINLOCK(x)
 
-#define IPIPE_SPIN_LOCK_UNLOCKED	\
+#define IPIPE_SPIN_LOCK_UNLOCKED					\
 	(__ipipe_spinlock_t) {	.arch_lock = __ARCH_SPIN_LOCK_UNLOCKED }
 
 #define spin_lock_irqsave_cond(lock, flags) \
@@ -208,7 +208,7 @@ void __ipipe_spin_unlock_debug(unsigned long flags);
 #define ipipe_spinlock_t		spinlock_t
 #define IPIPE_DEFINE_SPINLOCK(x)	DEFINE_SPINLOCK(x)
 #define IPIPE_DECLARE_SPINLOCK(x)	extern spinlock_t x
-#define IPIPE_SPIN_LOCK_UNLOCKED	SPIN_LOCK_UNLOCKED
+#define IPIPE_SPIN_LOCK_UNLOCKED	__SPIN_LOCK_UNLOCKED(unknown)
 #define IPIPE_DEFINE_RAW_SPINLOCK(x)	DEFINE_RAW_SPINLOCK(x)
 #define IPIPE_DECLARE_RAW_SPINLOCK(x)	extern raw_spinlock_t x
 
