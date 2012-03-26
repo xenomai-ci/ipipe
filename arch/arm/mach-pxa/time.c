@@ -17,35 +17,13 @@
 #include <linux/interrupt.h>
 #include <linux/clockchips.h>
 #include <linux/sched.h>
-#include <linux/export.h>
+#include <linux/ipipe_tickdev.h>
 
 #include <asm/div64.h>
 #include <asm/mach/irq.h>
 #include <asm/mach/time.h>
 #include <asm/sched_clock.h>
 #include <mach/regs-ost.h>
-
-#ifdef CONFIG_IPIPE
-int __ipipe_mach_timerint = IRQ_OST0;
-EXPORT_SYMBOL_GPL(__ipipe_mach_timerint);
-
-int __ipipe_mach_timerstolen = 0;
-EXPORT_SYMBOL_GPL(__ipipe_mach_timerstolen);
-
-unsigned int __ipipe_mach_ticks_per_jiffy = LATCH;
-EXPORT_SYMBOL_GPL(__ipipe_mach_ticks_per_jiffy);
-
-static struct __ipipe_tscinfo tsc_info = {
-	.type = IPIPE_TSC_TYPE_FREERUNNING,
-	.counter_vaddr = io_p2v(0x40A00010UL),
-	.u = {
-		{
-			.counter_paddr = 0x40A00010UL,
-			.mask = 0xffffffff,
-		},
-	},
-};
-#endif /* CONFIG_IPIPE */
 
 /*
  * This is PXA's sched_clock implementation. This has a resolution
@@ -72,18 +50,25 @@ static void notrace pxa_update_sched_clock(void)
 
 #define MIN_OSCR_DELTA 16
 
+static inline void pxa_ost0_ack(void)
+{
+	/* Disarm the compare/match, signal the event. */
+	OIER &= ~OIER_E0;
+	OSSR = OSSR_M0;
+}
+
 static irqreturn_t
 pxa_ost0_interrupt(int irq, void *dev_id)
 {
 	struct clock_event_device *c = dev_id;
 
-	/* Disarm the compare/match, signal the event. */
-#ifndef CONFIG_IPIPE
-	OIER &= ~OIER_E0;
-	OSSR = OSSR_M0;
-#else /* CONFIG_IPIPE */
-	__ipipe_tsc_update();
+#ifdef CONFIG_IPIPE
+	if (!c->ipipe_stolen)
 #endif /* CONFIG_IPIPE */
+		pxa_ost0_ack();
+
+	__ipipe_tsc_update();
+
 	c->event_handler(c);
 
 	return IRQ_HANDLED;
@@ -124,53 +109,24 @@ pxa_osmr0_set_mode(enum clock_event_mode mode, struct clock_event_device *dev)
 	}
 }
 
+#ifdef CONFIG_IPIPE
+static struct ipipe_timer pxa_osmr0_itimer = {
+	.irq = IRQ_OST0,
+	.ack = pxa_ost0_ack,
+	.min_delay_ticks = MIN_OSCR_DELTA,
+};
+#endif /* CONFIG_IPIPE */
+
 static struct clock_event_device ckevt_pxa_osmr0 = {
 	.name		= "osmr0",
 	.features	= CLOCK_EVT_FEAT_ONESHOT,
 	.rating		= 200,
 	.set_next_event	= pxa_osmr0_set_next_event,
 	.set_mode	= pxa_osmr0_set_mode,
-};
-
 #ifdef CONFIG_IPIPE
-int __ipipe_check_tickdev(const char *devname)
-{
-	return !strcmp(devname, ckevt_pxa_osmr0.name);
-}
-
-void __ipipe_mach_acktimer(void)
-{
-	OSSR = OSSR_M0;  /* Clear match on timer 0 */
-	OIER &= ~OIER_E0;
-}
-
-/*
- * Reprogram the timer
- */
-
-void __ipipe_mach_set_dec(unsigned long delay)
-{
-	if (delay > MIN_OSCR_DELTA) {
-		OSMR0 = delay + OSCR;
-		OIER |= OIER_E0;
-	} else
-		ipipe_raise_irq(IRQ_OST0);
-}
-EXPORT_SYMBOL_GPL(__ipipe_mach_set_dec);
-
-void __ipipe_mach_release_timer(void)
-{
-	pxa_osmr0_set_mode(ckevt_pxa_osmr0.mode, &ckevt_pxa_osmr0);
-	if (ckevt_pxa_osmr0.mode == CLOCK_EVT_MODE_ONESHOT)
-		pxa_osmr0_set_next_event(LATCH, &ckevt_pxa_osmr0);
-}
-EXPORT_SYMBOL_GPL(__ipipe_mach_release_timer);
-
-unsigned long __ipipe_mach_get_dec(void)
-{
-	return OSMR0 - OSCR;
-}
+	.ipipe_timer    = &pxa_osmr0_itimer,
 #endif /* CONFIG_IPIPE */
+};
 
 static struct irqaction pxa_ost0_irq = {
 	.name		= "ost0",
@@ -178,6 +134,19 @@ static struct irqaction pxa_ost0_irq = {
 	.handler	= pxa_ost0_interrupt,
 	.dev_id		= &ckevt_pxa_osmr0,
 };
+
+#ifdef CONFIG_IPIPE
+static struct __ipipe_tscinfo tsc_info = {
+	.type = IPIPE_TSC_TYPE_FREERUNNING,
+	.counter_vaddr = (unsigned long)io_p2v(0x40A00010UL),
+	.u = {
+		{
+			.counter_paddr = 0x40A00010UL,
+			.mask = 0xffffffff,
+		},
+	},
+};
+#endif /* CONFIG_IPIPE */
 
 static void __init pxa_timer_init(void)
 {
@@ -197,7 +166,7 @@ static void __init pxa_timer_init(void)
 
 	setup_irq(IRQ_OST0, &pxa_ost0_irq);
 
-	clocksource_mmio_init(&OSCR, "oscr0", clock_tick_rate, 200, 32,
+	clocksource_mmio_init((void *)&OSCR, "oscr0", clock_tick_rate, 200, 32,
 		clocksource_mmio_readl_up);
 
 #ifdef CONFIG_IPIPE
