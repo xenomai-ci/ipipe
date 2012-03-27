@@ -30,7 +30,7 @@
 #include <linux/io.h>
 #include <linux/platform_device.h>
 #include <linux/module.h>
-#include <linux/export.h>
+#include <linux/ipipe_tickdev.h>
 
 #include <asm/system.h>
 #include <asm/leds.h>
@@ -47,6 +47,10 @@
 #include <plat/cpu.h>
 
 static unsigned long timer_usec_ticks;
+
+#ifdef CONFIG_IPIPE
+static unsigned timer_stolen;
+#endif /* CONFIG_IPIPE */
 
 #ifndef TICK_MAX
 #define TICK_MAX (0xffff)
@@ -69,12 +73,6 @@ static unsigned long free_running_tcon = 0;
 static unsigned long timer_lxlost = 0;
 
 #ifdef CONFIG_IPIPE
-unsigned int __ipipe_mach_ticks_per_jiffy;
-EXPORT_SYMBOL_GPL(__ipipe_mach_ticks_per_jiffy);
-
-int __ipipe_mach_timerint = IRQ_TIMER4;
-EXPORT_SYMBOL_GPL(__ipipe_mach_timerint);
-
 static unsigned long timer_ackval = 1UL << (IRQ_TIMER4 - IRQ_EINT0);
 
 static struct __ipipe_tscinfo tsc_info = {
@@ -89,9 +87,6 @@ static struct __ipipe_tscinfo tsc_info = {
 };
 
 static IPIPE_DEFINE_SPINLOCK(timer_lock);
-
-int __ipipe_mach_timerstolen = 0;
-EXPORT_SYMBOL_GPL(__ipipe_mach_timerstolen);
 #endif /* CONFIG_IPIPE */
 
 /* timer_mask_usec_ticks
@@ -163,6 +158,11 @@ static unsigned long s3c2410_gettimeoffset (void)
 }
 #endif /* CONFIG_IPIPE */
 
+static inline void s3c2410_timer_ack(void)
+{
+	__raw_writel(timer_ackval, S3C2410_SRCPND);
+	__raw_writel(timer_ackval, S3C2410_INTPND);
+}
 /*
  * IRQ handler for the timer
  */
@@ -172,7 +172,12 @@ s3c2410_timer_interrupt(int irq, void *dev_id)
 #ifdef CONFIG_IPIPE
 	timer_lxlost = 0;
 
-	if (!__ipipe_mach_timerstolen) {
+	if (!timer_stolen) {
+#endif /* CONFIG_IPIPE */
+
+		s3c2410_timer_ack();
+
+#ifdef CONFIG_IPIPE
 		spin_lock(&timer_lock);
 		getticksoffset_tscupdate();
 		spin_unlock(&timer_lock);
@@ -198,6 +203,51 @@ static struct irqaction s3c2410_timer_irq = {
 static struct clk *tin;
 static struct clk *tdiv;
 static struct clk *timerclk;
+
+#ifdef CONFIG_IPIPE
+static void s3c2410_timer_request(struct ipipe_timer *timer, int steal)
+{
+	timer_stolen = 1;
+}
+
+static inline void set_dec(unsigned long reload)
+{
+	__raw_writel(reload, S3C2410_TCNTB(4));
+	/* Manual update */
+	__raw_writel(free_running_tcon | S3C2410_TCON_T4MANUALUPD, S3C2410_TCON);
+	/* Start timer */
+	__raw_writel(free_running_tcon | S3C2410_TCON_T4START, S3C2410_TCON);
+}
+
+static void s3c2410_timer_set(unsigned long reload, void *timer)
+{
+	unsigned long flags;
+
+	spin_lock_irqsave(&timer_lock, flags);
+	timer_lxlost += getticksoffset_tscupdate();
+	set_dec(reload);
+	spin_unlock_irqrestore(&timer_lock, flags);
+}
+
+static void s3c2410_timer_release(struct ipipe_timer *timer)
+{
+	timer_stolen = 0;
+	free_running_tcon |= S3C2410_TCON_T4RELOAD;
+	s3c2410_timer_set((timer->freq + HZ / 2) / HZ, timer);
+	free_running_tcon &= ~S3C2410_TCON_T4RELOAD;
+}
+
+static struct ipipe_timer s3c2410_itimer = {
+	.name = "TCNTB4",
+	.rating = 100,
+
+	.irq = IRQ_TIMER4,
+	.request = s3c2410_timer_request,
+	.set = s3c2410_timer_set,
+	.ack = s3c2410_timer_ack,
+	.release = s3c2410_timer_release,
+};
+#endif /* CONFIG_IPIPE */
 
 /*
  * Set up timer interrupt.
@@ -259,7 +309,6 @@ static void s3c2410_timer_setup (void)
 	tcfg1 = __raw_readl(S3C2410_TCFG1);
 
 #ifdef CONFIG_IPIPE
-	__ipipe_mach_ticks_per_jiffy = tcnt;
 	tsc_info.freq = tcnt * HZ;
 	__ipipe_tsc_register(&tsc_info);
 #endif /* CONFIG_IPIPE */
@@ -311,6 +360,11 @@ static void s3c2410_timer_setup (void)
 
 	/* Save start value of timer 3 as begining of first period. */
 	last_free_running_tcnt = 0xffff;
+
+#ifdef CONFIG_IPIPE
+	s3c2410_itimer.freq = tcnt * HZ;
+	ipipe_timer_register(&s3c2410_itimer);
+#endif /* CONFIG_IPIPE */
 }
 
 static void __init s3c2410_timer_resources(void)
@@ -355,44 +409,3 @@ struct sys_timer s3c24xx_timer = {
 #endif
 	.resume		= s3c2410_timer_setup
 };
-
-#ifdef CONFIG_IPIPE
-void __ipipe_mach_acktimer(void)
-{
-	__raw_writel(timer_ackval, S3C2410_SRCPND);
-	__raw_writel(timer_ackval, S3C2410_INTPND);
-}
-
-static inline void set_dec(unsigned long reload)
-{
-	__raw_writel(reload, S3C2410_TCNTB(4));
-	/* Manual update */
-	__raw_writel(free_running_tcon | S3C2410_TCON_T4MANUALUPD, S3C2410_TCON);
-	/* Start timer */
-	__raw_writel(free_running_tcon | S3C2410_TCON_T4START, S3C2410_TCON);
-}
-
-void __ipipe_mach_set_dec(unsigned long reload)
-{
-	unsigned long flags;
-
-	spin_lock_irqsave(&timer_lock, flags);
-	timer_lxlost += getticksoffset_tscupdate();
-	set_dec(reload);
-	spin_unlock_irqrestore(&timer_lock, flags);
-}
-EXPORT_SYMBOL_GPL(__ipipe_mach_set_dec);
-
-void __ipipe_mach_release_timer(void)
-{
-	free_running_tcon |= S3C2410_TCON_T4RELOAD;
-	__ipipe_mach_set_dec(__ipipe_mach_ticks_per_jiffy - 1);
-	free_running_tcon &= ~S3C2410_TCON_T4RELOAD;
-}
-EXPORT_SYMBOL_GPL(__ipipe_mach_release_timer);
-
-unsigned long __ipipe_mach_get_dec(void)
-{
-	return __raw_readl(S3C2410_TCNTO(4));
-}
-#endif /* CONFIG_IPIPE */
