@@ -1,3 +1,25 @@
+/* -*- linux-c -*-
+ * linux/kernel/ipipe/timer.c
+ *
+ * Copyright (C) 2012 Gilles Chanteperdrix
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, Inc., 675 Mass Ave, Cambridge MA 02139,
+ * USA; either version 2 of the License, or (at your option) any later
+ * version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+ *
+ * I-pipe timer request interface.
+ */
 #include <linux/ipipe.h>
 #include <linux/percpu.h>
 #include <linux/irqdesc.h>
@@ -16,8 +38,8 @@ static DEFINE_PER_CPU(struct ipipe_timer *, percpu_timer);
 #ifdef CONFIG_GENERIC_CLOCKEVENTS
 /*
  * Default request method: sets the timer to oneshot mode using host
- * timer method. Do nothing if the host timer does not support one-shot
- * mode.
+ * timer method. Do nothing if the host timer does not support
+ * one-shot mode.
  */
 static void ipipe_timer_default_request(struct ipipe_timer *timer, int steal)
 {
@@ -46,32 +68,40 @@ void ipipe_host_timer_register(struct clock_event_device *evtdev)
 {
 	struct ipipe_timer *timer = evtdev->ipipe_timer;
 
-	if (!timer)
+	if (timer == NULL)
 		return;
 
-	BUG_ON(!timer->irq);
-	if (!timer->request)
+	BUG_ON(timer->irq == 0);
+	if (timer->request == NULL)
 		timer->request = ipipe_timer_default_request;
-	/* By default, use the same method as linux timer, on ARM at
-	   least, most set_next_event methods are safe to be called
-	   from xenomai domain anyway */
-	if (!timer->set) {
+
+	/*
+	 * By default, use the same method as linux timer, on ARM at
+	 * least, most set_next_event methods are safe to be called
+	 * from Xenomai domain anyway.
+	 */
+	if (timer->set == NULL) {
 		timer->timer_set = evtdev;
 		timer->set = (typeof(timer->set))evtdev->set_next_event;
 	}
-	BUG_ON(!timer->ack);
-	if (!timer->release)
+
+	BUG_ON(timer->ack == NULL);
+	if (timer->release == NULL)
 		timer->release = ipipe_timer_default_release;
 
-	if (!timer->name)
+	if (timer->name == NULL)
 		timer->name = evtdev->name;
-	if (!timer->rating)
+
+	if (timer->rating == 0)
 		timer->rating = evtdev->rating;
+
 	timer->freq = (1000000000ULL * evtdev->mult) >> evtdev->shift;
-	if (!timer->min_delay_ticks)
+
+	if (timer->min_delay_ticks == 0)
 		timer->min_delay_ticks =
 			(evtdev->min_delta_ns * evtdev->mult) >> evtdev->shift;
-	if (!timer->cpumask)
+
+	if (timer->cpumask == NULL)
 		timer->cpumask = evtdev->cpumask;
 
 	timer->host_timer = evtdev;
@@ -88,17 +118,20 @@ void ipipe_timer_register(struct ipipe_timer *timer)
 	struct ipipe_timer *t;
 	unsigned long flags;
 
-	if (!timer->timer_set)
+	if (timer->timer_set == NULL)
 		timer->timer_set = timer;
-	if (!timer->cpumask)
+
+	if (timer->cpumask == NULL)
 		timer->cpumask = cpumask_of(smp_processor_id());
 
 	spin_lock_irqsave(&lock, flags);
-	list_for_each_entry(t, &timers, holder)
+
+	list_for_each_entry(t, &timers, holder) {
 		if (t->rating <= timer->rating) {
 			__list_add(&timer->holder, t->holder.prev, &t->holder);
 			goto done;
 		}
+	}
 	list_add_tail(&timer->holder, &timers);
   done:
 	spin_unlock_irqrestore(&lock, flags);
@@ -122,8 +155,8 @@ static void ipipe_timer_request_sync(void)
 }
 
 /*
- * choose per-cpu timer: we walk the list, and find the timer with
- * the higher rating
+ * choose per-cpu timer: we walk the list, and find the timer with the
+ * highest rating.
  */
 int ipipe_timers_request(void)
 {
@@ -151,10 +184,11 @@ int ipipe_timers_request(void)
 	  found:
 		/* Sanity check: check that timers on all cpu have the
 		   same frequency, xenomai relies on that. */
-		if (!__ipipe_hrtimer_freq)
+		if (__ipipe_hrtimer_freq == 0)
 			__ipipe_hrtimer_freq = t->freq;
 		else if (__ipipe_hrtimer_freq != t->freq) {
-			printk("I-pipe: timer on cpu #%d has wrong frequency\n",
+			printk(KERN_WARNING
+			       "I-pipe: timer on cpu #%d has wrong frequency\n",
 			       cpu);
 			goto err_remove_all;
 		}
@@ -320,7 +354,7 @@ unsigned ipipe_timer_ns2ticks(struct ipipe_timer *timer, unsigned ns)
 	return tmp;
 }
 
-#if defined(CONFIG_IPIPE_HAVE_HOSTRT) || defined(CONFIG_HAVE_IPIPE_HOSTRT)
+#ifdef CONFIG_IPIPE_HAVE_HOSTRT
 /*
  * NOTE: The architecture specific code must only call this function
  * when a clocksource suitable for CLOCK_HOST_REALTIME is enabled.

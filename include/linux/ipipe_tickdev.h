@@ -127,8 +127,7 @@ unsigned ipipe_timer_ns2ticks(struct ipipe_timer *timer, unsigned ns);
 
 #endif /* !CONFIG_IPIPE */
 
-#if defined(CONFIG_IPIPE) && \
-	(defined(CONFIG_IPIPE_HAVE_HOSTRT) || defined(CONFIG_HAVE_IPIPE_HOSTRT))
+#ifdef CONFIG_IPIPE_HAVE_HOSTRT
 void ipipe_update_hostrt(struct timespec *wall_time, struct timespec *wtm,
 			 struct clocksource *clock, u32 mult);
 #else
