@@ -107,13 +107,15 @@ static inline void at91_tc_write(unsigned int reg_offset, unsigned long value)
 /*
  * Reprogram the timer
  */
-static void at91_tc_set(unsigned long evt, void *timer)
+static int at91_tc_set(unsigned long evt, void *timer)
 {
 	if (evt > max_delta_ticks)
 		evt = max_delta_ticks;
 
 	write_RC((read_CV() + evt) & AT91_TC_REG_MASK);
 	__ipipe_tsc_update();
+
+	return 0;
 }
 
 /*

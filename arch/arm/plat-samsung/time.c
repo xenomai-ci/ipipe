@@ -219,7 +219,7 @@ static inline void set_dec(unsigned long reload)
 	__raw_writel(free_running_tcon | S3C2410_TCON_T4START, S3C2410_TCON);
 }
 
-static void s3c2410_timer_set(unsigned long reload, void *timer)
+static int s3c2410_timer_set(unsigned long reload, void *timer)
 {
 	unsigned long flags;
 
@@ -227,6 +227,8 @@ static void s3c2410_timer_set(unsigned long reload, void *timer)
 	timer_lxlost += getticksoffset_tscupdate();
 	set_dec(reload);
 	spin_unlock_irqrestore(&timer_lock, flags);
+
+	return 0;
 }
 
 static void s3c2410_timer_release(struct ipipe_timer *timer)

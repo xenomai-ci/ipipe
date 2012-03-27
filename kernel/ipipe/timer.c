@@ -334,10 +334,9 @@ void ipipe_timer_set(unsigned long delay)
 
 	timer = __ipipe_this_cpu_read(percpu_timer);
 
-	if (delay < timer->min_delay_ticks)
+	if (delay < timer->min_delay_ticks
+	    || timer->set(delay, timer->timer_set) < 0)
 		ipipe_raise_irq(timer->irq);
-	else
-		timer->set(delay, timer->timer_set);
 }
 
 const char *ipipe_timer_name(void)

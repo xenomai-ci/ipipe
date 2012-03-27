@@ -2,6 +2,7 @@
  * include/linux/ipipe_tickdev.h
  *
  * Copyright (C) 2007 Philippe Gerum.
+ * Copyright (C) 2012 Gilles Chanteperdrix
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -48,7 +49,7 @@ struct ipipe_hostrt_data {
 struct ipipe_timer {
 	int irq;
 	void (*request)(struct ipipe_timer *timer, int steal);
-	void (*set)(unsigned long ticks, void *timer);
+	int (*set)(unsigned long ticks, void *timer);
 	void (*ack)(void);
 	void (*release)(struct ipipe_timer *timer);
 
