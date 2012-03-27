@@ -232,7 +232,7 @@ int ipipe_get_sysinfo(struct ipipe_sysinfo *info)
 	info->sys_nr_cpus = num_online_cpus();
 	info->sys_cpu_freq = __ipipe_cpu_freq;
 	info->sys_hrtimer_irq = per_cpu(ipipe_percpu.hrtimer_irq, 0);
-	info->sys_hrtimer_freq = __ipipe_mach_hrtimer_freq;
+	info->sys_hrtimer_freq = __ipipe_hrtimer_freq;
 	info->sys_hrclock_freq = __ipipe_mach_hrclock_freq;
 	__ipipe_mach_get_tscinfo(&info->arch.tsc);
 
@@ -457,7 +457,7 @@ asmlinkage void __exception __ipipe_grab_irq(int irq, struct pt_regs *regs)
 
 	ipipe_trace_irq_entry(irq);
 
-	if (!p->hrtimer_irq)
+	if (p->hrtimer_irq == -1)
 		goto copy_regs;
 
 	if (irq == p->hrtimer_irq) {

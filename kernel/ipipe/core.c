@@ -56,6 +56,7 @@ DEFINE_PER_CPU(struct ipipe_percpu_data, ipipe_percpu) = {
 		.domain = &ipipe_root,
 	},
 	.curr = &bootup_context,
+	.hrtimer_irq = -1,
 #ifdef CONFIG_IPIPE_DEBUG_CONTEXT
 	.context_check = 1,
 #endif

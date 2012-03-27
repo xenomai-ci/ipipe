@@ -6,7 +6,7 @@
 #include <linux/ipipe_tickdev.h>
 #include <linux/interrupt.h>
 
-unsigned long __ipipe_mach_hrtimer_freq;
+unsigned long __ipipe_hrtimer_freq;
 
 static LIST_HEAD(timers);
 static IPIPE_DEFINE_SPINLOCK(lock);
@@ -151,9 +151,9 @@ int ipipe_timers_request(void)
 	  found:
 		/* Sanity check: check that timers on all cpu have the
 		   same frequency, xenomai relies on that. */
-		if (!__ipipe_mach_hrtimer_freq)
-			__ipipe_mach_hrtimer_freq = t->freq;
-		else if (__ipipe_mach_hrtimer_freq != t->freq) {
+		if (!__ipipe_hrtimer_freq)
+			__ipipe_hrtimer_freq = t->freq;
+		else if (__ipipe_hrtimer_freq != t->freq) {
 			printk("I-pipe: timer on cpu #%d has wrong frequency\n",
 			       cpu);
 			goto err_remove_all;
@@ -173,10 +173,10 @@ err_remove_all:
 	spin_unlock_irqrestore(&lock, flags);
 
 	for_each_online_cpu(cpu) {
-		per_cpu(ipipe_percpu.hrtimer_irq, cpu) = 0;
+		per_cpu(ipipe_percpu.hrtimer_irq, cpu) = -1;
 		per_cpu(percpu_timer, cpu) = NULL;
 	}
-	__ipipe_mach_hrtimer_freq = 0;
+	__ipipe_hrtimer_freq = 0;
 
 	return -ENODEV;
 }
@@ -198,9 +198,9 @@ void ipipe_timers_release(void)
 	ipipe_critical_exit(flags);
 
 	for_each_online_cpu(cpu) {
-		per_cpu(ipipe_percpu.hrtimer_irq, cpu) = 0;
+		per_cpu(ipipe_percpu.hrtimer_irq, cpu) = -1;
 		per_cpu(percpu_timer, cpu) = NULL;
-		__ipipe_mach_hrtimer_freq = 0;
+		__ipipe_hrtimer_freq = 0;
 	}
 }
 

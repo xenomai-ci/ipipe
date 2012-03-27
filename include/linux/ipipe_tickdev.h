@@ -46,7 +46,7 @@ struct ipipe_hostrt_data {
 };
 
 struct ipipe_timer {
-	unsigned irq;
+	int irq;
 	void (*request)(struct ipipe_timer *timer, int steal);
 	void (*set)(unsigned long ticks, void *timer);
 	void (*ack)(void);
@@ -71,9 +71,9 @@ struct ipipe_timer {
 				   struct clock_event_device *cdev);
 };
 
-#define __ipipe_mach_hrtimer_irq __ipipe_this_cpu_read(ipipe_percpu.hrtimer_irq)
+#define __ipipe_hrtimer_irq __ipipe_this_cpu_read(ipipe_percpu.hrtimer_irq)
 
-extern unsigned long __ipipe_mach_hrtimer_freq;
+extern unsigned long __ipipe_hrtimer_freq;
 
 /*
  * Called by clockevents_register_device, to register a piggybacked
