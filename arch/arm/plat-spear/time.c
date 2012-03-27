@@ -123,7 +123,7 @@ static void spear_clocksource_init(void)
 }
 
 #ifdef CONFIG_IPIPE
-static struct ipipe_timer itimer = {
+static struct ipipe_timer spear_itimer = {
 	.irq = SPEAR_GPT0_CHAN0_IRQ,
 	.ack = spear_timer_ack,
 };
@@ -136,7 +136,7 @@ static struct clock_event_device clkevt = {
 	.set_next_event = clockevent_next_event,
 	.shift = 0,	/* to be computed */
 #ifdef CONFIG_IPIPE
-	.ipipe_timer = &itimer,
+	.ipipe_timer = &spear_itimer,
 #endif /* CONFIG_IPIPE */
 };
 

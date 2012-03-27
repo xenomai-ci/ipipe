@@ -136,7 +136,7 @@ static void at91_tc_release(struct ipipe_timer *timer)
 	at91_tc_write(AT91_TC_IDR, ~0ul);
 }
 
-static struct ipipe_timer itimer = {
+static struct ipipe_timer at91_itimer = {
 	.irq            = KERNEL_TIMER_IRQ_NUM,
 	.request        = at91_tc_request,
 	.set            = at91_tc_set,
@@ -238,10 +238,10 @@ void at91_ipipe_init(struct clock_event_device *host_timer)
 	/* Enable the channel. */
 	at91_tc_write(AT91_TC_CCR, AT91_TC_CLKEN | AT91_TC_SWTRG);
 
-	itimer.freq = divided_freq;
-	itimer.min_delay_ticks = ipipe_timer_ns2ticks(&itimer, 2000);
-	max_delta_ticks = ipipe_timer_ns2ticks(&itimer, wrap_ns);
-	ipipe_timer_register(&itimer);
+	at91_itimer.freq = divided_freq;
+	at91_itimer.min_delay_ticks = ipipe_timer_ns2ticks(&at91_itimer, 2000);
+	max_delta_ticks = ipipe_timer_ns2ticks(&at91_itimer, wrap_ns);
+	ipipe_timer_register(&at91_itimer);
 
 	tsc_info.freq = divided_freq;
 	__ipipe_tsc_register(&tsc_info);

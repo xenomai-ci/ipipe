@@ -591,7 +591,7 @@ static void ixp4xx_set_mode(enum clock_event_mode mode,
 }
 
 #ifdef CONFIG_IPIPE
-static struct ipipe_timer itimer = {
+static struct ipipe_timer ixp4xx_itimer = {
 	.irq = IRQ_IXP4XX_TIMER1,
 	.min_delay_ticks = 333, /* 5 usec with the 66.66 MHz system clock */
 };
@@ -605,7 +605,7 @@ static struct clock_event_device clockevent_ixp4xx = {
 	.set_mode	= ixp4xx_set_mode,
 	.set_next_event	= ixp4xx_set_next_event,
 #ifdef CONFIG_IPIPE
-	.ipipe_timer    = &itimer,
+	.ipipe_timer    = &ixp4xx_itimer,
 #endif /* CONFIG_IPIPE */
 };
 

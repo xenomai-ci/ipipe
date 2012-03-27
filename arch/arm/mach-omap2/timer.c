@@ -82,6 +82,12 @@ static u32 sys_timer_reserved;
 static struct omap_dm_timer clkev;
 static struct clock_event_device clockevent_gpt;
 
+static void omap2_gp_timer_ack(void)
+{
+	__omap_dm_timer_write_status(&clkev, OMAP_TIMER_INT_OVERFLOW);
+	__omap_dm_timer_read_status(&clkev);
+}
+
 static irqreturn_t omap2_gp_timer_interrupt(int irq, void *dev_id)
 {
 	struct clock_event_device *evt = &clockevent_gpt;
@@ -89,7 +95,7 @@ static irqreturn_t omap2_gp_timer_interrupt(int irq, void *dev_id)
 #ifdef CONFIG_IPIPE
 	if (!evt->ipipe_stolen)
 #endif /* CONFIG_IPIPE */
-		__omap_dm_timer_write_status(&clkev, OMAP_TIMER_INT_OVERFLOW);
+		omap2_gp_timer_ack();
 
 	if (num_online_cpus() == 1)
 		__ipipe_tsc_update();
@@ -141,13 +147,7 @@ static void omap2_gp_timer_set_mode(enum clock_event_mode mode,
 }
 
 #ifdef CONFIG_IPIPE
-static void omap2_gp_timer_ack(void)
-{
-	__omap_dm_timer_write_status(&clkev, OMAP_TIMER_INT_OVERFLOW);
-	__omap_dm_timer_read_status(&clkev);
-}
-
-static struct ipipe_timer itimer = {
+static struct ipipe_timer omap_itimer = {
 	.ack = omap2_gp_timer_ack,
 };
 #endif /* CONFIG_IPIPE */
@@ -266,9 +266,9 @@ static void __init omap2_gp_clockevent_init(int gptimer_id,
 
 #ifdef CONFIG_IPIPE
 	if (num_online_cpus() == 1) {
-		itimer.irq = clkev.irq;
-		itimer.min_delay_ticks = 3;
-		clockevent_gpt.ipipe_timer = &itimer;
+		omap_itimer.irq = clkev.irq;
+		omap_itimer.min_delay_ticks = 3;
+		clockevent_gpt.ipipe_timer = &omap_itimer;
 	}
 #endif /* CONFIG_IPIPE */
 

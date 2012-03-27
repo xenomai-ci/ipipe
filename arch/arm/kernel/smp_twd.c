@@ -35,7 +35,7 @@ static unsigned long twd_timer_rate;
 
 static struct clock_event_device __percpu **twd_evt;
 #if defined(CONFIG_IPIPE) && defined(CONFIG_SMP)
-static DEFINE_PER_CPU(struct ipipe_timer, itimer);
+static DEFINE_PER_CPU(struct ipipe_timer, twd_itimer);
 
 void __iomem *gt_base;
 
@@ -258,7 +258,7 @@ void __cpuinit twd_timer_setup(struct clock_event_device *clk)
 	printk(KERN_INFO "I-pipe, %lu.%03lu MHz timer\n",
 	       twd_timer_rate / 1000000,
 	       (twd_timer_rate % 1000000) / 1000);
-	clk->ipipe_timer = __this_cpu_ptr(&itimer);
+	clk->ipipe_timer = __this_cpu_ptr(&twd_itimer);
 	clk->ipipe_timer->irq = clk->irq;
 	clk->ipipe_timer->ack = twd_ack;
 	clk->ipipe_timer->min_delay_ticks = 0xf;
