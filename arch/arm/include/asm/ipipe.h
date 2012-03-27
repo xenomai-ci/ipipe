@@ -90,7 +90,7 @@ extern unsigned long __ipipe_kuser_tsc_freq;
 unsigned long long __ipipe_mach_get_tsc(void);
 #define __ipipe_tsc_get() __ipipe_mach_get_tsc()
 #ifndef __ipipe_mach_hrclock_freq
-#define __ipipe_mach_hrclock_freq __ipipe_hrtimer_freq
+#define __ipipe_mach_hrclock_freq __ipipe_mach_hrtimer_freq
 #endif /* !__ipipe_mach_hrclock_freq */
 #endif /* ! generic tsc */
 

@@ -541,3 +541,7 @@ EXPORT_SYMBOL_GPL(irq_desc);
 EXPORT_SYMBOL_GPL(__new_context);
 EXPORT_SYMBOL_GPL(cpu_last_asid);
 #endif /* CONFIG_CPU_HAS_ASID */
+
+#ifdef CONFIG_SMP
+EXPORT_SYMBOL_GPL(__cpu_logical_map);
+#endif /* CONFIG_IPIPE */
