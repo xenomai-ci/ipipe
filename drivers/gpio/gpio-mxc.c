@@ -569,8 +569,8 @@ static int mxc_pic_muter_register(void)
 	struct ipipe_mach_pic_muter gic_pic_muter = {
 		.enable_irqdesc = mxc_enable_irqdesc,
 		.disable_irqdesc = mxc_disable_irqdesc,
-		.mute = gic_mute_pic,
-		.unmute = gic_unmute_pic,
+		.mute = gic_mute,
+		.unmute = gic_unmute,
 	};
 
 	ipipe_pic_muter_register(&gic_pic_muter);

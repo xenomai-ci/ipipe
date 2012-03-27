@@ -65,4 +65,8 @@ extern int imx_irq_set_priority(unsigned char irq, unsigned char prio);
 /* switch between IRQ and FIQ */
 extern int mxc_set_irq_fiq(unsigned int irq, unsigned int type);
 
+#if defined(CONFIG_SOC_IMX6Q) && defined(CONFIG_SMP)
+#include <asm/smp_twd.h>
+#endif /* CONFIG_ARCH_MX6 */
+
 #endif /* __ASM_ARCH_MXC_IRQS_H__ */
