@@ -13,6 +13,7 @@ static IPIPE_DEFINE_SPINLOCK(lock);
 
 static DEFINE_PER_CPU(struct ipipe_timer *, percpu_timer);
 
+#ifdef CONFIG_GENERIC_CLOCKEVENTS
 /*
  * Default request method: sets the timer to oneshot mode using host
  * timer method. Do nothing if the host timer does not support one-shot
@@ -77,6 +78,7 @@ void ipipe_host_timer_register(struct clock_event_device *evtdev)
 
 	ipipe_timer_register(timer);
 }
+#endif /* CONFIG_GENERIC_CLOCKEVENTS */
 
 /*
  * register a timer: maintain them in a list sorted by rating
@@ -110,7 +112,11 @@ static void ipipe_timer_request_sync(void)
 
 	evtdev = timer->host_timer;
 
+#ifdef CONFIG_GENERIC_CLOCKEVENTS
 	steal = evtdev != NULL && evtdev->mode != CLOCK_EVT_MODE_UNUSED;
+#else /* !CONFIG_GENERIC_CLOCKEVENTS */
+	steal = 1;
+#endif /* !CONFIG_GENERIC_CLOCKEVENTS */
 
 	timer->request(timer, steal);
 }
@@ -133,8 +139,10 @@ int ipipe_timers_request(void)
 				continue;
 
 			evtdev = t->host_timer;
+#ifdef CONFIG_GENERIC_CLOCKEVENTS
 			if (!evtdev
 			    || evtdev->mode != CLOCK_EVT_MODE_SHUTDOWN)
+#endif /* CONFIG_GENERIC_CLOCKEVENTS */
 				goto found;
 		}
 		printk("I-pipe: could not find timer for cpu #%d\n", cpu);
@@ -230,6 +238,7 @@ int ipipe_timer_start(void (*tick_handler)(void),
 			goto done;
 	}
 
+#ifdef CONFIG_GENERIC_CLOCKEVENTS
 	steal = evtdev != NULL && evtdev->mode != CLOCK_EVT_MODE_UNUSED;
 
 	if (steal && evtdev->ipipe_stolen == 0) {
@@ -246,6 +255,10 @@ int ipipe_timer_start(void (*tick_handler)(void),
 	*tmfreq = timer->freq;
 
 	rc = evtdev ? evtdev->mode : CLOCK_EVT_MODE_UNUSED;
+#else /* CONFIG_GENERIC_CLOCKEVENTS */
+	steal = 1;
+	rc = 0;
+#endif /* CONFIG_GENERIC_CLOCKEVENTS */
 
   done:
 	ipipe_critical_exit(flags);
@@ -264,6 +277,7 @@ void ipipe_timer_stop(unsigned cpu)
 
 	flags = ipipe_critical_enter(NULL);
 
+#ifdef CONFIG_GENERIC_CLOCKEVENTS
 	if (evtdev && evtdev->ipipe_stolen) {
 		evtdev->mult = timer->real_mult;
 		evtdev->shift = timer->real_shift;
@@ -273,6 +287,7 @@ void ipipe_timer_stop(unsigned cpu)
 		timer->real_set_next_event = NULL;
 		evtdev->ipipe_stolen = 0;
 	}
+#endif /* CONFIG_GENERIC_CLOCKEVENTS */
 
 	ipipe_free_irq(ipipe_head_domain, timer->irq);
 

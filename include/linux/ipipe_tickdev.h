@@ -30,6 +30,9 @@
 
 #ifdef CONFIG_IPIPE
 
+enum clock_event_mode;
+struct clock_event_device;
+
 struct ipipe_hostrt_data {
 	short live;
 	seqcount_t seqcount;
