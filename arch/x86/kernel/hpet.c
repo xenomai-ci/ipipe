@@ -12,6 +12,7 @@
 #include <linux/cpu.h>
 #include <linux/pm.h>
 #include <linux/io.h>
+#include <linux/ipipe_tickdev.h>
 
 #include <asm/fixmap.h>
 #include <asm/hpet.h>
@@ -52,6 +53,9 @@ struct hpet_dev {
 	int				cpu;
 	unsigned int			irq;
 	unsigned int			flags;
+#ifdef CONFIG_IPIPE
+	struct ipipe_timer		itimer;
+#endif /* CONFIG_IPIPE */
 	char				name[10];
 };
 
@@ -226,6 +230,12 @@ static void hpet_legacy_set_mode(enum clock_event_mode mode,
 static int hpet_legacy_next_event(unsigned long delta,
 			   struct clock_event_device *evt);
 
+#ifdef CONFIG_IPIPE
+static struct ipipe_timer hpet_itimer = {
+	.irq = 0,
+};
+#endif /* CONFIG_IPIPE */
+
 /*
  * The hpet clock event device
  */
@@ -236,6 +246,9 @@ static struct clock_event_device hpet_clockevent = {
 	.set_next_event = hpet_legacy_next_event,
 	.irq		= 0,
 	.rating		= 50,
+#ifdef CONFIG_IPIPE
+	.ipipe_timer    = &hpet_itimer,
+#endif /* CONFIG_IPIPE */
 };
 
 static void hpet_stop_counter(void)
@@ -556,6 +569,11 @@ static void init_one_hpet_msi_clockevent(struct hpet_dev *hdev, int cpu)
 	evt->set_mode = hpet_msi_set_mode;
 	evt->set_next_event = hpet_msi_next_event;
 	evt->cpumask = cpumask_of(hdev->cpu);
+
+#ifdef CONFIG_IPIPE
+	hdev->itimer.irq = hdev->irq;
+	evt->ipipe_timer = &hdev->itimer;
+#endif /* CONFIG_IPIPE */
 
 	clockevents_config_and_register(evt, hpet_freq, HPET_MIN_PROG_DELTA,
 					0x7FFFFFFF);

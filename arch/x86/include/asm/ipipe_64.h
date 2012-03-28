@@ -30,7 +30,6 @@
 
 extern unsigned int cpu_khz;
 #define __ipipe_cpu_freq	({ unsigned long long __freq = (1000ULL * cpu_khz); __freq; })
-#define __ipipe_hrtimer_freq	__ipipe_cpu_freq
 #define __ipipe_hrclock_freq	__ipipe_cpu_freq
 
 #define ipipe_tsc2ns(t)	(((t) * 1000UL) / (__ipipe_hrclock_freq / 1000000UL))

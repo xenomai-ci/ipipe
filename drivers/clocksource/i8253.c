@@ -10,6 +10,7 @@
 #include <linux/i8253.h>
 #include <linux/smp.h>
 #include <linux/ipipe.h>
+#include <linux/ipipe_tickdev.h>
 
 /*
  * Protects access to I/O ports
@@ -17,7 +18,7 @@
  * 0040-0043 : timer0, i8253 / i8254
  * 0061-0061 : NMI Control Register which contains two speaker control bits.
  */
-DEFINE_RAW_SPINLOCK(i8253_lock);
+IPIPE_DEFINE_RAW_SPINLOCK(i8253_lock);
 EXPORT_SYMBOL(i8253_lock);
 
 #ifdef CONFIG_CLKSRC_I8253
@@ -155,12 +156,24 @@ static void init_pit_timer(enum clock_event_mode mode,
 static int pit_next_event(unsigned long delta, struct clock_event_device *evt)
 {
 	raw_spin_lock(&i8253_lock);
+#ifndef CONFIG_IPIPE
 	outb_p(delta & 0xff , PIT_CH0);	/* LSB */
 	outb_p(delta >> 8 , PIT_CH0);		/* MSB */
+#else /* CONFIG_IPIPE */
+	outb(delta & 0xff , PIT_CH0);	/* LSB */
+	outb(delta >> 8 , PIT_CH0);		/* MSB */
+#endif /* CONFIG_IPIPE */
 	raw_spin_unlock(&i8253_lock);
 
 	return 0;
 }
+
+#ifdef CONFIG_IPIPE
+static struct ipipe_timer i8253_itimer = {
+	.irq = 0,
+	.min_delay_ticks = 1,
+};
+#endif /* CONFIG_IPIPE */
 
 /*
  * On UP the PIT can serve all of the possible timer functions. On SMP systems
@@ -171,6 +184,9 @@ struct clock_event_device i8253_clockevent = {
 	.features	= CLOCK_EVT_FEAT_PERIODIC,
 	.set_mode	= init_pit_timer,
 	.set_next_event = pit_next_event,
+#ifdef CONFIG_IPIPE
+	.ipipe_timer    = &i8253_itimer,
+#endif /* CONFIG_IPIPE */
 };
 
 /*

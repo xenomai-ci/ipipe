@@ -52,9 +52,6 @@
 #include <asm/traps.h>
 #include <asm/tsc.h>
 
-int __ipipe_hrtimer_irq = 0;	/* Legacy timer */
-EXPORT_SYMBOL_GPL(__ipipe_hrtimer_irq);
-
 DEFINE_PER_CPU(unsigned long, __ipipe_cr2);
 EXPORT_PER_CPU_SYMBOL_GPL(__ipipe_cr2);
 
@@ -76,7 +73,7 @@ int ipipe_get_sysinfo(struct ipipe_sysinfo *info)
 {
 	info->sys_nr_cpus = num_online_cpus();
 	info->sys_cpu_freq = __ipipe_cpu_freq;
-	info->sys_hrtimer_irq = __ipipe_hrtimer_irq;
+	info->sys_hrtimer_irq = per_cpu(ipipe_percpu.hrtimer_irq, 0);
 	info->sys_hrtimer_freq = __ipipe_hrtimer_freq;
 	info->sys_hrclock_freq = __ipipe_hrclock_freq;
 
@@ -580,8 +577,8 @@ int __ipipe_syscall_root(struct pt_regs *regs)
 
 int __ipipe_handle_irq(struct pt_regs *regs)
 {
+	struct ipipe_percpu_data *p = __ipipe_this_cpu_ptr(&ipipe_percpu);
 	int irq, vector = regs->orig_ax;
-	struct pt_regs *tick_regs;
 	int ackit = 1;
 
 	if (likely(vector < 0)) {
@@ -608,8 +605,10 @@ int __ipipe_handle_irq(struct pt_regs *regs)
 	 * the timer handler charges CPU times properly. It is assumed
 	 * that no other interrupt handler cares for such information.
 	 */
-	if (irq == __ipipe_hrtimer_irq) {
-		tick_regs = __this_cpu_ptr(&ipipe_percpu.tick_regs);
+	if (irq == p->hrtimer_irq || p->hrtimer_irq == -1) {
+		struct pt_regs *tick_regs;
+
+		tick_regs = &p->tick_regs;
 		tick_regs->flags = regs->flags;
 		tick_regs->cs = regs->cs;
 		tick_regs->ip = regs->ip;
@@ -632,26 +631,6 @@ int __ipipe_handle_irq(struct pt_regs *regs)
 		return 0;
 
 	return 1;
-}
-
-int __ipipe_check_tickdev(const char *devname)
-{
-	int ret = 1;
-
-#ifdef CONFIG_X86_LOCAL_APIC
-	if (!strcmp(devname, "lapic")) {
-		ret = __ipipe_check_lapic();
-		if (ret)
-			return ret;
-		printk(KERN_INFO
-		       "I-pipe: cannot use LAPIC as a tick device\n");
-		if (cpu_has_amd_erratum(amd_erratum_400))
-			printk(KERN_INFO
-			       "I-pipe: disable C1E power state in your BIOS\n");
-	}
-#endif
-
-	return ret;
 }
 
 #ifdef CONFIG_X86_32

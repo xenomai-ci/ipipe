@@ -34,6 +34,7 @@
 #include <linux/dmi.h>
 #include <linux/smp.h>
 #include <linux/mm.h>
+#include <linux/ipipe_tickdev.h>
 
 #include <asm/perf_event.h>
 #include <asm/x86_init.h>
@@ -482,6 +483,17 @@ static void lapic_timer_broadcast(const struct cpumask *mask)
 #endif
 }
 
+#ifdef CONFIG_IPIPE
+static void lapic_itimer_ack(void)
+{
+	__ack_APIC_irq();
+}
+
+static DEFINE_PER_CPU(struct ipipe_timer, lapic_itimer) = {
+	.irq = ipipe_apic_vector_irq(LOCAL_TIMER_VECTOR),
+	.ack = lapic_itimer_ack,
+};
+#endif /* CONFIG_IPIPE */
 
 /*
  * The local apic timer can be used for any function which is CPU local.
@@ -515,6 +527,17 @@ static void __cpuinit setup_APIC_timer(void)
 
 	memcpy(levt, &lapic_clockevent, sizeof(*levt));
 	levt->cpumask = cpumask_of(smp_processor_id());
+#ifdef CONFIG_IPIPE
+	if (!(lapic_clockevent.features & CLOCK_EVT_FEAT_DUMMY))
+		levt->ipipe_timer = &__get_cpu_var(lapic_itimer);
+	else {
+	       printk(KERN_INFO
+		      "I-pipe: cannot use LAPIC as a tick device\n");
+	       if (cpu_has_amd_erratum(amd_erratum_400))
+		       printk(KERN_INFO
+			      "I-pipe: disable C1E power state in your BIOS\n");
+	}
+#endif /* CONFIG_IPIPE */
 
 	clockevents_register_device(levt);
 }
@@ -1028,11 +1051,6 @@ void lapic_shutdown(void)
 
 
 	hard_local_irq_restore(flags);
-}
-
-int __ipipe_check_lapic(void)
-{
-	return !(lapic_clockevent.features & CLOCK_EVT_FEAT_DUMMY);
 }
 
 /*
