@@ -67,24 +67,6 @@ void __ipipe_serial_debug(const char *fmt, ...);
 #define __ipipe_serial_debug(fmt, args...)	do { } while (0)
 #endif
 
-#ifdef CONFIG_X86_LOCAL_APIC
-#define ipipe_update_tick_evtdev(evtdev)				\
-	do {								\
-		if (strcmp((evtdev)->name, "lapic") == 0)		\
-			__ipipe_hrtimer_irq =				\
-				ipipe_apic_vector_irq(LOCAL_TIMER_VECTOR); \
-		else							\
-			__ipipe_hrtimer_irq = 0;			\
-	} while (0)
-#else
-#define ipipe_update_tick_evtdev(evtdev)				\
-	__ipipe_hrtimer_irq = 0
-#endif
-
-int __ipipe_check_lapic(void);
-
-int __ipipe_check_tickdev(const char *devname);
-
 #define __ipipe_syscall_watched_p(p, sc)	\
 	(ipipe_notifier_enabled_p(p) || (unsigned long)sc >= NR_syscalls)
 
@@ -103,7 +85,6 @@ static inline void ipipe_notify_root_preemption(void)
 
 #define ipipe_mm_switch_protect(flags)		do { (void)(flags); } while(0)
 #define ipipe_mm_switch_unprotect(flags)	do { (void)(flags); } while(0)
-#define ipipe_update_tick_evtdev(evtdev)	do { } while (0)
 
 #endif /* CONFIG_IPIPE */
 

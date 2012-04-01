@@ -233,8 +233,6 @@ static inline void ipipe_handle_multi_ipi(int irq, struct pt_regs *regs)
 }
 #endif /* CONFIG_SMP */
 
-#define ipipe_update_tick_evtdev(evtdev) do { } while(0)
-
 static inline unsigned long __ipipe_ffnz(unsigned long ul)
 {
 	return ffs(ul) - 1;
@@ -248,8 +246,6 @@ static inline unsigned long __ipipe_ffnz(unsigned long ul)
 #else /* !CONFIG_IPIPE */
 
 #define __ipipe_update_tsc()	do { } while(0)
-
-#define ipipe_update_tick_evtdev(evtdev)	do { } while(0)
 
 #define hard_smp_processor_id()		smp_processor_id()
 

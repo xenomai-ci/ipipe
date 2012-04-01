@@ -236,6 +236,4 @@ static inline void ipipe_post_cascade_eoi(struct irq_desc *desc)
 
 #endif /* !CONFIG_IPIPE */
 
-#define ipipe_update_tick_evtdev(evtdev)	do { } while (0)
-
 #endif /* !__ASM_POWERPC_IPIPE_H */

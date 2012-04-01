@@ -147,6 +147,4 @@ static inline void ipipe_notify_root_preemption(void) { }
 #define IRQ_PRIOTMR		CONFIG_IRQ_TIMER0
 #endif
 
-#define ipipe_update_tick_evtdev(evtdev)	do { } while (0)
-
 #endif	/* !__ASM_BLACKFIN_IPIPE_H */
