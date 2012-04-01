@@ -106,7 +106,7 @@ int ipipe_timer_start(void (*tick_handler)(void),
 				      struct clock_event_device *cdev),
 		      int (*emutick)(unsigned long evt,
 				     struct clock_event_device *cdev),
-		      unsigned cpu, unsigned long *tmfreq);
+		      unsigned cpu);
 
 /*
  * Stop handling a per-cpu timer

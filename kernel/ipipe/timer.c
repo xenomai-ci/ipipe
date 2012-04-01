@@ -253,7 +253,7 @@ int ipipe_timer_start(void (*tick_handler)(void),
 				      struct clock_event_device *cdev),
 		      int (*emutick)(unsigned long evt,
 				     struct clock_event_device *cdev),
-		      unsigned cpu, unsigned long *tmfreq)
+		      unsigned cpu)
 {
 	struct clock_event_device *evtdev;
 	struct ipipe_timer *timer;
@@ -287,7 +287,6 @@ int ipipe_timer_start(void (*tick_handler)(void),
 		evtdev->set_next_event = emutick;
 		evtdev->ipipe_stolen = 1;
 	}
-	*tmfreq = timer->freq;
 
 	rc = evtdev ? evtdev->mode : CLOCK_EVT_MODE_UNUSED;
 #else /* CONFIG_GENERIC_CLOCKEVENTS */
