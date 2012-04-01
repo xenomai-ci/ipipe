@@ -71,7 +71,6 @@ void ipipe_host_timer_register(struct clock_event_device *evtdev)
 	if (timer == NULL)
 		return;
 
-	BUG_ON(timer->irq == 0);
 	if (timer->request == NULL)
 		timer->request = ipipe_timer_default_request;
 
@@ -85,7 +84,6 @@ void ipipe_host_timer_register(struct clock_event_device *evtdev)
 		timer->set = (typeof(timer->set))evtdev->set_next_event;
 	}
 
-	BUG_ON(timer->ack == NULL);
 	if (timer->release == NULL)
 		timer->release = ipipe_timer_default_release;
 
@@ -242,9 +240,12 @@ static void __ipipe_ack_hrtimer_irq(unsigned int irq, struct irq_desc *desc)
 {
 	struct ipipe_timer *timer = __ipipe_this_cpu_read(percpu_timer);
 
-	desc->ipipe_ack(irq, desc);
-	timer->ack();
-	desc->ipipe_end(irq, desc);
+	if (desc)
+		desc->ipipe_ack(irq, desc);
+	if (timer->ack)
+		timer->ack();
+	if (desc)
+		desc->ipipe_end(irq, desc);
 }
 
 int ipipe_timer_start(void (*tick_handler)(void),
