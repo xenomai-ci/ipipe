@@ -1305,8 +1305,8 @@ static inline int IO_APIC_irq_trigger(int irq)
 		}
 	}
 	/*
-         * nonexistent IRQs are edge default
-         */
+	 * nonexistent IRQs are edge default
+	 */
 	return 0;
 }
 #else
@@ -1435,6 +1435,19 @@ static int setup_ioapic_entry(int irq, struct IO_APIC_route_entry *entry,
 	return 0;
 }
 
+#ifdef CONFIG_IPIPE
+static void mask_legacy_irq(unsigned irq)
+{
+	unsigned long flags;
+	legacy_pic->mask(irq);
+	flags = hard_local_irq_save();
+	__ipipe_unlock_irq(irq);
+	hard_local_irq_restore(flags);
+}
+#else /* !CONFIG_IPIPE */
+#define mask_legacy_irq(irq) legacy_pic->mask(irq)
+#endif /* !CONFIG_IPIPE */
+
 static void setup_ioapic_irq(unsigned int irq, struct irq_cfg *cfg,
 				struct io_apic_irq_attr *attr)
 {
@@ -1472,7 +1485,7 @@ static void setup_ioapic_irq(unsigned int irq, struct irq_cfg *cfg,
 
 	ioapic_register_intr(irq, cfg, attr->trigger);
 	if (irq < legacy_pic->nr_legacy_irqs)
-		legacy_pic->mask(irq);
+		mask_legacy_irq(irq);
 
 	ioapic_write_entry(attr->ioapic, attr->ioapic_pin, entry);
 }
@@ -2911,7 +2924,7 @@ static inline void __init check_timer(void)
 	/*
 	 * get/set the timer IRQ vector:
 	 */
-	legacy_pic->mask(0);
+	mask_legacy_irq(0);
 	assign_irq_vector(0, cfg, apic->target_cpus());
 
 	/*
@@ -3003,7 +3016,7 @@ static inline void __init check_timer(void)
 		 * Cleanup, just in case ...
 		 */
 		local_irq_disable();
-		legacy_pic->mask(0);
+		mask_legacy_irq(0);
 		clear_IO_APIC_pin(apic2, pin2);
 		apic_printk(APIC_QUIET, KERN_INFO "....... failed.\n");
 	}
@@ -3024,7 +3037,7 @@ static inline void __init check_timer(void)
 		goto out;
 	}
 	local_irq_disable();
-	legacy_pic->mask(0);
+	mask_legacy_irq(0);
 	apic_write(APIC_LVT0, APIC_LVT_MASKED | APIC_DM_FIXED | cfg->vector);
 	apic_printk(APIC_QUIET, KERN_INFO "..... failed.\n");
 
@@ -3078,8 +3091,8 @@ void __init setup_IO_APIC(void)
 
 	apic_printk(APIC_VERBOSE, "ENABLING IO-APIC IRQs\n");
 	/*
-         * Set up IO-APIC IRQ routing.
-         */
+	 * Set up IO-APIC IRQ routing.
+	 */
 	x86_init.mpparse.setup_ioapic_ids();
 
 	sync_Arb_IDs();
