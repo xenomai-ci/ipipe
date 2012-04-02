@@ -1717,7 +1717,7 @@ int __get_user_pages(struct task_struct *tsk, struct mm_struct *mm,
 
 	VM_BUG_ON(!!pages != !!(gup_flags & FOLL_GET));
 
-	/* 
+	/*
 	 * Require read or write permissions.
 	 * If FOLL_FORCE is set, we only require the "MAY" flags.
 	 */
@@ -4091,13 +4091,31 @@ static inline int ipipe_pin_pud_range(struct mm_struct *mm, pgd_t *pgd,
 	return 0;
 }
 
-int ipipe_disable_ondemand_mappings(struct task_struct *tsk)
+int __ipipe_pin_vma(struct mm_struct *mm, struct vm_area_struct *vma)
 {
 	unsigned long addr, next, end;
+	pgd_t *pgd;
+
+	addr = vma->vm_start;
+	end = vma->vm_end;
+
+	pgd = pgd_offset(mm, addr);
+	do {
+		next = pgd_addr_end(addr, end);
+		if (pgd_none_or_clear_bad(pgd))
+			continue;
+		if (ipipe_pin_pud_range(mm, pgd, vma, addr, next))
+			return -ENOMEM;
+	} while (pgd++, addr = next, addr != end);
+
+	return 0;
+}
+
+int ipipe_disable_ondemand_mappings(struct task_struct *tsk)
+{
 	struct vm_area_struct *vma;
 	struct mm_struct *mm;
 	int result = 0;
-	pgd_t *pgd;
 
 	mm = get_task_mm(tsk);
 	if (!mm)
@@ -4112,19 +4130,9 @@ int ipipe_disable_ondemand_mappings(struct task_struct *tsk)
 		    || !(vma->vm_flags & VM_WRITE))
 			continue;
 
-		addr = vma->vm_start;
-		end = vma->vm_end;
-
-		pgd = pgd_offset(mm, addr);
-		do {
-			next = pgd_addr_end(addr, end);
-			if (pgd_none_or_clear_bad(pgd))
-				continue;
-			if (ipipe_pin_pud_range(mm, pgd, vma, addr, next)) {
-				result = -ENOMEM;
-				goto done_mm;
-			}
-		} while (pgd++, addr = next, addr != end);
+		result = __ipipe_pin_vma(mm, vma);
+		if (result < 0)
+			goto done_mm;
 	}
 	set_bit(MMF_VM_PINNED, &mm->flags);
 

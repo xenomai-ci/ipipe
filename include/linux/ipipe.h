@@ -642,6 +642,7 @@ int ipipe_set_ptd(int key,
 void *ipipe_get_ptd(int key);
 
 int ipipe_disable_ondemand_mappings(struct task_struct *tsk);
+int __ipipe_pin_vma(struct mm_struct *mm, struct vm_area_struct *vma);
 
 static inline void ipipe_nmi_enter(void)
 {
