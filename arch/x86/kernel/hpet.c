@@ -570,11 +570,6 @@ static void init_one_hpet_msi_clockevent(struct hpet_dev *hdev, int cpu)
 	evt->set_next_event = hpet_msi_next_event;
 	evt->cpumask = cpumask_of(hdev->cpu);
 
-#ifdef CONFIG_IPIPE
-	hdev->itimer.irq = hdev->irq;
-	evt->ipipe_timer = &hdev->itimer;
-#endif /* CONFIG_IPIPE */
-
 	clockevents_config_and_register(evt, hpet_freq, HPET_MIN_PROG_DELTA,
 					0x7FFFFFFF);
 }
@@ -630,8 +625,20 @@ static void hpet_msi_capability_lookup(unsigned int start_timer)
 		hdev->flags |= HPET_DEV_FSB_CAP;
 		hdev->flags |= HPET_DEV_VALID;
 		num_timers_used++;
-		if (num_timers_used == num_possible_cpus())
+		if (num_timers_used == num_possible_cpus()) {
+#ifdef CONFIG_IPIPE
+			/*
+			 * Only register ipipe_timers if there is one
+			 * for each cpu
+			 */
+			for (i = 0; i < num_timers_used; i++) {
+				hdev = &hpet_devs[i];
+				hdev->evt.ipipe_timer = &hdev->itimer;
+				hdev->itimer.irq = hdev->irq;
+			}
+#endif /* CONFIG_IPIPE */
 			break;
+		}
 	}
 
 	printk(KERN_INFO "HPET: %d timers in total, %d timers will be used for per-cpu timer\n",
