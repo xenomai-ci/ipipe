@@ -1213,6 +1213,68 @@ log:
 	__ipipe_sync_pipeline(ipipe_head_domain);
 }
 
+void __ipipe_defer_irq(unsigned int irq, int ackit) /* hw interrupts off */
+{
+	struct ipipe_domain *ipd;
+	struct irq_desc *desc;
+	unsigned long control;
+
+	/*
+	 * Survival kit when reading this code:
+	 *
+	 * - whatever case we are in, the irq will be logged and not
+	 *   dispatched, what remains to be found is the domain to log
+	 *   it to.
+	 *
+	 * - the caller tells us whether we should acknowledge this
+	 *   IRQ. Even virtual IRQs may require acknowledge on some
+	 *   platforms (e.g. arm/SMP).
+	 */
+
+#ifdef CONFIG_IPIPE_DEBUG
+	if (unlikely(irq >= IPIPE_NR_IRQS) ||
+	    (irq < NR_IRQS && irq_to_desc(irq) == NULL)) {
+		printk(KERN_ERR "I-pipe: spurious interrupt %u\n", irq);
+		return;
+	}
+#endif
+	/*
+	 * CAUTION: on some archs, virtual IRQs may have acknowledge
+	 * handlers.
+	 */
+	if (likely(ackit)) {
+		ipd = ipipe_head_domain;
+		control = ipd->irqs[irq].control;
+		if ((control & IPIPE_HANDLE_MASK) == 0)
+			ipd = ipipe_root_domain;
+		desc = irq >= NR_IRQS ? NULL : irq_to_desc(irq);
+		if (ipd->irqs[irq].ackfn)
+			ipd->irqs[irq].ackfn(irq, desc);
+	}
+
+	/*
+	 * Sticky interrupts must be handled early and separately, so
+	 * that we always process them on the current domain.
+	 */
+	ipd = __ipipe_current_domain;
+	control = ipd->irqs[irq].control;
+	if (control & IPIPE_STICKY_MASK)
+		goto log;
+
+	ipd = ipipe_head_domain;
+	control = ipd->irqs[irq].control;
+	if (control & IPIPE_HANDLE_MASK)
+		goto log;
+
+	/*
+	 * The root domain must handle all interrupts, so testing the
+	 * HANDLE bit for it would be pointless.
+	 */
+	ipd = ipipe_root_domain;
+log:
+	__ipipe_set_irq_pending(ipd, irq);
+}
+
 #ifdef CONFIG_TRACE_IRQFLAGS
 #define root_stall_after_handler()	local_irq_disable()
 #else

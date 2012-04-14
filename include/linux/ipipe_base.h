@@ -127,6 +127,8 @@ void __ipipe_restore_root_nosync(unsigned long x);
 
 void __ipipe_dispatch_irq(unsigned int irq, int ackit);
 
+void __ipipe_defer_irq(unsigned int irq, int ackit);
+
 void __ipipe_do_sync_stage(void);
 
 void __ipipe_do_sync_pipeline(struct ipipe_domain *top);
