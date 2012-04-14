@@ -223,35 +223,13 @@ static void mxc_gpio_irq_handler(struct mxc_gpio_port *port, u32 irq_stat)
 {
 	u32 gpio_irq_no_base = port->virtual_irq_start;
 
-#ifdef CONFIG_IPIPE
-	/* Handle high priority domains interrupts first */
-	u32 nonroot_gpios = irq_stat & port->nonroot_gpios;
-
-	irq_stat &= ~nonroot_gpios;
-	while (nonroot_gpios != 0) {
-		int irqoffset = fls(nonroot_gpios) - 1;
+	while (irq_stat != 0) {
+		int irqoffset = fls(irq_stat) - 1;
 
 		if (port->both_edges & (1 << irqoffset))
 			mxc_flip_edge(port, irqoffset);
 
 		ipipe_handle_chained_irq(gpio_irq_no_base + irqoffset);
-
-		nonroot_gpios &= ~(1 << irqoffset);
-	}
-#endif
-
-	while (irq_stat != 0) {
-		int irqoffset = fls(irq_stat) - 1;
-
-#ifdef CONFIG_IPIPE
-		hard_local_irq_enable();
-		hard_local_irq_disable();
-#endif /* CONFIG_IPIPE */
-
-		if (port->both_edges & (1 << irqoffset))
-			mxc_flip_edge(port, irqoffset);
-
-		generic_handle_irq(gpio_irq_no_base + irqoffset);
 
 		irq_stat &= ~(1 << irqoffset);
 	}

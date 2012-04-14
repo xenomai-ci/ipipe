@@ -214,10 +214,8 @@ void __ipipe_handle_irq(int irq, struct pt_regs *regs);
 
 static inline void ipipe_handle_chained_irq(unsigned int irq)
 {
-	struct pt_regs regs;    /* dummy */
-
 	ipipe_trace_irq_entry(irq);
-	__ipipe_handle_irq(irq, &regs);
+	__ipipe_defer_irq(irq, 1);
 	ipipe_trace_irq_exit(irq);
 }
 
@@ -245,7 +243,7 @@ static inline unsigned long __ipipe_ffnz(unsigned long ul)
 
 #else /* !CONFIG_IPIPE */
 
-#define __ipipe_update_tsc()	do { } while(0)
+#define __ipipe_tsc_update()	do { } while(0)
 
 #define hard_smp_processor_id()		smp_processor_id()
 

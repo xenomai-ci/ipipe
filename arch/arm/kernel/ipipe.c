@@ -415,20 +415,8 @@ out:
  */
 void __ipipe_handle_irq(int irq, struct pt_regs *regs)
 {
-	int ackit;
-
 	/* Software-triggered IRQs do not need any ack. */
-	ackit = (regs != NULL);
-
-#ifdef CONFIG_IPIPE_DEBUG
-	if (unlikely(irq >= IPIPE_NR_IRQS) ||
-	    (!ipipe_virtual_irq_p(irq) && irq_to_desc(irq) == NULL)) {
-		printk(KERN_ERR "I-pipe: spurious interrupt %d\n", irq);
-		return;
-	}
-#endif
-
-	__ipipe_dispatch_irq(irq, ackit);
+	__ipipe_dispatch_irq(irq, (regs != NULL));
 }
 
 void __ipipe_exit_irq(struct pt_regs *regs)
