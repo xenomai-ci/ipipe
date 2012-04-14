@@ -14,7 +14,8 @@ extern __ipipe_tsc_t __ipipe_freerunning_64,
 	__ipipe_freerunning_32,
 	__ipipe_freerunning_16,
 	__ipipe_freerunning_countdown,
-	__ipipe_decrementer_16;
+	__ipipe_decrementer_16,
+	__ipipe_freerunning_twice_16;
 extern unsigned long __ipipe_tsc_addr;
 
 static struct __ipipe_tscinfo tsc_info;
@@ -69,6 +70,12 @@ void __ipipe_tsc_register(struct __ipipe_tscinfo *info)
 		if (info->u.mask != 0xffffffff)
 			goto unimplemented;
 		implem = &__ipipe_freerunning_countdown;
+		break;
+
+	case IPIPE_TSC_TYPE_FREERUNNING_TWICE:
+		if (info->u.mask != 0xffff)
+			goto unimplemented;
+		implem = &__ipipe_freerunning_twice_16;
 		break;
 
 	default:

@@ -77,7 +77,7 @@ static int clockevent_next_event(unsigned long evt,
 static unsigned prescale, max_delta_ticks;
 
 static struct __ipipe_tscinfo __maybe_unused tsc_info = {
-	.type = IPIPE_TSC_TYPE_FREERUNNING,
+	.type = IPIPE_TSC_TYPE_FREERUNNING_TWICE,
 	.u = {
 		{
 			.counter_paddr = SPEAR_GPT0_BASE + COUNT(CLKSRC),
