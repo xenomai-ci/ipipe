@@ -33,7 +33,10 @@
 #include <linux/io.h>
 #include <asm/system.h>
 #include <linux/atomic.h>
+#include <linux/ipipe_tickdev.h>
 #include <asm/irq_handler.h>
+#include <asm/blackfin.h>
+#include <asm/time.h>
 
 asmlinkage void asm_do_IRQ(unsigned int irq, struct pt_regs *regs);
 
@@ -140,7 +143,7 @@ asmlinkage int __ipipe_syscall_root(struct pt_regs *regs)
 	if (!__ipipe_syscall_watched_p(current, regs->orig_p0))
 		return 0;
 
-        ret = __ipipe_notify_syscall(regs);
+	ret = __ipipe_notify_syscall(regs);
 
 	hard_local_irq_disable();
 
@@ -186,8 +189,8 @@ int ipipe_get_sysinfo(struct ipipe_sysinfo *info)
 {
 	info->sys_nr_cpus = num_online_cpus();
 	info->sys_cpu_freq = ipipe_cpu_freq();
-	info->sys_hrtimer_irq = IRQ_CORETMR;
-	info->sys_hrtimer_freq = __ipipe_core_clock;
+	info->sys_hrtimer_irq = per_cpu(ipipe_percpu.hrtimer_irq, 0);
+	info->sys_hrtimer_freq = __ipipe_hrtimer_freq;
 	info->sys_hrclock_freq = __ipipe_core_clock;
 
 	return 0;
@@ -315,3 +318,58 @@ void __ipipe_unlock_root(void)
 	hard_smp_local_irq_restore(flags);
 }
 EXPORT_SYMBOL_GPL(__ipipe_unlock_root);
+
+#if !defined(CONFIG_GENERIC_CLOCKEVENTS) || defined(CONFIG_TICKSOURCE_GPTMR0)
+static void icoretmr_request(struct ipipe_timer *timer, int steal)
+{
+	bfin_write_TCNTL(TMPWR);
+	CSYNC();
+	bfin_write_TSCALE(TIME_SCALE - 1);
+	bfin_write_TPERIOD(0);
+	bfin_write_TCOUNT(0);
+	CSYNC();
+}
+
+static int icoretmr_set(unsigned long evt, void *timer)
+{
+	bfin_write_TCNTL(TMPWR);
+	CSYNC();
+	bfin_write_TCOUNT(evt - 1);
+	CSYNC();
+	bfin_write_TCNTL(TMPWR | TMREN);
+
+	return 0;
+}
+
+#ifdef CONFIG_DO_IRQ_L1
+__attribute__((l1_text))
+#endif
+static void icoretmr_ack(void)
+{
+	bfin_write_TIMER_STATUS(1); /* Latch TIMIL0 */
+}
+
+static void icoretmr_release(struct ipipe_timer *timer)
+{
+	/* Power down the core timer */
+	bfin_write_TCNTL(0);
+}
+
+static struct ipipe_timer icoretmr = {
+	.irq			= IRQ_CORETMR,
+	.request		= icoretmr_request,
+	.set			= icoretmr_set,
+	.ack			= icoretmr_ack,
+	.release		= icoretmr_release,
+
+	.name			= "bfin_coretmr",
+	.rating			= 100,
+	.min_delay_ticks	= 2,
+};
+
+void bfin_ipipe_coretmr_register(void)
+{
+	icoretmr.freq = get_cclk() / TIME_SCALE;
+	ipipe_timer_register(&icoretmr);
+}
+#endif /* !CLOCKEVENTS || GPTMR0 */
