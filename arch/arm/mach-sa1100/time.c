@@ -74,9 +74,7 @@ static irqreturn_t sa1100_ost0_interrupt(int irq, void *dev_id)
 {
 	struct clock_event_device *c = dev_id;
 
-#ifdef CONFIG_IPIPE
-	if (!c->ipipe_stolen)
-#endif /* CONFIG_IPIPE */
+	if (!clockevent_ipipe_stolen(c))
 		sa1100_ost0_ack();
 
 	__ipipe_tsc_update();

@@ -198,10 +198,8 @@ static irqreturn_t twd_handler(int irq, void *dev_id)
 {
 	struct clock_event_device *evt = *(struct clock_event_device **)dev_id;
 
-#ifdef CONFIG_IPIPE
-	if (evt->ipipe_stolen)
+	if (clockevent_ipipe_stolen(evt))
 		goto handle;
-#endif /* CONFIG_IPIPE */
 
 	if (twd_timer_ack()) {
 	  handle:

@@ -217,9 +217,7 @@ static irqreturn_t spear_timer_interrupt(int irq, void *dev_id)
 {
 	struct clock_event_device *evt = &clkevt;
 
-#ifdef CONFIG_IPIPE
-	if (!evt->ipipe_stolen)
-#endif /* CONFIG_IPIPE */
+	if (!clockevent_ipipe_stolen(evt))
 		spear_timer_ack();
 
 	__ipipe_tsc_update();

@@ -109,7 +109,11 @@ struct clock_event_device {
 #ifdef CONFIG_IPIPE
 	struct ipipe_timer      *ipipe_timer;
 	unsigned                ipipe_stolen;
-#endif /* CONFIG_IPIPE */
+
+#define clockevent_ipipe_stolen(evt) ((evt)->ipipe_stolen)
+#else
+#define clockevent_ipipe_stolen(evt) (0)
+#endif /* !CONFIG_IPIPE */
 } ____cacheline_aligned;
 
 /*
