@@ -76,10 +76,6 @@ void __ipipe_hook_critical_ipi(struct ipipe_domain *ipd)
 void __ipipe_register_ipi(unsigned int irq)
 {
 	__ipipe_ipi_irq = irq;
-	mb();
-#ifndef CONFIG_DEBUGGER
-	irq_get_chip(irq)->irq_startup(irq_get_irq_data(irq));
-#endif
 }
 
 static void __ipipe_ipi_demux(int irq, struct pt_regs *regs)
