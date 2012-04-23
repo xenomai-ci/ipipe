@@ -41,6 +41,7 @@
 #include <asm/hardirq.h>
 #include <asm/io.h>
 #include <asm/time.h>
+#include <linux/ipipe_tickdev.h>
 
 #ifdef CONFIG_PPC_BOOK3E_64
 #error "BOOK3E/64bit architecture not supported, yet"

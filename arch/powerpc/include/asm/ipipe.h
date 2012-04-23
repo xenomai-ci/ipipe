@@ -71,8 +71,6 @@ extern cpumask_t __ipipe_dbrk_pending;
 		(void)(flags);						\
 	} while(0)
 
-#define __ipipe_hrtimer_irq	IPIPE_TIMER_VIRQ
-#define __ipipe_hrtimer_freq	ppc_tb_freq
 #define __ipipe_hrclock_freq	__ipipe_hrtimer_freq
 #define __ipipe_cpu_freq	ppc_proc_freq
 
@@ -163,8 +161,6 @@ void __ipipe_serial_debug(const char *fmt, ...);
 #else
 #define __ipipe_serial_debug(fmt, args...)	do { } while (0)
 #endif
-
-#define __ipipe_tick_irq	IPIPE_TIMER_VIRQ
 
 static inline unsigned long __ipipe_ffnz(unsigned long ul)
 {

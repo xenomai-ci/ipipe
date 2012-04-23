@@ -54,6 +54,7 @@
 #include <linux/irq.h>
 #include <linux/delay.h>
 #include <linux/irq_work.h>
+#include <linux/ipipe_tickdev.h>
 #include <asm/trace.h>
 
 #include <asm/io.h>
@@ -581,7 +582,6 @@ void timer_interrupt(struct pt_regs * regs)
 	struct pt_regs *old_regs;
 	struct decrementer_clock *decrementer =  &__get_cpu_var(decrementers);
 	struct clock_event_device *evt = &decrementer->event;
-	int cpu = smp_processor_id();
 	u64 now;
 
 	/* Ensure a positive value is written to the decrementer, or else
@@ -980,9 +980,9 @@ static void register_decrementer_clockevent(int cpu)
 
 #ifdef CONFIG_IPIPE
 	dec->ipipe_timer = &per_cpu(decrementers, cpu).itimer;
-	dec->ipipe_timer.irq = IPIPE_TIMER_VIRQ;
-	dec->ipipe_timer.set = itimer_set;
-	dec->ipipe_timer.min_delay_ticks = 3;
+	dec->ipipe_timer->irq = IPIPE_TIMER_VIRQ;
+	dec->ipipe_timer->set = itimer_set;
+	dec->ipipe_timer->min_delay_ticks = 3;
 #endif /* CONFIG_IPIPE */
 
 	clockevents_register_device(dec);
