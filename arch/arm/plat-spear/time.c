@@ -77,7 +77,7 @@ static int clockevent_next_event(unsigned long evt,
 static unsigned prescale, max_delta_ticks;
 
 static struct __ipipe_tscinfo __maybe_unused tsc_info = {
-	.type = IPIPE_TSC_TYPE_FREERUNNING,
+	.type = IPIPE_TSC_TYPE_FREERUNNING_TWICE,
 	.u = {
 		{
 			.counter_paddr = SPEAR_GPT0_BASE + COUNT(CLKSRC),
@@ -217,9 +217,7 @@ static irqreturn_t spear_timer_interrupt(int irq, void *dev_id)
 {
 	struct clock_event_device *evt = &clkevt;
 
-#ifdef CONFIG_IPIPE
-	if (!evt->ipipe_stolen)
-#endif /* CONFIG_IPIPE */
+	if (!clockevent_ipipe_stolen(evt))
 		spear_timer_ack();
 
 	__ipipe_tsc_update();

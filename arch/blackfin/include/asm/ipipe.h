@@ -98,10 +98,8 @@ void __ipipe_handle_irq(unsigned irq, struct pt_regs *regs);
 
 static inline void ipipe_handle_chained_irq(unsigned int irq)
 {
-	struct pt_regs regs;	/* dummy */
-
 	ipipe_trace_irq_entry(irq);
-	__ipipe_handle_irq(irq, &regs);
+	__ipipe_defer_irq(irq, 1);
 	ipipe_trace_irq_exit(irq);
 }
 

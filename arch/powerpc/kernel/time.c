@@ -11,7 +11,7 @@
  * that this code assumes is that the timebases have been synchronized
  * by firmware on SMP and are never stopped (never do sleep
  * on SMP then, nap and doze are OK).
- * 
+ *
  * Speeded up do_gettimeofday by getting rid of references to
  * xtime (which required locks for consistency). (mikejc@us.ibm.com)
  *
@@ -122,12 +122,13 @@ static struct clock_event_device decrementer_clockevent = {
 
 struct decrementer_clock {
 	struct clock_event_device event;
+#ifdef CONFIG_IPIPE
+	struct ipipe_timer itimer;
+#endif /* CONFIG_IPIPE */
 	u64 next_tb;
 };
 
 static DEFINE_PER_CPU(struct decrementer_clock, decrementers);
-
-DEFINE_PER_CPU(int, disarm_decr);
 
 #ifdef CONFIG_PPC_ISERIES
 static unsigned long __initdata iSeries_recal_titan;
@@ -440,10 +441,10 @@ EXPORT_SYMBOL(profile_pc);
 
 #ifdef CONFIG_PPC_ISERIES
 
-/* 
+/*
  * This function recalibrates the timebase based on the 49-bit time-of-day
  * value in the Titan chip.  The Titan is much more accurate than the value
- * returned by the service processor for the timebase frequency.  
+ * returned by the service processor for the timebase frequency.
  */
 
 static int __init iSeries_tb_recal(void)
@@ -463,7 +464,7 @@ static int __init iSeries_tb_recal(void)
 		unsigned long new_tb_ticks_per_jiffy =
 			DIV_ROUND_CLOSEST(new_tb_ticks_per_sec, HZ);
 		long tick_diff = new_tb_ticks_per_jiffy - tb_ticks_per_jiffy;
-		char sign = '+';		
+		char sign = '+';
 		/* make sure tb_ticks_per_sec and tb_ticks_per_jiffy are consistent */
 		new_tb_ticks_per_sec = new_tb_ticks_per_jiffy * HZ;
 
@@ -586,7 +587,7 @@ void timer_interrupt(struct pt_regs * regs)
 	/* Ensure a positive value is written to the decrementer, or else
 	 * some CPUs will continue to take decrementer exceptions.
 	 */
-	if (!per_cpu(disarm_decr, cpu))
+	if (!clockevent_ipipe_stolen(evt))
 		set_dec(DECREMENTER_MAX);
 
 	/* Some implementations of hotplug will get timer interrupts while
@@ -625,11 +626,11 @@ void timer_interrupt(struct pt_regs * regs)
 #endif
 
 	now = get_tb_or_rtc();
-	if (per_cpu(disarm_decr, cpu) || now >= decrementer->next_tb) {
+	if (clockevent_ipipe_stolen(evt) || now >= decrementer->next_tb) {
 		decrementer->next_tb = ~(u64)0;
 		if (evt->event_handler)
 			evt->event_handler(evt);
-	} else if (!per_cpu(disarm_decr, cpu)) {
+	} else if (!clockevent_ipipe_stolen(evt)) {
 		now = decrementer->next_tb - now;
 		if (now <= DECREMENTER_MAX)
 			set_dec((int)now);
@@ -810,7 +811,7 @@ void read_persistent_clock(struct timespec *ts)
 		ts->tv_sec = 0;
 		ts->tv_nsec = 0;
 	}
-		
+
 }
 
 /* clocksource code */
@@ -919,6 +920,22 @@ static int decrementer_set_next_event(unsigned long evt,
 	return 0;
 }
 
+#ifdef CONFIG_IPIPE
+static int itimer_set(unsigned long evt, void *timer)
+{
+#ifndef CONFIG_40x
+	/*
+	 * Decrementer must be set to a positive 32bit value,
+	 * otherwise it would flood us with exceptions.
+	 */
+	if (evt > DECREMENTER_MAX)
+		evt = DECREMENTER_MAX;
+#endif /* CONFIG_40x */
+	set_dec((int)evt);
+	return 0;
+}
+#endif /* CONFIG_IPIPE */
+
 static void decrementer_set_mode(enum clock_event_mode mode,
 				 struct clock_event_device *dev)
 {
@@ -960,6 +977,13 @@ static void register_decrementer_clockevent(int cpu)
 
 	printk_once(KERN_DEBUG "clockevent: %s mult[%x] shift[%d] cpu[%d]\n",
 		    dec->name, dec->mult, dec->shift, cpu);
+
+#ifdef CONFIG_IPIPE
+	dec->ipipe_timer = &per_cpu(decrementers, cpu).itimer;
+	dec->ipipe_timer.irq = IPIPE_TIMER_VIRQ;
+	dec->ipipe_timer.set = itimer_set;
+	dec->ipipe_timer.min_delay_ticks = 3;
+#endif /* CONFIG_IPIPE */
 
 	clockevents_register_device(dec);
 }
@@ -1036,10 +1060,10 @@ void __init time_init(void)
 	boot_tb = get_tb_or_rtc();
 
 	/* If platform provided a timezone (pmac), we correct the time */
-        if (timezone_offset) {
+	if (timezone_offset) {
 		sys_tz.tz_minuteswest = -timezone_offset / 60;
 		sys_tz.tz_dsttime = 0;
-        }
+	}
 
 	vdso_data->tb_update_count = 0;
 	vdso_data->tb_ticks_per_sec = tb_ticks_per_sec;

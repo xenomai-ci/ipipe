@@ -261,7 +261,7 @@ int ipipe_get_sysinfo(struct ipipe_sysinfo *info)
 {
 	info->sys_nr_cpus = num_online_cpus();
 	info->sys_cpu_freq = __ipipe_cpu_freq;
-	info->sys_hrtimer_irq = __ipipe_hrtimer_irq;
+	info->sys_hrtimer_irq = per_cpu(ipipe_percpu.hrtimer_irq, 0);
 	info->sys_hrtimer_freq = __ipipe_hrtimer_freq;
 	info->sys_hrclock_freq = __ipipe_hrclock_freq;
 
@@ -464,7 +464,7 @@ asmlinkage notrace void __ipipe_trace_irqsx(unsigned long msr_ee)
 asmlinkage int __ipipe_syscall_root(struct pt_regs *regs)
 {
 	struct ipipe_percpu_domain_data *p;
-        int ret;
+	int ret;
 
 #ifdef CONFIG_PPC64
 	WARN_ON_ONCE(!hard_irqs_disabled());
@@ -483,22 +483,22 @@ asmlinkage int __ipipe_syscall_root(struct pt_regs *regs)
 #else
 	WARN_ON_ONCE(hard_irqs_disabled());
 #endif
-        /*
-         * This routine either returns:
-         * 0 -- if the syscall is to be passed to Linux;
-         * >0 -- if the syscall should not be passed to Linux, and no
-         * tail work should be performed;
-         * <0 -- if the syscall should not be passed to Linux but the
-         * tail work has to be performed (for handling signals etc).
-         */
+	/*
+	 * This routine either returns:
+	 * 0 -- if the syscall is to be passed to Linux;
+	 * >0 -- if the syscall should not be passed to Linux, and no
+	 * tail work should be performed;
+	 * <0 -- if the syscall should not be passed to Linux but the
+	 * tail work has to be performed (for handling signals etc).
+	 */
 
-        if (!__ipipe_syscall_watched_p(current, regs->gpr[0]))
-                return 0;
+	if (!__ipipe_syscall_watched_p(current, regs->gpr[0]))
+		return 0;
 
 #ifdef CONFIG_PPC64
 	hard_local_irq_enable();
 #endif
-        ret = __ipipe_notify_syscall(regs);
+	ret = __ipipe_notify_syscall(regs);
 
 	hard_local_irq_disable();
 
@@ -511,7 +511,7 @@ asmlinkage int __ipipe_syscall_root(struct pt_regs *regs)
 		__ipipe_notify_trap(IPIPE_TRAP_MAYDAY, regs);
 	}
 
-        if (!__ipipe_root_p) {
+	if (!__ipipe_root_p) {
 #ifdef CONFIG_PPC32
 		hard_local_irq_enable();
 #endif

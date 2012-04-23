@@ -92,9 +92,7 @@ static irqreturn_t omap2_gp_timer_interrupt(int irq, void *dev_id)
 {
 	struct clock_event_device *evt = &clockevent_gpt;
 
-#ifdef CONFIG_IPIPE
-	if (!evt->ipipe_stolen)
-#endif /* CONFIG_IPIPE */
+	if (!clockevent_ipipe_stolen(evt))
 		omap2_gp_timer_ack();
 
 	if (num_online_cpus() == 1)

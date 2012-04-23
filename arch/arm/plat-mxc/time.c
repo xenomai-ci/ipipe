@@ -254,9 +254,7 @@ static irqreturn_t mxc_timer_interrupt(int irq, void *dev_id)
 {
 	struct clock_event_device *evt = &clockevent_mxc;
 
-#ifdef CONFIG_IPIPE
-	if (!evt->ipipe_stolen)
-#endif /* CONFIG_IPIPE */
+	if (!clockevent_ipipe_stolen(evt))
 		mxc_timer_ack();
 
 	__ipipe_tsc_update();
