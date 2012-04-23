@@ -264,3 +264,5 @@ checkbin:
 
 CLEAN_FILES += $(TOUT)
 
+
+drivers-$(CONFIG_XENOMAI) += arch/powerpc/xenomai/
