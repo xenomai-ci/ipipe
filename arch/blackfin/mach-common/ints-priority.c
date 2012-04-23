@@ -295,7 +295,7 @@ static struct irq_chip bfin_internal_irqchip = {
 
 void bfin_handle_irq(unsigned irq)
 {
-	ipipe_handle_chained_irq(irq);
+	ipipe_handle_demuxed_irq(irq);
 }
 
 #if defined(CONFIG_BFIN_MAC) || defined(CONFIG_BFIN_MAC_MODULE)

@@ -578,8 +578,7 @@ int __ipipe_syscall_root(struct pt_regs *regs)
 int __ipipe_handle_irq(struct pt_regs *regs)
 {
 	struct ipipe_percpu_data *p = __ipipe_this_cpu_ptr(&ipipe_percpu);
-	int irq, vector = regs->orig_ax;
-	int ackit = 1;
+	int irq, vector = regs->orig_ax, flags = 0;
 
 	if (likely(vector < 0)) {
 		vector = ~vector;
@@ -594,10 +593,10 @@ int __ipipe_handle_irq(struct pt_regs *regs)
 		}
 	} else { /* Software-generated. */
 		irq = vector;
-		ackit = 0;
+		flags = IPIPE_IRQF_NOACK;
 	}
 
-	__ipipe_dispatch_irq(irq, ackit);
+	__ipipe_dispatch_irq(irq, flags);
 
 	/*
 	 * Given our deferred dispatching model for regular IRQs, we

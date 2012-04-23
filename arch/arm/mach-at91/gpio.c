@@ -425,7 +425,7 @@ static void gpio_irq_handler(unsigned irq, struct irq_desc *desc)
 
 		while (isr) {
 			if (isr & 1)
-				ipipe_handle_chained_irq(pin);
+				ipipe_handle_demuxed_irq(pin);
 			pin++;
 			isr >>= 1;
 		}

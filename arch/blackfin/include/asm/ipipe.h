@@ -96,13 +96,6 @@ void __ipipe_enable_pipeline(void);
 
 void __ipipe_handle_irq(unsigned irq, struct pt_regs *regs);
 
-static inline void ipipe_handle_chained_irq(unsigned int irq)
-{
-	ipipe_trace_irq_entry(irq);
-	__ipipe_defer_irq(irq, 1);
-	ipipe_trace_irq_exit(irq);
-}
-
 int __ipipe_get_irq_priority(unsigned int irq);
 
 void __ipipe_serial_debug(const char *fmt, ...);

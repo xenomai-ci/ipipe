@@ -288,7 +288,7 @@ static void viper_irq_handler(unsigned int irq, struct irq_desc *desc)
 
 		if (likely(pending)) {
 			irq = viper_bit_to_irq(__ffs(pending));
-			ipipe_handle_chained_irq(irq);
+			ipipe_handle_demuxed_irq(irq);
 		}
 		pending = viper_irq_pending();
 	} while (pending);

@@ -125,9 +125,10 @@ static inline void __ipipe_init_proc(void) { }
 
 void __ipipe_restore_root_nosync(unsigned long x);
 
-void __ipipe_dispatch_irq(unsigned int irq, int ackit);
+#define IPIPE_IRQF_NOACK    0x1
+#define IPIPE_IRQF_NOSYNC   0x2
 
-void __ipipe_defer_irq(unsigned int irq, int ackit);
+void __ipipe_dispatch_irq(unsigned int irq, int flags);
 
 void __ipipe_do_sync_stage(void);
 
@@ -338,7 +339,7 @@ static inline void __ipipe_pin_range_globally(unsigned long start,
 
 #define __ipipe_root_tick_p(regs)	1
 
-#define ipipe_handle_chained_irq(irq)		generic_handle_irq(irq)
+#define ipipe_handle_demuxed_irq(irq)		generic_handle_irq(irq)
 
 #define __ipipe_serial_debug(fmt, args...)	do { } while (0)
 

@@ -202,7 +202,6 @@ void __ipipe_grab_ipi(unsigned svc, struct pt_regs *regs);
 #define __ipipe_mach_init_platform()	do { } while(0)
 #endif
 
-
 void __ipipe_enable_pipeline(void);
 
 void __ipipe_do_critical_sync(unsigned irq, void *cookie);
@@ -212,13 +211,6 @@ void __ipipe_grab_irq(int irq, struct pt_regs *regs);
 void __ipipe_exit_irq(struct pt_regs *regs);
 
 void __ipipe_handle_irq(int irq, struct pt_regs *regs);
-
-static inline void ipipe_handle_chained_irq(unsigned int irq)
-{
-	ipipe_trace_irq_entry(irq);
-	__ipipe_defer_irq(irq, 1);
-	ipipe_trace_irq_exit(irq);
-}
 
 static inline void ipipe_handle_multi_irq(int irq, struct pt_regs *regs)
 {

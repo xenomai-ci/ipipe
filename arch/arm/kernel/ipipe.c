@@ -416,7 +416,7 @@ out:
 void __ipipe_handle_irq(int irq, struct pt_regs *regs)
 {
 	/* Software-triggered IRQs do not need any ack. */
-	__ipipe_dispatch_irq(irq, (regs != NULL));
+	__ipipe_dispatch_irq(irq, regs ? 0 : IPIPE_IRQF_NOACK);
 }
 
 void __ipipe_exit_irq(struct pt_regs *regs)

@@ -80,7 +80,7 @@ static void shirq_handler(unsigned irq, struct irq_desc *desc)
 			if (!(shirq->dev_config[i].status_mask & val))
 				continue;
 
-			ipipe_handle_chained_irq(shirq->dev_config[i].virq);
+			ipipe_handle_demuxed_irq(shirq->dev_config[i].virq);
 
 			/* clear interrupt */
 			val &= ~shirq->dev_config[i].status_mask;

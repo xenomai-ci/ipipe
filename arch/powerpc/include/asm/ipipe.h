@@ -135,19 +135,12 @@ void __ipipe_register_ipi(unsigned int irq);
 #define __ipipe_hook_critical_ipi(ipd)	do { } while(0)
 #endif /* CONFIG_SMP */
 
-void __ipipe_dispatch_irq(unsigned int irq, int ackit);
+void __ipipe_dispatch_irq(unsigned int irq, int flags);
 
 static inline void __ipipe_handle_irq(unsigned int irq, struct pt_regs *regs)
 {
 	/* NULL regs means software-triggered, no ack needed. */
-	__ipipe_dispatch_irq(irq, regs != NULL);
-}
-
-static inline void ipipe_handle_chained_irq(unsigned int irq)
-{
-	ipipe_trace_irq_entry(irq);
-	__ipipe_defer_irq(irq, 1);
-	ipipe_trace_irq_exit(irq);
+	__ipipe_dispatch_irq(irq, regs ? 0 : IPIPE_IRQF_NOACK);
 }
 
 struct irq_desc;
@@ -182,30 +175,6 @@ void handle_one_irq(unsigned int irq);
 
 void check_stack_overflow(void);
 
-static inline void ipipe_pre_cascade_noeoi(struct irq_desc *desc)
-{
-	struct irq_chip *chip = irq_desc_get_chip(desc);
-	chip->irq_mask(&desc->irq_data);
-}
-
-static inline void ipipe_post_cascade_noeoi(struct irq_desc *desc)
-{
-	struct irq_chip *chip = irq_desc_get_chip(desc);
-	chip->irq_unmask(&desc->irq_data);
-}
-
-static inline void ipipe_pre_cascade_eoi(struct irq_desc *desc)
-{
-	struct irq_chip *chip = irq_desc_get_chip(desc);
-	chip->irq_eoi(&desc->irq_data); /* EOI will mask too. */
-}
-
-static inline void ipipe_post_cascade_eoi(struct irq_desc *desc)
-{
-	struct irq_chip *chip = irq_desc_get_chip(desc);
-	chip->irq_unmask(&desc->irq_data);
-}
-
 static inline void ipipe_mute_pic(void) { }
 
 static inline void ipipe_unmute_pic(void) { }
@@ -218,15 +187,6 @@ static inline void ipipe_notify_root_preemption(void) { }
 
 #define ipipe_mm_switch_protect(flags)		do { (void)(flags); } while(0)
 #define ipipe_mm_switch_unprotect(flags)	do { (void)(flags); } while(0)
-#define	ipipe_pre_cascade_noeoi(desc)		do { } while (0)
-#define	ipipe_post_cascade_noeoi(desc)		do { } while (0)
-#define	ipipe_pre_cascade_eoi(desc)		do { } while (0)
-
-static inline void ipipe_post_cascade_eoi(struct irq_desc *desc)
-{
-	struct irq_chip *chip = irq_desc_get_chip(desc);
-	chip->irq_eoi(&desc->irq_data);
-}
 
 #endif /* !CONFIG_IPIPE */
 

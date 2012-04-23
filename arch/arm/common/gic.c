@@ -243,7 +243,7 @@ static void gic_handle_cascade_irq(unsigned int irq, struct irq_desc *desc)
 	if (unlikely(gic_irq < 32 || gic_irq > 1020 || cascade_irq >= NR_IRQS))
 		do_bad_IRQ(cascade_irq, desc);
 	else
-		ipipe_handle_chained_irq(cascade_irq);
+		ipipe_handle_demuxed_irq(cascade_irq);
 
  out:
 	chained_irq_exit(chip, desc);

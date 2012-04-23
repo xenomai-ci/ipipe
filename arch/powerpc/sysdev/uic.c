@@ -237,7 +237,7 @@ void uic_irq_cascade(unsigned int virq, struct irq_desc *desc)
 	src = 32 - ffs(msr);
 
 	subvirq = irq_linear_revmap(uic->irqhost, src);
-	ipipe_handle_chained_irq(subvirq);
+	ipipe_handle_demuxed_irq(subvirq);
 
 uic_irq_ret:
 #ifndef CONFIG_IPIPE

@@ -83,13 +83,14 @@ void __ipipe_enable_pipeline(void)
 void __ipipe_handle_irq(unsigned int irq, struct pt_regs *regs) /* hw IRQs off */
 {
 	struct ipipe_percpu_domain_data *p = ipipe_this_cpu_root_context();
-	int ackit, s = -1;
+	int flags, s = -1;
 
 	if (test_bit(IPIPE_SYNCDEFER_FLAG, &p->status))
 		s = __test_and_set_bit(IPIPE_STALL_FLAG, &p->status);
 
-	ackit = regs && irq != IRQ_SYSTMR && irq != IRQ_CORETMR;
-	__ipipe_dispatch_irq(irq, ackit);
+	flags = (regs && irq != IRQ_SYSTMR && irq != IRQ_CORETMR) ?
+		0 : IPIPE_IRQF_NOACK;
+	__ipipe_dispatch_irq(irq, flags);
 
 	if (s == 0)
 		__clear_bit(IPIPE_STALL_FLAG, &p->status);

@@ -100,7 +100,7 @@ static void pq2ads_pci_irq_demux(unsigned int irq, struct irq_desc *desc)
 		for (bit = 0; pend != 0; ++bit, pend <<= 1) {
 			if (pend & 0x80000000) {
 				int virq = irq_linear_revmap(priv->host, bit);
-				ipipe_handle_chained_irq(virq);
+				ipipe_handle_demuxed_irq(virq);
 			}
 		}
 	}

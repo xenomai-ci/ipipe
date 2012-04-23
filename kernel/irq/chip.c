@@ -691,11 +691,15 @@ void __ipipe_ack_bad_irq(unsigned irq, struct irq_desc *desc)
 	}
 }
 
-void __ipipe_noack_irq(unsigned irq, struct irq_desc *desc)
+static void __ipipe_noack_irq(unsigned irq, struct irq_desc *desc)
 {
 }
 
-void __ipipe_noend_irq(unsigned irq, struct irq_desc *desc)
+static void __ipipe_noend_irq(unsigned irq, struct irq_desc *desc)
+{
+}
+
+void __ipipe_chained_irq(unsigned irq, struct irq_desc *desc)
 {
 }
 
@@ -703,35 +707,35 @@ irq_flow_handler_t
 __fixup_irq_handler(struct irq_desc *desc, irq_flow_handler_t handle, int is_chained)
 {
 	if (unlikely(handle == NULL)) {
-		desc->ipipe_ack = &__ipipe_ack_bad_irq;
-		desc->ipipe_end = &__ipipe_noend_irq;
+		desc->ipipe_ack = __ipipe_ack_bad_irq;
+		desc->ipipe_end = __ipipe_noend_irq;
 	} else {
 		if (is_chained) {
 			desc->ipipe_ack = handle;
-			desc->ipipe_end = &__ipipe_noend_irq;
-			handle = __ipipe_noack_irq;
-		} else if (handle == &handle_simple_irq) {
-			desc->ipipe_ack = &__ipipe_ack_simple_irq;
-			desc->ipipe_end = &__ipipe_end_simple_irq;
-		} else if (handle == &handle_level_irq) {
-			desc->ipipe_ack = &__ipipe_ack_level_irq;
-			desc->ipipe_end = &__ipipe_end_level_irq;
-		} else if (handle == &handle_edge_irq) {
-			desc->ipipe_ack = &__ipipe_ack_edge_irq;
-			desc->ipipe_end = &__ipipe_end_edge_irq;
-		} else if (handle == &handle_fasteoi_irq) {
-			desc->ipipe_ack = &__ipipe_ack_fasteoi_irq;
-			desc->ipipe_end = &__ipipe_end_fasteoi_irq;
-		} else if (handle == &handle_percpu_irq ||
-			   handle == &handle_percpu_devid_irq) {
-			desc->ipipe_ack = &__ipipe_ack_percpu_irq;
-			desc->ipipe_end = &__ipipe_end_percpu_irq;
+			desc->ipipe_end = __ipipe_noend_irq;
+			handle = __ipipe_chained_irq;
+		} else if (handle == handle_simple_irq) {
+			desc->ipipe_ack = __ipipe_ack_simple_irq;
+			desc->ipipe_end = __ipipe_end_simple_irq;
+		} else if (handle == handle_level_irq) {
+			desc->ipipe_ack = __ipipe_ack_level_irq;
+			desc->ipipe_end = __ipipe_end_level_irq;
+		} else if (handle == handle_edge_irq) {
+			desc->ipipe_ack = __ipipe_ack_edge_irq;
+			desc->ipipe_end = __ipipe_end_edge_irq;
+		} else if (handle == handle_fasteoi_irq) {
+			desc->ipipe_ack = __ipipe_ack_fasteoi_irq;
+			desc->ipipe_end = __ipipe_end_fasteoi_irq;
+		} else if (handle == handle_percpu_irq ||
+			   handle == handle_percpu_devid_irq) {
+			desc->ipipe_ack = __ipipe_ack_percpu_irq;
+			desc->ipipe_end = __ipipe_end_percpu_irq;
 		} else if (irq_desc_get_chip(desc) == &no_irq_chip) {
-			desc->ipipe_ack = &__ipipe_noack_irq;
-			desc->ipipe_end = &__ipipe_noend_irq;
+			desc->ipipe_ack = __ipipe_noack_irq;
+			desc->ipipe_end = __ipipe_noend_irq;
 		} else {
-			desc->ipipe_ack = &__ipipe_ack_bad_irq;
-			desc->ipipe_end = &__ipipe_noend_irq;
+			desc->ipipe_ack = __ipipe_ack_bad_irq;
+			desc->ipipe_end = __ipipe_noend_irq;
 		}
 	}
 

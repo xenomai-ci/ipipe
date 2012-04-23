@@ -327,6 +327,21 @@ static inline void ipipe_end_irq(unsigned int irq)
 	desc->ipipe_end(irq, desc);
 }
 
+static inline int ipipe_chained_irq_p(unsigned int irq)
+{
+	void __ipipe_chained_irq(unsigned irq, struct irq_desc *desc);
+	struct irq_desc *desc = irq_to_desc(irq);
+
+	return desc->handle_irq == __ipipe_chained_irq;
+}
+
+static inline void ipipe_handle_demuxed_irq(unsigned int cascade_irq)
+{
+	ipipe_trace_irq_entry(cascade_irq);
+	__ipipe_dispatch_irq(cascade_irq, IPIPE_IRQF_NOSYNC);
+	ipipe_trace_irq_exit(cascade_irq);
+}
+
 #define ipipe_enable_notifier(p)			\
 	do {						\
 		barrier();				\

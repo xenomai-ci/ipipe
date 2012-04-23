@@ -43,7 +43,7 @@ static void fpga_irq_handle(unsigned int irq, struct irq_desc *desc)
 		irq = ffs(status) - 1;
 		status &= ~(1 << irq);
 
-		ipipe_handle_chained_irq(irq + f->irq_start);
+		ipipe_handle_demuxed_irq(irq + f->irq_start);
 	} while (status);
 }
 

@@ -239,19 +239,6 @@ static void qe_ic_mask_irq(struct irq_data *d)
 	raw_spin_unlock_irqrestore(&qe_ic_lock, flags);
 }
 
-#ifdef CONFIG_IPIPE
-
-void __ipipe_qe_ic_cascade_irq(struct qe_ic *qe_ic, unsigned int virq)
-{
-	struct pt_regs regs;    /* Contents not used. */
-
-	ipipe_trace_irq_entry(virq);
-        __ipipe_handle_irq(virq, &regs);
-        ipipe_trace_irq_exit(virq);
-}
-
-#endif
-
 static struct irq_chip qe_ic_irq_chip = {
 	.name = "QEIC",
 	.irq_unmask = qe_ic_unmask_irq,
