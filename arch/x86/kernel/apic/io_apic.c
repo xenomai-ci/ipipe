@@ -2698,7 +2698,6 @@ static void ack_apic_level(struct irq_data *data)
 		atomic_inc(&irq_mis_count);
 		__eoi_ioapic_irq(cfg);
 	}
-	__mask_ioapic(cfg);
 	raw_spin_unlock(&ioapic_lock);
 	__ack_APIC_irq();
 #endif /* CONFIG_IPIPE */
