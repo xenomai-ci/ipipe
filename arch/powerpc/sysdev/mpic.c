@@ -733,7 +733,6 @@ void mpic_mask_irq(struct irq_data *d)
 void mpic_end_irq(struct irq_data *d)
 {
 	struct mpic *mpic = mpic_from_irq_data(d);
-	unsigned long flags;
 
 #ifdef DEBUG_IRQ
 	DBG("%s: end_irq: %d\n", mpic->name, d->irq);
@@ -743,13 +742,6 @@ void mpic_end_irq(struct irq_data *d)
 	 * latched another edge interrupt coming in anyway
 	 */
 
-#ifdef CONFIG_IPIPE
-	spin_lock_irqsave(&mpic_lock, flags);
-	__mpic_mask_irq(d);
-	spin_unlock_irqrestore(&mpic_lock, flags);
-#else
-	(void)flags;
-#endif
 	mpic_eoi(mpic);
 }
 
@@ -790,17 +782,9 @@ static void mpic_end_ht_irq(struct irq_data *d)
 {
 	struct mpic *mpic = mpic_from_irq_data(d);
 	unsigned int src = irqd_to_hwirq(d);
-	unsigned long flags;
 
 #ifdef DEBUG_IRQ
 	DBG("%s: end_ht_irq: %d\n", mpic->name, d->irq);
-#endif
-#ifdef CONFIG_IPIPE
-	spin_lock_irqsave(&mpic_lock, flags);
-	__mpic_mask_irq(d);
-	spin_unlock_irqrestore(&mpic_lock, flags);
-#else
-	(void)flags;
 #endif
 	/* We always EOI on end_irq() even for edge interrupts since that
 	 * should only lower the priority, the MPIC should have properly
@@ -1722,7 +1706,6 @@ unsigned int mpic_get_mcirq(void)
 }
 
 #ifdef CONFIG_SMP
-
 void mpic_request_ipis(void)
 {
 	struct mpic *mpic = mpic_primary;
