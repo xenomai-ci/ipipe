@@ -645,8 +645,8 @@ void __ipipe_end_level_irq(unsigned irq, struct irq_desc *desc)
 
 void __ipipe_ack_fasteoi_irq(unsigned irq, struct irq_desc *desc)
 {
-	if (desc->irq_data.chip->irq_eoi)
-		desc->irq_data.chip->irq_eoi(&desc->irq_data);
+	desc->irq_data.chip->irq_eoi(&desc->irq_data);
+	desc->irq_data.chip->irq_mask(&desc->irq_data);
 }
 
 void __ipipe_end_fasteoi_irq(unsigned irq, struct irq_desc *desc)
