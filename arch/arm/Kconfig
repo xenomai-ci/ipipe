@@ -1132,8 +1132,7 @@ if IPIPE
 config IPIPE_ARM_KUSER_TSC
        bool
        select GENERIC_TIME_VSYSCALL
-       select HAVE_IPIPE_HOSTRT if IPIPE_LEGACY
-       select IPIPE_HAVE_HOSTRT if !IPIPE_LEGACY
+       select IPIPE_HAVE_HOSTRT if IPIPE
        default y if ARCH_AT91 || ARM_TIMER_SP804 || ARCH_MXC || ARCH_OMAP || PLAT_PXA || PLAT_S3C24XX || ARCH_SA1100
 endif
 
