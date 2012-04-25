@@ -49,5 +49,6 @@ extern void bfin_ipipe_coretmr_register(void)
 #else /* !CONFIG_IPIPE */
 #define bfin_ipipe_coretmr_register() do { } while (0)
 #endif /* !CONFIG_IPIPE */
+#endif
 
 #endif

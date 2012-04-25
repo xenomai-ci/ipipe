@@ -17,6 +17,7 @@
 #include <linux/clocksource.h>
 #include <linux/clockchips.h>
 #include <linux/cpufreq.h>
+#include <linux/ipipe_tickdev.h>
 
 #include <asm/blackfin.h>
 #include <asm/time.h>
