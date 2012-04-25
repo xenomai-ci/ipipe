@@ -114,10 +114,6 @@ void ipipe_critical_interrupt(void);
 
 int __ipipe_handle_irq(struct pt_regs *regs);
 
-void __ipipe_ack_edge_irq(unsigned int irq, struct irq_desc *desc);
-
-void __ipipe_end_edge_irq(unsigned int irq, struct irq_desc *desc);
-
 void __ipipe_handle_vm_preemption(struct ipipe_vm_notifier *nfy);
 
 extern int __ipipe_hrtimer_irq;

@@ -660,13 +660,7 @@ void __ipipe_ack_percpu_irq(unsigned irq, struct irq_desc *desc)
 		desc->irq_data.chip->irq_eoi(&desc->irq_data);
 }
 
-void __ipipe_ack_bad_irq(unsigned irq, struct irq_desc *desc)
-{
-	handle_bad_irq(irq, desc);
-	WARN_ON_ONCE(1);
-}
-
-static void __ipipe_nop_irq(unsigned irq, struct irq_desc *desc)
+void __ipipe_nop_irq(unsigned irq, struct irq_desc *desc)
 {
 }
 
@@ -676,6 +670,12 @@ void __ipipe_chained_irq(unsigned irq, struct irq_desc *desc)
 	 * XXX: Do NOT fold this into __ipipe_nop_irq(), see
 	 * ipipe_chained_irq_p().
 	 */
+}
+
+static void __ipipe_ack_bad_irq(unsigned irq, struct irq_desc *desc)
+{
+	handle_bad_irq(irq, desc);
+	WARN_ON_ONCE(1);
 }
 
 irq_flow_handler_t

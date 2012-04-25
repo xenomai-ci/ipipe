@@ -46,10 +46,6 @@ static inline unsigned long __ipipe_ffnz(unsigned long ul)
 
 struct irq_desc;
 
-void __ipipe_ack_edge_irq(unsigned int irq, struct irq_desc *desc);
-
-void __ipipe_end_edge_irq(unsigned int irq, struct irq_desc *desc);
-
 #define __root_irq_trampoline(__handler__, __regs__)			\
 	do {								\
 		__asm__ __volatile__("movq   %%rsp, %%rax\n\t"		\

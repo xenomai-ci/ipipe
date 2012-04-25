@@ -2703,6 +2703,30 @@ static void ack_apic_level(struct irq_data *data)
 #endif /* CONFIG_IPIPE */
 }
 
+#ifdef CONFIG_IPIPE
+
+static void hold_ioapic_irq(struct irq_data *data)
+{
+	struct irq_cfg *cfg = data->chip_data;
+
+	ack_apic_level(data);
+	raw_spin_lock(&ioapic_lock);
+	__mask_ioapic(cfg);
+	raw_spin_unlock(&ioapic_lock);
+}
+
+static void release_ioapic_irq(struct irq_data *data)
+{
+	struct irq_cfg *cfg = data->chip_data;
+	unsigned long flags;
+
+	raw_spin_lock_irqsave(&ioapic_lock, flags);
+	__unmask_ioapic(cfg);
+	raw_spin_unlock_irqrestore(&ioapic_lock, flags);
+}
+
+#endif	/* CONFIG_IPIPE */
+
 #ifdef CONFIG_IRQ_REMAP
 static void ir_ack_apic_edge(struct irq_data *data)
 {
@@ -2732,6 +2756,10 @@ static void irq_remap_modify_chip_defaults(struct irq_chip *chip)
 	chip->irq_move = move_xxapic_irq,
 #endif
 #endif
+#ifdef CONFIG_IPIPE
+	chip->irq_hold = hold_ioapic_irq,
+	chip->irq_release = release_ioapic_irq,
+#endif
 }
 #endif /* CONFIG_IRQ_REMAP */
 
@@ -2747,6 +2775,10 @@ static struct irq_chip ioapic_chip __read_mostly = {
 #ifdef CONFIG_IPIPE
 	.irq_move		= move_xxapic_irq,
 #endif
+#endif
+#ifdef CONFIG_IPIPE
+	.irq_hold		= hold_ioapic_irq,
+	.irq_release		= release_ioapic_irq,
 #endif
 	.irq_retrigger		= ioapic_retrigger_irq,
 };
@@ -3026,7 +3058,7 @@ static inline void __init check_timer(void)
 	lapic_register_intr(0);
 #if defined(CONFIG_IPIPE) && defined(CONFIG_X86_64)
 	irq_to_desc(0)->ipipe_ack = __ipipe_ack_edge_irq;
-	irq_to_desc(0)->ipipe_end = __ipipe_end_edge_irq;
+	irq_to_desc(0)->ipipe_end = __ipipe_nop_irq;
 #endif
 	apic_write(APIC_LVT0, APIC_DM_FIXED | cfg->vector);	/* Fixed mode */
 	legacy_pic->unmask(0);
