@@ -94,6 +94,7 @@ static void gic_mask_irq(struct irq_data *d)
 	unsigned long flags;
 
 	spin_lock_irqsave_cond(&irq_controller_lock, flags);
+	ipipe_lock_irq(d->irq);
 	writel_relaxed(mask, gic_dist_base(d) + GIC_DIST_ENABLE_CLEAR + (gic_irq(d) / 32) * 4);
 	if (gic_arch_extn.irq_mask)
 		gic_arch_extn.irq_mask(d);
@@ -109,6 +110,7 @@ static void gic_unmask_irq(struct irq_data *d)
 	if (gic_arch_extn.irq_unmask)
 		gic_arch_extn.irq_unmask(d);
 	writel_relaxed(mask, gic_dist_base(d) + GIC_DIST_ENABLE_SET + (gic_irq(d) / 32) * 4);
+	ipipe_unlock_irq(d->irq);
 	spin_unlock_irqrestore_cond(&irq_controller_lock, flags);
 }
 
@@ -124,6 +126,38 @@ static void gic_eoi_irq(struct irq_data *d)
 	spin_unlock_irqrestore_cond(&irq_controller_lock, flags);
 	writel_relaxed(gic_irq(d), gic_cpu_base(d) + GIC_CPU_EOI);
 }
+
+#ifdef CONFIG_IPIPE
+
+static void gic_hold_irq(struct irq_data *d)
+{
+	u32 mask = 1 << (d->irq % 32);
+	unsigned long flags;
+
+	spin_lock_irqsave_cond(&irq_controller_lock, flags);
+	if (gic_arch_extn.irq_eoi) {
+		gic_arch_extn.irq_eoi(d);
+	}
+	writel_relaxed(gic_irq(d), gic_cpu_base(d) + GIC_CPU_EOI);
+	writel_relaxed(mask, gic_dist_base(d) + GIC_DIST_ENABLE_CLEAR + (gic_irq(d) / 32) * 4);
+	if (gic_arch_extn.irq_mask)
+		gic_arch_extn.irq_mask(d);
+	spin_unlock_irqrestore_cond(&irq_controller_lock, flags);
+}
+
+static void gic_release_irq(struct irq_data *d)
+{
+	u32 mask = 1 << (d->irq % 32);
+	unsigned long flags;
+
+	spin_lock_irqsave_cond(&irq_controller_lock, flags);
+	if (gic_arch_extn.irq_unmask)
+		gic_arch_extn.irq_unmask(d);
+	writel_relaxed(mask, gic_dist_base(d) + GIC_DIST_ENABLE_SET + (gic_irq(d) / 32) * 4);
+	spin_unlock_irqrestore_cond(&irq_controller_lock, flags);
+}
+
+#endif
 
 static int gic_set_type(struct irq_data *d, unsigned int type)
 {
@@ -254,6 +288,10 @@ static struct irq_chip gic_chip = {
 	.irq_mask		= gic_mask_irq,
 	.irq_unmask		= gic_unmask_irq,
 	.irq_eoi		= gic_eoi_irq,
+#ifdef CONFIG_IPIPE
+	.irq_hold		= gic_hold_irq,
+	.irq_release		= gic_release_irq,
+#endif
 	.irq_set_type		= gic_set_type,
 	.irq_retrigger		= gic_retrigger,
 #ifdef CONFIG_SMP
