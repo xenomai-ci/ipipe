@@ -15,6 +15,7 @@
 #include <linux/io.h>
 #include <linux/irq.h>
 #include <linux/spinlock.h>
+#include <linux/ipipe.h>
 #include <plat/shirq.h>
 
 struct spear_shirq *shirq;

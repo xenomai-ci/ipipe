@@ -359,7 +359,7 @@ mxc_timer_init(struct clk *timer_clk,
 
 	mxc_itimer.irq = irq;
 	mxc_itimer.freq = clk_get_rate(timer_clk);
-	mxc_itimer.min_delay_ticks = ipipe_timer_ns2ticks(&itimer, 2000);
+	mxc_itimer.min_delay_ticks = ipipe_timer_ns2ticks(&mxc_itimer, 2000);
 #endif /* CONFIG_IPIPE */
 	mxc_clockevent_init(timer_clk);
 

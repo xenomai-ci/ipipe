@@ -38,11 +38,11 @@
 #include <linux/interrupt.h>
 #include <linux/percpu.h>
 #include <linux/slab.h>
+#include <linux/ipipe.h>
 
 #include <asm/irq.h>
 #include <asm/mach/irq.h>
 #include <asm/hardware/gic.h>
-#include <asm/ipipe.h>
 
 static IPIPE_DEFINE_SPINLOCK(irq_controller_lock);
 
@@ -114,7 +114,6 @@ static void gic_unmask_irq(struct irq_data *d)
 
 static void gic_eoi_irq(struct irq_data *d)
 {
-	u32 mask = 1 << (d->irq % 32);
 	unsigned long flags;
 
 	spin_lock_irqsave_cond(&irq_controller_lock, flags);
