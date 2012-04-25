@@ -211,6 +211,9 @@ static struct irq_chip cpm2_pic = {
 	.irq_unmask = cpm2_unmask_irq,
 	.irq_mask_ack = cpm2_mask_ack,
 	.irq_eoi = cpm2_end_irq,
+#ifdef CONFIG_IPIPE
+	.irq_hold	= cpm2_end_irq,
+#endif
 	.irq_set_type = cpm2_set_irq_type,
 	.flags = IRQCHIP_EOI_IF_HANDLED,
 };

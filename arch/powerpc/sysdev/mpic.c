@@ -745,6 +745,30 @@ void mpic_end_irq(struct irq_data *d)
 	mpic_eoi(mpic);
 }
 
+#ifdef CONFIG_IPIPE
+
+void mpic_hold_irq(struct irq_data *d)
+{
+	struct mpic *mpic = mpic_from_irq_data(d);
+	unsigned long flags;
+	
+	spin_lock_irqsave(&mpic_lock, flags);
+	mpic_eoi(mpic);
+	__mpic_mask_irq(d);
+	spin_unlock_irqrestore(&mpic_lock, flags);
+}
+
+void mpic_release_irq(struct irq_data *d)
+{
+	unsigned long flags;
+	
+	spin_lock_irqsave(&mpic_lock, flags);
+	__mpic_unmask_irq(d);
+	spin_unlock_irqrestore(&mpic_lock, flags);
+}
+
+#endif
+
 #ifdef CONFIG_MPIC_U3_HT_IRQS
 
 static void mpic_unmask_ht_irq(struct irq_data *d)
@@ -970,6 +994,10 @@ static struct irq_chip mpic_irq_chip = {
 	.irq_unmask	= mpic_unmask_irq,
 	.irq_eoi	= mpic_end_irq,
 	.irq_set_type	= mpic_set_irq_type,
+#ifdef CONFIG_IPIPE
+	.irq_hold	= mpic_hold_irq,
+	.irq_release	= mpic_release_irq,
+#endif
 };
 
 #ifdef CONFIG_SMP

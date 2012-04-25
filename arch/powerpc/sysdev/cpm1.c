@@ -85,11 +85,40 @@ static void cpm_end_irq(struct irq_data *d)
 	out_be32(&cpic_reg->cpic_cisr, (1 << cpm_vec));
 }
 
+#ifdef CONFIG_IPIPE
+
+static void cpm_hold_irq(struct irq_data *d)
+{
+	unsigned int cpm_vec = (unsigned int)irqd_to_hwirq(d);
+	unsigned long flags;
+
+	flags = hard_cond_local_irq_save();
+	out_be32(&cpic_reg->cpic_cisr, (1 << cpm_vec));
+	clrbits32(&cpic_reg->cpic_cimr, (1 << cpm_vec));
+	hard_cond_local_irq_restore(flags);
+}
+
+static void cpm_release_irq(struct irq_data *d)
+{
+	unsigned int cpm_vec = (unsigned int)irqd_to_hwirq(d);
+	unsigned long flags;
+ 
+	flags = hard_cond_local_irq_save();
+	setbits32(&cpic_reg->cpic_cimr, (1 << cpm_vec));
+	hard_cond_local_irq_restore(flags);
+}
+
+#endif
+
 static struct irq_chip cpm_pic = {
 	.name = "CPM PIC",
 	.irq_mask = cpm_mask_irq,
 	.irq_unmask = cpm_unmask_irq,
 	.irq_eoi = cpm_end_irq,
+#ifdef CONFIG_IPIPE
+	.irq_hold = cpm_hold_irq,
+	.irq_release = cpm_release_irq,
+#endif
 };
 
 int cpm_get_irq(void)
