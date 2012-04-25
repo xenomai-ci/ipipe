@@ -205,6 +205,26 @@ static inline notrace void hard_local_irq_restore(unsigned long flags)
 #define hard_cond_local_irq_save()		hard_local_irq_save()
 #define hard_cond_local_irq_restore(flags)	hard_local_irq_restore(flags)
 
+static inline notrace unsigned long hard_local_irq_save_notrace(void)
+{
+	return __hard_local_irq_save();
+}
+
+static inline notrace void hard_local_irq_restore_notrace(unsigned long flags)
+{
+	return __hard_local_irq_restore(flags);
+}
+
+static inline notrace void hard_local_irq_disable_notrace(void)
+{
+	return __hard_local_irq_disable();
+}
+
+static inline notrace void hard_local_irq_enable_notrace(void)
+{
+	return __hard_local_irq_enable();
+}
+
 #else /* !CONFIG_IPIPE */
 
 /*
