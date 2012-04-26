@@ -230,7 +230,7 @@ asmlinkage void __ipipe_sync_root(void)
 	hard_local_irq_restore(flags);
 }
 
-asmlinkage void __ipipe_hard_disable_root_irqs(void)
+asmlinkage unsigned long __ipipe_hard_save_root_irqs(void)
 {
 	/*
 	 * This code is called by the ins{bwl} routines (see
@@ -241,12 +241,15 @@ asmlinkage void __ipipe_hard_disable_root_irqs(void)
 	 * the real-time domain.
 	 */
 	bfin_sti(__ipipe_irq_lvmask);
-	__set_bit(IPIPE_STALL_FLAG, &__ipipe_root_status);
+	return __test_and_set_bit(IPIPE_STALL_FLAG, &__ipipe_root_status) ?
+		bfin_no_irqs : bfin_irq_flags;
 }
 
-asmlinkage void __ipipe_hard_enable_root_irqs(void)
+asmlinkage void __ipipe_hard_restore_root_irqs(unsigned long flags)
 {
-	__clear_bit(IPIPE_STALL_FLAG, &__ipipe_root_status);
+	if (flags != bfin_no_irqs)
+		__clear_bit(IPIPE_STALL_FLAG, &__ipipe_root_status);
+
 	bfin_sti(bfin_irq_flags);
 }
 

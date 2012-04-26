@@ -11,46 +11,6 @@
 
 .align 2
 
-#ifdef CONFIG_IPIPE
-# define DO_CLI \
-	[--sp] = rets; \
-	[--sp] = (P5:0); \
-	sp += -12; \
-	call ___ipipe_hard_disable_root_irqs; \
-	sp += 12; \
-	(P5:0) = [sp++];
-# define CLI_INNER_NOP
-#else
-# define DO_CLI cli R3;
-# define CLI_INNER_NOP nop; nop; nop;
-#endif
-
-#ifdef CONFIG_IPIPE
-# define DO_STI \
-	sp += -12; \
-	call ___ipipe_hard_enable_root_irqs; \
-	sp += 12; \
-2:	rets = [sp++];
-#else
-# define DO_STI 2: sti R3;
-#endif
-
-#ifdef CONFIG_BFIN_INS_LOWOVERHEAD
-# define CLI_OUTER DO_CLI;
-# define STI_OUTER DO_STI;
-# define CLI_INNER 1:
-# if ANOMALY_05000416
-#  define STI_INNER nop; 2: nop;
-# else
-#  define STI_INNER 2:
-# endif
-#else
-# define CLI_OUTER
-# define STI_OUTER
-# define CLI_INNER 1: DO_CLI; CLI_INNER_NOP;
-# define STI_INNER DO_STI;
-#endif
-
 /*
  * Reads on the Blackfin are speculative. In Blackfin terms, this means they
  * can be interrupted at any time (even after they have been issued on to the
@@ -69,7 +29,58 @@
  *      ../kernel/bfin_dma_5xx.c
  * Using the dma related functions are recommended for transferring large
  * buffers in/out of FIFOs.
+ * When the interrupt pipeline is enabled, a low overhead
+ * version is always used, which still preserves low latency for the
+ * real-time domain.
  */
+
+#ifdef CONFIG_IPIPE
+
+#define COMMON_INS(func, ops) \
+ENTRY(_ins##func) \
+	P0 = R0;	/* P0 = port */ \
+	P1 = R1;	/* P1 = address */ \
+	P2 = R2;	/* P2 = count */ \
+	[--SP] = RETS; \
+	[--SP] = (P5:0); \
+	SP += -12; \
+	CALL ___ipipe_hard_save_root_irqs; \
+	SP += 12; \
+	R3 = R0;\
+	(P5:0) = [SP++];\
+	SSYNC; \
+	LSETUP(1f, 2f) LC0 = P2; \
+1:	ops; \
+2:	nop; \
+	R0 = R3;\
+	SP += -12; \
+	CALL ___ipipe_hard_restore_root_irqs; \
+	SP += 12; \
+	RETS = [SP++];\
+	RTS; \
+ENDPROC(_ins##func)
+
+#else /* !CONFIG_IPIPE */
+
+# define DO_CLI cli R3;
+# define CLI_INNER_NOP nop; nop; nop;
+# define DO_STI 2: sti R3;
+
+#ifdef CONFIG_BFIN_INS_LOWOVERHEAD
+# define CLI_OUTER DO_CLI;
+# define STI_OUTER DO_STI;
+# define CLI_INNER 1:
+# if ANOMALY_05000416
+#  define STI_INNER nop; 2: nop;
+# else
+#  define STI_INNER 2:
+# endif
+#else
+# define CLI_OUTER
+# define STI_OUTER
+# define CLI_INNER 1: DO_CLI; CLI_INNER_NOP;
+# define STI_INNER DO_STI;
+#endif
 
 #define COMMON_INS(func, ops) \
 ENTRY(_ins##func) \
@@ -87,6 +98,8 @@ ENTRY(_ins##func) \
 	STI_OUTER; \
 	RTS; \
 ENDPROC(_ins##func)
+
+#endif /* !CONFIG_IPIPE */
 
 COMMON_INS(l, \
 	R0 = [P0]; \
