@@ -1188,7 +1188,7 @@ static void __devinit omap_gpio_chip_init(struct gpio_bank *bank)
 		}
 	}
 
-#if defined(CONFIG_IPIPE) && defined(__IPIPE_MACH_HAVE_PIC_MUTE)
+#ifdef CONFIG_IPIPE
 	__ipipe_irqbits[1 << (bank->irq / 32)]
 		|= (1 << (bank->irq % 32));
 #endif
@@ -1409,7 +1409,7 @@ static void omap4_unmute_pic(void)
 	gic_unmute();
 }
 
-static int omap2plus_pic_muter_register(void)
+void __init omap2plus_pic_muter_register(void)
 {
 	struct ipipe_mach_pic_muter muter = {
 		.enable_irqdesc = omap2plus_enable_irqdesc,
@@ -1430,9 +1430,8 @@ static int omap2plus_pic_muter_register(void)
 	}
 	if(cpu_class_is_omap2())
 		ipipe_pic_muter_register(&muter);
-	return 0;
 }
-arch_initcall(omap2plus_pic_muter_register);
+
 #endif /* CONFIG_IPIPE */
 
 #if defined(CONFIG_ARCH_OMAP16XX) || defined(CONFIG_ARCH_OMAP2PLUS)

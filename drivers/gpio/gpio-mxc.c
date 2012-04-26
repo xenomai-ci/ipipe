@@ -541,7 +541,7 @@ static void mxc_disable_irqdesc(struct ipipe_domain *ipd, unsigned irq)
 		mxc_set_irq_prio(irq, 0);
 }
 
-static int mxc_pic_muter_register(void)
+void __init mxc_pic_muter_register(void)
 {
 #ifdef CONFIG_ARM_GIC
 	struct ipipe_mach_pic_muter gic_pic_muter = {
@@ -563,9 +563,7 @@ static int mxc_pic_muter_register(void)
 	if (cpu_is_mx50() || cpu_is_mx51() || cpu_is_mx53())
 		ipipe_pic_muter_register(&tzic_pic_muter);
 #endif /* TZIC */
-	return 0;
 }
-arch_initcall(mxc_pic_muter_register);
 
 #endif /* CONFIG_IPIPE */
 

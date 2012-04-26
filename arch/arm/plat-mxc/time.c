@@ -318,6 +318,8 @@ static int __init mxc_clockevent_init(struct clk *timer_clk)
 	return 0;
 }
 
+extern void __init mxc_pic_muter_register(void)
+
 void __init
 mxc_timer_init(struct clk *timer_clk,
 	       void __iomem *base, unsigned long phys, int irq)
@@ -360,6 +362,8 @@ mxc_timer_init(struct clk *timer_clk,
 	mxc_itimer.irq = irq;
 	mxc_itimer.freq = clk_get_rate(timer_clk);
 	mxc_itimer.min_delay_ticks = ipipe_timer_ns2ticks(&mxc_itimer, 2000);
+
+	mxc_pic_muter_register();
 #endif /* CONFIG_IPIPE */
 	mxc_clockevent_init(timer_clk);
 
