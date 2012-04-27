@@ -332,6 +332,8 @@ unsigned long long notrace sched_clock(void)
 	return cyc_to_sched_clock(&cd, cyc, (u32)~0);
 }
 
+extern void __init omap2plus_pic_muter_register(void);
+
 /* Setup free-running counter for clocksource */
 static void __init omap2_gp_clocksource_init(int gptimer_id,
 						const char *fck_source)
@@ -353,6 +355,8 @@ static void __init omap2_gp_clocksource_init(int gptimer_id,
 			clksrc.phys_base + (OMAP_TIMER_COUNTER_REG & 0xff);
 		__ipipe_tsc_register(&tsc_info);
 	}
+
+	omap2plus_pic_muter_register();
 #endif
 
 	__omap_dm_timer_load_start(&clksrc,
