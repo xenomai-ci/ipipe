@@ -187,7 +187,7 @@ static inline void arch_local_irq_restore(unsigned long x)
 		arch_local_irq_enable();
 }
 
-#define arch_local_irq_save(x)	arch_local_irq_disable()
+#define arch_local_irq_save()	arch_local_irq_disable()
 
 #define arch_local_save_flags()						\
 	({								\
