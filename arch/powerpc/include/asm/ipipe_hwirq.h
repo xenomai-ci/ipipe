@@ -141,10 +141,10 @@ static inline void hard_local_irq_enable(void)
 
 static inline unsigned long hard_local_irq_save(void)
 {
-	unsigned long flags
+	unsigned long flags;
 
 	flags = hard_local_irq_save_notrace();
-	if (!irqs_disabled_flags(flags))
+	if (!arch_irqs_disabled_flags(flags))
 		ipipe_trace_begin(0x80000001);
 
 	return flags;
