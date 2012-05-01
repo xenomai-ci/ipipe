@@ -55,7 +55,7 @@ extern void __iomem *twd_base;
 #define __ipipe_mach_relay_ipi(ipi, thiscpu)	\
 	({					\
 		(void)(thiscpu);		\
-		__ipipe_handle_irq(ipi, NULL);	\
+		__ipipe_handle_irq(ipi, IPIPE_IRQF_NOACK);	\
 	})
 
 struct irq_desc;
