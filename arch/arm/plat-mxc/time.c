@@ -68,7 +68,7 @@
 #define timer_is_v1()	(cpu_is_mx1() || cpu_is_mx21() || cpu_is_mx27())
 #define timer_is_v2()	(!timer_is_v1())
 
-#ifdef CONFIG_IPIPE
+#if defined(CONFIG_IPIPE) && !defined(CONFIG_SMP)
 int __ipipe_mach_timerint;
 EXPORT_SYMBOL(__ipipe_mach_timerint);
 
@@ -79,7 +79,7 @@ unsigned int __ipipe_mach_ticks_per_jiffy = LATCH;
 EXPORT_SYMBOL(__ipipe_mach_ticks_per_jiffy);
 
 static unsigned mxc_min_delay;
-#endif /* CONFIG_IPIPE */
+#endif /* CONFIG_IPIPE && !CONFIG_SMP */
 
 static struct clock_event_device clockevent_mxc;
 static enum clock_event_mode clockevent_mode = CLOCK_EVT_MODE_UNUSED;
@@ -252,6 +252,7 @@ static void mxc_set_mode(enum clock_event_mode mode,
 static irqreturn_t mxc_timer_interrupt(int irq, void *dev_id)
 {
 	struct clock_event_device *evt = &clockevent_mxc;
+#if !defined(CONFIG_IPIPE) || defined(CONFIG_SMP)
 	uint32_t tstat;
 
 	if (timer_is_v2())
@@ -259,11 +260,10 @@ static irqreturn_t mxc_timer_interrupt(int irq, void *dev_id)
 	else
 		tstat = __raw_readl(timer_base + MX1_2_TSTAT);
 
-#ifndef CONFIG_IPIPE
 	gpt_irq_acknowledge();
-#else /* !CONFIG_IPIPE */
+#else /* CONFIG_IPIPE && !CONFIG_SMP */
 	__ipipe_tsc_update();
-#endif /* !CONFIG_IPIPE */
+#endif /* CONFIG_IPIPE && !CONFIG_SMP */
 
 	evt->event_handler(evt);
 
@@ -306,7 +306,7 @@ static int __init mxc_clockevent_init(struct clk *timer_clk)
 	return 0;
 }
 
-#ifdef CONFIG_IPIPE
+#if defined(CONFIG_IPIPE) && !defined(CONFIG_SMP)
 static struct __ipipe_tscinfo tsc_info = {
 	.type = IPIPE_TSC_TYPE_FREERUNNING,
 	.u = {
@@ -323,6 +323,13 @@ int __ipipe_check_tickdev(const char *devname)
 
 void __ipipe_mach_acktimer(void)
 {
+	uint32_t tstat;
+
+	if (timer_is_v2())
+		tstat = __raw_readl(timer_base + V2_TSTAT);
+	else
+		tstat = __raw_readl(timer_base + MX1_2_TSTAT);
+
 	gpt_irq_acknowledge();
 }
 /*
@@ -331,17 +338,9 @@ void __ipipe_mach_acktimer(void)
 
 void __ipipe_mach_set_dec(unsigned long delay)
 {
-	if (delay > mxc_min_delay) {
-		unsigned long tcmp;
-
-		if (!timer_is_v2()) {
-			tcmp = __raw_readl(timer_base + MX1_2_TCN) + delay;
-			__raw_writel(tcmp, timer_base + MX1_2_TCMP);
-		} else {
-			tcmp = __raw_readl(timer_base + V2_TCN) + delay;
-			__raw_writel(tcmp, timer_base + V2_TCMP);
-		}
-	} else
+	if (delay <= mxc_min_delay
+	    || (!timer_is_v2() && mx1_2_set_next_event(delay, NULL) < 0)
+	    || (timer_is_v2() && v2_set_next_event(delay, NULL) < 0))
 		ipipe_trigger_irq(__ipipe_mach_timerint);
 }
 EXPORT_SYMBOL(__ipipe_mach_set_dec);
@@ -363,7 +362,7 @@ unsigned long __ipipe_mach_get_dec(void)
 		return __raw_readl(timer_base + V2_TCMP)
 			- __raw_readl(timer_base + V2_TCN);
 }
-#endif /* CONFIG_IPIPE */
+#endif /* CONFIG_IPIPE && !CONFIG_SMP */
 
 void __init
 mxc_timer_init(struct clk *timer_clk,
@@ -396,19 +395,19 @@ mxc_timer_init(struct clk *timer_clk,
 	/* Make irqs happen */
 	setup_irq(irq, &mxc_timer_irq);
 
-#ifdef CONFIG_IPIPE
+#if defined(CONFIG_IPIPE) && !defined(CONFIG_SMP)
 	__ipipe_mach_timerint = irq;
-	__ipipe_mach_ticks_per_jiffy = (clk_get_rate(timer_clk) + HZ/2) / HZ;
+	__ipipe_mach_ticks_per_jiffy = (clk_get_rate(timer_clk) + HZ / 2) / HZ;
 	tsc_info.freq = clk_get_rate(timer_clk);
-	mxc_min_delay = ((__ipipe_cpu_freq + 500000) / 1000000) ?: 1;
+	mxc_min_delay = 2 * ((__ipipe_cpu_freq + 500000) / 1000000) ?: 1;
 
 	if (timer_is_v1()) {
 		tsc_info.u.counter_paddr = phys + MX1_2_TCN;
-		tsc_info.counter_vaddr =(unsigned long)(phys + MX1_2_TCN);
+		tsc_info.counter_vaddr =(unsigned long)(timer_base + MX1_2_TCN);
 	} else {
 		tsc_info.u.counter_paddr = phys + V2_TCN;
 		tsc_info.counter_vaddr = (unsigned long)(timer_base + V2_TCN);
 	}
 	__ipipe_tsc_register(&tsc_info);
-#endif /* CONFIG_IPIPE */
+#endif /* CONFIG_IPIPE && !CONFIG_SMP */
 }
