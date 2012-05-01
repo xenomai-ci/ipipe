@@ -252,7 +252,7 @@ int ipipe_trigger_irq(unsigned irq)
 		return -EINVAL;
 #endif
 	local_irq_save_hw(flags);
-	__ipipe_handle_irq(irq, NULL);
+	__ipipe_handle_irq(irq, IPIPE_IRQF_NOACK);
 	local_irq_restore_hw(flags);
 
 	return 1;
@@ -460,7 +460,7 @@ out:
  * interrupt protection log is maintained here for each domain. Hw
  * interrupts are off on entry.
  */
-void __ipipe_handle_irq(int irq, struct pt_regs *regs)
+void __ipipe_handle_irq(int irq, int flags)
 {
 	struct ipipe_domain *this_domain, *next_domain;
 	struct list_head *head, *pos;
@@ -468,7 +468,7 @@ void __ipipe_handle_irq(int irq, struct pt_regs *regs)
 	int m_ack;
 
 	/* Software-triggered IRQs do not need any ack. */
-	m_ack = (regs == NULL);
+	m_ack = (flags & IPIPE_IRQF_NOACK) != 0;
 
 #ifdef CONFIG_IPIPE_DEBUG
 	if (unlikely(irq >= IPIPE_NR_IRQS) ||
@@ -483,7 +483,8 @@ void __ipipe_handle_irq(int irq, struct pt_regs *regs)
 	else {
 		head = __ipipe_pipeline.next;
 		next_domain = list_entry(head, struct ipipe_domain, p_link);
-		if (likely(test_bit(IPIPE_WIRED_FLAG, &next_domain->irqs[irq].control))) {
+		if (!(flags & IPIPE_IRQF_NOSYNC)
+		    && likely(test_bit(IPIPE_WIRED_FLAG, &next_domain->irqs[irq].control))) {
 			if (!m_ack && next_domain->irqs[irq].acknowledge) {
 				desc = ipipe_virtual_irq_p(irq) ? NULL : irq_to_desc(irq);
 				next_domain->irqs[irq].acknowledge(irq, desc);
@@ -602,7 +603,7 @@ asmlinkage void __ipipe_grab_irq(int irq, struct pt_regs *regs)
 	ipipe_trace_begin(regs->ARM_ORIG_r0);
 #endif
 
-	__ipipe_handle_irq(irq, regs);
+	__ipipe_handle_irq(irq, 0);
 
 #ifdef CONFIG_IPIPE_TRACE_IRQSOFF
 	ipipe_trace_end(regs->ARM_ORIG_r0);

@@ -539,7 +539,7 @@ __ipipe_grab_ipi(unsigned svc, struct pt_regs *regs) /* hw IRQs off */
 		__ipipe_do_vnmi(IPIPE_SERVICE_VNMI, NULL);
 	else if ((1 << svc) & IPI_IPIPE_ALL) {
 		virq = svc - IPI_IPIPE_CRITICAL + IPIPE_FIRST_IPI;
-		__ipipe_handle_irq(virq, NULL);
+		__ipipe_handle_irq(virq, IPIPE_IRQF_NOACK);
 	} else
 		__ipipe_mach_relay_ipi(svc, cpu);
 

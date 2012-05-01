@@ -285,14 +285,15 @@ void __ipipe_grab_irq(int irq, struct pt_regs *regs);
 
 void __ipipe_exit_irq(struct pt_regs *regs);
 
-void __ipipe_handle_irq(int irq, struct pt_regs *regs);
+#define IPIPE_IRQF_NOACK    0x1
+#define IPIPE_IRQF_NOSYNC   0x2
+
+void __ipipe_handle_irq(int irq, int flags);
 
 static inline void ipipe_handle_chained_irq(unsigned int irq)
 {
-	struct pt_regs regs;    /* dummy */
-
 	ipipe_trace_irq_entry(irq);
-	__ipipe_handle_irq(irq, &regs);
+	__ipipe_handle_irq(irq, IPIPE_IRQF_NOSYNC);
 	ipipe_trace_irq_exit(irq);
 }
 
