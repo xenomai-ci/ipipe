@@ -188,9 +188,8 @@ int smp_request_message_ipi(int virq, int msg)
 		__ipipe_register_ipi(virq);
 #endif
 #if !defined(CONFIG_DEBUGGER) && !defined(CONFIG_KEXEC)
-	if (msg == PPC_MSG_DEBUGGER_BREAK) {
-		return 1;
-	}
+	if (msg == PPC_MSG_DEBUGGER_BREAK)
+		return 0;
 #endif
 	err = request_irq(virq, smp_ipi_action[msg], IRQF_PERCPU,
 			  smp_ipi_name[msg], 0);
