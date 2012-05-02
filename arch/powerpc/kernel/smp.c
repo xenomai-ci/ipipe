@@ -187,10 +187,6 @@ int smp_request_message_ipi(int virq, int msg)
 		/* Piggyback the debugger IPI for the I-pipe. */
 		__ipipe_register_ipi(virq);
 #endif
-#if !defined(CONFIG_DEBUGGER) && !defined(CONFIG_KEXEC)
-	if (msg == PPC_MSG_DEBUGGER_BREAK)
-		return 0;
-#endif
 	err = request_irq(virq, smp_ipi_action[msg], IRQF_PERCPU,
 			  smp_ipi_name[msg], 0);
 	WARN(err < 0, "unable to request_irq %d for %s (rc %d)\n",
