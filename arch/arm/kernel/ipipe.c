@@ -377,7 +377,7 @@ void __ipipe_enable_pipeline(void)
 #ifdef CONFIG_SMP
 asmlinkage int __ipipe_check_root(void)
 {
-	return ipipe_root_domain_p;
+	return __ipipe_root_domain_p;
 }
 
 asmlinkage int __ipipe_check_root_interruptible(void)

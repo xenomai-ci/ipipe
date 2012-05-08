@@ -788,6 +788,7 @@ ENTRY(ret_from_exception)
  UNWIND(.fnstart	)
  UNWIND(.cantunwind	)
 #ifdef CONFIG_IPIPE
+	disable_irq
 #if !defined(CONFIG_SMP)
 	ldr	r0, =ipipe_percpu_domain
 	ldr	r1, =ipipe_root
@@ -798,7 +799,6 @@ ENTRY(ret_from_exception)
 	cmp     r0, #1
 #endif /* CONFIG_SMP */
 	beq     1f
-	disable_irq
 	slow_restore_user_regs          @ Fast exit path over non-root domains
 1:
 #endif /* CONFIG_IPIPE */
