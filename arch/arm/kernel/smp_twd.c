@@ -47,7 +47,7 @@ static DEFINE_PER_CPU(int, timer_mode) = {
 
 void __ipipe_ack_localtimer(unsigned irq, struct irq_desc *desc)
 {
-	writel_relaxed(1, twd_base + TWD_TIMER_INTSTAT);
+	__raw_writel(1, twd_base + TWD_TIMER_INTSTAT);
 }
 
 asmlinkage void __ipipe_grab_localtimer(struct pt_regs *regs)
@@ -62,7 +62,7 @@ void __ipipe_mach_set_dec(unsigned long delay)
 		return;
 	}
 
-	writel_relaxed(delay, twd_base + TWD_TIMER_COUNTER);
+	__raw_writel(delay, twd_base + TWD_TIMER_COUNTER);
 }
 EXPORT_SYMBOL(__ipipe_mach_set_dec);
 
