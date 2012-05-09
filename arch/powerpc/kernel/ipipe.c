@@ -359,11 +359,10 @@ static void __ipipe_do_timer(unsigned int irq, void *cookie)
 
 asmlinkage int __ipipe_grab_timer(struct pt_regs *regs)
 {
-	struct ipipe_domain *ipd, *head;
 	struct pt_regs *tick_regs;
+	struct ipipe_domain *ipd;
 
 	ipd = __ipipe_current_domain;
-	head = ipipe_head_domain;
 
 	set_dec(DECREMENTER_MAX);
 
@@ -376,16 +375,7 @@ asmlinkage int __ipipe_grab_timer(struct pt_regs *regs)
 		/* Tick should not be charged to Linux. */
 		tick_regs->msr &= ~MSR_EE;
 
-	/*
-	 * If we have a registered head domain hooking the timer, we
-	 * may branch to the head dispatcher directly, since the
-	 * decrementer interrupt requires no acknowledge.
-	 */
-	if (head == ipipe_root_domain ||
-	    !test_bit(IPIPE_HANDLE_FLAG, &head->irqs[IPIPE_TIMER_VIRQ].control))
-		__ipipe_handle_irq(IPIPE_TIMER_VIRQ, NULL);
-	else
-		__ipipe_dispatch_irq_fast(IPIPE_TIMER_VIRQ);
+	__ipipe_handle_irq(IPIPE_TIMER_VIRQ, NULL);
 
 	ipipe_trace_irq_exit(IPIPE_TIMER_VIRQ);
 
