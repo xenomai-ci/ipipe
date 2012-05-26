@@ -107,7 +107,7 @@ static void __ipipe_ipi_demux(int irq, struct pt_regs *regs)
 	}
 #endif /* CONFIG_DEBUGGER */
 
-	__ipipe_end_irq(irq);
+	ipipe_end_irq(irq);
 }
 
 void ipipe_set_irq_affinity(unsigned int irq, cpumask_t cpumask)
@@ -208,12 +208,6 @@ void __ipipe_init_platform(void)
 	virq = ipipe_alloc_virq();
 	BUG_ON(virq != IPIPE_RESCHEDULE_IPI);
 #endif
-}
-
-void __ipipe_end_irq(unsigned int irq)
-{
-	struct irq_desc *desc = irq_to_desc(irq);
-	desc->ipipe_end(irq, desc);
 }
 
 static void __ipipe_ack_irq(unsigned int irq, struct irq_desc *desc)

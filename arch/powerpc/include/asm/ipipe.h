@@ -118,13 +118,6 @@ void __ipipe_init_platform(void);
 
 void __ipipe_enable_pipeline(void);
 
-void __ipipe_end_irq(unsigned irq);
-
-static inline int __ipipe_check_tickdev(const char *devname)
-{
-	return 1;
-}
-
 #ifdef CONFIG_SMP
 struct ipipe_ipi_struct {
 	volatile unsigned long value;
