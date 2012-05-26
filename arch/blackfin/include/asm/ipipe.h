@@ -85,11 +85,6 @@ void __ipipe_enable_irqdesc(struct ipipe_domain *ipd,
 void __ipipe_disable_irqdesc(struct ipipe_domain *ipd,
 			     unsigned int irq);
 
-static inline int __ipipe_check_tickdev(const char *devname)
-{
-	return 1;
-}
-
 void __ipipe_enable_pipeline(void);
 
 #define __ipipe_hook_critical_ipi(ipd) do { } while (0)
