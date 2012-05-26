@@ -562,26 +562,35 @@ asmlinkage void __attribute__((weak)) smp_threshold_interrupt(void)
 }
 
 /*
- * __math_state_restore assumes that cr0.TS is already clear and the
- * fpu state is all ready for use.  Used during context switch.
+ * This gets called with the process already owning the
+ * FPU state, and with CR0.TS cleared. It just needs to
+ * restore the FPU register state.
  */
-void __math_state_restore(void)
+void __math_state_restore(struct task_struct *tsk)
 {
-	struct thread_info *thread = current_thread_info();
-	struct task_struct *tsk = thread->task;
+	/* We need a safe address that is cheap to find and that is already
+	   in L1. We've just brought in "tsk->thread.has_fpu", so use that */
+#define safe_address (tsk->thread.has_fpu)
+
+	/* AMD K7/K8 CPUs don't save/restore FDP/FIP/FOP unless an exception
+	   is pending.  Clear the x87 state here by setting it to fixed
+	   values. safe_address is a random variable that should be in L1 */
+	alternative_input(
+		ASM_NOP8 ASM_NOP2,
+		"emms\n\t"	  	/* clear stack tags */
+		"fildl %P[addr]",	/* set F?P to defined value */
+		X86_FEATURE_FXSAVE_LEAK,
+		[addr] "m" (safe_address));
 
 	/*
 	 * Paranoid restore. send a SIGSEGV if we fail to restore the state.
 	 */
 	if (unlikely(restore_fpu_checking(tsk))) {
-		stts();
+		__thread_fpu_end(tsk);
 		hard_cond_local_irq_enable();
 		force_sig(SIGSEGV, tsk);
 		return;
 	}
-
-	thread->status |= TS_USEDFPU;	/* So we fnsave on switch_to() */
-	tsk->fpu_counter++;
 }
 
 /*
@@ -591,13 +600,12 @@ void __math_state_restore(void)
  * Careful.. There are problems with IBM-designed IRQ13 behaviour.
  * Don't touch unless you *really* know how it works.
  *
- * Must be called with kernel preemption disabled (in this case,
- * local interrupts are disabled at the call-site in entry.S).
+ * Must be called with kernel preemption disabled (eg with local
+ * local interrupts as in the case of do_device_not_available).
  */
-asmlinkage void math_state_restore(void)
+void math_state_restore(void)
 {
-	struct thread_info *thread = current_thread_info();
-	struct task_struct *tsk = thread->task;
+	struct task_struct *tsk = current;
 	unsigned long flags;
 
 	if (!tsk_used_math(tsk)) {
@@ -616,9 +624,10 @@ asmlinkage void math_state_restore(void)
 	}
 
   	flags = hard_cond_local_irq_save();
-	clts();				/* Allow maths ops (or we recurse) */
+	__thread_fpu_begin(tsk);
+	__math_state_restore(tsk);
 
-	__math_state_restore();
+	tsk->fpu_counter++;
  	hard_cond_local_irq_restore(flags);
 }
 EXPORT_SYMBOL_GPL(math_state_restore);

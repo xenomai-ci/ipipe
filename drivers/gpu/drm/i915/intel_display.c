@@ -5646,12 +5646,15 @@ static int ironlake_crtc_mode_set(struct drm_crtc *crtc,
 	if (is_lvds) {
 		temp = I915_READ(PCH_LVDS);
 		temp |= LVDS_PORT_EN | LVDS_A0A2_CLKA_POWER_UP;
-		if (HAS_PCH_CPT(dev))
+		if (HAS_PCH_CPT(dev)) {
+			temp &= ~PORT_TRANS_SEL_MASK;
 			temp |= PORT_TRANS_SEL_CPT(pipe);
-		else if (pipe == 1)
-			temp |= LVDS_PIPEB_SELECT;
-		else
-			temp &= ~LVDS_PIPEB_SELECT;
+		} else {
+			if (pipe == 1)
+				temp |= LVDS_PIPEB_SELECT;
+			else
+				temp &= ~LVDS_PIPEB_SELECT;
+		}
 
 		/* set the corresponsding LVDS_BORDER bit */
 		temp |= dev_priv->lvds_border_bits;
@@ -5876,14 +5879,14 @@ static void ironlake_write_eld(struct drm_connector *connector,
 	int aud_cntl_st;
 	int aud_cntrl_st2;
 
-	if (IS_IVYBRIDGE(connector->dev)) {
-		hdmiw_hdmiedid = GEN7_HDMIW_HDMIEDID_A;
-		aud_cntl_st = GEN7_AUD_CNTRL_ST_A;
-		aud_cntrl_st2 = GEN7_AUD_CNTRL_ST2;
-	} else {
+	if (HAS_PCH_IBX(connector->dev)) {
 		hdmiw_hdmiedid = GEN5_HDMIW_HDMIEDID_A;
 		aud_cntl_st = GEN5_AUD_CNTL_ST_A;
 		aud_cntrl_st2 = GEN5_AUD_CNTL_ST2;
+	} else {
+		hdmiw_hdmiedid = GEN7_HDMIW_HDMIEDID_A;
+		aud_cntl_st = GEN7_AUD_CNTRL_ST_A;
+		aud_cntrl_st2 = GEN7_AUD_CNTRL_ST2;
 	}
 
 	i = to_intel_crtc(crtc)->pipe;
@@ -5965,7 +5968,7 @@ void intel_crtc_load_lut(struct drm_crtc *crtc)
 	int i;
 
 	/* The clocks have to be on to load the palette. */
-	if (!crtc->enabled)
+	if (!crtc->enabled || !intel_crtc->active)
 		return;
 
 	/* use legacy palette for Ironlake */
@@ -7278,6 +7281,12 @@ static void intel_sanitize_modesetting(struct drm_device *dev,
 	struct drm_i915_private *dev_priv = dev->dev_private;
 	u32 reg, val;
 
+	/* Clear any frame start delays used for debugging left by the BIOS */
+	for_each_pipe(pipe) {
+		reg = PIPECONF(pipe);
+		I915_WRITE(reg, I915_READ(reg) & ~PIPECONF_FRAME_START_DELAY_MASK);
+	}
+
 	if (HAS_PCH_SPLIT(dev))
 		return;
 
@@ -8248,7 +8257,27 @@ static void ivybridge_init_clock_gating(struct drm_device *dev)
 	I915_WRITE(WM2_LP_ILK, 0);
 	I915_WRITE(WM1_LP_ILK, 0);
 
+	/* According to the spec, bit 13 (RCZUNIT) must be set on IVB.
+	 * This implements the WaDisableRCZUnitClockGating workaround.
+	 */
+	I915_WRITE(GEN6_UCGCTL2, GEN6_RCZUNIT_CLOCK_GATE_DISABLE);
+
 	I915_WRITE(ILK_DSPCLK_GATE, IVB_VRHUNIT_CLK_GATE);
+
+	/* Apply the WaDisableRHWOOptimizationForRenderHang workaround. */
+	I915_WRITE(GEN7_COMMON_SLICE_CHICKEN1,
+		   GEN7_CSC1_RHWO_OPT_DISABLE_IN_RCC);
+
+	/* WaApplyL3ControlAndL3ChickenMode requires those two on Ivy Bridge */
+	I915_WRITE(GEN7_L3CNTLREG1,
+			GEN7_WA_FOR_GEN7_L3_CONTROL);
+	I915_WRITE(GEN7_L3_CHICKEN_MODE_REGISTER,
+			GEN7_WA_L3_CHICKEN_MODE);
+
+	/* This is required by WaCatErrorRejectionIssue */
+	I915_WRITE(GEN7_SQ_CHICKEN_MBCUNIT_CONFIG,
+			I915_READ(GEN7_SQ_CHICKEN_MBCUNIT_CONFIG) |
+			GEN7_SQ_CHICKEN_MBCUNIT_SQINTMOB);
 
 	for_each_pipe(pipe) {
 		I915_WRITE(DSPCNTR(pipe),
