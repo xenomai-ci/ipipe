@@ -8,7 +8,6 @@
  * it under the terms of the GNU General Public License version 2 as
  * published by the Free Software Foundation.
  */
-#include <linux/module.h>
 #include <linux/types.h>
 #include <linux/cpu.h>
 #include <linux/kernel.h>
@@ -33,7 +32,6 @@ void vfp_support_entry(void);
 void vfp_null_entry(void);
 
 void (*vfp_vector)(void) = vfp_null_entry;
-union vfp_state *last_VFP_context[NR_CPUS];
 
 /*
  * Dual-use variable.
@@ -41,6 +39,46 @@ union vfp_state *last_VFP_context[NR_CPUS];
  * After startup, holds VFP architecture
  */
 unsigned int VFP_arch;
+
+/*
+ * The pointer to the vfpstate structure of the thread which currently
+ * owns the context held in the VFP hardware, or NULL if the hardware
+ * context is invalid.
+ *
+ * For UP, this is sufficient to tell which thread owns the VFP context.
+ * However, for SMP, we also need to check the CPU number stored in the
+ * saved state too to catch migrations.
+ */
+union vfp_state *vfp_current_hw_state[NR_CPUS];
+
+/*
+ * Is 'thread's most up to date state stored in this CPUs hardware?
+ * Must be called from non-preemptible context.
+ */
+static bool vfp_state_in_hw(unsigned int cpu, struct thread_info *thread)
+{
+#ifdef CONFIG_SMP
+	if (thread->vfpstate.hard.cpu != cpu)
+		return false;
+#endif
+	return vfp_current_hw_state[cpu] == &thread->vfpstate;
+}
+
+/*
+ * Force a reload of the VFP context from the thread structure.  We do
+ * this by ensuring that access to the VFP hardware is disabled, and
+ * clear vfp_current_hw_state.  Must be called from non-preemptible context.
+ */
+static void vfp_force_reload(unsigned int cpu, struct thread_info *thread)
+{
+	if (vfp_state_in_hw(cpu, thread)) {
+		fmxr(FPEXC, fmrx(FPEXC) & ~FPEXC_EN);
+		vfp_current_hw_state[cpu] = NULL;
+	}
+#ifdef CONFIG_SMP
+	thread->vfpstate.hard.cpu = NR_CPUS;
+#endif
+}
 
 /*
  * Per-thread VFP initialization.
@@ -51,20 +89,26 @@ static void vfp_thread_flush(struct thread_info *thread)
 	unsigned long flags;
 	unsigned int cpu;
 
+	/*
+	 * Disable VFP to ensure we initialize it first.  We must ensure
+	 * that the modification of vfp_current_hw_state[] and hardware
+	 * disable are done for the same CPU and without preemption.
+	 *
+	 * Do this first to ensure that preemption won't overwrite our
+	 * state saving should access to the VFP be enabled at this point.
+	 */
+	cpu = ipipe_get_cpu(flags);
+	if (vfp_current_hw_state[cpu] == vfp)
+		vfp_current_hw_state[cpu] = NULL;
+	fmxr(FPEXC, fmrx(FPEXC) & ~FPEXC_EN);
+
 	memset(vfp, 0, sizeof(union vfp_state));
 
 	vfp->hard.fpexc = FPEXC_EN;
 	vfp->hard.fpscr = FPSCR_ROUND_NEAREST;
-
-	/*
-	 * Disable VFP to ensure we initialize it first.  We must ensure
-	 * that the modification of last_VFP_context[] and hardware disable
-	 * are done for the same CPU and without preemption.
-	 */
-	cpu = ipipe_get_cpu(flags);
-	if (last_VFP_context[cpu] == vfp)
-		last_VFP_context[cpu] = NULL;
-	fmxr(FPEXC, fmrx(FPEXC) & ~FPEXC_EN);
+#ifdef CONFIG_SMP
+	vfp->hard.cpu = NR_CPUS;
+#endif
 	ipipe_put_cpu(flags);
 }
 
@@ -75,8 +119,8 @@ static void vfp_thread_exit(struct thread_info *thread)
 	unsigned long flags;
 	unsigned int cpu = ipipe_get_cpu(flags);
 
-	if (last_VFP_context[cpu] == vfp)
-		last_VFP_context[cpu] = NULL;
+	if (vfp_current_hw_state[cpu] == vfp)
+		vfp_current_hw_state[cpu] = NULL;
 	ipipe_put_cpu(flags);
 }
 
@@ -86,6 +130,9 @@ static void vfp_thread_copy(struct thread_info *thread)
 
 	vfp_sync_hwstate(parent);
 	thread->vfpstate = parent->vfpstate;
+#ifdef CONFIG_SMP
+	thread->vfpstate.hard.cpu = NR_CPUS;
+#endif
 }
 
 /*
@@ -133,17 +180,8 @@ static int vfp_notifier(struct notifier_block *self, unsigned long cmd, void *v)
 		 * case the thread migrates to a different CPU. The
 		 * restoring is done lazily.
 		 */
-		if ((fpexc & FPEXC_EN) && last_VFP_context[cpu]) {
-			vfp_save_state(last_VFP_context[cpu], fpexc);
-			last_VFP_context[cpu]->hard.cpu = cpu;
-		}
-		/*
-		 * Thread migration, just force the reloading of the
-		 * state on the new CPU in case the VFP registers
-		 * contain stale data.
-		 */
-		if (thread->vfpstate.hard.cpu != cpu)
-			last_VFP_context[cpu] = NULL;
+		if ((fpexc & FPEXC_EN) && vfp_current_hw_state[cpu])
+			vfp_save_state(vfp_current_hw_state[cpu], fpexc);
 #endif
 
 		/*
@@ -163,7 +201,9 @@ static int vfp_notifier(struct notifier_block *self, unsigned long cmd, void *v)
 		break;
 
 	case THREAD_NOTIFY_COPY:
+		local_irq_save_hw_cond(flags);
 		vfp_thread_copy(thread);
+		local_irq_restore_hw_cond(flags);
 		break;
 	}
 
@@ -410,9 +450,7 @@ static void vfp_enable(void *unused)
 	set_copro_access(access | CPACC_FULL(10) | CPACC_FULL(11));
 }
 
-#ifdef CONFIG_PM
-#include <linux/syscore_ops.h>
-
+#ifdef CONFIG_CPU_PM
 static int vfp_pm_suspend(void)
 {
 	struct thread_info *ti = current_thread_info();
@@ -428,7 +466,7 @@ static int vfp_pm_suspend(void)
 	}
 
 	/* clear any information we had about last context state */
-	memset(last_VFP_context, 0, sizeof(last_VFP_context));
+	memset(vfp_current_hw_state, 0, sizeof(vfp_current_hw_state));
 
 	return 0;
 }
@@ -442,30 +480,44 @@ static void vfp_pm_resume(void)
 	fmxr(FPEXC, fmrx(FPEXC) & ~FPEXC_EN);
 }
 
-static struct syscore_ops vfp_pm_syscore_ops = {
-	.suspend	= vfp_pm_suspend,
-	.resume		= vfp_pm_resume,
+static int vfp_cpu_pm_notifier(struct notifier_block *self, unsigned long cmd,
+	void *v)
+{
+	switch (cmd) {
+	case CPU_PM_ENTER:
+		vfp_pm_suspend();
+		break;
+	case CPU_PM_ENTER_FAILED:
+	case CPU_PM_EXIT:
+		vfp_pm_resume();
+		break;
+	}
+	return NOTIFY_OK;
+}
+
+static struct notifier_block vfp_cpu_pm_notifier_block = {
+	.notifier_call = vfp_cpu_pm_notifier,
 };
 
 static void vfp_pm_init(void)
 {
-	register_syscore_ops(&vfp_pm_syscore_ops);
+	cpu_pm_register_notifier(&vfp_cpu_pm_notifier_block);
 }
 
 #else
 static inline void vfp_pm_init(void) { }
-#endif /* CONFIG_PM */
+#endif /* CONFIG_CPU_PM */
 
+/*
+ * Ensure that the VFP state stored in 'thread->vfpstate' is up to date
+ * with the hardware state.
+ */
 void vfp_sync_hwstate(struct thread_info *thread)
 {
 	unsigned long flags;
 	unsigned int cpu = ipipe_get_cpu(flags);
 
-	/*
-	 * If the thread we're interested in is the current owner of the
-	 * hardware VFP state, then we need to save its state.
-	 */
-	if (last_VFP_context[cpu] == &thread->vfpstate) {
+	if (vfp_state_in_hw(cpu, thread)) {
 		u32 fpexc = fmrx(FPEXC);
 
 		/*
@@ -479,37 +531,14 @@ void vfp_sync_hwstate(struct thread_info *thread)
 	ipipe_put_cpu(flags);
 }
 
+/* Ensure that the thread reloads the hardware VFP state on the next use. */
 void vfp_flush_hwstate(struct thread_info *thread)
 {
 	unsigned long flags;
 	unsigned int cpu = ipipe_get_cpu(flags);
 
-	/*
-	 * If the thread we're interested in is the current owner of the
-	 * hardware VFP state, then we need to save its state.
-	 */
-	if (last_VFP_context[cpu] == &thread->vfpstate) {
-		u32 fpexc = fmrx(FPEXC);
+	vfp_force_reload(cpu, thread);
 
-		fmxr(FPEXC, fpexc & ~FPEXC_EN);
-
-		/*
-		 * Set the context to NULL to force a reload the next time
-		 * the thread uses the VFP.
-		 */
-		last_VFP_context[cpu] = NULL;
-	}
-
-#ifdef CONFIG_SMP
-	/*
-	 * For SMP we still have to take care of the case where the thread
-	 * migrates to another CPU and then back to the original CPU on which
-	 * the last VFP user is still the same thread. Mark the thread VFP
-	 * state as belonging to a non-existent CPU so that the saved one will
-	 * be reloaded in the above case.
-	 */
-	thread->vfpstate.hard.cpu = NR_CPUS;
-#endif
 	ipipe_put_cpu(flags);
 }
 
@@ -528,8 +557,7 @@ static int vfp_hotplug(struct notifier_block *b, unsigned long action,
 	void *hcpu)
 {
 	if (action == CPU_DYING || action == CPU_DYING_FROZEN) {
-		unsigned int cpu = (long)hcpu;
-		last_VFP_context[cpu] = NULL;
+		vfp_force_reload((long)hcpu, current_thread_info());
 	} else if (action == CPU_STARTING || action == CPU_STARTING_FROZEN)
 		vfp_enable(NULL);
 	return NOTIFY_OK;
@@ -597,7 +625,6 @@ static int __init vfp_init(void)
 				elf_hwcap |= HWCAP_VFPv3D16;
 		}
 #endif
-#ifdef CONFIG_NEON
 		/*
 		 * Check for the presence of the Advanced SIMD
 		 * load/store instructions, integer and single
@@ -605,10 +632,15 @@ static int __init vfp_init(void)
 		 * for NEON if the hardware has the MVFR registers.
 		 */
 		if ((read_cpuid_id() & 0x000f0000) == 0x000f0000) {
+#ifdef CONFIG_NEON
 			if ((fmrx(MVFR1) & 0x000fff00) == 0x00011100)
 				elf_hwcap |= HWCAP_NEON;
-		}
 #endif
+#if 0
+			if ((fmrx(MVFR1) & 0xf0000000) == 0x10000000)
+				elf_hwcap |= HWCAP_VFPv4;
+#endif
+		}
 	}
 	return 0;
 }

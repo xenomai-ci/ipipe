@@ -2036,6 +2036,10 @@ config NEON
 	  Say Y to include support code for NEON, the ARMv7 Advanced SIMD
 	  Extension.
 
+config VFP_3_2_BACKPORT
+       bool
+       default y if VFP
+
 endmenu
 
 menu "Userspace binary formats"
