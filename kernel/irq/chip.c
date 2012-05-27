@@ -229,9 +229,13 @@ void mask_irq(struct irq_desc *desc)
 
 void unmask_irq(struct irq_desc *desc)
 {
+	unsigned long flags;
+
 	if (desc->irq_data.chip->irq_unmask) {
+		local_irq_save_hw_cond(flags);
 		desc->irq_data.chip->irq_unmask(&desc->irq_data);
 		irq_state_clr_masked(desc);
+		local_irq_restore_hw_cond(flags);
 	}
 }
 
