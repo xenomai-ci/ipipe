@@ -37,9 +37,7 @@ static DEFINE_PER_CPU(struct ipipe_timer *, percpu_timer);
 
 #ifdef CONFIG_GENERIC_CLOCKEVENTS
 /*
- * Default request method: sets the timer to oneshot mode using host
- * timer method. Do nothing if the host timer does not support
- * one-shot mode.
+ * Default request method: switch to oneshot mode if supported.
  */
 static void ipipe_timer_default_request(struct ipipe_timer *timer, int steal)
 {
@@ -48,7 +46,10 @@ static void ipipe_timer_default_request(struct ipipe_timer *timer, int steal)
 	if (!(evtdev->features & CLOCK_EVT_FEAT_ONESHOT))
 		return;
 
-	evtdev->set_mode(CLOCK_EVT_MODE_ONESHOT, evtdev);
+	if (evtdev->mode != CLOCK_EVT_MODE_ONESHOT) {
+		evtdev->set_mode(CLOCK_EVT_MODE_ONESHOT, evtdev);
+		evtdev->set_next_event(timer->freq / HZ, evtdev);
+	}
 }
 
 /*
