@@ -304,8 +304,10 @@ irqreturn_t bfin_coretmr_interrupt(int irq, void *dev_id)
 	struct clock_event_device *evt = &per_cpu(coretmr_events, cpu);
 
 	smp_mb();
+#ifdef CONFIG_IPIPE
 	if (!clockevent_ipipe_stolen(evt))
 		bfin_coretmr_ack();
+#endif
 	evt->event_handler(evt);
 
 	touch_nmi_watchdog();
