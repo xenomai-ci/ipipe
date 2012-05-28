@@ -483,13 +483,15 @@ void __ipipe_handle_irq(int irq, int flags)
 	else {
 		head = __ipipe_pipeline.next;
 		next_domain = list_entry(head, struct ipipe_domain, p_link);
-		if (!(flags & IPIPE_IRQF_NOSYNC)
-		    && likely(test_bit(IPIPE_WIRED_FLAG, &next_domain->irqs[irq].control))) {
+		if (likely(test_bit(IPIPE_WIRED_FLAG, &next_domain->irqs[irq].control))) {
 			if (!m_ack && next_domain->irqs[irq].acknowledge) {
 				desc = ipipe_virtual_irq_p(irq) ? NULL : irq_to_desc(irq);
 				next_domain->irqs[irq].acknowledge(irq, desc);
 			}
-			__ipipe_dispatch_wired(next_domain, irq);
+			if (flags & IPIPE_IRQF_NOSYNC == 0)
+				__ipipe_dispatch_wired(next_domain, irq);
+			else
+				__ipipe_set_irq_pending(next_domain, irq);
 			return;
 		}
 	}
