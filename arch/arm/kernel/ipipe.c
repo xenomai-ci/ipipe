@@ -488,7 +488,7 @@ void __ipipe_handle_irq(int irq, int flags)
 				desc = ipipe_virtual_irq_p(irq) ? NULL : irq_to_desc(irq);
 				next_domain->irqs[irq].acknowledge(irq, desc);
 			}
-			if (flags & IPIPE_IRQF_NOSYNC == 0)
+			if ((flags & IPIPE_IRQF_NOSYNC) == 0)
 				__ipipe_dispatch_wired(next_domain, irq);
 			else
 				__ipipe_set_irq_pending(next_domain, irq);
