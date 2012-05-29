@@ -155,6 +155,7 @@ int main(void)
 
 #ifdef CONFIG_IPIPE
 	DEFINE(IPIPE_CURRENT_DOMAIN, offsetof(struct ipipe_percpu_data, curr));
+	DEFINE(IPIPE_DOMAIN_DESC, offsetof(struct ipipe_percpu_domain_data, domain));
 #endif
 
 	return 0;
