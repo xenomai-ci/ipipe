@@ -222,7 +222,7 @@ void ipipe_raise_irq(unsigned irq)
 	unsigned long flags;
 
 	flags = hard_local_irq_save();
-	__ipipe_handle_irq(irq, NULL);
+	__ipipe_dispatch_irq(irq, IPIPE_IRQF_NOACK);
 	hard_local_irq_restore(flags);
 }
 EXPORT_SYMBOL_GPL(ipipe_raise_irq);
@@ -408,17 +408,6 @@ out:
 	return -ret;
 }
 
-/*
- * __ipipe_handle_irq() -- IPIPE's generic IRQ handler. An optimistic
- * interrupt protection log is maintained here for each domain. Hw
- * interrupts are off on entry.
- */
-void __ipipe_handle_irq(int irq, struct pt_regs *regs)
-{
-	/* Software-triggered IRQs do not need any ack. */
-	__ipipe_dispatch_irq(irq, regs ? 0 : IPIPE_IRQF_NOACK);
-}
-
 void __ipipe_exit_irq(struct pt_regs *regs)
 {
 	if (user_mode(regs) &&
@@ -465,7 +454,7 @@ asmlinkage void __exception __ipipe_grab_irq(int irq, struct pt_regs *regs)
 		p->tick_regs.ARM_pc = regs->ARM_pc;
 	}
 
-	__ipipe_handle_irq(irq, regs);
+	__ipipe_dispatch_irq(irq, 0);
 
 	ipipe_trace_irq_exit(irq);
 

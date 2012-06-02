@@ -26,24 +26,24 @@ extern void __iomem *twd_base;
 
 #define __ipipe_mach_ipi_p(irq) ((irq) < 16)
 
-#define __ipipe_mach_relay_ipi(ipi, thiscpu)	\
-	({					\
-		(void)(thiscpu);		\
-		__ipipe_handle_irq(ipi, NULL);	\
+#define __ipipe_mach_relay_ipi(ipi, thiscpu)			\
+	({							\
+		(void)(thiscpu);				\
+		__ipipe_dispatch_irq(ipi, IPIPE_IRQF_NOACK);	\
 	})
 
-#define __ipipe_mach_doirq(irq)                                        \
-       ({                                                      \
-	       __ipipe_mach_ipi_p(irq)                         \
-		       ? __ipipe_root_ipi                      \
-		       : __ipipe_do_IRQ;                       \
+#define __ipipe_mach_doirq(irq)			\
+       ({					\
+	       __ipipe_mach_ipi_p(irq)		\
+		       ? __ipipe_root_ipi	\
+		       : __ipipe_do_IRQ;	\
        })
 
-#define __ipipe_mach_ackirq(irq)                                       \
-       ({                                                              \
-	       __ipipe_mach_ipi_p(irq)                                 \
-		       ? NULL                                          \
-		       : __ipipe_ack_irq;                              \
+#define __ipipe_mach_ackirq(irq)		\
+       ({					\
+	       __ipipe_mach_ipi_p(irq)		\
+		       ? NULL			\
+		       : __ipipe_ack_irq;	\
        })
 
 struct irq_desc;

@@ -512,7 +512,7 @@ asmlinkage void __exception __ipipe_grab_ipi(unsigned svc, struct pt_regs *regs)
 		__ipipe_do_vnmi(IPIPE_SERVICE_VNMI, NULL);
 	else if (svc >= IPI_IPIPE_FIRST && svc <= IPI_IPIPE_LAST) {
 		virq = svc - IPI_IPIPE_FIRST + IPIPE_FIRST_IPI;
-		__ipipe_handle_irq(virq, NULL);
+		__ipipe_dispatch_irq(virq, IPIPE_IRQF_NOACK);
 	} else
 		__ipipe_mach_relay_ipi(svc, ipipe_processor_id());
 

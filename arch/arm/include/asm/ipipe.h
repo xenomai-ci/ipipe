@@ -210,8 +210,6 @@ void __ipipe_grab_irq(int irq, struct pt_regs *regs);
 
 void __ipipe_exit_irq(struct pt_regs *regs);
 
-void __ipipe_handle_irq(int irq, struct pt_regs *regs);
-
 static inline void ipipe_handle_multi_irq(int irq, struct pt_regs *regs)
 {
 	__ipipe_grab_irq(irq, regs);
