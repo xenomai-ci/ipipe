@@ -475,8 +475,7 @@ static struct platform_driver mxc_gpio_driver = {
 	.id_table	= mxc_gpio_devtype,
 };
 
-#if defined(CONFIG_IPIPE) && \
-	(defined(CONFIG_MXC_TZIC) || defined(CONFIG_ARM_GIC))
+#if defined(CONFIG_IPIPE)
 #ifdef CONFIG_MXC_TZIC
 #include <mach/hardware.h>
 #endif /* CONFIG_MXC_TZIC */

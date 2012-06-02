@@ -318,7 +318,7 @@ static int __init mxc_clockevent_init(struct clk *timer_clk)
 	return 0;
 }
 
-extern void __init mxc_pic_muter_register(void)
+extern void __init mxc_pic_muter_register(void);
 
 void __init
 mxc_timer_init(struct clk *timer_clk,
