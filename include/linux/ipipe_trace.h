@@ -49,8 +49,8 @@ int ipipe_trace_frozen_reset(void);
 #define ipipe_trace_special(id, v)		do { (void)(id); (void)(v); } while(0)
 #define ipipe_trace_pid(pid, prio)		do { (void)(pid); (void)(prio); } while(0)
 #define ipipe_trace_event(id, delay_tsc)	do { (void)(id); (void)(delay_tsc); } while(0)
-#define ipipe_trace_max_reset()			do { } while(0)
-#define ipipe_trace_froze_reset()		do { } while(0)
+#define ipipe_trace_max_reset()			({ 0; })
+#define ipipe_trace_frozen_reset()		({ 0; })
 
 #endif /* !CONFIG_IPIPE_TRACE */
 
