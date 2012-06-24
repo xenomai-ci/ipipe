@@ -27,6 +27,7 @@
 #include <linux/spinlock.h>
 #include <linux/ipipe_tickdev.h>
 #include <linux/interrupt.h>
+#include <linux/export.h>
 
 unsigned long __ipipe_hrtimer_freq;
 
@@ -339,11 +340,13 @@ void ipipe_timer_set(unsigned long delay)
 	    || timer->set(delay, timer->timer_set) < 0)
 		ipipe_raise_irq(timer->irq);
 }
+EXPORT_SYMBOL(ipipe_timer_set);
 
 const char *ipipe_timer_name(void)
 {
 	return per_cpu(percpu_timer, 0)->name;
 }
+EXPORT_SYMBOL(ipipe_timer_name);
 
 unsigned ipipe_timer_ns2ticks(struct ipipe_timer *timer, unsigned ns)
 {
