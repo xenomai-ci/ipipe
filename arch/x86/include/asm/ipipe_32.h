@@ -42,7 +42,11 @@
 
 extern unsigned int cpu_khz;
 #define __ipipe_cpu_freq	({ unsigned long long __freq = 1000ULL * cpu_khz; __freq; })
-#define __ipipe_hrclock_freq	({ unsigned long long __freq = cpu_has_tsc?__ipipe_cpu_freq:PIT_TICK_RATE; __freq; })
+#ifdef CONFIG_X86_TSC
+#define __ipipe_hrclock_freq	__ipipe_cpu_freq
+#else /* !CONFIG_X86_TSC */
+#define __ipipe_hrclock_freq	PIT_TICK_RATE
+#endif /* !CONFIG_X86_TSC */
 
 static inline unsigned long __ipipe_ffnz(unsigned long ul)
 {
