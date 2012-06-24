@@ -29,6 +29,7 @@
 #include <linux/clockchips.h>
 #include <linux/io.h>
 #include <linux/export.h>
+#include <linux/gpio.h>
 #include <linux/ipipe.h>
 #include <linux/ipipe_tickdev.h>
 
@@ -156,7 +157,7 @@ static signed char irq2gpio[32] = {
 	 7,  8,  9, 10, 11, 12, -1, -1,
 };
 
-int gpio_to_irq(int gpio)
+static int ixp4xx_gpio_to_irq(struct gpio_chip *chip, unsigned gpio)
 {
 	int irq;
 
@@ -166,7 +167,6 @@ int gpio_to_irq(int gpio)
 	}
 	return -EINVAL;
 }
-EXPORT_SYMBOL(gpio_to_irq);
 
 int irq_to_gpio(unsigned int irq)
 {
@@ -478,6 +478,7 @@ static struct gpio_chip ixp4xx_gpio_chip = {
 	.direction_output	= ixp4xx_gpio_direction_output,
 	.get			= ixp4xx_gpio_get_value,
 	.set			= ixp4xx_gpio_set_value,
+	.to_irq			= ixp4xx_gpio_to_irq,
 	.base			= 0,
 	.ngpio			= 16,
 };
