@@ -310,13 +310,6 @@ static struct at91_gpio_bank at91sam9g45_gpio[] = {
 		.offset		= AT91_PIOA,
 		.clock		= &pioA_clk,
 	}, {
-#ifdef CONFIG_IPIPE
-		.virtual	= AT91_VA_BASE_TCB0,
-		.pfn		= __phys_to_pfn(AT91_BASE_TCB0),
-		.length		= SZ_16K,
-		.type		= MT_DEVICE,
-	}, {
-#endif /* CONFIG_IPIPE */
 		.id		= AT91SAM9G45_ID_PIOB,
 		.offset		= AT91_PIOB,
 		.clock		= &pioB_clk,
