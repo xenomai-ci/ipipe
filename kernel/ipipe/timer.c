@@ -340,13 +340,13 @@ void ipipe_timer_set(unsigned long delay)
 	    || timer->set(delay, timer->timer_set) < 0)
 		ipipe_raise_irq(timer->irq);
 }
-EXPORT_SYMBOL(ipipe_timer_set);
+EXPORT_SYMBOL_GPL(ipipe_timer_set);
 
 const char *ipipe_timer_name(void)
 {
 	return per_cpu(percpu_timer, 0)->name;
 }
-EXPORT_SYMBOL(ipipe_timer_name);
+EXPORT_SYMBOL_GPL(ipipe_timer_name);
 
 unsigned ipipe_timer_ns2ticks(struct ipipe_timer *timer, unsigned ns)
 {

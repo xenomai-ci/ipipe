@@ -238,6 +238,7 @@ int ipipe_get_sysinfo(struct ipipe_sysinfo *info)
 
 	return 0;
 }
+EXPORT_SYMBOL_GPL(ipipe_get_sysinfo);
 
 static void __ipipe_ack_irq(unsigned irq, struct irq_desc *desc)
 {
