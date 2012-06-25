@@ -155,12 +155,12 @@ at91_tc_set_mode(enum clock_event_mode mode, struct clock_event_device *dev)
 
 #ifdef CONFIG_ARCH_AT91SAM9263
 		clk_enable(clk_get(NULL, "tcb_clk"));
-#elif CONFIG_ARCH_AT91SAM9G45
+#elif defined(CONFIG_ARCH_AT91SAM9G45)
 		clk_enable(clk_get(NULL, "tcb0_clk"));
-#else /* AT91SAM9263 and AT91SAM9G45*/
+#else /* !AT91SAM9263 and !AT91SAM9G45*/
 		clk_enable(clk_get(NULL, "tc"
 						   __stringify(CONFIG_IPIPE_AT91_TC) "_clk"));
-#endif 
+#endif /* !AT91SAM9263 and !AT91SAM9G45*/
 
 		/* No Sync. */
 		at91_tc_write(AT91_TC_BCR, 0);
