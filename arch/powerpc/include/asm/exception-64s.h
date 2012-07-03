@@ -256,7 +256,7 @@ label##_hv:						\
 				 EXC_HV, KVMTEST, vec)
 
 #define __SOFTEN_TEST(h)						\
-	TEST_SOFTISTATE(r10, masked_##h##interrupt);			\
+	TEST_SOFTISTATE(r10, masked_##h##interrupt);
 #define _SOFTEN_TEST(h)	__SOFTEN_TEST(h)
 
 #define SOFTEN_TEST_PR(vec)						\
