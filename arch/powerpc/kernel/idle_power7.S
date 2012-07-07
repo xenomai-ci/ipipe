@@ -52,8 +52,10 @@ _GLOBAL(power7_idle)
 	rotldi	r9,r9,16
 	mtmsrd	r9,1			/* hard-disable interrupts */
 	li	r0,0
+#ifdef CONFIG_SOFTDISABLE
 	stb	r0,PACASOFTIRQEN(r13)	/* we'll hard-enable shortly */
 	stb	r0,PACAHARDIRQEN(r13)
+#endif
 
 	/* Continue saving state */
 	SAVE_GPR(2, r1)
