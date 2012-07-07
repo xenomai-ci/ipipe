@@ -32,6 +32,7 @@
 #include <linux/list.h>
 #include <linux/hash.h>
 #include <linux/rcupdate.h>
+#include <linux/ipipe.h>
 
 #include <trace/events/sched.h>
 
@@ -1798,6 +1799,9 @@ void __weak arch_ftrace_update_code(int command)
 
 static void ftrace_run_update_code(int command)
 {
+#ifdef CONFIG_IPIPE
+	unsigned long flags;
+#endif /* CONFIG_IPIPE */
 	int ret;
 
 	ret = ftrace_arch_code_modify_prepare();
@@ -1816,7 +1820,13 @@ static void ftrace_run_update_code(int command)
 	 * is safe. The stop_machine() is the safest, but also
 	 * produces the most overhead.
 	 */
+#ifdef CONFIG_IPIPE
+	flags = ipipe_critical_enter(NULL);
+	__ftrace_modify_code(&command);
+	ipipe_critical_exit(flags);
+#else  /* !CONFIG_IPIPE */
 	arch_ftrace_update_code(command);
+#endif /* !CONFIG_IPIPE */
 
 #ifndef CONFIG_HAVE_FUNCTION_TRACE_MCOUNT_TEST
 	/*
@@ -3644,6 +3654,11 @@ static int ftrace_process_locs(struct module *mod,
 
 	mutex_lock(&ftrace_lock);
 
+#ifdef CONFIG_IPIPE
+	flags = hard_local_irq_save_notrace();
+	ftrace_update_code(mod);
+	hard_local_irq_restore_notrace(flags);
+#else
 	/*
 	 * Core and each module needs their own pages, as
 	 * modules will free them when they are removed.
@@ -3806,9 +3821,9 @@ void __init ftrace_init(void)
 	/* Keep the ftrace pointer to the stub */
 	addr = (unsigned long)ftrace_stub;
 
-	local_irq_save(flags);
+	flags = hard_local_irq_save_notrace();
 	ftrace_dyn_arch_init(&addr);
-	local_irq_restore(flags);
+	hard_local_irq_restore_notrace(flags);
 
 	/* ftrace_dyn_arch_init places the return code in addr */
 	if (addr)

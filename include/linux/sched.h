@@ -62,6 +62,7 @@ struct sched_param {
 #include <linux/errno.h>
 #include <linux/nodemask.h>
 #include <linux/mm_types.h>
+#include <linux/ipipe.h>
 
 #include <asm/system.h>
 #include <asm/page.h>
@@ -192,9 +193,17 @@ print_cfs_rq(struct seq_file *m, int cpu, struct cfs_rq *cfs_rq)
 #define TASK_DEAD		64
 #define TASK_WAKEKILL		128
 #define TASK_WAKING		256
+#ifdef CONFIG_IPIPE
+#define TASK_HARDENING		512
+#define TASK_NOWAKEUP		1024
+#define TASK_STATE_MAX		2048
+#define TASK_STATE_TO_CHAR_STR "RSDTtZXxKWHN"
+#else  /* !CONFIG_IPIPE */
+#define TASK_HARDENING		0
+#define TASK_NOWAKEUP		0
 #define TASK_STATE_MAX		512
-
 #define TASK_STATE_TO_CHAR_STR "RSDTtZXxKW"
+#endif /* CONFIG_IPIPE */
 
 extern char ___assert_task_state[1 - 2*!!(
 		sizeof(TASK_STATE_TO_CHAR_STR)-1 != ilog2(TASK_STATE_MAX)+1)];
@@ -306,6 +315,15 @@ extern void cpu_init (void);
 extern void trap_init(void);
 extern void update_process_times(int user);
 extern void scheduler_tick(void);
+
+#ifdef CONFIG_IPIPE
+void update_root_process_times(struct pt_regs *regs);
+#else  /* !CONFIG_IPIPE */
+static inline void update_root_process_times(struct pt_regs *regs)
+{
+	update_process_times(user_mode(regs));
+}
+#endif /* CONFIG_IPIPE */
 
 extern void sched_show_task(struct task_struct *p);
 
@@ -437,6 +455,9 @@ extern int get_dumpable(struct mm_struct *mm);
 					/* leave room for more dump flags */
 #define MMF_VM_MERGEABLE	16	/* KSM may merge identical pages */
 #define MMF_VM_HUGEPAGE		17	/* set when VM_HUGEPAGE is set on vma */
+#ifdef CONFIG_IPIPE
+#define MMF_VM_PINNED		31	/* ondemand load up and COW disabled */
+#endif
 
 #define MMF_INIT_MASK		(MMF_DUMPABLE_MASK | MMF_DUMP_FILTER_MASK)
 
@@ -1327,9 +1348,9 @@ struct task_struct {
 	unsigned long stack_canary;
 #endif
 
-	/* 
+	/*
 	 * pointers to (original) parent process, youngest child, younger sibling,
-	 * older sibling, respectively.  (p->father can be replaced with 
+	 * older sibling, respectively.  (p->father can be replaced with
 	 * p->real_parent->pid)
 	 */
 	struct task_struct __rcu *real_parent; /* real parent process */
@@ -1527,6 +1548,10 @@ struct task_struct {
 	short pref_node_fork;
 #endif
 	struct rcu_head rcu;
+	struct ipipe_task_info ipipe;
+#ifdef CONFIG_IPIPE_LEGACY
+	void *ptd[IPIPE_ROOT_NPTDKEYS];
+#endif
 
 	/*
 	 * cache last used pipe for splice
@@ -1804,6 +1829,10 @@ extern void thread_group_times(struct task_struct *p, cputime_t *ut, cputime_t *
 #define PF_MEMPOLICY	0x10000000	/* Non-default NUMA mempolicy */
 #define PF_MUTEX_TESTER	0x20000000	/* Thread belongs to the rt mutex tester */
 #define PF_FREEZER_SKIP	0x40000000	/* Freezer should not count it as freezable */
+
+/* p->ipipe.flags */
+#define PF_MAYDAY	0x1	/* MAYDAY call is pending */
+#define PF_EVNOTIFY	0x2	/* Notify head domain about kernel events */
 
 /*
  * Only the _current_ task can read/write to tsk->flags, but other
