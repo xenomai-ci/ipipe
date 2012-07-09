@@ -926,11 +926,18 @@ _GLOBAL(enter_rtas)
 	li	r0,0
 	mtcr	r0
 
-#ifdef CONFIG_BUG && CONFIG_SOFTDISABLE
+#ifdef CONFIG_BUG
 	/* There is no way it is acceptable to get here with interrupts enabled,
 	 * check it with the asm equivalent of WARN_ON
 	 */
+#ifdef CONFIG_IPIPE
+	ld	r0,PACAROOTPCPU(r13)
+	ld	r0,0(r0)
+	neg	r0,r0
+	clrldi	r0,r0,63
+#else /* PPC64 && !IPIPE */
 	lbz	r0,PACASOFTIRQEN(r13)
+#endif
 1:	tdnei	r0,0
 	EMIT_BUG_ENTRY 1b,__FILE__,__LINE__,BUGFLAG_WARNING
 #endif
