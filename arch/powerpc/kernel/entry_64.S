@@ -834,12 +834,20 @@ restore_check_irq_replay:
 	cmpwi	cr0,r3,0x500
 	bne	1f
 	addi	r3,r1,STACK_FRAME_OVERHEAD;
+#ifdef CONFIG_IPIPE
+ 	bl	.__ipipe_grab_irq
+#else	
  	bl	.do_IRQ
+#endif	
 	b	.ret_from_except
 1:	cmpwi	cr0,r3,0x900
 	bne	1f
 	addi	r3,r1,STACK_FRAME_OVERHEAD;
+#ifdef CONFIG_IPIPE
+ 	bl	.__ipipe_grab_timer
+#else	
 	bl	.timer_interrupt
+#endif	
 	b	.ret_from_except
 #ifdef CONFIG_PPC_BOOK3E
 1:	cmpwi	cr0,r3,0x280
