@@ -78,8 +78,8 @@ extern unsigned long __ipipe_hrtimer_freq;
 
 #ifdef CONFIG_PPC64
 #define ipipe_read_tsc(t)	(t = mftb())
-#define ipipe_tsc2ns(t)		(((t) * 1000UL) / (__ipipe_hrclock_freq / 1000000UL))
-#define ipipe_tsc2us(t)		((t) / (__ipipe_hrclock_freq / 1000000UL))
+#define ipipe_tsc2ns(t)		(((t) * 1000UL) / (ppc_tb_freq / 1000000UL))
+#define ipipe_tsc2us(t)		((t) / (ppc_tb_freq / 1000000UL))
 #else /* CONFIG_PPC32 */
 #define ipipe_read_tsc(t)					\
 	({							\
@@ -96,12 +96,12 @@ extern unsigned long __ipipe_hrtimer_freq;
 	})
 
 #define ipipe_tsc2ns(t)	\
-	((((unsigned long)(t)) * 1000) / (__ipipe_hrclock_freq / 1000000))
+	((((unsigned long)(t)) * 1000) / (ppc_tb_freq / 1000000))
 
 #define ipipe_tsc2us(t)						\
 	({							\
 		unsigned long long delta = (t);			\
-		do_div(delta, __ipipe_hrclock_freq/1000000+1);	\
+		do_div(delta, ppc_tb_freq/1000000+1);		\
 		(unsigned long)delta;				\
 	})
 #endif /* CONFIG_PPC32 */
