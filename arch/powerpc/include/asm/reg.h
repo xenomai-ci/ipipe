@@ -98,6 +98,16 @@
 #define MSR_RI		__MASK(MSR_RI_LG)	/* Recoverable Exception */
 #define MSR_LE		__MASK(MSR_LE_LG)	/* Little Endian */
 
+/* These two only used with CONFIG_IPIPE. */
+#define MSR_SOFTEE_LG	28			/* mirrors SOFIRQEN (PPC64 only) */
+#ifdef CONFIG_PPC64
+#define MSR_SOFTEE	__MASK(MSR_SOFTEE_LG)
+#else
+#define MSR_SOFTEE	0			/* Always false on PPC32 */
+#endif
+#define MSR_VIRTEE_LG	29			/* I-pipe stall bit */
+#define MSR_VIRTEE	__MASK(MSR_VIRTEE_LG)
+
 #if defined(CONFIG_PPC_BOOK3S_64)
 #define MSR_64BIT	MSR_SF
 

@@ -318,6 +318,16 @@ label##_common:							\
  * in the idle task and therefore need the special idle handling
  * (finish nap and runlatch)
  */
+#ifdef CONFIG_IPIPE
+/*
+ * No NAP mode when pipelining, we don't want that extra latency, and
+ * we may not always be over a regular linux stack context
+ * anyway. Runlatch will be considered later in __ipipe_exit_irq().
+ */
+#define IPIPE_EXCEPTION_COMMON_ASYNC(trap, label, hdlr)		  \
+	EXCEPTION_COMMON(trap, label, hdlr, .__ipipe_ret_from_except_lite, \
+			 DISABLE_INTS)
+#endif
 #define STD_EXCEPTION_COMMON_ASYNC(trap, label, hdlr)		  \
 	EXCEPTION_COMMON(trap, label, hdlr, ret_from_except_lite, \
 			 FINISH_NAP;RUNLATCH_ON;DISABLE_INTS)

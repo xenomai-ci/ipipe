@@ -30,14 +30,17 @@
 
 #ifndef __ASSEMBLY__
 
-extern void __replay_interrupt(unsigned int vector);
-
 extern void timer_interrupt(struct pt_regs *);
 
 #ifdef CONFIG_PPC64
+
 #include <asm/paca.h>
 
-static inline unsigned long arch_local_save_flags(void)
+extern void __replay_interrupt(unsigned int vector);
+
+extern void soft_local_irq_restore(unsigned long);
+
+static inline unsigned long soft_local_save_flags(void)
 {
 	unsigned long flags;
 
@@ -49,7 +52,7 @@ static inline unsigned long arch_local_save_flags(void)
 	return flags;
 }
 
-static inline unsigned long arch_local_irq_disable(void)
+static inline unsigned long soft_local_irq_disable(void)
 {
 	unsigned long flags, zero;
 
@@ -60,28 +63,6 @@ static inline unsigned long arch_local_irq_disable(void)
 		: "memory");
 
 	return flags;
-}
-
-extern void arch_local_irq_restore(unsigned long);
-
-static inline void arch_local_irq_enable(void)
-{
-	arch_local_irq_restore(1);
-}
-
-static inline unsigned long arch_local_irq_save(void)
-{
-	return arch_local_irq_disable();
-}
-
-static inline bool arch_irqs_disabled_flags(unsigned long flags)
-{
-	return flags == 0;
-}
-
-static inline bool arch_irqs_disabled(void)
-{
-	return arch_irqs_disabled_flags(arch_local_save_flags());
 }
 
 #ifdef CONFIG_PPC_BOOK3E
@@ -116,7 +97,69 @@ static inline bool arch_irq_disabled_regs(struct pt_regs *regs)
 	return !regs->softe;
 }
 
-#else /* CONFIG_PPC64 */
+#ifndef CONFIG_IPIPE
+
+static inline unsigned long arch_local_save_flags(void)
+{
+	return soft_local_save_flags();
+}
+
+static inline unsigned long arch_local_irq_disable(void)
+{
+	return soft_local_irq_disable();
+}
+
+static inline void arch_local_irq_enable(void)
+{
+	soft_local_irq_restore(1);
+}
+
+static inline unsigned long arch_local_irq_save(void)
+{
+	return arch_local_irq_disable();
+}
+
+static inline void arch_local_irq_restore(unsigned long flags)
+{
+	return soft_local_irq_restore(flags);
+}
+
+static inline bool arch_irqs_disabled_flags(unsigned long flags)
+{
+	return flags == 0;
+}
+
+static inline bool arch_irqs_disabled(void)
+{
+	return arch_irqs_disabled_flags(arch_local_save_flags());
+}
+
+#endif /* !CONFIG_IPIPE */
+
+#else  /* !CONFIG_PPC64 */
+
+static inline unsigned long soft_local_irq_disable(void)
+{
+	return 0;
+}
+
+static inline void soft_local_irq_restore(unsigned long flags)
+{
+}
+
+static inline unsigned long soft_local_save_flags(void)
+{
+	return 0;
+}
+
+static inline bool arch_irq_disabled_regs(struct pt_regs *regs)
+{
+	return !(regs->msr & MSR_EE);
+}
+
+static inline void may_hard_irq_enable(void) { }
+
+#ifndef CONFIG_IPIPE
 
 #define SET_MSR_EE(x)	mtmsr(x)
 
@@ -176,16 +219,11 @@ static inline bool arch_irqs_disabled(void)
 
 #define hard_irq_disable()		arch_local_irq_disable()
 
-static inline bool arch_irq_disabled_regs(struct pt_regs *regs)
-{
-	return !(regs->msr & MSR_EE);
-}
+#endif /* !CONFIG_IPIPE */
 
-static inline void may_hard_irq_enable(void) { }
+#endif /* !CONFIG_PPC64 */
 
-#endif /* CONFIG_PPC64 */
-
-#define ARCH_IRQ_INIT_FLAGS	IRQ_NOREQUEST
+#include <asm/ipipe_hwirq.h>
 
 /*
  * interrupt-retrigger: should we handle this via lost interrupts and IPIs
