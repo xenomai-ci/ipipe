@@ -385,7 +385,21 @@ int __ipipe_do_sync_check(void)
 	return soft_local_save_flags();
 }
 
-#endif
+#ifdef CONFIG_IPIPE_TRACE_IRQSOFF
+
+asmlinkage notrace void __ipipe_trace_irqsoff(void)
+{
+	ipipe_trace_irqsoff();
+}
+
+asmlinkage notrace void __ipipe_trace_irqson(void)
+{
+	ipipe_trace_irqson();
+}
+
+#endif /* CONFIG_IPIPE_TRACE_IRQSOFF */
+
+#endif /* CONFIG_PPC64 */
 
 asmlinkage int __ipipe_syscall_root(struct pt_regs *regs)
 {
