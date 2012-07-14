@@ -177,9 +177,16 @@ static inline unsigned long hard_local_save_flags(void)
 	return mfmsr();
 }
 
+static inline int hard_irqs_disabled_flags(unsigned long flags)
+{
+	return (flags & MSR_EE) == 0;
+}
+
 static inline int hard_irqs_disabled(void)
 {
-	return (hard_local_save_flags() & MSR_EE) == 0;
+	unsigned long flags = hard_local_save_flags();
+
+	return hard_irqs_disabled_flags(flags);
 }
 
 #ifdef CONFIG_IPIPE_TRACE_IRQSOFF
@@ -235,6 +242,7 @@ static inline void hard_local_irq_restore(unsigned long flags)
 #define hard_local_irq_enable()		arch_local_irq_enable()
 #define hard_local_irq_disable()	arch_local_irq_disable()
 #define hard_irqs_disabled()		arch_irqs_disabled()
+#define hard_irqs_disabled_flags(flags)	arch_irqs_disabled_flags(flags)
 
 #define hard_cond_local_irq_enable()		do { } while(0)
 #define hard_cond_local_irq_disable()		do { } while(0)

@@ -315,7 +315,7 @@ __ipipe_trace(enum ipipe_trace_type type, unsigned long eip,
 
 	/* store all trace point data */
 	point->type = type;
-	point->flags = raw_irqs_disabled_flags(flags) ? IPIPE_TFLG_HWIRQ_OFF : 0;
+	point->flags = hard_irqs_disabled_flags(flags) ? IPIPE_TFLG_HWIRQ_OFF : 0;
 	point->eip = eip;
 	point->parent_eip = parent_eip;
 	point->v = v;
