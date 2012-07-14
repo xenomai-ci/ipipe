@@ -87,6 +87,11 @@
 
 #ifndef __ASSEMBLY__
 
+#ifdef CONFIG_PPC64
+int __ipipe_do_sync_check(void);
+#define __ipipe_sync_check __ipipe_do_sync_check()
+#endif
+
 #ifdef CONFIG_SMP
 
 void ipipe_stall_root(void);

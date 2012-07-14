@@ -104,7 +104,7 @@ static inline unsigned long hard_local_irq_save_notrace(void)
 
 static inline int arch_irqs_disabled_flags(unsigned long flags)
 {
-	return (flags & (MSR_EE|MSR_SOFTEE)) == 0;
+	return (flags & (MSR_EE|MSR_SOFTEE)) != (MSR_EE|MSR_SOFTEE);
 }
 
 static inline unsigned long arch_local_irq_disable(void)
@@ -172,14 +172,14 @@ static inline int arch_demangle_irq_bits(unsigned long *x)
 	return virt;
 }
 
-static inline int hard_irqs_disabled(void)
-{
-	return arch_irqs_disabled_flags(mfmsr());
-}
-
 static inline unsigned long hard_local_save_flags(void)
 {
 	return mfmsr();
+}
+
+static inline int hard_irqs_disabled(void)
+{
+	return (hard_local_save_flags() & MSR_EE) == 0;
 }
 
 #ifdef CONFIG_IPIPE_TRACE_IRQSOFF
@@ -205,18 +205,18 @@ static inline unsigned long hard_local_irq_save(void)
 	unsigned long flags;
 
 	flags = hard_local_irq_save_notrace();
-	if (!arch_irqs_disabled_flags(flags))
+	if (flags & MSR_EE)
 		ipipe_trace_begin(0x80000001);
 
 	return flags;
 }
 
-static inline void hard_local_irq_restore(unsigned long x)
+static inline void hard_local_irq_restore(unsigned long flags)
 {
-	if (!arch_irqs_disabled_flags(x))
+	if (flags & MSR_EE)
 		ipipe_trace_end(0x80000001);
 
-	hard_local_irq_restore_notrace(x);
+	hard_local_irq_restore_notrace(flags);
 }
 
 #else /* !CONFIG_IPIPE_TRACE_IRQSOFF */

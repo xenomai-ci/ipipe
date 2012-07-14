@@ -378,6 +378,15 @@ asmlinkage notrace int __ipipe_check_root(void) /* hw IRQs off */
 	return __ipipe_root_p;
 }
 
+#ifdef CONFIG_PPC64
+
+int __ipipe_do_sync_check(void)
+{
+	return soft_local_save_flags();
+}
+
+#endif
+
 asmlinkage int __ipipe_syscall_root(struct pt_regs *regs)
 {
 	struct ipipe_percpu_domain_data *p;
