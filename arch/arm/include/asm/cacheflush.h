@@ -242,9 +242,10 @@ static inline void vivt_flush_cache_mm(struct mm_struct *mm)
 static inline void
 vivt_flush_cache_range(struct vm_area_struct *vma, unsigned long start, unsigned long end)
 {
-	if (fcse_mm_in_cache(vma->vm_mm)) {
-		start = fcse_va_to_mva(vma->vm_mm, start & PAGE_MASK);
-		end = fcse_va_to_mva(vma->vm_mm, PAGE_ALIGN(end));
+	if (!vma->vm_mm || fcse_mm_in_cache(vma->vm_mm)) {
+		struct mm_struct *mm = vma->vm_mm ?: &init_mm;
+		start = fcse_va_to_mva(mm, start & PAGE_MASK);
+		end = fcse_va_to_mva(mm, PAGE_ALIGN(end));
 		__cpuc_flush_user_range(start, end, vma->vm_flags);
 	}
 }
@@ -252,9 +253,10 @@ vivt_flush_cache_range(struct vm_area_struct *vma, unsigned long start, unsigned
 static inline void
 vivt_flush_cache_page(struct vm_area_struct *vma, unsigned long user_addr, unsigned long pfn)
 {
-	if (fcse_mm_in_cache(vma->vm_mm)) {
+	if (!vma->vm_mm || fcse_mm_in_cache(vma->vm_mm)) {
+		struct mm_struct *mm = vma->vm_mm ?: &init_mm;
 		unsigned long addr;
-		addr = fcse_va_to_mva(vma->vm_mm, user_addr) & PAGE_MASK;
+		addr = fcse_va_to_mva(mm, user_addr) & PAGE_MASK;
 		__cpuc_flush_user_range(addr, addr + PAGE_SIZE, vma->vm_flags);
 	}
 }
