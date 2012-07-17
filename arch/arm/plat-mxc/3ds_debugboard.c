@@ -16,6 +16,7 @@
 #include <linux/platform_device.h>
 #include <linux/gpio.h>
 #include <linux/smsc911x.h>
+#include <linux/ipipe.h>
 
 #include <mach/hardware.h>
 
@@ -102,7 +103,7 @@ static void mxc_expio_irq_handler(u32 irq, struct irq_desc *desc)
 	for (; int_valid != 0; int_valid >>= 1, expio_irq++) {
 		if ((int_valid & 1) == 0)
 			continue;
-		generic_handle_irq(expio_irq);
+		ipipe_handle_demuxed_irq(expio_irq);
 	}
 
 	desc->irq_data.chip->irq_ack(&desc->irq_data);
