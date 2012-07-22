@@ -1,11 +1,36 @@
 #! /bin/sh
 
+me=`basename $0`
+usage='usage: $me [--split] [--help] [reference]'
+split=no
+
+while test $# -gt 0; do
+    case "$1" in
+    --split)
+	split=yes
+	;;
+    --help)
+	echo "$usage"
+	exit 0
+	;;
+    *)
+	if [ -n "$kvers" ]; then
+	    echo "$me: unknown flag: $1" >&2
+	    echo "$usage" >&2
+	    exit 1
+	fi
+	reference="$1"
+	;;
+    esac
+    shift
+done
+
 VERSION=`sed 's/^VERSION = \(.*\)/\1/;t;d' Makefile`
 PATCHLEVEL=`sed 's/^PATCHLEVEL = \(.*\)/\1/;t;d' Makefile`
 SUBLEVEL=`sed 's/^SUBLEVEL = \(.*\)/\1/;t;d' Makefile`
 EXTRAVERSION=`sed 's/^EXTRAVERSION = \(.*\)/\1/;t;d' Makefile`
 
-if [ -z "$SUBLEVEL" ]; then
+if [ -z "$SUBLEVEL" -o "$SUBLEVEL" = "0" ]; then
     kvers="$VERSION.$PATCHLEVEL"
 elif [ -z "$EXTRAVERSION" ]; then
     kvers="$VERSION.$PATCHLEVEL.$SUBLEVEL"
@@ -13,9 +38,13 @@ else
     kvers="$VERSION.$PATCHLEVEL.$SUBLEVEL.$EXTRAVERSION"
 fi
 
-echo kernel version: $kvers
+if [ -z "$reference" ]; then
+    reference="v$kvers"
+fi
 
-git diff "v$kvers" | awk -v kvers="$kvers" \
+echo reference: $reference, kernel version: $kvers
+
+git diff "$reference" | awk -v kvers="$kvers" -v splitmode="$split" \
 'function set_current_arch(a)
 {
     if (!outfiles[a]) {
@@ -70,9 +99,11 @@ match($0, /^diff --git a\/drivers\/([^[:blank:]]*)/, file) {
 }
 
 /^diff --git a\/scripts\/ipipe\/genpatches.sh/ {
-    current_file="/dev/null"
-    current_arch="nullarch"
-    next
+    if (splitmode == "no") {
+	current_file="/dev/null"
+        current_arch="nullarch"
+        next
+    }
 }
 
 /^diff --git/ {
@@ -93,12 +124,17 @@ END {
     close(outfiles["noarch"])
     for (a in outfiles)
 	if (a != "noarch") {
-	    dest="ipipe-core-"kvers"-"a"-"version[a]".patch"
+            dest="ipipe-core-"kvers"-"a"-"version[a]".patch"
 	    close(outfiles[a])
 	    system("mv "outfiles[a]" "dest)
-	    system("cat "outfiles["noarch"]" >> "dest)
+            if (splitmode == "no")
+		system("cat "outfiles["noarch"]" >> "dest)
 	    print dest
-	}
+	} else if (splitmode == "yes") {
+            dest="ipipe-core-"kvers"-"a".patch"
+            system("cat "outfiles["noarch"]" > "dest)
+	    print dest
+        }
 
     system("rm "outfiles["noarch"])
 }
