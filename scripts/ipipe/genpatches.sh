@@ -1,7 +1,7 @@
 #! /bin/sh
 
 me=`basename $0`
-usage='usage: $me --split --help'
+usage='usage: $me [--split] [--help] [reference]'
 split=no
 
 while test $# -gt 0; do
@@ -14,9 +14,12 @@ while test $# -gt 0; do
 	exit 0
 	;;
     *)
-	echo "$me: unknown flag: $1" >&2
-	echo "$usage" >&2
-	exit 1
+	if [ -n "$reference" ]; then
+	    echo "$me: unknown flag: $1" >&2
+	    echo "$usage" >&2
+	    exit 1
+	fi
+	reference="$1"
 	;;
     esac
     shift
@@ -35,9 +38,13 @@ else
     kvers="$VERSION.$PATCHLEVEL.$SUBLEVEL.$EXTRAVERSION"
 fi
 
-echo kernel version: $kvers
+if [ -z "$reference" ]; then
+    reference="v$kvers"
+fi
 
-git diff "v$kvers" | awk -v kvers="$kvers" -v splitmode="$split" \
+echo reference: $reference, kernel version: $kvers
+
+git diff "$reference" | awk -v kvers="$kvers" -v splitmode="$split" \
 'function set_current_arch(a)
 {
     if (!outfiles[a]) {
@@ -92,9 +99,11 @@ match($0, /^diff --git a\/drivers\/([^[:blank:]]*)/, file) {
 }
 
 /^diff --git a\/scripts\/ipipe\/genpatches.sh/ {
-    current_file="/dev/null"
-    current_arch="nullarch"
-    next
+    if (splitmode == "no") {
+	current_file="/dev/null"
+	current_arch="nullarch"
+	next
+    }
 }
 
 /^diff --git/ {
@@ -115,17 +124,17 @@ END {
     close(outfiles["noarch"])
     for (a in outfiles)
 	if (a != "noarch") {
-            dest="ipipe-core-"kvers"-"a"-"version[a]".patch"
+	    dest="ipipe-core-"kvers"-"a"-"version[a]".patch"
 	    close(outfiles[a])
 	    system("mv "outfiles[a]" "dest)
-            if (splitmode == "no")
+	    if (splitmode == "no")
 		system("cat "outfiles["noarch"]" >> "dest)
 	    print dest
 	} else if (splitmode == "yes") {
-            dest="ipipe-core-"kvers"-"a".patch"
-            system("cat "outfiles["noarch"]" > "dest)
+	    dest="ipipe-core-"kvers"-"a".patch"
+	    system("cat "outfiles["noarch"]" > "dest)
 	    print dest
-        }
+	}
 
     system("rm "outfiles["noarch"])
 }
