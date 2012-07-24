@@ -42,37 +42,4 @@ static inline void twd_local_timer_of_register(void)
 }
 #endif
 
-#ifdef CONFIG_IPIPE
-
-#define __ipipe_mach_ipi_p(irq) ((irq) < 16)
-
-#define __ipipe_mach_relay_ipi(ipi, thiscpu)			\
-	({							\
-		(void)(thiscpu);				\
-		__ipipe_dispatch_irq(ipi, IPIPE_IRQF_NOACK);	\
-	})
-
-#define __ipipe_mach_doirq(irq)			\
-       ({					\
-	       __ipipe_mach_ipi_p(irq)		\
-		       ? __ipipe_root_ipi	\
-		       : __ipipe_do_IRQ;	\
-       })
-
-#define __ipipe_mach_ackirq(irq)		\
-       ({					\
-	       __ipipe_mach_ipi_p(irq)		\
-		       ? NULL			\
-		       : __ipipe_ack_irq;	\
-       })
-
-struct irq_desc;
-
-#ifdef CONFIG_IPIPE_DEBUG_INTERNAL
-void twd_hrtimer_debug(unsigned int irq);
-#define __ipipe_mach_hrtimer_debug(irq)	twd_hrtimer_debug(irq)
-#else
-#define __ipipe_mach_hrtimer_debug(irq)	do { } while (0)
-#endif
-#endif /* CONFIG_IPIPE */
 #endif

@@ -439,10 +439,6 @@
 
 #define NR_IRQS			OMAP_PRCM_IRQ_END
 
-#if defined(CONFIG_ARCH_OMAP4) && defined(CONFIG_SMP)
-#include <asm/smp_twd.h>
-#endif /* CONFIG_ARCH_OMAP4 */
-
 #define OMAP_IRQ_BIT(irq)	(1 << ((irq) % 32))
 
 #define INTCPS_NR_MIR_REGS	3

@@ -42,6 +42,7 @@
 
 #include <asm/mach/time.h>
 #include <plat/dmtimer.h>
+#include <asm/smp_twd.h>
 #include <asm/sched_clock.h>
 #include "common.h"
 #include <plat/omap_hwmod.h>
@@ -293,6 +294,7 @@ static void __init omap2_gp_clockevent_init(int gptimer_id,
 	if (cpu_is_omap44xx() && num_possible_cpus() == 1)
 		ipipe = 1;
 #endif /* CONFIG_IPIPE */
+
 	res = omap_dm_timer_init_one(&clkev, gptimer_id, fck_source, 0, ipipe);
 	BUG_ON(res);
 

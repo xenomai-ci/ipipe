@@ -31,17 +31,14 @@
 
 #ifdef CONFIG_SMP
 
-#define IPIPE_FIRST_IPI		IPIPE_VIRQ_BASE
+extern unsigned __ipipe_first_ipi;
 
-#define IPIPE_CRITICAL_IPI	IPIPE_FIRST_IPI
+#define IPIPE_CRITICAL_IPI	__ipipe_first_ipi
 #define IPIPE_HRTIMER_IPI	(IPIPE_CRITICAL_IPI + 1)
 #define IPIPE_RESCHEDULE_IPI	(IPIPE_CRITICAL_IPI + 2)
 #define IPIPE_SERVICE_VNMI	(IPIPE_CRITICAL_IPI + 3)
 
 #define IPIPE_LAST_IPI		IPIPE_SERVICE_VNMI
-
-#define ipipe_ipi_p(ipi)	\
-	((ipi) >= IPIPE_SERVICE_IPI0 && (ipi) <= IPIPE_SERVICE_IPI3)
 
 #define hard_smp_processor_id()						\
 	({								\

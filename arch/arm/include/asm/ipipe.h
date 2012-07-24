@@ -104,9 +104,9 @@ unsigned long long __ipipe_mach_get_tsc(void);
 #ifndef __ipipe_mach_ackirq
 #define __ipipe_mach_ackirq(irq) __ipipe_ack_irq
 #endif
-#ifndef __ipipe_mach_hrtimer_debug
-#define __ipipe_mach_hrtimer_debug(irq) do { } while(0)
-#endif
+#ifdef CONFIG_IPIPE_DEBUG_INTERNAL
+extern void (*__ipipe_mach_hrtimer_debug)(unsigned irq);
+#endif /* CONFIG_IPIPE_DEBUG_INTERNAL */
 
 #ifdef CONFIG_IPIPE_WANT_PREEMPTIBLE_SWITCH
 
@@ -185,11 +185,19 @@ static inline void ipipe_unmute_pic(void)
 #ifdef CONFIG_SMP
 void __ipipe_init_platform(void);
 void __ipipe_hook_critical_ipi(struct ipipe_domain *ipd);
-void __ipipe_root_ipi(unsigned int irq, void *cookie);
 void __ipipe_root_localtimer(unsigned int irq, void *cookie);
 void __ipipe_send_vnmi(void (*fn)(void *), cpumask_t cpumask, void *arg);
 void __ipipe_do_vnmi(unsigned int irq, void *cookie);
 void __ipipe_grab_ipi(unsigned svc, struct pt_regs *regs);
+
+void __ipipe_ipis_alloc(void);
+
+void __ipipe_ipis_request(void);
+
+static inline void ipipe_handle_multi_ipi(int irq, struct pt_regs *regs)
+{
+	__ipipe_grab_ipi(irq, regs);
+}
 #else /* !CONFIG_SMP */
 #define __ipipe_init_platform()		do { } while(0)
 #define __ipipe_hook_critical_ipi(ipd)	do { } while(0)
@@ -210,13 +218,6 @@ static inline void ipipe_handle_multi_irq(int irq, struct pt_regs *regs)
 {
 	__ipipe_grab_irq(irq, regs);
 }
-
-#ifdef CONFIG_SMP
-static inline void ipipe_handle_multi_ipi(int irq, struct pt_regs *regs)
-{
-	__ipipe_grab_ipi(irq, regs);
-}
-#endif /* CONFIG_SMP */
 
 static inline unsigned long __ipipe_ffnz(unsigned long ul)
 {

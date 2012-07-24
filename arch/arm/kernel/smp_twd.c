@@ -370,6 +370,10 @@ static int __init twd_local_timer_common_register(void)
 	if (err)
 		goto out_irq;
 
+#ifdef CONFIG_IPIPE_DEBUG_INTERNAL
+	__ipipe_mach_hrtimer_debug = &twd_hrtimer_debug;
+#endif /* CONFIG_IPIPE_DEBUG_INTERNAL */
+
 	return 0;
 
 out_irq:

@@ -53,6 +53,10 @@
 
 static void __ipipe_do_IRQ(unsigned irq, void *cookie);
 
+#ifdef CONFIG_IPIPE_DEBUG_INTERNAL
+void (*__ipipe_mach_hrtimer_debug)(unsigned irq);
+#endif
+
 #ifdef CONFIG_SMP
 
 struct __ipipe_vnmidata {
@@ -73,15 +77,6 @@ static struct __ipipe_vnmislot {
 
 void __ipipe_init_platform(void)
 {
-	unsigned int virq, _virq;
-
-	for (virq = IPIPE_FIRST_IPI; virq <= IPIPE_LAST_IPI; virq++) {
-		_virq = ipipe_alloc_virq();
-		if (virq != _virq)
-			panic("I-pipe: cannot reserve virq #%d (got #%d)\n",
-			      virq, _virq);
-	}
-
 	__ipipe_mach_init_platform();
 }
 
@@ -152,6 +147,7 @@ hook_internal_ipi(struct ipipe_domain *ipd, int virq,
 
 void __ipipe_hook_critical_ipi(struct ipipe_domain *ipd)
 {
+	__ipipe_ipis_alloc();
 	hook_internal_ipi(ipd, IPIPE_CRITICAL_IPI, __ipipe_do_critical_sync);
 	hook_internal_ipi(ipd, IPIPE_SERVICE_VNMI, __ipipe_do_vnmi);
 }
@@ -299,8 +295,12 @@ void __ipipe_enable_pipeline(void)
 	for (irq = 0; irq < NR_IRQS; irq++)
 		ipipe_request_irq(ipipe_root_domain,
 				  irq,
-				  (ipipe_irq_handler_t)__ipipe_mach_doirq(irq),
-				  NULL, __ipipe_mach_ackirq(irq));
+				  (ipipe_irq_handler_t)__ipipe_do_IRQ,
+				  NULL, __ipipe_ack_irq);
+
+#ifdef CONFIG_SMP
+	__ipipe_ipis_request();
+#endif /* CONFIG_SMP */
 
 	ipipe_critical_exit(flags);
 }
@@ -420,7 +420,10 @@ asmlinkage void __exception __ipipe_grab_irq(int irq, struct pt_regs *regs)
 		 * that other interrupt handlers don't actually care for such
 		 * information.
 		 */
-	       __ipipe_mach_hrtimer_debug(irq);
+#ifdef CONFIG_IPIPE_DEBUG_INTERNAL
+		if (__ipipe_mach_hrtimer_debug)
+			__ipipe_mach_hrtimer_debug(irq);
+#endif /* CONFIG_IPIPE_DEBUG_INTERNAL */
 	  copy_regs:
 		p->tick_regs.ARM_cpsr =
 			(p->curr == &p->root

@@ -59,8 +59,6 @@ enum ipi_msg_type {
 	IPI_CPU_DUMP,
 #ifdef CONFIG_IPIPE
 	IPI_IPIPE_FIRST,
-	IPI_IPIPE_VNMI = IPI_IPIPE_FIRST + IPIPE_SERVICE_VNMI - IPIPE_FIRST_IPI,
-	IPI_IPIPE_LAST = IPI_IPIPE_FIRST + IPIPE_LAST_IPI - IPIPE_FIRST_IPI,
 #endif /* CONFIG_IPIPE */
 };
 
@@ -438,9 +436,51 @@ static void ipi_timer(void)
 }
 
 #ifdef CONFIG_IPIPE
+#define IPIPE_IPI_BASE	IPIPE_VIRQ_BASE
+
+unsigned __ipipe_first_ipi;
+
+static void  __ipipe_root_ipi(unsigned virq, void *cookie)
+{
+	enum ipi_msg_type msg = virq - IPIPE_IPI_BASE;
+	handle_IPI(msg, __this_cpu_ptr(&ipipe_percpu.tick_regs));
+}
+
+void __ipipe_ipis_alloc(void)
+{
+	unsigned virq, _virq;
+	unsigned ipi_nr;
+
+	if (__ipipe_first_ipi)
+		return;
+
+	/* __ipipe_first_ipi is 0 here  */
+	ipi_nr = IPI_IPIPE_FIRST + IPIPE_LAST_IPI;
+
+	for (virq = IPIPE_IPI_BASE; virq < IPIPE_IPI_BASE + ipi_nr; virq++) {
+		_virq = ipipe_alloc_virq();
+		if (virq != _virq)
+			panic("I-pipe: cannot reserve virq #%d (got #%d)\n",
+			      virq, _virq);
+
+		if (virq - IPIPE_IPI_BASE == IPI_IPIPE_FIRST)
+			__ipipe_first_ipi = virq;
+	}
+}
+
+void __ipipe_ipis_request(void)
+{
+	unsigned virq;
+	
+	for (virq = IPIPE_IPI_BASE; virq < __ipipe_first_ipi; virq++)
+		ipipe_request_irq(ipipe_root_domain,
+				  virq,
+				  (ipipe_irq_handler_t)__ipipe_root_ipi,
+				  NULL, NULL);
+}
 void ipipe_send_ipi(unsigned ipi, cpumask_t cpumask)
 {
-	enum ipi_msg_type msg = ipi - IPIPE_FIRST_IPI + IPI_IPIPE_FIRST;
+	enum ipi_msg_type msg = ipi - IPIPE_IPI_BASE;
 	smp_cross_call(&cpumask, msg);
 }
 EXPORT_SYMBOL_GPL(ipipe_send_ipi);
@@ -448,7 +488,7 @@ EXPORT_SYMBOL_GPL(ipipe_send_ipi);
  /* hw IRQs off */
 asmlinkage void __exception __ipipe_grab_ipi(unsigned svc, struct pt_regs *regs)
 {
-	int virq;
+	int virq = IPIPE_IPI_BASE + svc;
 
 	/*
 	 * Virtual NMIs ignore the root domain's stall
@@ -456,20 +496,12 @@ asmlinkage void __exception __ipipe_grab_ipi(unsigned svc, struct pt_regs *regs)
 	 * domains, virtual VMIs are pipelined the
 	 * usual way as normal interrupts.
 	 */
-	if (svc == IPI_IPIPE_VNMI && ipipe_root_p)
+	if (virq == IPIPE_SERVICE_VNMI && __ipipe_root_p)
 		__ipipe_do_vnmi(IPIPE_SERVICE_VNMI, NULL);
-	else if (svc >= IPI_IPIPE_FIRST && svc <= IPI_IPIPE_LAST) {
-		virq = svc - IPI_IPIPE_FIRST + IPIPE_FIRST_IPI;
+	else
 		__ipipe_dispatch_irq(virq, IPIPE_IRQF_NOACK);
-	} else
-		__ipipe_mach_relay_ipi(svc, ipipe_processor_id());
 
 	__ipipe_exit_irq(regs);
-}
-
-void  __ipipe_root_ipi(unsigned int ipinr, void *cookie)
-{
-	handle_IPI(ipinr, __this_cpu_ptr(&ipipe_percpu.tick_regs));
 }
 
 #endif /* CONFIG_IPIPE */
