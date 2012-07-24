@@ -98,12 +98,6 @@ unsigned long long __ipipe_mach_get_tsc(void);
 #ifndef __ipipe_cpu_freq
 #define __ipipe_cpu_freq __ipipe_mach_hrclock_freq
 #endif
-#ifndef __ipipe_mach_doirq
-#define __ipipe_mach_doirq(irq) __ipipe_do_IRQ
-#endif
-#ifndef __ipipe_mach_ackirq
-#define __ipipe_mach_ackirq(irq) __ipipe_ack_irq
-#endif
 #ifdef CONFIG_IPIPE_DEBUG_INTERNAL
 extern void (*__ipipe_mach_hrtimer_debug)(unsigned irq);
 #endif /* CONFIG_IPIPE_DEBUG_INTERNAL */
@@ -189,9 +183,7 @@ void __ipipe_root_localtimer(unsigned int irq, void *cookie);
 void __ipipe_send_vnmi(void (*fn)(void *), cpumask_t cpumask, void *arg);
 void __ipipe_do_vnmi(unsigned int irq, void *cookie);
 void __ipipe_grab_ipi(unsigned svc, struct pt_regs *regs);
-
 void __ipipe_ipis_alloc(void);
-
 void __ipipe_ipis_request(void);
 
 static inline void ipipe_handle_multi_ipi(int irq, struct pt_regs *regs)
