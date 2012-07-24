@@ -172,6 +172,12 @@ extern int __bad_lock_type(void);
 #define spin_unlock_irqrestore_cond(lock, flags) \
 	spin_unlock_irqrestore(lock, flags)
 
+#define raw_spin_lock_irqsave_cond(lock, flags) \
+	raw_spin_lock_irqsave(lock, flags)
+
+#define raw_spin_unlock_irqrestore_cond(lock, flags) \
+	raw_spin_unlock_irqrestore(lock, flags)
+
 void __ipipe_spin_lock_irq(ipipe_spinlock_t *lock);
 
 int __ipipe_spin_trylock_irq(ipipe_spinlock_t *lock);
@@ -220,6 +226,15 @@ void __ipipe_spin_unlock_debug(unsigned long flags);
 
 #define spin_unlock_irqrestore_cond(lock, flags)	\
 	spin_unlock(lock)
+
+#define raw_spin_lock_irqsave_cond(lock, flags) \
+	do {					\
+		(void)(flags);			\
+		raw_spin_lock(lock);		\
+	} while(0)
+
+#define raw_spin_unlock_irqrestore_cond(lock, flags) \
+	raw_spin_unlock(lock)
 
 #define __ipipe_spin_lock_irq(lock)		do { } while (0)
 #define __ipipe_spin_unlock_irq(lock)		do { } while (0)
