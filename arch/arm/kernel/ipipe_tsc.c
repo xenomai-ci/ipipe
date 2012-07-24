@@ -43,6 +43,7 @@ void __ipipe_tsc_register(struct __ipipe_tscinfo *info)
 	unsigned long *tsc_addr;
 	__ipipe_tsc_t *implem;
 	unsigned long flags;
+	int registered;
 	char *tsc_area;
 
 #if !defined(CONFIG_CPU_USE_DOMAINS)
@@ -56,6 +57,7 @@ void __ipipe_tsc_register(struct __ipipe_tscinfo *info)
 	tsc_area = __ipipe_tsc_area;
 	tsc_addr = &__ipipe_tsc_addr;
 #endif
+	registered = ipipe_tsc_value != NULL;
 	ipipe_tsc_value = (struct ipipe_tsc_value_t *)tsc_area;
 
 	switch(info->type) {
@@ -109,16 +111,18 @@ void __ipipe_tsc_register(struct __ipipe_tscinfo *info)
 		tsc_info.u.fr.tsc = &ipipe_tsc_value->last_tsc;
 
 	flags = hard_local_irq_save();
+	ipipe_tsc_value->last_tsc = 0;
 	memcpy(tsc_area + 0x20, implem, 0x60);
 	flush_icache_range((unsigned long)(tsc_area),
 			   (unsigned long)(tsc_area + 0x80));
 	hard_local_irq_restore(flags);
 
-	clksrc.shift = fls(tsc_info.freq) - 1;
-	clksrc.mult = clocksource_hz2mult(tsc_info.freq, clksrc.shift);
 	printk(KERN_INFO "I-pipe, %u.%03u MHz clocksource\n",
 	       tsc_info.freq / 1000000, (tsc_info.freq % 1000000) / 1000);
-	clocksource_register(&clksrc);
+	if (!registered)
+		clocksource_register_hz(&clksrc, tsc_info.freq);
+	else
+		__clocksource_updatefreq_hz(&clksrc, tsc_info.freq);
 
 	__ipipe_kuser_tsc_freq = tsc_info.freq;
 }
