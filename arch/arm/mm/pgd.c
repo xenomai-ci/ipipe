@@ -183,6 +183,9 @@ no_pud:
 	pgd_clear(pgd);
 	pud_free(mm, pud);
 no_pgd:
+	pgd_list_lock(flags);
+	pgd_list_del(pgd);
+	pgd_list_unlock(flags);
 #ifdef CONFIG_ARM_LPAE
 	/*
 	 * Free modules/pkmap or identity pmd tables.
@@ -201,14 +204,7 @@ no_pgd:
 		pgd_clear(pgd);
 		pud_free(mm, pud);
 
-		pgd_list_lock(flags);
-		pgd_list_del(pgd);
-		pgd_list_unlock(flags);
 	}
-#else
-		pgd_list_lock(flags);
-		pgd_list_del(pgd);
-		pgd_list_unlock(flags);
 #endif
 	__pgd_free(pgd_base);
 }
