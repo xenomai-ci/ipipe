@@ -747,16 +747,21 @@ static inline unsigned long irq_gc_lock(struct irq_chip_generic *gc)
 	return flags;
 }
 
-static inline void irq_gc_unlock(struct irq_chip_generic *gc, unsigned long flags)
+static inline void 
+irq_gc_unlock(struct irq_chip_generic *gc, unsigned long flags)
 {
 	raw_spin_unlock_irqrestore_cond(&gc->lock, flags);
 }
 #else
 static inline unsigned long irq_gc_lock(struct irq_chip_generic *gc) 
 { 
-	return 0;
+	return hard_cond_local_irq_save();
 }
-static inline void irq_gc_unlock(struct irq_chip_generic *gc, unsigned long flags) { }
+static inline void 
+irq_gc_unlock(struct irq_chip_generic *gc, unsigned long flags) 
+{ 
+	hard_cond_local_irq_restore(flags);
+}
 #endif
 
 #endif /* CONFIG_GENERIC_HARDIRQS */
