@@ -25,6 +25,7 @@
 #include <linux/delay.h>
 #include <linux/init.h>
 #include <linux/sched.h>
+#include <linux/ipipe.h>
 
 #include <linux/atomic.h>
 #include <asm/cacheflush.h>
@@ -440,6 +441,14 @@ asmlinkage void do_unexp_fiq (struct pt_regs *regs)
  */
 asmlinkage void bad_mode(struct pt_regs *regs, int reason)
 {
+	if (__ipipe_report_trap(IPIPE_TRAP_UNKNOWN,regs))
+		return;
+
+#ifdef CONFIG_IPIPE
+	ipipe_stall_root();
+	hard_local_irq_enable();
+#endif
+
 	console_verbose();
 
 	printk(KERN_CRIT "Bad mode in %s handler detected\n", handler[reason]);
@@ -447,6 +456,11 @@ asmlinkage void bad_mode(struct pt_regs *regs, int reason)
 	die("Oops - bad mode", regs, 0);
 	local_irq_disable();
 	panic("bad mode");
+
+#ifdef CONFIG_IPIPE
+	hard_local_irq_disable();
+	__ipipe_root_status &= ~IPIPE_STALL_FLAG;
+#endif
 }
 
 static int bad_syscall(int n, struct pt_regs *regs)
@@ -496,7 +510,9 @@ do_cache_op(unsigned long start, unsigned long end, int flags)
 		if (end > vma->vm_end)
 			end = vma->vm_end;
 
-		flush_cache_user_range(vma, start, end);
+		up_read(&mm->mmap_sem);
+		flush_cache_user_range(start, end);
+		return;
 	}
 	up_read(&mm->mmap_sem);
 }
@@ -794,8 +810,13 @@ void __init early_trap_init(void *vectors_base)
 	unsigned long vectors = (unsigned long)vectors_base;
 	extern char __stubs_start[], __stubs_end[];
 	extern char __vectors_start[], __vectors_end[];
+#ifndef CONFIG_IPIPE
 	extern char __kuser_helper_start[], __kuser_helper_end[];
 	int kuser_sz = __kuser_helper_end - __kuser_helper_start;
+#else /* !CONFIG_IPIPE */
+	extern char __ipipe_tsc_area_start[], __kuser_helper_end[];
+	int kuser_sz = __kuser_helper_end - __ipipe_tsc_area_start;
+#endif /* !CONFIG_IPIPE */
 
 	vectors_page = vectors_base;
 
@@ -806,7 +827,12 @@ void __init early_trap_init(void *vectors_base)
 	 */
 	memcpy((void *)vectors, __vectors_start, __vectors_end - __vectors_start);
 	memcpy((void *)vectors + 0x200, __stubs_start, __stubs_end - __stubs_start);
+#ifndef CONFIG_IPIPE
 	memcpy((void *)vectors + 0x1000 - kuser_sz, __kuser_helper_start, kuser_sz);
+#else /* !CONFIG_IPIPE */
+	BUG_ON(0x1000 - kuser_sz < 0x200 + __stubs_end - __stubs_start);
+	memcpy((void *)vectors + 0x1000 - kuser_sz, __ipipe_tsc_area_start, kuser_sz);
+#endif /* !CONFIG_IPIPE */
 
 	/*
 	 * Do processor specific fixups for the kuser helpers

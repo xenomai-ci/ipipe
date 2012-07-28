@@ -19,6 +19,7 @@
 #include <linux/audit.h>
 #include <linux/seccomp.h>
 #include <linux/signal.h>
+#include <linux/unistd.h>
 #include <linux/perf_event.h>
 #include <linux/hw_breakpoint.h>
 
@@ -1211,12 +1212,6 @@ static long x32_arch_ptrace(struct task_struct *child,
 					     0, sizeof(struct user_i387_struct),
 					     datap);
 
-		/* normal 64bit interface to access TLS data.
-		   Works just like arch_prctl, except that the arguments
-		   are reversed. */
-	case PTRACE_ARCH_PRCTL:
-		return do_arch_prctl(child, data, addr);
-
 	default:
 		return compat_ptrace_request(child, request, addr, data);
 	}
@@ -1512,6 +1507,10 @@ void syscall_trace_leave(struct pt_regs *regs)
 {
 	bool step;
 
+#ifdef CONFIG_IPIPE
+	if (syscall_get_nr(current, regs) >= NR_syscalls)
+		return;
+#endif
 	audit_syscall_exit(regs);
 
 	if (unlikely(test_thread_flag(TIF_SYSCALL_TRACEPOINT)))

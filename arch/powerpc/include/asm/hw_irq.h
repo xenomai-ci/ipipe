@@ -66,8 +66,8 @@ static inline unsigned long soft_local_irq_disable(void)
 }
 
 #ifdef CONFIG_PPC_BOOK3E
-#define __hard_irq_enable()	asm volatile("wrteei 1" : : : "memory");
-#define __hard_irq_disable()	asm volatile("wrteei 0" : : : "memory");
+#define __hard_irq_enable()	asm volatile("wrteei 1" : : : "memory")
+#define __hard_irq_disable()	asm volatile("wrteei 0" : : : "memory")
 #else
 #define __hard_irq_enable()	__mtmsrd(local_paca->kernel_msr | MSR_EE, 1)
 #define __hard_irq_disable()	__mtmsrd(local_paca->kernel_msr, 1)
@@ -78,6 +78,14 @@ static inline void hard_irq_disable(void)
 	__hard_irq_disable();
 	get_paca()->soft_enabled = 0;
 	get_paca()->irq_happened |= PACA_IRQ_HARD_DIS;
+}
+
+/* include/linux/interrupt.h needs hard_irq_disable to be a macro */
+#define hard_irq_disable	hard_irq_disable
+
+static inline bool lazy_irq_pending(void)
+{
+	return !!(get_paca()->irq_happened & ~PACA_IRQ_HARD_DIS);
 }
 
 /*
@@ -137,6 +145,8 @@ static inline bool arch_irqs_disabled(void)
 #endif /* !CONFIG_IPIPE */
 
 #else  /* !CONFIG_PPC64 */
+
+extern bool prep_irq_for_idle(void);
 
 static inline unsigned long soft_local_irq_disable(void)
 {

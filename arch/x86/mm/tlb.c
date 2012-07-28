@@ -61,11 +61,15 @@ static DEFINE_PER_CPU_READ_MOSTLY(int, tlb_vector_offset);
  */
 void leave_mm(int cpu)
 {
+ 	unsigned long flags;
+
 	if (percpu_read(cpu_tlbstate.state) == TLBSTATE_OK)
 		BUG();
+ 	flags = hard_cond_local_irq_save();
 	cpumask_clear_cpu(cpu,
 			  mm_cpumask(percpu_read(cpu_tlbstate.active_mm)));
 	load_cr3(swapper_pg_dir);
+ 	hard_cond_local_irq_restore(flags);
 }
 EXPORT_SYMBOL_GPL(leave_mm);
 
@@ -192,6 +196,9 @@ static void flush_tlb_others_ipi(const struct cpumask *cpumask,
 		apic->send_IPI_mask(to_cpumask(f->flush_cpumask),
 			      INVALIDATE_TLB_VECTOR_START + sender);
 
+#ifdef CONFIG_IPIPE
+		WARN_ON_ONCE(hard_irqs_disabled());
+#endif
 		while (!cpumask_empty(to_cpumask(f->flush_cpumask)))
 			cpu_relax();
 	}

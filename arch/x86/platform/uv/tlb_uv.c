@@ -1295,7 +1295,6 @@ static void __init enable_timeouts(void)
 		 */
 		mmr_image |= (1L << SOFTACK_MSHIFT);
 		if (is_uv2_hub()) {
-			mmr_image &= ~(1L << UV2_LEG_SHFT);
 			mmr_image |= (1L << UV2_EXT_SHFT);
 		}
 		write_mmr_misc_control(pnode, mmr_image);
@@ -2102,6 +2101,11 @@ static int __init uv_bau_init(void)
 			init_uvhub(uvhub, vector, uv_base_pnode);
 
 	alloc_intr_gate(vector, uv_bau_message_intr1);
+#ifdef CONFIG_IPIPE
+	for_each_possible_cpu(cur_cpu)
+		per_cpu(vector_irq, cur_cpu)[vector] =
+			ipipe_apic_vector_irq(vector);
+#endif
 
 	for_each_possible_blade(uvhub) {
 		if (uv_blade_nr_possible_cpus(uvhub)) {
