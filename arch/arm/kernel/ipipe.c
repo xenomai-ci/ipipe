@@ -287,7 +287,9 @@ void __ipipe_enable_pipeline(void)
 	 * processor, as this causes Linux to disable the I-cache
 	 * when idle.
 	 */
-	disable_hlt();
+	extern void cpu_arm926_proc_init(void);
+	if (likely(cpu_proc_init == &cpu_arm926_proc_init))
+		disable_hlt();
 #endif
 	flags = ipipe_critical_enter(NULL);
 
