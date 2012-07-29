@@ -1501,7 +1501,9 @@ void scheduler_ipi(void)
 	 * however a fair share of IPIs are still resched only so this would
 	 * somewhat pessimize the simple resched case.
 	 */
+#ifndef IPIPE_ARCH_HAVE_VIRQ_IPI
 	irq_enter();
+#endif
 	sched_ttwu_pending();
 
 	/*
@@ -1511,7 +1513,9 @@ void scheduler_ipi(void)
 		this_rq()->idle_balance = 1;
 		raise_softirq_irqoff(SCHED_SOFTIRQ);
 	}
+#ifndef IPIPE_ARCH_HAVE_VIRQ_IPI
 	irq_exit();
+#endif
 }
 
 static void ttwu_queue_remote(struct task_struct *p, int cpu)
