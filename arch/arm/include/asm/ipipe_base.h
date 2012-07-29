@@ -56,6 +56,8 @@ extern unsigned __ipipe_first_ipi;
 extern int __cpu_logical_map[];
 #define ipipe_processor_id()  __cpu_logical_map[hard_smp_processor_id()]
 
+#define IPIPE_ARCH_HAVE_VIRQ_IPI
+
 #else /* !CONFIG_SMP */
 #define ipipe_processor_id()  (0)
 #endif /* !CONFIG_IPIPE */
