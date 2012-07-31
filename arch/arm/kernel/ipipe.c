@@ -446,6 +446,43 @@ static void __ipipe_do_IRQ(unsigned irq, void *cookie)
 	handle_IRQ(irq, __this_cpu_ptr(&ipipe_percpu.tick_regs));
 }
 
+#ifdef CONFIG_MMU
+void __switch_mm_inner(struct mm_struct *prev, struct mm_struct *next,
+		       struct task_struct *tsk)
+{
+#ifdef CONFIG_IPIPE_WANT_PREEMPTIBLE_SWITCH
+	struct mm_struct ** const active_mm = 
+		__this_cpu_ptr(&ipipe_percpu.active_mm);
+	struct thread_info *tip = current_thread_info();
+	*active_mm = NULL;
+	barrier();
+	for (;;) {
+		unsigned long tflags, flags;
+#endif /* CONFIG_IPIPE_WANT_PREEMPTIBLE_SWITCH */
+
+		__do_switch_mm(prev, next, tsk);
+
+#ifdef CONFIG_IPIPE_WANT_PREEMPTIBLE_SWITCH
+		/* It is absolutely unavoidable to read the
+		   thread_info flags and set the active_mm
+		   atomically. Other (previous) solutions lead to
+		   hard unreproduceable disasters. */
+
+		flags = hard_local_irq_save();
+		tflags = tip->flags;
+		if (likely((tflags & _TIF_MMSWITCH_INT) == 0)) {
+			*active_mm = next;
+			hard_local_irq_restore(flags);
+			return;
+		}
+		tip->flags = tflags & ~(_TIF_MMSWITCH_INT);
+		hard_local_irq_restore(flags);
+		prev = NULL;
+	}
+#endif /* CONFIG_IPIPE_WANT_PREEMPTIBLE_SWITCH */
+}
+#endif /* CONFIG_MMU */
+
 #if defined(CONFIG_IPIPE_DEBUG) && defined(CONFIG_DEBUG_LL)
 void printascii(const char *s);
 
