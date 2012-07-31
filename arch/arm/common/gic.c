@@ -187,13 +187,13 @@ static void gic_hold_irq(struct irq_data *d)
 	unsigned long flags;
 
 	raw_spin_lock_irqsave_cond(&irq_controller_lock, flags);
+	writel_relaxed(mask, gic_dist_base(d) + GIC_DIST_ENABLE_CLEAR + (gic_irq(d) / 32) * 4);
+	if (gic_arch_extn.irq_mask)
+		gic_arch_extn.irq_mask(d);
 	if (gic_arch_extn.irq_eoi) {
 		gic_arch_extn.irq_eoi(d);
 	}
 	writel_relaxed(gic_irq(d), gic_cpu_base(d) + GIC_CPU_EOI);
-	writel_relaxed(mask, gic_dist_base(d) + GIC_DIST_ENABLE_CLEAR + (gic_irq(d) / 32) * 4);
-	if (gic_arch_extn.irq_mask)
-		gic_arch_extn.irq_mask(d);
 	raw_spin_unlock_irqrestore_cond(&irq_controller_lock, flags);
 }
 
