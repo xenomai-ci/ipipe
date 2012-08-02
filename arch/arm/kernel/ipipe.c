@@ -223,10 +223,10 @@ EXPORT_SYMBOL_GPL(ipipe_raise_irq);
 int ipipe_get_sysinfo(struct ipipe_sysinfo *info)
 {
 	info->sys_nr_cpus = num_online_cpus();
-	info->sys_cpu_freq = __ipipe_cpu_freq;
+	info->sys_cpu_freq = __ipipe_hrclock_freq;
 	info->sys_hrtimer_irq = per_cpu(ipipe_percpu.hrtimer_irq, 0);
 	info->sys_hrtimer_freq = __ipipe_hrtimer_freq;
-	info->sys_hrclock_freq = __ipipe_mach_hrclock_freq;
+	info->sys_hrclock_freq = __ipipe_hrclock_freq;
 	__ipipe_mach_get_tscinfo(&info->arch.tsc);
 
 	return 0;
