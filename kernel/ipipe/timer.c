@@ -126,13 +126,13 @@ void ipipe_timer_register(struct ipipe_timer *timer)
 
 	spin_lock_irqsave(&lock, flags);
 
-	list_for_each_entry(t, &timers, holder) {
+	list_for_each_entry(t, &timers, link) {
 		if (t->rating <= timer->rating) {
-			__list_add(&timer->holder, t->holder.prev, &t->holder);
+			__list_add(&timer->link, t->link.prev, &t->link);
 			goto done;
 		}
 	}
-	list_add_tail(&timer->holder, &timers);
+	list_add_tail(&timer->link, &timers);
   done:
 	spin_unlock_irqrestore(&lock, flags);
 }
@@ -161,13 +161,14 @@ static void ipipe_timer_request_sync(void)
 int ipipe_timers_request(const struct cpumask *mask)
 {
 	struct clock_event_device *evtdev;
+	unsigned long long frac;
 	struct ipipe_timer *t;
 	unsigned long flags;
 	unsigned cpu;
 
 	spin_lock_irqsave(&lock, flags);
 	for_each_cpu(cpu, mask) {
-		list_for_each_entry(t, &timers, holder) {
+		list_for_each_entry(t, &timers, link) {
 			if (!cpumask_test_cpu(cpu, t->cpumask))
 				continue;
 
@@ -182,18 +183,16 @@ int ipipe_timers_request(const struct cpumask *mask)
 		goto err_remove_all;
 
 	  found:
-		/* Sanity check: check that timers on all cpu have the
-		   same frequency, xenomai relies on that. */
 		if (__ipipe_hrtimer_freq == 0)
 			__ipipe_hrtimer_freq = t->freq;
-		else if (__ipipe_hrtimer_freq != t->freq) {
-			printk(KERN_WARNING
-			       "I-pipe: timer on cpu #%d has wrong frequency\n",
-			       cpu);
-			goto err_remove_all;
-		}
 		per_cpu(ipipe_percpu.hrtimer_irq, cpu) = t->irq;
 		per_cpu(percpu_timer, cpu) = t;
+		t->c2t_integ = t->freq / __ipipe_hrclock_freq;
+		frac = (((unsigned long long)
+			 (t->freq % __ipipe_hrclock_freq)) << 32)
+			+ __ipipe_hrclock_freq - 1;
+		do_div(frac, __ipipe_hrclock_freq);
+		t->c2t_frac = frac;
 	}
 	spin_unlock_irqrestore(&lock, flags);
 
@@ -330,15 +329,30 @@ void ipipe_timer_stop(unsigned cpu)
 	ipipe_critical_exit(flags);
 }
 
-void ipipe_timer_set(unsigned long delay)
+void ipipe_timer_set(unsigned long cdelay)
 {
-	struct ipipe_timer *timer;
+	unsigned long tdelay;
+	struct ipipe_timer *t;
 
-	timer = __ipipe_this_cpu_read(percpu_timer);
+	t = __ipipe_this_cpu_read(percpu_timer);
 
-	if (delay < timer->min_delay_ticks
-	    || timer->set(delay, timer->timer_set) < 0)
-		ipipe_raise_irq(timer->irq);
+	/*
+	 * Even though some architectures may use a 64 bits delay
+	 * here, we voluntarily limit to 32 bits, 4 billions ticks
+	 * should be enough for now. Would a timer needs more, an
+	 * extra call to the tick handler would simply occur after 4
+	 * billions ticks.
+	 */
+	if (cdelay > UINT_MAX)
+		cdelay = UINT_MAX;
+
+	tdelay = cdelay * t->c2t_integ;
+	if (t->c2t_frac)
+		tdelay += ((unsigned long long)cdelay * t->c2t_frac) >> 32;
+
+	if (tdelay < t->min_delay_ticks
+	    || t->set(tdelay, t->timer_set) < 0)
+		ipipe_raise_irq(t->irq);
 }
 EXPORT_SYMBOL_GPL(ipipe_timer_set);
 
