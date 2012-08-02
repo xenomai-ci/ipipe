@@ -65,6 +65,9 @@ struct ipipe_arch_sysinfo {
 	})
 
 #define ipipe_cpu_freq()	__ipipe_core_clock
+
+#define __ipipe_hrclock_freq	__ipipe_core_clock
+
 #define ipipe_tsc2ns(_t)	(((unsigned long)(_t)) * __ipipe_freq_scale)
 #define ipipe_tsc2us(_t)	(ipipe_tsc2ns(_t) / 1000 + 1)
 
