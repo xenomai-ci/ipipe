@@ -73,7 +73,7 @@ extern cpumask_t __ipipe_dbrk_pending;
 
 extern unsigned long __ipipe_hrtimer_freq;
 
-#define __ipipe_hrclock_freq	__ipipe_hrtimer_freq
+#define __ipipe_hrclock_freq	ppc_tb_freq
 #define __ipipe_cpu_freq	ppc_proc_freq
 
 #ifdef CONFIG_PPC64
