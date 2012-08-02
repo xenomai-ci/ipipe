@@ -158,7 +158,7 @@ static void ipipe_timer_request_sync(void)
  * choose per-cpu timer: we walk the list, and find the timer with the
  * highest rating.
  */
-int ipipe_timers_request(void)
+int ipipe_timers_request(const struct cpumask *mask)
 {
 	struct clock_event_device *evtdev;
 	struct ipipe_timer *t;
@@ -166,7 +166,7 @@ int ipipe_timers_request(void)
 	unsigned cpu;
 
 	spin_lock_irqsave(&lock, flags);
-	for_each_online_cpu(cpu) {
+	for_each_cpu(cpu, mask) {
 		list_for_each_entry(t, &timers, holder) {
 			if (!cpumask_test_cpu(cpu, t->cpumask))
 				continue;
@@ -206,7 +206,7 @@ int ipipe_timers_request(void)
 err_remove_all:
 	spin_unlock_irqrestore(&lock, flags);
 
-	for_each_online_cpu(cpu) {
+	for_each_cpu(cpu, mask) {
 		per_cpu(ipipe_percpu.hrtimer_irq, cpu) = -1;
 		per_cpu(percpu_timer, cpu) = NULL;
 	}

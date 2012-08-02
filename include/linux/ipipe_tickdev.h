@@ -90,7 +90,7 @@ void ipipe_timer_register(struct ipipe_timer *timer);
 /*
  * Chooses the best timer for each cpu. Take over its handling.
  */
-int ipipe_timers_request(void);
+int ipipe_timers_request(const struct cpumask *mask);
 
 /*
  * Release the per-cpu timers
