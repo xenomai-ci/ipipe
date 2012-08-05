@@ -1630,7 +1630,7 @@ void __ipipe_spin_unlock_debug(unsigned long flags)
 	 * regular spinlock which was overlooked, used within a
 	 * section which must run with hw irqs disabled.
 	 */
-	WARN_ON_ONCE(!raw_irqs_disabled_flags(flags) && hard_irqs_disabled());
+	IPIPE_WARN_ONCE(!raw_irqs_disabled_flags(flags) && hard_irqs_disabled());
 }
 EXPORT_SYMBOL_GPL(__ipipe_spin_unlock_debug);
 
