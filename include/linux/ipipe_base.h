@@ -139,8 +139,6 @@ void __ipipe_lock_irq(unsigned int irq);
 
 void __ipipe_unlock_irq(unsigned int irq);
 
-void __ipipe_dispatch_irq_fast(unsigned int irq);
-
 void __ipipe_do_critical_sync(unsigned int irq, void *cookie);
 
 void __ipipe_ack_edge_irq(unsigned int irq, struct irq_desc *desc);

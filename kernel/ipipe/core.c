@@ -1121,6 +1121,48 @@ void __ipipe_notify_vm_preemption(void)
 }
 EXPORT_SYMBOL_GPL(__ipipe_notify_vm_preemption);
 
+static void dispatch_irq_head(unsigned int irq) /* hw interrupts off */
+{
+	struct ipipe_percpu_domain_data *p = ipipe_this_cpu_head_context(), *old;
+	struct ipipe_domain *head = p->domain;
+
+	if (unlikely(test_bit(IPIPE_STALL_FLAG, &p->status))) {
+		__ipipe_set_irq_pending(head, irq);
+		return;
+	}
+
+	/* Switch to the head domain if not current. */
+	old = __ipipe_current_context;
+	if (old != p)
+		__ipipe_set_current_context(p);
+
+	p->irqall[irq]++;
+	__set_bit(IPIPE_STALL_FLAG, &p->status);
+	barrier();
+	head->irqs[irq].handler(irq, head->irqs[irq].cookie);
+	__ipipe_run_irqtail(irq);
+	hard_local_irq_disable();
+	__clear_bit(IPIPE_STALL_FLAG, &p->status);
+
+	/* Are we still running in the head domain? */
+	if (likely(__ipipe_current_context == p)) {
+		/* Did we enter this code over the head domain? */
+		if (old == p) {
+			/* Yes, do immediate synchronization. */
+			if (__ipipe_ipending_p(p))
+				__ipipe_sync_stage();
+			return;
+		}
+		__ipipe_set_current_context(old);
+	}
+
+	/*
+	 * We must be running over the root domain, synchronize
+	 * the pipeline for high priority IRQs (slow path).
+	 */
+	__ipipe_do_sync_pipeline(head);
+}
+
 void __ipipe_dispatch_irq(unsigned int irq, int flags) /* hw interrupts off */
 {
 	struct ipipe_domain *ipd;
@@ -1196,27 +1238,27 @@ void __ipipe_dispatch_irq(unsigned int irq, int flags) /* hw interrupts off */
 
 	/*
 	 * In case we have no registered head domain
-	 * (i.e. ipipe_head_domain == &ipipe_root), we allow
-	 * interrupts to go through the fast dispatcher, since we
-	 * don't care for additional latency induced by interrupt
-	 * disabling at CPU level. Otherwise, we must go through the
-	 * interrupt log, and leave the dispatching work ultimately to
-	 * __ipipe_sync_pipeline().
+	 * (i.e. ipipe_head_domain == &ipipe_root), we always go
+	 * through the interrupt log, and leave the dispatching work
+	 * ultimately to __ipipe_sync_pipeline().
 	 */
 	ipd = ipipe_head_domain;
 	control = ipd->irqs[irq].control;
+	if (ipd == ipipe_root_domain)
+		/*
+		 * The root domain must handle all interrupts, so
+		 * testing the HANDLE bit would be pointless.
+		 */
+		goto log;
+
 	if (control & IPIPE_HANDLE_MASK) {
 		if (unlikely(flags & IPIPE_IRQF_NOSYNC))
 			__ipipe_set_irq_pending(ipd, irq);
 		else
-			__ipipe_dispatch_irq_fast(irq);
+			dispatch_irq_head(irq);
 		return;
 	}
 
-	/*
-	 * The root domain must handle all interrupts, so testing the
-	 * HANDLE bit for it would be pointless.
-	 */
 	ipd = ipipe_root_domain;
 log:
 	__ipipe_set_irq_pending(ipd, irq);
@@ -1234,63 +1276,6 @@ log:
 		return;
 sync:
 	__ipipe_sync_pipeline(ipipe_head_domain);
-}
-
-#ifdef CONFIG_TRACE_IRQFLAGS
-#define root_stall_after_handler()	local_irq_disable()
-#else
-#define root_stall_after_handler()	do { } while (0)
-#endif
-
-void __ipipe_dispatch_irq_fast(unsigned int irq) /* hw interrupts off */
-{
-	struct ipipe_percpu_domain_data *p = ipipe_this_cpu_leading_context(), *old;
-	struct ipipe_domain *head = p->domain;
-
-	if (unlikely(test_bit(IPIPE_STALL_FLAG, &p->status))) {
-		__ipipe_set_irq_pending(head, irq);
-		return;
-	}
-
-	old = __ipipe_current_context;
-	/* Switch to the head domain. */
-	__ipipe_set_current_context(p);
-
-	p->irqall[irq]++;
-	__set_bit(IPIPE_STALL_FLAG, &p->status);
-	barrier();
-
-	if (likely(head != ipipe_root_domain)) {
-		head->irqs[irq].handler(irq, head->irqs[irq].cookie);
-		__ipipe_run_irqtail(irq);
-	} else {
-		if (ipipe_virtual_irq_p(irq)) {
-			irq_enter();
-			head->irqs[irq].handler(irq, head->irqs[irq].cookie);
-			irq_exit();
-		} else
-			head->irqs[irq].handler(irq, head->irqs[irq].cookie);
-
-		root_stall_after_handler();
-	}
-
-	hard_local_irq_disable();
-	__clear_bit(IPIPE_STALL_FLAG, &p->status);
-
-	if (__ipipe_current_context == p) {
-		__ipipe_set_current_context(old);
-		if (old == p) {
-			if (__ipipe_ipending_p(p))
-				__ipipe_sync_stage();
-			return;
-		}
-	}
-
-	/*
-	 * We must be running over the root domain, synchronize
-	 * the pipeline for high priority IRQs.
-	 */
-	__ipipe_do_sync_pipeline(head);
 }
 
 #ifdef CONFIG_PREEMPT
@@ -1330,6 +1315,12 @@ asmlinkage void __sched __ipipe_preempt_schedule_irq(void)
 #define __ipipe_preempt_schedule_irq()	do { } while (0)
 
 #endif	/* !CONFIG_PREEMPT */
+
+#ifdef CONFIG_TRACE_IRQFLAGS
+#define root_stall_after_handler()	local_irq_disable()
+#else
+#define root_stall_after_handler()	do { } while (0)
+#endif
 
 /*
  * __ipipe_do_sync_stage() -- Flush the pending IRQs for the current
