@@ -125,7 +125,7 @@ static inline notrace int decrementer_check_overflow(void)
  * and returns either 0 (nothing to do) or 500/900 if there's
  * either an EE or a DEC to generate.
  *
- * This is called in two contexts: From soft_local_irq_restore()
+ * This is called in two contexts: From arch_local_irq_restore()
  * before soft-enabling interrupts, and from the exception exit
  * path when returning from an interrupt from a soft-disabled to
  * a soft enabled context. In both case we have interrupts hard
@@ -142,6 +142,16 @@ notrace unsigned int __check_irq_replay(void)
 	 * the debug_smp_processor_id() business in this low level
 	 * function
 	 */
+#ifdef CONFIG_IPIPE
+	IPIPE_WARN_ONCE(!hard_irqs_disabled());
+
+	local_paca->irq_happened = 0;
+	/*
+	 * When the pipeline is enabled, replaying IRQs is done from
+	 * ipipe_unstall_root() instead of asking the caller to fake a
+	 * trap. Therefore this routine shall return 0.
+	 */
+#else /* !CONFIG_IPIPE */
 	unsigned char happened = local_paca->irq_happened;
 
 	/* Clear bit 0 which we wouldn't clear otherwise */
@@ -186,11 +196,14 @@ notrace unsigned int __check_irq_replay(void)
 
 	/* There should be nothing left ! */
 	BUG_ON(local_paca->irq_happened != 0);
+#endif /* !CONFIG_IPIPE */
 
 	return 0;
 }
 
-notrace void soft_local_irq_restore(unsigned long en)
+#ifndef CONFIG_IPIPE
+
+notrace void arch_local_irq_restore(unsigned long en)
 {
 	unsigned char irq_happened;
 	unsigned int replay;
@@ -266,7 +279,9 @@ notrace void soft_local_irq_restore(unsigned long en)
 	/* Finally, let's ensure we are hard enabled */
 	__hard_irq_enable();
 }
-EXPORT_SYMBOL(soft_local_irq_restore);
+EXPORT_SYMBOL(arch_local_irq_restore);
+
+#endif /* !CONFIG_IPIPE */
 
 /*
  * This is specifically called by assembly code to re-enable interrupts

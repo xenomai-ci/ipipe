@@ -380,11 +380,6 @@ asmlinkage notrace int __ipipe_check_root(void) /* hw IRQs off */
 
 #ifdef CONFIG_PPC64
 
-int __ipipe_do_sync_check(void)
-{
-	return soft_local_save_flags();
-}
-
 #ifdef CONFIG_IPIPE_TRACE_IRQSOFF
 
 asmlinkage notrace void __ipipe_trace_irqsoff(void)

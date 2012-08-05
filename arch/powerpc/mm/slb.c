@@ -144,7 +144,7 @@ void slb_flush_and_rebolt(void)
 	 * We can't take a PMU exception in the following code, so hard
 	 * disable interrupts.
 	 */
- 	hard_irq_disable();
+	hard_irq_disable();
 
 	__slb_flush_and_rebolt();
 	get_paca()->slb_cache_ptr = 0;

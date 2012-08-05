@@ -238,11 +238,15 @@ label##_hv:						\
 #define SOFTEN_VALUE_0x900	PACA_IRQ_DEC
 #define SOFTEN_VALUE_0x982	PACA_IRQ_DEC
 
+#ifdef CONFIG_IPIPE
+#define __SOFTEN_TEST(h, vec)
+#else /* !CONFIG_IPIPE */
 #define __SOFTEN_TEST(h, vec)						\
 	lbz	r10,PACASOFTIRQEN(r13);					\
 	cmpwi	r10,0;							\
 	li	r10,SOFTEN_VALUE_##vec;					\
 	beq	masked_##h##interrupt
+#endif /* !CONFIG_IPIPE */
 #define _SOFTEN_TEST(h, vec)	__SOFTEN_TEST(h, vec)
 
 #define SOFTEN_TEST_PR(vec)						\

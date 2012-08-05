@@ -39,14 +39,7 @@
 #include <linux/cache.h>
 #include <linux/threads.h>
 
-#ifdef CONFIG_PPC64
-#ifdef CONFIG_PPC_ISERIES
-#error "I-pipe: IBM I-series not supported, sorry"
-#endif
-#include <asm/paca.h>
-#endif
-
-#define IPIPE_CORE_RELEASE	1
+#define IPIPE_CORE_RELEASE	2
 
 struct ipipe_domain;
 

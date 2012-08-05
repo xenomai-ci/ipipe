@@ -1,7 +1,7 @@
 /* -*- linux-c -*-
  * include/asm-powerpc/ipipe_base.h
  *
- * Copyright (C) 2007 Philippe Gerum.
+ * Copyright (C) 2007-2012 Philippe Gerum.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -87,11 +87,6 @@
 
 #ifndef __ASSEMBLY__
 
-#ifdef CONFIG_PPC64
-int __ipipe_do_sync_check(void);
-#define __ipipe_sync_check __ipipe_do_sync_check()
-#endif
-
 #ifdef CONFIG_SMP
 
 void ipipe_stall_root(void);
@@ -135,6 +130,6 @@ static __inline__ unsigned long ipipe_test_root(void)
 #define __IPIPE_FEATURE_HARDENED_SWITCHMM	1
 #endif
 
-#endif /* CONFIG_IPIPE */
+#endif /* !CONFIG_IPIPE */
 
 #endif	/* !__ASM_POWERPC_IPIPE_BASE_H */

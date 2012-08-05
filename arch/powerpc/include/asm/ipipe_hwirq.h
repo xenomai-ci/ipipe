@@ -104,16 +104,14 @@ static inline unsigned long hard_local_irq_save_notrace(void)
 
 static inline int arch_irqs_disabled_flags(unsigned long flags)
 {
-	return (flags & (MSR_EE|MSR_SOFTEE)) != (MSR_EE|MSR_SOFTEE);
+	return (flags & MSR_EE) == 0;
 }
 
 static inline unsigned long arch_local_irq_disable(void)
 {
 	unsigned long flags;
 
-	flags = soft_local_irq_disable() << MSR_SOFTEE_LG;
-	barrier();
-	flags |= (!ipipe_test_and_stall_root()) << MSR_EE_LG;
+	flags = (!ipipe_test_and_stall_root()) << MSR_EE_LG;
 	barrier();
 
 	return flags;
@@ -123,16 +121,13 @@ static inline void arch_local_irq_enable(void)
 {
 	barrier();
 	ipipe_unstall_root();
-	soft_local_irq_restore(1);
 }
 
 static inline void arch_local_irq_restore(unsigned long flags)
 {
 	barrier();
-	if (flags & MSR_EE)
+	if (!arch_irqs_disabled_flags(flags))
 		ipipe_unstall_root();
-	if (flags & MSR_SOFTEE)
-		soft_local_irq_restore(1);
 }
 
 static inline unsigned long arch_local_irq_save(void)
@@ -142,12 +137,7 @@ static inline unsigned long arch_local_irq_save(void)
 
 static inline unsigned long arch_local_save_flags(void)
 {
-	unsigned long flags;
-
-	flags = soft_local_save_flags() << MSR_SOFTEE_LG;
-	flags |= (!ipipe_test_root()) << MSR_EE_LG;
-
-	return flags;
+	return (!ipipe_test_root()) << MSR_EE_LG;
 }
 
 static inline int arch_irqs_disabled(void)
@@ -157,19 +147,19 @@ static inline int arch_irqs_disabled(void)
 	return arch_irqs_disabled_flags(flags);
 }
 
-static inline unsigned long arch_mangle_irq_bits(int virt, unsigned long real)
+static inline unsigned long arch_mangle_irq_bits(int stalled, unsigned long msr)
 {
 	/* Merge virtual and real interrupt mask bits. */
-	return (real & ~MSR_VIRTEE) | ((long)(virt != 0) << MSR_VIRTEE_LG);
+	return (msr & ~MSR_VIRTEE) | ((long)(stalled == 0) << MSR_VIRTEE_LG);
 }
 
-static inline int arch_demangle_irq_bits(unsigned long *x)
+static inline int arch_demangle_irq_bits(unsigned long *flags)
 {
-	int virt = (*x & MSR_VIRTEE) != 0;
+	int stalled = (*flags & MSR_VIRTEE) == 0;
 
-	*x &= ~MSR_VIRTEE;
+	*flags &= ~MSR_VIRTEE;
 
-	return virt;
+	return stalled;
 }
 
 static inline unsigned long hard_local_save_flags(void)
