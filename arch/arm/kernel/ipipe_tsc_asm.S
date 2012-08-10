@@ -2,6 +2,8 @@
 #include <asm/asm-offsets.h>
 #include <asm/glue.h>
 
+ THUMB(	.arm	)
+
 	.macro	usr_ret, reg
 #ifdef CONFIG_ARM_THUMB
 	bx	\reg

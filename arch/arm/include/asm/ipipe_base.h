@@ -50,11 +50,13 @@ extern unsigned __ipipe_first_ipi;
 			"	mov	%0, #0\n"			\
 			"	.popsection"				\
 				      : "=r" (cpunum));			\
-		cpunum &= 0x0F;						\
+		cpunum &= 0xFF;						\
 	})
 
 extern int __cpu_logical_map[];
 #define ipipe_processor_id()  __cpu_logical_map[hard_smp_processor_id()]
+
+#define IPIPE_ARCH_HAVE_VIRQ_IPI
 
 #else /* !CONFIG_SMP */
 #define ipipe_processor_id()  (0)

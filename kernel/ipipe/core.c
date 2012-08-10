@@ -1168,6 +1168,7 @@ void __ipipe_dispatch_irq(unsigned int irq, int flags) /* hw interrupts off */
 	struct ipipe_domain *ipd;
 	struct irq_desc *desc;
 	unsigned long control;
+	int chained_irq;
 
 	/*
 	 * Survival kit when reading this code:
@@ -1209,9 +1210,15 @@ void __ipipe_dispatch_irq(unsigned int irq, int flags) /* hw interrupts off */
 	 * CAUTION: on some archs, virtual IRQs may have acknowledge
 	 * handlers. Multiplex IRQs should have one too.
 	 */
-	desc = irq >= NR_IRQS ? NULL : irq_to_desc(irq);
+	if (unlikely(irq >= NR_IRQS)) {
+		desc = NULL;
+		chained_irq = 0;
+	} else {
+		desc = irq_to_desc(irq);
+		chained_irq = ipipe_chained_irq_p(desc);
+	}
 	if (flags & IPIPE_IRQF_NOACK)
-		IPIPE_WARN_ONCE(desc && ipipe_chained_irq_p(irq));
+		IPIPE_WARN_ONCE(chained_irq);
 	else {
 		ipd = ipipe_head_domain;
 		control = ipd->irqs[irq].control;
@@ -1219,7 +1226,7 @@ void __ipipe_dispatch_irq(unsigned int irq, int flags) /* hw interrupts off */
 			ipd = ipipe_root_domain;
 		if (ipd->irqs[irq].ackfn)
 			ipd->irqs[irq].ackfn(irq, desc);
-		if (desc && ipipe_chained_irq_p(irq)) {
+		if (chained_irq) {
 			if ((flags & IPIPE_IRQF_NOSYNC) == 0)
 				/* Run demuxed IRQ handlers. */
 				goto sync;

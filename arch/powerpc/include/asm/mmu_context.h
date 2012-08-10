@@ -198,6 +198,9 @@ static inline void switch_mm(struct mm_struct *prev, struct mm_struct *next,
 	return;
 }
 
+#define ipipe_head_switch_mm(prev, next, tsk) \
+	__switch_mm(prev, next, tsk)
+
 #define deactivate_mm(tsk,mm)	do { } while (0)
 
 /*

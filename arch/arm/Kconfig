@@ -564,6 +564,7 @@ config ARCH_IXP4XX
 	select MIGHT_HAVE_PCI
 	select NEED_MACH_IO_H
 	select DMABOUNCE if PCI
+	select IPIPE_ARM_KUSER_TSC if IPIPE
 	help
 	  Support for Intel's IXP4XX (XScale) family of processors.
 

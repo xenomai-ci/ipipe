@@ -223,10 +223,10 @@ EXPORT_SYMBOL_GPL(ipipe_raise_irq);
 int ipipe_get_sysinfo(struct ipipe_sysinfo *info)
 {
 	info->sys_nr_cpus = num_online_cpus();
-	info->sys_cpu_freq = __ipipe_cpu_freq;
+	info->sys_cpu_freq = __ipipe_hrclock_freq;
 	info->sys_hrtimer_irq = per_cpu(ipipe_percpu.hrtimer_irq, 0);
 	info->sys_hrtimer_freq = __ipipe_hrtimer_freq;
-	info->sys_hrclock_freq = __ipipe_mach_hrclock_freq;
+	info->sys_hrclock_freq = __ipipe_hrclock_freq;
 	__ipipe_mach_get_tscinfo(&info->arch.tsc);
 
 	return 0;
@@ -287,7 +287,9 @@ void __ipipe_enable_pipeline(void)
 	 * processor, as this causes Linux to disable the I-cache
 	 * when idle.
 	 */
-	disable_hlt();
+	extern void cpu_arm926_proc_init(void);
+	if (likely(cpu_proc_init == &cpu_arm926_proc_init))
+		disable_hlt();
 #endif
 	flags = ipipe_critical_enter(NULL);
 
@@ -443,6 +445,43 @@ static void __ipipe_do_IRQ(unsigned irq, void *cookie)
 {
 	handle_IRQ(irq, __this_cpu_ptr(&ipipe_percpu.tick_regs));
 }
+
+#ifdef CONFIG_MMU
+void __switch_mm_inner(struct mm_struct *prev, struct mm_struct *next,
+		       struct task_struct *tsk)
+{
+#ifdef CONFIG_IPIPE_WANT_PREEMPTIBLE_SWITCH
+	struct mm_struct ** const active_mm = 
+		__this_cpu_ptr(&ipipe_percpu.active_mm);
+	struct thread_info *tip = current_thread_info();
+	*active_mm = NULL;
+	barrier();
+	for (;;) {
+		unsigned long tflags, flags;
+#endif /* CONFIG_IPIPE_WANT_PREEMPTIBLE_SWITCH */
+
+		__do_switch_mm(prev, next, tsk);
+
+#ifdef CONFIG_IPIPE_WANT_PREEMPTIBLE_SWITCH
+		/* It is absolutely unavoidable to read the
+		   thread_info flags and set the active_mm
+		   atomically. Other (previous) solutions lead to
+		   hard unreproduceable disasters. */
+
+		flags = hard_local_irq_save();
+		tflags = tip->flags;
+		if (likely((tflags & _TIF_MMSWITCH_INT) == 0)) {
+			*active_mm = next;
+			hard_local_irq_restore(flags);
+			return;
+		}
+		tip->flags = tflags & ~(_TIF_MMSWITCH_INT);
+		hard_local_irq_restore(flags);
+		prev = NULL;
+	}
+#endif /* CONFIG_IPIPE_WANT_PREEMPTIBLE_SWITCH */
+}
+#endif /* CONFIG_MMU */
 
 #if defined(CONFIG_IPIPE_DEBUG) && defined(CONFIG_DEBUG_LL)
 void printascii(const char *s);

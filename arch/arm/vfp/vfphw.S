@@ -137,8 +137,8 @@ vfp_reload_hw:
 #ifdef CONFIG_IPIPE
 	disable_irq
 	mrc     p15, 0, ip, c0, c0, 5  @ reload current CPU number
-	and	r11, ip, #15
-	ldr	r4, cpu_logical_map_address
+	and	r11, ip, #255
+	ldr	r4, vfp_cpu_logical_map_address
 	ldr	r11, [r4, r11, lsl #2]
 #endif
 
@@ -249,7 +249,7 @@ ENDPROC(vfp_save_state)
 vfp_current_hw_state_address:
 	.word	vfp_current_hw_state
 #if defined(CONFIG_IPIPE) && defined(CONFIG_SMP)
-cpu_logical_map_address:
+vfp_cpu_logical_map_address:
 	.word	__cpu_logical_map
 #endif
 

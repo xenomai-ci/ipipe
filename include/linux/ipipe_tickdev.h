@@ -63,7 +63,13 @@ struct ipipe_timer {
 	/* For internal use */
 	void *timer_set;	/* pointer passed to ->set() callback */
 	struct clock_event_device *host_timer;
-	struct list_head holder;
+	struct list_head link;
+	
+	/* Conversions between clock frequency and timer frequency */
+	unsigned c2t_integ;
+	unsigned c2t_frac;
+
+	/* For clockevent interception */
 	u32 real_mult;
 	u32 real_shift;
 	void (*real_set_mode)(enum clock_event_mode mode,
@@ -90,7 +96,7 @@ void ipipe_timer_register(struct ipipe_timer *timer);
 /*
  * Chooses the best timer for each cpu. Take over its handling.
  */
-int ipipe_timers_request(void);
+int ipipe_timers_request(const struct cpumask *mask);
 
 /*
  * Release the per-cpu timers

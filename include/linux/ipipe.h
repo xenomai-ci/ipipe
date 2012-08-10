@@ -327,10 +327,9 @@ static inline void ipipe_end_irq(unsigned int irq)
 	desc->ipipe_end(irq, desc);
 }
 
-static inline int ipipe_chained_irq_p(unsigned int irq)
+static inline int ipipe_chained_irq_p(struct irq_desc *desc)
 {
 	void __ipipe_chained_irq(unsigned irq, struct irq_desc *desc);
-	struct irq_desc *desc = irq_to_desc(irq);
 
 	return desc->handle_irq == __ipipe_chained_irq;
 }

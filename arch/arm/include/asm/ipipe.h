@@ -86,18 +86,15 @@ unsigned long long __ipipe_tsc_get(void) __attribute__((long_call));
 void __ipipe_tsc_register(struct __ipipe_tscinfo *info);
 void __ipipe_tsc_update(void);
 extern unsigned long __ipipe_kuser_tsc_freq;
-#define __ipipe_mach_hrclock_freq __ipipe_kuser_tsc_freq
+#define __ipipe_hrclock_freq __ipipe_kuser_tsc_freq
 #else /* ! generic tsc */
 unsigned long long __ipipe_mach_get_tsc(void);
 #define __ipipe_tsc_get() __ipipe_mach_get_tsc()
-#ifndef __ipipe_mach_hrclock_freq
-#define __ipipe_mach_hrclock_freq __ipipe_hrtimer_freq
+#ifndef __ipipe_hrclock_freq
+#define __ipipe_hrclock_freq __ipipe_hrtimer_freq
 #endif /* !__ipipe_mach_hrclock_freq */
 #endif /* ! generic tsc */
 
-#ifndef __ipipe_cpu_freq
-#define __ipipe_cpu_freq __ipipe_mach_hrclock_freq
-#endif
 #ifdef CONFIG_IPIPE_DEBUG_INTERNAL
 extern void (*__ipipe_mach_hrtimer_debug)(unsigned irq);
 #endif /* CONFIG_IPIPE_DEBUG_INTERNAL */
@@ -130,13 +127,13 @@ extern void (*__ipipe_mach_hrtimer_debug)(unsigned irq);
 #define ipipe_tsc2ns(t) \
 ({ \
 	unsigned long long delta = (t)*1000; \
-	do_div(delta, __ipipe_cpu_freq / 1000000 + 1); \
+	do_div(delta, __ipipe_hrclock_freq / 1000000 + 1); \
 	(unsigned long)delta; \
 })
 #define ipipe_tsc2us(t) \
 ({ \
 	unsigned long long delta = (t); \
-	do_div(delta, __ipipe_cpu_freq / 1000000 + 1); \
+	do_div(delta, __ipipe_hrclock_freq / 1000000 + 1); \
 	(unsigned long)delta; \
 })
 

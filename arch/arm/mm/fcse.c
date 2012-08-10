@@ -249,6 +249,7 @@ int fcse_switch_mm_inner(struct mm_struct *prev, struct mm_struct *next)
 
   is_flush_needed:
 	flush_needed = reused_pid
+		|| !prev
 		|| prev->context.fcse.shared_dirty_pages;
 
 	fcse_pid_set(fcse_pid << FCSE_PID_SHIFT);

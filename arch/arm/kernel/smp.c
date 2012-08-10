@@ -62,6 +62,18 @@ enum ipi_msg_type {
 #endif /* CONFIG_IPIPE */
 };
 
+#ifdef CONFIG_IPIPE
+#define noipipe_irq_enter()			\
+	do {					\
+	} while(0)
+#define noipipe_irq_exit()			\
+	do {					\
+	} while(0)
+#else /* !CONFIG_IPIPE */
+#define noipipe_irq_enter() irq_enter()
+#define noipipe_irq_exit() irq_exit()
+#endif /* !CONFIG_IPIPE */
+
 static DECLARE_COMPLETION(cpu_running);
 
 int __cpuinit __cpu_up(unsigned int cpu)
@@ -616,9 +628,9 @@ void handle_IPI(int ipinr, struct pt_regs *regs)
 
 	switch (ipinr) {
 	case IPI_TIMER:
-		irq_enter();
+		noipipe_irq_enter();
 		ipi_timer();
-		irq_exit();
+		noipipe_irq_exit();
 		break;
 
 	case IPI_RESCHEDULE:
@@ -626,21 +638,21 @@ void handle_IPI(int ipinr, struct pt_regs *regs)
 		break;
 
 	case IPI_CALL_FUNC:
-		irq_enter();
+		noipipe_irq_enter();
 		generic_smp_call_function_interrupt();
-		irq_exit();
+		noipipe_irq_exit();
 		break;
 
 	case IPI_CALL_FUNC_SINGLE:
-		irq_enter();
+		noipipe_irq_enter();
 		generic_smp_call_function_single_interrupt();
-		irq_exit();
+		noipipe_irq_exit();
 		break;
 
 	case IPI_CPU_STOP:
-		irq_enter();
+		noipipe_irq_enter();
 		ipi_cpu_stop(cpu);
-		irq_exit();
+		noipipe_irq_exit();
 		break;
 
 	default:
