@@ -3109,6 +3109,9 @@ void __weak __ipipe_serial_debug(const char *fmt, ...)
         char buf[128];
         va_list ap;
 
+	if (up->port.membase == NULL)
+		return;
+
         va_start(ap, fmt);
         vsprintf(buf, fmt, ap);
         va_end(ap);
