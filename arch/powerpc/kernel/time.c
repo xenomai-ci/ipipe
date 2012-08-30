@@ -522,7 +522,7 @@ void timer_interrupt(struct pt_regs * regs)
 	}
 
 	now = get_tb_or_rtc();
-	if (now >= *next_tb) {
+	if (clockevent_ipipe_stolen(evt) || now >= *next_tb) {
 		*next_tb = ~(u64)0;
 		if (evt->event_handler)
 			evt->event_handler(evt);
