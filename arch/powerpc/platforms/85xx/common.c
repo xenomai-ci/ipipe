@@ -6,6 +6,7 @@
  * published by the Free Software Foundation.
  */
 #include <linux/of_platform.h>
+#include <linux/ipipe.h>
 
 #include <sysdev/cpm2_pic.h>
 
