@@ -352,7 +352,7 @@ mxc_timer_init(struct clk *timer_clk,
 
 	if (timer_is_v1()) {
 		tsc_info.u.counter_paddr = phys + MX1_2_TCN;
-		tsc_info.counter_vaddr =(unsigned long)(phys + MX1_2_TCN);
+		tsc_info.counter_vaddr = (unsigned long)(timer_base + MX1_2_TCN);
 	} else {
 		tsc_info.u.counter_paddr = phys + V2_TCN;
 		tsc_info.counter_vaddr = (unsigned long)(timer_base + V2_TCN);
