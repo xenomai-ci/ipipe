@@ -135,9 +135,11 @@ static inline unsigned long hard_local_save_flags(void)
 	return flags;
 }
 
+#define hard_irqs_disabled_flags(flags) arch_irqs_disabled_flags(flags)
+
 static inline int hard_irqs_disabled(void)
 {
-	return arch_irqs_disabled_flags(hard_local_save_flags());
+	return hard_irqs_disabled_flags(hard_local_save_flags());
 }
 
 #ifdef CONFIG_IPIPE_TRACE_IRQSOFF
