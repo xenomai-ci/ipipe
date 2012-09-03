@@ -198,7 +198,7 @@ __switch_mm_inner(struct mm_struct *prev, struct mm_struct *next,
 #endif /* !I-pipe  || !MMU */
 
 static inline void 
-ipipe_head_switch_mm(struct mm_struct *prev, struct mm_struct *next,
+ipipe_switch_mm_head(struct mm_struct *prev, struct mm_struct *next,
 			   struct task_struct *tsk)
 {
 	__do_switch_mm(prev, next, tsk);
