@@ -348,7 +348,7 @@ static void slow_zero_page(void *page)
 
 void mmx_clear_page(void *page)
 {
-	if (unlikely(in_interrupt()))
+	if (unlikely(!ipipe_root_p || in_interrupt()))
 		slow_zero_page(page);
 	else
 		fast_clear_page(page);
@@ -369,7 +369,7 @@ static void slow_copy_page(void *to, void *from)
 
 void mmx_copy_page(void *to, void *from)
 {
-	if (unlikely(in_interrupt()))
+	if (unlikely(!ipipe_root_p || in_interrupt()))
 		slow_copy_page(to, from);
 	else
 		fast_copy_page(to, from);
