@@ -1199,13 +1199,6 @@ void __ipipe_dispatch_irq(unsigned int irq, int flags) /* hw interrupts off */
 	 *   decodes the demuxed interrupts.
 	 */
 
-#ifdef CONFIG_IPIPE_DEBUG
-	if (unlikely(irq >= IPIPE_NR_IRQS) ||
-	    (irq < NR_IRQS && irq_to_desc(irq) == NULL)) {
-		printk(KERN_ERR "I-pipe: spurious interrupt %u\n", irq);
-		return;
-	}
-#endif
 	/*
 	 * CAUTION: on some archs, virtual IRQs may have acknowledge
 	 * handlers. Multiplex IRQs should have one too.
@@ -1217,6 +1210,14 @@ void __ipipe_dispatch_irq(unsigned int irq, int flags) /* hw interrupts off */
 		desc = irq_to_desc(irq);
 		chained_irq = ipipe_chained_irq_p(desc);
 	}
+
+#ifdef CONFIG_IPIPE_DEBUG
+	if (unlikely(desc == NULL && (irq < NR_IRQS || irq >= IPIPE_NR_IRQS))) {
+		printk(KERN_ERR "I-pipe: spurious interrupt %u\n", irq);
+		return;
+	}
+#endif
+
 	if (flags & IPIPE_IRQF_NOACK)
 		IPIPE_WARN_ONCE(chained_irq);
 	else {
