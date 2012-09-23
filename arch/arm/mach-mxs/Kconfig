@@ -14,6 +14,7 @@ config SOC_IMX28
 	bool
 	select CPU_ARM926T
 	select HAVE_PWM
+	select IPIPE_ARM_KUSER_TSC if IPIPE
 
 comment "MXS platforms:"
 

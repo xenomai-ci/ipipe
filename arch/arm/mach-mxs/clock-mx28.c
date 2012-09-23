@@ -797,7 +797,11 @@ int __init mx28_clocks_init(void)
 
 	clkdev_add_table(lookups, ARRAY_SIZE(lookups));
 
+#ifndef CONFIG_IPIPE
 	mxs_timer_init(&clk32k_clk, MX28_INT_TIMER0);
+#else /* CONFIG_IPIPE */
+	mxs_timer_init(&xbus_clk, MX28_INT_TIMER0);
+#endif /* CONFIG_IPIPE */
 
 	return 0;
 }
