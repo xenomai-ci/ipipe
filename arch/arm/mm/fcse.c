@@ -355,8 +355,9 @@ fcse_check_mmap_inner(struct mm_struct *mm, unsigned long start_addr,
 
 	/* Fail, no 32MB processes in guaranteed mode. */
 #ifdef CONFIG_ARM_FCSE_MESSAGES
-	printk(KERN_WARNING "FCSE: process %u(%s) VM would exceed the 32MB limit.\n",
-	       current->pid, current->comm);
+	if ((fl & MAP_BRK) == 0)
+		printk(KERN_WARNING "FCSE: process %u(%s) VM would exceed the 32MB limit.\n",
+		       current->pid, current->comm);
 #endif /* CONFIG_ARM_FCSE_MESSAGES */
 	return -ENOMEM;
 #endif /* CONFIG_ARM_FCSE_GUARANTEED */
