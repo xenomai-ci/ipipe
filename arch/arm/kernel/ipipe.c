@@ -288,8 +288,11 @@ void __ipipe_enable_pipeline(void)
 	 * when idle.
 	 */
 	extern void cpu_arm926_proc_init(void);
-	if (likely(cpu_proc_init == &cpu_arm926_proc_init))
+	if (likely(cpu_proc_init == &cpu_arm926_proc_init)) {
+		printk("I-pipe: ARM926EJ-S detected, disabling wfi instruction"
+		       " in idle loop\n");
 		disable_hlt();
+	}
 #endif
 	flags = ipipe_critical_enter(NULL);
 
