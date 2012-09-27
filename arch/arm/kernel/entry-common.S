@@ -459,7 +459,7 @@ ENTRY(vector_swi)
 	bgt	__ipipe_ret_to_user
 	get_thread_info tsk
 	blt	ret_slow_syscall
-	ldm	sp, { r0 - r3 }
+	ldmia	sp, { r0 - r3 }
 #endif /* CONFIG_IPIPE */
 	ldr	r10, [tsk, #TI_FLAGS]		@ check for syscall tracing
 	stmdb	sp!, {r4, r5}			@ push fifth and sixth args
