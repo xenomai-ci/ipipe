@@ -372,6 +372,16 @@ ENTRY(vector_swi)
 	str	r8, [sp, #S_PSR]		@ Save CPSR
 	str	r0, [sp, #S_OLD_R0]		@ Save OLD_R0
 	zero_fp
+#ifdef CONFIG_IPIPE_TRACE_IRQSOFF
+	mov	r4, lr
+	mov	r0, #1		/* IPIPE_TRACE_BEGIN */
+	mov	r3, #0x90000000
+	sub	r2, lr, #4	/* calling PC */
+	mov	r1, pc
+	bl	ipipe_trace_asm
+	mov	lr, r4
+	ldm	sp, {r0 - r4}
+#endif /* CONFIG_IPIPE_TRACE_IRQSOFF */
 
 	/*
 	 * Get the system call number.

@@ -190,6 +190,14 @@ ENDPROC(__und_invalid)
 #ifdef CONFIG_TRACE_IRQFLAGS
 	bl	trace_hardirqs_off
 #endif
+#ifdef CONFIG_IPIPE_TRACE_IRQSOFF
+	mov	r0, #1		/* IPIPE_TRACE_BEGIN */
+	mov	r3, #0x90000000
+	ldr	r2, [sp, #S_PC]
+	mov	r1, pc
+	bl	ipipe_trace_asm
+	ldmia	r7, {r2 - r6}
+#endif /* CONFIG_IPIPE_TRACE_IRQSOFF */
 	.endm
 
 	.align	5
@@ -365,6 +373,15 @@ ENDPROC(__pabt_svc)
 	sub	sp, sp, #S_FRAME_SIZE
  ARM(	stmib	sp, {r1 - r12}	)
  THUMB(	stmia	sp, {r0 - r12}	)
+#ifdef CONFIG_IPIPE_TRACE_IRQSOFF
+	mov	r4, r0
+	mov	r0, #1		/* IPIPE_TRACE_BEGIN */
+	mov	r3, #0x90000000
+	ldr	r2, [r4, #4]	/* lr_<exception> */
+	mov	r1, pc
+	bl	ipipe_trace_asm
+	mov	r0, r4
+#endif /* CONFIG_IPIPE_TRACE_IRQSOFF */
 
 	ldmia	r0, {r3 - r5}
 	add	r0, sp, #S_PC		@ here for interlock avoidance
