@@ -86,7 +86,7 @@ void ipipe_stall_root(void)
 
 	ipipe_root_only();
 	flags = hard_smp_local_irq_save();
-	set_bit(IPIPE_STALL_FLAG, &__ipipe_root_status);
+	__set_bit(IPIPE_STALL_FLAG, &__ipipe_root_status);
 	hard_smp_local_irq_restore(flags);
 }
 EXPORT_SYMBOL_GPL(ipipe_stall_root);
@@ -98,7 +98,7 @@ unsigned long ipipe_test_and_stall_root(void)
 
 	ipipe_root_only();
 	flags = hard_smp_local_irq_save();
-	x = test_and_set_bit(IPIPE_STALL_FLAG, &__ipipe_root_status);
+	x = __test_and_set_bit(IPIPE_STALL_FLAG, &__ipipe_root_status);
 	hard_smp_local_irq_restore(flags);
 
 	return x;
@@ -454,7 +454,7 @@ void __switch_mm_inner(struct mm_struct *prev, struct mm_struct *next,
 		       struct task_struct *tsk)
 {
 #ifdef CONFIG_IPIPE_WANT_PREEMPTIBLE_SWITCH
-	struct mm_struct ** const active_mm = 
+	struct mm_struct ** const active_mm =
 		__this_cpu_ptr(&ipipe_percpu.active_mm);
 	struct thread_info *tip = current_thread_info();
 	*active_mm = NULL;
