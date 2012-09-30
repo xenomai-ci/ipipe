@@ -24,6 +24,7 @@ config IPIPE_DEBUG_INTERNAL
 config IPIPE_TRACE
 	bool "Latency tracing"
 	depends on IPIPE_DEBUG
+	depends on !ARM || !THUMB2_KERNEL
 	select ARCH_WANT_FRAME_POINTERS
 	select FRAME_POINTER
 	select KALLSYMS
