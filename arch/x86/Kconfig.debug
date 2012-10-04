@@ -61,7 +61,7 @@ config EARLY_PRINTK_DBGP
 
 config DEBUG_STACKOVERFLOW
 	bool "Check for stack overflows"
-	depends on DEBUG_KERNEL
+	depends on DEBUG_KERNEL && !IPIPE
 	---help---
 	  This option will cause messages to be printed if free stack space
 	  drops below a certain limit.
