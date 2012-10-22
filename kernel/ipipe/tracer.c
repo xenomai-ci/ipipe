@@ -860,7 +860,8 @@ static void __ipipe_print_symname(struct seq_file *m, unsigned long eip)
 			printk("%s+0x%lx", sym_name, offset);
 			if (modname)
 				printk(" [%s]", modname);
-		}
+		} else
+			printk("<%08lx>", eip);
 	} else
 #endif /* CONFIG_IPIPE_TRACE_PANIC */
 	{
@@ -1022,7 +1023,7 @@ static int __ipipe_prtrace_show(struct seq_file *m, void *p)
 	if (verbose_trace)
 		switch (point->type & IPIPE_TYPE_MASK) {
 			case IPIPE_TRACE_FUNC:
-				seq_puts(m, "		");
+				seq_puts(m, "           ");
 				break;
 
 			case IPIPE_TRACE_PID:
