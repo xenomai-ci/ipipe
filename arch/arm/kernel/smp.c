@@ -265,18 +265,20 @@ static void percpu_timer_setup(void);
 asmlinkage void __cpuinit secondary_start_kernel(void)
 {
 	struct mm_struct *mm = &init_mm;
-	unsigned int cpu = smp_processor_id();
+	unsigned int cpu;
+
+	cpu_switch_mm(mm->pgd, mm, 1);
+	enter_lazy_tlb(mm, current);
+	local_flush_tlb_all();
 
 	/*
 	 * All kernel threads share the same mm context; grab a
 	 * reference and switch to it.
 	 */
+	cpu = smp_processor_id();
 	atomic_inc(&mm->mm_count);
 	current->active_mm = mm;
 	cpumask_set_cpu(cpu, mm_cpumask(mm));
-	cpu_switch_mm(mm->pgd, mm, 1);
-	enter_lazy_tlb(mm, current);
-	local_flush_tlb_all();
 
 	printk("CPU%u: Booted secondary processor\n", cpu);
 
@@ -483,7 +485,7 @@ void __ipipe_ipis_alloc(void)
 void __ipipe_ipis_request(void)
 {
 	unsigned virq;
-	
+
 	for (virq = IPIPE_IPI_BASE; virq < __ipipe_first_ipi; virq++)
 		ipipe_request_irq(ipipe_root_domain,
 				  virq,
