@@ -137,6 +137,11 @@ extern void (*__ipipe_mach_hrtimer_debug)(unsigned irq);
 	(unsigned long)delta; \
 })
 
+static inline const char *ipipe_clock_name(void)
+{
+	return "ipipe_tsc";
+}
+
 /* Private interface -- Internal use only */
 
 #define __ipipe_check_platform()	do { } while(0)
