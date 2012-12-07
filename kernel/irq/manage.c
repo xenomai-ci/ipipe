@@ -785,7 +785,7 @@ __setup_irq(unsigned int irq, struct irq_desc *desc, struct irqaction *new)
 
 		if (!(desc->status & IRQ_NOAUTOEN)) {
 			desc->depth = 0;
-			desc->status &= ~IRQ_DISABLED;
+			desc->status &= ~(IRQ_DISABLED | IRQ_MASKED);
 			desc->irq_data.chip->irq_startup(&desc->irq_data);
 		} else
 			/* Undo nested disables: */
