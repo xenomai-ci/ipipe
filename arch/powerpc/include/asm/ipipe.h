@@ -46,7 +46,7 @@
 #include <asm/paca.h>
 #endif
 
-#define IPIPE_CORE_RELEASE	1
+#define IPIPE_CORE_RELEASE	2
 
 struct ipipe_domain;
 
