@@ -264,6 +264,7 @@ int fcse_switch_mm_inner(struct mm_struct *prev, struct mm_struct *next)
 
 	return flush_needed;
 }
+EXPORT_SYMBOL_GPL(fcse_switch_mm_inner);
 
 void fcse_pid_reference(unsigned fcse_pid)
 {

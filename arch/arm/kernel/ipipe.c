@@ -539,4 +539,5 @@ EXPORT_SYMBOL_GPL(cpu_last_asid);
 
 #ifdef CONFIG_SMP
 EXPORT_SYMBOL_GPL(__cpu_logical_map);
+EXPORT_SYMBOL_GPL(__ipipe_first_ipi);
 #endif /* CONFIG_IPIPE */
