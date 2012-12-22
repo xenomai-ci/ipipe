@@ -70,8 +70,7 @@ struct ipipe_arch_sysinfo {
 
 /* Private interface -- Internal use only */
 
-#define __ipipe_check_platform()	do { } while (0)
-#define __ipipe_init_platform()		do { } while (0)
+#define __ipipe_early_core_setup()	do { } while (0)
 
 extern atomic_t __ipipe_irq_lvdepth[IVG15 + 1];
 

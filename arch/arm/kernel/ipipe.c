@@ -74,7 +74,7 @@ static struct __ipipe_vnmislot {
 	.data_lock	= IPIPE_RW_LOCK_UNLOCKED,
 };
 
-void __ipipe_init_platform(void)
+void __ipipe_early_core_setup(void)
 {
 	unsigned int virq, _virq;
 
