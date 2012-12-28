@@ -257,12 +257,6 @@ void __ipipe_enable_irqdesc(struct ipipe_domain *ipd, unsigned irq)
 {
 	unsigned long flags;
 
-	if (ipd != &ipipe_root) {
-		struct irq_desc *desc = irq_to_desc(irq);
-		if(desc && !desc->action)
-			enable_irq(irq);
-	}
-
 	if (!ipipe_pic_muter.enable_irqdesc)
 		return;
 
@@ -293,12 +287,6 @@ void __ipipe_disable_irqdesc(struct ipipe_domain *ipd, unsigned irq)
 		__ipipe_irqbits[irq / BITS_PER_LONG]
 			&= ~(1 << (irq % BITS_PER_LONG));
 	spin_unlock_irqrestore(&__ipipe_irqbits_lock, flags);
-
-	if (ipd != &ipipe_root) {
-		struct irq_desc *desc = irq_to_desc(irq);
-		if(desc && !desc->action)
-			disable_irq(irq);
-	}
 }
 EXPORT_SYMBOL_GPL(__ipipe_disable_irqdesc);
 
