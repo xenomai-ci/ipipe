@@ -528,14 +528,18 @@ static void __cpuinit setup_APIC_timer(void)
 	memcpy(levt, &lapic_clockevent, sizeof(*levt));
 	levt->cpumask = cpumask_of(smp_processor_id());
 #ifdef CONFIG_IPIPE
-	if (!(lapic_clockevent.features & CLOCK_EVT_FEAT_DUMMY))
+	if (!(lapic_clockevent.features & CLOCK_EVT_FEAT_DUMMY)
+	    && !cpu_has_amd_erratum(amd_erratum_400))
 		levt->ipipe_timer = &__get_cpu_var(lapic_itimer);
 	else {
-	       printk(KERN_INFO
-		      "I-pipe: cannot use LAPIC as a tick device\n");
-	       if (cpu_has_amd_erratum(amd_erratum_400))
-		       printk(KERN_INFO
-			      "I-pipe: disable C1E power state in your BIOS\n");
+		static atomic_t printed = ATOMIC_INIT(-1);
+		printk(KERN_INFO
+		       "I-pipe: cannot use LAPIC on cpu #%d as a tick device\n",
+		       smp_processor_id());
+		if (cpu_has_amd_erratum(amd_erratum_400)
+		    && atomic_inc_and_test(&printed))
+			printk(KERN_INFO
+			       "I-pipe: disable C1E power state in your BIOS\n");
 	}
 #endif /* CONFIG_IPIPE */
 
