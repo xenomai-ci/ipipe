@@ -312,7 +312,11 @@ int __init mx28_clocks_init(void)
 			return PTR_ERR(clks[i]);
 		}
 
+#ifndef CONFIG_IPIPE
 	clk_register_clkdev(clks[clk32k], NULL, "timrot");
+#else /* CONFIG_IPIPE */
+	clk_register_clkdev(clks[xbus], NULL, "timrot");
+#endif /* CONFIG_IPIPE */
 	clk_register_clkdev(clks[enet_out], NULL, "enet_out");
 	clk_register_clkdevs(clks[hbus], hbus_lookups, ARRAY_SIZE(hbus_lookups));
 	clk_register_clkdevs(clks[xbus], xbus_lookups, ARRAY_SIZE(xbus_lookups));
