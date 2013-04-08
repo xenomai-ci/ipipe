@@ -27,6 +27,7 @@
 #include <asm/smp_twd.h>
 #include <asm/localtimer.h>
 #include <asm/hardware/gic.h>
+#include <asm/cputype.h>
 #include <asm/ipipe.h>
 
 /* set up by the platform code */
@@ -62,6 +63,9 @@ static void __cpuinit gt_setup(unsigned long base_paddr, unsigned bits)
 		twd_timer_rate = clk_get_rate(twd_clk);
 	else
 		twd_calibrate_rate();
+
+	if ((read_cpuid_id() & 0xf00000) == 0)
+		return;
 
 	gt_base = ioremap(base_paddr, SZ_256);
 	BUG_ON(!gt_base);
