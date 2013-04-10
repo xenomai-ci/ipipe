@@ -541,7 +541,6 @@ int __ipipe_divert_exception(struct pt_regs *regs, int vector)
 int __ipipe_syscall_root(struct pt_regs *regs)
 {
 	struct ipipe_percpu_domain_data *p;
-	unsigned long flags;
 	int ret;
 
 	/*
@@ -558,22 +557,26 @@ int __ipipe_syscall_root(struct pt_regs *regs)
 
 	ret = __ipipe_notify_syscall(regs);
 
-	flags = hard_local_irq_save();
+	hard_local_irq_disable();
 
 	if (current->ipipe.flags & PF_MAYDAY) {
 		current->ipipe.flags &= ~PF_MAYDAY;
 		__ipipe_notify_trap(IPIPE_TRAP_MAYDAY, regs);
 	}
 
-	if (!ipipe_root_p)
+	if (!ipipe_root_p) {
+		ipipe_trace_irqson(); /* sysret will re-enable interrupts */
 		return 1;
+	}
 
 	p = ipipe_this_cpu_root_context();
 	if (__ipipe_ipending_p(p))
 		__ipipe_sync_stage();
 
 	if (ret == 0)
-		hard_local_irq_restore(flags);
+		hard_local_irq_enable();
+	else
+		ipipe_trace_irqson(); /* sysret will re-enable interrupts */
 
 	return -ret;
 }
