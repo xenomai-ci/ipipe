@@ -60,22 +60,35 @@ static inline void switch_new_context(struct mm_struct *mm)
 	 * Required during context switch to avoid speculative page table
 	 * walking with the wrong TTBR.
 	 */
-	cpu_set_reserved_ttbr0();
-
 	__new_context(mm);
 
+#ifdef CONFIG_IPIPE_WANT_PREEMPTIBLE_SWITCH
 	flags = hard_local_irq_save();
+#else
+	(void)flags;
+#endif
+	cpu_set_reserved_ttbr0();
+
 	cpu_switch_mm(mm->pgd, mm, 0);
+#ifdef CONFIG_IPIPE_WANT_PREEMPTIBLE_SWITCH
 	hard_local_irq_restore(flags);
+#endif
 }
 
 static inline int check_and_switch_context(struct mm_struct *mm,
 					   struct task_struct *tsk,
 					   bool may_defer)
 {
+	unsigned long flags;
+
 	if (unlikely(mm->context.kvm_seq != init_mm.context.kvm_seq))
 		__check_kvm_seq(mm);
 
+#ifdef CONFIG_IPIPE_WANT_PREEMPTIBLE_SWITCH
+	flags = hard_local_irq_save();
+#else
+	(void)flags;
+#endif
 	if (!((mm->context.id ^ cpu_last_asid) >> ASID_BITS)) {
 		/*
 		 * Required during context switch to avoid speculative
@@ -89,7 +102,13 @@ static inline int check_and_switch_context(struct mm_struct *mm,
 		 * context_switch() and interrupts are already disabled.
 		 */
 		cpu_switch_mm(mm->pgd, mm, 0);
+#ifdef CONFIG_IPIPE_WANT_PREEMPTIBLE_SWITCH
+		hard_local_irq_restore(flags);
+#endif
 	} else if (may_defer && irqs_disabled()) {
+#ifdef CONFIG_IPIPE_WANT_PREEMPTIBLE_SWITCH
+		hard_local_irq_restore(flags);
+#endif
 		/*
 		 * Defer the new ASID allocation until after the context
 		 * switch critical region since __new_context() cannot be
@@ -97,12 +116,16 @@ static inline int check_and_switch_context(struct mm_struct *mm,
 		 */
 		set_ti_thread_flag(task_thread_info(tsk), TIF_SWITCH_MM);
 		return -EAGAIN;
-	} else
+	} else {
+#ifdef CONFIG_IPIPE_WANT_PREEMPTIBLE_SWITCH
+		hard_local_irq_restore(flags);
+#endif
 		/*
 		 * That is a direct call to switch_mm() or activate_mm() with
 		 * interrupts enabled and a new context.
 		 */
 		switch_new_context(mm);
+	}
 
 	return 0;
 }
