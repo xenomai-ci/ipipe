@@ -29,8 +29,12 @@
 #include <linux/clk.h>
 #include <linux/io.h>
 #include <linux/platform_device.h>
+<<<<<<< HEAD
 #include <linux/module.h>
 #include <linux/ipipe_tickdev.h>
+=======
+#include <linux/syscore_ops.h>
+>>>>>>> v3.9
 
 #include <asm/mach-types.h>
 
@@ -116,7 +120,17 @@ static inline unsigned long timer_ticks_to_usec(unsigned long ticks)
 	return res >> TIMER_USEC_SHIFT;
 }
 
+<<<<<<< HEAD
 static inline unsigned long timer_freerunning_getvalue(void)
+=======
+/***
+ * Returns microsecond  since last clock interrupt.  Note that interrupts
+ * will have been disabled by do_gettimeoffset()
+ * IRQs are disabled before entering here from do_gettimeofday()
+ */
+
+static u32 s3c2410_gettimeoffset(void)
+>>>>>>> v3.9
 {
 	return __raw_readl(S3C2410_TCNTO(3));
 }
@@ -143,11 +157,15 @@ static inline unsigned long getticksoffset_tscupdate(void)
 	unsigned long tval;
 	unsigned long ticks;
 
+<<<<<<< HEAD
 	tval = timer_freerunning_getvalue();
 	ticks = timer_freerunning_getticksoffset(tval);
 	last_free_running_tcnt = tval;
 	__ipipe_tsc_update();
 	return ticks;
+=======
+	return timer_ticks_to_usec(tdone) * 1000;
+>>>>>>> v3.9
 }
 #else
 static unsigned long s3c2410_gettimeoffset (void)
@@ -397,12 +415,20 @@ static void __init s3c2410_timer_resources(void)
 	clk_enable(tin);
 }
 
-static void __init s3c2410_timer_init(void)
+static struct syscore_ops s3c24xx_syscore_ops = {
+	.resume		= s3c2410_timer_setup,
+};
+
+void __init s3c24xx_timer_init(void)
 {
+	arch_gettimeoffset = s3c2410_gettimeoffset;
+
 	s3c2410_timer_resources();
 	s3c2410_timer_setup();
 	setup_irq(IRQ_TIMER4, &s3c2410_timer_irq);
+	register_syscore_ops(&s3c24xx_syscore_ops);
 }
+<<<<<<< HEAD
 
 struct sys_timer s3c24xx_timer = {
 	.init		= s3c2410_timer_init,
@@ -411,3 +437,5 @@ struct sys_timer s3c24xx_timer = {
 #endif
 	.resume		= s3c2410_timer_setup
 };
+=======
+>>>>>>> v3.9
