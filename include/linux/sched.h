@@ -168,12 +168,12 @@ print_cfs_rq(struct seq_file *m, int cpu, struct cfs_rq *cfs_rq)
 #ifdef CONFIG_IPIPE
 #define TASK_HARDENING		1024
 #define TASK_NOWAKEUP		2048
-#define TASK_STATE_MAX		2048
+#define TASK_STATE_MAX		4096
 #define TASK_STATE_TO_CHAR_STR "RSDTtZXxKWPHN"
 #else  /* !CONFIG_IPIPE */
 #define TASK_HARDENING		0
 #define TASK_NOWAKEUP		0
-#define TASK_STATE_MAX		512
+#define TASK_STATE_MAX		1024
 #define TASK_STATE_TO_CHAR_STR "RSDTtZXxKWP"
 #endif /* CONFIG_IPIPE */
 
