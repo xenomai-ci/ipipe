@@ -57,7 +57,6 @@ git diff "$reference" | awk -v kvers="$kvers" -v splitmode="$split" \
 }
 
 BEGIN {
-    driver_arch["tty/serial/8250/8250.c"]="noarch"
     driver_arch["cpuidle/Kconfig"]="noarch"
 
     driver_arch["clk/mxs/clk-imx28.c"]="arm"
@@ -69,6 +68,8 @@ BEGIN {
     driver_arch["irqchip/spear-shirq.c"]="arm"
     driver_arch["mfd/twl4030-irq.c"]="arm"
     driver_arch["mfd/twl6030-irq.c"]="arm"
+    driver_arch["irqchip/irq-gic.c"]="arm"
+    driver_arch["irqchip/irq-vic.c"]="arm"
     driver_arch["misc/Kconfig"]="arm"
     driver_arch["staging/imx-drm/ipu-v3/ipu-common.c"]="arm"
     driver_arch["staging/imx-drm/ipu-v3/ipu-prv.h"]="arm"
@@ -78,6 +79,7 @@ BEGIN {
     driver_arch["tty/serial/mpc52xx_uart.c"]="powerpc"
     driver_arch["gpio/gpio-mpc8xxx.c"]="powerpc"
 
+    driver_arch["tty/serial/8250/8250_core.c"]="x86"
     driver_arch["clocksource/i8253.c"]="x86"
     driver_arch["clocksource/Makefile"]="x86"
     driver_arch["clocksource/ipipe_i486_tsc_emu.S"]="x86"
