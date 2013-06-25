@@ -513,7 +513,7 @@ static inline void __mask_ioapic(struct irq_cfg *cfg)
 	io_apic_modify_irq(cfg, ~0, IO_APIC_REDIR_MASKED, &io_apic_sync);
 }
 
-static void mask_ioapic(struct irq_cfg *cfg)
+static void mask_ioapic(unsigned int irq, struct irq_cfg *cfg)
 {
 	unsigned long flags;
 
@@ -525,7 +525,7 @@ static void mask_ioapic(struct irq_cfg *cfg)
 
 static void mask_ioapic_irq(struct irq_data *data)
 {
-	mask_ioapic(data->chip_data);
+	mask_ioapic(data->irq, data->chip_data);
 }
 
 static void __unmask_ioapic(struct irq_cfg *cfg)
@@ -2496,8 +2496,10 @@ static void move_xxapic_irq(struct irq_data *data)
 	} else if (desc->handle_irq == &handle_fasteoi_irq) {
 		raw_spin_lock(&desc->lock);
 		irq_complete_move(cfg);
-		if (irq_remapped(cfg))
+#ifdef CONFIG_IRQ_REMAP
+		if (cfg->remapped)
 			eoi_ioapic_irq(irq, cfg);
+#endif
 		if (unlikely(irqd_is_setaffinity_pending(data))) {
 			if (!io_apic_level_ack_pending(cfg))
 				irq_move_masked_irq(data);
