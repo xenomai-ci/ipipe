@@ -180,7 +180,6 @@ static inline void fcse_mark_dirty(struct mm_struct *mm)
 	if (cache_is_vivt()) {
 		set_bit(FCSE_PID_MAX - (mm->context.fcse.pid >> FCSE_PID_SHIFT),
 			fcse_pids_cache_dirty);
-		FCSE_BUG_ON(!fcse_mm_in_cache(mm));
 #ifdef CONFIG_ARM_FCSE_BEST_EFFORT
 		if (mm->context.fcse.large)
 			fcse_large_process = mm;
