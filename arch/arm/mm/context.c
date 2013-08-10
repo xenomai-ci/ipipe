@@ -160,7 +160,7 @@ static void reset_context(void *info)
 	set_mm_context(mm, asid);
 
 	/* set the new ASID */
-	cpu_switch_mm(mm->pgd, mm, fcse_switch_mm(current));
+	cpu_switch_mm(mm->pgd, mm, 0);
 }
 
 #else
