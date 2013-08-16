@@ -25,6 +25,8 @@
 #include <linux/of_irq.h>
 #include <linux/spinlock.h>
 
+#include "irqchip.h"
+
 static IPIPE_DEFINE_SPINLOCK(lock);
 
 /* spear300 shared irq registers offsets and masks */
@@ -303,6 +305,7 @@ int __init spear300_shirq_of_init(struct device_node *np,
 	return shirq_init(spear300_shirq_blocks,
 			ARRAY_SIZE(spear300_shirq_blocks), np);
 }
+IRQCHIP_DECLARE(spear300_shirq, "st,spear300-shirq", spear300_shirq_of_init);
 
 int __init spear310_shirq_of_init(struct device_node *np,
 		struct device_node *parent)
@@ -310,6 +313,7 @@ int __init spear310_shirq_of_init(struct device_node *np,
 	return shirq_init(spear310_shirq_blocks,
 			ARRAY_SIZE(spear310_shirq_blocks), np);
 }
+IRQCHIP_DECLARE(spear310_shirq, "st,spear310-shirq", spear310_shirq_of_init);
 
 int __init spear320_shirq_of_init(struct device_node *np,
 		struct device_node *parent)
@@ -317,3 +321,4 @@ int __init spear320_shirq_of_init(struct device_node *np,
 	return shirq_init(spear320_shirq_blocks,
 			ARRAY_SIZE(spear320_shirq_blocks), np);
 }
+IRQCHIP_DECLARE(spear320_shirq, "st,spear320-shirq", spear320_shirq_of_init);

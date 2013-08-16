@@ -141,18 +141,6 @@ void __init smp_init_cpus(void)
 		smp_ops.smp_init_cpus();
 }
 
-static void __init platform_smp_prepare_cpus(unsigned int max_cpus)
-{
-	if (smp_ops.smp_prepare_cpus)
-		smp_ops.smp_prepare_cpus(max_cpus);
-}
-
-static void __cpuinit platform_secondary_init(unsigned int cpu)
-{
-	if (smp_ops.smp_secondary_init)
-		smp_ops.smp_secondary_init(cpu);
-}
-
 int __cpuinit boot_secondary(unsigned int cpu, struct task_struct *idle)
 {
 	if (smp_ops.smp_boot_secondary)
@@ -168,12 +156,6 @@ static int platform_cpu_kill(unsigned int cpu)
 	if (smp_ops.cpu_kill)
 		return smp_ops.cpu_kill(cpu);
 	return 1;
-}
-
-static void platform_cpu_die(unsigned int cpu)
-{
-	if (smp_ops.cpu_die)
-		smp_ops.cpu_die(cpu);
 }
 
 static int platform_cpu_disable(unsigned int cpu)
@@ -273,7 +255,8 @@ void __ref cpu_die(void)
 	 * actual CPU shutdown procedure is at least platform (if not
 	 * CPU) specific.
 	 */
-	platform_cpu_die(cpu);
+	if (smp_ops.cpu_die)
+		smp_ops.cpu_die(cpu);
 
 	/*
 	 * Do not return to the idle loop - jump back to the secondary
@@ -318,6 +301,7 @@ asmlinkage void __cpuinit secondary_start_kernel(void)
 	 * switch away from it before attempting any exclusive accesses.
 	 */
 	cpu_switch_mm(mm->pgd, mm, 1);
+	local_flush_bp_all();
 	enter_lazy_tlb(mm, current);
 	local_flush_tlb_all();
 #ifdef CONFIG_IPIPE
@@ -347,7 +331,8 @@ asmlinkage void __cpuinit secondary_start_kernel(void)
 	/*
 	 * Give the platform a chance to do its own initialisation.
 	 */
-	platform_secondary_init(cpu);
+	if (smp_ops.smp_secondary_init)
+		smp_ops.smp_secondary_init(cpu);
 
 	notify_cpu_starting(cpu);
 
@@ -422,8 +407,8 @@ void __init smp_prepare_cpus(unsigned int max_cpus)
 		/*
 		 * Initialise the present map, which describes the set of CPUs
 		 * actually populated at the present time. A platform should
-		 * re-initialize the map in platform_smp_prepare_cpus() if
-		 * present != possible (e.g. physical hotplug).
+		 * re-initialize the map in the platforms smp_prepare_cpus()
+		 * if present != possible (e.g. physical hotplug).
 		 */
 		init_cpu_present(cpu_possible_mask);
 
@@ -431,7 +416,8 @@ void __init smp_prepare_cpus(unsigned int max_cpus)
 		 * Initialise the SCU if there are more than one CPU
 		 * and let them know where to start.
 		 */
-		platform_smp_prepare_cpus(max_cpus);
+		if (smp_ops.smp_prepare_cpus)
+			smp_ops.smp_prepare_cpus(max_cpus);
 	}
 }
 
@@ -439,7 +425,8 @@ static void (*smp_cross_call)(const struct cpumask *, unsigned int);
 
 void __init set_smp_cross_call(void (*fn)(const struct cpumask *, unsigned int))
 {
-	smp_cross_call = fn;
+	if (!smp_cross_call)
+		smp_cross_call = fn;
 }
 
 void arch_send_call_function_ipi_mask(const struct cpumask *mask)
@@ -498,10 +485,10 @@ u64 smp_irq_stat_cpu(unsigned int cpu)
  */
 static DEFINE_PER_CPU(struct clock_event_device, percpu_clockevent);
 
-static void ipi_timer(void)
-{
-	struct clock_event_device *evt = &__get_cpu_var(percpu_clockevent);
+#ifdef CONFIG_GENERIC_CLOCKEVENTS_BROADCAST
 
+static inline void ipi_timer(void)
+{
 #ifdef CONFIG_IPIPE
 #ifndef CONFIG_IPIPE_ARM_KUSER_TSC
 	__ipipe_mach_update_tsc();
@@ -510,8 +497,10 @@ static void ipi_timer(void)
 #endif /* CONFIG_IPIPE_ARM_KUSER_TSC */
 #endif /* CONFIG_IPIPE */
 
-	evt->event_handler(evt);
+	tick_receive_broadcast();
 }
+
+#endif
 
 #ifdef CONFIG_IPIPE
 #define IPIPE_IPI_BASE	IPIPE_VIRQ_BASE
@@ -586,12 +575,10 @@ asmlinkage void __exception __ipipe_grab_ipi(unsigned svc, struct pt_regs *regs)
 #endif /* CONFIG_IPIPE */
 
 #ifdef CONFIG_GENERIC_CLOCKEVENTS_BROADCAST
-static void smp_timer_broadcast(const struct cpumask *mask)
+void tick_broadcast(const struct cpumask *mask)
 {
 	smp_cross_call(mask, IPI_TIMER);
 }
-#else
-#define smp_timer_broadcast	NULL
 #endif
 
 static void broadcast_timer_set_mode(enum clock_event_mode mode,
@@ -605,7 +592,7 @@ static void __cpuinit broadcast_timer_setup(struct clock_event_device *evt)
 	evt->features	= CLOCK_EVT_FEAT_ONESHOT |
 			  CLOCK_EVT_FEAT_PERIODIC |
 			  CLOCK_EVT_FEAT_DUMMY;
-	evt->rating	= 400;
+	evt->rating	= 100;
 	evt->mult	= 1;
 	evt->set_mode	= broadcast_timer_set_mode;
 
@@ -634,7 +621,6 @@ static void __cpuinit percpu_timer_setup(void)
 	struct clock_event_device *evt = &per_cpu(percpu_clockevent, cpu);
 
 	evt->cpumask = cpumask_of(cpu);
-	evt->broadcast = smp_timer_broadcast;
 
 	if (!lt_ops || lt_ops->setup(evt))
 		broadcast_timer_setup(evt);
@@ -700,11 +686,13 @@ void handle_IPI(int ipinr, struct pt_regs *regs)
 	case IPI_WAKEUP:
 		break;
 
+#ifdef CONFIG_GENERIC_CLOCKEVENTS_BROADCAST
 	case IPI_TIMER:
 		noipipe_irq_enter();
 		ipi_timer();
 		noipipe_irq_exit();
 		break;
+#endif
 
 	case IPI_RESCHEDULE:
 		scheduler_ipi();

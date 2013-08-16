@@ -74,6 +74,7 @@
 #define BM_TIMROT_TIMCTRLn_IRQ_EN	(1 << 14)
 #define BM_TIMROT_TIMCTRLn_IRQ		(1 << 15)
 #define BP_TIMROT_TIMCTRLn_SELECT	0
+<<<<<<< HEAD
 #define BV_TIMROTv1_TIMCTRLn_SELECT__32KHZ_XTAL	0x8
 #define BV_TIMROTv2_TIMCTRLn_SELECT__32KHZ_XTAL	0xb
 #define BV_TIMROTv2_TIMCTRLn_SELECT_ALWAYS	0xf
@@ -81,6 +82,11 @@
 #define IPIPE_DIV_ORDER			0 /* APBX clock prescaler order */
 #define IPIPE_DIV			(1 << IPIPE_DIV_ORDER)
 #define BV_TIMROTv2_TIMCTRLn_PRESCALE	(1 << 4)
+=======
+#define BV_TIMROTv1_TIMCTRLn_SELECT__32KHZ_XTAL		0x8
+#define BV_TIMROTv2_TIMCTRLn_SELECT__32KHZ_XTAL		0xb
+#define BV_TIMROTv2_TIMCTRLn_SELECT__TICK_ALWAYS	0xf
+>>>>>>> v3.9
 
 static struct clock_event_device mxs_clockevent_device;
 static enum clock_event_mode mxs_clockevent_mode = CLOCK_EVT_MODE_UNUSED;
@@ -221,7 +227,6 @@ static struct __ipipe_tscinfo __maybe_unused tsc_info = {
 static struct clock_event_device mxs_clockevent_device = {
 	.name		= "mxs_timrot",
 	.features	= CLOCK_EVT_FEAT_ONESHOT,
-	.shift		= 32,
 	.set_mode	= mxs_set_mode,
 	.set_next_event	= timrotv2_set_next_event,
 	.rating		= 200,
@@ -232,6 +237,7 @@ static struct clock_event_device mxs_clockevent_device = {
 
 static int __init mxs_clockevent_init(struct clk *timer_clk)
 {
+<<<<<<< HEAD
 	unsigned int c = clk_get_rate(timer_clk);
 
 #ifdef CONFIG_IPIPE
@@ -242,19 +248,15 @@ static int __init mxs_clockevent_init(struct clk *timer_clk)
 		div_sc(c, NSEC_PER_SEC, mxs_clockevent_device.shift);
 	mxs_clockevent_device.cpumask = cpumask_of(0);
 	if (timrot_is_v1()) {
+=======
+	if (timrot_is_v1())
+>>>>>>> v3.9
 		mxs_clockevent_device.set_next_event = timrotv1_set_next_event;
-		mxs_clockevent_device.max_delta_ns =
-			clockevent_delta2ns(0xfffe, &mxs_clockevent_device);
-		mxs_clockevent_device.min_delta_ns =
-			clockevent_delta2ns(0xf, &mxs_clockevent_device);
-	} else {
-		mxs_clockevent_device.max_delta_ns =
-			clockevent_delta2ns(0xfffffffe, &mxs_clockevent_device);
-		mxs_clockevent_device.min_delta_ns =
-			clockevent_delta2ns(0xf, &mxs_clockevent_device);
-	}
-
-	clockevents_register_device(&mxs_clockevent_device);
+	mxs_clockevent_device.cpumask = cpumask_of(0);
+	clockevents_config_and_register(&mxs_clockevent_device,
+					clk_get_rate(timer_clk),
+					timrot_is_v1() ? 0xf : 0x2,
+					timrot_is_v1() ? 0xfffe : 0xfffffffe);
 
 	return 0;
 }
@@ -338,6 +340,7 @@ void __init mxs_timer_init(void)
 #endif
 	}
 	/* one for clock_event */
+<<<<<<< HEAD
 	__raw_writel(xtal |
 		     BM_TIMROT_TIMCTRLn_UPDATE |
 		     BM_TIMROT_TIMCTRLn_IRQ_EN,
@@ -347,6 +350,21 @@ void __init mxs_timer_init(void)
 	__raw_writel(xtal |
 		     BM_TIMROT_TIMCTRLn_RELOAD,
 		     mxs_timrot_base + HW_TIMROT_TIMCTRLn(1));
+=======
+	__raw_writel((timrot_is_v1() ?
+			BV_TIMROTv1_TIMCTRLn_SELECT__32KHZ_XTAL :
+			BV_TIMROTv2_TIMCTRLn_SELECT__TICK_ALWAYS) |
+			BM_TIMROT_TIMCTRLn_UPDATE |
+			BM_TIMROT_TIMCTRLn_IRQ_EN,
+			mxs_timrot_base + HW_TIMROT_TIMCTRLn(0));
+
+	/* another for clocksource */
+	__raw_writel((timrot_is_v1() ?
+			BV_TIMROTv1_TIMCTRLn_SELECT__32KHZ_XTAL :
+			BV_TIMROTv2_TIMCTRLn_SELECT__TICK_ALWAYS) |
+			BM_TIMROT_TIMCTRLn_RELOAD,
+			mxs_timrot_base + HW_TIMROT_TIMCTRLn(1));
+>>>>>>> v3.9
 
 	/* set clocksource timer fixed count to the maximum */
 	if (timrot_is_v1())

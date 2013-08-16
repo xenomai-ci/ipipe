@@ -84,5 +84,6 @@ obj-$(CONFIG_IPIPE)	+= ipipe.o
 obj-$(CONFIG_IPIPE_ARM_KUSER_TSC) += ipipe_tsc.o ipipe_tsc_asm.o
 
 obj-$(CONFIG_ARM_VIRT_EXT)	+= hyp-stub.o
+obj-$(CONFIG_ARM_PSCI)		+= psci.o
 
 extra-y := $(head-y) vmlinux.lds
