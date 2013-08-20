@@ -1076,7 +1076,7 @@ __ipipe_max_reset(struct file *file, const char __user *pbuffer,
 	return count;
 }
 
-struct file_operations __ipipe_max_prtrace_fops = {
+static const struct file_operations __ipipe_max_prtrace_fops = {
 	.open	    = __ipipe_max_prtrace_open,
 	.read	    = seq_read,
 	.write	    = __ipipe_max_reset,
@@ -1185,7 +1185,7 @@ __ipipe_frozen_ctrl(struct file *file, const char __user *pbuffer,
 	return count;
 }
 
-struct file_operations __ipipe_frozen_prtrace_fops = {
+static const struct file_operations __ipipe_frozen_prtrace_fops = {
 	.open	    = __ipipe_frozen_prtrace_open,
 	.read	    = seq_read,
 	.write	    = __ipipe_frozen_ctrl,
@@ -1193,27 +1193,17 @@ struct file_operations __ipipe_frozen_prtrace_fops = {
 	.release    = seq_release,
 };
 
-static int __ipipe_rd_proc_val(char *page, char **start, off_t off,
-			       int count, int *eof, void *data)
+static int __ipipe_rd_proc_val(struct seq_file *p, void *data)
 {
-	int len;
-
-	len = sprintf(page, "%u\n", *(int *)data);
-	len -= off;
-	if (len <= off + count)
-		*eof = 1;
-	*start = page + off;
-	if (len > count)
-		len = count;
-	if (len < 0)
-		len = 0;
-
-	return len;
+	seq_printf(p, "%u\n", *(int *)p->private);
+	return 0;
 }
 
-static int __ipipe_wr_proc_val(struct file *file, const char __user *buffer,
-			       unsigned long count, void *data)
+static ssize_t
+__ipipe_wr_proc_val(struct file *file, const char __user *buffer,
+		    size_t count, loff_t *data)
 {
+	struct seq_file *p = file->private_data;
 	char *end, buf[16];
 	int val;
 	int n;
@@ -1230,37 +1220,47 @@ static int __ipipe_wr_proc_val(struct file *file, const char __user *buffer,
 		return -EINVAL;
 
 	mutex_lock(&out_mutex);
-	*(int *)data = val;
+	*(int *)p->private = val;
 	mutex_unlock(&out_mutex);
 
 	return count;
 }
 
-static int __ipipe_rd_trigger(char *page, char **start, off_t off, int count,
-			      int *eof, void *data)
+static int __ipipe_rw_proc_val_open(struct inode *inode, struct file *file)
 {
-	int len;
-
-	if (!trigger_begin)
-		return 0;
-
-	len = sprint_symbol(page, trigger_begin);
-	page[len++] = '\n';
-
-	len -= off;
-	if (len <= off + count)
-		*eof = 1;
-	*start = page + off;
-	if (len > count)
-		len = count;
-	if (len < 0)
-		len = 0;
-
-	return len;
+	return single_open(file, __ipipe_rd_proc_val, PDE_DATA(inode));
 }
 
-static int __ipipe_wr_trigger(struct file *file, const char __user *buffer,
-			      unsigned long count, void *data)
+static const struct file_operations __ipipe_rw_proc_val_ops = {
+	.open		= __ipipe_rw_proc_val_open,
+	.read		= seq_read,
+	.write		= __ipipe_wr_proc_val,
+	.llseek		= seq_lseek,
+	.release	= single_release,
+};
+
+static void __init
+__ipipe_create_trace_proc_val(struct proc_dir_entry *trace_dir,
+			      const char *name, int *value_ptr)
+{
+	proc_create_data(name, 0644, trace_dir, &__ipipe_rw_proc_val_ops,
+			 value_ptr);
+}
+
+static int __ipipe_rd_trigger(struct seq_file *p, void *data)
+{
+	char str[KSYM_SYMBOL_LEN];
+
+	if (trigger_begin) {
+		sprint_symbol(str, trigger_begin);
+		seq_printf(p, "%s\n", str);
+	}
+	return 0;
+}
+
+static ssize_t
+__ipipe_wr_trigger(struct file *file, const char __user *buffer,
+		   size_t count, loff_t *data)
 {
 	char buf[KSYM_SYMBOL_LEN];
 	unsigned long begin, end;
@@ -1293,6 +1293,20 @@ static int __ipipe_wr_trigger(struct file *file, const char __user *buffer,
 	return count;
 }
 
+static int __ipipe_rw_trigger_open(struct inode *inode, struct file *file)
+{
+	return single_open(file, __ipipe_rd_trigger, NULL);
+}
+
+static const struct file_operations __ipipe_rw_trigger_ops = {
+	.open		= __ipipe_rw_trigger_open,
+	.read		= seq_read,
+	.write		= __ipipe_wr_trigger,
+	.llseek		= seq_lseek,
+	.release	= single_release,
+};
+
+
 #ifdef CONFIG_IPIPE_TRACE_MCOUNT
 static void notrace
 ipipe_trace_function(unsigned long ip, unsigned long parent_ip,
@@ -1308,8 +1322,8 @@ static struct ftrace_ops ipipe_trace_ops = {
 	.flags = FTRACE_OPS_FL_IPIPE_EXCLUSIVE,
 };
 
-static int __ipipe_wr_enable(struct file *file, const char __user *buffer,
-			     unsigned long count, void *data)
+static ssize_t __ipipe_wr_enable(struct file *file, const char __user *buffer,
+				 size_t count, loff_t *data)
 {
 	char *end, buf[16];
 	int val;
@@ -1340,29 +1354,21 @@ static int __ipipe_wr_enable(struct file *file, const char __user *buffer,
 
 	return count;
 }
+
+static const struct file_operations __ipipe_rw_enable_ops = {
+	.open		= __ipipe_rw_proc_val_open,
+	.read		= seq_read,
+	.write		= __ipipe_wr_enable,
+	.llseek		= seq_lseek,
+	.release	= single_release,
+};
 #endif /* CONFIG_IPIPE_TRACE_MCOUNT */
 
 extern struct proc_dir_entry *ipipe_proc_root;
 
-static struct proc_dir_entry * __init
-__ipipe_create_trace_proc_val(struct proc_dir_entry *trace_dir,
-			      const char *name, int *value_ptr)
-{
-	struct proc_dir_entry *entry;
-
-	entry = create_proc_entry(name, 0644, trace_dir);
-	if (entry) {
-		entry->data = value_ptr;
-		entry->read_proc = __ipipe_rd_proc_val;
-		entry->write_proc = __ipipe_wr_proc_val;
-	}
-	return entry;
-}
-
 void __init __ipipe_init_tracer(void)
 {
 	struct proc_dir_entry *trace_dir;
-	struct proc_dir_entry *entry;
 	unsigned long long start, end, min = ULLONG_MAX;
 	int i;
 #ifdef CONFIG_IPIPE_TRACE_VMALLOC
@@ -1416,21 +1422,12 @@ void __init __ipipe_init_tracer(void)
 #endif /* CONFIG_IPIPE_TRACE_MCOUNT */
 #endif /* CONFIG_IPIPE_TRACE_ENABLE */
 
-	trace_dir = create_proc_entry("trace", S_IFDIR, ipipe_proc_root);
+	trace_dir = proc_mkdir("trace", ipipe_proc_root);
 
-	entry = create_proc_entry("max", 0644, trace_dir);
-	if (entry)
-		entry->proc_fops = &__ipipe_max_prtrace_fops;
+	proc_create("max", 0644, trace_dir, &__ipipe_max_prtrace_fops);
+	proc_create("frozen", 0644, trace_dir, &__ipipe_frozen_prtrace_fops);
 
-	entry = create_proc_entry("frozen", 0644, trace_dir);
-	if (entry)
-		entry->proc_fops = &__ipipe_frozen_prtrace_fops;
-
-	entry = create_proc_entry("trigger", 0644, trace_dir);
-	if (entry) {
-		entry->read_proc = __ipipe_rd_trigger;
-		entry->write_proc = __ipipe_wr_trigger;
-	}
+	proc_create("trigger", 0644, trace_dir, &__ipipe_rw_trigger_ops);
 
 	__ipipe_create_trace_proc_val(trace_dir, "pre_trace_points",
 				      &pre_trace);
@@ -1440,10 +1437,11 @@ void __init __ipipe_init_tracer(void)
 				      &back_trace);
 	__ipipe_create_trace_proc_val(trace_dir, "verbose",
 				      &verbose_trace);
-	entry = __ipipe_create_trace_proc_val(trace_dir, "enable",
-					      &ipipe_trace_enable);
 #ifdef CONFIG_IPIPE_TRACE_MCOUNT
-	if (entry)
-		entry->write_proc = __ipipe_wr_enable;
-#endif /* CONFIG_IPIPE_TRACE_MCOUNT */
+	proc_create_data("enable", 0644, trace_dir, &__ipipe_rw_enable_ops,
+			 &ipipe_trace_enable);
+#else /* !CONFIG_IPIPE_TRACE_MCOUNT */
+	__ipipe_create_trace_proc_val(trace_dir, "enable",
+				      &ipipe_trace_enable);
+#endif /* !CONFIG_IPIPE_TRACE_MCOUNT */
 }

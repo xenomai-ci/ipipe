@@ -109,27 +109,23 @@ int __ipipe_printk_bypass;
 
 struct proc_dir_entry *ipipe_proc_root;
 
-static int __ipipe_version_info_proc(char *page,
-				     char **start,
-				     off_t off, int count, int *eof, void *data)
+static int __ipipe_version_info_show(struct seq_file *p, void *data)
 {
-	int len = sprintf(page, "%d\n", IPIPE_CORE_RELEASE);
-
-	len -= off;
-
-	if (len <= off + count)
-		*eof = 1;
-
-	*start = page + off;
-
-	if(len > count)
-		len = count;
-
-	if(len < 0)
-		len = 0;
-
-	return len;
+	seq_printf(p, "%d\n", IPIPE_CORE_RELEASE);
+	return 0;
 }
+
+static int __ipipe_version_info_open(struct inode *inode, struct file *file)
+{
+	return single_open(file, __ipipe_version_info_show, NULL);
+}
+
+static const struct file_operations __ipipe_version_proc_ops = {
+	.open		= __ipipe_version_info_open,
+	.read		= seq_read,
+	.llseek		= seq_lseek,
+	.release	= single_release,
+};
 
 static int __ipipe_common_info_show(struct seq_file *p, void *data)
 {
@@ -190,10 +186,10 @@ static int __ipipe_common_info_show(struct seq_file *p, void *data)
 
 static int __ipipe_common_info_open(struct inode *inode, struct file *file)
 {
-	return single_open(file, __ipipe_common_info_show, PROC_I(inode)->pde->data);
+	return single_open(file, __ipipe_common_info_show, PDE_DATA(inode));
 }
 
-static struct file_operations __ipipe_info_proc_ops = {
+static const struct file_operations __ipipe_info_proc_ops = {
 	.owner		= THIS_MODULE,
 	.open		= __ipipe_common_info_open,
 	.read		= seq_read,
@@ -203,22 +199,20 @@ static struct file_operations __ipipe_info_proc_ops = {
 
 void add_domain_proc(struct ipipe_domain *ipd)
 {
-	struct proc_dir_entry *e = create_proc_entry(ipd->name, 0444, ipipe_proc_root);
-	if (e) {
-		e->proc_fops = &__ipipe_info_proc_ops;
-		e->data = (void*) ipd;
-	}
+	proc_create_data(ipd->name, 0444, ipipe_proc_root,
+			 &__ipipe_info_proc_ops, ipd);
 }
 
 void remove_domain_proc(struct ipipe_domain *ipd)
 {
-	remove_proc_entry(ipd->name,ipipe_proc_root);
+	remove_proc_entry(ipd->name, ipipe_proc_root);
 }
 
 void __init __ipipe_init_proc(void)
 {
-	ipipe_proc_root = create_proc_entry("ipipe",S_IFDIR, 0);
-	create_proc_read_entry("version",0444,ipipe_proc_root,&__ipipe_version_info_proc,NULL);
+	ipipe_proc_root = proc_mkdir("ipipe", NULL);
+	proc_create("version", 0444, ipipe_proc_root,
+		    &__ipipe_version_proc_ops);
 	add_domain_proc(ipipe_root_domain);
 
 	__ipipe_init_tracer();
