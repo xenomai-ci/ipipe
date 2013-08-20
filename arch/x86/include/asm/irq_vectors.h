@@ -118,9 +118,9 @@
 #define HYPERVISOR_CALLBACK_VECTOR	0xf3
 
 /* Interrupt pipeline IPIs */
-#define IPIPE_CRITICAL_VECTOR		0xf2
-#define IPIPE_HRTIMER_VECTOR		0xf1
-#define IPIPE_RESCHEDULE_VECTOR		0xf0
+#define IPIPE_CRITICAL_VECTOR		0xf1
+#define IPIPE_HRTIMER_VECTOR		0xf0
+#define IPIPE_RESCHEDULE_VECTOR		0xee
 
 /*
  * Local APIC timer IRQ vector is on a different priority level,
@@ -133,7 +133,7 @@
  * I-pipe: Lowest vector number which may be assigned to a special
  * APIC IRQ. We must know this at build time.
  */
-#define FIRST_SYSTEM_VECTOR		LOCAL_TIMER_VECTOR
+#define FIRST_SYSTEM_VECTOR		IPIPE_RESCHEDULE_VECTOR
 
 #define NR_VECTORS			 256
 
