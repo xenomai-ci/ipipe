@@ -14,6 +14,9 @@ CFLAGS_REMOVE_pvclock.o = -pg
 CFLAGS_REMOVE_kvmclock.o = -pg
 CFLAGS_REMOVE_ftrace.o = -pg
 CFLAGS_REMOVE_early_printk.o = -pg
+CFLAGS_REMOVE_microcode_core_early.o = -pg
+CFLAGS_REMOVE_microcode_intel_early.o = -pg
+CFLAGS_REMOVE_microcode_amd_early.o = -pg
 endif
 
 obj-y			:= process_$(BITS).o signal.o entry_$(BITS).o
