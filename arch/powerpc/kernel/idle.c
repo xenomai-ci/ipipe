@@ -33,11 +33,6 @@
 #include <asm/runlatch.h>
 #include <asm/smp.h>
 
-#ifdef CONFIG_HOTPLUG_CPU
-#define cpu_should_die()	cpu_is_offline(smp_processor_id())
-#else
-#define cpu_should_die()	0
-#endif
 
 unsigned long cpuidle_disable = IDLE_NO_OVERRIDE;
 EXPORT_SYMBOL(cpuidle_disable);
@@ -50,11 +45,10 @@ static int __init powersave_off(char *arg)
 }
 __setup("powersave=off", powersave_off);
 
-/*
- * The body of the idle task.
- */
-void cpu_idle(void)
+#ifdef CONFIG_HOTPLUG_CPU
+void arch_cpu_idle_dead(void)
 {
+<<<<<<< HEAD
 	set_thread_flag(TIF_POLLING_NRFLAG);
 	while (1) {
 		tick_nohz_idle_enter();
@@ -97,17 +91,37 @@ void cpu_idle(void)
 				HMT_very_low();
 			}
 		}
+=======
+	sched_preempt_enable_no_resched();
+	cpu_die();
+}
+#endif
+>>>>>>> v3.10
 
-		HMT_medium();
-		ppc64_runlatch_on();
-		rcu_idle_exit();
-		tick_nohz_idle_exit();
-		if (cpu_should_die()) {
-			sched_preempt_enable_no_resched();
-			cpu_die();
-		}
-		schedule_preempt_disabled();
+void arch_cpu_idle(void)
+{
+	ppc64_runlatch_off();
+
+	if (ppc_md.power_save) {
+		ppc_md.power_save();
+		/*
+		 * Some power_save functions return with
+		 * interrupts enabled, some don't.
+		 */
+		if (irqs_disabled())
+			local_irq_enable();
+	} else {
+		local_irq_enable();
+		/*
+		 * Go into low thread priority and possibly
+		 * low power mode.
+		 */
+		HMT_low();
+		HMT_very_low();
 	}
+
+	HMT_medium();
+	ppc64_runlatch_on();
 }
 
 int powersave_nap;

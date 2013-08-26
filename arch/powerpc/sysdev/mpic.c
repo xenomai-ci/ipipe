@@ -55,7 +55,7 @@ static IPIPE_DEFINE_RAW_SPINLOCK(mpic_lock);
 
 #ifdef CONFIG_PPC32	/* XXX for now */
 #ifdef CONFIG_IRQ_ALL_CPUS
-#define distribute_irqs	(!(mpic->flags & MPIC_SINGLE_DEST_CPU))
+#define distribute_irqs	(1)
 #else
 #define distribute_irqs	(0)
 #endif
@@ -884,7 +884,7 @@ int mpic_set_affinity(struct irq_data *d, const struct cpumask *cpumask,
 			       mpic_physmask(mask));
 	}
 
-	return 0;
+	return IRQ_SET_MASK_OK;
 }
 
 static unsigned int mpic_type_to_vecpri(struct mpic *mpic, unsigned int type)
@@ -1058,8 +1058,12 @@ static int mpic_host_map(struct irq_domain *h, unsigned int virq,
 
 	if (hw == mpic->spurious_vec)
 		return -EINVAL;
-	if (mpic->protected && test_bit(hw, mpic->protected))
-		return -EINVAL;
+	if (mpic->protected && test_bit(hw, mpic->protected)) {
+		pr_warning("mpic: Mapping of source 0x%x failed, "
+			   "source protected by firmware !\n",\
+			   (unsigned int)hw);
+		return -EPERM;
+	}
 
 #ifdef CONFIG_SMP
 	else if (hw >= mpic->ipi_vecs[0]) {
@@ -1086,8 +1090,12 @@ static int mpic_host_map(struct irq_domain *h, unsigned int virq,
 	if (mpic_map_error_int(mpic, virq, hw))
 		return 0;
 
-	if (hw >= mpic->num_sources)
+	if (hw >= mpic->num_sources) {
+		pr_warning("mpic: Mapping of source 0x%x failed, "
+			   "source out of range !\n",\
+			   (unsigned int)hw);
 		return -EINVAL;
+	}
 
 	mpic_msi_reserve_hwirq(mpic, hw);
 
@@ -1752,7 +1760,7 @@ void mpic_setup_this_cpu(void)
 	 * it differently, then we should make sure we also change the default
 	 * values of irq_desc[].affinity in irq.c.
  	 */
-	if (distribute_irqs) {
+	if (distribute_irqs && !(mpic->flags & MPIC_SINGLE_DEST_CPU)) {
 	 	for (i = 0; i < mpic->num_sources ; i++)
 			mpic_irq_write(i, MPIC_INFO(IRQ_DESTINATION),
 				mpic_irq_read(i, MPIC_INFO(IRQ_DESTINATION)) | msk);

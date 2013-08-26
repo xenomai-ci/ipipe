@@ -22,10 +22,9 @@
 #include <linux/module.h>
 #include <linux/io.h>
 #include <linux/irqdomain.h>
+#include <linux/irqchip/chained_irq.h>
 #include <linux/of_address.h>
 #include <linux/ipipe.h>
-
-#include <asm/mach/irq.h>
 
 #include <mach/hardware.h>
 #include <mach/at91_pio.h>

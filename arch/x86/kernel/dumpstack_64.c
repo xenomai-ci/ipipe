@@ -249,17 +249,13 @@ void show_regs(struct pt_regs *regs)
 {
 	int i;
 	unsigned long sp;
-	const int cpu = smp_processor_id();
-	struct task_struct *cur = current;
 
 	sp = regs->sp;
-	printk("CPU %d ", cpu);
+	show_regs_print_info(KERN_DEFAULT);
 	__show_regs(regs, 1);
 #ifdef CONFIG_IPIPE
 	printk(KERN_DEFAULT "I-pipe domain %s\n", ipipe_current_domain->name);
 #endif /* CONFIG_IPIPE */
-	printk(KERN_DEFAULT "Process %s (pid: %d, threadinfo %p, task %p)\n",
-	       cur->comm, cur->pid, task_thread_info(cur), cur);
 
 	/*
 	 * When in-kernel, we also print out the stack and code at the

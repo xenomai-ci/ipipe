@@ -74,6 +74,7 @@
 	.endm
 
 #ifndef CONFIG_THUMB2_KERNEL
+<<<<<<< HEAD
 	.macro	svc_exit, rpsr
 #ifdef CONFIG_IPIPE_TRACE_IRQSOFF
 	mov	r0, #2		/* IPIPE_TRACE_END */
@@ -82,6 +83,26 @@
 	mov	r1, pc
 	bl	ipipe_trace_asm
 #endif /* CONFIG_IPIPE_TRACE_IRQSOFF */
+=======
+	.macro	svc_exit, rpsr, irq = 0
+	.if	\irq != 0
+	@ IRQs already off
+#ifdef CONFIG_TRACE_IRQFLAGS
+	@ The parent context IRQs must have been enabled to get here in
+	@ the first place, so there's no point checking the PSR I bit.
+	bl	trace_hardirqs_on
+#endif
+	.else
+	@ IRQs off again before pulling preserved data off the stack
+	disable_irq_notrace
+#ifdef CONFIG_TRACE_IRQFLAGS
+	tst	\rpsr, #PSR_I_BIT
+	bleq	trace_hardirqs_on
+	tst	\rpsr, #PSR_I_BIT
+	blne	trace_hardirqs_off
+#endif
+	.endif
+>>>>>>> v3.10
 	msr	spsr_cxsf, \rpsr
 #if defined(CONFIG_CPU_V6)
 	ldr	r0, [sp]
@@ -140,6 +161,7 @@
 	mov	pc, \reg
 	.endm
 #else	/* CONFIG_THUMB2_KERNEL */
+<<<<<<< HEAD
 	.macro	svc_exit, rpsr
 #ifdef CONFIG_IPIPE_TRACE_IRQSOFF
 	mov	r0, #2		/* IPIPE_TRACE_END */
@@ -148,6 +170,26 @@
 	mov	r1, pc
 	bl	ipipe_trace_asm
 #endif /* CONFIG_IPIPE_TRACE_IRQSOFF */
+=======
+	.macro	svc_exit, rpsr, irq = 0
+	.if	\irq != 0
+	@ IRQs already off
+#ifdef CONFIG_TRACE_IRQFLAGS
+	@ The parent context IRQs must have been enabled to get here in
+	@ the first place, so there's no point checking the PSR I bit.
+	bl	trace_hardirqs_on
+#endif
+	.else
+	@ IRQs off again before pulling preserved data off the stack
+	disable_irq_notrace
+#ifdef CONFIG_TRACE_IRQFLAGS
+	tst	\rpsr, #PSR_I_BIT
+	bleq	trace_hardirqs_on
+	tst	\rpsr, #PSR_I_BIT
+	blne	trace_hardirqs_off
+#endif
+	.endif
+>>>>>>> v3.10
 	ldr	lr, [sp, #S_SP]			@ top of the stack
 	ldrd	r0, r1, [sp, #S_LR]		@ calling lr and pc
 	clrex					@ clear the exclusive monitor
@@ -208,6 +250,34 @@
 	arch_ret_to_user r1, lr
 	restore_user_regs fast = 0, offset = 0
        .endm
+
+/*
+ * Context tracking subsystem.  Used to instrument transitions
+ * between user and kernel mode.
+ */
+	.macro ct_user_exit, save = 1
+#ifdef CONFIG_CONTEXT_TRACKING
+	.if	\save
+	stmdb   sp!, {r0-r3, ip, lr}
+	bl	user_exit
+	ldmia	sp!, {r0-r3, ip, lr}
+	.else
+	bl	user_exit
+	.endif
+#endif
+	.endm
+
+	.macro ct_user_enter, save = 1
+#ifdef CONFIG_CONTEXT_TRACKING
+	.if	\save
+	stmdb   sp!, {r0-r3, ip, lr}
+	bl	user_enter
+	ldmia	sp!, {r0-r3, ip, lr}
+	.else
+	bl	user_enter
+	.endif
+#endif
+	.endm
 
 /*
  * These are the registers used in the syscall handler, and allow us to

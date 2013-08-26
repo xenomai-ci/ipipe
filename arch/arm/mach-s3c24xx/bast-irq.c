@@ -35,8 +35,6 @@
 #include <mach/hardware.h>
 #include <mach/regs-irq.h>
 
-#include <plat/irq.h>
-
 #include "bast.h"
 
 #define irqdbf(x...)
