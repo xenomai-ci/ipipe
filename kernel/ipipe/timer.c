@@ -143,6 +143,9 @@ static void ipipe_timer_request_sync(void)
 	struct clock_event_device *evtdev;
 	int steal;
 
+	if (!timer)
+		return;
+
 	evtdev = timer->host_timer;
 
 #ifdef CONFIG_GENERIC_CLOCKEVENTS
@@ -295,7 +298,8 @@ static void ipipe_timer_release_sync(void)
 {
 	struct ipipe_timer *timer = __ipipe_this_cpu_read(percpu_timer);
 
-	timer->release(timer);
+	if (timer)
+		timer->release(timer);
 }
 
 void ipipe_timers_release(void)
