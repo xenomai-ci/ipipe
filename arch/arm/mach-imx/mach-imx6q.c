@@ -265,18 +265,15 @@ static void __init imx6q_init_irq(void)
 static void __init imx6q_timer_init(void)
 {
 	mx6q_clocks_init();
-<<<<<<< HEAD
-	twd_local_timer_of_register();
-	imx_print_silicon_rev("i.MX6Q", imx6q_revision());
-#ifdef CONFIG_IPIPE
-	extern void __init mx6_pic_muter_register(void);
-	mx6_pic_muter_register();
-#endif /* CONFIG_IPIPE */
-=======
 	clocksource_of_init();
 	imx_print_silicon_rev(cpu_is_imx6dl() ? "i.MX6DL" : "i.MX6Q",
 			      imx6q_revision());
->>>>>>> v3.10
+#ifdef CONFIG_IPIPE
+	{
+		extern void __init mx6_pic_muter_register(void);
+		mx6_pic_muter_register();
+	}
+#endif /* CONFIG_IPIPE */
 }
 
 static const char *imx6q_dt_compat[] __initdata = {

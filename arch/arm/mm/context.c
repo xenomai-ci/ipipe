@@ -187,12 +187,8 @@ static u64 new_context(struct mm_struct *mm, unsigned int cpu)
 int check_and_switch_context(struct mm_struct *mm, struct task_struct *tsk, bool root_p)
 {
 	unsigned long flags;
-<<<<<<< HEAD
 	unsigned int cpu = ipipe_processor_id();
-=======
-	unsigned int cpu = smp_processor_id();
 	u64 asid;
->>>>>>> v3.9
 
 	if (unlikely(mm->context.vmalloc_seq != init_mm.context.vmalloc_seq))
 		__check_vmalloc_seq(mm);
@@ -226,18 +222,14 @@ int check_and_switch_context(struct mm_struct *mm, struct task_struct *tsk, bool
 	if (cpumask_test_and_clear_cpu(cpu, &tlb_flush_pending)) {
 		local_flush_bp_all();
 		local_flush_tlb_all();
-<<<<<<< HEAD
-
-#ifdef CONFIG_IPIPE_WANT_PREEMPTIBLE_SWITCH
-	raw_spin_unlock(&cpu_asid_lock);
-#else /* !CONFIG_IPIPE_WANT_PREEMPTIBLE_SWITCH */
-=======
 		dummy_flush_tlb_a15_erratum();
 	}
 
 	atomic64_set(&per_cpu(active_asids, cpu), asid);
 	cpumask_set_cpu(cpu, mm_cpumask(mm));
->>>>>>> v3.9
+#ifdef CONFIG_IPIPE_WANT_PREEMPTIBLE_SWITCH
+	raw_spin_unlock(&cpu_asid_lock);
+#else /* !CONFIG_IPIPE_WANT_PREEMPTIBLE_SWITCH */
 	raw_spin_unlock_irqrestore(&cpu_asid_lock, flags);
 #endif /* CONFIG_IPIPE_WANT_PREEMPTIBLE_SWITCH */
 

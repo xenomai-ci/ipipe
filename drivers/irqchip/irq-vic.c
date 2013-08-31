@@ -31,8 +31,8 @@
 #include <linux/syscore_ops.h>
 #include <linux/device.h>
 #include <linux/amba/bus.h>
-#include <linux/ipipe.h>
 #include <linux/irqchip/arm-vic.h>
+#include <linux/ipipe.h>
 
 #include <asm/exception.h>
 #include <asm/irq.h>

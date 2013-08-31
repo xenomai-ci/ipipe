@@ -110,12 +110,8 @@ early_initcall(init_static_idmap);
 void setup_mm_for_reboot(void)
 {
 	/* Switch to the identity mapping. */
-<<<<<<< HEAD
 	cpu_switch_mm(idmap_pgd, &init_mm, 1);
-=======
-	cpu_switch_mm(idmap_pgd, &init_mm);
 	local_flush_bp_all();
->>>>>>> v3.9
 
 #ifdef CONFIG_CPU_HAS_ASID
 	/*

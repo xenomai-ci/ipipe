@@ -99,77 +99,6 @@ pxa_osmr0_set_mode(enum clock_event_mode mode, struct clock_event_device *dev)
 	}
 }
 
-<<<<<<< HEAD
-#ifdef CONFIG_IPIPE
-static struct ipipe_timer pxa_osmr0_itimer = {
-	.irq = IRQ_OST0,
-	.ack = pxa_ost0_ack,
-	.min_delay_ticks = MIN_OSCR_DELTA,
-};
-#endif /* CONFIG_IPIPE */
-
-static struct clock_event_device ckevt_pxa_osmr0 = {
-	.name		= "osmr0",
-	.features	= CLOCK_EVT_FEAT_ONESHOT,
-	.rating		= 200,
-	.set_next_event	= pxa_osmr0_set_next_event,
-	.set_mode	= pxa_osmr0_set_mode,
-#ifdef CONFIG_IPIPE
-	.ipipe_timer    = &pxa_osmr0_itimer,
-#endif /* CONFIG_IPIPE */
-};
-
-static struct irqaction pxa_ost0_irq = {
-	.name		= "ost0",
-	.flags		= IRQF_DISABLED | IRQF_TIMER | IRQF_IRQPOLL,
-	.handler	= pxa_ost0_interrupt,
-	.dev_id		= &ckevt_pxa_osmr0,
-};
-
-#ifdef CONFIG_IPIPE
-static struct __ipipe_tscinfo tsc_info = {
-	.type = IPIPE_TSC_TYPE_FREERUNNING,
-	.counter_vaddr = (unsigned long)io_p2v(0x40A00010UL),
-	.u = {
-		{
-			.counter_paddr = 0x40A00010UL,
-			.mask = 0xffffffff,
-		},
-	},
-};
-#endif /* CONFIG_IPIPE */
-
-static void __init pxa_timer_init(void)
-{
-	unsigned long clock_tick_rate = get_clock_tick_rate();
-
-	writel_relaxed(0, OIER);
-	writel_relaxed(OSSR_M0 | OSSR_M1 | OSSR_M2 | OSSR_M3, OSSR);
-
-	setup_sched_clock(pxa_read_sched_clock, 32, clock_tick_rate);
-
-	clockevents_calc_mult_shift(&ckevt_pxa_osmr0, clock_tick_rate, 4);
-	ckevt_pxa_osmr0.max_delta_ns =
-		clockevent_delta2ns(0x7fffffff, &ckevt_pxa_osmr0);
-	ckevt_pxa_osmr0.min_delta_ns =
-		clockevent_delta2ns(MIN_OSCR_DELTA * 2, &ckevt_pxa_osmr0) + 1;
-	ckevt_pxa_osmr0.cpumask = cpumask_of(0);
-
-	setup_irq(IRQ_OST0, &pxa_ost0_irq);
-
-	clocksource_mmio_init(OSCR, "oscr0", clock_tick_rate, 200, 32,
-		clocksource_mmio_readl_up);
-
-#ifdef CONFIG_IPIPE
-	tsc_info.freq = clock_tick_rate;
-	__ipipe_tsc_register(&tsc_info);
-#endif /* CONFIG_IPIPE */
-
-	clockevents_register_device(&ckevt_pxa_osmr0);
-}
-
-=======
->>>>>>> v3.9
 #ifdef CONFIG_PM
 static unsigned long osmr[4], oier, oscr;
 
@@ -206,6 +135,14 @@ static void pxa_timer_resume(struct clock_event_device *cedev)
 #define pxa_timer_resume NULL
 #endif
 
+#ifdef CONFIG_IPIPE
+static struct ipipe_timer pxa_osmr0_itimer = {
+	.irq = IRQ_OST0,
+	.ack = pxa_ost0_ack,
+	.min_delay_ticks = MIN_OSCR_DELTA,
+};
+#endif /* CONFIG_IPIPE */
+
 static struct clock_event_device ckevt_pxa_osmr0 = {
 	.name		= "osmr0",
 	.features	= CLOCK_EVT_FEAT_ONESHOT,
@@ -214,6 +151,9 @@ static struct clock_event_device ckevt_pxa_osmr0 = {
 	.set_mode	= pxa_osmr0_set_mode,
 	.suspend	= pxa_timer_suspend,
 	.resume		= pxa_timer_resume,
+#ifdef CONFIG_IPIPE
+	.ipipe_timer    = &pxa_osmr0_itimer,
+#endif /* CONFIG_IPIPE */
 };
 
 static struct irqaction pxa_ost0_irq = {
@@ -222,6 +162,19 @@ static struct irqaction pxa_ost0_irq = {
 	.handler	= pxa_ost0_interrupt,
 	.dev_id		= &ckevt_pxa_osmr0,
 };
+
+#ifdef CONFIG_IPIPE
+static struct __ipipe_tscinfo tsc_info = {
+	.type = IPIPE_TSC_TYPE_FREERUNNING,
+	.counter_vaddr = (unsigned long)io_p2v(0x40A00010UL),
+	.u = {
+		{
+			.counter_paddr = 0x40A00010UL,
+			.mask = 0xffffffff,
+		},
+	},
+};
+#endif /* CONFIG_IPIPE */
 
 void __init pxa_timer_init(void)
 {
@@ -238,6 +191,12 @@ void __init pxa_timer_init(void)
 
 	clocksource_mmio_init(OSCR, "oscr0", clock_tick_rate, 200, 32,
 		clocksource_mmio_readl_up);
+
+#ifdef CONFIG_IPIPE
+	tsc_info.freq = clock_tick_rate;
+	__ipipe_tsc_register(&tsc_info);
+#endif /* CONFIG_IPIPE */
+
 	clockevents_config_and_register(&ckevt_pxa_osmr0, clock_tick_rate,
 		MIN_OSCR_DELTA * 2, 0x7fffffff);
 }

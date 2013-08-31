@@ -131,7 +131,6 @@ static int __init pwrdms_setup(struct powerdomain *pwrdm, void *unused)
  */
 static void omap_default_idle(void)
 {
-<<<<<<< HEAD
 	hard_local_irq_disable();
 	hard_local_fiq_disable_notrace();
 
@@ -139,9 +138,6 @@ static void omap_default_idle(void)
 
 	hard_local_fiq_enable_notrace();
 	hard_local_irq_enable();
-=======
-	omap_do_wfi();
->>>>>>> v3.10
 }
 
 /**

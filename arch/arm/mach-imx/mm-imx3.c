@@ -20,6 +20,7 @@
 #include <linux/init.h>
 #include <linux/err.h>
 #include <linux/pinctrl/machine.h>
+#include <linux/cpu.h>
 
 #include <asm/pgtable.h>
 #include <asm/system_misc.h>
@@ -141,7 +142,7 @@ void __init imx31_init_early(void)
 	mxc_arch_reset_init(MX31_IO_ADDRESS(MX31_WDOG_BASE_ADDR));
 	arch_ioremap_caller = imx3_ioremap_caller;
 #ifdef CONFIG_IPIPE
-	disable_hlt();
+	cpu_idle_poll_ctrl(true);
 #else /* !CONFIG_IPIPE */
 	arm_pm_idle = imx3_idle;
 #endif /* !CONFIG_IPIPE */
@@ -222,7 +223,7 @@ void __init imx35_init_early(void)
 	mxc_iomux_v3_init(MX35_IO_ADDRESS(MX35_IOMUXC_BASE_ADDR));
 	mxc_arch_reset_init(MX35_IO_ADDRESS(MX35_WDOG_BASE_ADDR));
 #ifdef CONFIG_IPIPE
-	disable_hlt();
+	cpu_idle_poll_ctrl(true);
 #else /* !CONFIG_IPIPE */
 	arm_pm_idle = imx3_idle;
 #endif /* !CONFIG_IPIPE */

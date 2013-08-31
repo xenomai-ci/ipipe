@@ -22,6 +22,7 @@
 #include <linux/of_irq.h>
 #include <linux/of_address.h>
 #include <linux/ipipe_tickdev.h>
+#include <linux/irqchip/arm-gic.h>
 
 #include <asm/smp_plat.h>
 #include <asm/smp_twd.h>
@@ -52,7 +53,7 @@ static void twd_ack(void)
 
 static struct __ipipe_tscinfo tsc_info;
 
-static struct clk *__cpuinit twd_get_clock(void);
+static void twd_get_clock(struct device_node *np);
 static void __cpuinit twd_calibrate_rate(void);
 
 static void __cpuinit gt_setup(unsigned long base_paddr, unsigned bits)
@@ -60,15 +61,6 @@ static void __cpuinit gt_setup(unsigned long base_paddr, unsigned bits)
 	if ((read_cpuid_id() & 0xf00000) == 0)
 		return;
 
-	twd_clk = twd_get_clock();
-
-	if (!IS_ERR_OR_NULL(twd_clk))
-		twd_timer_rate = clk_get_rate(twd_clk);
-	else
-		twd_calibrate_rate();
-
-	common_setup_called = true;
-	
 	gt_base = ioremap(base_paddr, SZ_256);
 	BUG_ON(!gt_base);
 
@@ -321,7 +313,7 @@ static irqreturn_t twd_handler(int irq, void *dev_id)
 	return IRQ_NONE;
 }
 
-static void __cpuinit twd_get_clock(struct device_node *np)
+static void twd_get_clock(struct device_node *np)
 {
 	int err;
 
@@ -426,11 +418,14 @@ static int __init twd_local_timer_common_register(struct device_node *np)
 	if (err)
 		goto out_irq;
 
+	twd_get_clock(np);
+
 #ifdef CONFIG_IPIPE_DEBUG_INTERNAL
+	if (twd_timer_rate == 0)
+		twd_calibrate_rate();
+
 	__ipipe_mach_hrtimer_debug = &twd_hrtimer_debug;
 #endif /* CONFIG_IPIPE_DEBUG_INTERNAL */
-
-	twd_get_clock(np);
 
 	return 0;
 
@@ -446,6 +441,8 @@ out_free:
 
 int __init twd_local_timer_register(struct twd_local_timer *tlt)
 {
+	int rc;
+
 	if (twd_base || twd_evt)
 		return -EBUSY;
 
@@ -455,11 +452,14 @@ int __init twd_local_timer_register(struct twd_local_timer *tlt)
 	if (!twd_base)
 		return -ENOMEM;
 
+
+	rc = twd_local_timer_common_register(NULL);
+	if (rc == 0)
 #ifdef CONFIG_IPIPE
-	gt_setup(tlt->res[0].start - 0x400, 32);
+		gt_setup(tlt->res[0].start - 0x400, 32);
 #endif
 
-	return twd_local_timer_common_register(NULL);
+	return rc;
 }
 
 #ifdef CONFIG_OF
@@ -482,8 +482,10 @@ static void __init twd_local_timer_of_register(struct device_node *np)
 		goto out;
 	}
 
+
+	err = twd_local_timer_common_register(np);
 #ifdef CONFIG_IPIPE
-	{
+	if (err == 0) {
 		struct resource res;
 		
 		if (of_address_to_resource(np, 0, &res))
@@ -492,8 +494,6 @@ static void __init twd_local_timer_of_register(struct device_node *np)
 		gt_setup(res.start - 0x400, 32);
 	}
 #endif /* CONFIG_IPIPE */
-
-	err = twd_local_timer_common_register(np);
 
 out:
 	WARN(err, "twd_local_timer_of_register failed (%d)\n", err);

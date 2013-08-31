@@ -39,12 +39,9 @@
 #include <linux/interrupt.h>
 #include <linux/percpu.h>
 #include <linux/slab.h>
-<<<<<<< HEAD
-#include <linux/ipipe.h>
-=======
 #include <linux/irqchip/chained_irq.h>
->>>>>>> v3.10
 #include <linux/irqchip/arm-gic.h>
+#include <linux/ipipe.h>
 
 #include <asm/irq.h>
 #include <asm/exception.h>

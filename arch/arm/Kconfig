@@ -481,12 +481,9 @@ config ARCH_IXP4XX
 	select GENERIC_CLOCKEVENTS
 	select MIGHT_HAVE_PCI
 	select NEED_MACH_IO_H
-<<<<<<< HEAD
-	select IPIPE_ARM_KUSER_TSC if IPIPE
-=======
 	select USB_EHCI_BIG_ENDIAN_MMIO
 	select USB_EHCI_BIG_ENDIAN_DESC
->>>>>>> v3.10
+	select IPIPE_ARM_KUSER_TSC if IPIPE
 	help
 	  Support for Intel's IXP4XX (XScale) family of processors.
 
@@ -706,6 +703,7 @@ config ARCH_S3C24XX
 	select MULTI_IRQ_HANDLER
 	select NEED_MACH_GPIO_H
 	select NEED_MACH_IO_H
+	select IPIPE_ARM_KUSER_TSC if IPIPE
 	help
 	  Samsung S3C2410, S3C2412, S3C2413, S3C2416, S3C2440, S3C2442, S3C2443
 	  and S3C2450 SoCs based systems, such as the Simtec Electronics BAST
@@ -834,55 +832,6 @@ config ARCH_U300
 	help
 	  Support for ST-Ericsson U300 series mobile platforms.
 
-<<<<<<< HEAD
-config ARCH_U8500
-	bool "ST-Ericsson U8500 Series"
-	depends on MMU
-	select ARCH_HAS_CPUFREQ
-	select ARCH_REQUIRE_GPIOLIB
-	select ARM_AMBA
-	select CLKDEV_LOOKUP
-	select CPU_V7
-	select GENERIC_CLOCKEVENTS
-	select HAVE_SMP
-	select MIGHT_HAVE_CACHE_L2X0
-	select SPARSE_IRQ
-	help
-	  Support for ST-Ericsson's Ux500 architecture
-
-config ARCH_NOMADIK
-	bool "STMicroelectronics Nomadik"
-	select ARCH_REQUIRE_GPIOLIB
-	select ARM_AMBA
-	select ARM_VIC
-	select CLKSRC_NOMADIK_MTU
-	select COMMON_CLK
-	select CPU_ARM926T
-	select GENERIC_CLOCKEVENTS
-	select MIGHT_HAVE_CACHE_L2X0
-	select USE_OF
-	select PINCTRL
-	select PINCTRL_STN8815
-	select SPARSE_IRQ
-	help
-	  Support for the Nomadik platform by ST-Ericsson
-
-config PLAT_SPEAR
-	bool "ST SPEAr"
-	select ARCH_HAS_CPUFREQ
-	select ARCH_REQUIRE_GPIOLIB
-	select ARM_AMBA
-	select CLKDEV_LOOKUP
-	select CLKSRC_MMIO
-	select COMMON_CLK
-	select GENERIC_CLOCKEVENTS
-	select HAVE_CLK
-	select IPIPE_ARM_KUSER_TSC if IPIPE
-	help
-	  Support for ST's SPEAr platform (SPEAr3xx, SPEAr6xx and SPEAr13xx).
-
-=======
->>>>>>> v3.10
 config ARCH_DAVINCI
 	bool "TI DaVinci"
 	select ARCH_HAS_HOLES_MEMORYMODEL
@@ -905,7 +854,6 @@ config ARCH_OMAP1
 	select ARCH_HAS_HOLES_MEMORYMODEL
 	select ARCH_OMAP
 	select ARCH_REQUIRE_GPIOLIB
-	select IPIPE_ARM_KUSER_TSC if IPIPE
 	select CLKDEV_LOOKUP
 	select CLKSRC_MMIO
 	select GENERIC_CLOCKEVENTS

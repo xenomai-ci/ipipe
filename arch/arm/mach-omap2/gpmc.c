@@ -25,17 +25,15 @@
 #include <linux/module.h>
 #include <linux/interrupt.h>
 #include <linux/platform_device.h>
-<<<<<<< HEAD
-#include <linux/ipipe.h>
-=======
 #include <linux/of.h>
 #include <linux/of_address.h>
 #include <linux/of_mtd.h>
 #include <linux/of_device.h>
 #include <linux/mtd/nand.h>
->>>>>>> v3.9
 
 #include <linux/platform_data/mtd-nand-omap2.h>
+
+#include <linux/ipipe.h>
 
 #include <asm/mach-types.h>
 

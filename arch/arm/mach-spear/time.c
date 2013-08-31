@@ -258,14 +258,6 @@ static void __init spear_clockevent_init(int irq)
 	max_delta_ticks = 0xffff - tick_rate / 1000;
 #endif /* CONFIG_IPIPE */
 
-<<<<<<< HEAD
-	clockevents_calc_mult_shift(&clkevt, tick_rate, SPEAR_MIN_RANGE);
-
-	clkevt.max_delta_ns = clockevent_delta2ns(0xfff0, &clkevt);
-	clkevt.min_delta_ns = clockevent_delta2ns(3, &clkevt);
-
-=======
->>>>>>> v3.9
 	clkevt.cpumask = cpumask_of(0);
 
 	clockevents_config_and_register(&clkevt, tick_rate, 3, 0xfff0);

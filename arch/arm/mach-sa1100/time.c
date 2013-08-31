@@ -93,60 +93,6 @@ sa1100_osmr0_set_mode(enum clock_event_mode mode, struct clock_event_device *c)
 	}
 }
 
-<<<<<<< HEAD
-#ifdef CONFIG_IPIPE
-static struct ipipe_timer sa1100_osmr0_itimer = {
-	.irq = IRQ_OST0,
-	.ack = sa1100_ost0_ack,
-	.min_delay_ticks = MIN_OSCR_DELTA,
-};
-#endif /* CONFIG_IPIPE */
-
-static struct clock_event_device ckevt_sa1100_osmr0 = {
-	.name		= "osmr0",
-	.features	= CLOCK_EVT_FEAT_ONESHOT,
-	.rating		= 200,
-	.set_next_event	= sa1100_osmr0_set_next_event,
-	.set_mode	= sa1100_osmr0_set_mode,
-#ifdef CONFIG_IPIPE
-	.ipipe_timer    = &sa1100_osmr0_itimer,
-#endif /* CONFIG_IPIPE */
-};
-
-static struct irqaction sa1100_timer_irq = {
-	.name		= "ost0",
-	.flags		= IRQF_DISABLED | IRQF_TIMER | IRQF_IRQPOLL,
-	.handler	= sa1100_ost0_interrupt,
-	.dev_id		= &ckevt_sa1100_osmr0,
-};
-
-static void __init sa1100_timer_init(void)
-{
-	writel_relaxed(0, OIER);
-	writel_relaxed(OSSR_M0 | OSSR_M1 | OSSR_M2 | OSSR_M3, OSSR);
-
-	setup_sched_clock(sa1100_read_sched_clock, 32, 3686400);
-
-	clockevents_calc_mult_shift(&ckevt_sa1100_osmr0, 3686400, 4);
-	ckevt_sa1100_osmr0.max_delta_ns =
-		clockevent_delta2ns(0x7fffffff, &ckevt_sa1100_osmr0);
-	ckevt_sa1100_osmr0.min_delta_ns =
-		clockevent_delta2ns(MIN_OSCR_DELTA * 2, &ckevt_sa1100_osmr0) + 1;
-	ckevt_sa1100_osmr0.cpumask = cpumask_of(0);
-
-	setup_irq(IRQ_OST0, &sa1100_timer_irq);
-
-	clocksource_mmio_init(OSCR, "oscr", CLOCK_TICK_RATE, 200, 32,
-		clocksource_mmio_readl_up);
-#ifdef CONFIG_IPIPE
-	__ipipe_tsc_register(&tsc_info);
-#endif /* CONFIG_IPIPE */
-
-	clockevents_register_device(&ckevt_sa1100_osmr0);
-}
-
-=======
->>>>>>> v3.9
 #ifdef CONFIG_PM
 unsigned long osmr[4], oier;
 
@@ -178,14 +124,23 @@ static void sa1100_timer_resume(struct clock_event_device *cedev)
 #define sa1100_timer_resume NULL
 #endif
 
+#ifdef CONFIG_IPIPE
+static struct ipipe_timer sa1100_osmr0_itimer = {
+	.irq = IRQ_OST0,
+	.ack = sa1100_ost0_ack,
+	.min_delay_ticks = MIN_OSCR_DELTA,
+};
+#endif /* CONFIG_IPIPE */
+
 static struct clock_event_device ckevt_sa1100_osmr0 = {
 	.name		= "osmr0",
 	.features	= CLOCK_EVT_FEAT_ONESHOT,
 	.rating		= 200,
 	.set_next_event	= sa1100_osmr0_set_next_event,
 	.set_mode	= sa1100_osmr0_set_mode,
-	.suspend	= sa1100_timer_suspend,
-	.resume		= sa1100_timer_resume,
+#ifdef CONFIG_IPIPE
+	.ipipe_timer    = &sa1100_osmr0_itimer,
+#endif /* CONFIG_IPIPE */
 };
 
 static struct irqaction sa1100_timer_irq = {
@@ -208,6 +163,10 @@ void __init sa1100_timer_init(void)
 
 	clocksource_mmio_init(OSCR, "oscr", CLOCK_TICK_RATE, 200, 32,
 		clocksource_mmio_readl_up);
+#ifdef CONFIG_IPIPE
+	__ipipe_tsc_register(&tsc_info);
+#endif /* CONFIG_IPIPE */
+
 	clockevents_config_and_register(&ckevt_sa1100_osmr0, 3686400,
 					MIN_OSCR_DELTA * 2, 0x7fffffff);
 }

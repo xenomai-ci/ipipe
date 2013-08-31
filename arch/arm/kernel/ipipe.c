@@ -40,6 +40,7 @@
 #include <linux/irq.h>
 #include <linux/irqnr.h>
 #include <linux/prefetch.h>
+#include <linux/cpu.h>
 #include <linux/ipipe_domain.h>
 #include <linux/ipipe_tickdev.h>
 #include <asm/system.h>
@@ -283,7 +284,7 @@ void __ipipe_enable_pipeline(void)
 	if (likely(cpu_proc_init == &cpu_arm926_proc_init)) {
 		printk("I-pipe: ARM926EJ-S detected, disabling wfi instruction"
 		       " in idle loop\n");
-		disable_hlt();
+		cpu_idle_poll_ctrl(true);
 	}
 #endif
 	flags = ipipe_critical_enter(NULL);
@@ -301,6 +302,14 @@ void __ipipe_enable_pipeline(void)
 
 	ipipe_critical_exit(flags);
 }
+
+#ifdef CONFIG_IPIPE_DEBUG_INTERNAL
+unsigned asmlinkage __ipipe_bugon_irqs_enabled(unsigned x)
+{
+	BUG_ON(!hard_irqs_disabled());
+	return x;		/* Preserve r0 */
+}
+#endif
 
 asmlinkage int __ipipe_check_root(void)
 {
@@ -343,9 +352,9 @@ asmlinkage int __ipipe_syscall_root(unsigned long scno, struct pt_regs *regs)
 	/*
 	 * This routine either returns:
 	 * 0 -- if the syscall is to be passed to Linux;
-	 * >0 -- if the syscall should not be passed to Linux, and no
+	 * <0 -- if the syscall should not be passed to Linux, and no
 	 * tail work should be performed;
-	 * <0 -- if the syscall should not be passed to Linux but the
+	 * >0 -- if the syscall should not be passed to Linux but the
 	 * tail work has to be performed (for handling signals etc).
 	 */
 
@@ -377,7 +386,11 @@ asmlinkage int __ipipe_syscall_root(unsigned long scno, struct pt_regs *regs)
 out:
 	regs->ARM_r7 = orig_r7;
 
-	return -ret;
+#ifdef CONFIG_IPIPE_DEBUG_INTERNAL
+	BUG_ON(ret > 0 && current_thread_info()->restart_block.fn != 
+	       do_no_restart_syscall);
+#endif
+	return ret;
 }
 
 void __ipipe_exit_irq(struct pt_regs *regs)
@@ -447,32 +460,54 @@ void __switch_mm_inner(struct mm_struct *prev, struct mm_struct *next,
 #endif /* CONFIG_IPIPE_WANT_ACTIVE_MM */
 #ifdef CONFIG_IPIPE_WANT_PREEMPTIBLE_SWITCH
 	struct thread_info *const tip = current_thread_info();
+	prev = *active_mm;
+	clear_bit(TIF_MMSWITCH_INT, &tip->flags);
+	barrier();
 	*active_mm = NULL;
 	barrier();
 	for (;;) {
 		unsigned long flags;
 #endif /* CONFIG_IPIPE_WANT_PREEMPTIBLE_SWITCH */
 
-		int rc = __do_switch_mm(prev, next, tsk, true);
+		int rc __maybe_unused = __do_switch_mm(prev, next, tsk, true);
 
 #ifdef CONFIG_IPIPE_WANT_PREEMPTIBLE_SWITCH
-		/* It is absolutely unavoidable to read the
-		   thread_info flags and set the active_mm
-		   atomically. Other (previous) solutions lead to
-		   hardly reproduceable disasters. */
-
+		/* 
+		 * Reading thread_info flags and setting active_mm
+		 * must be done atomically.
+		 */
 		flags = hard_local_irq_save();
 		if (__test_and_clear_bit(TIF_MMSWITCH_INT, &tip->flags) == 0) {
-			*active_mm = rc < 0 ? prev : next;
+			if (rc < 0)
+				*active_mm = prev;
+			else {
+				*active_mm = next;
+				fcse_switch_mm_end(next);
+			}
 			hard_local_irq_restore(flags);
 			return;
 		}
 		hard_local_irq_restore(flags);
+		
+		if (rc < 0)
+			/* 
+			 * We were interrupted by head domain, which
+			 * may have changed the mm context, mm context
+			 * is now unknown, but will be switched in
+			 * deferred_switch_mm
+			 */
+			return;
+
 		prev = NULL;
 	}
 #elif defined(CONFIG_IPIPE_WANT_ACTIVE_MM)
-	*active_mm = rc < 0 ? prev: next;
-#endif /* CONFIG_IPIPE_WANT_ACTIVE_MM */
+	if (rc < 0)
+		*active_mm = prev;
+	else {
+		*active_mm = next;
+		fcse_switch_mm_end(next);
+	}
+#endif /* IPIPE_WANT_ACTIVE_MM */
 }
 
 #ifdef finish_arch_post_lock_switch
@@ -481,33 +516,38 @@ void deferred_switch_mm(struct mm_struct *next)
 #ifdef CONFIG_IPIPE_WANT_ACTIVE_MM
 	struct mm_struct ** const active_mm =
 		__this_cpu_ptr(&ipipe_percpu.active_mm);
+	struct mm_struct *prev = *active_mm;
 #endif /* CONFIG_IPIPE_WANT_ACTIVE_MM */
 #ifdef CONFIG_IPIPE_WANT_PREEMPTIBLE_SWITCH
 	struct thread_info *const tip = current_thread_info();
+	clear_bit(TIF_MMSWITCH_INT, &tip->flags);
+	barrier();
 	*active_mm = NULL;
 	barrier();
 	for (;;) {
 		unsigned long flags;
 #endif /* CONFIG_IPIPE_WANT_PREEMPTIBLE_SWITCH */
 
-		__deferred_switch_mm(next);
+		__do_switch_mm(prev, next, NULL, false);
 
 #ifdef CONFIG_IPIPE_WANT_PREEMPTIBLE_SWITCH
-		/* It is absolutely unavoidable to read the
-		   thread_info flags and set the active_mm
-		   atomically. Other (previous) solutions lead to
-		   hardly reproduceable disasters. */
-
+		/* 
+		 * Reading thread_info flags and setting active_mm
+		 * must be done atomically.
+		 */
 		flags = hard_local_irq_save();
 		if (__test_and_clear_bit(TIF_MMSWITCH_INT, &tip->flags) == 0) {
 			*active_mm = next;
+			fcse_switch_mm_end(next);
 			hard_local_irq_restore(flags);
 			return;
 		}
 		hard_local_irq_restore(flags);
+		prev = NULL;
 	}
 #elif defined(CONFIG_IPIPE_WANT_ACTIVE_MM)
 	*active_mm = next;
+	fcse_switch_mm_end(next);
 #endif /* CONFIG_IPIPE_WANT_ACTIVE_MM */
 }
 #endif

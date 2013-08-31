@@ -90,11 +90,6 @@ static void __init highbank_init_irq(void)
 
 static void __init highbank_timer_init(void)
 {
-<<<<<<< HEAD
-	int irq;
-	struct resources res;
-=======
->>>>>>> v3.10
 	struct device_node *np;
 
 	/* Map system registers */
@@ -102,27 +97,7 @@ static void __init highbank_timer_init(void)
 	sregs_base = of_iomap(np, 0);
 	WARN_ON(!sregs_base);
 
-<<<<<<< HEAD
-	np = of_find_compatible_node(NULL, NULL, "arm,sp804");
-	timer_base = of_iomap(np, 0);
-	WARN_ON(!timer_base);
-	irq = irq_of_parse_and_map(np, 0);
-	
-	if (of_address_to_resource(np, 0, &res)
-	    res.start = 0;
-
 	of_clk_init(NULL);
-	lookup.clk = of_clk_get(np, 0);
-	clkdev_add(&lookup);
-
-	sp804_clocksource_and_sched_clock_init(timer_base + 0x20, 
-					       res.start + 0x20, "timer1");
-	sp804_clockevents_init(timer_base, irq, "timer0");
-
-	twd_local_timer_of_register();
-=======
-	of_clk_init(NULL);
->>>>>>> v3.10
 
 	clocksource_of_init();
 }

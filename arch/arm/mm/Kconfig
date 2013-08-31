@@ -898,7 +898,7 @@ config ARCH_HAS_BARRIERS
 
 config ARM_FCSE
 	bool "Fast Context Switch Extension (EXPERIMENTAL)"
-	depends on EXPERIMENTAL && !SMP && (CPU_32v4 || CPU_32v4T || CPU_32v5)
+	depends on !SMP && (CPU_32v4 || CPU_32v4T || CPU_32v5)
 	help
 	  The Fast Context Switch Extension (FCSE for short) is an extension of
 	  some ARM processors which allows to switch contexts between processes

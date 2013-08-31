@@ -444,15 +444,11 @@ void notrace cpu_init(void)
 	    : "r14");
 }
 
-<<<<<<< HEAD
 #if NR_CPUS > 16
-int __cpu_logical_map[NR_CPUS];
-#else
-int __cpu_logical_map[16];
-#endif
-=======
 u32 __cpu_logical_map[NR_CPUS] = { [0 ... NR_CPUS-1] = MPIDR_INVALID };
->>>>>>> v3.10
+#else
+u32 __cpu_logical_map[16] = { [0 ... 15] = MPIDR_INVALID };
+#endif
 
 void __init smp_setup_processor_id(void)
 {

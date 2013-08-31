@@ -752,11 +752,8 @@ static void gpio_irq_handler(unsigned int irq, struct irq_desc *desc)
 			if (bank->toggle_mask & (1 << bit))
 				_toggle_gpio_edge_triggering(bank, bit);
 
-<<<<<<< HEAD
-			ipipe_handle_demuxed_irq(gpio_irq);
-=======
-			generic_handle_irq(irq_find_mapping(bank->domain, bit));
->>>>>>> v3.10
+			ipipe_handle_demuxed_irq
+				(irq_find_mapping(bank->domain, bit));
 		}
 	}
 	/* if bank has any level sensitive GPIO pin interrupt
@@ -805,7 +802,7 @@ static void gpio_mask_irq(struct irq_data *d)
 static void gpio_mask_ack_irq(struct irq_data *d)
 {
 	struct gpio_bank *bank = irq_data_get_irq_chip_data(d);
-	unsigned int gpio = irq_to_gpio(bank, d->irq);
+	unsigned int gpio = irq_to_gpio(bank, d->hwirq);
 	unsigned long flags;
 
 	spin_lock_irqsave(&bank->lock, flags);

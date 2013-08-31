@@ -106,8 +106,8 @@ __ipipe_freerunning_32:
 	.word 	0
 
 	.align 5
-	.globl __ipipe_freerunning_countdown
-__ipipe_freerunning_countdown:
+	.globl __ipipe_freerunning_countdown_32
+__ipipe_freerunning_countdown_32:
 	ldr	r0, .LCfrcd32_cntr_addr
 /* User-space entry-point: r0 is the hardware counter virtual address */
 	myldrd	r2, r3, r1, .LCfrcd32_last_tsc
@@ -144,8 +144,8 @@ __ipipe_freerunning_16:
 /* Little endian */
 	ldr	r1, .LCfr16_last_tsc
 	cmp	r1, r2
-	bne	1b
 	mov	r1, r2, lsr #16
+	bne	1b
 	orr	r0, ip, r1, lsl #16
 	cmp	r2, r0
 	addhis	r0, r0, #0x10000
@@ -153,10 +153,49 @@ __ipipe_freerunning_16:
 #else /* Big endian */
 	ldr	r1, .LCfr16_last_tsc + 4
 	cmp	r1, r3
-	bne	1b
 	mov	r1, r3, lsr #16
+	bne	1b
 	orr	r1, ip, r1, lsl #16
-	cmp	r3, r0
+	cmp	r3, r1
+	addhis	r1, r1, #0x10000
+	adc	r0, r2, #0
+#endif /* Big endian */
+	usr_ret lr
+
+	.align 5
+.LCfrcd16_last_tsc:
+	.rep	7
+	.word	0
+	.endr
+.LCfrcd16_cntr_addr:
+	.word 	0
+
+	.align 5
+	.globl __ipipe_freerunning_countdown_16
+__ipipe_freerunning_countdown_16:
+	ldr	r0, .LCfrcd16_cntr_addr
+/* User-space entry-point: r0 is the hardware counter virtual address */
+1:	myldrd	r2, r3, r1, .LCfrcd16_last_tsc
+	ldrh	ip, [r0]
+#ifndef CONFIG_CPU_BIG_ENDIAN
+/* Little endian */
+	ldr	r1, .LCfrcd16_last_tsc
+	rsb	ip, ip, #0x10000
+	cmp	r1, r2
+	mov	r1, r2, lsr #16
+	bne	1b
+	orr	r0, ip, r1, lsl #16
+	cmp	r2, r0
+	addhis	r0, r0, #0x10000
+	adc	r1, r3, #0
+#else /* Big endian */
+	ldr	r1, .LCfrcd16_last_tsc + 4
+	rsb	ip, ip, #0x10000
+	cmp	r1, r3
+	mov	r1, r3, lsr #16
+	bne	1b
+	orr	r1, ip, r1, lsl #16
+	cmp	r3, r1
 	addhis	r1, r1, #0x10000
 	adc	r0, r2, #0
 #endif /* Big endian */
@@ -184,8 +223,8 @@ __ipipe_freerunning_twice_16:
 /* Little endian */
 	ldr	r1, .LCfrt16_last_tsc
 	cmp	r1, r2
-	bne	1b
 	mov	r1, r2, lsr #16
+	bne	1b
 	orr	r0, ip, r1, lsl #16
 	cmp	r2, r0
 	addhis	r0, r0, #0x10000
@@ -193,10 +232,10 @@ __ipipe_freerunning_twice_16:
 #else /* Big endian */
 	ldr	r1, .LCfrt16_last_tsc + 4
 	cmp	r1, r3
-	bne	1b
 	mov	r1, r3, lsr #16
+	bne	1b
 	orr	r1, ip, r1, lsl #16
-	cmp	r3, r0
+	cmp	r3, r1
 	addhis	r1, r1, #0x10000
 	adc	r0, r2, #0
 #endif /* Big endian */

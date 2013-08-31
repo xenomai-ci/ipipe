@@ -29,12 +29,9 @@
 #include <linux/io.h>
 #include <linux/export.h>
 #include <linux/gpio.h>
-<<<<<<< HEAD
+#include <linux/cpu.h>
 #include <linux/ipipe.h>
 #include <linux/ipipe_tickdev.h>
-=======
-#include <linux/cpu.h>
->>>>>>> v3.10
 
 #include <mach/udc.h>
 #include <mach/hardware.h>

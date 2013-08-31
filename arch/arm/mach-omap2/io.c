@@ -21,6 +21,7 @@
 #include <linux/init.h>
 #include <linux/io.h>
 #include <linux/clk.h>
+#include <linux/cpu.h>
 
 #include <asm/tlb.h>
 #include <asm/mach/map.h>
@@ -483,14 +484,10 @@ void __init omap3_init_early(void)
 	omap3xxx_clockdomains_init();
 	omap3xxx_hwmod_init();
 	omap_hwmod_init_postsetup();
-<<<<<<< HEAD
-	omap3xxx_clk_init();
-#ifdef CONFIG_IPIPE
-	disable_hlt();
-#endif
-=======
 	omap_clk_init = omap3xxx_clk_init;
->>>>>>> v3.9
+#ifdef CONFIG_IPIPE
+	cpu_idle_poll_ctrl(true);
+#endif
 }
 
 void __init omap3430_init_early(void)
@@ -528,14 +525,10 @@ void __init ti81xx_init_early(void)
 	omap3xxx_clockdomains_init();
 	omap3xxx_hwmod_init();
 	omap_hwmod_init_postsetup();
-<<<<<<< HEAD
-	omap3xxx_clk_init();
-#ifdef CONFIG_IPIPE
-	disable_hlt();
-#endif
-=======
 	omap_clk_init = omap3xxx_clk_init;
->>>>>>> v3.9
+#ifdef CONFIG_IPIPE
+	cpu_idle_poll_ctrl(true);
+#endif
 }
 
 void __init omap3_init_late(void)

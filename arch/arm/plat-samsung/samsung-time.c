@@ -15,6 +15,8 @@
 #include <linux/clk.h>
 #include <linux/clockchips.h>
 #include <linux/platform_device.h>
+#include <linux/ipipe.h>
+#include <linux/ipipe_tickdev.h>
 
 #include <asm/smp_twd.h>
 #include <asm/mach/time.h>
@@ -232,12 +234,20 @@ void __init samsung_set_timer_source(enum samsung_timer_mode event,
 	timer_source.source_id = source;
 }
 
+#ifdef CONFIG_IPIPE
+static struct ipipe_timer itimer = {
+};
+#endif /* CONFIG_IPIPE */
+
 static struct clock_event_device time_event_device = {
 	.name		= "samsung_event_timer",
 	.features	= CLOCK_EVT_FEAT_PERIODIC | CLOCK_EVT_FEAT_ONESHOT,
 	.rating		= 200,
 	.set_next_event	= samsung_set_next_event,
 	.set_mode	= samsung_set_mode,
+#ifdef CONFIG_IPIPE
+	.ipipe_timer    = &itimer,
+#endif /* CONFIG_IPIPE */
 };
 
 static irqreturn_t samsung_clock_event_isr(int irq, void *dev_id)
@@ -245,6 +255,8 @@ static irqreturn_t samsung_clock_event_isr(int irq, void *dev_id)
 	struct clock_event_device *evt = dev_id;
 
 	evt->event_handler(evt);
+
+	__ipipe_tsc_update();
 
 	return IRQ_HANDLED;
 }
@@ -275,13 +287,18 @@ static void __init samsung_clockevent_init(void)
 	clock_count_per_tick = clock_rate / HZ;
 
 	time_event_device.cpumask = cpumask_of(0);
+#ifdef CONFIG_IPIPE
+	time_event_device.irq = irq_number;
+#endif /* CONFIG_IPIPE */
 	clockevents_config_and_register(&time_event_device, clock_rate, 1, -1);
 
 	irq_number = timer_source.event_id + IRQ_TIMER0;
 	setup_irq(irq_number, &samsung_clock_event_irq);
+
+
 }
 
-static void __iomem *samsung_timer_reg(void)
+static unsigned long samsung_phys_timer_reg(void)
 {
 	unsigned long offset = 0;
 
@@ -302,7 +319,12 @@ static void __iomem *samsung_timer_reg(void)
 		return NULL;
 	}
 
-	return S3C_TIMERREG(offset);
+	return 0x00300000 + offset;
+}
+
+static void __iomem *samsung_timer_reg(void)
+{
+	return S3C_ADDR(samsung_phys_timer_reg());
 }
 
 /*
@@ -321,6 +343,12 @@ static u32 notrace samsung_read_sched_clock(void)
 
 	return ~__raw_readl(reg);
 }
+
+#ifdef CONFIG_IPIPE
+static struct __ipipe_tscinfo tsc_info = {
+	.type = IPIPE_TSC_TYPE_FREERUNNING_COUNTDOWN,
+};
+#endif /* CONFIG_IPIPE */
 
 static void __init samsung_clocksource_init(void)
 {
@@ -342,6 +370,14 @@ static void __init samsung_clocksource_init(void)
 	if (clocksource_mmio_init(samsung_timer_reg(), "samsung_clocksource_timer",
 			clock_rate, 250, TSIZE, clocksource_mmio_readl_down))
 		panic("samsung_clocksource_timer: can't register clocksource\n");
+
+#ifdef CONFIG_IPIPE
+	tsc_info.u.mask = (1ULL << TSIZE) - 1;
+	tsc_info.freq = clock_rate;
+	tsc_info.counter_vaddr = (unsigned long)samsung_timer_reg();
+	tsc_info.u.counter_paddr = samsung_phys_timer_reg();
+	__ipipe_tsc_register(&tsc_info);
+#endif /* CONFIG_IPIPE */
 }
 
 static void __init samsung_timer_resources(void)

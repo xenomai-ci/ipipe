@@ -227,19 +227,10 @@ __irq_svc:
 	blne	svc_preempt
 #endif
 
-<<<<<<< HEAD
-#ifdef CONFIG_TRACE_IRQFLAGS
-	@ The parent context IRQs must have been enabled to get here in
-	@ the first place, so there's no point checking the PSR I bit.
-	bl	trace_hardirqs_on
-#endif
 #ifdef CONFIG_IPIPE
 __ipipe_fast_svc_irq_exit:
 #endif
-	svc_exit r5				@ return from exception
-=======
 	svc_exit r5, irq = 1			@ return from exception
->>>>>>> v3.10
  UNWIND(.fnend		)
 ENDPROC(__irq_svc)
 

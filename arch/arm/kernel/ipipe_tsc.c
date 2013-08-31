@@ -13,8 +13,9 @@ typedef unsigned long long __ipipe_tsc_t(void);
 
 extern __ipipe_tsc_t __ipipe_freerunning_64,
 	__ipipe_freerunning_32,
+	__ipipe_freerunning_countdown_32,
 	__ipipe_freerunning_16,
-	__ipipe_freerunning_countdown,
+	__ipipe_freerunning_countdown_16,
 	__ipipe_decrementer_16,
 	__ipipe_freerunning_twice_16,
 	__ipipe_freerunning_arch;
@@ -87,9 +88,16 @@ void __ipipe_tsc_register(struct __ipipe_tscinfo *info)
 		break;
 
 	case IPIPE_TSC_TYPE_FREERUNNING_COUNTDOWN:
-		if (info->u.mask != 0xffffffff)
+		switch(info->u.mask) {
+		case 0xffff:
+			implem = &__ipipe_freerunning_countdown_16;
+			break;
+		case 0xffffffff:
+			implem = &__ipipe_freerunning_countdown_32;
+			break;
+		default:
 			goto unimplemented;
-		implem = &__ipipe_freerunning_countdown;
+		}
 		break;
 
 	case IPIPE_TSC_TYPE_FREERUNNING_TWICE:
