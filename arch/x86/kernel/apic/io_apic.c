@@ -1242,6 +1242,14 @@ void __setup_vector_irq(int cpu)
 		vector = cfg->vector;
 		per_cpu(vector_irq, cpu)[vector] = irq;
 	}
+#ifdef CONFIG_IPIPE
+	per_cpu(vector_irq, cpu)[IRQ_MOVE_CLEANUP_VECTOR] =
+		IRQ_MOVE_CLEANUP_VECTOR;
+	for (vector = first_system_vector; vector < NR_VECTORS; ++vector)
+		if (test_bit(vector, used_vectors))
+			per_cpu(vector_irq, cpu)[vector] =
+				ipipe_apic_vector_irq(vector);
+#endif
 	/* Mark the free vectors */
 	for (vector = 0; vector < NR_VECTORS; ++vector) {
 		/* I-pipe requires initialized vector_irq for system vectors */
