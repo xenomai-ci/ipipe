@@ -10,6 +10,7 @@
 #include <linux/sched.h>
 #include <linux/io.h>
 #include <linux/export.h>
+#include <linux/hardirq.h>
 #include <asm/cacheflush.h>
 #include <asm/pgtable.h>
 
@@ -86,8 +87,13 @@ int ioremap_page_range(unsigned long addr,
 		if (err)
 			break;
 	} while (pgd++, addr = next, addr != end);
-	__ipipe_pin_range_globally(start, end);
- 	flush_cache_vmap(start, end);
+
+	/* APEI may invoke this for temporarily remapping pages in NMI
+	 * context - nothing we can and need to propagate globally. */
+	if (!in_nmi()) {
+		__ipipe_pin_range_globally(start, end);
+		flush_cache_vmap(start, end);
+	}
 
 	return err;
 }
