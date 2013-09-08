@@ -266,14 +266,18 @@ __do_switch_mm(struct mm_struct *prev, struct mm_struct *next,
 		per_cpu(current_mm, cpu) = next;
 #endif
 		rc = check_and_switch_context(next, tsk, may_defer);
+#ifdef CONFIG_IPIPE
 		if (rc < 0) {
 			cpumask_clear_cpu(cpu, mm_cpumask(next));
 			return rc;
 		}
-#if defined(CONFIG_IPIPE) && defined(CONFIG_ARM_FCSE)
+#ifdef CONFIG_ARM_FCSE
 		if (tsk)
 			set_tsk_thread_flag(tsk, TIF_SWITCHED);
-#endif /* CONFIG_IPIPE && CONFIG_ARM_FCSE */
+#endif /* CONFIG_ARM_FCSE */
+#else /* !CONFIG_IPIPE */
+		(void)rc;
+#endif /* CONFIG_IPIPE */
 		if (cache_is_vivt() && prev)
 			cpumask_clear_cpu(cpu, mm_cpumask(prev));
 	} else
