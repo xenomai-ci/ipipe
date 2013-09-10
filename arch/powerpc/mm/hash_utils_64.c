@@ -1281,13 +1281,11 @@ void flush_hash_range(unsigned long number, int local)
  */
 void low_hash_fault(struct pt_regs *regs, unsigned long address, int rc)
 {
-<<<<<<< HEAD
+	enum ctx_state prev_state = exception_enter();
+
 	if (__ipipe_report_trap(IPIPE_TRAP_ACCESS, regs))
 		/* Not all access faults go through do_page_fault(). */
 	    	return;
-=======
-	enum ctx_state prev_state = exception_enter();
->>>>>>> v3.10
 
 	if (user_mode(regs)) {
 #ifdef CONFIG_PPC_SUBPAGE_PROT

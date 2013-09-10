@@ -740,12 +740,10 @@ void unknown_exception(struct pt_regs *regs)
 
 void instruction_breakpoint_exception(struct pt_regs *regs)
 {
-<<<<<<< HEAD
+	enum ctx_state prev_state = exception_enter();
+
 	if (__ipipe_report_trap(IPIPE_TRAP_IABR, regs))
 	    	return;
-=======
-	enum ctx_state prev_state = exception_enter();
->>>>>>> v3.10
 
 	if (notify_die(DIE_IABR_MATCH, "iabr_match", regs, 5,
 					5, SIGTRAP) == NOTIFY_STOP)
@@ -1203,13 +1201,11 @@ void alignment_exception(struct pt_regs *regs)
 	if (!arch_irq_disabled_regs(regs))
 		local_irq_enable();
 
-<<<<<<< HEAD
 	if (__ipipe_report_trap(IPIPE_TRAP_ALIGNMENT, regs))
 	    	return;
-=======
+
 	if (tm_abort_check(regs, TM_CAUSE_ALIGNMENT | TM_CAUSE_PERSISTENT))
 		goto bail;
->>>>>>> v3.10
 
 	/* we don't implement logging of alignment exceptions */
 	if (!(current->thread.align_ctl & PR_UNALIGN_SIGBUS))
@@ -1279,12 +1275,10 @@ void kernel_fp_unavailable_exception(struct pt_regs *regs)
 
 void altivec_unavailable_exception(struct pt_regs *regs)
 {
-<<<<<<< HEAD
+	enum ctx_state prev_state = exception_enter();
+
 	if (__ipipe_report_trap(IPIPE_TRAP_ALTUNAVAIL, regs))
 	    	return;
-=======
-	enum ctx_state prev_state = exception_enter();
->>>>>>> v3.10
 
 	if (user_mode(regs)) {
 		/* A user program has executed an altivec instruction,

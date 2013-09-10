@@ -48,61 +48,17 @@ __setup("powersave=off", powersave_off);
 #ifdef CONFIG_HOTPLUG_CPU
 void arch_cpu_idle_dead(void)
 {
-<<<<<<< HEAD
-	set_thread_flag(TIF_POLLING_NRFLAG);
-	while (1) {
-		tick_nohz_idle_enter();
-		rcu_idle_enter();
-
-		while (!need_resched() && !cpu_should_die()) {
-			ppc64_runlatch_off();
-			__ipipe_idle();
-
-			if (ppc_md.power_save) {
-				clear_thread_flag(TIF_POLLING_NRFLAG);
-				/*
-				 * smp_mb is so clearing of TIF_POLLING_NRFLAG
-				 * is ordered w.r.t. need_resched() test.
-				 */
-				smp_mb();
-				hard_local_irq_disable();
-
-				/* Don't trace irqs off for idle */
-				stop_critical_timings();
-
-				/* check again after disabling irqs */
-				if (!need_resched() && !cpu_should_die())
-					ppc_md.power_save();
-
-				start_critical_timings();
-
-				/* Some power_save functions return with
-				 * interrupts enabled, some don't.
-				 */
-				hard_local_irq_enable();
-				set_thread_flag(TIF_POLLING_NRFLAG);
-
-			} else {
-				/*
-				 * Go into low thread priority and possibly
-				 * low power mode.
-				 */
-				HMT_low();
-				HMT_very_low();
-			}
-		}
-=======
 	sched_preempt_enable_no_resched();
 	cpu_die();
 }
 #endif
->>>>>>> v3.10
 
 void arch_cpu_idle(void)
 {
 	ppc64_runlatch_off();
 
 	if (ppc_md.power_save) {
+		hard_local_irq_disable();
 		ppc_md.power_save();
 		/*
 		 * Some power_save functions return with
@@ -110,6 +66,8 @@ void arch_cpu_idle(void)
 		 */
 		if (irqs_disabled())
 			local_irq_enable();
+		else
+			hard_local_irq_enable();
 	} else {
 		local_irq_enable();
 		/*

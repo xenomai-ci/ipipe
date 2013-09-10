@@ -48,12 +48,14 @@ extern void unknown_exception(struct pt_regs *regs);
 #define __hard_irq_disable()	__mtmsrd(local_paca->kernel_msr, 1)
 #endif
 
-static inline void hard_irq_disable(void)
-{
-	__hard_irq_disable();
-	get_paca()->soft_enabled = 0;
-	get_paca()->irq_happened |= PACA_IRQ_HARD_DIS;
-}
+#define hard_irq_disable()	do {			\
+	u8 _was_enabled = get_paca()->soft_enabled;	\
+	__hard_irq_disable();				\
+	get_paca()->soft_enabled = 0;			\
+	get_paca()->irq_happened |= PACA_IRQ_HARD_DIS;	\
+	if (_was_enabled)				\
+		trace_hardirqs_off();			\
+} while(0)
 
 #ifndef CONFIG_IPIPE
 
@@ -104,26 +106,6 @@ static inline bool arch_irqs_disabled(void)
 	return arch_irqs_disabled_flags(arch_local_save_flags());
 }
 
-<<<<<<< HEAD
-=======
-#ifdef CONFIG_PPC_BOOK3E
-#define __hard_irq_enable()	asm volatile("wrteei 1" : : : "memory")
-#define __hard_irq_disable()	asm volatile("wrteei 0" : : : "memory")
-#else
-#define __hard_irq_enable()	__mtmsrd(local_paca->kernel_msr | MSR_EE, 1)
-#define __hard_irq_disable()	__mtmsrd(local_paca->kernel_msr, 1)
-#endif
-
-#define hard_irq_disable()	do {			\
-	u8 _was_enabled = get_paca()->soft_enabled;	\
-	__hard_irq_disable();				\
-	get_paca()->soft_enabled = 0;			\
-	get_paca()->irq_happened |= PACA_IRQ_HARD_DIS;	\
-	if (_was_enabled)				\
-		trace_hardirqs_off();			\
-} while(0)
-
->>>>>>> v3.10
 static inline bool lazy_irq_pending(void)
 {
 	return !!(get_paca()->irq_happened & ~PACA_IRQ_HARD_DIS);
@@ -160,9 +142,6 @@ static inline void may_hard_irq_enable(void)
 }
 
 #endif /* CONFIG_IPIPE */
-
-/* include/linux/interrupt.h needs hard_irq_disable to be a macro */
-#define hard_irq_disable	hard_irq_disable
 
 static inline bool arch_irq_disabled_regs(struct pt_regs *regs)
 {

@@ -727,14 +727,10 @@ _GLOBAL(ret_from_except_lite)
 	andi.	r0,r4,_TIF_NEED_RESCHED
 	beq	1f
 	bl	.restore_interrupts
-<<<<<<< HEAD
 #ifdef CONFIG_IPIPE_TRACE_IRQSOFF
 	bl	.__ipipe_trace_irqson
 #endif /* CONFIG_IPIPE_TRACE_IRQSOFF */
-	bl	.schedule
-=======
 	SCHEDULE_USER
->>>>>>> v3.10
 	b	.ret_from_except_lite
 
 1:	bl	.save_nvgprs
