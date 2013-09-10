@@ -42,7 +42,7 @@ extern unsigned long arm_return_addr(int level);
 #include <linux/ipipe_trace.h>
 #include <mach/irqs.h>
 
-#define IPIPE_CORE_RELEASE	4
+#define IPIPE_CORE_RELEASE	5
 
 struct ipipe_domain;
 
