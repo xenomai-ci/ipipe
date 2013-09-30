@@ -73,14 +73,6 @@ int arch_dup_task_struct(struct task_struct *dst, struct task_struct *src)
 		if (ret)
 			return ret;
 		fpu_copy(dst, src);
-	} else {
-#ifdef CONFIG_IPIPE
-		/* unconditionally allocate, RT domain may need it */
-		memset(&dst->thread.fpu, 0, sizeof(dst->thread.fpu));
-		ret = fpu_alloc(&dst->thread.fpu);
-		if (ret)
-			return ret;
-#endif
 	}
 	return 0;
 }
@@ -170,8 +162,8 @@ void flush_thread(void)
 	 * lazily at the first use.
 	 */
 	if (!use_eager_fpu())
-#endif
 		free_thread_xstate(tsk);
+#endif
 }
 
 static void hard_disable_TSC(void)
