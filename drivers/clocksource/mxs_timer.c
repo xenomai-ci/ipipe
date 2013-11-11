@@ -86,6 +86,9 @@ static struct clock_event_device mxs_clockevent_device;
 static enum clock_event_mode mxs_clockevent_mode = CLOCK_EVT_MODE_UNUSED;
 
 static void __iomem *mxs_timrot_base;
+#ifdef CONFIG_IPIPE
+static unsigned long mxs_timrot_paddr;
+#endif /* CONFIG_IPIPE */
 static u32 timrot_major_version;
 
 static inline void timrot_irq_disable(void)
@@ -275,7 +278,7 @@ static int __init mxs_clocksource_init(struct clk *timer_clk)
 		c /= IPIPE_DIV;
 		tsc_info.freq = c;
 		tsc_info.counter_vaddr = (unsigned long)mxs_timrot_base + HW_TIMROT_RUNNING_COUNTn(1);
-		tsc_info.u.counter_paddr = MXS_TIMROT_BASE_ADDR + HW_TIMROT_RUNNING_COUNTn(1);
+		tsc_info.u.counter_paddr = mxs_timrot_paddr + HW_TIMROT_RUNNING_COUNTn(1);
 		__ipipe_tsc_register(&tsc_info);
 #endif /* CONFIG_IPIPE */
 		setup_sched_clock(mxs_read_sched_clock_v2, 32, c);
@@ -292,6 +295,17 @@ static void __init mxs_timer_init(struct device_node *np)
 
 	mxs_timrot_base = of_iomap(np, 0);
 	WARN_ON(!mxs_timrot_base);
+
+#ifdef CONFIG_IPIPE
+	if (mxs_timrot_base){
+		struct resource res;
+		
+		if (of_address_to_resource(np, 0, &res))
+			res.start = 0;
+		
+		mxs_timrot_paddr = res.start;
+	}
+#endif /* CONFIG_IPIPE */
 
 	timer_clk = of_clk_get(np, 0);
 	if (IS_ERR(timer_clk)) {
