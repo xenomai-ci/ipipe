@@ -6,6 +6,8 @@
 typedef struct {
 #ifdef CONFIG_CPU_HAS_ASID
 	atomic64_t	id;
+#else
+	int		switch_pending;
 #endif
 #ifdef CONFIG_ARM_FCSE
 	struct {
@@ -19,6 +21,7 @@ typedef struct {
 	} fcse;
 #endif /* CONFIG_ARM_FCSE */
 	unsigned int	vmalloc_seq;
+	unsigned long	sigpage;
 } mm_context_t;
 
 #ifdef CONFIG_CPU_HAS_ASID

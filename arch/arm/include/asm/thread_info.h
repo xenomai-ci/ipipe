@@ -159,11 +159,10 @@ extern int vfp_restore_user_hwstate(struct user_vfp __user *,
 #define TIF_USING_IWMMXT	17
 #define TIF_MEMDIE		18	/* is terminating due to OOM killer */
 #define TIF_RESTORE_SIGMASK	20
-#define TIF_SWITCH_MM		22	/* deferred switch_mm */
 #ifdef CONFIG_IPIPE
-#define TIF_MMSWITCH_INT	23
+#define TIF_MMSWITCH_INT	22
 #ifdef CONFIG_ARM_FCSE
-#define TIF_SWITCHED		24
+#define TIF_SWITCHED		23
 #endif /* CONFIG_ARM_FCSE */
 #endif /* CONFIG_IPIPE */
 

@@ -60,6 +60,7 @@ BEGIN {
     driver_arch["cpuidle/Kconfig"]="noarch"
 
     driver_arch["clk/mxs/clk-imx28.c"]="arm"
+    driver_arch["clocksource/arm_arch_timer.c"]="arm"
     driver_arch["clocksource/mxs_timer.c"]="arm"
     driver_arch["gpio/gpio-mxc.c"]="arm"
     driver_arch["gpio/gpio-omap.c"]="arm"
@@ -68,6 +69,7 @@ BEGIN {
     driver_arch["irqchip/irq-versatile-fpga.c"]="arm"
     driver_arch["irqchip/spear-shirq.c"]="arm"
     driver_arch["irqchip/irq-mxs.c"]="arm"
+    driver_arch["irqchip/irq-s3c24xx.c"]="arm"
     driver_arch["mfd/twl4030-irq.c"]="arm"
     driver_arch["mfd/twl6030-irq.c"]="arm"
     driver_arch["irqchip/irq-gic.c"]="arm"
