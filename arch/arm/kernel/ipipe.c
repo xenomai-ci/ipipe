@@ -604,7 +604,7 @@ EXPORT_SYMBOL_GPL(irq_desc);
 EXPORT_SYMBOL_GPL(check_and_switch_context);
 #endif /* CONFIG_CPU_HAS_ASID */
 
-#ifdef CONFIG_SMP
+#if defined(CONFIG_SMP) && defined(CONFIG_IPIPE_LEGACY)
 EXPORT_SYMBOL_GPL(__cpu_logical_map);
 #endif /* CONFIG_IPIPE */
 

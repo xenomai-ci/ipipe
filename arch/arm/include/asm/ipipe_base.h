@@ -42,6 +42,7 @@ extern unsigned __ipipe_first_ipi;
 
 #define IPIPE_LAST_IPI		IPIPE_SERVICE_VNMI
 
+#ifdef CONFIG_IPIPE_LEGACY
 #define hard_smp_processor_id()						\
 	({								\
 		unsigned int cpunum;					\
@@ -54,6 +55,9 @@ extern unsigned __ipipe_first_ipi;
 				      : "=r" (cpunum));			\
 		cpunum &= 0xFF;						\
 	})
+#else /* !legacy */
+#define hard_smp_processor_id() raw_smp_processor_id()
+#endif /* !legacy */
 
 extern u32 __cpu_logical_map[];
 #define ipipe_processor_id()  (__cpu_logical_map[hard_smp_processor_id()])
