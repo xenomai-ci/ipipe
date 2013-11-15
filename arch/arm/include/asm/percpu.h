@@ -43,7 +43,7 @@ static inline unsigned long __my_cpu_offset(void)
 }
 #define __my_cpu_offset __my_cpu_offset()
 #else
-#if defined(CONFIG_SMP) && defined(CONFIG_IPIPE)
+#if defined(CONFIG_SMP) && defined(CONFIG_IPIPE_LEGACY)
 #define __my_cpu_offset (per_cpu_offset(ipipe_processor_id()))
 #endif /* SMP && IPIPE */
 
