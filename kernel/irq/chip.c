@@ -638,9 +638,11 @@ handle_percpu_irq(unsigned int irq, struct irq_desc *desc)
 
 	handle_irq_event_percpu(desc, desc->action);
 
-	if (cpumask_test_cpu(smp_processor_id(), desc->percpu_enabled) &&
+	if ((desc->percpu_enabled == NULL ||
+	     cpumask_test_cpu(smp_processor_id(), desc->percpu_enabled)) &&
 	    !irqd_irq_masked(&desc->irq_data) &&
-	    !desc->threads_oneshot)
+	    !desc->threads_oneshot &&
+	    desc->ipipe_end)
 		desc->ipipe_end(desc->irq_data.irq, desc);
 #else
 	if (chip->irq_ack)
@@ -689,10 +691,11 @@ void handle_percpu_devid_irq(unsigned int irq, struct irq_desc *desc)
 	if (chip->irq_eoi)
 		chip->irq_eoi(&desc->irq_data);
 #else
-	;
-	if (cpumask_test_cpu(smp_processor_id(), desc->percpu_enabled) && 
+	if ((desc->percpu_enabled == NULL ||
+	     cpumask_test_cpu(smp_processor_id(), desc->percpu_enabled)) && 
 	    !irqd_irq_masked(&desc->irq_data) &&
-	    !desc->threads_oneshot)
+	    !desc->threads_oneshot &&
+	    desc->ipipe_end)
 		desc->ipipe_end(desc->irq_data.irq, desc);
 #endif
 }
