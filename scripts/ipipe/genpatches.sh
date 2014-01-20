@@ -65,6 +65,7 @@ BEGIN {
     driver_arch["gpio/gpio-omap.c"]="arm"
     driver_arch["gpio/gpio-pxa.c"]="arm"
     driver_arch["gpio/gpio-sa1100.c"]="arm"
+    driver_arch["gpio/gpio-mxs.c"]="arm"
     driver_arch["irqchip/irq-versatile-fpga.c"]="arm"
     driver_arch["irqchip/spear-shirq.c"]="arm"
     driver_arch["mfd/twl4030-irq.c"]="arm"
@@ -82,6 +83,7 @@ BEGIN {
     driver_arch["clocksource/Makefile"]="x86"
     driver_arch["clocksource/ipipe_i486_tsc_emu.S"]="x86"
     driver_arch["pci/htirq.c"]="x86"
+    driver_arch["gpu/drm/i915/i915_gem.c"]="x86"
 }
 
 match($0, /^diff --git a\/arch\/([^ \t\/]*)/) {
