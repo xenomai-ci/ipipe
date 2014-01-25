@@ -427,6 +427,7 @@ __irq_usr:
 	kuser_cmpxchg_check
 	irq_handler
 #ifdef CONFIG_IPIPE
+ THUMB(	it ne)
 	bne	__ipipe_ret_to_user_irqs_disabled
 #endif	/* CONFIG_IPIPE */
 	get_thread_info tsk
@@ -724,6 +725,7 @@ ENTRY(ret_from_exception)
 	disable_irq
 	bl	__ipipe_check_root
 	cmp     r0, #1
+ THUMB(	it ne)
 	bne	__ipipe_ret_to_user_irqs_disabled  @ Fast exit path over non-root domains
 #endif /* CONFIG_IPIPE */
 	get_thread_info tsk
