@@ -348,12 +348,12 @@ int ipipe_timer_start(void (*tick_handler)(void),
 
 	flags = ipipe_critical_enter(NULL);
 
-	if (cpu == 0 || timer->irq != per_cpu(ipipe_percpu.hrtimer_irq, 0)) {
-		ret = ipipe_request_irq(ipipe_head_domain, timer->irq,
-				       (ipipe_irq_handler_t)tick_handler,
-				       NULL, __ipipe_ack_hrtimer_irq);
-		if (ret < 0)
-			goto done;
+	ret = ipipe_request_irq(ipipe_head_domain, timer->irq,
+				(ipipe_irq_handler_t)tick_handler,
+				NULL, __ipipe_ack_hrtimer_irq);
+	if (ret < 0 && ret != -EBUSY) {
+		ipipe_critical_exit(flags);
+		return ret;
 	}
 
 #ifdef CONFIG_GENERIC_CLOCKEVENTS
@@ -376,7 +376,6 @@ int ipipe_timer_start(void (*tick_handler)(void),
 	ret = 0;
 #endif /* CONFIG_GENERIC_CLOCKEVENTS */
 
-  done:
 	ipipe_critical_exit(flags);
 
 	desc = irq_to_desc(timer->irq);
