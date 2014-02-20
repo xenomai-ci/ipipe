@@ -476,14 +476,16 @@ EXPORT_SYMBOL_GPL(__ipipe_restore_head);
 void __ipipe_spin_lock_irq(ipipe_spinlock_t *lock)
 {
 	hard_local_irq_disable();
-	arch_spin_lock(&lock->arch_lock);
+	if (ipipe_smp_p)
+		arch_spin_lock(&lock->arch_lock);
 	__set_bit(IPIPE_STALL_FLAG, &__ipipe_current_context->status);
 }
 EXPORT_SYMBOL_GPL(__ipipe_spin_lock_irq);
 
 void __ipipe_spin_unlock_irq(ipipe_spinlock_t *lock)
 {
-	arch_spin_unlock(&lock->arch_lock);
+	if (ipipe_smp_p)
+		arch_spin_unlock(&lock->arch_lock);
 	__clear_bit(IPIPE_STALL_FLAG, &__ipipe_current_context->status);
 	hard_local_irq_enable();
 }
@@ -495,7 +497,8 @@ unsigned long __ipipe_spin_lock_irqsave(ipipe_spinlock_t *lock)
 	int s;
 
 	flags = hard_local_irq_save();
-	arch_spin_lock(&lock->arch_lock);
+	if (ipipe_smp_p)
+		arch_spin_lock(&lock->arch_lock);
 	s = __test_and_set_bit(IPIPE_STALL_FLAG, &__ipipe_current_context->status);
 
 	return arch_mangle_irq_bits(s, flags);
@@ -509,7 +512,7 @@ int __ipipe_spin_trylock_irqsave(ipipe_spinlock_t *lock,
 	int s;
 
 	flags = hard_local_irq_save();
-	if (!arch_spin_trylock(&lock->arch_lock)) {
+	if (ipipe_smp_p && !arch_spin_trylock(&lock->arch_lock)) {
 		hard_local_irq_restore(flags);
 		return 0;
 	}
@@ -523,7 +526,8 @@ EXPORT_SYMBOL_GPL(__ipipe_spin_trylock_irqsave);
 void __ipipe_spin_unlock_irqrestore(ipipe_spinlock_t *lock,
 				    unsigned long x)
 {
-	arch_spin_unlock(&lock->arch_lock);
+	if (ipipe_smp_p)
+		arch_spin_unlock(&lock->arch_lock);
 	if (!arch_demangle_irq_bits(&x))
 		__clear_bit(IPIPE_STALL_FLAG, &__ipipe_current_context->status);
 	hard_local_irq_restore(x);
@@ -535,7 +539,7 @@ int __ipipe_spin_trylock_irq(ipipe_spinlock_t *lock)
 	unsigned long flags;
 
 	flags = hard_local_irq_save();
-	if (!arch_spin_trylock(&lock->arch_lock)) {
+	if (ipipe_smp_p && !arch_spin_trylock(&lock->arch_lock)) {
 		hard_local_irq_restore(flags);
 		return 0;
 	}
@@ -547,7 +551,8 @@ EXPORT_SYMBOL_GPL(__ipipe_spin_trylock_irq);
 
 void __ipipe_spin_unlock_irqbegin(ipipe_spinlock_t *lock)
 {
-	arch_spin_unlock(&lock->arch_lock);
+	if (ipipe_smp_p)
+		arch_spin_unlock(&lock->arch_lock);
 }
 
 void __ipipe_spin_unlock_irqcomplete(unsigned long x)
@@ -1457,7 +1462,6 @@ void __ipipe_do_critical_sync(unsigned int irq, void *cookie)
 
 	cpu_clear(cpu, __ipipe_cpu_sync_map);
 }
-
 #endif	/* CONFIG_SMP */
 
 unsigned long ipipe_critical_enter(void (*syncfn)(void))
