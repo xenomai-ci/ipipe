@@ -55,12 +55,38 @@ extern unsigned __ipipe_first_ipi;
 				      : "=r" (cpunum));			\
 		cpunum &= 0xFF;						\
 	})
-#else /* !legacy */
-#define hard_smp_processor_id() raw_smp_processor_id()
-#endif /* !legacy */
-
 extern u32 __cpu_logical_map[];
 #define ipipe_processor_id()  (__cpu_logical_map[hard_smp_processor_id()])
+
+#else /* !legacy */
+#define hard_smp_processor_id()	raw_smp_processor_id()
+
+#ifdef CONFIG_SMP_ON_UP
+unsigned __ipipe_processor_id(void);
+
+#define ipipe_processor_id()						\
+	({								\
+		register unsigned int cpunum __asm__ ("r0");		\
+		register unsigned int r1 __asm__ ("r1");		\
+		register unsigned int r2 __asm__ ("r2");		\
+		register unsigned int r3 __asm__ ("r3");		\
+		register unsigned int ip __asm__ ("ip");		\
+		register unsigned int lr __asm__ ("lr");		\
+		__asm__ __volatile__ ("\n"				\
+			"1:	bl __ipipe_processor_id\n"		\
+			"	.pushsection \".alt.smp.init\", \"a\"\n" \
+			"	.long	1b\n"				\
+			"	mov	%0, #0\n"			\
+			"	.popsection"				\
+				: "=r"(cpunum),	"=r"(r1), "=r"(r2), "=r"(r3), \
+				  "=r"(ip), "=r"(lr)			\
+				: /* */ : "cc");			\
+		cpunum;						\
+	})
+#else /* !SMP_ON_UP */
+#define ipipe_processor_id() raw_smp_processor_id()
+#endif /* !SMP_ON_UP */
+#endif /* !legacy */
 
 #define IPIPE_ARCH_HAVE_VIRQ_IPI
 

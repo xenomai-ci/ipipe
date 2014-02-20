@@ -39,6 +39,7 @@ extern unsigned long arm_return_addr(int level);
 #define __BUILTIN_RETURN_ADDRESS1 (0)
 #endif
 
+#include <linux/jump_label.h>
 #include <linux/ipipe_trace.h>
 
 #define IPIPE_CORE_RELEASE	1
@@ -198,6 +199,11 @@ static inline void ipipe_handle_multi_ipi(int irq, struct pt_regs *regs)
 {
 	__ipipe_grab_ipi(irq, regs);
 }
+
+#ifdef CONFIG_SMP_ON_UP
+extern struct static_key __ipipe_smp_key;
+#define ipipe_smp_p (static_key_true(&__ipipe_smp_key))
+#endif /* SMP_ON_UP */
 #else /* !CONFIG_SMP */
 #define __ipipe_early_core_setup()	do { } while(0)
 #define __ipipe_hook_critical_ipi(ipd)	do { } while(0)
