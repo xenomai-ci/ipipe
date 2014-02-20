@@ -277,12 +277,18 @@ static inline int ipipe_test_foreign_stack(void)
 #endif
 
 #ifdef CONFIG_SMP
+#ifndef ipipe_smp_p
+#define ipipe_smp_p (1)
+static inline void ipipe_disable_smp(void) { }
+#endif
 void ipipe_set_irq_affinity(unsigned int irq, cpumask_t cpumask);
 void ipipe_send_ipi(unsigned int ipi, cpumask_t cpumask);
 #else  /* !CONFIG_SMP */
+#define ipipe_smp_p (0)
 static inline
 void ipipe_set_irq_affinity(unsigned int irq, cpumask_t cpumask) { }
 static inline void ipipe_send_ipi(unsigned int ipi, cpumask_t cpumask) { }
+static inline void ipipe_disable_smp(void) { }
 #endif	/* CONFIG_SMP */
 
 static inline void ipipe_restore_root_nosync(unsigned long x)
