@@ -206,6 +206,26 @@ void __ipipe_send_vnmi(void (*fn)(void *), cpumask_t cpumask, void *arg)
 EXPORT_SYMBOL_GPL(__ipipe_send_vnmi);
 #endif	/* CONFIG_SMP */
 
+#ifdef CONFIG_SMP_ON_UP
+struct static_key __ipipe_smp_key = STATIC_KEY_INIT_TRUE;
+
+unsigned __ipipe_processor_id(void)
+{
+	return raw_smp_processor_id();
+}
+EXPORT_SYMBOL_GPL(__ipipe_processor_id);
+
+static int ipipe_disable_smp(void)
+{
+	if (num_online_cpus() == 1) {
+		printk("I-pipe: disabling SMP code\n");
+		static_key_slow_dec(&__ipipe_smp_key);
+	}
+	return 0;
+}
+arch_initcall(ipipe_disable_smp);
+#endif /* SMP_ON_UP */
+
 /*
  * ipipe_raise_irq() -- Push the interrupt at front of the pipeline
  * just like if it has been actually received from a hw source. Also
