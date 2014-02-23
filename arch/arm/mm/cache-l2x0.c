@@ -29,8 +29,10 @@
 #include "cache-aurora-l2.h"
 
 #ifndef CONFIG_IPIPE
+int l2x0_wa = 1;
 #define SPINLOCK_SECTION_LEN	4096UL
 #else /* CONFIG_IPIPE */
+int l2x0_wa = 0;
 #define SPINLOCK_SECTION_LEN	512UL
 #endif /* CONFIG_IPIPE */
 
@@ -55,6 +57,13 @@ struct l2x0_of_data {
 	void (*save)(void);
 	struct outer_cache_fns outer_cache;
 };
+
+static int __init l2x0_setup_wa(char *str)
+{
+	l2x0_wa = simple_strtol(str, NULL, 0);
+	return 0;
+}
+early_param("l2x0_write_allocate", l2x0_setup_wa);
 
 static bool of_init = false;
 
@@ -377,6 +386,10 @@ void __init l2x0_init(void __iomem *base, u32 aux_val, u32 aux_mask)
 	int ways;
 	int way_size_shift = L2X0_WAY_SIZE_SHIFT;
 	const char *type;
+
+	aux_mask &= ~(3 << 23);
+	aux_val &= ~(3 << 23);
+	aux_val |= (!l2x0_wa) << 23;
 
 	l2x0_base = base;
 	if (cache_id_part_number_from_dt)
