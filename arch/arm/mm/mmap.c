@@ -159,6 +159,7 @@ arch_get_unmapped_area_topdown(struct file *filp, const unsigned long addr0,
 	}
 
 	info.flags = VM_UNMAPPED_AREA_TOPDOWN;
+<<<<<<< HEAD
 	info.low_limit = PAGE_SIZE;
 
 	if (fcse()) {
@@ -171,6 +172,10 @@ arch_get_unmapped_area_topdown(struct file *filp, const unsigned long addr0,
 		if (mm->mmap_base > bottom)
 			mm->mmap_base -= shift;
 	}
+=======
+	info.length = len;
+	info.low_limit = FIRST_USER_ADDRESS;
+>>>>>>> v3.10.32
 	info.high_limit = mm->mmap_base;
 
 	addr = vm_unmapped_area(&info);
