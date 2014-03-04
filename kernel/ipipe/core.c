@@ -28,6 +28,7 @@
 #include <linux/bitops.h>
 #include <linux/tick.h>
 #include <linux/interrupt.h>
+#include <linux/uaccess.h>
 #ifdef CONFIG_PROC_FS
 #include <linux/proc_fs.h>
 #include <linux/seq_file.h>
