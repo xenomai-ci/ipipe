@@ -218,8 +218,13 @@ EXPORT_SYMBOL_GPL(__ipipe_processor_id);
 static int ipipe_disable_smp(void)
 {
 	if (num_online_cpus() == 1) {
+		unsigned long flags;
+
 		printk("I-pipe: disabling SMP code\n");
+		
+		flags = hard_local_irq_save();
 		static_key_slow_dec(&__ipipe_smp_key);
+		hard_local_irq_restore(flags);
 	}
 	return 0;
 }
