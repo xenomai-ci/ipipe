@@ -159,8 +159,6 @@ arch_get_unmapped_area_topdown(struct file *filp, const unsigned long addr0,
 	}
 
 	info.flags = VM_UNMAPPED_AREA_TOPDOWN;
-<<<<<<< HEAD
-	info.low_limit = PAGE_SIZE;
 
 	if (fcse()) {
 		unsigned long top, bottom, shift;
@@ -172,10 +170,8 @@ arch_get_unmapped_area_topdown(struct file *filp, const unsigned long addr0,
 		if (mm->mmap_base > bottom)
 			mm->mmap_base -= shift;
 	}
-=======
-	info.length = len;
+
 	info.low_limit = FIRST_USER_ADDRESS;
->>>>>>> v3.10.32
 	info.high_limit = mm->mmap_base;
 
 	addr = vm_unmapped_area(&info);
@@ -188,7 +184,7 @@ arch_get_unmapped_area_topdown(struct file *filp, const unsigned long addr0,
 	 * can happen with large stack limits and large mmap()
 	 * allocations.
 	 */
-	if (!fcse() && addr & ~PAGE_MASK) {
+	if (!fcse() && (addr & ~PAGE_MASK)) {
 		VM_BUG_ON(addr != -ENOMEM);
 		info.flags = 0;
 		info.low_limit = mm->mmap_base;
