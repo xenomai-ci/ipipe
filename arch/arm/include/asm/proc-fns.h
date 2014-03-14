@@ -61,9 +61,9 @@ extern struct processor {
 	 * Set the page table
 	 */
 #ifndef CONFIG_ARM_FCSE_BEST_EFFORT
-	void (*switch_mm)(unsigned long pgd_phys, struct mm_struct *mm);
+	void (*switch_mm)(phys_addr_t pgd_phys, struct mm_struct *mm);
 #else /* !CONFIG_ARM_FCSE_BEST_EFFORT */
-	void (*switch_mm)(unsigned long pgd_phys,
+	void (*switch_mm)(phys_addr_t pgd_phys,
 			  struct mm_struct *mm, unsigned flush);
 #endif /* !CONFIG_ARM_FCSE_BEST_EFFORT */
 	/*
@@ -88,9 +88,9 @@ extern void cpu_proc_fin(void);
 extern int cpu_do_idle(void);
 extern void cpu_dcache_clean_area(void *, int);
 #ifndef CONFIG_ARM_FCSE_BEST_EFFORT
-extern void cpu_do_switch_mm(unsigned long pgd_phys, struct mm_struct *mm);
+extern void cpu_do_switch_mm(phys_addr_t pgd_phys, struct mm_struct *mm);
 #else /* !CONFIG_ARM_FCSE_BEST_EFFORT */
-extern void cpu_do_switch_mm(unsigned long pgd_phys,
+extern void cpu_do_switch_mm(phys_addr_t pgd_phys,
 			     struct mm_struct *mm, unsigned flush);
 #endif /* !CONFIG_ARM_FCSE_BEST_EFFORT */
 #ifdef CONFIG_ARM_LPAE
@@ -135,13 +135,25 @@ extern void cpu_resume(void);
 #endif /* CONFIG_ARM_FCSE_BEST_EFFORT */
 
 #ifdef CONFIG_ARM_LPAE
+
+#define cpu_get_ttbr(nr)					\
+	({							\
+		u64 ttbr;					\
+		__asm__("mrrc	p15, " #nr ", %Q0, %R0, c2"	\
+			: "=r" (ttbr));				\
+		ttbr;						\
+	})
+
+#define cpu_set_ttbr(nr, val)					\
+	do {							\
+		u64 ttbr = val;					\
+		__asm__("mcrr	p15, " #nr ", %Q0, %R0, c2"	\
+			: : "r" (ttbr));			\
+	} while (0)
+
 #define cpu_get_pgd()	\
 	({						\
-		unsigned long pg, pg2;			\
-		__asm__("mrrc	p15, 0, %0, %1, c2"	\
-			: "=r" (pg), "=r" (pg2)		\
-			:				\
-			: "cc");			\
+		u64 pg = cpu_get_ttbr(0);		\
 		pg &= ~(PTRS_PER_PGD*sizeof(pgd_t)-1);	\
 		(pgd_t *)phys_to_virt(pg);		\
 	})
@@ -155,6 +167,10 @@ extern void cpu_resume(void);
 		(pgd_t *)phys_to_virt(pg);		\
 	})
 #endif
+
+#else	/*!CONFIG_MMU */
+
+#define cpu_switch_mm(pgd,mm)	{ }
 
 #endif
 

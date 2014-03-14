@@ -26,10 +26,10 @@
 #include <linux/clockchips.h>
 #include <linux/clk.h>
 #include <linux/err.h>
+#include <linux/sched_clock.h>
 #include <linux/ipipe.h>
 #include <linux/ipipe_tickdev.h>
 
-#include <asm/sched_clock.h>
 #include <asm/mach/time.h>
 
 #include "common.h"

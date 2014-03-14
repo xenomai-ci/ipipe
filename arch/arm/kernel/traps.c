@@ -36,8 +36,6 @@
 #include <asm/tls.h>
 #include <asm/system_misc.h>
 
-#include "signal.h"
-
 static const char *handler[]= { "prefetch abort", "data abort", "address exception", "interrupt" };
 
 void *vectors_page;
@@ -595,7 +593,7 @@ asmlinkage int arm_syscall(int no, struct pt_regs *regs)
 		return regs->ARM_r0;
 
 	case NR(set_tls):
-		thread->tp_value = regs->ARM_r0;
+		thread->tp_value[0] = regs->ARM_r0;
 		if (tls_emu)
 			return 0;
 		if (has_tls_reg) {
@@ -713,7 +711,7 @@ static int get_tp_trap(struct pt_regs *regs, unsigned int instr)
 	int reg = (instr >> 12) & 15;
 	if (reg == 15)
 		return 1;
-	regs->uregs[reg] = current_thread_info()->tp_value;
+	regs->uregs[reg] = current_thread_info()->tp_value[0];
 	regs->ARM_pc += 4;
 	return 0;
 }
@@ -814,21 +812,34 @@ void __init trap_init(void)
 	return;
 }
 
-static void __init kuser_get_tls_init(unsigned long vectors)
+#ifdef CONFIG_KUSER_HELPERS
+static void __init kuser_init(void *vectors)
 {
+	extern char __kuser_helper_start[], __kuser_helper_end[];
+	int kuser_sz = __kuser_helper_end - __kuser_helper_start;
+
+	memcpy(vectors + 0x1000 - kuser_sz, __kuser_helper_start, kuser_sz);
+
 	/*
 	 * vectors + 0xfe0 = __kuser_get_tls
 	 * vectors + 0xfe8 = hardware TLS instruction at 0xffff0fe8
 	 */
 	if (tls_emu || has_tls_reg)
-		memcpy((void *)vectors + 0xfe0, (void *)vectors + 0xfe8, 4);
+		memcpy(vectors + 0xfe0, vectors + 0xfe8, 4);
 }
+#else
+static void __init kuser_init(void *vectors)
+{
+}
+#endif
 
 void __init early_trap_init(void *vectors_base)
 {
+#ifndef CONFIG_CPU_V7M
 	unsigned long vectors = (unsigned long)vectors_base;
 	extern char __stubs_start[], __stubs_end[];
 	extern char __vectors_start[], __vectors_end[];
+<<<<<<< HEAD
 #ifndef CONFIG_IPIPE
 	extern char __kuser_helper_start[], __kuser_helper_end[];
 	int kuser_sz = __kuser_helper_end - __kuser_helper_start;
@@ -836,8 +847,20 @@ void __init early_trap_init(void *vectors_base)
 	extern char __ipipe_tsc_area_start[], __kuser_helper_end[];
 	int kuser_sz = __kuser_helper_end - __ipipe_tsc_area_start;
 #endif /* !CONFIG_IPIPE */
+=======
+	unsigned i;
+>>>>>>> v3.11
 
 	vectors_page = vectors_base;
+
+	/*
+	 * Poison the vectors page with an undefined instruction.  This
+	 * instruction is chosen to be undefined for both ARM and Thumb
+	 * ISAs.  The Thumb version is an undefined instruction with a
+	 * branch back to the undefined instruction.
+	 */
+	for (i = 0; i < PAGE_SIZE / sizeof(u32); i++)
+		((u32 *)vectors_base)[i] = 0xe7fddef1;
 
 	/*
 	 * Copy the vectors, stubs and kuser helpers (in entry-armv.S)
@@ -845,6 +868,7 @@ void __init early_trap_init(void *vectors_base)
 	 * are visible to the instruction stream.
 	 */
 	memcpy((void *)vectors, __vectors_start, __vectors_end - __vectors_start);
+<<<<<<< HEAD
 	memcpy((void *)vectors + 0x200, __stubs_start, __stubs_end - __stubs_start);
 #ifndef CONFIG_IPIPE
 	memcpy((void *)vectors + 0x1000 - kuser_sz, __kuser_helper_start, kuser_sz);
@@ -852,19 +876,19 @@ void __init early_trap_init(void *vectors_base)
 	BUG_ON(0x1000 - kuser_sz < 0x200 + __stubs_end - __stubs_start);
 	memcpy((void *)vectors + 0x1000 - kuser_sz, __ipipe_tsc_area_start, kuser_sz);
 #endif /* !CONFIG_IPIPE */
+=======
+	memcpy((void *)vectors + 0x1000, __stubs_start, __stubs_end - __stubs_start);
+>>>>>>> v3.11
 
-	/*
-	 * Do processor specific fixups for the kuser helpers
-	 */
-	kuser_get_tls_init(vectors);
+	kuser_init(vectors_base);
 
-	/*
-	 * Copy signal return handlers into the vector page, and
-	 * set sigreturn to be a pointer to these.
-	 */
-	memcpy((void *)(vectors + KERN_SIGRETURN_CODE - CONFIG_VECTORS_BASE),
-	       sigreturn_codes, sizeof(sigreturn_codes));
-
-	flush_icache_range(vectors, vectors + PAGE_SIZE);
+	flush_icache_range(vectors, vectors + PAGE_SIZE * 2);
 	modify_domain(DOMAIN_USER, DOMAIN_CLIENT);
+#else /* ifndef CONFIG_CPU_V7M */
+	/*
+	 * on V7-M there is no need to copy the vector table to a dedicated
+	 * memory area. The address is configurable and so a table in the kernel
+	 * image can be used.
+	 */
+#endif
 }

@@ -16,13 +16,13 @@
 #include <linux/init.h>
 #include <linux/interrupt.h>
 #include <linux/clockchips.h>
+#include <linux/sched_clock.h>
 #include <linux/ipipe_tickdev.h>
 #include <linux/ipipe.h>
 
 #include <asm/div64.h>
 #include <asm/mach/irq.h>
 #include <asm/mach/time.h>
-#include <asm/sched_clock.h>
 #include <mach/regs-ost.h>
 #include <mach/irqs.h>
 
