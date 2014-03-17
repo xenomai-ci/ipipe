@@ -796,6 +796,7 @@ config NEEDS_SYSCALL_FOR_CMPXCHG
 
 config NEED_KUSER_HELPERS
 	bool
+	default y if IPIPE
 
 config KUSER_HELPERS
 	bool "Enable kuser helpers in vector page" if !NEED_KUSER_HELPERS

@@ -815,10 +815,22 @@ void __init trap_init(void)
 #ifdef CONFIG_KUSER_HELPERS
 static void __init kuser_init(void *vectors)
 {
+#ifndef CONFIG_IPIPE
 	extern char __kuser_helper_start[], __kuser_helper_end[];
 	int kuser_sz = __kuser_helper_end - __kuser_helper_start;
+#else /* !CONFIG_IPIPE */
+	extern char __ipipe_tsc_area_start[], __kuser_helper_end[];
+	int kuser_sz = __kuser_helper_end - __ipipe_tsc_area_start;
+	extern char __vectors_start[], __vectors_end[];
+#endif /* !CONFIG_IPIPE */
 
+#ifndef CONFIG_IPIPE
 	memcpy(vectors + 0x1000 - kuser_sz, __kuser_helper_start, kuser_sz);
+sz);
+#else /* !CONFIG_IPIPE */
+	BUG_ON(0x1000 - kuser_sz < __vectors_end - __vectors_start);
+	memcpy(vectors + 0x1000 - kuser_sz, __ipipe_tsc_area_start, kuser_sz);
+#endif /* !CONFIG_IPIPE */
 
 	/*
 	 * vectors + 0xfe0 = __kuser_get_tls
@@ -839,17 +851,7 @@ void __init early_trap_init(void *vectors_base)
 	unsigned long vectors = (unsigned long)vectors_base;
 	extern char __stubs_start[], __stubs_end[];
 	extern char __vectors_start[], __vectors_end[];
-<<<<<<< HEAD
-#ifndef CONFIG_IPIPE
-	extern char __kuser_helper_start[], __kuser_helper_end[];
-	int kuser_sz = __kuser_helper_end - __kuser_helper_start;
-#else /* !CONFIG_IPIPE */
-	extern char __ipipe_tsc_area_start[], __kuser_helper_end[];
-	int kuser_sz = __kuser_helper_end - __ipipe_tsc_area_start;
-#endif /* !CONFIG_IPIPE */
-=======
 	unsigned i;
->>>>>>> v3.11
 
 	vectors_page = vectors_base;
 
@@ -868,17 +870,7 @@ void __init early_trap_init(void *vectors_base)
 	 * are visible to the instruction stream.
 	 */
 	memcpy((void *)vectors, __vectors_start, __vectors_end - __vectors_start);
-<<<<<<< HEAD
-	memcpy((void *)vectors + 0x200, __stubs_start, __stubs_end - __stubs_start);
-#ifndef CONFIG_IPIPE
-	memcpy((void *)vectors + 0x1000 - kuser_sz, __kuser_helper_start, kuser_sz);
-#else /* !CONFIG_IPIPE */
-	BUG_ON(0x1000 - kuser_sz < 0x200 + __stubs_end - __stubs_start);
-	memcpy((void *)vectors + 0x1000 - kuser_sz, __ipipe_tsc_area_start, kuser_sz);
-#endif /* !CONFIG_IPIPE */
-=======
 	memcpy((void *)vectors + 0x1000, __stubs_start, __stubs_end - __stubs_start);
->>>>>>> v3.11
 
 	kuser_init(vectors_base);
 

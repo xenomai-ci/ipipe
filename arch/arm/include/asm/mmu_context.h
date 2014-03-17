@@ -59,8 +59,7 @@ check_and_switch_context(struct mm_struct *mm,
 		 * on non-ASID CPUs, the old mm will remain valid until the
 		 * finish_arch_post_lock_switch() call.
 		 */
-<<<<<<< HEAD
-		set_ti_thread_flag(task_thread_info(tsk), TIF_SWITCH_MM);
+		mm->context.switch_pending = 1;
 		return -EAGAIN;
 	} else {
 		cpu_switch_mm(mm->pgd, mm, fcse_switch_mm_start(mm));
@@ -76,11 +75,6 @@ static inline void deferred_switch_mm(struct mm_struct *next)
 {
 	cpu_switch_mm(next->pgd, next, fcse_switch_mm_start(next));
 	fcse_switch_mm_end(next);
-=======
-		mm->context.switch_pending = 1;
-	else
-		cpu_switch_mm(mm->pgd, mm);
->>>>>>> v3.11
 }
 #endif /* !I-pipe */
 
@@ -88,13 +82,6 @@ static inline void deferred_switch_mm(struct mm_struct *next)
 	finish_arch_post_lock_switch
 static inline void finish_arch_post_lock_switch(void)
 {
-<<<<<<< HEAD
-	if (test_and_clear_thread_flag(TIF_SWITCH_MM)) {
-		unsigned long flags;
-		ipipe_mm_switch_protect(flags);
-		deferred_switch_mm(current->mm);
-		ipipe_mm_switch_unprotect(flags);
-=======
 	struct mm_struct *mm = current->mm;
 
 	if (mm && mm->context.switch_pending) {
@@ -106,11 +93,13 @@ static inline void finish_arch_post_lock_switch(void)
 		 */
 		preempt_disable();
 		if (mm->context.switch_pending) {
+			unsigned long flags;
 			mm->context.switch_pending = 0;
-			cpu_switch_mm(mm->pgd, mm);
+			ipipe_mm_switch_protect(flags);
+			deferred_switch_mm(current->mm);
+			ipipe_mm_switch_unprotect(flags);
 		}
 		preempt_enable_no_resched();
->>>>>>> v3.11
 	}
 }
 #endif	/* CONFIG_MMU */
