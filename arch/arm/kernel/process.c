@@ -134,23 +134,18 @@ static void __ipipe_halt_root(void)
 {
 	struct ipipe_percpu_domain_data *p;
 
-	/* Emulate idle entry sequence over the root domain. */
-
+	/*
+	 * Emulate idle entry sequence over the root domain, which is
+	 * stalled on entry.
+	 */
 	hard_local_irq_disable();
 
 	p = ipipe_this_cpu_root_context();
-
-	trace_hardirqs_on();
 	__clear_bit(IPIPE_STALL_FLAG, &p->status);
 
-	if (unlikely(__ipipe_ipending_p(p))) {
+	if (unlikely(__ipipe_ipending_p(p)))
 		__ipipe_sync_stage();
-		hard_local_irq_enable();
-	} else {
-#ifdef CONFIG_IPIPE_TRACE_IRQSOFF
-		ipipe_trace_end(0x8000000E);
-#endif /* CONFIG_IPIPE_TRACE_IRQSOFF */
-		hard_local_irq_enable();
+	else {
 		if (arm_pm_idle)
 			arm_pm_idle();
 		else
@@ -175,6 +170,7 @@ static void default_idle(void)
 	if (!need_resched())
 		__ipipe_halt_root();
 
+	/* This will re-enable hard_irqs also with IPIPE */
 	local_irq_enable();
 }
 
