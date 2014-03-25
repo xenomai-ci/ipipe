@@ -259,11 +259,6 @@ int ipipe_get_sysinfo(struct ipipe_sysinfo *info)
 }
 EXPORT_SYMBOL_GPL(ipipe_get_sysinfo);
 
-static void __ipipe_ack_irq(unsigned irq, struct irq_desc *desc)
-{
-	desc->ipipe_ack(irq, desc);
-}
-
 struct ipipe_mach_pic_muter ipipe_pic_muter;
 EXPORT_SYMBOL_GPL(ipipe_pic_muter);
 
@@ -319,7 +314,7 @@ void __ipipe_enable_pipeline(void)
 		ipipe_request_irq(ipipe_root_domain,
 				  irq,
 				  (ipipe_irq_handler_t)__ipipe_do_IRQ,
-				  NULL, __ipipe_ack_irq);
+				  NULL, NULL);
 
 #ifdef CONFIG_SMP
 	__ipipe_ipis_request();
