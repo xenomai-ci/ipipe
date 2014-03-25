@@ -56,11 +56,6 @@ EXPORT_SYMBOL_GPL(__ipipe_core_clock);
 unsigned long __ipipe_freq_scale;
 EXPORT_SYMBOL_GPL(__ipipe_freq_scale);
 
-static void __ipipe_ack_irq(unsigned irq, struct irq_desc *desc)
-{
-	desc->ipipe_ack(irq, desc);
-}
-
 /*
  * __ipipe_enable_pipeline() -- We are running on the boot CPU, hw
  * interrupts are off, and secondary CPUs are still lost in space.
@@ -75,7 +70,7 @@ void __ipipe_enable_pipeline(void)
 	for (irq = 0; irq < NR_IRQS; ++irq)
 		ipipe_request_irq(ipipe_root_domain, irq,
 				  __ipipe_do_IRQ, NULL,
-				  __ipipe_ack_irq);
+				  NULL);
 }
 
 void __ipipe_handle_irq(unsigned int irq, struct pt_regs *regs) /* hw IRQs off */
