@@ -207,11 +207,6 @@ void __ipipe_early_core_setup(void)
 #endif
 }
 
-static void __ipipe_ack_irq(unsigned int irq, struct irq_desc *desc)
-{
-	desc->ipipe_ack(irq, desc);
-}
-
 /*
  * __ipipe_enable_pipeline() -- We are running on the boot CPU, hw
  * interrupts are off, and secondary CPUs are still lost in space.
@@ -232,7 +227,7 @@ void __ipipe_enable_pipeline(void)
 		ipipe_request_irq(ipipe_root_domain,
 				  irq,
 				  __ipipe_do_IRQ, NULL,
-				  __ipipe_ack_irq);
+				  NULL);
 	/*
 	 * We use a virtual IRQ to handle the timer irq (decrementer
 	 * trap) which was allocated early in
