@@ -92,11 +92,6 @@ asmlinkage void uv_bau_message_interrupt(struct pt_regs *regs);
 asmlinkage void smp_threshold_interrupt(void);
 #endif
 
-static void __ipipe_ack_irq(unsigned irq, struct irq_desc *desc)
-{
-	desc->ipipe_ack(irq, desc);
-}
-
 void __ipipe_do_IRQ(unsigned int irq, void *cookie)
 {
 	void (*handler)(struct pt_regs *regs);
@@ -233,7 +228,7 @@ void __init __ipipe_enable_pipeline(void)
 	for (irq = 0; irq < NR_IRQS; irq++)
 		ipipe_request_irq(ipipe_root_domain, irq,
 				  __ipipe_do_IRQ, do_IRQ,
-				  __ipipe_ack_irq);
+				  NULL);
 }
 
 #ifdef CONFIG_SMP
