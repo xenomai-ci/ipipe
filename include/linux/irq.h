@@ -538,7 +538,14 @@ extern int irq_set_irq_type(unsigned int irq, unsigned int type);
 extern int irq_set_msi_desc(unsigned int irq, struct msi_desc *entry);
 extern int irq_set_msi_desc_off(unsigned int irq_base, unsigned int irq_offset,
 				struct msi_desc *entry);
-extern struct irq_data *irq_get_irq_data(unsigned int irq) __attribute__((const));
+
+static inline __attribute__((const)) struct irq_data *
+irq_get_irq_data(unsigned int irq)
+{
+	struct irq_desc *desc = irq_to_desc(irq);
+
+	return desc ? &desc->irq_data : NULL;
+}
 
 static inline struct irq_chip *irq_get_chip(unsigned int irq)
 {
