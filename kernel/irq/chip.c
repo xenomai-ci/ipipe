@@ -145,14 +145,6 @@ int irq_set_chip_data(unsigned int irq, void *data)
 }
 EXPORT_SYMBOL(irq_set_chip_data);
 
-struct irq_data *irq_get_irq_data(unsigned int irq)
-{
-	struct irq_desc *desc = irq_to_desc(irq);
-
-	return desc ? &desc->irq_data : NULL;
-}
-EXPORT_SYMBOL_GPL(irq_get_irq_data);
-
 static void irq_state_clr_disabled(struct irq_desc *desc)
 {
 	irqd_clear(&desc->irq_data, IRQD_IRQ_DISABLED);
