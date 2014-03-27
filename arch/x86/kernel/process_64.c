@@ -51,9 +51,9 @@
 #include <asm/switch_to.h>
 
 asmlinkage extern void ret_from_fork(void);
-
-DEFINE_PER_CPU(unsigned long, old_rsp);
 asmlinkage extern void thread_return(void);
+
+asmlinkage DEFINE_PER_CPU(unsigned long, old_rsp);
 
 /* Prints also some state that isn't saved in the pt_regs */
 void __show_regs(struct pt_regs *regs, int all)
@@ -276,7 +276,7 @@ void start_thread_ia32(struct pt_regs *regs, u32 new_ip, u32 new_sp)
  * Kprobes not supported here. Set the probe on schedule instead.
  * Function graph tracer not supported too.
  */
-__notrace_funcgraph struct task_struct *
+__visible __notrace_funcgraph struct task_struct *
 __switch_to(struct task_struct *prev_p, struct task_struct *next_p)
 {
 	struct thread_struct *prev = &prev_p->thread;

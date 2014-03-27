@@ -44,6 +44,16 @@ struct cpu_context_save {
 	__u32	extra[2];		/* Xscale 'acc' register, etc */
 };
 
+struct arm_restart_block {
+	union {
+		/* For user cache flushing */
+		struct {
+			unsigned long start;
+			unsigned long end;
+		} cache;
+	};
+};
+
 /*
  * low level task data that entry.S needs immediate access to.
  * __switch_to() assumes cpu_context follows immediately after cpu_domain.
@@ -68,9 +78,11 @@ struct thread_info {
 #ifdef CONFIG_ARM_THUMBEE
 	unsigned long		thumbee_state;	/* ThumbEE Handler Base register */
 #endif
+	struct ipipe_threadinfo ipipe_data;
+
 	struct restart_block	restart_block;
 
-	struct ipipe_threadinfo ipipe_data;
+	struct arm_restart_block	arm_restart_block;
 };
 
 #define INIT_THREAD_INFO(tsk)						\

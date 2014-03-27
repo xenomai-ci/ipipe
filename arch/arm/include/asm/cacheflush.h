@@ -298,13 +298,13 @@ extern void flush_cache_page(struct vm_area_struct *vma, unsigned long user_addr
  * Harvard caches are synchronised for the user space address range.
  * This is used for the ARM private sys_cacheflush system call.
  */
-#define flush_cache_user_range(start, end)				\
+#define flush_cache_user_range(s, e)					\
 	({								\
 		struct mm_struct *_mm = current->mm;			\
-		unsigned long _start, _end;				\
-		_start = fcse_va_to_mva(_mm, start) & PAGE_MASK;	\
-		_end = PAGE_ALIGN(fcse_va_to_mva(_mm, end));		\
-		__cpuc_coherent_user_range(_start, _end);		\
+		unsigned long _s, _e;					\
+		_s = fcse_va_to_mva(_mm, s) & PAGE_MASK;		\
+		_e = PAGE_ALIGN(fcse_va_to_mva(_mm, e));		\
+		__cpuc_coherent_user_range(_s, _e);			\
 	})
 
 /*
@@ -393,7 +393,7 @@ static inline void flush_cache_vmap(unsigned long start, unsigned long end)
 		 * set_pte_at() called from vmap_pte_range() does not
 		 * have a DSB after cleaning the cache line.
 		 */
-		dsb();
+		dsb(ishst);
 }
 
 static inline void flush_cache_vunmap(unsigned long start, unsigned long end)

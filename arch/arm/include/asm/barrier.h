@@ -14,26 +14,45 @@
 #endif
 
 #if __LINUX_ARM_ARCH__ >= 7
+<<<<<<< HEAD
 #define isb() __asm__ __volatile__ ("isb" : : : "memory")
 #define dsb() __asm__ __volatile__ ("dsb" : : : "memory")
 #define DMB "dmb"
 #define DMB_IN
+=======
+#define isb(option) __asm__ __volatile__ ("isb " #option : : : "memory")
+#define dsb(option) __asm__ __volatile__ ("dsb " #option : : : "memory")
+#define dmb(option) __asm__ __volatile__ ("dmb " #option : : : "memory")
+>>>>>>> v3.12
 #elif defined(CONFIG_CPU_XSC3) || __LINUX_ARM_ARCH__ == 6
-#define isb() __asm__ __volatile__ ("mcr p15, 0, %0, c7, c5, 4" \
+#define isb(x) __asm__ __volatile__ ("mcr p15, 0, %0, c7, c5, 4" \
 				    : : "r" (0) : "memory")
-#define dsb() __asm__ __volatile__ ("mcr p15, 0, %0, c7, c10, 4" \
+#define dsb(x) __asm__ __volatile__ ("mcr p15, 0, %0, c7, c10, 4" \
 				    : : "r" (0) : "memory")
+<<<<<<< HEAD
 #define DMB "mcr p15, 0, %0, c7, c10, 5"
 #define DMB_IN "r" (0)
+=======
+#define dmb(x) __asm__ __volatile__ ("mcr p15, 0, %0, c7, c10, 5" \
+				    : : "r" (0) : "memory")
+>>>>>>> v3.12
 #elif defined(CONFIG_CPU_FA526)
-#define isb() __asm__ __volatile__ ("mcr p15, 0, %0, c7, c5, 4" \
+#define isb(x) __asm__ __volatile__ ("mcr p15, 0, %0, c7, c5, 4" \
 				    : : "r" (0) : "memory")
-#define dsb() __asm__ __volatile__ ("mcr p15, 0, %0, c7, c10, 4" \
+#define dsb(x) __asm__ __volatile__ ("mcr p15, 0, %0, c7, c10, 4" \
 				    : : "r" (0) : "memory")
+<<<<<<< HEAD
+=======
+#define dmb(x) __asm__ __volatile__ ("" : : : "memory")
+>>>>>>> v3.12
 #else
-#define isb() __asm__ __volatile__ ("" : : : "memory")
-#define dsb() __asm__ __volatile__ ("mcr p15, 0, %0, c7, c10, 4" \
+#define isb(x) __asm__ __volatile__ ("" : : : "memory")
+#define dsb(x) __asm__ __volatile__ ("mcr p15, 0, %0, c7, c10, 4" \
 				    : : "r" (0) : "memory")
+<<<<<<< HEAD
+=======
+#define dmb(x) __asm__ __volatile__ ("" : : : "memory")
+>>>>>>> v3.12
 #endif
 
 #ifdef DMB
@@ -48,7 +67,7 @@
 #elif defined(CONFIG_ARM_DMA_MEM_BUFFERABLE) || defined(CONFIG_SMP)
 #define mb()		do { dsb(); outer_sync(); } while (0)
 #define rmb()		dsb()
-#define wmb()		mb()
+#define wmb()		do { dsb(st); outer_sync(); } while (0)
 #else
 #define mb()		barrier()
 #define rmb()		barrier()
@@ -60,6 +79,7 @@
 #define smp_rmb()	barrier()
 #define smp_wmb()	barrier()
 #else
+<<<<<<< HEAD
 #ifdef CONFIG_THUMB2_KERNEL
 #define SMP_ONLY(smp) \
 	"9998:	" smp "\n"					\
@@ -85,6 +105,11 @@
 #define smp_rmb() dmb()
 #define smp_wmb() dmb()
 #endif
+=======
+#define smp_mb()	dmb(ish)
+#define smp_rmb()	smp_mb()
+#define smp_wmb()	dmb(ishst)
+>>>>>>> v3.12
 #endif
 
 #define read_barrier_depends()		do { } while(0)
