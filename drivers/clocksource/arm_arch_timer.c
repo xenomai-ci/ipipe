@@ -72,9 +72,6 @@ static bool arch_timer_mem_use_virtual;
  * Architected system timer support.
  */
 
-<<<<<<< HEAD
-static int arch_timer_ack(const int access)
-=======
 static __always_inline
 void arch_timer_reg_write(int access, enum arch_timer_reg reg, u32 val,
 			  struct clock_event_device *clk)
@@ -137,17 +134,14 @@ u32 arch_timer_reg_read(int access, enum arch_timer_reg reg,
 	return val;
 }
 
-static __always_inline irqreturn_t timer_handler(const int access,
-					struct clock_event_device *evt)
->>>>>>> v3.12
+static int arch_timer_ack(const int access, struct clock_event_device *evt)
 {
 	unsigned long ctrl;
 
 	ctrl = arch_timer_reg_read(access, ARCH_TIMER_REG_CTRL, evt);
 	if (ctrl & ARCH_TIMER_CTRL_IT_STAT) {
 		ctrl |= ARCH_TIMER_CTRL_IT_MASK;
-<<<<<<< HEAD
-		arch_timer_reg_write(access, ARCH_TIMER_REG_CTRL, ctrl);
+		arch_timer_reg_write(access, ARCH_TIMER_REG_CTRL, ctrl, evt);
 		return 1;
 	}
 	return 0;
@@ -166,12 +160,14 @@ static struct __ipipe_tscinfo tsc_info = {
 
 static void arch_itimer_ack_phys(void)
 {
-	arch_timer_ack(ARCH_TIMER_PHYS_ACCESS);
+	struct clock_event_device *evt = this_cpu_ptr(arch_timer_evt);
+	arch_timer_ack(ARCH_TIMER_PHYS_ACCESS, evt);
 }
 
 static void arch_itimer_ack_virt(void)
 {
-	arch_timer_ack(ARCH_TIMER_VIRT_ACCESS);
+	struct clock_event_device *evt = this_cpu_ptr(arch_timer_evt);
+	arch_timer_ack(ARCH_TIMER_VIRT_ACCESS, evt);
 }
 #endif /* CONFIG_IPIPE */
 
@@ -181,7 +177,7 @@ static inline irqreturn_t timer_handler(int irq, const int access,
 	if (clockevent_ipipe_stolen(evt))
 		goto stolen;
 
-	if (arch_timer_ack(access)) {
+	if (arch_timer_ack(access, evt)) {
 #ifdef CONFIG_IPIPE
 		struct ipipe_timer *itimer = __this_cpu_ptr(&arch_itimer);
 		if (itimer->irq != irq)
@@ -189,9 +185,6 @@ static inline irqreturn_t timer_handler(int irq, const int access,
 #endif /* CONFIG_IPIPE */
 	  stolen:
 		__ipipe_tsc_update();
-=======
-		arch_timer_reg_write(access, ARCH_TIMER_REG_CTRL, ctrl, evt);
->>>>>>> v3.12
 		evt->event_handler(evt);
 		return IRQ_HANDLED;
 	}
@@ -217,14 +210,14 @@ static irqreturn_t arch_timer_handler_phys_mem(int irq, void *dev_id)
 {
 	struct clock_event_device *evt = dev_id;
 
-	return timer_handler(ARCH_TIMER_MEM_PHYS_ACCESS, evt);
+	return timer_handler(irq, ARCH_TIMER_MEM_PHYS_ACCESS, evt);
 }
 
 static irqreturn_t arch_timer_handler_virt_mem(int irq, void *dev_id)
 {
 	struct clock_event_device *evt = dev_id;
 
-	return timer_handler(ARCH_TIMER_MEM_VIRT_ACCESS, evt);
+	return timer_handler(irq, ARCH_TIMER_MEM_VIRT_ACCESS, evt);
 }
 
 static __always_inline void timer_set_mode(const int access, int mode,
@@ -342,10 +335,6 @@ static void __arch_timer_setup(unsigned type,
 
 	clk->set_mode(CLOCK_EVT_MODE_SHUTDOWN, clk);
 
-	clockevents_config_and_register(clk, arch_timer_rate, 0xf, 0x7fffffff);
-}
-
-<<<<<<< HEAD
 #ifdef CONFIG_IPIPE
 	clk->ipipe_timer = __this_cpu_ptr(&arch_itimer);
 	if (arch_timer_use_virtual) {
@@ -370,13 +359,12 @@ static void __arch_timer_setup(unsigned type,
 	}
 #endif
 
-	clockevents_config_and_register(clk, arch_timer_rate,
-					0xf, 0x7fffffff);
-=======
+	clockevents_config_and_register(clk, arch_timer_rate, 0xf, 0x7fffffff);
+}
+
 static int arch_timer_setup(struct clock_event_device *clk)
 {
 	__arch_timer_setup(ARCH_CP15_TIMER, clk);
->>>>>>> v3.12
 
 	if (arch_timer_use_virtual)
 		enable_percpu_irq(arch_timer_ppi[VIRT_PPI], 0);
@@ -494,6 +482,11 @@ static void __init arch_counter_register(unsigned type)
 	else
 		arch_timer_read_counter = arch_counter_get_cntvct_mem;
 
+#ifdef CONFIG_IPIPE
+	tsc_info.freq = arch_timer_rate;
+	__ipipe_tsc_register(&tsc_info);
+#endif /* CONFIG_IPIPE */
+
 	start_count = arch_timer_read_counter();
 	clocksource_register_hz(&clocksource_counter, arch_timer_rate);
 	cyclecounter.mult = clocksource_counter.mult;
@@ -551,20 +544,6 @@ static int __init arch_timer_register(void)
 		goto out;
 	}
 
-<<<<<<< HEAD
-#ifdef CONFIG_IPIPE
-	tsc_info.freq = arch_timer_rate;
-	__ipipe_tsc_register(&tsc_info);
-#endif /* CONFIG_IPIPE */
-
-	clocksource_register_hz(&clocksource_counter, arch_timer_rate);
-	cyclecounter.mult = clocksource_counter.mult;
-	cyclecounter.shift = clocksource_counter.shift;
-	timecounter_init(&timecounter, &cyclecounter,
-			 arch_counter_get_cntvct());
-
-=======
->>>>>>> v3.12
 	if (arch_timer_use_virtual) {
 		ppi = arch_timer_ppi[VIRT_PPI];
 		err = request_percpu_irq(ppi, arch_timer_handler_virt,
