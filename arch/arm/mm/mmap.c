@@ -159,7 +159,8 @@ arch_get_unmapped_area_topdown(struct file *filp, const unsigned long addr0,
 	}
 
 	info.flags = VM_UNMAPPED_AREA_TOPDOWN;
-	info.low_limit = PAGE_SIZE;
+	info.length = len;
+	info.low_limit = FIRST_USER_ADDRESS;
 
 	if (fcse()) {
 		unsigned long top, bottom, shift;
@@ -171,6 +172,7 @@ arch_get_unmapped_area_topdown(struct file *filp, const unsigned long addr0,
 		if (mm->mmap_base > bottom)
 			mm->mmap_base -= shift;
 	}
+
 	info.high_limit = mm->mmap_base;
 
 	addr = vm_unmapped_area(&info);
@@ -227,13 +229,11 @@ int valid_phys_addr_range(phys_addr_t addr, size_t size)
 }
 
 /*
- * We don't use supersection mappings for mmap() on /dev/mem, which
- * means that we can't map the memory area above the 4G barrier into
- * userspace.
+ * Do not allow /dev/mem mappings beyond the supported physical range.
  */
 int valid_mmap_phys_addr_range(unsigned long pfn, size_t size)
 {
-	return !(pfn + (size >> PAGE_SHIFT) > 0x00100000);
+	return (pfn + (size >> PAGE_SHIFT)) <= (1 + (PHYS_MASK >> PAGE_SHIFT));
 }
 
 #ifdef CONFIG_STRICT_DEVMEM

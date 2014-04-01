@@ -1026,3 +1026,9 @@ config ARM_FCSE_DEBUG
 	  overhead, and is only useful for debugging the FCSE code.
 
 endif
+
+config ARCH_SUPPORTS_BIG_ENDIAN
+	bool
+	help
+	  This option specifies the architecture can support big endian
+	  operation.

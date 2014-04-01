@@ -85,8 +85,6 @@ static inline struct thread_info *current_thread_info(void)
 
 #endif /* __ASSEMBLY__ */
 
-#define PREEMPT_ACTIVE		0x10000000
-
 /*
  * thread information flag bit numbers
  */
@@ -110,6 +108,9 @@ static inline struct thread_info *current_thread_info(void)
 #define TIF_EMULATE_STACK_STORE	16	/* Is an instruction emulation
 						for stack store? */
 #define TIF_MEMDIE		17	/* is terminating due to OOM killer */
+#if defined(CONFIG_PPC64)
+#define TIF_ELF2ABI		18	/* function descriptors must die! */
+#endif
 #define TIF_MMSWITCH_INT	20	/* MMU context switch interrupted */
 
 /* as above, but as bit values */
@@ -188,6 +189,12 @@ static inline bool test_thread_local_flags(unsigned int flags)
 #define is_32bit_task()	(test_thread_flag(TIF_32BIT))
 #else
 #define is_32bit_task()	(1)
+#endif
+
+#if defined(CONFIG_PPC64)
+#define is_elf2_task() (test_thread_flag(TIF_ELF2ABI))
+#else
+#define is_elf2_task() (0)
 #endif
 
 #endif	/* !__ASSEMBLY__ */

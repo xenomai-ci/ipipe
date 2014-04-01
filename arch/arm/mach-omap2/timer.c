@@ -58,6 +58,7 @@
 #include "soc.h"
 #include "common.h"
 #include "powerdomain.h"
+#include "omap-secure.h"
 
 #define REALTIME_COUNTER_BASE				0x48243200
 #define INCREMENTER_NUMERATOR_OFFSET			0x10
@@ -74,11 +75,21 @@ void __init omap4_pic_muter_register(void);
 static struct omap_dm_timer clkev;
 static struct clock_event_device clockevent_gpt;
 
+
 static void omap2_gp_timer_ack(void)
 {
 	__omap_dm_timer_write_status(&clkev, OMAP_TIMER_INT_OVERFLOW);
 	__omap_dm_timer_read_status(&clkev);
 }
+
+#ifdef CONFIG_SOC_HAS_REALTIME_COUNTER
+static unsigned long arch_timer_freq;
+
+void set_cntfreq(void)
+{
+	omap_smc1(OMAP5_DRA7_MON_SET_CNTFRQ_INDEX, arch_timer_freq);
+}
+#endif
 
 static irqreturn_t omap2_gp_timer_interrupt(int irq, void *dev_id)
 {
@@ -96,7 +107,7 @@ static irqreturn_t omap2_gp_timer_interrupt(int irq, void *dev_id)
 
 static struct irqaction omap2_gp_timer_irq = {
 	.name		= "gp_timer",
-	.flags		= IRQF_DISABLED | IRQF_TIMER | IRQF_IRQPOLL,
+	.flags		= IRQF_TIMER | IRQF_IRQPOLL,
 	.handler	= omap2_gp_timer_interrupt,
 };
 
@@ -651,6 +662,10 @@ static void __init realtime_counter_init(void)
 		num = 8;
 		den = 25;
 		break;
+	case 20000000:
+		num = 192;
+		den = 625;
+		break;
 	case 2600000:
 		num = 384;
 		den = 1625;
@@ -677,6 +692,9 @@ static void __init realtime_counter_init(void)
 			NUMERATOR_DENUMERATOR_MASK;
 	reg |= den;
 	__raw_writel(reg, base + INCREMENTER_DENUMERATOR_RELOAD_OFFSET);
+
+	arch_timer_freq = (rate / den) * num;
+	set_cntfreq();
 
 	iounmap(base);
 }

@@ -259,7 +259,7 @@ static struct clocksource clocksource_mxs = {
 	.flags		= CLOCK_SOURCE_IS_CONTINUOUS,
 };
 
-static u32 notrace mxs_read_sched_clock_v2(void)
+static u64 notrace mxs_read_sched_clock_v2(void)
 {
 	return ~readl_relaxed(mxs_timrot_base + HW_TIMROT_RUNNING_COUNTn(1));
 }
@@ -281,7 +281,7 @@ static int __init mxs_clocksource_init(struct clk *timer_clk)
 		tsc_info.u.counter_paddr = mxs_timrot_paddr + HW_TIMROT_RUNNING_COUNTn(1);
 		__ipipe_tsc_register(&tsc_info);
 #endif /* CONFIG_IPIPE */
-		setup_sched_clock(mxs_read_sched_clock_v2, 32, c);
+		sched_clock_register(mxs_read_sched_clock_v2, 32, c);
 	}
 
 	return 0;
