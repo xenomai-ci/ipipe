@@ -62,6 +62,7 @@ BEGIN {
 
     driver_arch["clk/mxs/clk-imx28.c"]="arm"
     driver_arch["gpio/gpio-mxc.c"]="arm"
+    driver_arch["gpio/gpio-mxs.c"]="arm"
     driver_arch["gpio/gpio-omap.c"]="arm"
     driver_arch["gpio/gpio-pxa.c"]="arm"
     driver_arch["gpio/gpio-sa1100.c"]="arm"
