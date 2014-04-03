@@ -1345,11 +1345,11 @@ asmlinkage void __sched __ipipe_preempt_schedule_irq(void)
 	 */
 	p = ipipe_this_cpu_root_context();
 	if (unlikely(__ipipe_ipending_p(p))) {
-		add_preempt_count(PREEMPT_ACTIVE);
+		__preempt_count_add(PREEMPT_ACTIVE);
 		trace_hardirqs_on();
 		__clear_bit(IPIPE_STALL_FLAG, &p->status);
 		__ipipe_sync_stage();
-		sub_preempt_count(PREEMPT_ACTIVE);
+		__preempt_count_sub(PREEMPT_ACTIVE);
 	}
 
 	__ipipe_restore_root_nosync(flags);

@@ -183,25 +183,6 @@ void __ipipe_flush_printk(unsigned int irq, void *cookie);
 void __ipipe_pin_range_globally(unsigned long start,
 				unsigned long end);
 
-#define hard_preempt_disable()				\
-	({						\
-		unsigned long __flags__;		\
-		__flags__ = hard_local_irq_save();	\
-		if (__ipipe_root_p)			\
-			preempt_disable();		\
-		__flags__;				\
-	})
-
-#define hard_preempt_enable(flags)			\
-	do {						\
-		if (__ipipe_root_p) {			\
-			preempt_enable_no_resched();	\
-			hard_local_irq_restore(flags);	\
-			preempt_check_resched();	\
-		} else					\
-			hard_local_irq_restore(flags);	\
-	} while (0)
-
 #define __ipipe_get_cpu(flags)	({ (flags) = hard_preempt_disable(); ipipe_processor_id(); })
 #define __ipipe_put_cpu(flags)	hard_preempt_enable(flags)
 

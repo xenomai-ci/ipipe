@@ -369,11 +369,16 @@ static inline void _set_gate(int gate, unsigned type, void *addr,
  * Pentium F0 0F bugfix can have resulted in the mapped
  * IDT being write-protected.
  */
-#define set_intr_gate(n, addr)						\
+#define __set_intr_gate(n, addr)					\
 	do {								\
 		BUG_ON((unsigned)n > 0xFF);				\
 		_set_gate(n, GATE_INTERRUPT, (void *)addr, 0, 0,	\
 			  __KERNEL_CS);					\
+	} while (0)
+
+#define set_intr_gate(n, addr)						\
+	do {								\
+		__set_intr_gate(n, addr);				\
 		_trace_set_gate(n, GATE_INTERRUPT, (void *)trace_##addr,\
 				0, 0, __KERNEL_CS);			\
 	} while (0)
@@ -399,6 +404,12 @@ static inline void alloc_system_vector(int vector)
 		BUG();
 	}
 }
+
+#define __alloc_intr_gate(n, addr)				\
+	do {							\
+		alloc_system_vector(n);				\
+		__set_intr_gate(n, addr);			\
+	} while (0)
 
 #define alloc_intr_gate(n, addr)				\
 	do {							\

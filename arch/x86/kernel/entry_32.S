@@ -846,7 +846,7 @@ common_interrupt:
 	CFI_ENDPROC
 
 	.pushsection .kprobes.text, "ax"
-#define BUILD_INTERRUPT3(name, nr, fn)	\
+#define BUILD_INTERRUPT2(name, nr)	\
 ENTRY(name)				\
 	RING0_INT_FRAME;		\
 	ASM_CLAC;			\
@@ -861,12 +861,24 @@ ENTRY(name)				\
 	jmp restore_nocheck;		\
 	CFI_ENDPROC
 
-#define BUILD_INTERRUPT(name, nr)	BUILD_INTERRUPT3(name, nr, smp_##name)
+/*
+ * We never call the handler directly, we have to go through the
+ * pipeline instead, which sets the proper routing in
+ * __ipipe_enable_pipeline(), so we may ignore the function arg.
+ */
+#define BUILD_INTERRUPT3(name, nr, fn)	\
+	BUILD_INTERRUPT2(name, nr)
 
 #ifdef CONFIG_X86_LOCAL_APIC
-	BUILD_INTERRUPT(ipipe_hrtimer_interrupt, IPIPE_HRTIMER_VECTOR)
-	BUILD_INTERRUPT(ipipe_reschedule_interrupt, IPIPE_RESCHEDULE_VECTOR)
-	BUILD_INTERRUPT(ipipe_critical_interrupt, IPIPE_CRITICAL_VECTOR)
+	/*
+	 * The pipeline-specific vectors are not traced by the regular tracing
+	 * infrastructure (CONFIG_IPIPE_TRACE allows this though).
+	 */
+	BUILD_INTERRUPT2(ipipe_hrtimer_interrupt, IPIPE_HRTIMER_VECTOR)
+#ifdef CONFIG_SMP	
+	BUILD_INTERRUPT2(ipipe_reschedule_interrupt, IPIPE_RESCHEDULE_VECTOR)
+	BUILD_INTERRUPT2(ipipe_critical_interrupt, IPIPE_CRITICAL_VECTOR)
+#endif
 #endif
 
 #else /* !CONFIG_IPIPE */
@@ -903,6 +915,7 @@ ENTRY(name)				\
 	CFI_ENDPROC;			\
 ENDPROC(name)
 
+#endif /* !CONFIG_IPIPE */
 
 #ifdef CONFIG_TRACING
 #define TRACE_BUILD_INTERRUPT(name, nr)		\
@@ -914,8 +927,6 @@ ENDPROC(name)
 #define BUILD_INTERRUPT(name, nr) \
 	BUILD_INTERRUPT3(name, nr, smp_##name); \
 	TRACE_BUILD_INTERRUPT(name, nr)
-
-#endif /* !CONFIG_IPIPE */
 
 /* The include is where all of the SMP etc. interrupts come from */
 #include <asm/entry_arch.h>

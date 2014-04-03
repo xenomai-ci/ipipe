@@ -462,9 +462,10 @@ void migrate_irqs(void)
 }
 #endif
 
-static inline void check_stack_overflow(void)
-{
 #if defined(CONFIG_DEBUG_STACKOVERFLOW) && !defined(CONFIG_IPIPE_LEGACY)
+
+void check_stack_overflow(void)
+{
 	long sp;
 
 	sp = __get_SP() & (THREAD_SIZE-1);
@@ -475,26 +476,19 @@ static inline void check_stack_overflow(void)
 			sp - sizeof(struct thread_info));
 		dump_stack();
 	}
-#endif
 }
 
-void __do_irq(struct pt_regs *regs)
+#endif
+
+void ___do_irq(unsigned int irq, struct pt_regs *regs)
 {
 	struct irq_desc *desc;
-	unsigned int irq;
 
 	irq_enter();
 
 	trace_irq_entry(regs);
 
 	check_stack_overflow();
-
-	/*
-	 * Query the platform PIC for the interrupt & ack it.
-	 *
-	 * This will typically lower the interrupt line to the CPU
-	 */
-	irq = ppc_md.get_irq();
 
 	/* We can hard enable interrupts now to allow perf interrupts */
 	may_hard_irq_enable();
@@ -511,6 +505,19 @@ void __do_irq(struct pt_regs *regs)
 	trace_irq_exit(regs);
 
 	irq_exit();
+}
+
+void __do_irq(struct pt_regs *regs)
+{
+	unsigned int irq;
+
+	/*
+	 * Query the platform PIC for the interrupt & ack it.
+	 *
+	 * This will typically lower the interrupt line to the CPU
+	 */
+	irq = ppc_md.get_irq();
+	___do_irq(irq, regs);
 }
 
 void do_IRQ(struct pt_regs *regs)

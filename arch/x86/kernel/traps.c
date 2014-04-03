@@ -710,7 +710,7 @@ dotraplinkage void do_iret_error(struct pt_regs *regs, long error_code)
 void __init early_trap_init(void)
 {
 #ifdef CONFIG_IPIPE
-	set_intr_gate(X86_TRAP_DB, &debug);
+	__set_intr_gate(X86_TRAP_DB, debug);
 	set_system_intr_gate(X86_TRAP_BP, &int3);
 #else
 	set_intr_gate_ist(X86_TRAP_DB, &debug, DEBUG_STACK);

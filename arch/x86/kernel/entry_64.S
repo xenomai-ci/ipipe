@@ -1206,13 +1206,13 @@ END(common_interrupt)
 /*
  * APIC interrupts.
  */
-.macro apicinterrupt3 num sym do_sym
+#ifdef CONFIG_IPIPE
+.macro apicinterrupt2 num sym
 ENTRY(\sym)
 	INTR_FRAME
 	ASM_CLAC
 	pushq_cfi $~(\num)
 .Lcommon_\sym:
-#ifdef CONFIG_IPIPE
 	interrupt __ipipe_handle_irq
 	testl %eax, %eax
 	jnz ret_from_intr
@@ -1225,8 +1225,18 @@ ENTRY(\sym)
 	jz restore_args
 	jmp retint_swapgs_notrace
 	CFI_ENDPROC
-	.endm
+END(\sym)
+.endm
+.macro apicinterrupt3 num sym do_sym
+apicinterrupt2 \num \sym
+.endm
 #else /* !CONFIG_IPIPE */
+.macro apicinterrupt3 num sym do_sym
+ENTRY(\sym)
+	INTR_FRAME
+	ASM_CLAC
+	pushq_cfi $~(\num)
+.Lcommon_\sym:
 	interrupt \do_sym
 	jmp ret_from_intr
 	CFI_ENDPROC
@@ -1290,13 +1300,13 @@ apicinterrupt CALL_FUNCTION_VECTOR \
 apicinterrupt RESCHEDULE_VECTOR \
 	reschedule_interrupt smp_reschedule_interrupt
 #ifdef CONFIG_IPIPE
-apicinterrupt IPIPE_RESCHEDULE_VECTOR ipipe_reschedule_interrupt smp_spurious_interrupt
-apicinterrupt IPIPE_CRITICAL_VECTOR ipipe_critical_interrupt smp_spurious_interrupt
+apicinterrupt2 IPIPE_RESCHEDULE_VECTOR ipipe_reschedule_interrupt
+apicinterrupt2 IPIPE_CRITICAL_VECTOR ipipe_critical_interrupt
 #endif
 #endif
 
 #ifdef CONFIG_IPIPE
-apicinterrupt IPIPE_HRTIMER_VECTOR ipipe_hrtimer_interrupt smp_spurious_interrupt
+apicinterrupt2 IPIPE_HRTIMER_VECTOR ipipe_hrtimer_interrupt
 #endif
 
 apicinterrupt ERROR_APIC_VECTOR \

@@ -324,7 +324,7 @@ static void do_machine_check_vector(struct pt_regs *regs, long error_code)
 
 /* Work around genksyms's issue with over-qualification in decls. */
 
-typedef void dotraplinkage __ipipe_exhandler(struct pt_regs *, long);
+typedef dotraplinkage void __ipipe_exhandler(struct pt_regs *, long);
 
 typedef __ipipe_exhandler *__ipipe_exptr;
 

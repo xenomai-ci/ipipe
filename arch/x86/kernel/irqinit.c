@@ -157,8 +157,8 @@ static void __init smp_intr_init(void)
 	/* IPI used for rebooting/stopping */
 	alloc_intr_gate(REBOOT_VECTOR, reboot_interrupt);
 #ifdef CONFIG_IPIPE
-	alloc_intr_gate(IPIPE_RESCHEDULE_VECTOR, ipipe_reschedule_interrupt);
-	alloc_intr_gate(IPIPE_CRITICAL_VECTOR, ipipe_critical_interrupt);
+	__alloc_intr_gate(IPIPE_RESCHEDULE_VECTOR, ipipe_reschedule_interrupt);
+	__alloc_intr_gate(IPIPE_CRITICAL_VECTOR, ipipe_critical_interrupt);
 #endif
 #endif
 #endif /* CONFIG_SMP */
@@ -190,7 +190,7 @@ static void __init apic_intr_init(void)
 	alloc_intr_gate(SPURIOUS_APIC_VECTOR, spurious_interrupt);
 	alloc_intr_gate(ERROR_APIC_VECTOR, error_interrupt);
 #ifdef CONFIG_IPIPE
-	alloc_intr_gate(IPIPE_HRTIMER_VECTOR, ipipe_hrtimer_interrupt);
+	__alloc_intr_gate(IPIPE_HRTIMER_VECTOR, ipipe_hrtimer_interrupt);
 #endif
 
 	/* IRQ work interrupts: */

@@ -4346,6 +4346,8 @@ int __ipipe_disable_ondemand_mappings(struct task_struct *tsk)
 }
 EXPORT_SYMBOL_GPL(__ipipe_disable_ondemand_mappings);
 
+#endif /* CONFIG_IPIPE */
+
 #if USE_SPLIT_PTE_PTLOCKS && ALLOC_SPLIT_PTLOCKS
 
 static struct kmem_cache *page_ptl_cachep;
