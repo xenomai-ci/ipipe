@@ -1006,6 +1006,12 @@ static int fault_in_kernel_space(unsigned long address)
 
 static inline bool smap_violation(int error_code, struct pt_regs *regs)
 {
+	if (!IS_ENABLED(CONFIG_X86_SMAP))
+		return false;
+
+	if (!static_cpu_has(X86_FEATURE_SMAP))
+		return false;
+
 	if (error_code & PF_USER)
 		return false;
 
@@ -1019,22 +1025,23 @@ static inline bool smap_violation(int error_code, struct pt_regs *regs)
  * This routine handles page faults.  It determines the address,
  * and the problem, and then passes it off to one of the appropriate
  * routines.
+ *
+ * This function must have noinline because both callers
+ * {,trace_}do_page_fault() have notrace on. Having this an actual function
+ * guarantees there's a function trace entry.
  */
-static void __kprobes
-__do_page_fault(struct pt_regs *regs, unsigned long error_code)
+static void __kprobes noinline
+__do_page_fault(struct pt_regs *regs, unsigned long error_code,
+		unsigned long address)
 {
 	struct vm_area_struct *vma;
 	struct task_struct *tsk;
-	unsigned long address;
 	struct mm_struct *mm;
 	int fault;
 	unsigned int flags = FAULT_FLAG_ALLOW_RETRY | FAULT_FLAG_KILLABLE;
 
 	tsk = current;
 	mm = tsk->mm;
-
-	/* Get the faulting address: */
-	address = read_cr2();
 
 #ifdef CONFIG_IPIPE
 	if (ipipe_root_domain != ipipe_head_domain)
@@ -1097,11 +1104,9 @@ __do_page_fault(struct pt_regs *regs, unsigned long error_code)
 	if (unlikely(error_code & PF_RSVD))
 		pgtable_bad(regs, error_code, address);
 
-	if (static_cpu_has(X86_FEATURE_SMAP)) {
-		if (unlikely(smap_violation(error_code, regs))) {
-			bad_area_nosemaphore(regs, error_code, address);
-			return;
-		}
+	if (unlikely(smap_violation(error_code, regs))) {
+		bad_area_nosemaphore(regs, error_code, address);
+		return;
 	}
 
 	/*
@@ -1254,33 +1259,22 @@ good_area:
 	up_read(&mm->mmap_sem);
 }
 
-dotraplinkage void __kprobes
+dotraplinkage void __kprobes notrace
 do_page_fault(struct pt_regs *regs, unsigned long error_code)
 {
+	unsigned long address = read_cr2(); /* Get the faulting address */
 	enum ctx_state prev_state;
 
-	prev_state = exception_enter();
-	__do_page_fault(regs, error_code);
-	exception_exit(prev_state);
-}
-
-static void trace_page_fault_entries(struct pt_regs *regs,
-				     unsigned long error_code)
-{
-	if (user_mode(regs))
-		trace_page_fault_user(read_cr2(), regs, error_code);
-	else
-		trace_page_fault_kernel(read_cr2(), regs, error_code);
-}
-
-dotraplinkage void __kprobes
-trace_do_page_fault(struct pt_regs *regs, unsigned long error_code)
-{
-	enum ctx_state prev_state;
+	/*
+	 * We must have this function tagged with __kprobes, notrace and call
+	 * read_cr2() before calling anything else. To avoid calling any kind
+	 * of tracing machinery before we've observed the CR2 value.
+	 *
+	 * exception_{enter,exit}() contain all sorts of tracepoints.
+	 */
 
 	prev_state = exception_enter();
-	trace_page_fault_entries(regs, error_code);
-	__do_page_fault(regs, error_code);
+	__do_page_fault(regs, error_code, address);
 	exception_exit(prev_state);
 }
 
@@ -1323,3 +1317,33 @@ void __ipipe_pin_range_globally(unsigned long start, unsigned long end)
 #endif
 }
 #endif /* CONFIG_IPIPE */
+
+#ifdef CONFIG_TRACING
+static void trace_page_fault_entries(unsigned long address, struct pt_regs *regs,
+				     unsigned long error_code)
+{
+	if (user_mode(regs))
+		trace_page_fault_user(address, regs, error_code);
+	else
+		trace_page_fault_kernel(address, regs, error_code);
+}
+
+dotraplinkage void __kprobes notrace
+trace_do_page_fault(struct pt_regs *regs, unsigned long error_code)
+{
+	/*
+	 * The exception_enter and tracepoint processing could
+	 * trigger another page faults (user space callchain
+	 * reading) and destroy the original cr2 value, so read
+	 * the faulting address now.
+	 */
+	unsigned long address = read_cr2();
+	enum ctx_state prev_state;
+
+	prev_state = exception_enter();
+	trace_page_fault_entries(address, regs, error_code);
+	__do_page_fault(regs, error_code, address);
+	exception_exit(prev_state);
+}
+
+#endif /* CONFIG_TRACING */

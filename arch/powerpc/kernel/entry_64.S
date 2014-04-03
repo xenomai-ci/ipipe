@@ -754,8 +754,16 @@ _GLOBAL(ret_from_except_lite)
 #endif /* CONFIG_IPIPE_TRACE_IRQSOFF */
 	SCHEDULE_USER
 	b	.ret_from_except_lite
-
-2:	bl	.save_nvgprs
+2:
+#ifdef CONFIG_PPC_TRANSACTIONAL_MEM
+	andi.	r0,r4,_TIF_USER_WORK_MASK & ~_TIF_RESTORE_TM
+	bne	3f		/* only restore TM if nothing else to do */
+	addi	r3,r1,STACK_FRAME_OVERHEAD
+	bl	.restore_tm_state
+	b	restore
+3:
+#endif
+	bl	.save_nvgprs
 	bl	.restore_interrupts
 	addi	r3,r1,STACK_FRAME_OVERHEAD
 	bl	.do_notify_resume

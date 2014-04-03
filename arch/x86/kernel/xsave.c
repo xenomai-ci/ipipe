@@ -566,6 +566,16 @@ static void __init xstate_enable_boot_cpu(void)
 	eagerfpu = DISABLE;
 #endif
 
+	if (pcntxt_mask & XSTATE_EAGER) {
+		if (eagerfpu == DISABLE) {
+			pr_err("eagerfpu not present, disabling some xstate features: 0x%llx\n",
+					pcntxt_mask & XSTATE_EAGER);
+			pcntxt_mask &= ~XSTATE_EAGER;
+		} else {
+			eagerfpu = ENABLE;
+		}
+	}
+
 	pr_info("enabled xstate_bv 0x%llx, cntxt size 0x%x\n",
 		pcntxt_mask, xstate_size);
 }

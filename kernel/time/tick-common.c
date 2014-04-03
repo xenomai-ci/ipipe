@@ -85,6 +85,7 @@ static void tick_periodic(int cpu)
 
 		do_timer(1);
 		write_sequnlock(&jiffies_lock);
+		update_wall_time();
 	}
 
 	update_root_process_times(get_irq_regs());
