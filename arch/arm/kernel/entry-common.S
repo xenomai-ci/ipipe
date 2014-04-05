@@ -390,7 +390,9 @@ ENTRY(vector_swi)
 
 	enable_irq
 	ct_user_exit
+#ifndef	CONFIG_IPIPE
 	get_thread_info tsk
+#endif /* !CONFIG_IPIPE */
 
 	/*
 	 * Get the system call number.

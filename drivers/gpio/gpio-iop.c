@@ -40,7 +40,7 @@ static void gpio_line_config(int line, int direction)
 	unsigned long flags;
 	u32 val;
 
-	flags = hard_local_irq_save();
+	local_irq_save(flags);
 	val = readl(IOP3XX_GPOE);
 	if (direction == GPIO_IN) {
 		val |= BIT(line);
@@ -48,7 +48,7 @@ static void gpio_line_config(int line, int direction)
 		val &= ~BIT(line);
 	}
 	writel(val, IOP3XX_GPOE);
-	hard_local_irq_restore(flags);
+	local_irq_restore(flags);
 }
 
 static int gpio_line_get(int line)
@@ -61,7 +61,7 @@ static void gpio_line_set(int line, int value)
 	unsigned long flags;
 	u32 val;
 
-	flags = hard_local_irq_save();
+	local_irq_save(flags);
 	val = readl(IOP3XX_GPOD);
 	if (value == GPIO_LOW) {
 		val &= ~BIT(line);
@@ -69,7 +69,7 @@ static void gpio_line_set(int line, int value)
 		val |= BIT(line);
 	}
 	writel(val, IOP3XX_GPOD);
-	hard_local_irq_restore(flags);
+	local_irq_restore(flags);
 }
 
 static int iop3xx_gpio_direction_input(struct gpio_chip *chip, unsigned gpio)

@@ -299,13 +299,13 @@ extern void flush_cache_page(struct vm_area_struct *vma, unsigned long user_addr
  * Harvard caches are synchronised for the user space address range.
  * This is used for the ARM private sys_cacheflush system call.
  */
-#define flush_cache_user_range(s, e)					\
-	({								\
-		struct mm_struct *_mm = current->mm;			\
-		unsigned long _s, _e;					\
-		_s = fcse_va_to_mva(_mm, s) & PAGE_MASK;		\
-		_e = PAGE_ALIGN(fcse_va_to_mva(_mm, e));		\
-		__cpuc_coherent_user_range(_s, _e);			\
+#define flush_cache_user_range(s,e)			\
+	({						\
+		struct mm_struct *_mm = current->mm;	\
+		unsigned long _s, _e;			\
+		_s = fcse_va_to_mva(_mm, s);		\
+		_e = fcse_va_to_mva(_mm, e);		\
+		__cpuc_coherent_user_range(_s,_e);	\
 	})
 
 /*

@@ -301,17 +301,17 @@ static void __init imx6q_map_io(void)
 
 static void __init imx6q_init_irq(void)
 {
-	imx_init_revision_from_anatop();
-	imx_init_l2cache();
-	imx_src_init();
-	imx_gpc_init();
-	irqchip_init();
 #ifdef CONFIG_IPIPE
 	{
 		extern void __init mx6_pic_muter_register(void);
 		mx6_pic_muter_register();
 	}
 #endif /* CONFIG_IPIPE */
+	imx_init_revision_from_anatop();
+	imx_init_l2cache();
+	imx_src_init();
+	imx_gpc_init();
+	irqchip_init();
 }
 
 static const char *imx6q_dt_compat[] __initconst = {

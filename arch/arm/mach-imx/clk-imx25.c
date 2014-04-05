@@ -333,6 +333,5 @@ int __init mx25_clocks_init_dt(void)
 	__mx25_clocks_init(osc_rate);
 
 	mxc_timer_init_dt(of_find_compatible_node(NULL, NULL, "fsl,imx25-gpt"));
-
 	return 0;
 }

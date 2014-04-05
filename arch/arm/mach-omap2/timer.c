@@ -432,7 +432,7 @@ static void __init omap2_gp_clockevent_init(int gptimer_id,
 						OMAP_TIMER_ERRATA_I103_I767);
 		res = omap_dm_timer_init_one(&itimer, 
 					     "timer_sys_ck", 
-					     property, 
+					     NULL, 
 					     &omap3_itimer.name,
 					     OMAP_TIMER_POSTED, 1);
 		BUG_ON(res);
@@ -742,8 +742,7 @@ void __init omap##name##_sync32k_timer_init(void)			\
 			clk = "timer_sys_ck";				\
 	}								\
 									\
-	if (omap_clk_init)						\
-		omap_clk_init();					\
+	omap_clk_init();						\
 	omap_dmtimer_init();						\
 	omap2_gp_clockevent_init((clkev_nr), clk, clkev_prop);		\
 	/* Enable the use of clocksource="gp_timer" kernel parameter */	\

@@ -103,10 +103,14 @@ void __init ixp4xx_map_io(void)
 
 static void gpio_line_config(u8 line, u32 direction)
 {
+	unsigned long flags;
+
+	flags = hard_local_irq_save();
 	if (direction == IXP4XX_GPIO_IN)
 		*IXP4XX_GPIO_GPOER |= (1 << line);
 	else
 		*IXP4XX_GPIO_GPOER &= ~(1 << line);
+	hard_local_irq_restore(flags);
 }
 
 static void gpio_line_get(u8 line, int *value)
@@ -116,10 +120,14 @@ static void gpio_line_get(u8 line, int *value)
 
 static void gpio_line_set(u8 line, int value)
 {
+	unsigned long flags;
+
+	flags = hard_local_irq_save();
 	if (value == IXP4XX_GPIO_HIGH)
 	    *IXP4XX_GPIO_GPOUTR |= (1 << line);
 	else if (value == IXP4XX_GPIO_LOW)
 	    *IXP4XX_GPIO_GPOUTR &= ~(1 << line);
+	hard_local_irq_restore(flags);
 }
 
 /*************************************************************************

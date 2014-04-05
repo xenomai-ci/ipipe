@@ -876,7 +876,6 @@ static void __init kuser_init(void *vectors)
 
 #ifndef CONFIG_IPIPE
 	memcpy(vectors + 0x1000 - kuser_sz, __kuser_helper_start, kuser_sz);
-sz);
 #else /* !CONFIG_IPIPE */
 	BUG_ON(0x1000 - kuser_sz < __vectors_end - __vectors_start);
 	memcpy(vectors + 0x1000 - kuser_sz, __ipipe_tsc_area_start, kuser_sz);
