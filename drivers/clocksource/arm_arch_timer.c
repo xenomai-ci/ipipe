@@ -347,18 +347,6 @@ static void __arch_timer_setup(unsigned type,
 		clk->ipipe_timer->ack = arch_itimer_ack_phys;
 	}
 	clk->ipipe_timer->freq = arch_timer_rate;
-
-	/* 
-	 * Change CNTKCTL to give access to the physical counter to
-	 * user-space, this has to be done once for each core.
-	 */
-	{
-		unsigned ctl;
-		asm volatile("mrc p15, 0, %0, c14, c1, 0" : "=r" (ctl));
-		ctl |= 1;				    /* PL0PCTEN */
-		asm volatile("mcr p15, 0, %0, c14, c1, 0" : : "r"(ctl));
-		isb();
-	}
 #endif
 
 	clockevents_config_and_register(clk, arch_timer_rate, 0xf, 0x7fffffff);
