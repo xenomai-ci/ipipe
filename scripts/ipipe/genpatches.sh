@@ -63,6 +63,7 @@ BEGIN {
     driver_arch["clocksource/arm_arch_timer.c"]="arm"
     driver_arch["clocksource/mxs_timer.c"]="arm"
     driver_arch["gpio/gpio-mxc.c"]="arm"
+    driver_arch["gpio/gpio-mxs.c"]="arm"
     driver_arch["gpio/gpio-omap.c"]="arm"
     driver_arch["gpio/gpio-pxa.c"]="arm"
     driver_arch["gpio/gpio-sa1100.c"]="arm"
