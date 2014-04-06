@@ -272,7 +272,7 @@ void __init at91rm9200_timer_init(void)
 	clkevt.max_delta_ns = clockevent_delta2ns(AT91_ST_ALMV, &clkevt);
 	clkevt.min_delta_ns = clockevent_delta2ns(2, &clkevt) + 1;
 	clkevt.cpumask = cpumask_of(0);
-	at91_ipipe_init(&clkevt);
+	at91_ipipe_early_init(&clkevt);
 	clockevents_register_device(&clkevt);
 
 	/* register clocksource */
