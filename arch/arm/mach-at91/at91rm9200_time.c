@@ -268,7 +268,7 @@ void __init at91rm9200_timer_init(void)
 
 	/* Setup timer clockevent, with minimum of two ticks (important!!) */
 	clkevt.cpumask = cpumask_of(0);
-	at91_ipipe_init(&clkevt);
+	at91_ipipe_early_init(&clkevt);
 	clockevents_config_and_register(&clkevt, AT91_SLOW_CLOCK,
 					2, AT91_ST_ALMV);
 

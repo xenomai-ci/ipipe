@@ -380,6 +380,7 @@ config ARCH_AT91
 	select NEED_MACH_IO_H if PCCARD
 	select PINCTRL
 	select PINCTRL_AT91 if USE_OF
+	select ATMEL_TCLIB if IPIPE
 	help
 	  This enables support for systems based on Atmel
 	  AT91RM9200 and AT91SAM9* processors.

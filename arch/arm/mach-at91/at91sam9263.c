@@ -28,17 +28,6 @@
 #include "sam9_smc.h"
 #include "pm.h"
 
-static struct map_desc at91sam9263_io_desc[] __initdata = {
-#ifdef CONFIG_IPIPE
-	{
-		.virtual	= AT91_VA_BASE_TCB0,
-		.pfn		= __phys_to_pfn(AT91_BASE_TCB0),
-		.length		= SZ_16K,
-		.type		= MT_DEVICE,
-	},
-#endif /* CONFIG_IPIPE */
-};
-
 /* --------------------------------------------------------------------
  *  Clocks
  * -------------------------------------------------------------------- */
@@ -321,9 +310,6 @@ static void __init at91sam9263_map_io(void)
 {
 	at91_init_sram(0, AT91SAM9263_SRAM0_BASE, AT91SAM9263_SRAM0_SIZE);
 	at91_init_sram(1, AT91SAM9263_SRAM1_BASE, AT91SAM9263_SRAM1_SIZE);
-#ifdef CONFIG_IPIPE
-	iotable_init(at91sam9263_io_desc, ARRAY_SIZE(at91sam9263_io_desc));
-#endif /* CONFIG_IPIPE */
 }
 
 static void __init at91sam9263_ioremap_registers(void)

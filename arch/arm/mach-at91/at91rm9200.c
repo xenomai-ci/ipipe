@@ -152,17 +152,6 @@ static struct clk tc5_clk = {
 	.type		= CLK_TYPE_PERIPHERAL,
 };
 
-static struct map_desc at91rm9200_io_desc[] __initdata = {
-#ifdef CONFIG_IPIPE
-	{
-		.virtual	= (unsigned long)AT91_VA_BASE_TCB0,
-		.pfn		= __phys_to_pfn(AT91_BASE_TCB0),
-		.length		= SZ_16K,
-		.type		= MT_DEVICE,
-	},
-#endif /* CONFIG_IPIPE */
-};
-
 static struct clk *periph_clocks[] __initdata = {
 	&pioA_clk,
 	&pioB_clk,
@@ -333,9 +322,6 @@ static void __init at91rm9200_map_io(void)
 {
 	/* Map peripherals */
 	at91_init_sram(0, AT91RM9200_SRAM_BASE, AT91RM9200_SRAM_SIZE);
-#ifdef CONFIG_IPIPE
-	iotable_init(at91rm9200_io_desc, ARRAY_SIZE(at91rm9200_io_desc));
-#endif /* CONFIG_IPIPE */
 }
 
 static void __init at91rm9200_ioremap_registers(void)

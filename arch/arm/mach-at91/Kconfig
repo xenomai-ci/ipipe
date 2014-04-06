@@ -249,6 +249,7 @@ config IPIPE_AT91_TC
 	depends on IPIPE
 	int "AT91 TC used as time base by Adeos I-pipe"
 	default 0
+	range 0 5
 	help
 	When Adeos interrupt pipeline is enabled, TC0 is used by default
 	as time base, but you can use TC1 or TC2 by setting this variable to 1
