@@ -523,9 +523,9 @@ void __do_irq(struct pt_regs *regs)
 void do_IRQ(struct pt_regs *regs)
 {
 	struct pt_regs *old_regs = set_irq_regs(regs);
-#ifdef CONFIG_IPIPE
+#ifdef CONFIG_IPIPE_LEGACY
 	__do_irq(regs);
-#else /* !CONFIG_IPIPE */
+#else /* !CONFIG_IPIPE_LEGACY */
 	struct thread_info *curtp, *irqtp, *sirqtp;
 
 	/* Switch to the irq stack to handle this */
@@ -556,7 +556,7 @@ void do_IRQ(struct pt_regs *regs)
 	/* Copy back updates to the thread_info */
 	if (irqtp->flags)
 		set_bits(irqtp->flags, &curtp->flags);
-#endif /* !CONFIG_IPIPE */
+#endif /* !CONFIG_IPIPE_LEGACY */
 
 	set_irq_regs(old_regs);
 }
@@ -651,9 +651,15 @@ void do_softirq_own_stack(void)
 	if (irqtp->flags)
 		set_bits(irqtp->flags, &curtp->flags);
 }
-#else
-#define do_softirq_onstack()	__do_softirq()
-#endif
+
+#else  /* !CONFIG_IRQSTACKS */
+
+void do_softirq_own_stack(void)
+{
+	__do_softirq();
+}
+
+#endif  /* !CONFIG_IRQSTACKS */
 
 irq_hw_number_t virq_to_hw(unsigned int virq)
 {

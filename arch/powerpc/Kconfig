@@ -168,7 +168,7 @@ config SYSVIPC_COMPAT
 	default y
 
 config IRQSTACKS
-        def_bool !(PPC64 && IPIPE && PPC_BOOK3S)
+        def_bool !IPIPE_LEGACY
 
 # All PPC32s use generic nvram driver through ppc_md
 config GENERIC_NVRAM
