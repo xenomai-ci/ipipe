@@ -2,8 +2,6 @@
 #include <asm/asm-offsets.h>
 #include <asm/glue.h>
 
- THUMB(	.arm	)
-
 	.macro	usr_ret, reg
 #ifdef CONFIG_ARM_THUMB
 	bx	\reg
@@ -38,6 +36,9 @@
 	implemntation to the vectors page. We repeat the data area so
 	that the PC relative operations are computed correctly.
 */
+
+	.section	.init.text, "ax", %progbits
+ THUMB(	.arm	)
 
 	.align 5
 	.rep	7

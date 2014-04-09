@@ -40,7 +40,7 @@ unsigned long __ipipe_kuser_tsc_freq;
 
 struct ipipe_tsc_value_t *ipipe_tsc_value;
 
-void __ipipe_tsc_register(struct __ipipe_tscinfo *info)
+void __init __ipipe_tsc_register(struct __ipipe_tscinfo *info)
 {
 	struct ipipe_tsc_value_t *vector_tsc_value;
 	unsigned long *tsc_addr;

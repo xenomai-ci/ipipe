@@ -56,7 +56,7 @@ static struct __ipipe_tscinfo tsc_info;
 static void twd_get_clock(struct device_node *np);
 static void __cpuinit twd_calibrate_rate(void);
 
-static void __cpuinit gt_setup(unsigned long base_paddr, unsigned bits)
+static void __init gt_setup(unsigned long base_paddr, unsigned bits)
 {
 	if ((read_cpuid_id() & 0xf00000) == 0)
 		return;
