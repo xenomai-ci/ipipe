@@ -749,7 +749,7 @@ static cycle_t timebase_read(struct clocksource *cs)
  * API.
  */
 static inline void update_hostrt(struct timespec *wall_time, struct timespec *wtm,
-				 struct clocksource *clock, u32 mult)
+				 struct clocksource *clock, u32 mult, u32 shift)
 {
 	/*
 	 * This is a temporary work-around until powerpc implements
@@ -761,7 +761,7 @@ static inline void update_hostrt(struct timespec *wall_time, struct timespec *wt
 		.shift = clock->shift,
 		.mult = mult,
 		.xtime_sec = wall_time->tv_sec,
-		.xtime_nsec = wall_time->tv_nsec,
+		.xtime_nsec = (u64)wall_time->tv_nsec << shift,
 		.wall_to_monotonic = *wtm,
 	};
 
@@ -771,7 +771,7 @@ static inline void update_hostrt(struct timespec *wall_time, struct timespec *wt
 #endif
 
 void update_vsyscall_old(struct timespec *wall_time, struct timespec *wtm,
-			struct clocksource *clock, u32 mult)
+			 struct clocksource *clock, u32 mult, u32 shift)
 {
 	u64 new_tb_to_xs, new_stamp_xsec;
 	u32 frac_sec;
@@ -814,7 +814,7 @@ void update_vsyscall_old(struct timespec *wall_time, struct timespec *wtm,
 	smp_wmb();
 	++(vdso_data->tb_update_count);
 
-	update_hostrt(wall_time, wtm, clock, mult);
+	update_hostrt(wall_time, wtm, clock, mult, shift);
 }
 
 void update_vsyscall_tz(void)
