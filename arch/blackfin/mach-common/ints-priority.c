@@ -1307,6 +1307,26 @@ int __ipipe_get_irq_priority(unsigned int irq)
 	return IVG15;
 }
 
+static inline int mayday_pending(struct pt_regs *regs)
+{
+#ifdef CONFIG_IPIPE_LEGACY
+	/*
+	 * Testing for user_regs() on Blackfin does NOT fully
+	 * eliminate foreign stack contexts, because of the forged
+	 * interrupt returns we do through __ipipe_call_irqtail. In
+	 * that case, we might have preempted a foreign stack context
+	 * in a high priority domain, with a single interrupt level
+	 * now pending after the irqtail unwinding is done, in which
+	 * case user_mode() is now true. Therefore we exclude foreign
+	 * stack contexts as they can't be mayday issuers, so that the
+	 * event does not get dispatched spuriously.
+	 */
+	if (ipipe_test_foreign_stack())
+		return 0;
+#endif
+	return user_mode(regs) && (current->ipipe.flags & PF_MAYDAY) != 0;
+}
+
 /* Hw interrupts are disabled on entry (check SAVE_CONTEXT). */
 #ifdef CONFIG_DO_IRQ_L1
 __attribute__((l1_text))
@@ -1358,20 +1378,7 @@ asmlinkage int __ipipe_grab_irq(int vec, struct pt_regs *regs)
 	__ipipe_handle_irq(irq, regs);
 	ipipe_trace_irq_exit(irq);
 
-	if (user_mode(regs) &&
-	    !ipipe_test_foreign_stack() &&
-	    (current->ipipe.flags & PF_MAYDAY) != 0) {
-		/*
-		 * Testing for user_regs() does NOT fully eliminate
-		 * foreign stack contexts, because of the forged
-		 * interrupt returns we do through
-		 * __ipipe_call_irqtail. In that case, we might have
-		 * preempted a foreign stack context in a high
-		 * priority domain, with a single interrupt level now
-		 * pending after the irqtail unwinding is done. In
-		 * which case user_mode() is now true, and the event
-		 * gets dispatched spuriously.
-		 */
+	if (mayday_pending(regs)) {
 		current->ipipe.flags &= ~PF_MAYDAY;
 		__ipipe_notify_trap(IPIPE_TRAP_MAYDAY, regs);
 	}
