@@ -82,9 +82,7 @@ static inline int ipipe_virtual_irq_p(unsigned int irq)
 
 /* Per-cpu pipeline status */
 #define IPIPE_STALL_FLAG	0 /* interrupts (virtually) disabled. */
-#define IPIPE_NOSTACK_FLAG	1 /* running on foreign stack. */
 #define IPIPE_STALL_MASK	(1L << IPIPE_STALL_FLAG)
-#define IPIPE_NOSTACK_MASK	(1L << IPIPE_NOSTACK_FLAG)
 
 /* Interrupt control bits */
 #define IPIPE_HANDLE_FLAG	0
