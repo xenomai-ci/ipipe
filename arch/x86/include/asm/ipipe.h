@@ -31,12 +31,7 @@ struct ipipe_domain;
 struct ipipe_arch_sysinfo {
 };
 
-/*
- * The logical processor id and the current Linux task are read from the PDA,
- * so this is always safe, regardless of the underlying stack.
- */
 #define ipipe_processor_id()	raw_smp_processor_id()
-#define ipipe_safe_current()	current
 
 #define ipipe_mm_switch_protect(flags)		\
 	do { (flags) = hard_cond_local_irq_save(); } while (0)
