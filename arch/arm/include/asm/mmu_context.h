@@ -96,7 +96,7 @@ static inline void finish_arch_post_lock_switch(void)
 			unsigned long flags;
 			mm->context.switch_pending = 0;
 			ipipe_mm_switch_protect(flags);
-			deferred_switch_mm(current->mm);
+			deferred_switch_mm(mm);
 			ipipe_mm_switch_unprotect(flags);
 		}
 		preempt_enable_no_resched();
@@ -195,7 +195,8 @@ __do_switch_mm(struct mm_struct *prev, struct mm_struct *next,
 			set_tsk_thread_flag(tsk, TIF_SWITCHED);
 #endif /* CONFIG_ARM_FCSE */
 #else /* !CONFIG_IPIPE */
-		(void)rc;
+		if (rc == 0)
+			fcse_switch_mm_end(next);
 #endif /* CONFIG_IPIPE */
 		if (cache_is_vivt() && prev)
 			cpumask_clear_cpu(cpu, mm_cpumask(prev));
@@ -209,7 +210,8 @@ __do_switch_mm(struct mm_struct *prev, struct mm_struct *next,
 extern void __switch_mm_inner(struct mm_struct *prev, struct mm_struct *next,
 			      struct task_struct *tsk);
 #else /* !I-pipe || !MMU */
-#define __switch_mm_inner(prev, next, tsk) __do_switch_mm(prev, next, tsk, true)
+#define __switch_mm_inner(prev, next, tsk) \
+	__do_switch_mm(prev, next, tsk, true)
 #endif /* !I-pipe  || !MMU */
 
 static inline void 
@@ -247,7 +249,7 @@ switch_mm(struct mm_struct *prev, struct mm_struct *next,
 #define activate_mm(prev,next)                                         \
        ({                                                              \
        __switch_mm(prev, next, NULL);                                    \
-       FCSE_BUG_ON(current->mm == next && !fcse_mm_in_cache(next));    \
+       FCSE_BUG_ON(current->mm == next && next->context.switch_pending == 0 && !fcse_mm_in_cache(next));    \
        })
 #endif /* CONFIG_ARM_FCSE_BEST_EFFORT */
 static inline void destroy_context(struct mm_struct *mm)
