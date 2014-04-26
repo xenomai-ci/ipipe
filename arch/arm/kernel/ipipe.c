@@ -355,19 +355,40 @@ __ipipe_switch_to_notifier_call_chain(struct atomic_notifier_head *nh,
 	return ret;
 }
 
+#if __LINUX_ARM_ARCH__ <= 5
+#define fast_irq_disable() hard_local_irq_save()
+#define fast_irq_enable(flags) hard_local_irq_restore(flags)
+#else
+#define fast_irq_disable()			\
+	({					\
+		hard_local_irq_disable();	\
+		0;				\
+	})
+#define fast_irq_enable(flags)			\
+	({					\
+		hard_local_irq_enable();	\
+		(void)(flags);			\
+	})
+#endif
+
 asmlinkage int __ipipe_syscall_root(unsigned long scno, struct pt_regs *regs)
 {
+#ifdef CONFIG_OABI_COMPAT
+	const bool oabi = scno + __NR_SYSCALL_BASE != regs->ARM_r7;
+#elif defined(CONFIG_AEABI)
+	const bool oabi = false;
+#else /* OABI */
+	const bool oabi = true;
+#endif
+	struct task_struct *const task = current;
 	struct ipipe_percpu_domain_data *p;
 	unsigned long orig_r7;
+	unsigned long flags;
 	int ret = 0;
 
+#ifdef CONFIG_IPIPE_DEBUG_INTERNAL
 	WARN_ON_ONCE(hard_irqs_disabled());
-
-	/*
-	 * We use r7 to pass the syscall number to the other domains.
-	 */
-	orig_r7 = regs->ARM_r7;
-	regs->ARM_r7 = __NR_SYSCALL_BASE + scno;
+#endif
 
 	/*
 	 * This routine either returns:
@@ -378,19 +399,31 @@ asmlinkage int __ipipe_syscall_root(unsigned long scno, struct pt_regs *regs)
 	 * tail work has to be performed (for handling signals etc).
 	 */
 
-	if (!__ipipe_syscall_watched_p(current, regs->ARM_r7))
+	scno += __NR_SYSCALL_BASE;
+	if (!__ipipe_syscall_watched_p(task, scno))
 		goto out;
+
+	if (oabi) {
+		/*
+		 * We use r7 to pass the syscall number to the other domains.
+		 */
+		orig_r7 = regs->ARM_r7;
+		regs->ARM_r7 = scno;
+	}
 
 	ret = __ipipe_notify_syscall(regs);
 
-	hard_local_irq_disable();
+	if (oabi)
+		regs->ARM_r7 = orig_r7;
+
+	flags = fast_irq_disable();
 
 	/*
 	 * This is the end of the syscall path, so we may
 	 * safely assume a valid Linux task stack here.
 	 */
-	if (current->ipipe.flags & PF_MAYDAY) {
-		current->ipipe.flags &= ~PF_MAYDAY;
+	if (task->ipipe.flags & PF_MAYDAY) {
+		task->ipipe.flags &= ~PF_MAYDAY;
 		__ipipe_notify_trap(IPIPE_TRAP_MAYDAY, regs);
 	}
 
@@ -402,10 +435,8 @@ asmlinkage int __ipipe_syscall_root(unsigned long scno, struct pt_regs *regs)
 			__ipipe_sync_stage();
 	}
 
-	hard_local_irq_enable();
+	fast_irq_enable(flags);
 out:
-	regs->ARM_r7 = orig_r7;
-
 #ifdef CONFIG_IPIPE_DEBUG_INTERNAL
 	BUG_ON(ret > 0 && current_thread_info()->restart_block.fn != 
 	       do_no_restart_syscall);
