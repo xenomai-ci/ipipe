@@ -277,16 +277,6 @@ inline int bfin_internal_set_wake(unsigned int irq, unsigned int state)
 #endif
 
 #else /* SEC_GCTL */
-static void bfin_sec_preflow_handler(struct irq_data *d)
-{
-	unsigned long flags = hard_local_irq_save();
-	unsigned int sid = BFIN_SYSIRQ(d->irq);
-
-	bfin_write_SEC_SCI(0, SEC_CSID, sid);
-
-	hard_local_irq_restore(flags);
-}
-
 static void bfin_sec_mask_ack_irq(struct irq_data *d)
 {
 	unsigned int sid = BFIN_SYSIRQ(d->irq);
@@ -315,6 +305,13 @@ static void bfin_sec_unmask_irq(struct irq_data *d)
 	hard_local_irq_restore(flags);
 }
 
+#ifdef CONFIG_IPIPE
+
+static void bfin_sec_eoi_irq(struct irq_data *d)
+{
+	/* nop */
+}
+
 static void bfin_sec_hold_irq(struct irq_data *d)
 {
 	unsigned int sid = BFIN_SYSIRQ(d->irq);
@@ -326,6 +323,20 @@ static void bfin_sec_release_irq(struct irq_data *d)
 	unsigned int sid = BFIN_SYSIRQ(d->irq);
 	bfin_write32(SEC_END, sid);
 }
+
+#else  /* !CONFIG_IPIPE */
+
+static void bfin_sec_preflow_handler(struct irq_data *d)
+{
+	unsigned long flags = hard_local_irq_save();
+	unsigned int sid = BFIN_SYSIRQ(d->irq);
+
+	bfin_write_SEC_SCI(0, SEC_CSID, sid);
+
+	hard_local_irq_restore(flags);
+}
+
+#endif	/* !CONFIG_IPIPE */
 
 static void bfin_sec_enable_ssi(unsigned int sid)
 {
@@ -567,11 +578,17 @@ static struct irq_chip bfin_internal_irqchip = {
 static struct irq_chip bfin_sec_irqchip = {
 	.name = "SEC",
 	.irq_mask_ack = bfin_sec_mask_ack_irq,
-	.irq_mask = bfin_sec_mask_ack_irq,
+	.irq_mask = bfin_sec_mask_irq,
 	.irq_unmask = bfin_sec_unmask_irq,
-	.irq_eoi = bfin_sec_unmask_irq,
 	.irq_disable = bfin_sec_disable,
 	.irq_enable = bfin_sec_enable,
+#ifdef CONFIG_IPIPE
+	.irq_eoi = bfin_sec_eoi_irq,
+	.irq_hold = bfin_sec_hold_irq,
+	.irq_release = bfin_sec_release_irq,
+#else
+	.irq_eoi = bfin_sec_unmask_irq,
+#endif
 };
 #endif
 
@@ -1204,7 +1221,9 @@ int __init init_arch_irq(void)
 		} else {
 			irq_set_chip(irq, &bfin_sec_irqchip);
 			irq_set_handler(irq, handle_fasteoi_irq);
+#ifndef CONFIG_IPIPE
 			__irq_set_preflow_handler(irq, bfin_sec_preflow_handler);
+#endif
 		}
 	}
 

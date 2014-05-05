@@ -24,6 +24,7 @@
 
 #ifdef CONFIG_IPIPE
 
+#include <linux/bitops.h>
 #include <asm/bitsperlong.h>
 #include <asm/irq.h>
 
