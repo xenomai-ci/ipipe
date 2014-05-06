@@ -592,6 +592,7 @@ static void mxc_disable_irqdesc(struct ipipe_domain *ipd, unsigned irq)
 		mxc_set_irq_prio(irq, 0);
 }
 
+#ifdef CONFIG_MXC_TZIC
 void __init mxc_pic_muter_register(void)
 {
 	struct ipipe_mach_pic_muter pic_muter = {
@@ -604,6 +605,7 @@ void __init mxc_pic_muter_register(void)
 	is_mx5 = 1;
 	ipipe_pic_muter_register(&pic_muter);
 }
+#endif
 
 #ifdef CONFIG_SOC_IMX6Q
 void __init mx6_pic_muter_register(void)
