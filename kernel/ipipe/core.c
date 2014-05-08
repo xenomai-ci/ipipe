@@ -1637,7 +1637,7 @@ int notrace __ipipe_check_percpu_access(void)
 	 * disabled, and no migration could occur.
 	 */
 	if (this_domain == ipipe_root_domain) {
-		p = ipipe_this_cpu_root_context();
+		p = __this_cpu_ptr(&ipipe_percpu.root);
 		if (test_bit(IPIPE_STALL_FLAG, &p->status))
 			goto out;
 	}
