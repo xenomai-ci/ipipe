@@ -221,7 +221,7 @@ static int ipipe_disable_smp(void)
 		unsigned long flags;
 
 		printk("I-pipe: disabling SMP code\n");
-		
+
 		flags = hard_local_irq_save();
 		static_key_slow_dec(&__ipipe_smp_key);
 		hard_local_irq_restore(flags);
@@ -229,6 +229,9 @@ static int ipipe_disable_smp(void)
 	return 0;
 }
 arch_initcall(ipipe_disable_smp);
+
+extern unsigned int smp_on_up;
+EXPORT_SYMBOL_GPL(smp_on_up);
 #endif /* SMP_ON_UP */
 
 /*
@@ -438,7 +441,7 @@ asmlinkage int __ipipe_syscall_root(unsigned long scno, struct pt_regs *regs)
 	fast_irq_enable(flags);
 out:
 #ifdef CONFIG_IPIPE_DEBUG_INTERNAL
-	BUG_ON(ret > 0 && current_thread_info()->restart_block.fn != 
+	BUG_ON(ret > 0 && current_thread_info()->restart_block.fn !=
 	       do_no_restart_syscall);
 #endif
 	return ret;
@@ -523,7 +526,7 @@ void __switch_mm_inner(struct mm_struct *prev, struct mm_struct *next,
 		int rc __maybe_unused = __do_switch_mm(prev, next, tsk, true);
 
 #ifdef CONFIG_IPIPE_WANT_PREEMPTIBLE_SWITCH
-		/* 
+		/*
 		 * Reading thread_info flags and setting active_mm
 		 * must be done atomically.
 		 */
@@ -539,9 +542,9 @@ void __switch_mm_inner(struct mm_struct *prev, struct mm_struct *next,
 			return;
 		}
 		hard_local_irq_restore(flags);
-		
+
 		if (rc < 0)
-			/* 
+			/*
 			 * We were interrupted by head domain, which
 			 * may have changed the mm context, mm context
 			 * is now unknown, but will be switched in
@@ -582,7 +585,7 @@ void deferred_switch_mm(struct mm_struct *next)
 		__do_switch_mm(prev, next, NULL, false);
 
 #ifdef CONFIG_IPIPE_WANT_PREEMPTIBLE_SWITCH
-		/* 
+		/*
 		 * Reading thread_info flags and setting active_mm
 		 * must be done atomically.
 		 */
