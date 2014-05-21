@@ -707,16 +707,16 @@ void handle_IPI(int ipinr, struct pt_regs *regs)
 
 #ifdef CONFIG_IRQ_WORK
 	case IPI_IRQ_WORK:
-		irq_enter();
+		noipipe_irq_enter();
 		irq_work_run();
-		irq_exit();
+		noipipe_irq_exit();
 		break;
 #endif
 
 	case IPI_COMPLETION:
-		irq_enter();
+		noipipe_irq_enter();
 		ipi_complete(cpu);
-		irq_exit();
+		noipipe_irq_exit();
 		break;
 
 	default:
