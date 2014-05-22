@@ -138,7 +138,7 @@ struct fcse_user {
 extern struct fcse_user fcse_pids_user[];
 int fcse_switch_mm_start_inner(struct mm_struct *next);
 void fcse_switch_mm_end_inner(struct mm_struct *next);
-void fcse_pid_reference(unsigned pid);
+void fcse_pid_reference(struct mm_struct *mm);
 
 static inline int fcse_switch_mm_start(struct mm_struct *next)
 {

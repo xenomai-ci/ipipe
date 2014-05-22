@@ -42,8 +42,10 @@ struct fcse_user fcse_pids_user[FCSE_NR_PIDS];
 static struct mm_struct *fcse_cur_mm = &init_mm;
 #endif /* CONFIG_ARM_FCSE_BEST_EFFORT */
 
-static inline void fcse_pid_reference_inner(unsigned fcse_pid)
+static inline void fcse_pid_reference_inner(struct mm_struct *mm)
 {
+	unsigned fcse_pid = mm->context.fcse.pid >> FCSE_PID_SHIFT;
+
 #ifdef CONFIG_ARM_FCSE_BEST_EFFORT
 	if (++fcse_pids_user[fcse_pid].count == 1)
 #endif /* CONFIG_ARM_FCSE_BEST_EFFORT */
@@ -124,13 +126,19 @@ int fcse_pid_alloc(struct mm_struct *mm)
 		printk(KERN_WARNING "FCSE: %s[%d] would exceed the %lu processes limit.\n",
 		       current->comm, current->pid, FCSE_NR_PIDS);
 #endif /* CONFIG_ARM_FCSE_MESSAGES */
+		/*
+		 * Set mm pid to FCSE_PID_INVALID, as even when
+		 * init_new_context fails, destroy_context is called.
+		 */
+		mm->context.fcse.pid = FCSE_PID_INVALID;
 		return -EAGAIN;
 #endif /* CONFIG_ARM_FCSE_GUARANTEED */
 	}
-	fcse_pid_reference_inner(fcse_pid);
+	mm->context.fcse.pid = fcse_pid << FCSE_PID_SHIFT;
+	fcse_pid_reference_inner(mm);
 	raw_spin_unlock_irqrestore(&fcse_lock, flags);
 
-	return fcse_pid;
+	return 0;
 }
 
 static inline void fcse_clear_dirty_all(void)
@@ -206,7 +214,7 @@ static noinline int fcse_relocate_mm_to_pid(struct mm_struct *mm, int fcse_pid)
 	from = pgd_offset(mm, 0);
 	mm->context.fcse.pid = fcse_pid << FCSE_PID_SHIFT;
 	to = pgd_offset(mm, 0);
-	fcse_pid_reference_inner(fcse_pid);
+	fcse_pid_reference_inner(mm);
 	fcse_pids_user[fcse_pid].mm = mm;
 	__fcse_mark_dirty(mm);
 	raw_spin_unlock_irqrestore(&fcse_lock, flags);
@@ -279,12 +287,12 @@ void fcse_switch_mm_end_inner(struct mm_struct *next)
 }
 EXPORT_SYMBOL_GPL(fcse_switch_mm_end_inner);
 
-void fcse_pid_reference(unsigned fcse_pid)
+void fcse_pid_reference(struct mm_struct *mm)
 {
 	unsigned long flags;
 
 	raw_spin_lock_irqsave(&fcse_lock, flags);
-	fcse_pid_reference_inner(fcse_pid);
+	fcse_pid_reference_inner(mm);
 	raw_spin_unlock_irqrestore(&fcse_lock, flags);
 }
 
