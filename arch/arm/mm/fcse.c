@@ -169,10 +169,13 @@ unsigned fcse_flush_all_start(void)
 noinline void
 fcse_flush_all_done(unsigned seq, unsigned dirty)
 {
+	struct mm_struct *mm;
 	unsigned long flags;
 
 	if (!cache_is_vivt())
 		return;
+
+	mm = current->mm;
 
 	raw_spin_lock_irqsave(&fcse_lock, flags);
 #if defined(CONFIG_IPIPE)
@@ -182,11 +185,8 @@ fcse_flush_all_done(unsigned seq, unsigned dirty)
 #endif /* CONFIG_ARM_FCSE_PREEMPT_FLUSH */
 		fcse_clear_dirty_all();
 
-	if (dirty && current->mm != &init_mm && current->mm) {
-		unsigned fcse_pid =
-			current->mm->context.fcse.pid >> FCSE_PID_SHIFT;
-		__set_bit(FCSE_PID_MAX - fcse_pid, fcse_pids_cache_dirty);
-	}
+	if (dirty && mm != &init_mm && mm)
+		__fcse_mark_dirty(mm);
 	raw_spin_unlock_irqrestore(&fcse_lock, flags);
 #ifndef CONFIG_ARM_FCSE_PREEMPT_FLUSH
 	preempt_enable();
@@ -203,16 +203,13 @@ static noinline int fcse_relocate_mm_to_pid(struct mm_struct *mm, int fcse_pid)
 
 	raw_spin_lock_irqsave(&fcse_lock, flags);
 	fcse_pid_dereference(mm);
-	fcse_pid_reference_inner(fcse_pid);
-	fcse_pids_user[fcse_pid].mm = mm;
-	__set_bit(FCSE_PID_MAX - fcse_pid, fcse_pids_cache_dirty);
-	if (mm->context.fcse.large)
-		fcse_large_process = mm;
-	raw_spin_unlock_irqrestore(&fcse_lock, flags);
-
 	from = pgd_offset(mm, 0);
 	mm->context.fcse.pid = fcse_pid << FCSE_PID_SHIFT;
 	to = pgd_offset(mm, 0);
+	fcse_pid_reference_inner(fcse_pid);
+	fcse_pids_user[fcse_pid].mm = mm;
+	__fcse_mark_dirty(mm);
+	raw_spin_unlock_irqrestore(&fcse_lock, flags);
 
 	memcpy(to, from, len);
 	memset(from, '\0', len);
@@ -230,7 +227,7 @@ static int fcse_flush_needed_p(struct mm_struct *next)
 
 	if (next == &init_mm)
 		goto check_cur;
-	
+
 	if (fcse_pids_user[fcse_pid].mm != next)
 		if (fcse_pids_user[fcse_pid].mm)
 			flush_needed = test_bit(FCSE_PID_MAX - fcse_pid,
@@ -245,7 +242,7 @@ static int fcse_flush_needed_p(struct mm_struct *next)
   check_cur:
 	if (flush_needed == 0 && fcse_cur_mm->context.fcse.shared_dirty_pages)
 		flush_needed = 1;
-	
+
 	return flush_needed;
 }
 
@@ -270,12 +267,10 @@ void fcse_switch_mm_end_inner(struct mm_struct *next)
 	raw_spin_lock_irqsave(&fcse_lock, flags);
 	if (fcse_flush_needed_p(next))
 		fcse_clear_dirty_all();
-	
+
 	fcse_pid_set(fcse_pid << FCSE_PID_SHIFT);
 	if (next != &init_mm) {
-		__set_bit(FCSE_PID_MAX - fcse_pid, fcse_pids_cache_dirty);
-		if (next->context.fcse.large)
-			fcse_large_process = next;
+		__fcse_mark_dirty(next);
 		if (fcse_pids_user[fcse_pid].mm != next)
 			fcse_pids_user[fcse_pid].mm = next;
 	}
@@ -323,7 +318,7 @@ static noinline void fcse_relocate_mm_to_null_pid(struct mm_struct *mm)
 
 unsigned long
 fcse_check_mmap_inner(struct mm_struct *mm,
-		      struct vm_unmapped_area_info *info, 
+		      struct vm_unmapped_area_info *info,
 		      unsigned long addr, unsigned long flags)
 {
 	if (flags & MAP_FIXED)
