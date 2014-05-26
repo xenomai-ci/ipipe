@@ -26,7 +26,7 @@ void __check_vmalloc_seq(struct mm_struct *mm);
 
 #ifdef CONFIG_CPU_HAS_ASID
 
-int check_and_switch_context(struct mm_struct *mm, 
+int check_and_switch_context(struct mm_struct *mm,
 			     struct task_struct *tsk, bool may_defer);
 #define init_new_context(tsk,mm)	({ atomic64_set(&mm->context.id, 0); 0; })
 
@@ -44,8 +44,8 @@ static inline void a15_erratum_get_cpumask(int this_cpu, struct mm_struct *mm,
 
 #ifdef CONFIG_MMU
 
-static inline int 
-check_and_switch_context(struct mm_struct *mm, 
+static inline int
+check_and_switch_context(struct mm_struct *mm,
 			 struct task_struct *tsk, bool may_defer)
 {
 	if (unlikely(mm->context.vmalloc_seq != init_mm.context.vmalloc_seq))
@@ -107,14 +107,10 @@ static inline void finish_arch_post_lock_switch(void)
 static inline int
 init_new_context(struct task_struct *tsk, struct mm_struct *mm)
 {
-#ifdef CONFIG_ARM_FCSE
-	int fcse_pid;
-
 #ifdef CONFIG_ARM_FCSE_BEST_EFFORT
-	if (!mm->context.fcse.large) {
-		fcse_pid = fcse_pid_alloc(mm);
-		mm->context.fcse.pid = fcse_pid << FCSE_PID_SHIFT;
-	} else {
+	if (!mm->context.fcse.large)
+		fcse_pid_alloc(mm);
+	else {
 		/* We are normally forking a process vith a virtual address
 		   space larger than 32 MB, so its pid should be 0. */
 		FCSE_BUG_ON(mm->context.fcse.pid);
@@ -125,21 +121,13 @@ init_new_context(struct task_struct *tsk, struct mm_struct *mm)
 	mm->context.fcse.high_pages = 0;
 	mm->context.fcse.highest_pid = 0;
 	mm->context.fcse.shared_dirty_pages = 0;
-#else /* CONFIG_ARM_FCSE_GUARANTEED */
-	fcse_pid = fcse_pid_alloc(mm);
-	if (fcse_pid < 0) {
-		/*
-		 * Set mm pid to FCSE_PID_INVALID, as even when
-		 * init_new_context fails, destroy_context is called.
-		 */
-		mm->context.fcse.pid = FCSE_PID_INVALID;
-		return fcse_pid;
-	}
-	mm->context.fcse.pid = fcse_pid << FCSE_PID_SHIFT;
-
-#endif /* CONFIG_ARM_FCSE_GUARANTEED */
 	FCSE_BUG_ON(fcse_mm_in_cache(mm));
-#endif /* CONFIG_ARM_FCSE */
+#elif defined(CONFIG_ARM_FCSE_GUARANTEED)
+	int err = fcse_pid_alloc(mm);
+	if (err < 0)
+		return err;
+	FCSE_BUG_ON(fcse_mm_in_cache(mm));
+#endif /* CONFIG_ARM_FCSE_GUARANTEED */
 
 	return 0;
 }
@@ -214,7 +202,7 @@ extern void __switch_mm_inner(struct mm_struct *prev, struct mm_struct *next,
 	__do_switch_mm(prev, next, tsk, true)
 #endif /* !I-pipe  || !MMU */
 
-static inline void 
+static inline void
 ipipe_switch_mm_head(struct mm_struct *prev, struct mm_struct *next,
 			   struct task_struct *tsk)
 {
@@ -222,7 +210,7 @@ ipipe_switch_mm_head(struct mm_struct *prev, struct mm_struct *next,
 	fcse_switch_mm_end(next);
 }
 
-static inline void 
+static inline void
 __switch_mm(struct mm_struct *prev, struct mm_struct *next,
 	    struct task_struct *tsk)
 {
