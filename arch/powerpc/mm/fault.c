@@ -197,7 +197,7 @@ static int mm_fault_error(struct pt_regs *regs, unsigned long addr, int fault)
 int __kprobes do_page_fault(struct pt_regs *regs, unsigned long address,
 			    unsigned long error_code)
 {
-	enum ctx_state prev_state = exception_enter();
+	enum ctx_state prev_state;
 	struct vm_area_struct * vma;
 	struct mm_struct *mm;
 	unsigned int flags = FAULT_FLAG_ALLOW_RETRY | FAULT_FLAG_KILLABLE;
@@ -211,6 +211,7 @@ int __kprobes do_page_fault(struct pt_regs *regs, unsigned long address,
 	if (__ipipe_report_trap(IPIPE_TRAP_ACCESS, regs))
 		return 0;
 
+	prev_state = exception_enter();
 	mm = current->mm;
 #if !(defined(CONFIG_4xx) || defined(CONFIG_BOOKE))
 	/*
