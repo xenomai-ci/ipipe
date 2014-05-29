@@ -406,10 +406,6 @@ asmlinkage int __ipipe_syscall_root(unsigned long scno, struct pt_regs *regs)
 out:
 	regs->ARM_r7 = orig_r7;
 
-#ifdef CONFIG_IPIPE_DEBUG_INTERNAL
-	BUG_ON(ret > 0 && current_thread_info()->restart_block.fn != 
-	       do_no_restart_syscall);
-#endif
 	return ret;
 }
 
