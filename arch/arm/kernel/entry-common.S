@@ -446,6 +446,7 @@ ENTRY(vector_swi)
 	eor	scno, scno, #__NR_SYSCALL_BASE	@ check OS number
 #endif
 
+local_restart:
 #ifdef CONFIG_IPIPE
 	mov	r1, sp
 	mov	r0, scno
@@ -457,7 +458,6 @@ ENTRY(vector_swi)
 	ldmia	sp, { r0 - r3 }
 #endif /* CONFIG_IPIPE */
 
-local_restart:
 	ldr	r10, [tsk, #TI_FLAGS]		@ check for syscall tracing
 	stmdb	sp!, {r4, r5}			@ push fifth and sixth args
 
