@@ -114,20 +114,19 @@ init_new_context(struct task_struct *tsk, struct mm_struct *mm)
 		/* We are normally forking a process vith a virtual address
 		   space larger than 32 MB, so its pid should be 0. */
 		FCSE_BUG_ON(mm->context.fcse.pid);
-		fcse_pid_reference(0);
+		fcse_pid_reference(mm);
 	}
 	/* If we are forking, set_pte_at will restore the correct high pages
 	   count, and shared writable pages are write-protected again. */
 	mm->context.fcse.high_pages = 0;
 	mm->context.fcse.highest_pid = 0;
 	mm->context.fcse.shared_dirty_pages = 0;
-	FCSE_BUG_ON(fcse_mm_in_cache(mm));
 #elif defined(CONFIG_ARM_FCSE_GUARANTEED)
 	int err = fcse_pid_alloc(mm);
 	if (err < 0)
 		return err;
-	FCSE_BUG_ON(fcse_mm_in_cache(mm));
 #endif /* CONFIG_ARM_FCSE_GUARANTEED */
+	FCSE_BUG_ON(fcse_mm_in_cache(mm));
 
 	return 0;
 }
