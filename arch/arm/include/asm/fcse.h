@@ -17,6 +17,12 @@
 #ifndef __ASM_ARM_FCSE_H
 #define __ASM_ARM_FCSE_H
 
+#ifdef CONFIG_ARM_FCSE_DEBUG
+#define FCSE_BUG_ON(expr) BUG_ON(expr)
+#else /* !CONFIG_ARM_FCSE_DEBUG */
+#define FCSE_BUG_ON(expr) do { } while(0)
+#endif /* !CONFIG_ARM_FCSE_DEBUG */
+
 #ifdef CONFIG_ARM_FCSE
 
 #include <linux/mm_types.h>	/* For struct mm_struct */
@@ -38,12 +44,6 @@
 
 #define FCSE_NR_PIDS (TASK_SIZE / FCSE_PID_TASK_SIZE)
 #define FCSE_PID_MAX (FCSE_NR_PIDS - 1)
-
-#ifdef CONFIG_ARM_FCSE_DEBUG
-#define FCSE_BUG_ON(expr) BUG_ON(expr)
-#else /* !CONFIG_ARM_FCSE_DEBUG */
-#define FCSE_BUG_ON(expr) do { } while(0)
-#endif /* !CONFIG_ARM_FCSE_DEBUG */
 
 struct vm_unmapped_area_info;
 
