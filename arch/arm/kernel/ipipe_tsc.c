@@ -174,9 +174,6 @@ void __ipipe_mach_get_tscinfo(struct __ipipe_tscinfo *info)
 
 void __ipipe_tsc_update(void)
 {
-	if (ipipe_tsc_value == NULL)
-		return;
-
 	if (tsc_info.type == IPIPE_TSC_TYPE_DECREMENTER) {
 		unsigned cnt = *(unsigned *)tsc_info.counter_vaddr;
 		int offset = ipipe_tsc_value->last_cnt - cnt;

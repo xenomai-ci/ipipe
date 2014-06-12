@@ -57,8 +57,7 @@ pxa_ost0_interrupt(int irq, void *dev_id)
 
 	if (clockevent_ipipe_stolen(c) == 0)
 		pxa_ost0_ack();
-	
-	__ipipe_tsc_update();
+
 	c->event_handler(c);
 
 	return IRQ_HANDLED;

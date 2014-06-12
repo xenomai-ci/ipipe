@@ -91,7 +91,7 @@ void __init ixp4xx_map_io(void)
  */
 /* GPIO pin types */
 #define IXP4XX_GPIO_OUT 		0x1
-#define IXP4XX_GPIO_IN  		0x2
+#define IXP4XX_GPIO_IN			0x2
 
 /* GPIO signal types */
 #define IXP4XX_GPIO_LOW			0
@@ -319,8 +319,6 @@ static irqreturn_t ixp4xx_timer_interrupt(int irq, void *dev_id)
 
 	if (!clockevent_ipipe_stolen(evt))
 		ixp4xx_timer_ack();
-
-	__ipipe_tsc_update();
 
 	evt->event_handler(evt);
 

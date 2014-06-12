@@ -176,9 +176,6 @@ static irqreturn_t timer_interrupt(int irq, void *dev_id)
 {
 	struct clock_event_device *evt = &clockevent_davinci;
 
-#ifdef CONFIG_IPIPE
-	__ipipe_tsc_update();
-#endif /* CONFIG_IPIPE */
 	evt->event_handler(evt);
 	return IRQ_HANDLED;
 }
