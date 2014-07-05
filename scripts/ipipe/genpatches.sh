@@ -58,6 +58,7 @@ git diff "$reference" | awk -v kvers="$kvers" -v splitmode="$split" \
 
 BEGIN {
     driver_arch["cpuidle/Kconfig"]="noarch"
+    driver_arch["tty/serial/8250/8250_core.c"]="noarch"
 
     driver_arch["clk/mxs/clk-imx28.c"]="arm"
     driver_arch["clocksource/arm_arch_timer.c"]="arm"
@@ -89,7 +90,6 @@ BEGIN {
     driver_arch["tty/serial/mpc52xx_uart.c"]="powerpc"
     driver_arch["gpio/gpio-mpc8xxx.c"]="powerpc"
 
-    driver_arch["tty/serial/8250/8250_core.c"]="x86"
     driver_arch["clocksource/i8253.c"]="x86"
     driver_arch["clocksource/Makefile"]="x86"
     driver_arch["clocksource/ipipe_i486_tsc_emu.S"]="x86"
