@@ -123,13 +123,13 @@ static struct __ipipe_tscinfo tsc_info = {
 static int __init at91_ipipe_init(void)
 {
 	unsigned master_freq, divided_freq = 0;
+	unsigned divisor, width32, target;
 	unsigned long at91_tc_pbase = 0;
 	unsigned long long wrap_ns;
 	unsigned index, block;
 	struct atmel_tc *tc;
 	int tc_timer_clock;
 	unsigned short v;
-	unsigned divisor;
 	int ret;
 
 	index = CONFIG_IPIPE_AT91_TC % 3;
@@ -151,21 +151,24 @@ static int __init at91_ipipe_init(void)
 
 	master_freq = clk_get_rate(tc->clk[index]);
 
-	/* Find the first frequency above 1 MHz */
+	width32 = tc->tcb_config && tc->tcb_config->counter_width == 32;
+	target = width32 ? 5000000 : 1000000;
+
+	/* Find the first frequency above 1 or 5 MHz */
 	for (tc_timer_clock = ARRAY_SIZE(atmel_tc_divisors) - 1;
 	     tc_timer_clock >= 0; tc_timer_clock--) {
 		divisor = atmel_tc_divisors[tc_timer_clock];
-		divided_freq = (divisor
-				? master_freq / divisor : AT91_SLOW_CLOCK);
-		if (divided_freq > 1000000)
+		divided_freq =
+			(divisor ? master_freq / divisor : AT91_SLOW_CLOCK);
+		if (divided_freq > target)
 			break;
 	}
 
-	if (divided_freq < 1000000)
+	if (divided_freq < target)
 		printk(KERN_INFO "AT91 I-pipe warning: could not find a"
-		       " frequency greater than 1MHz\n");
+			" frequency greater than %dMHz\n", target / 1000000);
 
-	if (tc->tcb_config && tc->tcb_config->counter_width == 32) {
+	if (width32) {
 		at91_itimer.set = at91_tc_set_32;
 		tsc_info.u.mask = 0xffffffffU;
 		wrap_ns = 0;
