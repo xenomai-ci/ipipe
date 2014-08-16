@@ -208,11 +208,13 @@ int __kprobes do_page_fault(struct pt_regs *regs, unsigned long address,
 	int fault;
 	int rc = 0, store_update_sp = 0;
 
+	prev_state = exception_enter();
+
 	if (__ipipe_report_trap(IPIPE_TRAP_ACCESS, regs))
 		return 0;
 
-	prev_state = exception_enter();
 	mm = current->mm;
+
 #if !(defined(CONFIG_4xx) || defined(CONFIG_BOOKE))
 	/*
 	 * Fortunately the bit assignments in SRR1 for an instruction
