@@ -173,6 +173,13 @@ static int __init at91_ipipe_init(void)
 		wrap_ns = (unsigned long long)(AT91_TC_REG_MASK + 1);
 		wrap_ns *= NSEC_PER_SEC;
 		do_div(wrap_ns, divided_freq);
+
+		/*
+		 * Add a 1ms margin. It means that when an interrupt
+		 * occurs, update_tsc must be called within
+		 * 1ms. update_tsc is called through set_dec.
+		 */
+		wrap_ns -= 1000000;
 	}
 
 	printk(KERN_INFO "AT91 I-pipe timer: using TC%d, div: %u, "
