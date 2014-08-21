@@ -255,8 +255,6 @@ static irqreturn_t mxc_timer_interrupt(int irq, void *dev_id)
 	if (!clockevent_ipipe_stolen(evt))
 		mxc_timer_ack();
 
-	__ipipe_tsc_update();
-
 	evt->event_handler(evt);
 
 	return IRQ_HANDLED;

@@ -146,8 +146,6 @@ static struct clock_event_device pit_clkevt = {
  */
 static irqreturn_t at91sam926x_pit_interrupt(int irq, void *dev_id)
 {
-	__ipipe_tsc_update();
-
 	/*
 	 * irqs should be disabled here, but as the irq is shared they are only
 	 * guaranteed to be off if the timer irq is registered first.
@@ -275,8 +273,9 @@ void __init at91sam926x_pit_init(void)
 	/* Set up and register clockevents */
 	pit_clkevt.mult = div_sc(pit_rate, NSEC_PER_SEC, pit_clkevt.shift);
 	pit_clkevt.cpumask = cpumask_of(0);
-	at91_ipipe_early_init(&pit_clkevt);
 	clockevents_register_device(&pit_clkevt);
+
+	at91_pic_muter_register();
 }
 
 void __init at91sam926x_ioremap_pit(u32 addr)

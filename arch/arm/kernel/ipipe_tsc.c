@@ -1,7 +1,8 @@
 #include <linux/kernel.h>
 #include <linux/module.h>
-#include <linux/clocksource.h>
 #include <linux/sched.h>
+#include <linux/timer.h>
+#include <linux/clocksource.h>
 #include <linux/ipipe_tickdev.h>
 
 #include <linux/ipipe.h>
@@ -39,10 +40,19 @@ struct ipipe_tsc_value_t {
 unsigned long __ipipe_kuser_tsc_freq;
 
 struct ipipe_tsc_value_t *ipipe_tsc_value;
+static struct timer_list ipipe_tsc_update_timer;
+
+static void __ipipe_tsc_update_fn(unsigned long cookie)
+{
+	__ipipe_tsc_update();
+	ipipe_tsc_update_timer.expires += cookie;
+	add_timer(&ipipe_tsc_update_timer);
+}
 
 void __init __ipipe_tsc_register(struct __ipipe_tscinfo *info)
 {
 	struct ipipe_tsc_value_t *vector_tsc_value;
+	unsigned long long wrap_ms;
 	unsigned long *tsc_addr;
 	__ipipe_tsc_t *implem;
 	unsigned long flags;
@@ -132,14 +142,29 @@ void __init __ipipe_tsc_register(struct __ipipe_tscinfo *info)
 			   (unsigned long)(tsc_area + 0x80));
 	hard_local_irq_restore(flags);
 
-	printk(KERN_INFO "I-pipe, %u.%03u MHz clocksource\n",
-	       tsc_info.freq / 1000000, (tsc_info.freq % 1000000) / 1000);
-	if (!registered)
+	__ipipe_kuser_tsc_freq = tsc_info.freq;
+
+	wrap_ms = info->u.mask;
+	do_div(wrap_ms, tsc_info.freq / 1000);
+
+	printk(KERN_INFO "I-pipe, %u.%03u MHz clocksource, wrap in %Lu ms\n",
+		tsc_info.freq / 1000000, (tsc_info.freq % 1000000) / 1000,
+		wrap_ms);
+
+	if (!registered) {
+		init_timer(&ipipe_tsc_update_timer);
 		clocksource_register_hz(&clksrc, tsc_info.freq);
-	else
+	} else
 		__clocksource_updatefreq_hz(&clksrc, tsc_info.freq);
 
-	__ipipe_kuser_tsc_freq = tsc_info.freq;
+	wrap_ms *= HZ / 2;
+	do_div(wrap_ms, 1000);
+	if (wrap_ms > 0xffffffff)
+		wrap_ms = 0xffffffff;
+	ipipe_tsc_update_timer.data = wrap_ms;
+	ipipe_tsc_update_timer.function = __ipipe_tsc_update_fn;
+	mod_timer(&ipipe_tsc_update_timer,
+		jiffies + ipipe_tsc_update_timer.data);
 }
 
 void __ipipe_mach_get_tscinfo(struct __ipipe_tscinfo *info)
@@ -149,9 +174,6 @@ void __ipipe_mach_get_tscinfo(struct __ipipe_tscinfo *info)
 
 void __ipipe_tsc_update(void)
 {
-	if (ipipe_tsc_value == NULL)
-		return;
-
 	if (tsc_info.type == IPIPE_TSC_TYPE_DECREMENTER) {
 		unsigned cnt = *(unsigned *)tsc_info.counter_vaddr;
 		int offset = ipipe_tsc_value->last_cnt - cnt;

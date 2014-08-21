@@ -71,7 +71,7 @@ static void __init gt_setup(unsigned long base_paddr, unsigned bits)
 	tsc_info.freq = twd_timer_rate;
 	tsc_info.counter_vaddr = (unsigned long)gt_base;
 	tsc_info.u.counter_paddr = base_paddr;
-	
+
 	switch(bits) {
 	case 64:
 		tsc_info.u.mask = 0xffffffffffffffffULL;
@@ -307,7 +307,6 @@ static irqreturn_t twd_handler(int irq, void *dev_id)
 
 	if (twd_timer_ack()) {
 	  handle:
-		__ipipe_tsc_update();
 		evt->event_handler(evt);
 		return IRQ_HANDLED;
 	}
@@ -507,10 +506,10 @@ static void __init twd_local_timer_of_register(struct device_node *np)
 #ifdef CONFIG_IPIPE
 	if (err == 0) {
 		struct resource res;
-		
+
 		if (of_address_to_resource(np, 0, &res))
 			res.start = 0;
-		
+
 		gt_setup(res.start - 0x400, 32);
 	}
 #endif /* CONFIG_IPIPE */

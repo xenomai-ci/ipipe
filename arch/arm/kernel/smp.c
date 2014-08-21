@@ -529,8 +529,6 @@ static inline void ipi_timer(void)
 #ifdef CONFIG_IPIPE
 #ifndef CONFIG_IPIPE_ARM_KUSER_TSC
 	__ipipe_mach_update_tsc();
-#else /* CONFIG_IPIPE_ARM_KUSER_TSC */
-	__ipipe_tsc_update();
 #endif /* CONFIG_IPIPE_ARM_KUSER_TSC */
 #endif /* CONFIG_IPIPE */
 

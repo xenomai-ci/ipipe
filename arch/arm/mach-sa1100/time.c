@@ -42,7 +42,7 @@ static struct __ipipe_tscinfo tsc_info = {
 	},
 };
 #endif /* CONFIG_IPIPE */
- 
+
 static inline void sa1100_ost0_ack(void)
 {
 	/* Disarm the compare/match, signal the event. */
@@ -56,8 +56,7 @@ static irqreturn_t sa1100_ost0_interrupt(int irq, void *dev_id)
 
 	if (clockevent_ipipe_stolen(c) == 0)
 		sa1100_ost0_ack();
-	
-	__ipipe_tsc_update();
+
 	c->event_handler(c);
 
 	return IRQ_HANDLED;

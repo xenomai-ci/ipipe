@@ -98,9 +98,6 @@ static irqreturn_t omap2_gp_timer_interrupt(int irq, void *dev_id)
 	if (!clockevent_ipipe_stolen(evt))
 		omap2_gp_timer_ack();
 
-	if (num_possible_cpus() == 1)
-		__ipipe_tsc_update();
-
 	evt->event_handler(evt);
 	return IRQ_HANDLED;
 }
@@ -428,15 +425,15 @@ static void __init omap2_gp_clockevent_init(int gptimer_id,
 	if (cpu_is_omap34xx()) {
 		itimer.id = IPIPE_GPTIMER;
 		itimer.errata = omap_dm_timer_get_errata();
-		__omap_dm_timer_override_errata(&itimer, 
+		__omap_dm_timer_override_errata(&itimer,
 						OMAP_TIMER_ERRATA_I103_I767);
-		res = omap_dm_timer_init_one(&itimer, 
-					     "timer_sys_ck", 
-					     NULL, 
+		res = omap_dm_timer_init_one(&itimer,
+					     "timer_sys_ck",
+					     NULL,
 					     &omap3_itimer.name,
 					     OMAP_TIMER_POSTED, 1);
 		BUG_ON(res);
- 
+
 		__omap_dm_timer_int_enable(&itimer, OMAP_TIMER_INT_OVERFLOW);
 		omap3_itimer.irq = itimer.irq;
 		omap3_itimer.freq = itimer.rate;
@@ -586,7 +583,7 @@ static void __init omap2_gptimer_clocksource_init(int gptimer_id,
 
 	res = omap_dm_timer_init_one(&clksrc, fck_source, property,
 				     &clocksource_gpt.name,
-				     (ipipe ? OMAP_TIMER_POSTED 
+				     (ipipe ? OMAP_TIMER_POSTED
 				      : OMAP_TIMER_NONPOSTED), ipipe);
 	BUG_ON(res);
 

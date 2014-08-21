@@ -150,8 +150,6 @@ static irqreturn_t sp804_timer_interrupt(int irq, void *dev_id)
 	if (!clockevent_ipipe_stolen(evt))
 		sp804_timer_ack();
 
-	__ipipe_tsc_update();
-
 	evt->event_handler(evt);
 
 	return IRQ_HANDLED;
@@ -298,7 +296,7 @@ static void __init sp804_of_init(struct device_node *np)
 	of_property_read_u32(np, "arm,sp804-has-irq", &irq_num);
 	if (irq_num == 2) {
 		__sp804_clockevents_init(base + TIMER_2_BASE, irq, clk2, name);
-		__sp804_clocksource_and_sched_clock_init(base, res.start, 
+		__sp804_clocksource_and_sched_clock_init(base, res.start,
 							 name, clk1, 1);
 	} else {
 		__sp804_clockevents_init(base, irq, clk1 , name);
