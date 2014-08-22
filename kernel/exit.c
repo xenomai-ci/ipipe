@@ -759,6 +759,7 @@ void do_exit(long code)
 	 */
 	smp_mb();
 	raw_spin_unlock_wait(&tsk->pi_lock);
+  	__ipipe_report_exit(tsk);
 
 	if (unlikely(in_atomic()))
 		printk(KERN_INFO "note: %s[%d] exited with preempt_count %d\n",
@@ -790,7 +791,6 @@ void do_exit(long code)
 		acct_process();
 	trace_sched_process_exit(tsk);
 
-  	__ipipe_report_exit(tsk);
 	exit_sem(tsk);
 	exit_shm(tsk);
 	exit_files(tsk);
