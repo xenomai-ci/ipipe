@@ -994,6 +994,10 @@ void __init at91_gpio_init(struct at91_gpio_bank *data, int nr_banks)
 }
 
 #if defined(CONFIG_IPIPE)
+extern unsigned long at91_aic_caps;
+#define AT91_AIC_CAP_AIC5	(1 << 0)
+#define has_aic5()		(at91_aic_caps & AT91_AIC_CAP_AIC5)
+
 static void at91_enable_irqdesc(struct ipipe_domain *ipd, unsigned irq)
 {
 	struct irq_desc *desc = irq_to_desc(irq);
@@ -1006,19 +1010,19 @@ static void at91_enable_irqdesc(struct ipipe_domain *ipd, unsigned irq)
 	if (chip == &gpio_irqchip) {
 		struct at91_gpio_chip *chip = irq_data_get_irq_chip_data(idata);
 
-		if (ipd == &ipipe_root) 
+		if (ipd == &ipipe_root)
 			chip->root |= (1 << idata->hwirq);
 		else
-			chip->root &= ~(1 << idata->hwirq);			
+			chip->root &= ~(1 << idata->hwirq);
 
 		if (ipd != &ipipe_root && ++(*chip->nr_nonroot) == 1)
 			aic_root &= ~(1 << chip->pioc_hwirq);
 	} else {
-		if (ipd == &ipipe_root) 
+		if (ipd == &ipipe_root)
 			aic_root |= (1 << idata->hwirq);
 		else
 			aic_root &= ~(1 << idata->hwirq);
-	}	
+	}
 }
 
 static void at91_disable_irqdesc(struct ipipe_domain *ipd, unsigned irq)
@@ -1030,12 +1034,12 @@ static void at91_disable_irqdesc(struct ipipe_domain *ipd, unsigned irq)
 	if (chip == &gpio_irqchip) {
 		struct at91_gpio_chip *chip = irq_data_get_irq_chip_data(idata);
 
-		if (ipd != &ipipe_root) 
+		if (ipd != &ipipe_root)
 			chip->root |= (1 << idata->hwirq);
 
 		if (ipd != &ipipe_root && --(*chip->nr_nonroot) == 0)
 			aic_root |= (1 << chip->pioc_hwirq);
-	} else 
+	} else
 		if (ipd != &ipipe_root)
 			aic_root |= (1 << idata->hwirq);
 }
@@ -1088,6 +1092,9 @@ void at91_pic_muter_register(void)
 		.mute = at91_mute_pic,
 		.unmute = at91_unmute_pic,
 	};
+
+	if (has_aic5())
+		return;
 
 	ipipe_pic_muter_register(&at91_pic_muter);
 }

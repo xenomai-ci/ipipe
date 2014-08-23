@@ -26,10 +26,13 @@
 #include <linux/clockchips.h>
 #include <linux/clk.h>
 #include <linux/err.h>
+#include <linux/sched_clock.h>
+#include <linux/of.h>
+#include <linux/of_address.h>
+#include <linux/of_irq.h>
 #include <linux/ipipe.h>
 #include <linux/ipipe_tickdev.h>
 
-#include <asm/sched_clock.h>
 #include <asm/mach/time.h>
 
 #include "common.h"
@@ -113,7 +116,7 @@ static void gpt_irq_acknowledge(void)
 
 static void __iomem *sched_clock_reg;
 
-static u32 notrace mxc_read_sched_clock(void)
+static u64 notrace mxc_read_sched_clock(void)
 {
 	return sched_clock_reg ? __raw_readl(sched_clock_reg) : 0;
 }
@@ -125,7 +128,7 @@ static int __init mxc_clocksource_init(struct clk *timer_clk)
 
 	sched_clock_reg = reg;
 
-	setup_sched_clock(mxc_read_sched_clock, 32, c);
+	sched_clock_register(mxc_read_sched_clock, 32, c);
 	return clocksource_mmio_init(reg, "mxc_timer1", c, 200, 32,
 			clocksource_mmio_readl_up);
 }
@@ -252,8 +255,6 @@ static irqreturn_t mxc_timer_interrupt(int irq, void *dev_id)
 	if (!clockevent_ipipe_stolen(evt))
 		mxc_timer_ack();
 
-	__ipipe_tsc_update();
-
 	evt->event_handler(evt);
 
 	return IRQ_HANDLED;
@@ -276,7 +277,7 @@ static struct ipipe_timer mxc_itimer = {
 
 static struct irqaction mxc_timer_irq = {
 	.name		= "i.MX Timer Tick",
-	.flags		= IRQF_DISABLED | IRQF_TIMER | IRQF_IRQPOLL,
+	.flags		= IRQF_TIMER | IRQF_IRQPOLL,
 	.handler	= mxc_timer_interrupt,
 };
 
@@ -367,3 +368,21 @@ mxc_timer_init(void __iomem *base, unsigned long phys, int irq)
 	setup_irq(irq, &mxc_timer_irq);
 
 }
+
+#ifdef CONFIG_OF
+void __init mxc_timer_init_dt(struct device_node *np)
+{
+	struct resource res;
+	void __iomem *base;
+	int irq;
+
+	base = of_iomap(np, 0);
+	WARN_ON(!base);
+	irq = irq_of_parse_and_map(np, 0);
+
+	if (of_address_to_resource(np, 0, &res))
+		res.start = 0;
+
+	mxc_timer_init(base, res.start, irq);
+}
+#endif

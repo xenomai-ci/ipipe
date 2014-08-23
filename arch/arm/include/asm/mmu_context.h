@@ -18,6 +18,7 @@
 #include <asm/cacheflush.h>
 #include <asm/cachetype.h>
 #include <asm/proc-fns.h>
+#include <asm/smp_plat.h>
 #include <asm-generic/mm_hooks.h>
 #include <asm/fcse.h>
 
@@ -25,18 +26,26 @@ void __check_vmalloc_seq(struct mm_struct *mm);
 
 #ifdef CONFIG_CPU_HAS_ASID
 
-int check_and_switch_context(struct mm_struct *mm, 
+int check_and_switch_context(struct mm_struct *mm,
 			     struct task_struct *tsk, bool may_defer);
 #define init_new_context(tsk,mm)	({ atomic64_set(&mm->context.id, 0); 0; })
 
-DECLARE_PER_CPU(atomic64_t, active_asids);
+#ifdef CONFIG_ARM_ERRATA_798181
+void a15_erratum_get_cpumask(int this_cpu, struct mm_struct *mm,
+			     cpumask_t *mask);
+#else  /* !CONFIG_ARM_ERRATA_798181 */
+static inline void a15_erratum_get_cpumask(int this_cpu, struct mm_struct *mm,
+					   cpumask_t *mask)
+{
+}
+#endif /* CONFIG_ARM_ERRATA_798181 */
 
 #else	/* !CONFIG_CPU_HAS_ASID */
 
 #ifdef CONFIG_MMU
 
-static inline int 
-check_and_switch_context(struct mm_struct *mm, 
+static inline int
+check_and_switch_context(struct mm_struct *mm,
 			 struct task_struct *tsk, bool may_defer)
 {
 	if (unlikely(mm->context.vmalloc_seq != init_mm.context.vmalloc_seq))
@@ -50,7 +59,7 @@ check_and_switch_context(struct mm_struct *mm,
 		 * on non-ASID CPUs, the old mm will remain valid until the
 		 * finish_arch_post_lock_switch() call.
 		 */
-		set_ti_thread_flag(task_thread_info(tsk), TIF_SWITCH_MM);
+		mm->context.switch_pending = 1;
 		return -EAGAIN;
 	} else {
 		cpu_switch_mm(mm->pgd, mm, fcse_switch_mm_start(mm));
@@ -73,11 +82,24 @@ static inline void deferred_switch_mm(struct mm_struct *next)
 	finish_arch_post_lock_switch
 static inline void finish_arch_post_lock_switch(void)
 {
-	if (test_and_clear_thread_flag(TIF_SWITCH_MM)) {
-		unsigned long flags;
-		ipipe_mm_switch_protect(flags);
-		deferred_switch_mm(current->mm);
-		ipipe_mm_switch_unprotect(flags);
+	struct mm_struct *mm = current->mm;
+
+	if (mm && mm->context.switch_pending) {
+		/*
+		 * Preemption must be disabled during cpu_switch_mm() as we
+		 * have some stateful cache flush implementations. Check
+		 * switch_pending again in case we were preempted and the
+		 * switch to this mm was already done.
+		 */
+		preempt_disable();
+		if (mm->context.switch_pending) {
+			unsigned long flags;
+			mm->context.switch_pending = 0;
+			ipipe_mm_switch_protect(flags);
+			deferred_switch_mm(mm);
+			ipipe_mm_switch_unprotect(flags);
+		}
+		preempt_enable_no_resched();
 	}
 }
 #endif	/* CONFIG_MMU */
@@ -85,39 +107,26 @@ static inline void finish_arch_post_lock_switch(void)
 static inline int
 init_new_context(struct task_struct *tsk, struct mm_struct *mm)
 {
-#ifdef CONFIG_ARM_FCSE
-	int fcse_pid;
-
 #ifdef CONFIG_ARM_FCSE_BEST_EFFORT
-	if (!mm->context.fcse.large) {
-		fcse_pid = fcse_pid_alloc(mm);
-		mm->context.fcse.pid = fcse_pid << FCSE_PID_SHIFT;
-	} else {
+	if (!mm->context.fcse.large)
+		fcse_pid_alloc(mm);
+	else {
 		/* We are normally forking a process vith a virtual address
 		   space larger than 32 MB, so its pid should be 0. */
 		FCSE_BUG_ON(mm->context.fcse.pid);
-		fcse_pid_reference(0);
+		fcse_pid_reference(mm);
 	}
 	/* If we are forking, set_pte_at will restore the correct high pages
 	   count, and shared writable pages are write-protected again. */
 	mm->context.fcse.high_pages = 0;
 	mm->context.fcse.highest_pid = 0;
 	mm->context.fcse.shared_dirty_pages = 0;
-#else /* CONFIG_ARM_FCSE_GUARANTEED */
-	fcse_pid = fcse_pid_alloc(mm);
-	if (fcse_pid < 0) {
-		/*
-		 * Set mm pid to FCSE_PID_INVALID, as even when
-		 * init_new_context fails, destroy_context is called.
-		 */
-		mm->context.fcse.pid = FCSE_PID_INVALID;
-		return fcse_pid;
-	}
-	mm->context.fcse.pid = fcse_pid << FCSE_PID_SHIFT;
-
+#elif defined(CONFIG_ARM_FCSE_GUARANTEED)
+	int err = fcse_pid_alloc(mm);
+	if (err < 0)
+		return err;
 #endif /* CONFIG_ARM_FCSE_GUARANTEED */
 	FCSE_BUG_ON(fcse_mm_in_cache(mm));
-#endif /* CONFIG_ARM_FCSE */
 
 	return 0;
 }
@@ -151,12 +160,16 @@ __do_switch_mm(struct mm_struct *prev, struct mm_struct *next,
 #ifdef CONFIG_MMU
 	const unsigned int cpu = ipipe_processor_id();
 
-#ifdef CONFIG_SMP
-	/* check for possible thread migration */
-	if (!cpumask_empty(mm_cpumask(next)) &&
+	/*
+	 * __sync_icache_dcache doesn't broadcast the I-cache invalidation,
+	 * so check for possible thread migration and invalidate the I-cache
+	 * if we're new to this CPU.
+	 */
+	if (cache_ops_need_broadcast() &&
+	    !cpumask_empty(mm_cpumask(next)) &&
 	    !cpumask_test_cpu(cpu, mm_cpumask(next)))
 		__flush_icache_all();
-#endif
+
 	if (!cpumask_test_and_set_cpu(cpu, mm_cpumask(next)) || prev != next) {
 		int rc = check_and_switch_context(next, tsk, may_defer);
 #ifdef CONFIG_IPIPE
@@ -169,7 +182,8 @@ __do_switch_mm(struct mm_struct *prev, struct mm_struct *next,
 			set_tsk_thread_flag(tsk, TIF_SWITCHED);
 #endif /* CONFIG_ARM_FCSE */
 #else /* !CONFIG_IPIPE */
-		(void)rc;
+		if (rc == 0)
+			fcse_switch_mm_end(next);
 #endif /* CONFIG_IPIPE */
 		if (cache_is_vivt() && prev)
 			cpumask_clear_cpu(cpu, mm_cpumask(prev));
@@ -183,10 +197,11 @@ __do_switch_mm(struct mm_struct *prev, struct mm_struct *next,
 extern void __switch_mm_inner(struct mm_struct *prev, struct mm_struct *next,
 			      struct task_struct *tsk);
 #else /* !I-pipe || !MMU */
-#define __switch_mm_inner(prev, next, tsk) __do_switch_mm(prev, next, tsk, true)
+#define __switch_mm_inner(prev, next, tsk) \
+	__do_switch_mm(prev, next, tsk, true)
 #endif /* !I-pipe  || !MMU */
 
-static inline void 
+static inline void
 ipipe_switch_mm_head(struct mm_struct *prev, struct mm_struct *next,
 			   struct task_struct *tsk)
 {
@@ -194,7 +209,7 @@ ipipe_switch_mm_head(struct mm_struct *prev, struct mm_struct *next,
 	fcse_switch_mm_end(next);
 }
 
-static inline void 
+static inline void
 __switch_mm(struct mm_struct *prev, struct mm_struct *next,
 	    struct task_struct *tsk)
 {
@@ -221,7 +236,7 @@ switch_mm(struct mm_struct *prev, struct mm_struct *next,
 #define activate_mm(prev,next)                                         \
        ({                                                              \
        __switch_mm(prev, next, NULL);                                    \
-       FCSE_BUG_ON(current->mm == next && !fcse_mm_in_cache(next));    \
+       FCSE_BUG_ON(current->mm == next && next->context.switch_pending == 0 && !fcse_mm_in_cache(next));    \
        })
 #endif /* CONFIG_ARM_FCSE_BEST_EFFORT */
 static inline void destroy_context(struct mm_struct *mm)

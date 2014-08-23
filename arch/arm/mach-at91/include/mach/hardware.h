@@ -33,6 +33,7 @@
 #include <mach/at91sam9g45.h>
 #include <mach/at91sam9x5.h>
 #include <mach/at91sam9n12.h>
+#include <mach/sama5d3.h>
 
 /*
  * On all at91 except rm9200 and x40 have the System Controller starts
@@ -85,27 +86,6 @@
  * Virtual to Physical Address mapping for IO devices.
  */
 #define AT91_VA_BASE_SYS	AT91_IO_P2V(AT91_BASE_SYS)
-
-#ifdef CONFIG_IPIPE
-#if defined(CONFIG_ARCH_AT91RM9200)
-#define AT91_BASE_TCB0 AT91RM9200_BASE_TCB0
-#elif defined(CONFIG_ARCH_AT91SAM9260) || defined(CONFIG_ARCH_AT91SAM9G20)
-#define AT91_BASE_TCB0 AT91SAM9260_BASE_TCB0
-#elif defined(CONFIG_ARCH_AT91SAM9261)
-#define AT91_BASE_TCB0 AT91SAM9261_BASE_TCB0
-#elif defined(CONFIG_ARCH_AT91SAM9263)
-#define AT91_BASE_TCB0 AT91SAM9263_BASE_TCB0
-#elif defined(CONFIG_ARCH_AT91SAM9RL)
-#define AT91_BASE_TCB0 AT91SAM9RL_BASE_TCB0
-#elif defined(CONFIG_ARCH_AT91SAM9G45)
-#define AT91_BASE_TCB0 AT91SAM9G45_BASE_TCB0
-#elif defined(CONFIG_ARCH_AT91X40)
-#define AT91_BASE_TCB0 (AT91_BASE_SYS + AT91_TC)
-#else
-#error "AT91 processor unsupported by Adeos"
-#endif
-#define AT91_VA_BASE_TCB0 AT91_IO_P2V(AT91_BASE_TCB0)
-#endif
 
  /* Internal SRAM is mapped below the IO devices */
 #define AT91_SRAM_MAX		SZ_1M

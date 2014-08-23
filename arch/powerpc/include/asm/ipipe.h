@@ -149,10 +149,6 @@ static inline unsigned long __ipipe_ffnz(unsigned long ul)
 
 #define __ipipe_root_tick_p(regs)	((regs)->msr & MSR_EE)
 
-void handle_one_irq(unsigned int irq);
-
-void check_stack_overflow(void);
-
 static inline void ipipe_mute_pic(void) { }
 
 static inline void ipipe_unmute_pic(void) { }

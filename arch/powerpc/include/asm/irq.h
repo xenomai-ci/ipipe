@@ -69,11 +69,20 @@ extern struct thread_info *softirq_ctx[NR_CPUS];
 
 extern void irq_ctx_init(void);
 extern void call_do_softirq(struct thread_info *tp);
-extern int call_handle_irq(int irq, void *p1,
-			   struct thread_info *tp, void *func);
+extern void call_do_irq(struct pt_regs *regs, struct thread_info *tp);
 extern void do_IRQ(struct pt_regs *regs);
+extern void __do_irq(struct pt_regs *regs);
+extern void ___do_irq(unsigned int irq, struct pt_regs *regs);
 
 int irq_choose_cpu(const struct cpumask *mask);
+
+#if defined(CONFIG_DEBUG_STACKOVERFLOW) && !defined(CONFIG_IPIPE_LEGACY)
+void check_stack_overflow(void);
+#else
+static inline void check_stack_overflow(void)
+{
+}
+#endif
 
 #endif /* _ASM_IRQ_H */
 #endif /* __KERNEL__ */

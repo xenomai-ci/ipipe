@@ -33,6 +33,11 @@
 #define IPIPE_ROOT_ID		0
 #define IPIPE_ROOT_NPTDKEYS	4
 
+/* Legacy pipeline status bit */
+#define IPIPE_NOSTACK_FLAG	1 /* running on foreign stack. */
+#define IPIPE_NOSTACK_MASK	(1L << IPIPE_NOSTACK_FLAG)
+
+/* Legacy interrupt control bits */
 #define IPIPE_DUMMY_FLAG	31
 #define IPIPE_WIRED_FLAG	IPIPE_HANDLE_FLAG
 #define IPIPE_WIRED_MASK	(1 << IPIPE_WIRED_FLAG)
@@ -250,6 +255,36 @@ static inline void local_irq_restore_hw(unsigned long flags)
 		(flags) = hard_cond_local_irq_save();	\
 	} while (0)
 #define local_irq_restore_hw_cond(flags)  hard_cond_local_irq_restore(flags)
+
+static inline void ipipe_set_foreign_stack(struct ipipe_domain *ipd)
+{
+	/* Must be called hw interrupts off. */
+	__set_bit(IPIPE_NOSTACK_FLAG, &ipipe_this_cpu_context(ipd)->status);
+}
+
+static inline void ipipe_clear_foreign_stack(struct ipipe_domain *ipd)
+{
+	/* Must be called hw interrupts off. */
+	__clear_bit(IPIPE_NOSTACK_FLAG, &ipipe_this_cpu_context(ipd)->status);
+}
+
+static inline int ipipe_test_foreign_stack(void)
+{
+	/* Must be called hw interrupts off. */
+	return test_bit(IPIPE_NOSTACK_FLAG, &__ipipe_current_context->status);
+}
+
+#ifndef ipipe_safe_current
+#define ipipe_safe_current()						\
+	({								\
+		struct task_struct *__p__;				\
+		unsigned long __flags__;				\
+		__flags__ = hard_smp_local_irq_save();			\
+		__p__ = ipipe_test_foreign_stack() ? &init_task : current; \
+		hard_smp_local_irq_restore(__flags__);			\
+		__p__;							\
+	})
+#endif
 
 void __ipipe_legacy_init_stage(struct ipipe_domain *ipd);
 

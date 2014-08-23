@@ -195,8 +195,6 @@ static int clockevent_next_event(unsigned long cycles,
 		cycles = max_delta_ticks;
 #endif
 
-	__ipipe_tsc_update();
-
 	if (val & CTRL_ENABLE)
 		writew(val & ~CTRL_ENABLE, gpt_base + CR(CLKEVT));
 
@@ -219,8 +217,6 @@ static irqreturn_t spear_timer_interrupt(int irq, void *dev_id)
 
 	if (!clockevent_ipipe_stolen(evt))
 		spear_timer_ack();
-
-	__ipipe_tsc_update();
 
 	evt->event_handler(evt);
 

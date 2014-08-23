@@ -28,11 +28,11 @@
 #include <linux/of.h>
 #include <linux/of_address.h>
 #include <linux/of_irq.h>
+#include <linux/sched_clock.h>
 #include <linux/module.h>
 #include <linux/ipipe.h>
 #include <linux/ipipe_tickdev.h>
 
-#include <asm/sched_clock.h>
 #include <asm/hardware/arm_timer.h>
 #include <asm/hardware/timer-sp.h>
 
@@ -80,7 +80,7 @@ static long __init sp804_get_clock_rate(struct clk *clk)
 
 static void __iomem *sched_clock_base;
 
-static u32 sp804_read(void)
+static u64 notrace sp804_read(void)
 {
 	return ~readl_relaxed(sched_clock_base + TIMER_VALUE);
 }
@@ -119,7 +119,7 @@ void __init __sp804_clocksource_and_sched_clock_init(void __iomem *base,
 
 	if (use_sched_clock) {
 		sched_clock_base = base;
-		setup_sched_clock(sp804_read, 32, rate);
+		sched_clock_register(sp804_read, 32, rate);
 	}
 
 #ifdef CONFIG_IPIPE
@@ -149,8 +149,6 @@ static irqreturn_t sp804_timer_interrupt(int irq, void *dev_id)
 
 	if (!clockevent_ipipe_stolen(evt))
 		sp804_timer_ack();
-
-	__ipipe_tsc_update();
 
 	evt->event_handler(evt);
 
@@ -202,7 +200,8 @@ static struct ipipe_timer sp804_itimer = {
 #endif /* CONFIG_IPIPE */
 
 static struct clock_event_device sp804_clockevent = {
-	.features       = CLOCK_EVT_FEAT_PERIODIC | CLOCK_EVT_FEAT_ONESHOT,
+	.features       = CLOCK_EVT_FEAT_PERIODIC | CLOCK_EVT_FEAT_ONESHOT |
+		CLOCK_EVT_FEAT_DYNIRQ,
 	.set_mode	= sp804_set_mode,
 	.set_next_event	= sp804_set_next_event,
 	.rating		= 300,
@@ -213,7 +212,7 @@ static struct clock_event_device sp804_clockevent = {
 
 static struct irqaction sp804_timer_irq = {
 	.name		= "timer",
-	.flags		= IRQF_DISABLED | IRQF_TIMER | IRQF_IRQPOLL,
+	.flags		= IRQF_TIMER | IRQF_IRQPOLL,
 	.handler	= sp804_timer_interrupt,
 	.dev_id		= &sp804_clockevent,
 };
@@ -297,7 +296,7 @@ static void __init sp804_of_init(struct device_node *np)
 	of_property_read_u32(np, "arm,sp804-has-irq", &irq_num);
 	if (irq_num == 2) {
 		__sp804_clockevents_init(base + TIMER_2_BASE, irq, clk2, name);
-		__sp804_clocksource_and_sched_clock_init(base, res.start, 
+		__sp804_clocksource_and_sched_clock_init(base, res.start,
 							 name, clk1, 1);
 	} else {
 		__sp804_clockevents_init(base, irq, clk1 , name);

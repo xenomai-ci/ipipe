@@ -82,9 +82,7 @@ static inline int ipipe_virtual_irq_p(unsigned int irq)
 
 /* Per-cpu pipeline status */
 #define IPIPE_STALL_FLAG	0 /* interrupts (virtually) disabled. */
-#define IPIPE_NOSTACK_FLAG	1 /* running on foreign stack. */
 #define IPIPE_STALL_MASK	(1L << IPIPE_STALL_FLAG)
-#define IPIPE_NOSTACK_MASK	(1L << IPIPE_NOSTACK_FLAG)
 
 /* Interrupt control bits */
 #define IPIPE_HANDLE_FLAG	0
@@ -182,25 +180,6 @@ void __ipipe_flush_printk(unsigned int irq, void *cookie);
 
 void __ipipe_pin_range_globally(unsigned long start,
 				unsigned long end);
-
-#define hard_preempt_disable()				\
-	({						\
-		unsigned long __flags__;		\
-		__flags__ = hard_local_irq_save();	\
-		if (__ipipe_root_p)			\
-			preempt_disable();		\
-		__flags__;				\
-	})
-
-#define hard_preempt_enable(flags)			\
-	do {						\
-		if (__ipipe_root_p) {			\
-			preempt_enable_no_resched();	\
-			hard_local_irq_restore(flags);	\
-			preempt_check_resched();	\
-		} else					\
-			hard_local_irq_restore(flags);	\
-	} while (0)
 
 #define __ipipe_get_cpu(flags)	({ (flags) = hard_preempt_disable(); ipipe_processor_id(); })
 #define __ipipe_put_cpu(flags)	hard_preempt_enable(flags)

@@ -51,15 +51,14 @@ static u32 at91x40_gettimeoffset(void)
 
 static irqreturn_t at91x40_timer_interrupt(int irq, void *dev_id)
 {
-	__ipipe_tsc_update();
-	at91_tc_read(AT91_TC_CLK1BASE + AT91_TC_SR);
+ 	at91_tc_read(AT91_TC_CLK1BASE + AT91_TC_SR);
 	timer_tick();
 	return IRQ_HANDLED;
 }
 
 static struct irqaction at91x40_timer_irq = {
 	.name		= "at91_tick",
-	.flags		= IRQF_DISABLED | IRQF_TIMER,
+	.flags		= IRQF_TIMER,
 	.handler	= at91x40_timer_interrupt
 };
 void __init at91x40_timer_init(void)

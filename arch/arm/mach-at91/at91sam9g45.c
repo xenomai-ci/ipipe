@@ -12,13 +12,13 @@
 
 #include <linux/module.h>
 #include <linux/dma-mapping.h>
+#include <linux/clk/at91_pmc.h>
 
 #include <asm/irq.h>
 #include <asm/mach/arch.h>
 #include <asm/mach/map.h>
 #include <asm/system_misc.h>
 #include <mach/at91sam9g45.h>
-#include <mach/at91_pmc.h>
 #include <mach/cpu.h>
 
 #include "at91_aic.h"
@@ -26,17 +26,7 @@
 #include "generic.h"
 #include "clock.h"
 #include "sam9_smc.h"
-
-#ifdef CONFIG_IPIPE
-static struct map_desc at91sam9g45_io_desc[] __initdata = {
-	{
-		.virtual	= AT91_VA_BASE_TCB0,
-		.pfn		= __phys_to_pfn(AT91_BASE_TCB0),
-		.length		= SZ_16K,
-		.type		= MT_DEVICE,
-	},
-};
-#endif /* CONFIG_IPIPE */
+#include "pm.h"
 
 /* --------------------------------------------------------------------
  *  Clocks
@@ -277,6 +267,8 @@ static struct clk_lookup periph_clocks_lookups[] = {
 	CLKDEV_CON_DEV_ID(NULL, "fff88000.i2c", &twi1_clk),
 	CLKDEV_CON_DEV_ID("spi_clk", "fffa4000.spi", &spi0_clk),
 	CLKDEV_CON_DEV_ID("spi_clk", "fffa8000.spi", &spi1_clk),
+	CLKDEV_CON_DEV_ID("hclk", "600000.gadget", &utmi_clk),
+	CLKDEV_CON_DEV_ID("pclk", "600000.gadget", &udphs_clk),
 	/* fake hclk clock */
 	CLKDEV_CON_DEV_ID("hclk", "at91_ohci", &uhphs_clk),
 	CLKDEV_CON_DEV_ID(NULL, "fffff200.gpio", &pioA_clk),
@@ -368,9 +360,6 @@ static struct at91_gpio_bank at91sam9g45_gpio[] __initdata = {
 static void __init at91sam9g45_map_io(void)
 {
 	at91_init_sram(0, AT91SAM9G45_SRAM_BASE, AT91SAM9G45_SRAM_SIZE);
-#ifdef CONFIG_IPIPE
-	iotable_init(at91sam9g45_io_desc, ARRAY_SIZE(at91sam9g45_io_desc));
-#endif /* CONFIG_IPIPE */
 }
 
 static void __init at91sam9g45_ioremap_registers(void)
@@ -382,13 +371,16 @@ static void __init at91sam9g45_ioremap_registers(void)
 	at91sam926x_ioremap_pit(AT91SAM9G45_BASE_PIT);
 	at91sam9_ioremap_smc(0, AT91SAM9G45_BASE_SMC);
 	at91_ioremap_matrix(AT91SAM9G45_BASE_MATRIX);
+	at91_pm_set_standby(at91_ddr_standby);
 }
 
 static void __init at91sam9g45_initialize(void)
 {
 	arm_pm_idle = at91sam9_idle;
 	arm_pm_restart = at91sam9g45_restart;
-	at91_extern_irq = (1 << AT91SAM9G45_ID_IRQ0);
+
+	at91_sysirq_mask_rtc(AT91SAM9G45_BASE_RTC);
+	at91_sysirq_mask_rtt(AT91SAM9G45_BASE_RTT);
 
 	/* Register GPIO subsystem */
 	at91_gpio_init(at91sam9g45_gpio, 5);
@@ -478,6 +470,7 @@ static unsigned int at91sam9g45_default_irq_priority[NR_AIC_IRQS] __initdata = {
 AT91_SOC_START(at91sam9g45)
 	.map_io = at91sam9g45_map_io,
 	.default_irq_priority = at91sam9g45_default_irq_priority,
+	.extern_irq = (1 << AT91SAM9G45_ID_IRQ0),
 	.ioremap_registers = at91sam9g45_ioremap_registers,
 	.register_clocks = at91sam9g45_register_clocks,
 	.init = at91sam9g45_initialize,

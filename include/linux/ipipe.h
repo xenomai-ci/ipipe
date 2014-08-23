@@ -246,36 +246,6 @@ void ipipe_critical_exit(unsigned long flags);
 
 void ipipe_prepare_panic(void);
 
-static inline void ipipe_set_foreign_stack(struct ipipe_domain *ipd)
-{
-	/* Must be called hw interrupts off. */
-	__set_bit(IPIPE_NOSTACK_FLAG, &ipipe_this_cpu_context(ipd)->status);
-}
-
-static inline void ipipe_clear_foreign_stack(struct ipipe_domain *ipd)
-{
-	/* Must be called hw interrupts off. */
-	__clear_bit(IPIPE_NOSTACK_FLAG, &ipipe_this_cpu_context(ipd)->status);
-}
-
-static inline int ipipe_test_foreign_stack(void)
-{
-	/* Must be called hw interrupts off. */
-	return test_bit(IPIPE_NOSTACK_FLAG, &__ipipe_current_context->status);
-}
-
-#ifndef ipipe_safe_current
-#define ipipe_safe_current()						\
-	({								\
-		struct task_struct *__p__;				\
-		unsigned long __flags__;				\
-		__flags__ = hard_smp_local_irq_save();			\
-		__p__ = ipipe_test_foreign_stack() ? &init_task : current; \
-		hard_smp_local_irq_restore(__flags__);			\
-		__p__;							\
-	})
-#endif
-
 #ifdef CONFIG_SMP
 #ifndef ipipe_smp_p
 #define ipipe_smp_p (1)

@@ -26,14 +26,17 @@ typedef struct {
 	arch_spinlock_t arch_lock;
 } __ipipe_spinlock_t;
 
-#define ipipe_spinlock_p(lock)						\
-	__builtin_types_compatible_p(typeof(lock), __ipipe_spinlock_t *)
+#define ipipe_spinlock_p(lock)							\
+	__builtin_types_compatible_p(typeof(lock), __ipipe_spinlock_t *) ||	\
+	__builtin_types_compatible_p(typeof(lock), __ipipe_spinlock_t [])
 
 #define std_spinlock_raw_p(lock)					\
-	__builtin_types_compatible_p(typeof(lock), raw_spinlock_t *)
+	__builtin_types_compatible_p(typeof(lock), raw_spinlock_t *) ||	\
+	__builtin_types_compatible_p(typeof(lock), raw_spinlock_t [])
 
 #define std_spinlock_p(lock)						\
-	__builtin_types_compatible_p(typeof(lock), spinlock_t *)
+	__builtin_types_compatible_p(typeof(lock), spinlock_t *) ||	\
+	__builtin_types_compatible_p(typeof(lock), spinlock_t [])
 
 #define ipipe_spinlock(lock)	((__ipipe_spinlock_t *)(lock))
 #define std_spinlock_raw(lock)	((raw_spinlock_t *)(lock))

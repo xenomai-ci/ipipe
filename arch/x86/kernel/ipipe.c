@@ -55,6 +55,7 @@
 #include <asm/tsc.h>
 #include <asm/i387.h>
 #include <asm/fpu-internal.h>
+#include <asm/mce.h>
 
 DEFINE_PER_CPU(unsigned long, __ipipe_cr2);
 EXPORT_PER_CPU_SYMBOL_GPL(__ipipe_cr2);
@@ -310,26 +311,16 @@ void __ipipe_halt_root(void)
 }
 EXPORT_SYMBOL_GPL(__ipipe_halt_root);
 
+#if defined(CONFIG_X86_MCE) && defined(CONFIG_X86_32)
 static void do_machine_check_vector(struct pt_regs *regs, long error_code)
 {
-#ifdef CONFIG_X86_MCE
-#ifdef CONFIG_X86_32
-	extern void (*machine_check_vector)(struct pt_regs *, long error_code);
 	machine_check_vector(regs, error_code);
-#else
-	do_machine_check(regs, error_code);
-#endif
-#endif /* CONFIG_X86_MCE */
 }
+#endif
 
-/* Work around genksyms's issue with over-qualification in decls. */
+typedef void (*__ex_handler)(struct pt_regs *, long);
 
-typedef void dotraplinkage __ipipe_exhandler(struct pt_regs *, long);
-
-typedef __ipipe_exhandler *__ipipe_exptr;
-
-static __ipipe_exptr __ipipe_std_extable[] = {
-
+static __ex_handler __ipipe_std_extable[] = {
 	[ex_do_divide_error] = do_divide_error,
 	[ex_do_overflow] = do_overflow,
 	[ex_do_bounds] = do_bounds,
@@ -339,11 +330,17 @@ static __ipipe_exptr __ipipe_std_extable[] = {
 	[ex_do_segment_not_present] = do_segment_not_present,
 	[ex_do_stack_segment] = do_stack_segment,
 	[ex_do_general_protection] = do_general_protection,
-	[ex_do_page_fault] = (__ipipe_exptr)do_page_fault,
+	[ex_do_page_fault] = (__ex_handler)do_page_fault,
 	[ex_do_spurious_interrupt_bug] = do_spurious_interrupt_bug,
 	[ex_do_coprocessor_error] = do_coprocessor_error,
 	[ex_do_alignment_check] = do_alignment_check,
+#ifdef CONFIG_X86_MCE
+#ifdef CONFIG_X86_32
 	[ex_machine_check_vector] = do_machine_check_vector,
+#else
+	[ex_machine_check_vector] = do_machine_check,
+#endif
+#endif	/* X86_MCE */
 	[ex_do_simd_coprocessor_error] = do_simd_coprocessor_error,
 	[ex_do_device_not_available] = do_device_not_available,
 #ifdef CONFIG_X86_32
@@ -383,6 +380,8 @@ int __ipipe_handle_exception(struct pt_regs *regs, long error_code, int vector)
 			local_irq_disable();
 	}
 
+	/*
+	 * XXX: We don't trace page faults (yet?). */
 	if (vector == ex_do_page_fault)
 		cr2 = native_read_cr2();
 

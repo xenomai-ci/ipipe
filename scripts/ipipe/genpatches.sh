@@ -58,23 +58,30 @@ git diff "$reference" | awk -v kvers="$kvers" -v splitmode="$split" \
 
 BEGIN {
     driver_arch["cpuidle/Kconfig"]="noarch"
+    driver_arch["tty/serial/8250/8250_core.c"]="noarch"
 
     driver_arch["clk/mxs/clk-imx28.c"]="arm"
     driver_arch["clocksource/arm_arch_timer.c"]="arm"
     driver_arch["clocksource/mxs_timer.c"]="arm"
+    driver_arch["dma/edma.c"]="arm"
+    driver_arch["gpio/gpio-davinci.c"]="arm"
     driver_arch["gpio/gpio-mxc.c"]="arm"
+    driver_arch["gpio/gpio-mxs.c"]="arm"
     driver_arch["gpio/gpio-omap.c"]="arm"
     driver_arch["gpio/gpio-pxa.c"]="arm"
     driver_arch["gpio/gpio-sa1100.c"]="arm"
+    driver_arch["gpio/gpio-davinci.c"]="arm"
     driver_arch["irqchip/irq-versatile-fpga.c"]="arm"
     driver_arch["irqchip/spear-shirq.c"]="arm"
     driver_arch["irqchip/irq-mxs.c"]="arm"
     driver_arch["irqchip/irq-s3c24xx.c"]="arm"
-    driver_arch["mfd/twl4030-irq.c"]="arm"
-    driver_arch["mfd/twl6030-irq.c"]="arm"
     driver_arch["irqchip/irq-gic.c"]="arm"
     driver_arch["irqchip/irq-vic.c"]="arm"
+    driver_arch["mfd/twl4030-irq.c"]="arm"
+    driver_arch["mfd/twl6030-irq.c"]="arm"
+    driver_arch["dma/edma.c"]="arm"
     driver_arch["misc/Kconfig"]="arm"
+    driver_arch["net/ethernet/cadence/at91_ether.c"]="arm"
     driver_arch["staging/imx-drm/ipu-v3/ipu-common.c"]="arm"
     driver_arch["staging/imx-drm/ipu-v3/ipu-prv.h"]="arm"
 
@@ -83,7 +90,6 @@ BEGIN {
     driver_arch["tty/serial/mpc52xx_uart.c"]="powerpc"
     driver_arch["gpio/gpio-mpc8xxx.c"]="powerpc"
 
-    driver_arch["tty/serial/8250/8250_core.c"]="x86"
     driver_arch["clocksource/i8253.c"]="x86"
     driver_arch["clocksource/Makefile"]="x86"
     driver_arch["clocksource/ipipe_i486_tsc_emu.S"]="x86"
@@ -106,12 +112,12 @@ match($0, /^diff --git a\/drivers\/([^ \t]*)/) {
 
     if (!driver_arch[f]) {
 	 print "Error unknown architecture for driver "f
-         unknown_file_error=1
+	 unknown_file_error=1
     } else {
-         a = driver_arch[f]
-         set_current_arch(a)
-         print $0 >> current_file
-         next
+	 a = driver_arch[f]
+	 set_current_arch(a)
+	 print $0 >> current_file
+	 next
     }
 }
 
@@ -141,10 +147,10 @@ match ($0, /#define [I]PIPE_CORE_RELEASE[ \t]*([^ \t]*)/) {
 END {
     close(outfiles["noarch"])
     for (a in outfiles) {
-        if (unknown_file_error) {
-            if (a != "noarch")
-                system("rm "outfiles[a])
-        } else if (a != "noarch") {
+	if (unknown_file_error) {
+	    if (a != "noarch")
+		system("rm "outfiles[a])
+	} else if (a != "noarch") {
 	    dest="ipipe-core-"kvers"-"a"-"version[a]".patch"
 	    close(outfiles[a])
 	    system("mv "outfiles[a]" "dest)

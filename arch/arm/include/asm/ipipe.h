@@ -97,6 +97,7 @@ extern unsigned long __ipipe_kuser_tsc_freq;
 unsigned long long __ipipe_mach_get_tsc(void);
 #define __ipipe_tsc_get() __ipipe_mach_get_tsc()
 #ifndef __ipipe_hrclock_freq
+extern unsigned long __ipipe_hrtimer_freq;
 #define __ipipe_hrclock_freq __ipipe_hrtimer_freq
 #endif /* !__ipipe_mach_hrclock_freq */
 #endif /* ! generic tsc */
@@ -231,7 +232,7 @@ static inline unsigned long __ipipe_ffnz(unsigned long ul)
 }
 
 #define __ipipe_syscall_watched_p(p, sc)				\
-	(ipipe_notifier_enabled_p(p) || (unsigned long)sc >= __ARM_NR_BASE + 64)
+	((unsigned long)sc >= __ARM_NR_BASE + 64 || ipipe_notifier_enabled_p(p))
 
 #define __ipipe_root_tick_p(regs) (!arch_irqs_disabled_flags(regs->ARM_cpsr))
 

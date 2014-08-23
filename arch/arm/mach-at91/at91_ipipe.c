@@ -1,7 +1,7 @@
 /*
  * linux/arch/arm/mach-at91/at91_ipipe.c
  *
- * Copyright (C) 2007 Gilles Chanteperdrix <gilles.chanteperdrix@xenomai.org>
+ * Copyright (C) 2007,2014 Gilles Chanteperdrix <gch@xenomai.org>
  *
  * Adaptation to AT91SAM926x:
  * Copyright (C) 2007 Gregory CLEMENT, Adeneo
@@ -20,116 +20,54 @@
 #include <linux/clockchips.h>
 #include <linux/clk.h>
 #include <linux/stringify.h>
-#include <linux/err.h>
-#include <linux/console.h>
-#include <linux/module.h>
 #include <linux/ipipe.h>
-#include <linux/export.h>
+#include <linux/atmel_tc.h>
+#include <linux/ioport.h>
+#include <linux/io.h>
 #include <linux/ipipe_tickdev.h>
-
-#include <asm/io.h>
-#include <asm/mach/time.h>
-
-#include <mach/hardware.h>
-#include "at91_tc.h"
 #include "at91_ipipe.h"
-#include "clock.h"
-
-#if defined(CONFIG_ARCH_AT91RM9200)
-#define AT91_ID_TC0 AT91RM9200_ID_TC0
-#define AT91_ID_TC1 AT91RM9200_ID_TC1
-#define AT91_ID_TC2 AT91RM9200_ID_TC2
-#elif defined(CONFIG_ARCH_AT91SAM9260) || defined(CONFIG_ARCH_AT91SAM9G20)
-#define AT91_ID_TC0 AT91SAM9260_ID_TC0
-#define AT91_ID_TC1 AT91SAM9260_ID_TC1
-#define AT91_ID_TC2 AT91SAM9260_ID_TC2
-#elif defined(CONFIG_ARCH_AT91SAM9261)
-#define AT91_ID_TC0 AT91SAM9261_ID_TC0
-#define AT91_ID_TC1 AT91SAM9261_ID_TC1
-#define AT91_ID_TC2 AT91SAM9261_ID_TC2
-#elif defined(CONFIG_ARCH_AT91SAM9263)
-#define AT91_ID_TC0 AT91SAM9263_ID_TCB
-#define AT91_ID_TC1 AT91SAM9263_ID_TCB
-#define AT91_ID_TC2 AT91SAM9263_ID_TCB
-#elif defined(CONFIG_ARCH_AT91SAM9RL)
-#define AT91_ID_TC0 AT91SAM9RL_ID_TC0
-#define AT91_ID_TC1 AT91SAM9RL_ID_TC1
-#define AT91_ID_TC2 AT91SAM9RL_ID_TC2
-#elif defined(CONFIG_ARCH_AT91X40)
-#define AT91_ID_TC0 AT91X40_ID_TC0
-#define AT91_ID_TC1 AT91X40_ID_TC1
-#define AT91_ID_TC2 AT91X40_ID_TC2
-#elif defined(CONFIG_ARCH_AT91SAM9G45)
-#define AT91_ID_TC0 AT91SAM9G45_ID_TCB
-#define AT91_ID_TC1 AT91SAM9G45_ID_TCB
-#define AT91_ID_TC2 AT91SAM9G45_ID_TCB
-#else
-#error "AT91 processor unsupported by Adeos"
-#endif
-
-#if (CONFIG_IPIPE_AT91_TC==0)
-#   define KERNEL_TIMER_IRQ_NUM AT91_ID_TC0
-#elif (CONFIG_IPIPE_AT91_TC==1)
-#   define KERNEL_TIMER_IRQ_NUM AT91_ID_TC1
-#elif (CONFIG_IPIPE_AT91_TC==2)
-#   define KERNEL_TIMER_IRQ_NUM AT91_ID_TC2
-#else
-#error IPIPE_AT91_TC must be 0, 1 or 2.
-#endif
 
 #define TCNXCNS(timer,v) ((v) << ((timer)<<1))
 #define AT91_TC_REG_MASK (0xffff)
-#define AT91_TC_BASE ((unsigned long)AT91_VA_BASE_TCB0)
 
+#define at91_tc_read(reg) \
+	__raw_readl(at91_tc_base + ATMEL_TC_REG(CONFIG_IPIPE_AT91_TC % 3, reg))
+
+#define at91_tc_write(reg, value) \
+	__raw_writel(value, at91_tc_base + ATMEL_TC_REG(CONFIG_IPIPE_AT91_TC % 3, reg))
+
+#define read_CV() at91_tc_read(CV)
+#define read_RC() at91_tc_read(RC)
+#define write_RC(value) at91_tc_write(RC, value)
+
+static void __iomem *at91_tc_base;
 static unsigned max_delta_ticks;
 
-static inline unsigned int at91_tc_read(unsigned int reg_offset)
-{
-	unsigned long addr = (AT91_TC_BASE + 0x40 * CONFIG_IPIPE_AT91_TC);
-
-	return __raw_readl((void __iomem *)(addr + reg_offset));
-}
-
-static inline void at91_tc_write(unsigned int reg_offset, unsigned long value)
-{
-	unsigned long addr = (AT91_TC_BASE + 0x40 * CONFIG_IPIPE_AT91_TC);
-
-	__raw_writel(value, (void __iomem *)(addr + reg_offset));
-}
-
-#define read_CV() at91_tc_read(AT91_TC_CV)
-#define read_RC() at91_tc_read(AT91_TC_RC)
-#define write_RC(value) at91_tc_write(AT91_TC_RC, value)
-
-/*
- * Reprogram the timer
- */
-static int at91_tc_set(unsigned long evt, void *timer);
+static int at91_tc_set_16(unsigned long evt, void *timer);
 
 /*
  * IRQ handler for the timer.
  */
 static void at91_tc_ack(void)
 {
-	at91_tc_read(AT91_TC_SR);
+	at91_tc_read(SR);
 }
 
 static void at91_tc_request(struct ipipe_timer *timer, int steal)
 {
 	/* Enable CPCS interrupt. */
-	at91_tc_write(AT91_TC_IER, AT91_TC_CPCS);
+	at91_tc_write(IER, ATMEL_TC_CPCS);
 }
 
 static void at91_tc_release(struct ipipe_timer *timer)
 {
 	/* Disable all interrupts. */
-	at91_tc_write(AT91_TC_IDR, ~0ul);
+	at91_tc_write(IDR, ~0ul);
 }
 
 static struct ipipe_timer at91_itimer = {
-	.irq            = NR_IRQS_LEGACY + KERNEL_TIMER_IRQ_NUM,
 	.request        = at91_tc_request,
-	.set            = at91_tc_set,
+	.set            = at91_tc_set_16,
 	.ack            = at91_tc_ack,
 	.release        = at91_tc_release,
 
@@ -137,7 +75,10 @@ static struct ipipe_timer at91_itimer = {
 	.rating		= 250,
 };
 
-static int at91_tc_set(unsigned long evt, void *timer)
+/*
+ * Reprogram the timer
+ */
+static int at91_tc_set_16(unsigned long evt, void *timer)
 {
 	unsigned short next_tick;
 
@@ -153,108 +94,142 @@ static int at91_tc_set(unsigned long evt, void *timer)
 		return 0;
 
 	at91_itimer.min_delay_ticks = evt;
-	return  -ETIME;
+	return -ETIME;
+}
+
+static int at91_tc_set_32(unsigned long evt, void *timer)
+{
+	unsigned long next_tick;
+
+	next_tick = read_CV() + evt;
+	write_RC(next_tick);
+	if (evt >= 0x7fffffff
+	    || (long)(next_tick - read_CV()) > 0)
+		return 0;
+
+	at91_itimer.min_delay_ticks = evt;
+	return -ETIME;
 }
 
 static struct __ipipe_tscinfo tsc_info = {
 	.type = IPIPE_TSC_TYPE_FREERUNNING,
-	.counter_vaddr = (AT91_TC_BASE +
-			  0x40 * CONFIG_IPIPE_AT91_TC + AT91_TC_CV),
 	.u = {
 		{
-			.counter_paddr = (AT91_BASE_TCB0 +
-					  0x40 * CONFIG_IPIPE_AT91_TC +
-					  AT91_TC_CV),
 			.mask = AT91_TC_REG_MASK,
 		},
 	},
 };
 
-void at91_ipipe_init(struct clock_event_device *host_timer)
+static int __init at91_ipipe_init(void)
 {
-	unsigned char tc_divisors[] = { 2, 8, 32, 128, 0, };
-	unsigned master_freq, divisor = 0, divided_freq = 0;
+	unsigned master_freq, divided_freq = 0;
+	unsigned divisor, width32, target;
+	unsigned long at91_tc_pbase = 0;
 	unsigned long long wrap_ns;
+	unsigned index, block;
+	struct atmel_tc *tc;
 	int tc_timer_clock;
 	unsigned short v;
-	struct clk *clk;
+	int ret;
 
-#ifdef CONFIG_ARCH_AT91SAM9263
-	clk = clk_get(NULL, "tcb_clk");
-#elif defined(CONFIG_ARCH_AT91SAM9G45)
-	clk = clk_get(NULL, "tcb0_clk");
-#else /* not AT91SAM9263 or AT91SAM9G45*/
-	clk = clk_get(NULL, "tc"__stringify(CONFIG_IPIPE_AT91_TC) "_clk");
-#endif
-	clk_enable(clk);
+	index = CONFIG_IPIPE_AT91_TC % 3;
+	block = CONFIG_IPIPE_AT91_TC / 3;
 
-	/* Disable the channel */
-	at91_tc_write(AT91_TC_CCR, AT91_TC_CLKDIS);
+	tc = atmel_tc_alloc(block, "at91_ipipe");
+	if (tc == NULL) {
+		printk(KERN_ERR "I-pipe: could not reserve TC block %d\n",
+			block);
+		return -ENODEV;
+	}
+	at91_tc_base = tc->regs;
+	at91_tc_pbase = tc->iomem->start;
+	at91_itimer.irq = tc->irq[index];
 
-	/* Disable all interrupts. */
-	at91_tc_write(AT91_TC_IDR, ~0ul);
+	ret = clk_prepare_enable(tc->clk[index]);
+	if (ret < 0)
+		goto err_free_tc;
 
-	master_freq = clk_get_rate(clk_get(NULL, "mck"));
-	/* Find the first frequency above 1 MHz */
-	for (tc_timer_clock = ARRAY_SIZE(tc_divisors) - 1;
+	master_freq = clk_get_rate(tc->clk[index]);
+
+	width32 = tc->tcb_config && tc->tcb_config->counter_width == 32;
+	target = width32 ? 5000000 : 1000000;
+
+	/* Find the first frequency above 1 or 5 MHz */
+	for (tc_timer_clock = ARRAY_SIZE(atmel_tc_divisors) - 1;
 	     tc_timer_clock >= 0; tc_timer_clock--) {
-		divisor = tc_divisors[tc_timer_clock];
-		divided_freq = (divisor
-				? master_freq / divisor : AT91_SLOW_CLOCK);
-		if (divided_freq > 1000000)
+		divisor = atmel_tc_divisors[tc_timer_clock];
+		divided_freq =
+			(divisor ? master_freq / divisor : AT91_SLOW_CLOCK);
+		if (divided_freq > target)
 			break;
 	}
 
-	wrap_ns = (unsigned long long) (AT91_TC_REG_MASK + 1) * NSEC_PER_SEC;
-	do_div(wrap_ns, divided_freq);
-
-	if (divided_freq < 1000000)
+	if (divided_freq < target)
 		printk(KERN_INFO "AT91 I-pipe warning: could not find a"
-		       " frequency greater than 1MHz\n");
+			" frequency greater than %dMHz\n", target / 1000000);
 
-	printk(KERN_INFO "AT91 I-pipe timer: div: %u, freq: %u.%06u MHz, wrap: "
-	       "%u.%06u ms\n", divisor,
-	       divided_freq / 1000000, divided_freq % 1000000,
-	       (unsigned) wrap_ns / 1000000, (unsigned) wrap_ns % 1000000);
+	if (width32) {
+		at91_itimer.set = at91_tc_set_32;
+		tsc_info.u.mask = 0xffffffffU;
+		wrap_ns = 0;
+	} else {
+		wrap_ns = (unsigned long long)(AT91_TC_REG_MASK + 1);
+		wrap_ns *= NSEC_PER_SEC;
+		do_div(wrap_ns, divided_freq);
 
-	/* Add a 1ms margin. It means that when an interrupt occurs, update_tsc
-	   must be called within 1ms. update_tsc is called by acktimer when no
-	   higher domain handles the timer, and called through set_dec when a
-	   higher domain handles the timer. */
-	wrap_ns -= 1000000;
-	/* Set up the interrupt. */
+		/*
+		 * Add a 1ms margin. It means that when an interrupt
+		 * occurs, update_tsc must be called within
+		 * 1ms. update_tsc is called through set_dec.
+		 */
+		wrap_ns -= 1000000;
+	}
 
-	if (host_timer && host_timer->features & CLOCK_EVT_FEAT_ONESHOT
-	    && host_timer->max_delta_ns > wrap_ns)
-		host_timer->max_delta_ns = wrap_ns;
+	printk(KERN_INFO "AT91 I-pipe timer: using TC%d, div: %u, "
+		"freq: %u.%06u MHz\n",
+		CONFIG_IPIPE_AT91_TC, divisor,
+	       divided_freq / 1000000, divided_freq % 1000000);
+
+	/* Disable the channel */
+	at91_tc_write(CCR, ATMEL_TC_CLKDIS);
+
+	/* Disable all interrupts. */
+	at91_tc_write(IDR, ~0ul);
 
 	/* No Sync. */
-	at91_tc_write(AT91_TC_BCR, 0);
+	at91_tc_write(BCR, 0);
 
 	/* program NO signal on XCN */
-	v = __raw_readl((void __iomem *) (AT91_VA_BASE_TCB0 + AT91_TC_BMR));
-	v &= ~TCNXCNS(CONFIG_IPIPE_AT91_TC, 3);
-	v |= TCNXCNS(CONFIG_IPIPE_AT91_TC, 1); /* AT91_TC_TCNXCNS_NONE */
-	__raw_writel(v, (void __iomem *) (AT91_VA_BASE_TCB0 + AT91_TC_BMR));
+	v = __raw_readl(at91_tc_base + ATMEL_TC_BMR);
+	v &= ~TCNXCNS(index, 3);
+	v |= TCNXCNS(index, 1); /* AT91_TC_TCNXCNS_NONE */
+	__raw_writel(v, at91_tc_base + ATMEL_TC_BMR);
 
 	/* Use the clock selected as input clock. */
-	at91_tc_write(AT91_TC_CMR, tc_timer_clock);
+	at91_tc_write(CMR, tc_timer_clock);
 
 	/* Load the TC register C. */
 	write_RC(0xffff);
 
 	/* Enable the channel. */
-	at91_tc_write(AT91_TC_CCR, AT91_TC_CLKEN | AT91_TC_SWTRG);
+	at91_tc_write(CCR, ATMEL_TC_CLKEN | ATMEL_TC_SWTRG);
 
 	at91_itimer.freq = divided_freq;
 	at91_itimer.min_delay_ticks = ipipe_timer_ns2ticks(&at91_itimer, 2000);
-	max_delta_ticks = ipipe_timer_ns2ticks(&at91_itimer, wrap_ns);
+	if (wrap_ns)
+		max_delta_ticks = ipipe_timer_ns2ticks(&at91_itimer, wrap_ns);
 	ipipe_timer_register(&at91_itimer);
 
+	tsc_info.counter_vaddr =
+		(unsigned long)(at91_tc_base + ATMEL_TC_REG(index, CV));
+	tsc_info.u.counter_paddr = (at91_tc_pbase + ATMEL_TC_REG(index, CV));
 	tsc_info.freq = divided_freq;
 	__ipipe_tsc_register(&tsc_info);
 
-#if 1
-	at91_pic_muter_register();
-#endif
+	return 0;
+
+err_free_tc:
+	atmel_tc_free(tc);
+	return ret;
 }
+subsys_initcall(at91_ipipe_init);

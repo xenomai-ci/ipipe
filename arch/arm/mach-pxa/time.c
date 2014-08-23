@@ -16,13 +16,13 @@
 #include <linux/init.h>
 #include <linux/interrupt.h>
 #include <linux/clockchips.h>
+#include <linux/sched_clock.h>
 #include <linux/ipipe_tickdev.h>
 #include <linux/ipipe.h>
 
 #include <asm/div64.h>
 #include <asm/mach/irq.h>
 #include <asm/mach/time.h>
-#include <asm/sched_clock.h>
 #include <mach/regs-ost.h>
 #include <mach/irqs.h>
 
@@ -35,7 +35,7 @@
  * calls to sched_clock() which should always be the case in practice.
  */
 
-static u32 notrace pxa_read_sched_clock(void)
+static u64 notrace pxa_read_sched_clock(void)
 {
 	return readl_relaxed(OSCR);
 }
@@ -57,8 +57,7 @@ pxa_ost0_interrupt(int irq, void *dev_id)
 
 	if (clockevent_ipipe_stolen(c) == 0)
 		pxa_ost0_ack();
-	
-	__ipipe_tsc_update();
+
 	c->event_handler(c);
 
 	return IRQ_HANDLED;
@@ -158,7 +157,7 @@ static struct clock_event_device ckevt_pxa_osmr0 = {
 
 static struct irqaction pxa_ost0_irq = {
 	.name		= "ost0",
-	.flags		= IRQF_DISABLED | IRQF_TIMER | IRQF_IRQPOLL,
+	.flags		= IRQF_TIMER | IRQF_IRQPOLL,
 	.handler	= pxa_ost0_interrupt,
 	.dev_id		= &ckevt_pxa_osmr0,
 };
@@ -183,7 +182,7 @@ void __init pxa_timer_init(void)
 	writel_relaxed(0, OIER);
 	writel_relaxed(OSSR_M0 | OSSR_M1 | OSSR_M2 | OSSR_M3, OSSR);
 
-	setup_sched_clock(pxa_read_sched_clock, 32, clock_tick_rate);
+	sched_clock_register(pxa_read_sched_clock, 32, clock_tick_rate);
 
 	ckevt_pxa_osmr0.cpumask = cpumask_of(0);
 

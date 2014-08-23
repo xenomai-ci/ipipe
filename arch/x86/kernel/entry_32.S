@@ -422,12 +422,9 @@ END(ret_from_exception)
 #ifdef CONFIG_PREEMPT
 ENTRY(resume_kernel)
 	DISABLE_INTERRUPTS(CLBR_ANY)
-	cmpl $0,TI_preempt_count(%ebp)	# non-zero preempt_count ?
-	jnz restore_all
 need_resched:
-	movl TI_flags(%ebp), %ecx	# need_resched set ?
-	testb $_TIF_NEED_RESCHED, %cl
-	jz restore_all
+	cmpl $0,PER_CPU_VAR(__preempt_count)
+	jnz restore_all
 	testl $X86_EFLAGS_IF,PT_EFLAGS(%esp)	# interrupts off (exception path) ?
 	jz restore_all
 	PREEMPT_SCHEDULE_IRQ
@@ -849,7 +846,7 @@ common_interrupt:
 	CFI_ENDPROC
 
 	.pushsection .kprobes.text, "ax"
-#define BUILD_INTERRUPT3(name, nr, fn)	\
+#define BUILD_INTERRUPT2(name, nr)	\
 ENTRY(name)				\
 	RING0_INT_FRAME;		\
 	ASM_CLAC;			\
@@ -864,12 +861,24 @@ ENTRY(name)				\
 	jmp restore_nocheck;		\
 	CFI_ENDPROC
 
-#define BUILD_INTERRUPT(name, nr)	BUILD_INTERRUPT3(name, nr, smp_##name)
+/*
+ * We never call the handler directly, we have to go through the
+ * pipeline instead, which sets the proper routing in
+ * __ipipe_enable_pipeline(), so we may ignore the function arg.
+ */
+#define BUILD_INTERRUPT3(name, nr, fn)	\
+	BUILD_INTERRUPT2(name, nr)
 
 #ifdef CONFIG_X86_LOCAL_APIC
-	BUILD_INTERRUPT(ipipe_hrtimer_interrupt, IPIPE_HRTIMER_VECTOR)
-	BUILD_INTERRUPT(ipipe_reschedule_interrupt, IPIPE_RESCHEDULE_VECTOR)
-	BUILD_INTERRUPT(ipipe_critical_interrupt, IPIPE_CRITICAL_VECTOR)
+	/*
+	 * The pipeline-specific vectors are not traced by the regular tracing
+	 * infrastructure (CONFIG_IPIPE_TRACE allows this though).
+	 */
+	BUILD_INTERRUPT2(ipipe_hrtimer_interrupt, IPIPE_HRTIMER_VECTOR)
+#ifdef CONFIG_SMP	
+	BUILD_INTERRUPT2(ipipe_reschedule_interrupt, IPIPE_RESCHEDULE_VECTOR)
+	BUILD_INTERRUPT2(ipipe_critical_interrupt, IPIPE_CRITICAL_VECTOR)
+#endif
 #endif
 
 #else /* !CONFIG_IPIPE */
@@ -906,9 +915,18 @@ ENTRY(name)				\
 	CFI_ENDPROC;			\
 ENDPROC(name)
 
-#define BUILD_INTERRUPT(name, nr)	BUILD_INTERRUPT3(name, nr, smp_##name)
-
 #endif /* !CONFIG_IPIPE */
+
+#ifdef CONFIG_TRACING
+#define TRACE_BUILD_INTERRUPT(name, nr)		\
+	BUILD_INTERRUPT3(trace_##name, nr, smp_trace_##name)
+#else
+#define TRACE_BUILD_INTERRUPT(name, nr)
+#endif
+
+#define BUILD_INTERRUPT(name, nr) \
+	BUILD_INTERRUPT3(name, nr, smp_##name); \
+	TRACE_BUILD_INTERRUPT(name, nr)
 
 /* The include is where all of the SMP etc. interrupts come from */
 #include <asm/entry_arch.h>
@@ -1182,7 +1200,7 @@ ENTRY(ftrace_caller)
 	pushl $0	/* Pass NULL as regs pointer */
 	movl 4*4(%esp), %eax
 	movl 0x4(%ebp), %edx
-	leal function_trace_op, %ecx
+	movl function_trace_op, %ecx
 	subl $MCOUNT_INSN_SIZE, %eax
 
 .globl ftrace_call
@@ -1240,7 +1258,7 @@ ENTRY(ftrace_regs_caller)
 	movl 12*4(%esp), %eax	/* Load ip (1st parameter) */
 	subl $MCOUNT_INSN_SIZE, %eax	/* Adjust ip */
 	movl 0x4(%ebp), %edx	/* Load parent ip (2nd parameter) */
-	leal function_trace_op, %ecx /* Save ftrace_pos in 3rd parameter */
+	movl function_trace_op, %ecx /* Save ftrace_pos in 3rd parameter */
 	pushl %esp		/* Save pt_regs as 4th parameter */
 
 GLOBAL(ftrace_regs_call)
@@ -1273,6 +1291,9 @@ ftrace_restore_flags:
 #else /* ! CONFIG_DYNAMIC_FTRACE */
 
 ENTRY(mcount)
+	cmpl $__PAGE_OFFSET, %esp
+	jb ftrace_stub		/* Paging not enabled yet? */
+
 	cmpl $0, function_trace_stop
 	jne  ftrace_stub
 
@@ -1340,6 +1361,16 @@ return_to_handler:
  * Some functions should be protected against kprobes
  */
 	.pushsection .kprobes.text, "ax"
+
+#ifdef CONFIG_TRACING
+ENTRY(trace_page_fault)
+	RING0_EC_FRAME
+	ASM_CLAC
+	pushl_cfi $trace_do_page_fault
+	jmp error_code
+	CFI_ENDPROC
+END(trace_page_fault)
+#endif
 
 ENTRY(page_fault)
 	RING0_EC_FRAME

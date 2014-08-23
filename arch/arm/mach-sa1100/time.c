@@ -14,15 +14,15 @@
 #include <linux/irq.h>
 #include <linux/timex.h>
 #include <linux/clockchips.h>
+#include <linux/sched_clock.h>
 #include <linux/ipipe.h>
 #include <linux/ipipe_tickdev.h>
 
 #include <asm/mach/time.h>
-#include <asm/sched_clock.h>
 #include <mach/hardware.h>
 #include <mach/irqs.h>
 
-static u32 notrace sa1100_read_sched_clock(void)
+static u64 notrace sa1100_read_sched_clock(void)
 {
 	return readl_relaxed(OSCR);
 }
@@ -42,7 +42,7 @@ static struct __ipipe_tscinfo tsc_info = {
 	},
 };
 #endif /* CONFIG_IPIPE */
- 
+
 static inline void sa1100_ost0_ack(void)
 {
 	/* Disarm the compare/match, signal the event. */
@@ -56,8 +56,7 @@ static irqreturn_t sa1100_ost0_interrupt(int irq, void *dev_id)
 
 	if (clockevent_ipipe_stolen(c) == 0)
 		sa1100_ost0_ack();
-	
-	__ipipe_tsc_update();
+
 	c->event_handler(c);
 
 	return IRQ_HANDLED;
@@ -155,7 +154,7 @@ void __init sa1100_timer_init(void)
 	writel_relaxed(0, OIER);
 	writel_relaxed(OSSR_M0 | OSSR_M1 | OSSR_M2 | OSSR_M3, OSSR);
 
-	setup_sched_clock(sa1100_read_sched_clock, 32, 3686400);
+	sched_clock_register(sa1100_read_sched_clock, 32, 3686400);
 
 	ckevt_sa1100_osmr0.cpumask = cpumask_of(0);
 

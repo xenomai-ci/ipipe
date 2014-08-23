@@ -331,10 +331,7 @@ static void __ipipe_do_IRQ(unsigned int irq, void *cookie)
 	/* Any sensible register frame will do for non-timer IRQs. */
 	regs = __this_cpu_ptr(&ipipe_percpu.tick_regs);
 	old_regs = set_irq_regs(regs);
-	irq_enter();
-	check_stack_overflow();
-	handle_one_irq(irq);
-	irq_exit();
+	___do_irq(irq, regs);
 	set_irq_regs(old_regs);
 }
 

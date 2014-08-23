@@ -18,8 +18,12 @@
 #include <linux/clk.h>
 #include <linux/err.h>
 #include <linux/platform_device.h>
+#include <linux/sched_clock.h>
+#ifdef CONFIG_IPIPE
+#include <linux/ipipe.h>
+#include <linux/ipipe_tickdev.h>
+#endif /* CONFIG_IPIPE */
 
-#include <asm/sched_clock.h>
 #include <asm/mach/irq.h>
 #include <asm/mach/time.h>
 
@@ -94,9 +98,15 @@ struct timer_s {
 	unsigned long opts;
 	unsigned long flags;
 	void __iomem *base;
+#ifdef CONFIG_IPIPE
+	void *pbase;
+#endif /*CONFIG_IPIPE */
 	unsigned long tim_off;
 	unsigned long prd_off;
 	unsigned long enamode_shift;
+#ifdef CONFIG_IPIPE
+	int irq;
+#endif /* CONFIG_IPIPE */
 	struct irqaction irqaction;
 };
 static struct timer_s timers[];
@@ -181,7 +191,7 @@ static struct timer_s timers[] = {
 		.name      = "clockevent",
 		.opts      = TIMER_OPTS_DISABLED,
 		.irqaction = {
-			.flags   = IRQF_DISABLED | IRQF_TIMER,
+			.flags   = IRQF_TIMER,
 			.handler = timer_interrupt,
 		}
 	},
@@ -190,7 +200,7 @@ static struct timer_s timers[] = {
 		.period     = ~0,
 		.opts       = TIMER_OPTS_PERIODIC,
 		.irqaction = {
-			.flags   = IRQF_DISABLED | IRQF_TIMER,
+			.flags   = IRQF_TIMER,
 			.handler = freerun_interrupt,
 		}
 	},
@@ -241,6 +251,9 @@ static void __init timer_init(void)
 		t->base = base[timer];
 		if (!t->base)
 			continue;
+#ifdef CONFIG_IPIPE
+		t->pbase = (void *)dtip[timer].base;
+#endif /* CONFIG_IPIPE */
 
 		if (IS_TIMER_BOT(t->id)) {
 			t->enamode_shift = 6;
@@ -262,6 +275,9 @@ static void __init timer_init(void)
 			irq = USING_COMPARE(t) ? dtip[i].cmp_irq : irq;
 			setup_irq(irq, &t->irqaction);
 		}
+#ifdef CONFIG_IPIPE
+		t->irq = irq;
+#endif /* CONFIG_IPIPE */
 	}
 }
 
@@ -285,7 +301,7 @@ static struct clocksource clocksource_davinci = {
 /*
  * Overwrite weak default sched_clock with something more precise
  */
-static u32 notrace davinci_read_sched_clock(void)
+static u64 notrace davinci_read_sched_clock(void)
 {
 	return timer32_read(&timers[TID_CLOCKSOURCE]);
 }
@@ -329,11 +345,26 @@ static void davinci_set_mode(enum clock_event_mode mode,
 	}
 }
 
+#ifdef CONFIG_IPIPE
+static struct ipipe_timer davinci_itimer;
+
+static struct __ipipe_tscinfo tsc_info = {
+	.type = IPIPE_TSC_TYPE_FREERUNNING,
+	.u = {
+			{
+				.mask = 0xffffffff,
+			},
+	},
+};
+#endif /* CONFIG_IPIPE */
+
 static struct clock_event_device clockevent_davinci = {
 	.features       = CLOCK_EVT_FEAT_PERIODIC | CLOCK_EVT_FEAT_ONESHOT,
-	.shift		= 32,
 	.set_next_event	= davinci_set_next_event,
 	.set_mode	= davinci_set_mode,
+#ifdef CONFIG_IPIPE
+	.ipipe_timer	= &davinci_itimer,
+#endif /* CONFIG_IPIPE */
 };
 
 
@@ -392,19 +423,26 @@ void __init davinci_timer_init(void)
 				    davinci_clock_tick_rate))
 		printk(err, clocksource_davinci.name);
 
-	setup_sched_clock(davinci_read_sched_clock, 32,
+	sched_clock_register(davinci_read_sched_clock, 32,
 			  davinci_clock_tick_rate);
 
 	/* setup clockevent */
 	clockevent_davinci.name = id_to_name[timers[TID_CLOCKEVENT].id];
-	clockevent_davinci.mult = div_sc(davinci_clock_tick_rate, NSEC_PER_SEC,
-					 clockevent_davinci.shift);
-	clockevent_davinci.max_delta_ns =
-		clockevent_delta2ns(0xfffffffe, &clockevent_davinci);
-	clockevent_davinci.min_delta_ns = 50000; /* 50 usec */
 
 	clockevent_davinci.cpumask = cpumask_of(0);
-	clockevents_register_device(&clockevent_davinci);
+#ifdef CONFIG_IPIPE
+	tsc_info.freq = davinci_clock_tick_rate;
+	tsc_info.counter_vaddr = (void *)(timers[TID_CLOCKSOURCE].base +
+			timers[TID_CLOCKSOURCE].tim_off);
+	tsc_info.u.counter_paddr = timers[TID_CLOCKSOURCE].pbase +
+			timers[TID_CLOCKSOURCE].tim_off;
+	__ipipe_tsc_register(&tsc_info);
+
+	davinci_itimer.irq = timers[TID_CLOCKEVENT].irq;
+	davinci_itimer.min_delay_ticks = 3;
+#endif /* CONFIG_IPIPE */
+	clockevents_config_and_register(&clockevent_davinci,
+					davinci_clock_tick_rate, 1, 0xfffffffe);
 
 	for (i=0; i< ARRAY_SIZE(timers); i++)
 		timer32_config(&timers[i]);

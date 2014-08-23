@@ -17,6 +17,12 @@
 #ifndef __ASM_ARM_FCSE_H
 #define __ASM_ARM_FCSE_H
 
+#ifdef CONFIG_ARM_FCSE_DEBUG
+#define FCSE_BUG_ON(expr) BUG_ON(expr)
+#else /* !CONFIG_ARM_FCSE_DEBUG */
+#define FCSE_BUG_ON(expr) do { } while(0)
+#endif /* !CONFIG_ARM_FCSE_DEBUG */
+
 #ifdef CONFIG_ARM_FCSE
 
 #include <linux/mm_types.h>	/* For struct mm_struct */
@@ -39,23 +45,20 @@
 #define FCSE_NR_PIDS (TASK_SIZE / FCSE_PID_TASK_SIZE)
 #define FCSE_PID_MAX (FCSE_NR_PIDS - 1)
 
-#ifdef CONFIG_ARM_FCSE_DEBUG
-#define FCSE_BUG_ON(expr) BUG_ON(expr)
-#else /* !CONFIG_ARM_FCSE_DEBUG */
-#define FCSE_BUG_ON(expr) do { } while(0)
-#endif /* !CONFIG_ARM_FCSE_DEBUG */
-
 struct vm_unmapped_area_info;
 
 extern unsigned long fcse_pids_cache_dirty[];
+#ifdef CONFIG_ARM_FCSE_BEST_EFFORT
+extern struct mm_struct *fcse_large_process;
+#endif
 
 int fcse_pid_alloc(struct mm_struct *mm);
 void fcse_pid_free(struct mm_struct *mm);
 unsigned fcse_flush_all_start(void);
 void fcse_flush_all_done(unsigned seq, unsigned dirty);
 unsigned long
-fcse_check_mmap_inner(struct mm_struct *mm, 
-		      struct vm_unmapped_area_info *info, 
+fcse_check_mmap_inner(struct mm_struct *mm,
+		      struct vm_unmapped_area_info *info,
 		      unsigned long addr, unsigned long flags);
 
 /* Sets the CPU's PID Register */
@@ -79,7 +82,7 @@ static inline unsigned long fcse_mva_to_va(unsigned long mva)
 
 	if (!cache_is_vivt())
 		return mva;
-	
+
 	va = fcse_pid_get() ^ mva;
 	return (va & 0xfe000000) ? mva : va;
 }
@@ -93,16 +96,49 @@ fcse_va_to_mva(struct mm_struct *mm, unsigned long va)
 	return va;
 }
 
+
+static inline unsigned long
+fcse_check_mmap_addr(struct mm_struct *mm,
+		     unsigned long addr, unsigned long len,
+		     struct vm_unmapped_area_info *info, unsigned long flags)
+{
+	if ((addr & ~PAGE_MASK) == 0 && addr + len <= FCSE_TASK_SIZE)
+		return addr;
+
+	return fcse_check_mmap_inner(mm, info, addr, flags);
+}
+
+static inline void __fcse_mark_dirty(struct mm_struct *mm)
+{
+	__set_bit(FCSE_PID_MAX - (mm->context.fcse.pid >> FCSE_PID_SHIFT),
+		fcse_pids_cache_dirty);
+#ifdef CONFIG_ARM_FCSE_BEST_EFFORT
+	if (mm->context.fcse.large)
+		fcse_large_process = mm;
+#endif
+}
+
+static inline void fcse_mark_dirty(struct mm_struct *mm)
+{
+	if (cache_is_vivt()) {
+		set_bit(FCSE_PID_MAX - (mm->context.fcse.pid >> FCSE_PID_SHIFT),
+			fcse_pids_cache_dirty);
+#ifdef CONFIG_ARM_FCSE_BEST_EFFORT
+		if (mm->context.fcse.large)
+			fcse_large_process = mm;
+#endif
+	}
+}
+
 #ifdef CONFIG_ARM_FCSE_BEST_EFFORT
 struct fcse_user {
 	struct mm_struct *mm;
 	unsigned count;
 };
 extern struct fcse_user fcse_pids_user[];
-extern struct mm_struct *fcse_large_process;
 int fcse_switch_mm_start_inner(struct mm_struct *next);
 void fcse_switch_mm_end_inner(struct mm_struct *next);
-void fcse_pid_reference(unsigned pid);
+void fcse_pid_reference(struct mm_struct *mm);
 
 static inline int fcse_switch_mm_start(struct mm_struct *next)
 {
@@ -136,13 +172,10 @@ static inline int fcse_switch_mm_start(struct mm_struct *next)
 
 static inline void fcse_switch_mm_end(struct mm_struct *next)
 {
-	unsigned fcse_pid;
-
 	if (!cache_is_vivt())
 		return;
 
-	fcse_pid = next->context.fcse.pid >> FCSE_PID_SHIFT;
-	set_bit(FCSE_PID_MAX - fcse_pid, fcse_pids_cache_dirty);
+	fcse_mark_dirty(next);
 	fcse_pid_set(next->context.fcse.pid);
 }
 
@@ -152,29 +185,6 @@ static inline int fcse_mm_in_cache(struct mm_struct *mm)
 	return test_bit(FCSE_PID_MAX - fcse_pid, fcse_pids_cache_dirty);
 }
 #endif /* CONFIG_ARM_FCSE_GUARANTEED */
-
-static inline unsigned long
-fcse_check_mmap_addr(struct mm_struct *mm,
-		     unsigned long addr, unsigned long len,
-		     struct vm_unmapped_area_info *info, unsigned long flags)
-{
-	if ((addr & ~PAGE_MASK) == 0 && addr + len <= FCSE_TASK_SIZE)
-		return addr;
-
-	return fcse_check_mmap_inner(mm, info, addr, flags);
-}
-
-static inline void fcse_mark_dirty(struct mm_struct *mm)
-{
-	if (cache_is_vivt()) {
-		set_bit(FCSE_PID_MAX - (mm->context.fcse.pid >> FCSE_PID_SHIFT),
-			fcse_pids_cache_dirty);
-#ifdef CONFIG_ARM_FCSE_BEST_EFFORT
-		if (mm->context.fcse.large)
-			fcse_large_process = mm;
-#endif
-	}
-}
 
 #define fcse() (cache_is_vivt())
 #else /* ! CONFIG_ARM_FCSE */

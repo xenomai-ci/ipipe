@@ -95,7 +95,7 @@ END(function_hook)
 	MCOUNT_SAVE_FRAME \skip
 
 	/* Load the ftrace_ops into the 3rd parameter */
-	leaq function_trace_op, %rdx
+	movq function_trace_op(%rip), %rdx
 
 	/* Load ip into the first parameter */
 	movq RIP(%rsp), %rdi
@@ -312,7 +312,8 @@ ENDPROC(native_usergs_sysret64)
  * make sure the stack pointer does not get reset back to the top
  * of the debug stack, and instead just reuses the current stack.
  */
-#if defined(CONFIG_DYNAMIC_FTRACE) && defined(CONFIG_TRACE_IRQFLAGS)
+#if defined(CONFIG_DYNAMIC_FTRACE) && defined(CONFIG_TRACE_IRQFLAGS) \
+	&& !defined(CONFIG_IPIPE)
 
 .macro TRACE_IRQS_OFF_DEBUG
 	call debug_stack_set_zero
@@ -372,7 +373,7 @@ ENDPROC(native_usergs_sysret64)
 	/*CFI_REL_OFFSET	ss,0*/
 	pushq_cfi %rax /* rsp */
 	CFI_REL_OFFSET	rsp,0
-	pushq_cfi $(X86_EFLAGS_IF|X86_EFLAGS_BIT1) /* eflags - interrupts on */
+	pushq_cfi $(X86_EFLAGS_IF|X86_EFLAGS_FIXED) /* eflags - interrupts on */
 	/*CFI_REL_OFFSET	rflags,0*/
 	pushq_cfi $__KERNEL_CS /* cs */
 	/*CFI_REL_OFFSET	cs,0*/
@@ -497,21 +498,6 @@ ENDPROC(native_usergs_sysret64)
 	TRACE_IRQS_OFF
 #endif
 	.endm
-
-ENTRY(save_rest)
-	PARTIAL_FRAME 1 (REST_SKIP+8)
-	movq 5*8+16(%rsp), %r11	/* save return address */
-	movq_cfi rbx, RBX+16
-	movq_cfi rbp, RBP+16
-	movq_cfi r12, R12+16
-	movq_cfi r13, R13+16
-	movq_cfi r14, R14+16
-	movq_cfi r15, R15+16
-	movq %r11, 8(%rsp)	/* return address */
-	FIXUP_TOP_OF_STACK %r11, 16
-	ret
-	CFI_ENDPROC
-END(save_rest)
 
 /* save complete stack frame */
 	.pushsection .kprobes.text, "ax"
@@ -1195,10 +1181,8 @@ retint_signal:
 	/* Returning to kernel space. Check if we need preemption */
 	/* rcx:	 threadinfo. interrupts off. */
 ENTRY(retint_kernel)
-	cmpl $0,TI_preempt_count(%rcx)
+	cmpl $0,PER_CPU_VAR(__preempt_count)
 	jnz  retint_restore_args
-	bt  $TIF_NEED_RESCHED,TI_flags(%rcx)
-	jnc  retint_restore_args
 	bt   $9,EFLAGS-ARGOFFSET(%rsp)	/* interrupts off? */
 	jnc  retint_restore_args
 #ifdef CONFIG_IPIPE
@@ -1223,13 +1207,13 @@ END(common_interrupt)
 /*
  * APIC interrupts.
  */
-.macro apicinterrupt num sym do_sym
+#ifdef CONFIG_IPIPE
+.macro apicinterrupt2 num sym
 ENTRY(\sym)
 	INTR_FRAME
 	ASM_CLAC
 	pushq_cfi $~(\num)
 .Lcommon_\sym:
-#ifdef CONFIG_IPIPE
 	interrupt __ipipe_handle_irq
 	testl %eax, %eax
 	jnz ret_from_intr
@@ -1242,8 +1226,18 @@ ENTRY(\sym)
 	jz restore_args
 	jmp retint_swapgs_notrace
 	CFI_ENDPROC
-	.endm
+END(\sym)
+.endm
+.macro apicinterrupt3 num sym do_sym
+apicinterrupt2 \num \sym
+.endm
 #else /* !CONFIG_IPIPE */
+.macro apicinterrupt3 num sym do_sym
+ENTRY(\sym)
+	INTR_FRAME
+	ASM_CLAC
+	pushq_cfi $~(\num)
+.Lcommon_\sym:
 	interrupt \do_sym
 	jmp ret_from_intr
 	CFI_ENDPROC
@@ -1251,15 +1245,32 @@ END(\sym)
 .endm
 #endif /* !CONFIG_IPIPE */
 
+#ifdef CONFIG_TRACING
+#define trace(sym) trace_##sym
+#define smp_trace(sym) smp_trace_##sym
+
+.macro trace_apicinterrupt num sym
+apicinterrupt3 \num trace(\sym) smp_trace(\sym)
+.endm
+#else
+.macro trace_apicinterrupt num sym do_sym
+.endm
+#endif
+
+.macro apicinterrupt num sym do_sym
+apicinterrupt3 \num \sym \do_sym
+trace_apicinterrupt \num \sym
+.endm
+
 #ifdef CONFIG_SMP
-apicinterrupt IRQ_MOVE_CLEANUP_VECTOR \
+apicinterrupt3 IRQ_MOVE_CLEANUP_VECTOR \
 	irq_move_cleanup_interrupt smp_irq_move_cleanup_interrupt
-apicinterrupt REBOOT_VECTOR \
+apicinterrupt3 REBOOT_VECTOR \
 	reboot_interrupt smp_reboot_interrupt
 #endif
 
 #ifdef CONFIG_X86_UV
-apicinterrupt UV_BAU_MESSAGE \
+apicinterrupt3 UV_BAU_MESSAGE \
 	uv_bau_message_intr1 uv_bau_message_interrupt
 #endif
 apicinterrupt LOCAL_TIMER_VECTOR \
@@ -1268,14 +1279,19 @@ apicinterrupt X86_PLATFORM_IPI_VECTOR \
 	x86_platform_ipi smp_x86_platform_ipi
 
 #ifdef CONFIG_HAVE_KVM
-apicinterrupt POSTED_INTR_VECTOR \
+apicinterrupt3 POSTED_INTR_VECTOR \
 	kvm_posted_intr_ipi smp_kvm_posted_intr_ipi
 #endif
 
+#ifdef CONFIG_X86_MCE_THRESHOLD
 apicinterrupt THRESHOLD_APIC_VECTOR \
 	threshold_interrupt smp_threshold_interrupt
+#endif
+
+#ifdef CONFIG_X86_THERMAL_VECTOR
 apicinterrupt THERMAL_APIC_VECTOR \
 	thermal_interrupt smp_thermal_interrupt
+#endif
 
 #ifdef CONFIG_SMP
 apicinterrupt CALL_FUNCTION_SINGLE_VECTOR \
@@ -1285,13 +1301,13 @@ apicinterrupt CALL_FUNCTION_VECTOR \
 apicinterrupt RESCHEDULE_VECTOR \
 	reschedule_interrupt smp_reschedule_interrupt
 #ifdef CONFIG_IPIPE
-apicinterrupt IPIPE_RESCHEDULE_VECTOR ipipe_reschedule_interrupt smp_spurious_interrupt
-apicinterrupt IPIPE_CRITICAL_VECTOR ipipe_critical_interrupt smp_spurious_interrupt
+apicinterrupt2 IPIPE_RESCHEDULE_VECTOR ipipe_reschedule_interrupt
+apicinterrupt2 IPIPE_CRITICAL_VECTOR ipipe_critical_interrupt
 #endif
 #endif
 
 #ifdef CONFIG_IPIPE
-apicinterrupt IPIPE_HRTIMER_VECTOR ipipe_hrtimer_interrupt smp_spurious_interrupt
+apicinterrupt2 IPIPE_HRTIMER_VECTOR ipipe_hrtimer_interrupt
 #endif
 
 apicinterrupt ERROR_APIC_VECTOR \
@@ -1427,6 +1443,17 @@ ENTRY(\sym)
 END(\sym)
 .endm
 
+#ifdef CONFIG_TRACING
+.macro trace_errorentry sym do_sym ex_code
+errorentry trace(\sym) trace(\do_sym) \ex_code
+errorentry \sym \do_sym \ex_code
+.endm
+#else
+.macro trace_errorentry sym do_sym ex_code
+errorentry \sym \do_sym \ex_code
+.endm
+#endif
+
 	/* error code is on the stack already */
 .macro paranoiderrorentry sym do_sym ex_code=0
 ENTRY(\sym)
@@ -1504,7 +1531,7 @@ bad_gs:
 	.previous
 
 /* Call softirq on interrupt stack. Interrupts are off. */
-ENTRY(call_softirq)
+ENTRY(do_softirq_own_stack)
 	CFI_STARTPROC
 	pushq_cfi %rbp
 	CFI_REL_OFFSET rbp,0
@@ -1525,7 +1552,7 @@ ENTRY(call_softirq)
 	HARD_COND_ENABLE_INTERRUPTS
 	ret
 	CFI_ENDPROC
-END(call_softirq)
+END(do_softirq_own_stack)
 
 #ifdef CONFIG_XEN
 zeroentry xen_hypervisor_callback xen_do_hypervisor_callback
@@ -1624,13 +1651,13 @@ ENTRY(xen_failsafe_callback)
 	CFI_ENDPROC
 END(xen_failsafe_callback)
 
-apicinterrupt HYPERVISOR_CALLBACK_VECTOR \
+apicinterrupt3 HYPERVISOR_CALLBACK_VECTOR \
 	xen_hvm_callback_vector xen_evtchn_do_upcall
 
 #endif /* CONFIG_XEN */
 
 #if IS_ENABLED(CONFIG_HYPERV)
-apicinterrupt HYPERVISOR_CALLBACK_VECTOR \
+apicinterrupt3 HYPERVISOR_CALLBACK_VECTOR \
 	hyperv_callback_vector hyperv_vector_handler
 #endif /* CONFIG_HYPERV */
 
@@ -1653,7 +1680,7 @@ zeroentry xen_int3 do_int3
 errorentry xen_stack_segment do_stack_segment
 #endif
 errorentry general_protection do_general_protection ex_do_general_protection
-errorentry page_fault do_page_fault ex_do_page_fault
+trace_errorentry page_fault do_page_fault ex_do_page_fault
 #ifdef CONFIG_KVM_GUEST
 errorentry async_page_fault do_async_page_fault
 #endif
