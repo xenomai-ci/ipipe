@@ -371,38 +371,8 @@ static inline unsigned long hard_local_save_flags(void)
 #endif
 
 #ifdef CONFIG_TRACE_IRQFLAGS
-# ifdef CONFIG_IPIPE
-#  ifdef CONFIG_X86_64
-#   define TRACE_IRQS_ON			\
-	call trace_hardirqs_on_thunk;		\
-	pushq %rax;				\
-	PER_CPU(ipipe_percpu, %rax);		\
-	btrl $0,(%rax);				\
-	popq %rax
-#   define TRACE_IRQS_OFF			\
-	pushq %rax;				\
-	PER_CPU(ipipe_percpu, %rax);		\
-	btsl $0,(%rax);				\
-	popq %rax;				\
-	call trace_hardirqs_off_thunk
-#  else /* CONFIG_X86_32 */
-#   define TRACE_IRQS_ON			\
-	call trace_hardirqs_on_thunk;		\
-	pushl %eax;				\
-	PER_CPU(ipipe_percpu, %eax);		\
-	btrl $0,(%eax);				\
-	popl %eax
-#   define TRACE_IRQS_OFF			\
-	pushl %eax;				\
-	PER_CPU(ipipe_percpu, %eax);		\
-	btsl $0,(%eax);				\
-	popl %eax;				\
-	call trace_hardirqs_off_thunk
-#  endif /* CONFIG_X86_32 */
-# else /* !CONFIG_IPIPE */
 #  define TRACE_IRQS_ON		call trace_hardirqs_on_thunk;
 #  define TRACE_IRQS_OFF	call trace_hardirqs_off_thunk;
-# endif /* !CONFIG_IPIPE */
 #else
 #  define TRACE_IRQS_ON
 #  define TRACE_IRQS_OFF
