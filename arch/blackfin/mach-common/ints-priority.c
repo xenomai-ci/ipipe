@@ -1343,7 +1343,7 @@ static inline int mayday_pending(struct pt_regs *regs)
 	if (ipipe_test_foreign_stack())
 		return 0;
 #endif
-	return user_mode(regs) && (current->ipipe.flags & PF_MAYDAY) != 0;
+	return user_mode(regs) && ipipe_test_thread_flag(TIP_MAYDAY);
 }
 
 /* Hw interrupts are disabled on entry (check SAVE_CONTEXT). */
@@ -1398,7 +1398,7 @@ asmlinkage int __ipipe_grab_irq(int vec, struct pt_regs *regs)
 	ipipe_trace_irq_exit(irq);
 
 	if (mayday_pending(regs)) {
-		current->ipipe.flags &= ~PF_MAYDAY;
+		ipipe_clear_thread_flag(TIP_MAYDAY);
 		__ipipe_notify_trap(IPIPE_TRAP_MAYDAY, regs);
 	}
 

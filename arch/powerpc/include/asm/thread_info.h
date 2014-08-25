@@ -47,10 +47,12 @@ struct thread_info {
 	struct restart_block restart_block;
 	unsigned long	local_flags;		/* private flags for thread */
 
-	struct ipipe_threadinfo ipipe_data;
-
 	/* low level flags - has atomic operations done on it */
 	unsigned long	flags ____cacheline_aligned_in_smp;
+#ifdef CONFIG_IPIPE
+	unsigned long ipipe_flags;
+	struct ipipe_threadinfo ipipe_data;
+#endif
 };
 
 /*
@@ -138,6 +140,15 @@ static inline struct thread_info *current_thread_info(void)
 				 _TIF_NOTIFY_RESUME | _TIF_UPROBE | \
 				 _TIF_RESTORE_TM)
 #define _TIF_PERSYSCALL_MASK	(_TIF_RESTOREALL|_TIF_NOERROR)
+
+/* ti->ipipe_flags */
+#define TIP_MAYDAY	0	/* MAYDAY call is pending */
+#define TIP_NOTIFY	1	/* Notify head domain about kernel events */
+#define TIP_HEAD	2	/* Runs in head domain */
+
+#define _TIP_MAYDAY	(1<<TIP_MAYDAY)
+#define _TIP_NOTIFY	(1<<TIP_NOTIFY)
+#define _TIP_HEAD	(1<<TIP_HEAD)
 
 /* Bits in local_flags */
 /* Don't move TLF_NAPPING without adjusting the code in entry_32.S */

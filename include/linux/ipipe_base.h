@@ -1,7 +1,7 @@
 /* -*- linux-c -*-
  * include/linux/ipipe_base.h
  *
- * Copyright (C) 2002-2012 Philippe Gerum.
+ * Copyright (C) 2002-2014 Philippe Gerum.
  *               2007 Jan Kiszka.
  *
  * This program is free software; you can redistribute it and/or modify
@@ -228,8 +228,8 @@ struct ipipe_cpu_migration_data {
 
 #define __ipipe_report_schedule(prev, next)				\
 do {									\
-	if ((ipipe_notifier_enabled_p(next) ||				\
-	     ipipe_notifier_enabled_p(prev))) {				\
+	if (ipipe_notifier_enabled_p(next) ||				\
+	    ipipe_notifier_enabled_p(prev)) {				\
 		__this_cpu_write(ipipe_percpu.rqlock_owner, prev);	\
 		__ipipe_notify_kevent(IPIPE_KEVT_SCHEDULE, next);	\
 	}								\
@@ -244,10 +244,6 @@ void __ipipe_notify_vm_preemption(void);
 #define hard_cond_local_irq_disable()		hard_local_irq_disable()
 #define hard_cond_local_irq_save()		hard_local_irq_save()
 #define hard_cond_local_irq_restore(flags)	hard_local_irq_restore(flags)
-
-struct ipipe_task_info {
-	unsigned long flags;
-};
 
 #ifdef CONFIG_IPIPE_LEGACY
 
@@ -275,7 +271,6 @@ struct ipipe_legacy_context {
 
 #define __ipipe_init_taskinfo(p)			\
 	do {						\
-		__ipipe_clear_taskflags(p);		\
 		memset(p->ptd, 0, sizeof(p->ptd));	\
 	} while (0)
 
@@ -284,25 +279,14 @@ struct ipipe_legacy_context {
 struct ipipe_legacy_context {
 };
 
-#define __ipipe_init_taskinfo(p)			\
-	do {						\
-		__ipipe_clear_taskflags(p);		\
-	} while (0)
+static inline void __ipipe_init_taskinfo(struct task_struct *p) { }
 
 #endif /* !CONFIG_IPIPE_LEGACY */
-
-#define __ipipe_clear_taskflags(p)	\
-	do {				\
-		(p)->ipipe.flags = 0;	\
-	} while (0)
 
 #else /* !CONFIG_IPIPE */
 
 struct task_struct;
 struct mm_struct;
-
-struct ipipe_task_info {
-};
 
 static inline void __ipipe_init_early(void) { }
 
@@ -326,8 +310,6 @@ static inline void __ipipe_report_cleanup(struct mm_struct *mm) { }
 #define __ipipe_report_trap(exception, regs)  0
 
 static inline void __ipipe_init_taskinfo(struct task_struct *p) { }
-
-static inline void __ipipe_clear_taskflags(struct task_struct *p) { }
 
 static inline void __ipipe_pin_range_globally(unsigned long start,
 					      unsigned long end)
