@@ -40,11 +40,6 @@ struct ipipe_vm_notifier;
 #define __IPIPE_TRAP_E	  (1 << __IPIPE_TRAP_P)
 #define __IPIPE_KEVENT_E  (1 << __IPIPE_KEVENT_P)
 #define __IPIPE_ALL_E	   0x7
-#define __IPIPE_SYSCALL_R (8 << __IPIPE_SYSCALL_P)
-#define __IPIPE_TRAP_R	  (8 << __IPIPE_TRAP_P)
-#define __IPIPE_KEVENT_R  (8 << __IPIPE_KEVENT_P)
-#define __IPIPE_SHIFT_R	   3
-#define __IPIPE_ALL_R	  (__IPIPE_ALL_E << __IPIPE_SHIFT_R)
 
 typedef void (*ipipe_irq_ackfn_t)(unsigned int irq, struct irq_desc *desc);
 

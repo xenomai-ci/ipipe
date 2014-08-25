@@ -106,6 +106,33 @@ unsigned int __ipipe_printk_virq;
 int __ipipe_printk_bypass;
 #endif /* CONFIG_PRINTK */
 
+#ifdef CONFIG_IPIPE_LEGACY
+
+#define __IPIPE_SYSCALL_R (8 << __IPIPE_SYSCALL_P)
+#define __IPIPE_TRAP_R	  (8 << __IPIPE_TRAP_P)
+#define __IPIPE_KEVENT_R  (8 << __IPIPE_KEVENT_P)
+#define __IPIPE_SHIFT_R	   3
+#define __IPIPE_ALL_R	  (__IPIPE_ALL_E << __IPIPE_SHIFT_R)
+
+static inline
+void enter_callout(struct ipipe_percpu_domain_data *p, int mask)
+{
+	p->coflags |= mask;
+}
+
+static inline
+void leave_callout(struct ipipe_percpu_domain_data *p, int mask)
+{
+	p->coflags &= ~mask;
+}
+
+#else /* !CONFIG_IPIPE_LEGACY */
+
+#define enter_callout(__p, __mask)	do { } while (0)
+#define leave_callout(__p, __mask)	do { } while (0)
+
+#endif /* !CONFIG_IPIPE_LEGACY */
+
 #ifdef CONFIG_PROC_FS
 
 struct proc_dir_entry *ipipe_proc_root;
@@ -803,7 +830,7 @@ next:
 			__ipipe_sync_stage();
 		else {
 			/* Switching to head. */
-			p->coflags &= ~__IPIPE_ALL_R;
+			leave_callout(p, __IPIPE_ALL_R);
 			__ipipe_set_current_context(p);
 			__ipipe_sync_stage();
 			__ipipe_set_current_domain(ipipe_root_domain);
@@ -913,8 +940,8 @@ EXPORT_SYMBOL_GPL(ipipe_free_irq);
 void ipipe_set_hooks(struct ipipe_domain *ipd, int enables)
 {
 	struct ipipe_percpu_domain_data *p;
+	int cpu, wait __maybe_unused;
 	unsigned long flags;
-	int cpu, wait;
 
 	if (ipd == ipipe_root_domain) {
 		IPIPE_WARN(enables & __IPIPE_TRAP_E);
@@ -932,6 +959,15 @@ void ipipe_set_hooks(struct ipipe_domain *ipd, int enables)
 		p->coflags |= enables;
 	}
 
+#ifdef CONFIG_IPIPE_LEGACY
+	/*
+	 * In legacy mode, clients may assume that ipipe_set_hooks()
+	 * is a synchronization barrier with respect to callout
+	 * execution on other CPUs (i.e. no callout runs on any CPU
+	 * when the routine returns), at the expense of tracking an
+	 * in-call bit in the callout state flags. Newer clients
+	 * should implement this barrier instead.
+	 */
 	wait = (enables ^ __IPIPE_ALL_E) << __IPIPE_SHIFT_R;
 	if (wait == 0 || !__ipipe_root_p) {
 		ipipe_critical_exit(flags);
@@ -955,6 +991,9 @@ void ipipe_set_hooks(struct ipipe_domain *ipd, int enables)
 		while (ipipe_percpu_context(ipd, cpu)->coflags & wait)
 			schedule_timeout_interruptible(HZ / 50);
 	}
+#else /* !CONFIG_IPIPE_LEGACY */
+	ipipe_critical_exit(flags);
+#endif /* !CONFIG_IPIPE_LEGACY */
 }
 EXPORT_SYMBOL_GPL(ipipe_set_hooks);
 
@@ -977,11 +1016,11 @@ next:
 	p = ipipe_this_cpu_context(ipd);
 	if (likely(p->coflags & __IPIPE_SYSCALL_E)) {
 		__ipipe_set_current_context(p);
-		p->coflags |= __IPIPE_SYSCALL_R;
+		enter_callout(p, __IPIPE_SYSCALL_R);
 		hard_local_irq_restore(flags);
 		ret = ipipe_syscall_hook(caller_domain, regs);
 		flags = hard_local_irq_save();
-		p->coflags &= ~__IPIPE_SYSCALL_R;
+		leave_callout(p, __IPIPE_SYSCALL_R);
 		if (__ipipe_current_domain != ipd)
 			/* Account for domain migration. */
 			this_domain = __ipipe_current_domain;
@@ -1023,13 +1062,13 @@ int __ipipe_notify_trap(int exception, struct pt_regs *regs)
 
 	p = ipipe_this_cpu_head_context();
 	if (likely(p->coflags & __IPIPE_TRAP_E)) {
-		p->coflags |= __IPIPE_TRAP_R;
+		enter_callout(p, __IPIPE_TRAP_R);
 		hard_local_irq_restore(flags);
 		data.exception = exception;
 		data.regs = regs;
 		ret = ipipe_trap_hook(&data);
 		flags = hard_local_irq_save();
-		p->coflags &= ~__IPIPE_TRAP_R;
+		leave_callout(p, __IPIPE_TRAP_R);
 	}
 out:
 	hard_local_irq_restore(flags);
@@ -1054,11 +1093,11 @@ int __ipipe_notify_kevent(int kevent, void *data)
 
 	p = ipipe_this_cpu_root_context();
 	if (likely(p->coflags & __IPIPE_KEVENT_E)) {
-		p->coflags |= __IPIPE_KEVENT_R;
+		enter_callout(p, __IPIPE_KEVENT_R);
 		hard_local_irq_restore(flags);
 		ret = ipipe_kevent_hook(kevent, data);
 		flags = hard_local_irq_save();
-		p->coflags &= ~__IPIPE_KEVENT_R;
+		leave_callout(p, __IPIPE_KEVENT_R);
 	}
 
 	hard_local_irq_restore(flags);
