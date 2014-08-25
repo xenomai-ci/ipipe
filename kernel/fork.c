@@ -313,6 +313,7 @@ static struct task_struct *dup_task_struct(struct task_struct *orig)
 	tsk->stack = ti;
 
 	setup_thread_stack(tsk, orig);
+	__ipipe_init_threadflags(ti);
 	__ipipe_init_threadinfo(&ti->ipipe_data);
 	clear_user_return_notifier(tsk);
 	clear_tsk_need_resched(tsk);
@@ -1078,7 +1079,6 @@ static void copy_flags(unsigned long clone_flags, struct task_struct *p)
 	new_flags &= ~(PF_SUPERPRIV | PF_WQ_WORKER);
 	new_flags |= PF_FORKNOEXEC;
 	p->flags = new_flags;
-	__ipipe_clear_taskflags(p);
 }
 
 SYSCALL_DEFINE1(set_tid_address, int __user *, tidptr)

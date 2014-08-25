@@ -78,7 +78,10 @@ struct thread_info {
 #ifdef CONFIG_ARM_THUMBEE
 	unsigned long		thumbee_state;	/* ThumbEE Handler Base register */
 #endif
+#ifdef CONFIG_IPIPE
+	unsigned long		ipipe_flags;
 	struct ipipe_threadinfo ipipe_data;
+#endif
 
 	struct restart_block	restart_block;
 
@@ -166,12 +169,9 @@ extern int vfp_restore_user_hwstate(struct user_vfp __user *,
 #define TIF_MEMDIE		18	/* is terminating due to OOM killer */
 #define TIF_RESTORE_SIGMASK	20
 #define TIF_SWITCH_MM		22	/* deferred switch_mm */
-#ifdef CONFIG_IPIPE
-#define TIF_MMSWITCH_INT	23
-#ifdef CONFIG_ARM_FCSE
-#define TIF_SWITCHED		24
-#endif /* CONFIG_ARM_FCSE */
-#endif /* CONFIG_IPIPE */
+
+#define TIF_SWITCHED		23 	/* FCSE */
+#define TIF_MMSWITCH_INT	24	/* MMU context switch preempted */
 
 #define _TIF_SIGPENDING		(1 << TIF_SIGPENDING)
 #define _TIF_NEED_RESCHED	(1 << TIF_NEED_RESCHED)
@@ -181,12 +181,9 @@ extern int vfp_restore_user_hwstate(struct user_vfp __user *,
 #define _TIF_SYSCALL_TRACEPOINT	(1 << TIF_SYSCALL_TRACEPOINT)
 #define _TIF_SECCOMP		(1 << TIF_SECCOMP)
 #define _TIF_USING_IWMMXT	(1 << TIF_USING_IWMMXT)
-#ifdef CONFIG_IPIPE
-#define _TIF_MMSWITCH_INT	(1 << TIF_MMSWITCH_INT)
-#ifdef CONFIG_ARM_FCSE
+
 #define _TIF_SWITCHED		(1 << TIF_SWITCHED)
-#endif /* CONFIG_ARM_FCSE */
-#endif /* CONFIG_IPIPE */
+#define _TIF_MMSWITCH_INT	(1 << TIF_MMSWITCH_INT)
 
 /* Checks for any syscall work in entry-common.S */
 #define _TIF_SYSCALL_WORK (_TIF_SYSCALL_TRACE | _TIF_SYSCALL_AUDIT | \
@@ -196,6 +193,15 @@ extern int vfp_restore_user_hwstate(struct user_vfp __user *,
  * Change these and you break ASM code in entry-common.S
  */
 #define _TIF_WORK_MASK		(_TIF_NEED_RESCHED | _TIF_SIGPENDING | _TIF_NOTIFY_RESUME)
+
+/* ti->ipipe_flags */
+#define TIP_MAYDAY	0	/* MAYDAY call is pending */
+#define TIP_NOTIFY	1	/* Notify head domain about kernel events */
+#define TIP_HEAD	2	/* Runs in head domain */
+
+#define _TIP_MAYDAY	(1 << TIP_MAYDAY)
+#define _TIP_NOTIFY	(1 << TIP_NOTIFY)
+#define _TIP_HEAD	(1 << TIP_HEAD)
 
 #endif /* __KERNEL__ */
 #endif /* __ASM_ARM_THREAD_INFO_H */

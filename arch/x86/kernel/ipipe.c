@@ -530,8 +530,8 @@ int __ipipe_syscall_root(struct pt_regs *regs)
 
 	hard_local_irq_disable();
 
-	if (current->ipipe.flags & PF_MAYDAY) {
-		current->ipipe.flags &= ~PF_MAYDAY;
+	if (ipipe_test_thread_flag(TIP_MAYDAY)) {
+		ipipe_clear_thread_flag(TIP_MAYDAY);
 		__ipipe_notify_trap(IPIPE_TRAP_MAYDAY, regs);
 	}
 
@@ -588,8 +588,8 @@ int __ipipe_handle_irq(struct pt_regs *regs)
 
 	__ipipe_dispatch_irq(irq, flags);
 
-	if (user_mode(regs) && (current->ipipe.flags & PF_MAYDAY)) {
-		current->ipipe.flags &= ~PF_MAYDAY;
+	if (user_mode(regs) && ipipe_test_thread_flag(TIP_MAYDAY)) {
+		ipipe_clear_thread_flag(TIP_MAYDAY);
 		__ipipe_notify_trap(IPIPE_TRAP_MAYDAY, regs);
 	}
 

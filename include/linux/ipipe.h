@@ -1,7 +1,7 @@
 /* -*- linux-c -*-
  * include/linux/ipipe.h
  *
- * Copyright (C) 2002-2007 Philippe Gerum.
+ * Copyright (C) 2002-2014 Philippe Gerum.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -354,26 +354,66 @@ static inline void ipipe_handle_demuxed_irq(unsigned int cascade_irq)
 	ipipe_trace_irq_exit(cascade_irq);
 }
 
-#define ipipe_enable_notifier(p)			\
-	do {						\
-		barrier();				\
-		(p)->ipipe.flags |= PF_EVNOTIFY;	\
+static inline void __ipipe_init_threadflags(struct thread_info *ti)
+{
+	ti->ipipe_flags = 0;
+}
+
+static inline
+void ipipe_set_ti_thread_flag(struct thread_info *ti, int flag)
+{
+	set_bit(flag, &ti->ipipe_flags);
+}
+
+static inline
+void ipipe_clear_ti_thread_flag(struct thread_info *ti, int flag)
+{
+	clear_bit(flag, &ti->ipipe_flags);
+}
+
+static inline
+void ipipe_test_and_clear_ti_thread_flag(struct thread_info *ti, int flag)
+{
+	test_and_clear_bit(flag, &ti->ipipe_flags);
+}
+
+static inline
+int ipipe_test_ti_thread_flag(struct thread_info *ti, int flag)
+{
+	return test_bit(flag, &ti->ipipe_flags);
+}
+
+#define ipipe_set_thread_flag(flag) \
+	ipipe_set_ti_thread_flag(current_thread_info(), flag)
+
+#define ipipe_clear_thread_flag(flag) \
+	ipipe_clear_ti_thread_flag(current_thread_info(), flag)
+
+#define ipipe_test_and_clear_thread_flag(flag) \
+	ipipe_test_and_clear_ti_thread_flag(current_thread_info(), flag)
+
+#define ipipe_test_thread_flag(flag) \
+	ipipe_test_ti_thread_flag(current_thread_info(), flag)
+
+#define ipipe_enable_notifier(p)					\
+	ipipe_set_ti_thread_flag(task_thread_info(p), TIP_NOTIFY)
+
+#define ipipe_disable_notifier(p)					\
+	do {								\
+		struct thread_info *ti = task_thread_info(p);		\
+		ipipe_clear_ti_thread_flag(ti, TIP_NOTIFY);		\
+		ipipe_clear_ti_thread_flag(ti, TIP_MAYDAY);		\
 	} while (0)
 
-#define ipipe_disable_notifier(p)				\
-	do {							\
-		barrier();					\
-		(p)->ipipe.flags &= ~(PF_EVNOTIFY|PF_MAYDAY);	\
-	} while (0)
+#define ipipe_notifier_enabled_p(p)					\
+	ipipe_test_ti_thread_flag(task_thread_info(p), TIP_NOTIFY)
 
-#define ipipe_notifier_enabled_p(p)			\
-	(((p)->ipipe.flags) & PF_EVNOTIFY)
-
-#define ipipe_raise_mayday(p)				\
-	do {						\
-		ipipe_check_irqoff();			\
-		if (ipipe_notifier_enabled_p(p))	\
-			(p)->ipipe.flags |= PF_MAYDAY;	\
+#define ipipe_raise_mayday(p)						\
+	do {								\
+		struct thread_info *ti = task_thread_info(p);		\
+		ipipe_check_irqoff();					\
+		if (ipipe_test_ti_thread_flag(ti, TIP_NOTIFY))		\
+			ipipe_set_ti_thread_flag(ti, TIP_MAYDAY);	\
 	} while (0)
 
 extern bool __ipipe_probe_access;
@@ -394,6 +434,8 @@ extern void __ipipe_uaccess_might_fault(void);
 
 #define __ipipe_root_p		1
 #define ipipe_root_p		1
+
+static inline void __ipipe_init_threadflags(struct thread_info *ti) { }
 
 static inline void __ipipe_complete_domain_migration(void) { }
 

@@ -1113,7 +1113,10 @@ void __weak ipipe_migration_hook(struct task_struct *p)
 
 static inline void complete_domain_migration(void) /* hw IRQs off */
 {
-	current->state &= ~TASK_HARDENING;
+	if (current->state & TASK_HARDENING) {
+		current->state &= ~TASK_HARDENING;
+		ipipe_set_thread_flag(TIP_HEAD);
+	}
 }
 
 #else /* !CONFIG_IPIPE_LEGACY */
@@ -1136,6 +1139,7 @@ static void complete_domain_migration(void) /* hw IRQs off */
 		/* Migration aborted (by signal). */
 		return;
 
+	ipipe_set_ti_thread_flag(task_thread_info(t), TIP_HEAD);
 	p = ipipe_this_cpu_head_context();
 	IPIPE_WARN_ONCE(test_bit(IPIPE_STALL_FLAG, &p->status));
 	/*

@@ -281,14 +281,14 @@ static int __ipipe_exit_irq(struct pt_regs *regs)
 	}
 
 	if (user_mode(regs) &&
-	    (current->ipipe.flags & PF_MAYDAY) != 0) {
+	    ipipe_test_thread_flag(TIP_MAYDAY)) {
 		/*
 		 * Testing for user_regs() eliminates foreign stack
-		 * contexts, including from careless domains which did
-		 * not set the foreign stack bit (foreign stacks are
-		 * always kernel-based).
+		 * contexts, including from legacy domains
+		 * (CONFIG_IPIPE_LEGACY) which did not set the foreign
+		 * stack bit (foreign stacks are always kernel-based).
 		 */
-		current->ipipe.flags &= ~PF_MAYDAY;
+		ipipe_clear_thread_flag(TIP_MAYDAY);
 		__ipipe_notify_trap(IPIPE_TRAP_MAYDAY, regs);
 	}
 
@@ -413,11 +413,13 @@ asmlinkage int __ipipe_syscall_root(struct pt_regs *regs)
 	hard_local_irq_disable();
 
 	/*
-	 * This is the end of the syscall path, so we may
-	 * safely assume a valid Linux task stack here.
+	 * This is the end of the syscall path, so we may safely
+	 * assume a valid Linux task stack here. MAYDAY is never
+	 * raised under normal circumstances, so prefer test then
+	 * maybe clear over test_and_clear.
 	 */
-	if (current->ipipe.flags & PF_MAYDAY) {
-		current->ipipe.flags &= ~PF_MAYDAY;
+	if (ipipe_test_thread_flag(TIP_MAYDAY)) {
+		ipipe_clear_thread_flag(TIP_MAYDAY);
 		__ipipe_notify_trap(IPIPE_TRAP_MAYDAY, regs);
 	}
 
