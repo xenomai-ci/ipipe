@@ -149,22 +149,77 @@ END_FW_FTR_SECTION_IFSET(FW_FEATURE_SPLPAR)
 	std	r10,SOFTE(r1)
 
 #ifdef CONFIG_IPIPE
+	CURRENT_THREAD_INFO(r10, r1)
+#ifndef CONFIG_IPIPE_LEGACY	
+	cmpldi	cr0,r0,NR_syscalls
+	blt	slow_path
+	ld	r11,TI_IPIPE(r10)
+	andi.	r12,r11,_TIP_HEAD /* implies that TIP_NOTIFY if set */
+	beq	slow_path_check
 	addi	r3,r1,GPR0
-	bl	.__ipipe_syscall_root
+	bl	ipipe_fastcall_hook /* __IPIPE_SYSCALL_E is assumed */
 	cmpwi	r3,0
+	blt	no_fastcall
+	CURRENT_THREAD_INFO(r10, r1)
+	ld	r11,TI_IPIPE(r10)
+	andi.	r12,r11,_TIP_HEAD
+	bne+	fastcall_exit_check
+	bl	__ipipe_root_sync
+	b	fastcall_exit
+no_fastcall:
+	/* fastcall handler not implemented */
+	ld	r0,GPR0(r1)
+slow_path:
+#endif /* !CONFIG_IPIPE_LEGACY */
+	ld	r11,TI_IPIPE(r10)
+slow_path_check:
+	andi.	r12,r11,_TIP_NOTIFY
+	bne	pipeline_syscall
+	cmpldi	cr0,r0,NR_syscalls
+	blt	root_syscall
+pipeline_syscall:
+	addi	r3,r1,GPR0
+	bl	__ipipe_notify_syscall
+	cmpwi	cr1,r3,0
+	CURRENT_THREAD_INFO(r10, r1)
+	ld	r11,TI_IPIPE(r10)
+	andi.	r12,r11,_TIP_HEAD
+	bne	fastcall_exit
+	beq	cr1,root_syscall
+	ld	r3,GPR3(r1)	/* syscall return value */
+	b	syscall_exit
+fastcall_exit_check:
+	andi.	r12,r11,_TIP_MAYDAY
+	beq+	fastcall_exit
+	addi	r3,r1,GPR0
+	bl	__ipipe_call_mayday
+fastcall_exit:
+	ld	r3,GPR3(r1)	/* syscall return value */
+	ld	r8,_MSR(r1)
+#ifdef CONFIG_PPC_BOOK3E
+	wrteei	0
+#else
+	ld	r10,PACAKMSR(r13)
+	li	r9,MSR_RI
+	andc	r11,r10,r9
+	mtmsrd	r11,1
+	/* No MSR:RI on BookE */
+	andi.	r10,r8,MSR_RI
+	beq-	unrecov_restore
+#endif /* CONFIG_PPC_BOOK3E */
+	ld	r5,_CCR(r1)
+	mfmsr	r10 /* XXX: why this? */
+	b	.Lsyscall_error_cont
+root_syscall:
 	ld	r0,GPR0(r1)
 	ld	r3,GPR3(r1)
 	ld	r4,GPR4(r1)
 	ld	r5,GPR5(r1)
 	ld	r6,GPR6(r1)
 	ld	r7,GPR7(r1)
-	ld	r8,GPR8(r1)
-	ld	r9,GPR9(r1)
-	bgt	ipipe_end_syscall
-	blt	syscall_exit
-	addi	r9,r1,STACK_FRAME_OVERHEAD /* we trashed it, fix it up */
+	addi	r9,r1,STACK_FRAME_OVERHEAD
 #endif /* CONFIG_IPIPE */
-
+	
 #ifdef SHOW_SYSCALLS
 	bl	.do_show_syscall
 	REST_GPR(0,r1)
@@ -290,23 +345,6 @@ syscall_dotrace:
 	CURRENT_THREAD_INFO(r10, r1)
 	ld	r10,TI_FLAGS(r10)
 	b	.Lsyscall_dotrace_cont
-
-#ifdef CONFIG_IPIPE
-	/*
-	 * We get there upon return from __ipipe_syscall_root,
-	 * with hw interrupts off.
-	 */
-ipipe_end_syscall:
-	ld	r8,_MSR(r1)
-#ifdef CONFIG_PPC_BOOK3S
-	/* No MSR:RI on BookE */
-	andi.	r10,r8,MSR_RI
-	beq-	unrecov_restore
-#endif
-	ld	r5,_CCR(r1)
-	mfmsr	r10
-	b	.Lsyscall_error_cont
-#endif /* CONFIG_IPIPE */
 
 syscall_enosys:
 	li	r3,-ENOSYS

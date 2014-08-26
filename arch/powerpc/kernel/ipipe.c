@@ -280,17 +280,14 @@ static int __ipipe_exit_irq(struct pt_regs *regs)
 #endif
 	}
 
-	if (user_mode(regs) &&
-	    ipipe_test_thread_flag(TIP_MAYDAY)) {
-		/*
-		 * Testing for user_regs() eliminates foreign stack
-		 * contexts, including from legacy domains
-		 * (CONFIG_IPIPE_LEGACY) which did not set the foreign
-		 * stack bit (foreign stacks are always kernel-based).
-		 */
-		ipipe_clear_thread_flag(TIP_MAYDAY);
-		__ipipe_notify_trap(IPIPE_TRAP_MAYDAY, regs);
-	}
+	/*
+	 * Testing for user_regs() eliminates foreign stack contexts,
+	 * including from legacy domains (CONFIG_IPIPE_LEGACY) which
+	 * did not set the foreign stack bit (foreign stacks are
+	 * always kernel-based).
+	 */
+	if (user_mode(regs) && ipipe_test_thread_flag(TIP_MAYDAY))
+		__ipipe_call_mayday(regs);
 
 	if (root && !test_bit(IPIPE_STALL_FLAG, &__ipipe_root_status))
 		return 1;
@@ -298,7 +295,7 @@ static int __ipipe_exit_irq(struct pt_regs *regs)
 	return 0;
 }
 
-asmlinkage int __ipipe_grab_irq(struct pt_regs *regs)
+int __ipipe_grab_irq(struct pt_regs *regs)
 {
 	int irq;
 
@@ -341,7 +338,7 @@ static void __ipipe_do_timer(unsigned int irq, void *cookie)
 	timer_interrupt(__this_cpu_ptr(&ipipe_percpu.tick_regs));
 }
 
-asmlinkage int __ipipe_grab_timer(struct pt_regs *regs)
+int __ipipe_grab_timer(struct pt_regs *regs)
 {
 	struct pt_regs *tick_regs;
 	struct ipipe_domain *ipd;
@@ -366,7 +363,7 @@ asmlinkage int __ipipe_grab_timer(struct pt_regs *regs)
 	return __ipipe_exit_irq(regs);
 }
 
-asmlinkage notrace int __ipipe_check_root(void) /* hw IRQs off */
+notrace int __ipipe_check_root(void) /* hw IRQs off */
 {
 	return __ipipe_root_p;
 }
@@ -375,12 +372,12 @@ asmlinkage notrace int __ipipe_check_root(void) /* hw IRQs off */
 
 #ifdef CONFIG_IPIPE_TRACE_IRQSOFF
 
-asmlinkage notrace void __ipipe_trace_irqsoff(void)
+notrace void __ipipe_trace_irqsoff(void)
 {
 	ipipe_trace_irqsoff();
 }
 
-asmlinkage notrace void __ipipe_trace_irqson(void)
+notrace void __ipipe_trace_irqson(void)
 {
 	ipipe_trace_irqson();
 }
@@ -388,54 +385,6 @@ asmlinkage notrace void __ipipe_trace_irqson(void)
 #endif /* CONFIG_IPIPE_TRACE_IRQSOFF */
 
 #endif /* CONFIG_PPC64 */
-
-asmlinkage int __ipipe_syscall_root(struct pt_regs *regs)
-{
-	struct ipipe_percpu_domain_data *p;
-	int ret;
-
-	WARN_ON_ONCE(hard_irqs_disabled());
-
-	/*
-	 * This routine either returns:
-	 * 0 -- if the syscall is to be passed to Linux;
-	 * >0 -- if the syscall should not be passed to Linux, and no
-	 * tail work should be performed;
-	 * <0 -- if the syscall should not be passed to Linux but the
-	 * tail work has to be performed (for handling signals etc).
-	 */
-
-	if (!__ipipe_syscall_watched_p(current, regs->gpr[0]))
-		return 0;
-
-	ret = __ipipe_notify_syscall(regs);
-
-	hard_local_irq_disable();
-
-	/*
-	 * This is the end of the syscall path, so we may safely
-	 * assume a valid Linux task stack here. MAYDAY is never
-	 * raised under normal circumstances, so prefer test then
-	 * maybe clear over test_and_clear.
-	 */
-	if (ipipe_test_thread_flag(TIP_MAYDAY)) {
-		ipipe_clear_thread_flag(TIP_MAYDAY);
-		__ipipe_notify_trap(IPIPE_TRAP_MAYDAY, regs);
-	}
-
-	if (!__ipipe_root_p) {
-		hard_local_irq_enable();
-		return 1;
-	}
-
-	p = ipipe_this_cpu_root_context();
-	if (__ipipe_ipending_p(p))
-		__ipipe_sync_stage();
-
-	hard_local_irq_enable();
-
-	return -ret;
-}
 
 void __ipipe_pin_range_globally(unsigned long start, unsigned long end)
 {
