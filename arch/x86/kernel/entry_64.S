@@ -74,6 +74,15 @@
 #define PREEMPT_SCHEDULE_IRQ		call preempt_schedule_irq
 #endif /* !CONFIG_IPIPE */
 
+.macro test_syscall_nr, reg
+#if __SYSCALL_MASK == ~0
+	cmpq $__NR_syscall_max,%r\reg
+#else
+	andl $__SYSCALL_MASK,%e\reg
+	cmpl $__NR_syscall_max,%e\reg
+#endif
+.endm
+	
 	.code64
 	.section .entry.text, "ax"
 
@@ -630,25 +639,59 @@ GLOBAL(system_call_after_swapgs)
 	movq  %rcx,RIP-ARGOFFSET(%rsp)
 	CFI_REL_OFFSET rip,RIP-ARGOFFSET
 #ifdef CONFIG_IPIPE
-	pushq %rdi
-	pushq %rax
-	leaq -(ARGOFFSET-16)(%rsp),%rdi	# regs for handler
-	call	__ipipe_syscall_root_thunk
+#ifndef CONFIG_IPIPE_LEGACY
+	test_syscall_nr ax
+	jb slow_path
+	testl $_TIP_HEAD,TI_ipipe+THREAD_INFO(%rsp,RIP-ARGOFFSET)
+	jz slow_path
+	leaq -ARGOFFSET(%rsp),%rdi
+	call ipipe_fastcall_hook
 	testl %eax, %eax
-	popq %rax
-	popq %rdi
-	js    ret_from_sys_call
-	jnz   sysret_fastexit
-#endif
+	js no_fastcall
+	testl $_TIP_HEAD,TI_ipipe+THREAD_INFO(%rsp,RIP-ARGOFFSET)
+	jz root_fastexit
+	testl $_TIP_MAYDAY,TI_ipipe+THREAD_INFO(%rsp,RIP-ARGOFFSET)
+	jz pipeline_leave
+	call __ipipe_call_mayday
+	jmp pipeline_leave
+root_fastexit:
+	call __ipipe_root_sync
+	jmp pipeline_leave
+no_fastcall:
+	/* fastcall handler not implemented */
+	movq ORIG_RAX-ARGOFFSET(%rsp),%rax
+slow_path:
+#endif /* !CONFIG_IPIPE_LEGACY */
+	testl $_TIP_NOTIFY,TI_ipipe+THREAD_INFO(%rsp,RIP-ARGOFFSET)
+	jnz pipeline_syscall 
+	test_syscall_nr ax
+	jb root_syscall
+pipeline_syscall:
+	leaq -ARGOFFSET(%rsp),%rdi	# regs for handler
+	call __ipipe_notify_syscall
+	testl $_TIP_HEAD,TI_ipipe+THREAD_INFO(%rsp,RIP-ARGOFFSET)
+	jz root_domain
+pipeline_leave:
+	DISABLE_INTERRUPTS(CLBR_NONE)
+	TRACE_IRQS_OFF
+	jmp sysret_fastexit
+root_domain:
+	testl %eax, %eax
+	jnz ret_from_sys_call
+	movq ORIG_RAX-ARGOFFSET(%rsp),%rax
+root_syscall:
+	/* Reload all the syscall registers. */
+	movq RDI-ARGOFFSET(%rsp),%rdi
+	movq RSI-ARGOFFSET(%rsp),%rsi
+	movq RDX-ARGOFFSET(%rsp),%rdx
+	movq R10-ARGOFFSET(%rsp),%r10
+	movq R9-ARGOFFSET(%rsp),%r9
+	movq R8-ARGOFFSET(%rsp),%r8
+#endif /* !CONFIG_IPIPE */
 	testl $_TIF_WORK_SYSCALL_ENTRY,TI_flags+THREAD_INFO(%rsp,RIP-ARGOFFSET)
 	jnz tracesys
 system_call_fastpath:
-#if __SYSCALL_MASK == ~0
-	cmpq $__NR_syscall_max,%rax
-#else
-	andl $__SYSCALL_MASK,%eax
-	cmpl $__NR_syscall_max,%eax
-#endif
+	test_syscall_nr ax
 	ja badsys
 	movq %r10,%rcx
 	call *sys_call_table(,%rax,8)  # XXX:	 rip relative

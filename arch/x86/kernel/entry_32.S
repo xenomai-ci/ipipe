@@ -86,14 +86,6 @@
  */
 
 #ifdef CONFIG_IPIPE
-#define CATCH_ROOT_SYSCALL(bypass_check,bypass_nocheck)	\
-				movl  %esp,%eax ; \
-				call __ipipe_syscall_root ; \
-				testl  %eax,%eax ; \
-				movl PT_EAX(%esp),%eax ; \
-				js    bypass_check ; \
-				jne   bypass_nocheck ; \
-				movl PT_ORIG_EAX(%esp),%eax
 #define PUSH_XCODE(v)		pushl $ ex_ ## v
 #define PUSH_XCODE_CFI(v)	pushl $ ex_ ## v ; CFI_ADJUST_CFA_OFFSET 4
 #define PUSH_XVEC(v)		pushl $ ex_ ## v
@@ -133,7 +125,6 @@
 #define IPIPE_TRACE_IRQ_EXIT
 #endif /* CONFIG_IPIPE_TRACE_IRQSOFF */
 #else /* !CONFIG_IPIPE */
-#define CATCH_ROOT_SYSCALL(bypass_check,bypass_nocheck)
 #define PUSH_XCODE(v)			pushl $v
 #define PUSH_XCODE_CFI(v)		pushl $v ; CFI_ADJUST_CFA_OFFSET 4
 #define PUSH_XVEC(v)			pushl v
@@ -486,8 +477,37 @@ sysenter_past_esp:
 	_ASM_EXTABLE(1b,syscall_fault)
 
 	GET_THREAD_INFO(%ebp)
-	CATCH_ROOT_SYSCALL(sysenter_exit_check,sysenter_exit)
-
+#ifdef CONFIG_IPIPE
+#ifndef CONFIG_IPIPE_LEGACY
+	cmpl $(NR_syscalls),%eax
+	jb slow_path
+	testl $_TIP_HEAD,TI_ipipe(%ebp) /* implies that TIP_NOTIFY if set */
+	jz slow_path
+	movl  %esp,%eax
+	call ipipe_fastcall_hook /* __IPIPE_SYSCALL_E is assumed */
+	testl  %eax,%eax
+	movl PT_EAX(%esp),%eax
+	jge sysenter_exit_sync
+	/* fastcall handler not implemented */
+	movl PT_ORIG_EAX(%esp),%eax
+slow_path:
+#endif /* !CONFIG_IPIPE_LEGACY */
+	testl $_TIP_NOTIFY,TI_ipipe(%ebp)
+	jnz pipeline_sysenter
+	cmpl $(NR_syscalls),%eax
+	jb root_sysenter
+pipeline_sysenter:
+	movl  %esp,%eax
+	call __ipipe_notify_syscall
+	mov %eax,%ecx
+	movl PT_EAX(%esp),%eax
+	testl $_TIP_HEAD,TI_ipipe(%ebp)
+	jnz sysenter_exit_fast
+	testl %ecx,%ecx
+	jne sysenter_exit_check
+	movl PT_ORIG_EAX(%esp),%eax
+root_sysenter:
+#endif /* CONFIG_IPIPE */
 	testl $_TIF_WORK_SYSCALL_ENTRY,TI_flags(%ebp)
 	jnz sysenter_audit
 sysenter_do_call:
@@ -512,6 +532,23 @@ sysenter_exit:
 1:	mov  PT_FS(%esp), %fs
 	PTGS_TO_GS
 	ENABLE_INTERRUPTS_SYSEXIT
+
+#ifdef CONFIG_IPIPE
+sysenter_exit_sync:
+	testl $_TIP_HEAD,TI_ipipe(%ebp)
+	jz sysenter_exit_root
+	testl $_TIP_MAYDAY,TI_ipipe(%ebp)
+	jz sysenter_exit_fast
+	movl  %esp,%eax
+	call __ipipe_call_mayday
+	jmp sysenter_exit_fast
+sysenter_exit_root:
+	call __ipipe_root_sync
+sysenter_exit_fast:
+	DISABLE_INTERRUPTS(CLBR_ANY)
+	TRACE_IRQS_OFF
+	jmp sysenter_exit
+#endif
 
 #ifdef CONFIG_AUDITSYSCALL
 sysenter_audit:
@@ -569,7 +606,25 @@ ENTRY(system_call)
 	pushl_cfi %eax			# save orig_eax
 	SAVE_ALL
 	GET_THREAD_INFO(%ebp)
-	CATCH_ROOT_SYSCALL(syscall_exit,restore_nocheck)
+#ifdef CONFIG_IPIPE
+	/*
+	 * We currently don't implement fastcall support for
+	 * the legacy 0x80 syscall form.
+	 */
+	testl $_TIP_NOTIFY,TI_ipipe(%ebp)
+	jnz pipeline_syscall
+	cmpl $(NR_syscalls),%eax
+	jb root_syscall
+pipeline_syscall:
+	movl  %esp,%eax
+	call __ipipe_notify_syscall
+	testl $_TIP_HEAD,TI_ipipe(%ebp)
+	jnz restore_nocheck
+	testl %eax,%eax
+	jnz syscall_exit
+	movl PT_ORIG_EAX(%esp),%eax
+root_syscall:
+#endif /* CONFIG_IPIPE */
 					# system call tracing in operation / emulation
 	testl $_TIF_WORK_SYSCALL_ENTRY,TI_flags(%ebp)
 	jnz syscall_trace_entry
