@@ -325,19 +325,65 @@ _GLOBAL(DoSyscall)
 	rlwinm	r11,r11,0,4,2
 	stw	r11,_CCR(r1)
 #ifdef CONFIG_IPIPE
+	CURRENT_THREAD_INFO(r10, r1)
+#ifndef CONFIG_IPIPE_LEGACY	
+	cmplwi	cr0,r0,NR_syscalls
+	blt	slow_path
+	lwz	r11,TI_IPIPE(r10)
+	andi.	r12,r11,_TIP_HEAD /* implies that TIP_NOTIFY if set */
+	beq	slow_path_check
 	addi	r3,r1,GPR0
-	bl	__ipipe_syscall_root
+	bl	ipipe_fastcall_hook /* __IPIPE_SYSCALL_E is assumed */
 	cmpwi	r3,0
-	lwz	r3,GPR3(r1)
+	blt	no_fastcall
+	CURRENT_THREAD_INFO(r10, r1)
+	lwz	r11,TI_IPIPE(r10)
+	andi.	r12,r11,_TIP_HEAD
+	bne+	fastcall_exit_check
+	bl	__ipipe_root_sync
+	b	fastcall_exit
+no_fastcall:
+	/* fastcall handler not implemented */
 	lwz	r0,GPR0(r1)
+slow_path:
+#endif /* !CONFIG_IPIPE_LEGACY */
+	lwz	r11,TI_IPIPE(r10)
+slow_path_check:
+	andi.	r12,r11,_TIP_NOTIFY
+	bne	pipeline_syscall
+	cmplwi	cr0,r0,NR_syscalls
+	blt	root_syscall
+pipeline_syscall:
+	addi	r3,r1,GPR0
+	bl	__ipipe_notify_syscall
+	cmpwi	cr1,r3,0
+	CURRENT_THREAD_INFO(r10, r1)
+	lwz	r11,TI_IPIPE(r10)
+	andi.	r12,r11,_TIP_HEAD
+	bne	fastcall_exit
+	beq	cr1,root_syscall
+	lwz	r3,GPR3(r1)		/* syscall return value */
+	b	ret_from_syscall
+fastcall_exit_check:
+	andi.	r12,r11,_TIP_MAYDAY
+	beq+	fastcall_exit
+	addi	r3,r1,GPR0
+	bl	__ipipe_call_mayday
+fastcall_exit:
+	lwz	r3,GPR3(r1)		/* syscall return value */
+	LOAD_MSR_KERNEL(r10,MSR_KERNEL)	/* clear MSR_EE */
+	SYNC
+	MTMSRD(r10)
+	b	syscall_exit_cont
+root_syscall:
+	lwz	r0,GPR0(r1)
+	lwz	r3,GPR3(r1)
 	lwz	r4,GPR4(r1)
 	lwz	r5,GPR5(r1)
 	lwz	r6,GPR6(r1)
 	lwz	r7,GPR7(r1)
 	lwz	r8,GPR8(r1)
 	lwz	r9,GPR9(r1)
-	bgt	.ipipe_end_syscall
-	blt	ret_from_syscall
 #endif /* CONFIG_IPIPE */
 #ifdef SHOW_SYSCALLS
 	bl	do_show_syscall
@@ -456,14 +502,6 @@ END_FTR_SECTION_IFSET(CPU_FTR_NEED_PAIRED_STWCX)
 	stw	r7,icache_44x_need_flush@l(r4)
 	b	1b
 #endif  /* CONFIG_44x */
-
-#ifdef CONFIG_IPIPE
-.ipipe_end_syscall:
-	LOAD_MSR_KERNEL(r10,MSR_KERNEL)	/* doesn't include MSR_EE */
-	SYNC
-	MTMSRD(r10)
-	b syscall_exit_cont
-#endif /* CONFIG_IPIPE */
 
 66:	li	r3,-ENOSYS
 	b	ret_from_syscall

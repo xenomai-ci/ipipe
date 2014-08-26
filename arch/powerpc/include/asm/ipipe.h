@@ -144,9 +144,6 @@ static inline unsigned long __ipipe_ffnz(unsigned long ul)
 #endif
 }
 
-#define __ipipe_syscall_watched_p(p, sc)	\
-	(ipipe_notifier_enabled_p(p) || (unsigned long)sc >= NR_syscalls)
-
 #define __ipipe_root_tick_p(regs)	((regs)->msr & MSR_EE)
 
 static inline void ipipe_mute_pic(void) { }
