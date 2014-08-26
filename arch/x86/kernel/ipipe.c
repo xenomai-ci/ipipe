@@ -509,49 +509,6 @@ skip_kgdb:
 	return 0;
 }
 
-int __ipipe_syscall_root(struct pt_regs *regs)
-{
-	struct ipipe_percpu_domain_data *p;
-	int ret;
-
-	/*
-	 * This routine either returns:
-	 * 0 -- if the syscall is to be passed to Linux;
-	 * >0 -- if the syscall should not be passed to Linux, and no
-	 * tail work should be performed;
-	 * <0 -- if the syscall should not be passed to Linux but the
-	 * tail work has to be performed (for handling signals etc).
-	 */
-
-	if (!__ipipe_syscall_watched_p(current, regs->orig_ax))
-		return 0;
-
-	ret = __ipipe_notify_syscall(regs);
-
-	hard_local_irq_disable();
-
-	if (ipipe_test_thread_flag(TIP_MAYDAY)) {
-		ipipe_clear_thread_flag(TIP_MAYDAY);
-		__ipipe_notify_trap(IPIPE_TRAP_MAYDAY, regs);
-	}
-
-	if (!ipipe_root_p) {
-		ipipe_trace_irqson(); /* sysret will re-enable interrupts */
-		return 1;
-	}
-
-	p = ipipe_this_cpu_root_context();
-	if (__ipipe_ipending_p(p))
-		__ipipe_sync_stage();
-
-	if (ret == 0)
-		hard_local_irq_enable();
-	else
-		ipipe_trace_irqson(); /* sysret will re-enable interrupts */
-
-	return -ret;
-}
-
 int __ipipe_handle_irq(struct pt_regs *regs)
 {
 	struct ipipe_percpu_data *p = __ipipe_this_cpu_ptr(&ipipe_percpu);
@@ -588,10 +545,8 @@ int __ipipe_handle_irq(struct pt_regs *regs)
 
 	__ipipe_dispatch_irq(irq, flags);
 
-	if (user_mode(regs) && ipipe_test_thread_flag(TIP_MAYDAY)) {
-		ipipe_clear_thread_flag(TIP_MAYDAY);
-		__ipipe_notify_trap(IPIPE_TRAP_MAYDAY, regs);
-	}
+	if (user_mode(regs) && ipipe_test_thread_flag(TIP_MAYDAY))
+		__ipipe_call_mayday(regs);
 
 	if (!__ipipe_root_p ||
 	    test_bit(IPIPE_STALL_FLAG, &__ipipe_root_status))

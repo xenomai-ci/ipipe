@@ -61,9 +61,6 @@ void __ipipe_serial_debug(const char *fmt, ...);
 #define __ipipe_serial_debug(fmt, args...)	do { } while (0)
 #endif
 
-#define __ipipe_syscall_watched_p(p, sc)	\
-	(ipipe_notifier_enabled_p(p) || (unsigned long)sc >= NR_syscalls)
-
 #define __ipipe_root_tick_p(regs)	((regs)->flags & X86_EFLAGS_IF)
 
 static inline void ipipe_mute_pic(void) { }
