@@ -46,6 +46,7 @@ void ipipe_restore_root(unsigned long x);
 
 #include <asm/ipipe_base.h>
 #include <linux/compiler.h>
+#include <linux/linkage.h>
 
 #ifndef IPIPE_NR_ROOT_IRQS
 #define IPIPE_NR_ROOT_IRQS	NR_IRQS
@@ -239,6 +240,8 @@ do {									\
 	__ipipe_notify_kevent(IPIPE_KEVT_CLEANUP, mm)
 
 void __ipipe_notify_vm_preemption(void);
+
+void __ipipe_call_mayday(struct pt_regs *regs);
 
 #define hard_cond_local_irq_enable()		hard_local_irq_enable()
 #define hard_cond_local_irq_disable()		hard_local_irq_disable()

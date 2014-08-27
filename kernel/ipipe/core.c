@@ -997,9 +997,28 @@ void ipipe_set_hooks(struct ipipe_domain *ipd, int enables)
 }
 EXPORT_SYMBOL_GPL(ipipe_set_hooks);
 
+int __weak ipipe_fastcall_hook(struct pt_regs *regs)
+{
+	return -1;	/* i.e. fall back to slow path. */
+}
+
 int __weak ipipe_syscall_hook(struct ipipe_domain *ipd, struct pt_regs *regs)
 {
 	return 0;
+}
+
+void __ipipe_root_sync(void)
+{
+	struct ipipe_percpu_domain_data *p;
+	unsigned long flags;
+
+	flags = hard_local_irq_save();
+
+	p = ipipe_this_cpu_root_context();
+	if (__ipipe_ipending_p(p))
+		__ipipe_sync_stage();
+
+	hard_local_irq_restore(flags);
 }
 
 int __ipipe_notify_syscall(struct pt_regs *regs)
@@ -1008,6 +1027,11 @@ int __ipipe_notify_syscall(struct pt_regs *regs)
 	struct ipipe_percpu_domain_data *p;
 	unsigned long flags;
 	int ret = 0;
+
+	/*
+	 * We should definitely not pipeline a syscall with IRQs off.
+	 */
+	IPIPE_WARN_ONCE(hard_irqs_disabled());
 
 	flags = hard_local_irq_save();
 	caller_domain = this_domain = __ipipe_current_domain;
@@ -1028,11 +1052,20 @@ next:
 			__ipipe_set_current_domain(this_domain);
 	}
 
-	if (this_domain == ipipe_root_domain &&
-	    ipd != ipipe_root_domain && ret == 0) {
-		ipd = ipipe_root_domain;
-		goto next;
-	}
+	if (this_domain == ipipe_root_domain) {
+		if (ipd != ipipe_root_domain && ret == 0) {
+			ipd = ipipe_root_domain;
+			goto next;
+		}
+		/*
+		 * Careful: we may have migrated from head->root, so p
+		 * would be ipipe_this_cpu_context(head).
+		 */
+		p = ipipe_this_cpu_root_context();
+		if (__ipipe_ipending_p(p))
+			__ipipe_sync_stage();
+ 	} else if (ipipe_test_thread_flag(TIP_MAYDAY))
+		__ipipe_call_mayday(regs);
 
 	hard_local_irq_restore(flags);
 
@@ -1368,9 +1401,9 @@ sync:
 
 #ifdef CONFIG_PREEMPT
 
-asmlinkage void preempt_schedule_irq(void);
+void preempt_schedule_irq(void);
 
-asmlinkage void __sched __ipipe_preempt_schedule_irq(void)
+void __sched __ipipe_preempt_schedule_irq(void)
 {
 	struct ipipe_percpu_domain_data *p;
 	unsigned long flags;
@@ -1476,6 +1509,12 @@ void __ipipe_do_sync_stage(void)
 		trace_hardirqs_on();
 
 	__clear_bit(IPIPE_STALL_FLAG, &p->status);
+}
+
+void __ipipe_call_mayday(struct pt_regs *regs)
+{
+	ipipe_clear_thread_flag(TIP_MAYDAY);
+	__ipipe_notify_trap(IPIPE_TRAP_MAYDAY, regs);
 }
 
 #ifdef CONFIG_SMP
