@@ -45,11 +45,38 @@ ret_fast_syscall:
 	restore_user_regs fast = 1, offset = S_OFF
 
 #ifdef CONFIG_IPIPE
+
+.macro  ipipe_oabi_save_sysnr, tmp
+#ifdef CONFIG_OABI_COMPAT
+	ldr	\tmp, [sp, #S_R7 + S_OFF]
+	stmdb	sp!, {\tmp}
+	ldr	\tmp, =sys_oabi_call_table
+	cmp	\tmp, tbl
+	moveq	\tmp, scno
+	addeq	\tmp, #__NR_SYSCALL_BASE
+	streq	\tmp, [sp, #S_R7 + S_OFF + 4]	@ head domain expects sycall number in r7
+#elif !defined(CONFIG_AEABI)
+	ldr	\tmp, [sp, #S_R7 + S_OFF]
+	stmdb	sp!, {\tmp}
+	mov	\tmp, scno
+	add	\tmp, #__NR_SYSCALL_BASE
+	str	\tmp, [sp, #S_R7 + S_OFF + 4]
+#endif	
+.endm
+
+.macro  ipipe_oabi_restore_sysnr, tmp
+#if defined(CONFIG_OABI_COMPAT) || !defined(CONFIG_AEABI)
+	ldmia	sp!, {\tmp}
+	str	\tmp, [sp, #S_R7 + S_OFF]
+#endif
+.endm
+	
 __ipipe_ret_to_user:
 	disable_irq				@ disable interrupts
 ENTRY(__ipipe_ret_to_user_irqs_disabled)
 	slow_restore_user_regs
 ENDPROC(__ipipe_ret_to_user_irqs_disabled)
+
 #endif /* CONFIG_IPIPE */
 
  UNWIND(.fnend		)
@@ -390,9 +417,7 @@ ENTRY(vector_swi)
 
 	enable_irq
 	ct_user_exit
-#ifndef	CONFIG_IPIPE
 	get_thread_info tsk
-#endif /* !CONFIG_IPIPE */
 
 	/*
 	 * Get the system call number.
@@ -448,13 +473,53 @@ ENTRY(vector_swi)
 
 local_restart:
 #ifdef CONFIG_IPIPE
-	mov	r1, sp
-	mov	r0, scno
-	bl	__ipipe_syscall_root
+	ldr	r10, [tsk, #TI_IPIPE]
+ 	ldr	r0, =(__ARM_NR_ipipe - __NR_SYSCALL_BASE)
+#ifndef CONFIG_IPIPE_LEGACY
+	cmp	scno, r0
+	bne	slow_path
+	tst	r10, #_TIP_HEAD
+	beq	slow_path
+	mov	r0, sp
+	ipipe_oabi_save_sysnr r10		@ caution: affects sp
+	bl	ipipe_fastcall_hook		@ __IPIPE_SYSCALL_E is assumed
+	ipipe_oabi_restore_sysnr r10
 	cmp	r0, #0
-	blt	__ipipe_ret_to_user
+	blt	no_fastcall
 	get_thread_info tsk
+	ldr	r10, [tsk, #TI_IPIPE]
+	tst	r10, #_TIP_HEAD
+	bne	fastcall_exit_check		@ check for MAYDAY
+	bl	__ipipe_root_sync
+	b	__ipipe_ret_to_user
+fastcall_exit_check:
+	tst	r10, #_TIP_MAYDAY
+	beq	__ipipe_ret_to_user
+	mov	r0, sp
+	bl	__ipipe_call_mayday
+	b	__ipipe_ret_to_user
+no_fastcall:
+	get_thread_info tsk
+ 	ldr	r0, =(__ARM_NR_ipipe - __NR_SYSCALL_BASE)
+	ldr	r10, [tsk, #TI_IPIPE]
+slow_path:
+#endif /* !CONFIG_IPIPE_LEGACY */	
+	tst	r10, #_TIP_NOTIFY
+	bne	pipeline_syscall
+	cmp	scno, r0
+	bne	root_syscall
+pipeline_syscall:
+	mov	r0, sp
+	ipipe_oabi_save_sysnr r10		@ caution: affects sp
+	bl	__ipipe_notify_syscall
+	ipipe_oabi_restore_sysnr r10
+	get_thread_info tsk
+	ldr	r10, [tsk, #TI_IPIPE]
+	tst	r10, #_TIP_HEAD
+	bne	__ipipe_ret_to_user
+	cmp	r0, #0
 	bgt	ret_slow_syscall
+root_syscall:
 	ldmia	sp, { r0 - r3 }
 #endif /* CONFIG_IPIPE */
 
@@ -523,9 +588,6 @@ __sys_trace_return:
 	.type	__cr_alignment, #object
 __cr_alignment:
 	.word	cr_alignment
-#endif
-#ifdef CONFIG_IPIPE
-	.word	__ipipe_syscall_root
 #endif
 	.ltorg
 
