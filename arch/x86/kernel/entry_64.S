@@ -656,7 +656,7 @@ GLOBAL(system_call_after_swapgs)
 	jmp pipeline_leave
 root_fastexit:
 	call __ipipe_root_sync
-	jmp pipeline_leave
+	jmp ret_from_sys_call
 no_fastcall:
 	/* fastcall handler not implemented */
 	movq ORIG_RAX-ARGOFFSET(%rsp),%rax

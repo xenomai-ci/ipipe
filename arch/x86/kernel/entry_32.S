@@ -541,13 +541,13 @@ sysenter_exit_sync:
 	jz sysenter_exit_fast
 	movl  %esp,%eax
 	call __ipipe_call_mayday
-	jmp sysenter_exit_fast
-sysenter_exit_root:
-	call __ipipe_root_sync
 sysenter_exit_fast:
 	DISABLE_INTERRUPTS(CLBR_ANY)
 	TRACE_IRQS_OFF
 	jmp sysenter_exit
+sysenter_exit_root:
+	call __ipipe_root_sync
+	jmp sysenter_exit_check
 #endif
 
 #ifdef CONFIG_AUDITSYSCALL
