@@ -491,7 +491,7 @@ local_restart:
 	tst	r10, #_TIP_HEAD
 	bne	fastcall_exit_check		@ check for MAYDAY
 	bl	__ipipe_root_sync
-	b	__ipipe_ret_to_user
+	b	ret_slow_syscall
 fastcall_exit_check:
 	tst	r10, #_TIP_MAYDAY
 	beq	__ipipe_ret_to_user
