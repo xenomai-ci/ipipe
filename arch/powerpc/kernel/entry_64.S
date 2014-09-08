@@ -165,7 +165,8 @@ END_FW_FTR_SECTION_IFSET(FW_FEATURE_SPLPAR)
 	andi.	r12,r11,_TIP_HEAD
 	bne+	fastcall_exit_check
 	bl	__ipipe_root_sync
-	b	fastcall_exit
+	ld	r3,GPR3(r1)
+	b	syscall_exit
 no_fastcall:
 	/* fastcall handler not implemented */
 	ld	r0,GPR0(r1)

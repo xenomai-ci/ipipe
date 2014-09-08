@@ -341,7 +341,8 @@ _GLOBAL(DoSyscall)
 	andi.	r12,r11,_TIP_HEAD
 	bne+	fastcall_exit_check
 	bl	__ipipe_root_sync
-	b	fastcall_exit
+	lwz	r3,GPR3(r1)
+	b	ret_from_syscall
 no_fastcall:
 	/* fastcall handler not implemented */
 	lwz	r0,GPR0(r1)
