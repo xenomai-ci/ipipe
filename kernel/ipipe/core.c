@@ -1513,8 +1513,12 @@ void __ipipe_do_sync_stage(void)
 
 void __ipipe_call_mayday(struct pt_regs *regs)
 {
+	unsigned long flags;
+
 	ipipe_clear_thread_flag(TIP_MAYDAY);
+	flags = hard_local_irq_save();
 	__ipipe_notify_trap(IPIPE_TRAP_MAYDAY, regs);
+	hard_local_irq_restore(flags);
 }
 
 #ifdef CONFIG_SMP
