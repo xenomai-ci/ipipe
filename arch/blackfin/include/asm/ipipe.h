@@ -98,7 +98,7 @@ void __ipipe_handle_irq(unsigned int irq, struct pt_regs *regs);
 
 void __ipipe_serial_debug(const char *fmt, ...);
 
-asmlinkage void __ipipe_call_irqtail(unsigned long addr);
+void __ipipe_call_irqtail(unsigned long addr);
 
 extern unsigned long __ipipe_core_clock;
 

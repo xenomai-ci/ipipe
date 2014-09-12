@@ -109,63 +109,6 @@ void __ipipe_disable_irqdesc(struct ipipe_domain *ipd, unsigned int irq)
 		__clear_bit(prio, &__ipipe_irq_lvmask);
 }
 
-asmlinkage int __ipipe_syscall_root(struct pt_regs *regs)
-{
-	struct ipipe_percpu_domain_data *p;
-	void (*hook)(void);
-	int ret;
-
-	WARN_ON_ONCE(hard_irqs_disabled());
-
-	/*
-	 * We need to run the IRQ tail hook each time we intercept a
-	 * syscall, because we know that important operations might be
-	 * pending there (e.g. Xenomai deferred rescheduling).
-	 */
-	hook = (__typeof__(hook))__ipipe_irq_tail_hook;
-	hook();
-
-	/*
-	 * This routine either returns:
-	 * 0 -- if the syscall is to be passed to Linux;
-	 * >0 -- if the syscall should not be passed to Linux, and no
-	 * tail work should be performed;
-	 * <0 -- if the syscall should not be passed to Linux but the
-	 * tail work has to be performed (for handling signals etc).
-	 */
-
-	if (!__ipipe_syscall_watched_p(current, regs->orig_p0))
-		return 0;
-
-	ret = __ipipe_notify_syscall(regs);
-
-	hard_local_irq_disable();
-
-	/*
-	 * This is the end of the syscall path, so we may safely
-	 * assume a valid Linux task stack here. Blackfin does not
-	 * have builtin atomics, and MAYDAY is never raised under
-	 * normal circumstances, so prefer test then maybe clear over
-	 * test_and_clear.
-	 */
-	if (ipipe_test_thread_flag(TIP_MAYDAY)) {
-		ipipe_clear_thread_flag(TIP_MAYDAY);
-		__ipipe_notify_trap(IPIPE_TRAP_MAYDAY, regs);
-	}
-
-	if (!__ipipe_root_p)
-		ret = -1;
-	else {
-		p = ipipe_this_cpu_root_context();
-		if (__ipipe_ipending_p(p))
-			__ipipe_sync_stage();
-	}
-
-	hard_local_irq_enable();
-
-	return -ret;
-}
-
 static void __ipipe_do_IRQ(unsigned int irq, void *cookie)
 {
 	struct pt_regs *regs = __this_cpu_ptr(&ipipe_percpu.tick_regs);
@@ -204,7 +147,7 @@ void ipipe_raise_irq(unsigned int irq)
 }
 EXPORT_SYMBOL_GPL(ipipe_raise_irq);
 
-asmlinkage void __ipipe_sync_root(void)
+void __ipipe_sync_root(void)
 {
 	void (*irq_tail_hook)(void) = (void (*)(void))__ipipe_irq_tail_hook;
 	struct ipipe_percpu_domain_data *p;
@@ -226,7 +169,7 @@ asmlinkage void __ipipe_sync_root(void)
 	hard_local_irq_restore(flags);
 }
 
-asmlinkage unsigned long __ipipe_hard_save_root_irqs(void)
+unsigned long __ipipe_hard_save_root_irqs(void)
 {
 	/*
 	 * This code is called by the ins{bwl} routines (see
@@ -241,7 +184,7 @@ asmlinkage unsigned long __ipipe_hard_save_root_irqs(void)
 		bfin_no_irqs : bfin_irq_flags;
 }
 
-asmlinkage void __ipipe_hard_restore_root_irqs(unsigned long flags)
+void __ipipe_hard_restore_root_irqs(unsigned long flags)
 {
 	if (flags != bfin_no_irqs)
 		__clear_bit(IPIPE_STALL_FLAG, &__ipipe_root_status);
