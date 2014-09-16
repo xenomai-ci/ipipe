@@ -845,8 +845,14 @@ GLOBAL(int_with_check)
 	movl TI_flags(%rcx),%edx
 	andl %edi,%edx
 	jnz   int_careful
+int_retint:
 	andl    $~TS_COMPAT,TI_status(%rcx)
 	jmp   retint_swapgs
+
+GLOBAL(int_fast_exit)
+	DISABLE_INTERRUPTS(CLBR_NONE)
+	GET_THREAD_INFO(%rcx)
+	jmp int_retint
 
 	/* Either reschedule or signal or syscall exit tracking needed. */
 	/* First do a reschedule test. */
