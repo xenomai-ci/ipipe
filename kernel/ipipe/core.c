@@ -1738,6 +1738,20 @@ out:
 }
 EXPORT_SYMBOL_GPL(__ipipe_post_work_root);
 
+void __weak __ipipe_arch_share_current(int flags)
+{
+}
+
+void __ipipe_share_current(int flags)
+{
+	ipipe_root_only();
+
+	BUG_ON(!preemptible());
+
+	__ipipe_arch_share_current(flags);
+}
+EXPORT_SYMBOL_GPL(__ipipe_share_current);
+
 #ifdef CONFIG_KGDB
 bool __ipipe_probe_access;
 
