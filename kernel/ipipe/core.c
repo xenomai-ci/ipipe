@@ -1746,8 +1746,6 @@ void __ipipe_share_current(int flags)
 {
 	ipipe_root_only();
 
-	BUG_ON(!preemptible());
-
 	__ipipe_arch_share_current(flags);
 }
 EXPORT_SYMBOL_GPL(__ipipe_share_current);
