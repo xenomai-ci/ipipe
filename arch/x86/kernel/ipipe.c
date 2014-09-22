@@ -601,6 +601,17 @@ int __ipipe_handle_irq(struct pt_regs *regs)
 	return 1;
 }
 
+void __ipipe_arch_share_current(int flags)
+{
+	struct task_struct *p = current;
+
+	/*
+	 * Setup a clean extended FPU state for kernel threads.
+	 */
+	if (p->mm == NULL && use_xsave())
+		memcpy(p->thread.fpu.state, init_xstate_buf, xstate_size);
+}
+
 #ifdef CONFIG_X86_32
 void update_vsyscall(struct timekeeper *tk)
 {
