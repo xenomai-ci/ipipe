@@ -63,6 +63,10 @@ void __ipipe_complete_domain_migration(void);
 
 int __ipipe_switch_tail(void);
 
+void __ipipe_share_current(int flags);
+
+void __ipipe_arch_share_current(int flags);
+
 int __ipipe_migrate_head(void);
 
 void __ipipe_reenter_root(void);
