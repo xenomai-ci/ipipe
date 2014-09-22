@@ -42,13 +42,13 @@ extern unsigned long arm_return_addr(int level);
 #include <linux/jump_label.h>
 #include <linux/ipipe_trace.h>
 
-#define IPIPE_CORE_RELEASE	4
+#define IPIPE_CORE_RELEASE	5
 
 struct ipipe_domain;
 
-#define IPIPE_TSC_TYPE_NONE	   		0
-#define IPIPE_TSC_TYPE_FREERUNNING 		1
-#define IPIPE_TSC_TYPE_DECREMENTER 		2
+#define IPIPE_TSC_TYPE_NONE			0
+#define IPIPE_TSC_TYPE_FREERUNNING		1
+#define IPIPE_TSC_TYPE_DECREMENTER		2
 #define IPIPE_TSC_TYPE_FREERUNNING_COUNTDOWN	3
 #define IPIPE_TSC_TYPE_FREERUNNING_TWICE	4
 #define IPIPE_TSC_TYPE_FREERUNNING_ARCH		5
