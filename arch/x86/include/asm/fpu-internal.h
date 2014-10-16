@@ -353,23 +353,31 @@ static inline void __drop_fpu(struct task_struct *tsk)
 {
 	if (__thread_has_fpu(tsk)) {
 		/* Ignore delayed exceptions from user space */
+#ifdef CONFIG_IPIPE
+		asm volatile("sti\n"
+			     "1: fwait\n"
+			     "2: cli\n"
+			     _ASM_EXTABLE(1b, 2b));
+#else
 		asm volatile("1: fwait\n"
 			     "2:\n"
 			     _ASM_EXTABLE(1b, 2b));
+#endif
 		__thread_fpu_end(tsk);
 	}
 }
 
 static inline void drop_fpu(struct task_struct *tsk)
 {
+	unsigned long flags;
 	/*
 	 * Forget coprocessor state..
 	 */
-	preempt_disable();
+	flags = hard_preempt_disable();
 	tsk->thread.fpu_counter = 0;
 	__drop_fpu(tsk);
 	clear_used_math();
-	preempt_enable();
+	hard_preempt_enable(flags);
 }
 
 static inline void drop_init_fpu(struct task_struct *tsk)
