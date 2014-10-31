@@ -21,13 +21,18 @@
 #include <linux/io.h>
 #include <linux/of_irq.h>
 #include <linux/of_address.h>
+#include <linux/ipipe_tickdev.h>
+#include <linux/irqchip/arm-gic.h>
 
 #include <asm/smp_plat.h>
 #include <asm/smp_twd.h>
 #include <asm/localtimer.h>
+#include <asm/cputype.h>
+#include <asm/ipipe.h>
 
 /* set up by the platform code */
 static void __iomem *twd_base;
+static struct clk *twd_clk;
 
 static struct clk *twd_clk;
 static unsigned long twd_timer_rate;
@@ -35,6 +40,71 @@ static DEFINE_PER_CPU(bool, percpu_setup_called);
 
 static struct clock_event_device __percpu **twd_evt;
 static int twd_ppi;
+
+#if defined(CONFIG_IPIPE) && defined(CONFIG_SMP)
+static DEFINE_PER_CPU(struct ipipe_timer, twd_itimer);
+
+void __iomem *gt_base;
+
+static void twd_ack(void)
+{
+	writel_relaxed(1, twd_base + TWD_TIMER_INTSTAT);
+}
+
+static struct __ipipe_tscinfo tsc_info;
+
+static void twd_get_clock(struct device_node *np);
+static void __cpuinit twd_calibrate_rate(void);
+
+static void __cpuinit gt_setup(unsigned long base_paddr, unsigned bits)
+{
+	if ((read_cpuid_id() & 0xf00000) == 0)
+		return;
+
+	gt_base = ioremap(base_paddr, SZ_256);
+	BUG_ON(!gt_base);
+
+	/* Start global timer */
+	__raw_writel(1, gt_base + 0x8);
+
+	tsc_info.type = IPIPE_TSC_TYPE_FREERUNNING;
+	tsc_info.freq = twd_timer_rate;
+	tsc_info.counter_vaddr = (unsigned long)gt_base;
+	tsc_info.u.counter_paddr = base_paddr;
+	
+	switch(bits) {
+	case 64:
+		tsc_info.u.mask = 0xffffffffffffffffULL;
+		break;
+	case 32:
+		tsc_info.u.mask = 0xffffffff;
+		break;
+	default:
+		/* Only supported as a 32 bits or 64 bits */
+		BUG();
+	}
+
+	__ipipe_tsc_register(&tsc_info);
+}
+
+#ifdef CONFIG_IPIPE_DEBUG_INTERNAL
+
+static DEFINE_PER_CPU(int, irqs);
+
+void twd_hrtimer_debug(unsigned int irq) /* hw interrupt off */
+{
+	int cpu = ipipe_processor_id();
+
+	if ((++per_cpu(irqs, cpu) % HZ) == 0) {
+#if 0
+		__ipipe_serial_debug("%c", 'A' + cpu);
+#else
+		do { } while (0);
+#endif
+	}
+}
+#endif /* CONFIG_IPIPE_DEBUG_INTERNAL */
+#endif /* CONFIG_IPIPE && CONFIG_SMP */
 
 static void twd_set_mode(enum clock_event_mode mode,
 			struct clock_event_device *clk)
@@ -230,7 +300,12 @@ static irqreturn_t twd_handler(int irq, void *dev_id)
 {
 	struct clock_event_device *evt = *(struct clock_event_device **)dev_id;
 
+	if (clockevent_ipipe_stolen(evt))
+		goto handle;
+
 	if (twd_timer_ack()) {
+	  handle:
+		__ipipe_tsc_update();
 		evt->event_handler(evt);
 		return IRQ_HANDLED;
 	}
@@ -298,6 +373,16 @@ static int twd_timer_setup(struct clock_event_device *clk)
 	clk->set_next_event = twd_set_next_event;
 	clk->irq = twd_ppi;
 
+#if defined(CONFIG_IPIPE) && defined(CONFIG_SMP)
+	printk(KERN_INFO "I-pipe, %lu.%03lu MHz timer\n",
+	       twd_timer_rate / 1000000,
+	       (twd_timer_rate % 1000000) / 1000);
+	clk->ipipe_timer = __this_cpu_ptr(&twd_itimer);
+	clk->ipipe_timer->irq = clk->irq;
+	clk->ipipe_timer->ack = twd_ack;
+	clk->ipipe_timer->min_delay_ticks = 0xf;
+#endif
+
 	this_cpu_clk = __this_cpu_ptr(twd_evt);
 	*this_cpu_clk = clk;
 
@@ -335,6 +420,13 @@ static int __init twd_local_timer_common_register(struct device_node *np)
 
 	twd_get_clock(np);
 
+#ifdef CONFIG_IPIPE_DEBUG_INTERNAL
+	if (twd_timer_rate == 0)
+		twd_calibrate_rate();
+
+	__ipipe_mach_hrtimer_debug = &twd_hrtimer_debug;
+#endif /* CONFIG_IPIPE_DEBUG_INTERNAL */
+
 	return 0;
 
 out_irq:
@@ -349,6 +441,8 @@ out_free:
 
 int __init twd_local_timer_register(struct twd_local_timer *tlt)
 {
+	int rc;
+
 	if (twd_base || twd_evt)
 		return -EBUSY;
 
@@ -358,7 +452,14 @@ int __init twd_local_timer_register(struct twd_local_timer *tlt)
 	if (!twd_base)
 		return -ENOMEM;
 
-	return twd_local_timer_common_register(NULL);
+
+	rc = twd_local_timer_common_register(NULL);
+	if (rc == 0)
+#ifdef CONFIG_IPIPE
+		gt_setup(tlt->res[0].start - 0x400, 32);
+#endif
+
+	return rc;
 }
 
 #ifdef CONFIG_OF
@@ -381,7 +482,18 @@ static void __init twd_local_timer_of_register(struct device_node *np)
 		goto out;
 	}
 
+
 	err = twd_local_timer_common_register(np);
+#ifdef CONFIG_IPIPE
+	if (err == 0) {
+		struct resource res;
+		
+		if (of_address_to_resource(np, 0, &res))
+			res.start = 0;
+		
+		gt_setup(res.start - 0x400, 32);
+	}
+#endif /* CONFIG_IPIPE */
 
 out:
 	WARN(err, "twd_local_timer_of_register failed (%d)\n", err);

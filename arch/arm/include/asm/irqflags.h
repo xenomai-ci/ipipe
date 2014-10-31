@@ -5,6 +5,10 @@
 
 #include <asm/ptrace.h>
 
+#include <asm/ipipe_hwirq.h>
+
+#ifndef CONFIG_IPIPE
+
 /*
  * CPU interrupt mask handling.
  */
@@ -130,6 +134,7 @@ static inline void arch_local_irq_disable(void)
 	: "memory", "cc");					\
 	})
 
+#endif /* CONFIG_IPIPE */
 #endif
 
 /*

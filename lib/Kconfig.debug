@@ -312,6 +312,8 @@ config MAGIC_SYSRQ
 	  keys are documented in <file:Documentation/sysrq.txt>. Don't say Y
 	  unless you really know what this hack does.
 
+source "kernel/ipipe/Kconfig.debug"
+
 config DEBUG_KERNEL
 	bool "Kernel debugging"
 	help
