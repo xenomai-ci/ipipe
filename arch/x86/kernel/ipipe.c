@@ -318,72 +318,67 @@ static void do_machine_check_vector(struct pt_regs *regs, long error_code)
 }
 #endif
 
-typedef void (*__ex_handler)(struct pt_regs *, long);
-
-static __ex_handler __ipipe_std_extable[] = {
-	[ex_do_divide_error] = do_divide_error,
-	[ex_do_overflow] = do_overflow,
-	[ex_do_bounds] = do_bounds,
-	[ex_do_invalid_op] = do_invalid_op,
-	[ex_do_coprocessor_segment_overrun] = do_coprocessor_segment_overrun,
-	[ex_do_invalid_TSS] = do_invalid_TSS,
-	[ex_do_segment_not_present] = do_segment_not_present,
-	[ex_do_stack_segment] = do_stack_segment,
-	[ex_do_general_protection] = do_general_protection,
-	[ex_do_page_fault] = (__ex_handler)do_page_fault,
-	[ex_do_spurious_interrupt_bug] = do_spurious_interrupt_bug,
-	[ex_do_coprocessor_error] = do_coprocessor_error,
-	[ex_do_alignment_check] = do_alignment_check,
-#ifdef CONFIG_X86_MCE
-#ifdef CONFIG_X86_32
-	[ex_machine_check_vector] = do_machine_check_vector,
-#else
-	[ex_machine_check_vector] = do_machine_check,
-#endif
-#endif	/* X86_MCE */
-	[ex_do_simd_coprocessor_error] = do_simd_coprocessor_error,
-	[ex_do_device_not_available] = do_device_not_available,
-#ifdef CONFIG_X86_32
-	[ex_do_iret_error] = do_iret_error,
-#endif
-};
-
-int __ipipe_handle_exception(struct pt_regs *regs, long error_code, int vector)
+int __ipipe_handle_exception(struct pt_regs *regs, long error_code, int vector,
+			     void (*handler)(struct pt_regs *, long))
 {
+	unsigned long flags = 0, cr2;
+	struct ipipe_domain *ipd;
 	bool root_entry = false;
-	unsigned long flags = 0;
-	unsigned long cr2 = 0;
 
 #ifdef CONFIG_KGDB
 	/* Fixup kgdb-own faults immediately. */
 	if (__ipipe_probe_access) {
 		const struct exception_table_entry *fixup =
 			search_exception_tables(regs->ip);
-
 		BUG_ON(!fixup);
 		regs->ip = (unsigned long)&fixup->fixup + fixup->fixup;
 		return 1;
 	}
 #endif /* CONFIG_KGDB */
 
+	if (vector == ex_do_page_fault)
+		cr2 = native_read_cr2();
+
+	/*
+	 * If we fault over the root domain, we need to replicate the
+	 * hw interrupt state into the virtual mask before calling the
+	 * I-pipe event handler. This is also required later before
+	 * branching to the regular exception handler.
+	 */
 	if (ipipe_root_p) {
 		root_entry = true;
-
 		local_save_flags(flags);
-		/*
-		 * Replicate hw interrupt state into the virtual mask
-		 * before calling the I-pipe event handler over the
-		 * root domain. Also required later when calling the
-		 * Linux exception handler.
-		 */
 		if (hard_irqs_disabled())
 			local_irq_disable();
 	}
 
+#ifdef CONFIG_KGDB
 	/*
-	 * XXX: We don't trace page faults (yet?). */
-	if (vector == ex_do_page_fault)
-		cr2 = native_read_cr2();
+	 * Catch int1 and int3 for kgdb here. They may trigger over
+	 * inconsistent states even when the root domain is active.
+	 */
+	if (kgdb_io_module_registered && (vector == 1 || vector == 3)) {
+		unsigned int condition = 0;
+
+		if (vector == 1) {
+			if (!atomic_read(&kgdb_cpu_doing_single_step) != -1 &&
+			    test_thread_flag(TIF_SINGLESTEP))
+				goto skip_kgdb;
+			get_debugreg(condition, 6);
+		}
+		if (!user_mode(regs) &&
+		    !kgdb_handle_exception(vector, SIGTRAP, condition, regs)) {
+			if (root_entry) {
+				ipipe_restore_root_nosync(flags);
+				__fixup_if(root_entry ?
+					   raw_irqs_disabled_flags(flags) :
+					   raw_irqs_disabled(), regs);
+			}
+			return 1;
+		}
+	}
+skip_kgdb:
+#endif /* CONFIG_KGDB */
 
 	if (unlikely(__ipipe_notify_trap(vector, regs))) {
 		if (root_entry)
@@ -391,25 +386,26 @@ int __ipipe_handle_exception(struct pt_regs *regs, long error_code, int vector)
 		return 1;
 	}
 
-	if (likely(ipipe_root_p)) {
-		/*
-		 * If root is not the topmost domain or in case we faulted in
-		 * the iret path of x86-32, regs.flags does not match the root
-		 * domain state. The fault handler or the low-level return
-		 * code may evaluate it. So fix this up, either by the root
-		 * state sampled on entry or, if we migrated to root, with the
-		 * current state.
-		 */
+	/*
+	 * If no head domain is installed, or in case we faulted in
+	 * the iret path of x86-32, regs.flags does not match the root
+	 * domain state. The fault handler or the low-level return
+	 * code may evaluate it. So fix this up, either by the root
+	 * state sampled on entry or, if we migrated to root, with the
+	 * current state.
+	 */
+	if (likely(ipipe_root_p))
 		__fixup_if(root_entry ? raw_irqs_disabled_flags(flags) :
 					raw_irqs_disabled(), regs);
-	} else {
-		/* Detect unhandled faults over the head domain. */
-		struct ipipe_domain *ipd = ipipe_current_domain;
-
-		/* Switch to root so that Linux can handle the fault cleanly. */
+	else {
+		/*
+		 * Detect unhandled faults over the head domain,
+		 * switching to root so that it can handle the fault
+		 * cleanly.
+		 */
 		hard_local_irq_disable();
+		ipd = __ipipe_current_domain;
 		__ipipe_set_current_domain(ipipe_root_domain);
-
 		ipipe_trace_panic_freeze();
 
 		/* Always warn about user land and unfixable faults. */
@@ -435,17 +431,15 @@ int __ipipe_handle_exception(struct pt_regs *regs, long error_code, int vector)
 	if (vector == ex_do_page_fault)
 		write_cr2(cr2);
 
-	__ipipe_std_extable[vector](regs, error_code);
+	handler(regs, error_code);
 
-	/*
-	 * Relevant for 64-bit: Restore root domain state as the low-level
-	 * return code will not align it to regs.flags.
-	 */
 	if (root_entry)
 		ipipe_restore_root_nosync(flags);
 
 	return 0;
 }
+
+#ifdef CONFIG_X86_32
 
 int __ipipe_divert_exception(struct pt_regs *regs, int vector)
 {
@@ -508,6 +502,8 @@ skip_kgdb:
 
 	return 0;
 }
+
+#endif /* CONFIG_X86_32 */
 
 int __ipipe_handle_irq(struct pt_regs *regs)
 {

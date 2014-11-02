@@ -2,7 +2,7 @@
  * arch/arm/plat-spear/time.c
  *
  * Copyright (C) 2010 ST Microelectronics
- * Shiraz Hashim<shiraz.hashim@st.com>
+ * Shiraz Hashim<shiraz.linux.kernel@gmail.com>
  *
  * This file is licensed under the terms of the GNU General Public
  * License version 2. This program is licensed "as is" without any
@@ -88,7 +88,7 @@ static struct __ipipe_tscinfo __maybe_unused tsc_info = {
 };
 #endif /* CONFIG_IPIPE */
 
-static void spear_clocksource_init(void)
+static void __init spear_clocksource_init(void)
 {
 	u32 tick_rate;
 	u16 val;
@@ -225,7 +225,7 @@ static irqreturn_t spear_timer_interrupt(int irq, void *dev_id)
 
 static struct irqaction spear_timer_irq = {
 	.name = "timer",
-	.flags = IRQF_DISABLED | IRQF_TIMER,
+	.flags = IRQF_TIMER,
 	.handler = spear_timer_interrupt
 };
 

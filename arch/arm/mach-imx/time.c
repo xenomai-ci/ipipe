@@ -25,6 +25,7 @@
 #include <linux/irq.h>
 #include <linux/clockchips.h>
 #include <linux/clk.h>
+#include <linux/delay.h>
 #include <linux/err.h>
 #include <linux/sched_clock.h>
 #include <linux/of.h>
@@ -121,10 +122,21 @@ static u64 notrace mxc_read_sched_clock(void)
 	return sched_clock_reg ? __raw_readl(sched_clock_reg) : 0;
 }
 
+static struct delay_timer imx_delay_timer;
+
+static unsigned long imx_read_current_timer(void)
+{
+	return __raw_readl(sched_clock_reg);
+}
+
 static int __init mxc_clocksource_init(struct clk *timer_clk)
 {
 	unsigned int c = clk_get_rate(timer_clk);
 	void __iomem *reg = timer_base + (timer_is_v2() ? V2_TCN : MX1_2_TCN);
+
+	imx_delay_timer.read_current_timer = &imx_read_current_timer;
+	imx_delay_timer.freq = c;
+	register_current_timer_delay(&imx_delay_timer);
 
 	sched_clock_reg = reg;
 
@@ -342,7 +354,6 @@ mxc_timer_init(void __iomem *base, unsigned long phys, int irq)
 
 	/* init and register the timer to the framework */
 	mxc_clocksource_init(timer_clk);
-
 #ifdef CONFIG_IPIPE
 	if (num_online_cpus() == 1) {
 		tsc_info.freq = clk_get_rate(timer_clk);
@@ -360,19 +371,15 @@ mxc_timer_init(void __iomem *base, unsigned long phys, int irq)
 	mxc_itimer.irq = irq;
 	mxc_itimer.freq = clk_get_rate(timer_clk);
 	mxc_itimer.min_delay_ticks = ipipe_timer_ns2ticks(&mxc_itimer, 2000);
-
 #endif /* CONFIG_IPIPE */
 	mxc_clockevent_init(timer_clk);
 
 	/* Make irqs happen */
 	setup_irq(irq, &mxc_timer_irq);
-
 }
 
-#ifdef CONFIG_OF
 void __init mxc_timer_init_dt(struct device_node *np)
 {
-	struct resource res;
 	void __iomem *base;
 	int irq;
 
@@ -380,9 +387,5 @@ void __init mxc_timer_init_dt(struct device_node *np)
 	WARN_ON(!base);
 	irq = irq_of_parse_and_map(np, 0);
 
-	if (of_address_to_resource(np, 0, &res))
-		res.start = 0;
-
-	mxc_timer_init(base, res.start, irq);
+	mxc_timer_init(base, irq);
 }
-#endif

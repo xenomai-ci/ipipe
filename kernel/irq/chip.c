@@ -41,10 +41,9 @@ int irq_set_chip(unsigned int irq, struct irq_chip *chip)
 	irq_put_desc_unlock(desc, flags);
 	/*
 	 * For !CONFIG_SPARSE_IRQ make the irq show up in
-	 * allocated_irqs. For the CONFIG_SPARSE_IRQ case, it is
-	 * already marked, and this call is harmless.
+	 * allocated_irqs.
 	 */
-	irq_reserve_irq(irq);
+	irq_mark_irq(irq);
 	return 0;
 }
 EXPORT_SYMBOL(irq_set_chip);
@@ -284,6 +283,19 @@ void unmask_irq(struct irq_desc *desc)
 	}
 }
 
+void unmask_threaded_irq(struct irq_desc *desc)
+{
+	struct irq_chip *chip = desc->irq_data.chip;
+
+	if (chip->flags & IRQCHIP_EOI_THREADED)
+		chip->irq_eoi(&desc->irq_data);
+
+	if (chip->irq_unmask) {
+		chip->irq_unmask(&desc->irq_data);
+		irq_state_clr_masked(desc);
+	}
+}
+
 /*
  *	handle_nested_irq - Handle a nested irq from a irq thread
  *	@irq:	the interrupt number
@@ -441,13 +453,35 @@ static inline void preflow_handler(struct irq_desc *desc) { }
 #endif
 
 #ifdef CONFIG_IPIPE
-static void cond_release_fasteoi_irq(struct irq_desc *desc)
+static void cond_release_fasteoi_irq(struct irq_desc *desc,
+				     struct irq_chip *chip)
 {
-	if (desc->irq_data.chip->irq_release && 
+	if (chip->irq_release && 
 	    !irqd_irq_disabled(&desc->irq_data) && !desc->threads_oneshot)
-		desc->irq_data.chip->irq_release(&desc->irq_data);
+		chip->irq_release(&desc->irq_data);
 }
 #endif /* CONFIG_IPIPE */
+
+static void cond_unmask_eoi_irq(struct irq_desc *desc, struct irq_chip *chip)
+{
+	if (!(desc->istate & IRQS_ONESHOT)) {
+		chip->irq_eoi(&desc->irq_data);
+		return;
+	}
+	/*
+	 * We need to unmask in the following cases:
+	 * - Oneshot irq which did not wake the thread (caused by a
+	 *   spurious interrupt or a primary handler handling it
+	 *   completely).
+	 */
+	if (!irqd_irq_disabled(&desc->irq_data) &&
+	    irqd_irq_masked(&desc->irq_data) && !desc->threads_oneshot) {
+		chip->irq_eoi(&desc->irq_data);
+		unmask_irq(desc);
+	} else if (!(chip->flags & IRQCHIP_EOI_THREADED)) {
+		chip->irq_eoi(&desc->irq_data);
+	}
+}
 
 /**
  *	handle_fasteoi_irq - irq handler for transparent controllers
@@ -462,6 +496,8 @@ static void cond_release_fasteoi_irq(struct irq_desc *desc)
 void
 handle_fasteoi_irq(unsigned int irq, struct irq_desc *desc)
 {
+	struct irq_chip *chip = desc->irq_data.chip;
+
 	raw_spin_lock(&desc->lock);
 
 	if (unlikely(irqd_irq_inprogress(&desc->irq_data)))
@@ -490,24 +526,20 @@ handle_fasteoi_irq(unsigned int irq, struct irq_desc *desc)
 	handle_irq_event(desc);
 
 #ifdef CONFIG_IPIPE
-	/* IRQCHIP_EOI_IF_HANDLED is ignored as I-pipe ends it early on
-	 * acceptance. */
-	cond_release_fasteoi_irq(desc);
-out_eoi:
+	/*
+	 * IRQCHIP_EOI_IF_HANDLED is ignored as the I-pipe always
+	 * sends EOI.
+	 */
+	cond_release_fasteoi_irq(desc, chip);
 #else  /* !CONFIG_IPIPE */
-	if (desc->istate & IRQS_ONESHOT)
-		cond_unmask_irq(desc);
-
-out_eoi:
-	desc->irq_data.chip->irq_eoi(&desc->irq_data);
+	cond_unmask_eoi_irq(desc, chip);
 #endif	/* !CONFIG_IPIPE */
-out_unlock:
 	raw_spin_unlock(&desc->lock);
 	return;
 out:
-	if (!(desc->irq_data.chip->flags & IRQCHIP_EOI_IF_HANDLED))
-		goto out_eoi;
-	goto out_unlock;
+	if (!(chip->flags & IRQCHIP_EOI_IF_HANDLED))
+		chip->irq_eoi(&desc->irq_data);
+	raw_spin_unlock(&desc->lock);
 }
 
 /**

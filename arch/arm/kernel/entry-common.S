@@ -409,12 +409,7 @@ ENTRY(vector_swi)
 	ldm	sp, {r0 - r4}
 #endif /* CONFIG_IPIPE_TRACE_IRQSOFF */
 
-#ifdef CONFIG_ALIGNMENT_TRAP
-	ldr	ip, __cr_alignment
-	ldr	ip, [ip]
-	mcr	p15, 0, ip, c1, c0		@ update control register
-#endif
-
+	alignment_trap ip, __cr_alignment
 	enable_irq
 	ct_user_exit
 	get_thread_info tsk

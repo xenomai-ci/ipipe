@@ -266,8 +266,6 @@ static void __init mx5_clocks_common_init(unsigned long rate_ckil,
 	clk_register_clkdev(clk[IMX5_CLK_ECSPI2_PER_GATE], "per", "imx51-ecspi.1");
 	clk_register_clkdev(clk[IMX5_CLK_ECSPI2_IPG_GATE], "ipg", "imx51-ecspi.1");
 	clk_register_clkdev(clk[IMX5_CLK_CSPI_IPG_GATE], NULL, "imx35-cspi.2");
-	clk_register_clkdev(clk[IMX5_CLK_PWM1_IPG_GATE], "pwm", "mxc_pwm.0");
-	clk_register_clkdev(clk[IMX5_CLK_PWM2_IPG_GATE], "pwm", "mxc_pwm.1");
 	clk_register_clkdev(clk[IMX5_CLK_I2C1_GATE], NULL, "imx21-i2c.0");
 	clk_register_clkdev(clk[IMX5_CLK_I2C2_GATE], NULL, "imx21-i2c.1");
 	clk_register_clkdev(clk[IMX5_CLK_USBOH3_PER_GATE], "per", "mxc-ehci.0");
@@ -437,7 +435,6 @@ int __init mx51_clocks_init(unsigned long rate_ckil, unsigned long rate_osc,
 
 	clk_register_clkdev(clk[IMX5_CLK_HSI2C_GATE], NULL, "imx21-i2c.2");
 	clk_register_clkdev(clk[IMX5_CLK_MX51_MIPI], "mipi_hsp", NULL);
-	clk_register_clkdev(clk[IMX5_CLK_VPU_GATE], NULL, "imx51-vpu.0");
 	clk_register_clkdev(clk[IMX5_CLK_FEC_GATE], NULL, "imx27-fec.0");
 	clk_register_clkdev(clk[IMX5_CLK_USB_PHY_GATE], "phy", "mxc-ehci.0");
 	clk_register_clkdev(clk[IMX5_CLK_ESDHC1_IPG_GATE], "ipg", "sdhci-esdhc-imx51.0");
@@ -562,7 +559,6 @@ static void __init mx53_clocks_init(struct device_node *np)
 
 	mx5_clocks_common_init(0, 0, 0, 0);
 
-	clk_register_clkdev(clk[IMX5_CLK_VPU_GATE], NULL, "imx53-vpu.0");
 	clk_register_clkdev(clk[IMX5_CLK_I2C3_GATE], NULL, "imx21-i2c.2");
 	clk_register_clkdev(clk[IMX5_CLK_FEC_GATE], NULL, "imx25-fec.0");
 	clk_register_clkdev(clk[IMX5_CLK_USB_PHY1_GATE], "usb_phy1", "mxc-ehci.0");

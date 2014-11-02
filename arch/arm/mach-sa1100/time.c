@@ -9,6 +9,7 @@
  *
  */
 #include <linux/init.h>
+#include <linux/kernel.h>
 #include <linux/errno.h>
 #include <linux/interrupt.h>
 #include <linux/irq.h>
@@ -21,6 +22,9 @@
 #include <asm/mach/time.h>
 #include <mach/hardware.h>
 #include <mach/irqs.h>
+
+#define SA1100_CLOCK_FREQ 3686400
+#define SA1100_LATCH DIV_ROUND_CLOSEST(SA1100_CLOCK_FREQ, HZ)
 
 static u64 notrace sa1100_read_sched_clock(void)
 {
@@ -116,7 +120,7 @@ static void sa1100_timer_resume(struct clock_event_device *cedev)
 	/*
 	 * OSMR0 is the system timer: make sure OSCR is sufficiently behind
 	 */
-	writel_relaxed(OSMR0 - LATCH, OSCR);
+	writel_relaxed(OSMR0 - SA1100_LATCH, OSCR);
 }
 #else
 #define sa1100_timer_suspend NULL
@@ -144,7 +148,7 @@ static struct clock_event_device ckevt_sa1100_osmr0 = {
 
 static struct irqaction sa1100_timer_irq = {
 	.name		= "ost0",
-	.flags		= IRQF_DISABLED | IRQF_TIMER | IRQF_IRQPOLL,
+	.flags		= IRQF_TIMER | IRQF_IRQPOLL,
 	.handler	= sa1100_ost0_interrupt,
 	.dev_id		= &ckevt_sa1100_osmr0,
 };
@@ -160,7 +164,7 @@ void __init sa1100_timer_init(void)
 
 	setup_irq(IRQ_OST0, &sa1100_timer_irq);
 
-	clocksource_mmio_init(OSCR, "oscr", CLOCK_TICK_RATE, 200, 32,
+	clocksource_mmio_init(OSCR, "oscr", SA1100_CLOCK_FREQ, 200, 32,
 		clocksource_mmio_readl_up);
 #ifdef CONFIG_IPIPE
 	__ipipe_tsc_register(&tsc_info);

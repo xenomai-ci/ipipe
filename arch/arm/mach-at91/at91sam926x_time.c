@@ -19,6 +19,7 @@
 #include <linux/of_irq.h>
 
 #include <asm/mach/time.h>
+#include <mach/hardware.h>
 #include "at91_ipipe.h"
 
 #define AT91_PIT_MR		0x00			/* Mode Register */
