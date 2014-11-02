@@ -112,7 +112,7 @@ struct ipipe_percpu_data {
 };
 
 /*
- * CAREFUL: all accessors based on __ipipe_this_cpu_ptr() you may find
+ * CAREFUL: all accessors based on __ipipe_raw_cpu_ptr() you may find
  * in this file should be used only while hw interrupts are off, to
  * prevent from CPU migration regardless of the running domain.
  */
@@ -150,7 +150,7 @@ ipipe_percpu_context(struct ipipe_domain *ipd, int cpu)
 static inline struct ipipe_percpu_domain_data *
 ipipe_this_cpu_context(struct ipipe_domain *ipd)
 {
-	return __context_of(__ipipe_this_cpu_ptr(&ipipe_percpu), ipd);
+	return __context_of(__ipipe_raw_cpu_ptr(&ipipe_percpu), ipd);
 }
 
 /**
@@ -164,7 +164,7 @@ ipipe_this_cpu_context(struct ipipe_domain *ipd)
 static inline struct ipipe_percpu_domain_data *
 ipipe_this_cpu_root_context(void)
 {
-	return __ipipe_this_cpu_ptr(&ipipe_percpu.root);
+	return __ipipe_raw_cpu_ptr(&ipipe_percpu.root);
 }
 
 /**
@@ -183,7 +183,7 @@ ipipe_this_cpu_root_context(void)
 static inline struct ipipe_percpu_domain_data *
 ipipe_this_cpu_head_context(void)
 {
-	return __ipipe_this_cpu_ptr(&ipipe_percpu.head);
+	return __ipipe_raw_cpu_ptr(&ipipe_percpu.head);
 }
 
 /**
@@ -209,7 +209,7 @@ ipipe_this_cpu_leading_context(void)
  */
 static inline struct ipipe_percpu_domain_data *__ipipe_get_current_context(void)
 {
-	return __ipipe_this_cpu_read(ipipe_percpu.curr);
+	return __ipipe_raw_cpu_read(ipipe_percpu.curr);
 }
 
 #define __ipipe_current_context __ipipe_get_current_context()
@@ -225,7 +225,7 @@ static inline
 void __ipipe_set_current_context(struct ipipe_percpu_domain_data *pd)
 {
 	struct ipipe_percpu_data *p;
-	p = __ipipe_this_cpu_ptr(&ipipe_percpu);
+	p = __ipipe_raw_cpu_ptr(&ipipe_percpu);
 	p->curr = pd;
 }
 
@@ -238,7 +238,7 @@ void __ipipe_set_current_context(struct ipipe_percpu_domain_data *pd)
 static inline void __ipipe_set_current_domain(struct ipipe_domain *ipd)
 {
 	struct ipipe_percpu_data *p;
-	p = __ipipe_this_cpu_ptr(&ipipe_percpu);
+	p = __ipipe_raw_cpu_ptr(&ipipe_percpu);
 	p->curr = __context_of(p, ipd);
 }
 

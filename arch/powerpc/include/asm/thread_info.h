@@ -51,8 +51,8 @@ struct thread_info {
 	unsigned long	flags ____cacheline_aligned_in_smp;
 #ifdef CONFIG_IPIPE
 	unsigned long ipipe_flags;
-	struct ipipe_threadinfo ipipe_data;
 #endif
+	struct ipipe_threadinfo ipipe_data;
 };
 
 /*

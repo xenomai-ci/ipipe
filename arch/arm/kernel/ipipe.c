@@ -43,7 +43,7 @@
 #include <linux/cpu.h>
 #include <linux/ipipe_domain.h>
 #include <linux/ipipe_tickdev.h>
-#include <asm/system.h>
+#include <asm/system_info.h>
 #include <asm/atomic.h>
 #include <asm/hardirq.h>
 #include <asm/io.h>
@@ -380,7 +380,7 @@ void __ipipe_exit_irq(struct pt_regs *regs)
 /* hw irqs off */
 asmlinkage void __exception __ipipe_grab_irq(int irq, struct pt_regs *regs)
 {
-	struct ipipe_percpu_data *p = __ipipe_this_cpu_ptr(&ipipe_percpu);
+	struct ipipe_percpu_data *p = __ipipe_raw_cpu_ptr(&ipipe_percpu);
 
 	ipipe_trace_irq_entry(irq);
 

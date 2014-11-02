@@ -139,7 +139,7 @@ void ipipe_timer_register(struct ipipe_timer *timer)
 
 static void ipipe_timer_request_sync(void)
 {
-	struct ipipe_timer *timer = __ipipe_this_cpu_read(percpu_timer);
+	struct ipipe_timer *timer = __ipipe_raw_cpu_read(percpu_timer);
 	struct clock_event_device *evtdev;
 	int steal;
 
@@ -296,7 +296,7 @@ err_remove_all:
 
 static void ipipe_timer_release_sync(void)
 {
-	struct ipipe_timer *timer = __ipipe_this_cpu_read(percpu_timer);
+	struct ipipe_timer *timer = __ipipe_raw_cpu_read(percpu_timer);
 
 	if (timer)
 		timer->release(timer);
@@ -320,7 +320,7 @@ void ipipe_timers_release(void)
 
 static void __ipipe_ack_hrtimer_irq(unsigned int irq, struct irq_desc *desc)
 {
-	struct ipipe_timer *timer = __ipipe_this_cpu_read(percpu_timer);
+	struct ipipe_timer *timer = __ipipe_raw_cpu_read(percpu_timer);
 
 	if (desc)
 		desc->ipipe_ack(irq, desc);
@@ -426,7 +426,7 @@ void ipipe_timer_set(unsigned long cdelay)
 	unsigned long tdelay;
 	struct ipipe_timer *t;
 
-	t = __ipipe_this_cpu_read(percpu_timer);
+	t = __ipipe_raw_cpu_read(percpu_timer);
 
 	/*
 	 * Even though some architectures may use a 64 bits delay

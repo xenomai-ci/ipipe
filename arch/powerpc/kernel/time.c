@@ -532,6 +532,9 @@ void timer_interrupt(struct pt_regs * regs)
 {
 	struct pt_regs *old_regs;
 	u64 *next_tb = &__get_cpu_var(decrementers_next_tb);
+#ifdef CONFIG_IPIPE
+	struct clock_event_device *evt = &__get_cpu_var(decrementers);
+#endif
 
 	/* Ensure a positive value is written to the decrementer, or else
 	 * some CPUs will continue to take decrementer exceptions.

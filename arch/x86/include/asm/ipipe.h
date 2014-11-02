@@ -27,6 +27,7 @@
 #define IPIPE_CORE_RELEASE	1
 
 struct ipipe_domain;
+struct pt_regs;
 
 struct ipipe_arch_sysinfo {
 };
@@ -61,6 +62,21 @@ void __ipipe_serial_debug(const char *fmt, ...);
 #define __ipipe_serial_debug(fmt, args...)	do { } while (0)
 #endif
 
+int __ipipe_trap_prologue(struct pt_regs *regs, int trapnr,
+			  unsigned long *flags);
+
+#define IPIPE_DO_TRAP(__handler, __trapnr, __regs, __args...)			\
+	({									\
+		unsigned long __flags;						\
+		int __ret = __ipipe_trap_prologue(__regs, __trapnr, &__flags);	\
+		if (__ret <= 0) {						\
+			__handler(__regs, ##__args);				\
+			if (__ret == 0)						\
+				ipipe_restore_root_nosync(__flags);		\
+		}								\
+		__ret > 0;							\
+	})
+
 #define __ipipe_root_tick_p(regs)	((regs)->flags & X86_EFLAGS_IF)
 
 static inline void ipipe_mute_pic(void) { }
@@ -76,6 +92,12 @@ static inline void ipipe_notify_root_preemption(void)
 
 #define ipipe_mm_switch_protect(flags)		do { (void)(flags); } while(0)
 #define ipipe_mm_switch_unprotect(flags)	do { (void)(flags); } while(0)
+
+#define IPIPE_DO_TRAP(__handler, __trapnr, __regs, __args...)	\
+	({							\
+		__handler(__regs, ##__args);			\
+		0;						\
+	})
 
 #endif /* CONFIG_IPIPE */
 

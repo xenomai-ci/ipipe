@@ -68,9 +68,10 @@
 #define __AUDIT_ARCH_LE	   0x40000000
 
 #ifdef CONFIG_IPIPE
-#define PREEMPT_SCHEDULE_IRQ		call __ipipe_preempt_schedule_irq
+#define PREEMPT_SCHEDULE_IRQ	call __ipipe_preempt_schedule_irq
+#define machine_check_vector	__ipipe_machine_check_vector
 #else /* !CONFIG_IPIPE */
-#define PREEMPT_SCHEDULE_IRQ		call preempt_schedule_irq
+#define PREEMPT_SCHEDULE_IRQ	call preempt_schedule_irq
 #endif /* !CONFIG_IPIPE */
 
 .macro test_syscall_nr, reg
@@ -1275,25 +1276,24 @@ ENTRY(\sym)
 	subq $EXCEPTION_STKSZ, INIT_TSS_IST(\shift_ist)
 	.endif
 
-#ifdef CONFIG_IPIPE
-	movq $ex_\do_sym,%rdx
-	leaq do_sym(%rip),%rcx
-	/* __ipipe_handle_exception(regs, error_code, ex_code, handler) */
-	call __ipipe_handle_exception
 	TRACE_IRQS_OFF
+	call \do_sym
+#ifdef CONFIG_IPIPE
+	.if \paranoid
+	xorl %eax,%eax 	/* force paranoid_exit to propagate the exception */
+	.else
 	testl %eax, %eax
 	jz 1f
-	movl %ebx,%eax
+	movl %ebx,%eax	/* %ebx: no swapgs flag */
 	RESTORE_REST
 	DISABLE_INTERRUPTS(CLBR_NONE)
 	testl %eax,%eax
 	jne retint_noswapgs
 	jmp retint_swapgs_notrace
-#else /* !CONFIG_IPIPE */
-	TRACE_IRQS_OFF
-	call \do_sym
-#endif /* !CONFIG_IPIPE */
+	.endif
 1:
+#endif	
+
 	.if \shift_ist != -1
 	addq $EXCEPTION_STKSZ, INIT_TSS_IST(\shift_ist)
 	.endif

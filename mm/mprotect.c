@@ -256,7 +256,7 @@ unsigned long change_protection(struct vm_area_struct *vma, unsigned long start,
 	if (test_bit(MMF_VM_PINNED, &vma->vm_mm->flags) &&
 	    ((vma->vm_flags | vma->vm_mm->def_flags) & VM_LOCKED) &&
 	    (vma->vm_flags & (VM_READ | VM_WRITE | VM_EXEC)))
-		__ipipe_pin_vma(vm->vm_mm, vma);
+		__ipipe_pin_vma(vma->vm_mm, vma);
 #endif
 
 	return pages;

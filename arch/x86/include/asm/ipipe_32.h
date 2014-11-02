@@ -22,8 +22,6 @@
 #ifndef __X86_IPIPE_32_H
 #define __X86_IPIPE_32_H
 
-#include <asm/alternative.h>
-
 #define ipipe_read_tsc(t)						\
 	__asm__ __volatile__(ALTERNATIVE("call __ipipe_get_cs_tsc",	\
 					 "rdtsc",			\

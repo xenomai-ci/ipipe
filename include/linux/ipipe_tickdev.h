@@ -79,7 +79,7 @@ struct ipipe_timer {
 				   struct clock_event_device *cdev);
 };
 
-#define __ipipe_hrtimer_irq __ipipe_this_cpu_read(ipipe_percpu.hrtimer_irq)
+#define __ipipe_hrtimer_irq __ipipe_raw_cpu_read(ipipe_percpu.hrtimer_irq)
 
 extern unsigned long __ipipe_hrtimer_freq;
 

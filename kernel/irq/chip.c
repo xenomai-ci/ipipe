@@ -462,7 +462,7 @@ static void cond_release_fasteoi_irq(struct irq_desc *desc,
 }
 #endif /* CONFIG_IPIPE */
 
-static void cond_unmask_eoi_irq(struct irq_desc *desc, struct irq_chip *chip)
+static inline void cond_unmask_eoi_irq(struct irq_desc *desc, struct irq_chip *chip)
 {
 	if (!(desc->istate & IRQS_ONESHOT)) {
 		chip->irq_eoi(&desc->irq_data);

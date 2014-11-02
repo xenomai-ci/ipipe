@@ -839,7 +839,7 @@ EXPORT_SYMBOL_GPL(ipipe_alloc_virq);
 void ipipe_free_virq(unsigned int virq)
 {
 	clear_bit(virq - IPIPE_VIRQ_BASE, &__ipipe_virtual_irq_map);
-	smp_mb__after_clear_bit();
+	smp_mb__after_atomic();
 }
 EXPORT_SYMBOL_GPL(ipipe_free_virq);
 
@@ -1187,7 +1187,7 @@ void __ipipe_notify_vm_preemption(void)
 	struct ipipe_percpu_data *p;
 
 	ipipe_check_irqoff();
-	p = __ipipe_this_cpu_ptr(&ipipe_percpu);
+	p = __ipipe_raw_cpu_ptr(&ipipe_percpu);
 	vmf = p->vm_notifier;
 	if (unlikely(vmf))
 		vmf->handler(vmf);
@@ -1600,7 +1600,7 @@ void ipipe_critical_exit(unsigned long flags)
 			cpu_relax();
 		cpu_clear(ipipe_processor_id(), __ipipe_cpu_lock_map);
 		clear_bit(0, &__ipipe_critical_lock);
-		smp_mb__after_clear_bit();
+		smp_mb__after_atomic();
 	}
 #endif /* CONFIG_SMP */
 
@@ -1665,7 +1665,7 @@ int notrace __ipipe_check_percpu_access(void)
 	 * Don't use __ipipe_current_domain here, this would recurse
 	 * indefinitely.
 	 */
-	this_domain = __this_cpu_read(ipipe_percpu.curr)->domain;
+	this_domain = raw_cpu_read(ipipe_percpu.curr)->domain;
 
 	/*
 	 * Only the root domain may implement preemptive CPU migration
@@ -1684,7 +1684,7 @@ int notrace __ipipe_check_percpu_access(void)
 	 * disabled, and no migration could occur.
 	 */
 	if (this_domain == ipipe_root_domain) {
-		p = __this_cpu_ptr(&ipipe_percpu.root);
+		p = raw_cpu_ptr(&ipipe_percpu.root);
 		if (test_bit(IPIPE_STALL_FLAG, &p->status))
 			goto out;
 	}

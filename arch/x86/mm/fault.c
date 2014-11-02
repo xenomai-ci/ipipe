@@ -1269,8 +1269,8 @@ good_area:
 }
 NOKPROBE_SYMBOL(__do_page_fault);
 
-dotraplinkage void notrace
-do_page_fault(struct pt_regs *regs, unsigned long error_code)
+static void notrace
+___do_page_fault(struct pt_regs *regs, unsigned long error_code)
 {
 	unsigned long address = read_cr2(); /* Get the faulting address */
 	enum ctx_state prev_state;
@@ -1287,6 +1287,13 @@ do_page_fault(struct pt_regs *regs, unsigned long error_code)
 	__do_page_fault(regs, error_code, address);
 	exception_exit(prev_state);
 }
+
+dotraplinkage int notrace
+do_page_fault(struct pt_regs *regs, unsigned long error_code)
+{
+	return IPIPE_DO_TRAP(___do_page_fault, X86_TRAP_PF, regs, error_code);
+}
+
 NOKPROBE_SYMBOL(do_page_fault);
 
 #ifdef CONFIG_IPIPE
@@ -1340,8 +1347,8 @@ trace_page_fault_entries(unsigned long address, struct pt_regs *regs,
 		trace_page_fault_kernel(address, regs, error_code);
 }
 
-dotraplinkage void notrace
-trace_do_page_fault(struct pt_regs *regs, unsigned long error_code)
+static void notrace
+__trace_do_page_fault(struct pt_regs *regs, unsigned long error_code)
 {
 	/*
 	 * The exception_enter and tracepoint processing could
@@ -1356,6 +1363,12 @@ trace_do_page_fault(struct pt_regs *regs, unsigned long error_code)
 	trace_page_fault_entries(address, regs, error_code);
 	__do_page_fault(regs, error_code, address);
 	exception_exit(prev_state);
+}
+
+dotraplinkage int notrace
+trace_do_page_fault(struct pt_regs *regs, unsigned long error_code)
+{
+	return IPIPE_DO_TRAP(__trace_do_page_fault, X86_TRAP_PF, regs, error_code);
 }
 NOKPROBE_SYMBOL(trace_do_page_fault);
 #endif /* CONFIG_TRACING */

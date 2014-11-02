@@ -34,10 +34,10 @@
 #include "cache-aurora-l2.h"
 
 #ifndef CONFIG_IPIPE
-int l2x0_wa = 1;
+static int l2x0_wa = 1;
 #define SPINLOCK_SECTION_LEN	4096UL
 #else /* CONFIG_IPIPE */
-int l2x0_wa = 0;
+static int l2x0_wa = 0;
 #define SPINLOCK_SECTION_LEN	512UL
 #endif /* CONFIG_IPIPE */
 
@@ -399,7 +399,7 @@ static void l2c220_op_way(void __iomem *base, unsigned reg)
 static unsigned long l2c220_op_pa_range(void __iomem *reg, unsigned long start,
 	unsigned long end, unsigned long flags)
 {
-	raw_spinlock_t *lock = &l2x0_lock;
+	typeof(l2x0_lock) *lock = &l2x0_lock;
 
 	while (start < end) {
 		unsigned long blk_end =
@@ -466,6 +466,36 @@ static void l2c220_clean_range(unsigned long start, unsigned long end)
 	raw_spin_unlock_irqrestore(&l2x0_lock, flags);
 }
 
+#ifndef CONFIG_IPIPE
+static void l2c220_flush_all(void)
+{
+	l2c220_op_way(l2x0_base, L2X0_CLEAN_INV_WAY);
+}
+#else
+static void l2c220_flush_way(unsigned way, unsigned len, unsigned lines)
+{
+	void __iomem *base = l2x0_base;
+	unsigned long flags;
+	unsigned line, i;
+
+	for (line = 0; line < lines; line += len ) {
+		raw_spin_lock_irqsave(&l2x0_lock, flags);
+		for (i = 0; i < len && line + i < lines; i++)
+			l2x0_clean_inv_line_idx(line + i, way);
+		__l2c220_cache_sync(base);
+		raw_spin_unlock_irqrestore(&l2x0_lock, flags);
+	}
+}
+
+static void l2c220_flush_all(void)
+{
+	unsigned way, len = SPINLOCK_SECTION_LEN / CACHE_LINE_SIZE;
+
+	for (way = 0; way < l2x0_ways; way++)
+		l2c220_flush_way(way, len, l2x0_lines);
+}
+#endif
+
 static void l2c220_flush_range(unsigned long start, unsigned long end)
 {
 	void __iomem *base = l2x0_base;
@@ -473,7 +503,7 @@ static void l2c220_flush_range(unsigned long start, unsigned long end)
 
 	start &= ~(CACHE_LINE_SIZE - 1);
 	if ((end - start) >= l2x0_size) {
-		l2c220_op_way(base, L2X0_CLEAN_INV_WAY);
+		l2c220_flush_all();
 		return;
 	}
 
@@ -483,11 +513,6 @@ static void l2c220_flush_range(unsigned long start, unsigned long end)
 	l2c_wait_mask(base + L2X0_CLEAN_INV_LINE_PA, 1);
 	__l2c220_cache_sync(base);
 	raw_spin_unlock_irqrestore(&l2x0_lock, flags);
-}
-
-static void l2c220_flush_all(void)
-{
-	l2c220_op_way(l2x0_base, L2X0_CLEAN_INV_WAY);
 }
 
 static void l2c220_sync(void)
@@ -606,7 +631,7 @@ static void l2c310_inv_range_erratum(unsigned long start, unsigned long end)
 
 static void l2c310_flush_range_erratum(unsigned long start, unsigned long end)
 {
-	raw_spinlock_t *lock = &l2x0_lock;
+	typeof(l2x0_lock) *lock = &l2x0_lock;
 	unsigned long flags;
 	void __iomem *base = l2x0_base;
 
@@ -632,6 +657,7 @@ static void l2c310_flush_range_erratum(unsigned long start, unsigned long end)
 	__l2c210_cache_sync(base);
 }
 
+#ifndef CONFIG_IPIPE
 static void l2c310_flush_all_erratum(void)
 {
 	void __iomem *base = l2x0_base;
@@ -644,6 +670,33 @@ static void l2c310_flush_all_erratum(void)
 	__l2c210_cache_sync(base);
 	raw_spin_unlock_irqrestore(&l2x0_lock, flags);
 }
+#else
+static void
+l2c310_flush_way_erratum(unsigned way, unsigned len, unsigned lines)
+{
+	void __iomem *base = l2x0_base;
+	unsigned long flags;
+	unsigned line, i;
+
+	for (line = 0; line < lines; line += len ) {
+		raw_spin_lock_irqsave(&l2x0_lock, flags);
+		l2c_set_debug(base, 0x03);
+		for (i = 0; i < len && line + i < lines; i++)
+			l2x0_clean_inv_line_idx(line + i, way);
+		l2c_set_debug(base, 0x00);
+		__l2c210_cache_sync(base);
+		raw_spin_unlock_irqrestore(&l2x0_lock, flags);
+	}
+}
+
+static void l2c310_flush_all_erratum(void)
+{
+	unsigned way, len = SPINLOCK_SECTION_LEN / CACHE_LINE_SIZE;
+
+	for (way = 0; way < l2x0_ways; way++)
+		l2c310_flush_way_erratum(way, len, l2x0_lines);
+}
+#endif
 
 static void __init l2c310_save(void __iomem *base)
 {
@@ -810,18 +863,6 @@ static void __init l2c310_fixup(void __iomem *base, u32 cache_id,
 		errata[n++] = "588369";
 	}
 
-<<<<<<< HEAD
-	aux_mask &= ~(3 << 23);
-	aux_val &= ~(3 << 23);
-	aux_val |= (!l2x0_wa) << 23;
-
-	l2x0_base = base;
-	if (cache_id_part_number_from_dt)
-		cache_id = cache_id_part_number_from_dt;
-	else
-		cache_id = readl_relaxed(l2x0_base + L2X0_CACHE_ID);
-	aux = readl_relaxed(l2x0_base + L2X0_AUX_CTRL);
-=======
 	if (IS_ENABLED(CONFIG_PL310_ERRATA_727915) &&
 	    revision >= L310_CACHE_ID_RTL_R2P0 &&
 	    revision < L310_CACHE_ID_RTL_R3P1) {
@@ -903,7 +944,14 @@ static void __init __l2c_init(const struct l2c_init_data *data,
 	 */
 	if (aux_val & aux_mask)
 		pr_alert("L2C: platform provided aux values permit register corruption.\n");
->>>>>>> v3.16
+
+	switch (cache_id & L2X0_CACHE_ID_PART_MASK) {
+	case L2X0_CACHE_ID_PART_L310:
+	case L2X0_CACHE_ID_PART_L220:
+		aux_mask &= ~L220_AUX_CTRL_FWA_MASK;
+		aux_val &= ~L220_AUX_CTRL_FWA_MASK;
+		aux_val |= (!l2x0_wa) << L220_AUX_CTRL_FWA_SHIFT;
+	}
 
 	old_aux = aux = readl_relaxed(l2x0_base + L2X0_AUX_CTRL);
 	aux &= aux_mask;
@@ -911,7 +959,7 @@ static void __init __l2c_init(const struct l2c_init_data *data,
 
 	if (old_aux != aux)
 		pr_warn("L2C: DT/platform modifies aux control register: 0x%08x -> 0x%08x\n",
-		        old_aux, aux);
+			old_aux, aux);
 
 	/* Determine the number of ways */
 	switch (cache_id & L2X0_CACHE_ID_PART_MASK) {
@@ -954,16 +1002,12 @@ static void __init __l2c_init(const struct l2c_init_data *data,
 	way_size_bits = (aux & L2C_AUX_CTRL_WAY_SIZE_MASK) >>
 			L2C_AUX_CTRL_WAY_SIZE_SHIFT;
 	l2x0_size = ways * (data->way_size_0 << way_size_bits);
+	l2x0_lines = (data->way_size_0 << way_size_bits) / CACHE_LINE_SIZE;
 
-<<<<<<< HEAD
-	l2x0_size = ways * way_size * SZ_1K;
-	l2x0_lines = way_size * SZ_1K / CACHE_LINE_SIZE;
-=======
 	fns = data->outer_cache;
 	fns.write_sec = outer_cache.write_sec;
 	if (data->fixup)
 		data->fixup(l2x0_base, cache_id, &fns);
->>>>>>> v3.16
 
 	/*
 	 * Check if l2x0 controller is already enabled.  If we are booting
@@ -1600,7 +1644,7 @@ int __init l2x0_of_init(u32 aux_val, u32 aux_mask)
 	old_aux = readl_relaxed(l2x0_base + L2X0_AUX_CTRL);
 	if (old_aux != ((old_aux & aux_mask) | aux_val)) {
 		pr_warn("L2C: platform modifies aux control register: 0x%08x -> 0x%08x\n",
-		        old_aux, (old_aux & aux_mask) | aux_val);
+			old_aux, (old_aux & aux_mask) | aux_val);
 	} else if (aux_mask != ~0U && aux_val != 0) {
 		pr_alert("L2C: platform provided aux values match the hardware, so have no effect.  Please remove them.\n");
 	}

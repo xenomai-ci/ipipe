@@ -311,19 +311,11 @@ void __ipipe_halt_root(void)
 }
 EXPORT_SYMBOL_GPL(__ipipe_halt_root);
 
-#if defined(CONFIG_X86_MCE) && defined(CONFIG_X86_32)
-static void do_machine_check_vector(struct pt_regs *regs, long error_code)
+int __ipipe_trap_prologue(struct pt_regs *regs, int trapnr, unsigned long *flags)
 {
-	machine_check_vector(regs, error_code);
-}
-#endif
-
-int __ipipe_handle_exception(struct pt_regs *regs, long error_code, int vector,
-			     void (*handler)(struct pt_regs *, long))
-{
-	unsigned long flags = 0, cr2;
 	struct ipipe_domain *ipd;
 	bool root_entry = false;
+	unsigned long cr2;
 
 #ifdef CONFIG_KGDB
 	/* Fixup kgdb-own faults immediately. */
@@ -336,7 +328,7 @@ int __ipipe_handle_exception(struct pt_regs *regs, long error_code, int vector,
 	}
 #endif /* CONFIG_KGDB */
 
-	if (vector == ex_do_page_fault)
+	if (trapnr == X86_TRAP_PF)
 		cr2 = native_read_cr2();
 
 	/*
@@ -347,7 +339,7 @@ int __ipipe_handle_exception(struct pt_regs *regs, long error_code, int vector,
 	 */
 	if (ipipe_root_p) {
 		root_entry = true;
-		local_save_flags(flags);
+		local_save_flags(*flags);
 		if (hard_irqs_disabled())
 			local_irq_disable();
 	}
@@ -357,21 +349,22 @@ int __ipipe_handle_exception(struct pt_regs *regs, long error_code, int vector,
 	 * Catch int1 and int3 for kgdb here. They may trigger over
 	 * inconsistent states even when the root domain is active.
 	 */
-	if (kgdb_io_module_registered && (vector == 1 || vector == 3)) {
+	if (kgdb_io_module_registered &&
+	    (trapnr == X86_TRAP_DB || trapnr == X86_TRAP_BP)) {
 		unsigned int condition = 0;
 
-		if (vector == 1) {
+		if (trapnr == X86_TRAP_DB) {
 			if (!atomic_read(&kgdb_cpu_doing_single_step) != -1 &&
 			    test_thread_flag(TIF_SINGLESTEP))
 				goto skip_kgdb;
 			get_debugreg(condition, 6);
 		}
 		if (!user_mode(regs) &&
-		    !kgdb_handle_exception(vector, SIGTRAP, condition, regs)) {
+		    !kgdb_handle_exception(trapnr, SIGTRAP, condition, regs)) {
 			if (root_entry) {
-				ipipe_restore_root_nosync(flags);
+				ipipe_restore_root_nosync(*flags);
 				__fixup_if(root_entry ?
-					   raw_irqs_disabled_flags(flags) :
+					   raw_irqs_disabled_flags(*flags) :
 					   raw_irqs_disabled(), regs);
 			}
 			return 1;
@@ -380,9 +373,9 @@ int __ipipe_handle_exception(struct pt_regs *regs, long error_code, int vector,
 skip_kgdb:
 #endif /* CONFIG_KGDB */
 
-	if (unlikely(__ipipe_notify_trap(vector, regs))) {
+	if (unlikely(__ipipe_notify_trap(trapnr, regs))) {
 		if (root_entry)
-			ipipe_restore_root_nosync(flags);
+			ipipe_restore_root_nosync(*flags);
 		return 1;
 	}
 
@@ -395,7 +388,7 @@ skip_kgdb:
 	 * current state.
 	 */
 	if (likely(ipipe_root_p))
-		__fixup_if(root_entry ? raw_irqs_disabled_flags(flags) :
+		__fixup_if(root_entry ? raw_irqs_disabled_flags(*flags) :
 					raw_irqs_disabled(), regs);
 	else {
 		/*
@@ -428,86 +421,15 @@ skip_kgdb:
 		}
 	}
 
-	if (vector == ex_do_page_fault)
+	if (trapnr == X86_TRAP_PF)
 		write_cr2(cr2);
 
-	handler(regs, error_code);
-
-	if (root_entry)
-		ipipe_restore_root_nosync(flags);
-
-	return 0;
+	return root_entry ? 0 : -1;
 }
-
-#ifdef CONFIG_X86_32
-
-int __ipipe_divert_exception(struct pt_regs *regs, int vector)
-{
-	bool root_entry = false;
-	unsigned long flags = 0;
-
-	if (ipipe_root_p) {
-		root_entry = true;
-		local_save_flags(flags);
-		if (hard_irqs_disabled()) {
-			/*
-			 * Same root state handling as in
-			 * __ipipe_handle_exception.
-			 */
-			local_irq_disable();
-		}
-	}
-#ifdef CONFIG_KGDB
-	/*
-	 * Catch int1 and int3 for kgdb here. They may trigger over
-	 * inconsistent states even when the root domain is active.
-	 */
-	if (kgdb_io_module_registered && (vector == 1 || vector == 3)) {
-		unsigned int condition = 0;
-
-		if (vector == 1) {
-			if (!atomic_read(&kgdb_cpu_doing_single_step) != -1 &&
-			    test_thread_flag(TIF_SINGLESTEP))
-				goto skip_kgdb;
-			get_debugreg(condition, 6);
-		}
-		if (!user_mode(regs) &&
-		    !kgdb_handle_exception(vector, SIGTRAP, condition, regs)) {
-			if (root_entry) {
-				ipipe_restore_root_nosync(flags);
-				__fixup_if(root_entry ?
-					   raw_irqs_disabled_flags(flags) :
-					   raw_irqs_disabled(), regs);
-			}
-			return 1;
-		}
-	}
-skip_kgdb:
-#endif /* CONFIG_KGDB */
-
-	if (unlikely(__ipipe_notify_trap(vector, regs))) {
-		if (root_entry)
-			ipipe_restore_root_nosync(flags);
-		return 1;
-	}
-
-	/* see __ipipe_handle_exception */
-	if (likely(ipipe_root_p))
-		__fixup_if(root_entry ? raw_irqs_disabled_flags(flags) :
-					raw_irqs_disabled(), regs);
-	/*
-	 * No need to restore root state in the 64-bit case, the Linux
-	 * handler and the return code will take care of it.
-	 */
-
-	return 0;
-}
-
-#endif /* CONFIG_X86_32 */
 
 int __ipipe_handle_irq(struct pt_regs *regs)
 {
-	struct ipipe_percpu_data *p = __ipipe_this_cpu_ptr(&ipipe_percpu);
+	struct ipipe_percpu_data *p = __ipipe_raw_cpu_ptr(&ipipe_percpu);
 	int irq, vector = regs->orig_ax, flags = 0;
 	struct pt_regs *tick_regs;
 
@@ -563,21 +485,10 @@ void __ipipe_arch_share_current(int flags)
 }
 
 #ifdef CONFIG_X86_32
-void update_vsyscall(struct timekeeper *tk)
-{
-	if (tk->clock == &clocksource_tsc)
-		ipipe_update_hostrt(tk);
-}
-
-void update_vsyscall_tz(void)
-{
-}
-
 #ifdef CONFIG_IPIPE_WANT_CLOCKSOURCE
 u64 __ipipe_get_cs_tsc(void);
 EXPORT_SYMBOL_GPL(__ipipe_get_cs_tsc);
 #endif
-
 #endif /* CONFIG_X86_32 */
 
 struct task_struct *__switch_to(struct task_struct *prev_p,

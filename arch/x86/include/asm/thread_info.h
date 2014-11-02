@@ -35,8 +35,8 @@ struct thread_info {
 	struct restart_block    restart_block;
 #ifdef CONFIG_IPIPE
 	unsigned long		ipipe_flags;
-	struct ipipe_threadinfo ipipe_data;
 #endif
+	struct ipipe_threadinfo ipipe_data;
 	void __user		*sysenter_return;
 	unsigned int		sig_on_uaccess_error:1;
 	unsigned int		uaccess_err:1;	/* uaccess failed */

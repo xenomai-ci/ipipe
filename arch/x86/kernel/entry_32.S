@@ -86,22 +86,6 @@
  */
 
 #ifdef CONFIG_IPIPE
-#define PUSH_XCODE(v)		pushl $ ex_ ## v
-#define PUSH_XCODE_CFI(v)	pushl $ ex_ ## v ; CFI_ADJUST_CFA_OFFSET 4
-#define PUSH_XVEC(v)		pushl $ ex_ ## v
-#define PUSH_XVEC_CFI(v)	pushl $ ex_ ## v ; CFI_ADJUST_CFA_OFFSET 4
-#define HANDLE_EXCEPTION(code)	movl %code,%ecx ; \
-				call __ipipe_handle_exception ; \
-				testl %eax,%eax	; \
-				jnz restore_nocheck
-#define DIVERT_EXCEPTION(code)	movl $(__USER_DS), %ecx	; \
-				movl %ecx, %ds ; \
-				movl %ecx, %es ; \
-				movl %esp, %eax	; \
-				movl $ex_ ## code,%edx ; \
-				call __ipipe_divert_exception ; \
-				testl %eax,%eax	; \
-				jnz restore_nocheck
 #define PREEMPT_SCHEDULE_IRQ	call __ipipe_preempt_schedule_irq
 
 #ifdef CONFIG_IPIPE_TRACE_IRQSOFF
@@ -125,12 +109,6 @@
 #define IPIPE_TRACE_IRQ_EXIT
 #endif /* CONFIG_IPIPE_TRACE_IRQSOFF */
 #else /* !CONFIG_IPIPE */
-#define PUSH_XCODE(v)			pushl $v
-#define PUSH_XCODE_CFI(v)		pushl $v ; CFI_ADJUST_CFA_OFFSET 4
-#define PUSH_XVEC(v)			pushl v
-#define PUSH_XVEC_CFI(v)		pushl v ; CFI_ADJUST_CFA_OFFSET 4
-#define HANDLE_EXCEPTION(code)		call *%code
-#define DIVERT_EXCEPTION(code)
 #define PREEMPT_SCHEDULE_IRQ		call preempt_schedule_irq
 #endif /* CONFIG_IPIPE */
 
@@ -654,7 +632,7 @@ irq_return:
 .section .fixup,"ax"
 ENTRY(iret_exc)
 	pushl $0			# no error code
-	PUSH_XCODE(do_iret_error)
+	pushl $do_iret_error
 	jmp error_code
 .previous
 	_ASM_EXTABLE(irq_return,iret_exc)
@@ -980,7 +958,7 @@ ENTRY(coprocessor_error)
 	RING0_INT_FRAME
 	ASM_CLAC
 	pushl_cfi $0
-	PUSH_XCODE_CFI(do_coprocessor_error)
+	pushl_cfi $do_coprocessor_error
 	jmp error_code
 	CFI_ENDPROC
 END(coprocessor_error)
@@ -991,17 +969,17 @@ ENTRY(simd_coprocessor_error)
 	pushl_cfi $0
 #ifdef CONFIG_X86_INVD_BUG
 	/* AMD 486 bug: invd from userspace calls exception 19 instead of #GP */
-661:	PUSH_XCODE_CFI(do_general_protection)
+661:	pushl_cfi $do_general_protection
 662:
 .section .altinstructions,"a"
 	altinstruction_entry 661b, 663f, X86_FEATURE_XMM, 662b-661b, 664f-663f
 .previous
 .section .altinstr_replacement,"ax"
-663:	PUSH_XCODE(do_simd_coprocessor_error)
+663:	pushl $do_simd_coprocessor_error
 664:
 .previous
 #else
-	PUSH_XCODE_CFI(do_simd_coprocessor_error)
+	pushl_cfi $do_simd_coprocessor_error
 #endif
 	jmp error_code
 	CFI_ENDPROC
@@ -1011,7 +989,7 @@ ENTRY(device_not_available)
 	RING0_INT_FRAME
 	ASM_CLAC
 	pushl_cfi $-1			# mark this as an int
-	PUSH_XCODE_CFI(do_device_not_available)
+	pushl_cfi $do_device_not_available
 	jmp error_code
 	CFI_ENDPROC
 END(device_not_available)
@@ -1032,7 +1010,7 @@ ENTRY(overflow)
 	RING0_INT_FRAME
 	ASM_CLAC
 	pushl_cfi $0
-	PUSH_XCODE_CFI(do_overflow)
+	pushl_cfi $do_overflow
 	jmp error_code
 	CFI_ENDPROC
 END(overflow)
@@ -1041,7 +1019,7 @@ ENTRY(bounds)
 	RING0_INT_FRAME
 	ASM_CLAC
 	pushl_cfi $0
-	PUSH_XCODE_CFI(do_bounds)
+	pushl_cfi $do_bounds
 	jmp error_code
 	CFI_ENDPROC
 END(bounds)
@@ -1050,7 +1028,7 @@ ENTRY(invalid_op)
 	RING0_INT_FRAME
 	ASM_CLAC
 	pushl_cfi $0
-	PUSH_XCODE_CFI(do_invalid_op)
+	pushl_cfi $do_invalid_op
 	jmp error_code
 	CFI_ENDPROC
 END(invalid_op)
@@ -1059,7 +1037,7 @@ ENTRY(coprocessor_segment_overrun)
 	RING0_INT_FRAME
 	ASM_CLAC
 	pushl_cfi $0
-	PUSH_XCODE_CFI(do_coprocessor_segment_overrun)
+	pushl_cfi $do_coprocessor_segment_overrun
 	jmp error_code
 	CFI_ENDPROC
 END(coprocessor_segment_overrun)
@@ -1067,7 +1045,7 @@ END(coprocessor_segment_overrun)
 ENTRY(invalid_TSS)
 	RING0_EC_FRAME
 	ASM_CLAC
-	PUSH_XCODE_CFI(do_invalid_TSS)
+	pushl_cfi $do_invalid_TSS
 	jmp error_code
 	CFI_ENDPROC
 END(invalid_TSS)
@@ -1075,7 +1053,7 @@ END(invalid_TSS)
 ENTRY(segment_not_present)
 	RING0_EC_FRAME
 	ASM_CLAC
-	PUSH_XCODE_CFI(do_segment_not_present)
+	pushl_cfi $do_segment_not_present
 	jmp error_code
 	CFI_ENDPROC
 END(segment_not_present)
@@ -1083,7 +1061,7 @@ END(segment_not_present)
 ENTRY(stack_segment)
 	RING0_EC_FRAME
 	ASM_CLAC
-	PUSH_XCODE_CFI(do_stack_segment)
+	pushl_cfi $do_stack_segment
 	jmp error_code
 	CFI_ENDPROC
 END(stack_segment)
@@ -1091,7 +1069,7 @@ END(stack_segment)
 ENTRY(alignment_check)
 	RING0_EC_FRAME
 	ASM_CLAC
-	PUSH_XCODE_CFI(do_alignment_check)
+	pushl_cfi $do_alignment_check
 	jmp error_code
 	CFI_ENDPROC
 END(alignment_check)
@@ -1100,7 +1078,7 @@ ENTRY(divide_error)
 	RING0_INT_FRAME
 	ASM_CLAC
 	pushl_cfi $0			# no error code
-	PUSH_XCODE_CFI(do_divide_error)
+	pushl_cfi $do_divide_error
 	jmp error_code
 	CFI_ENDPROC
 END(divide_error)
@@ -1110,7 +1088,7 @@ ENTRY(machine_check)
 	RING0_INT_FRAME
 	ASM_CLAC
 	pushl_cfi $0
-	PUSH_XVEC_CFI(machine_check_vector)
+	pushl_cfi machine_check_vector
 	jmp error_code
 	CFI_ENDPROC
 END(machine_check)
@@ -1120,7 +1098,7 @@ ENTRY(spurious_interrupt_bug)
 	RING0_INT_FRAME
 	ASM_CLAC
 	pushl_cfi $0
-	PUSH_XCODE_CFI(do_spurious_interrupt_bug)
+	pushl_cfi $do_spurious_interrupt_bug
 	jmp error_code
 	CFI_ENDPROC
 END(spurious_interrupt_bug)
@@ -1411,7 +1389,7 @@ END(trace_page_fault)
 ENTRY(page_fault)
 	RING0_EC_FRAME
 	ASM_CLAC
-	PUSH_XCODE_CFI(do_page_fault)
+	pushl_cfi $do_page_fault
 	ALIGN
 error_code:
 	/* the function address is in %gs's slot on the stack */
@@ -1452,7 +1430,11 @@ error_code:
 	TRACE_IRQS_OFF
 #endif
 	movl %esp,%eax			# pt_regs pointer
-	HANDLE_EXCEPTION(edi)
+	call *%edi
+#ifdef CONFIG_IPIPE
+	testl %eax,%eax
+	jnz restore_nocheck
+#endif	
 	jmp ret_from_exception
 	CFI_ENDPROC
 END(page_fault)
@@ -1492,8 +1474,9 @@ ENTRY(debug)
 debug_stack_correct:
 	pushl_cfi $-1			# mark this as an int
 	SAVE_ALL
-	DIVERT_EXCEPTION(do_debug)
+#ifndef CONFIG_IPIPE	
 	TRACE_IRQS_OFF
+#endif	
 	xorl %edx,%edx			# error code 0
 	movl %esp,%eax			# pt_regs pointer
 	call do_debug
@@ -1589,8 +1572,9 @@ ENTRY(int3)
 	ASM_CLAC
 	pushl_cfi $-1			# mark this as an int
 	SAVE_ALL
-	DIVERT_EXCEPTION(do_int3)
+#ifndef CONFIG_IPIPE
 	TRACE_IRQS_OFF
+#endif
 	xorl %edx,%edx		# zero error code
 	movl %esp,%eax		# pt_regs pointer
 	call do_int3
@@ -1600,7 +1584,7 @@ END(int3)
 
 ENTRY(general_protection)
 	RING0_EC_FRAME
-	PUSH_XCODE_CFI(do_general_protection)
+	pushl_cfi $do_general_protection
 	jmp error_code
 	CFI_ENDPROC
 END(general_protection)

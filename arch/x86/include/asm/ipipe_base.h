@@ -54,29 +54,6 @@
 #define IPIPE_NR_XIRQS		NR_IRQS
 #endif /* !(CONFIG_X86_64 || CONFIG_X86_LOCAL_APIC) */
 
-#define ex_do_divide_error			0
-#define ex_do_debug				1
-/* NMI not pipelined. */
-#define ex_do_int3				3
-#define ex_do_overflow				4
-#define ex_do_bounds				5
-#define ex_do_invalid_op			6
-#define ex_do_device_not_available		7
-/* Double fault not pipelined. */
-#define ex_do_coprocessor_segment_overrun	9
-#define ex_do_invalid_TSS			10
-#define ex_do_segment_not_present		11
-#define ex_do_stack_segment			12
-#define ex_do_general_protection		13
-#define ex_do_page_fault			14
-#define ex_do_spurious_interrupt_bug		15
-#define ex_do_coprocessor_error			16
-#define ex_do_alignment_check			17
-#define ex_machine_check_vector			18
-#define ex_reserved				ex_machine_check_vector
-#define ex_do_simd_coprocessor_error		19
-#define ex_do_iret_error			32
-
 #ifndef __ASSEMBLY__
 
 #include <asm/apicdef.h>
@@ -119,8 +96,6 @@ void __ipipe_handle_vm_preemption(struct ipipe_vm_notifier *nfy);
 extern int __ipipe_hrtimer_irq;
 
 #ifdef CONFIG_SMP
-
-#include <asm/alternative.h>
 
 #ifdef CONFIG_X86_32
 #define GET_ROOT_STATUS_ADDR			\
