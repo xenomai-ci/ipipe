@@ -253,7 +253,7 @@ static void __init global_timer_of_register(struct device_node *np)
 	if (read_cpuid_part_number() == ARM_CPU_PART_CORTEX_A9
 	    && (read_cpuid_id() & 0xf0000f) < 0x200000) {
 		pr_warn("global-timer: non support for this cpu version.\n");
-		return;
+		usable_timer = 0;
 	}
 
 	gt_ppi = irq_of_parse_and_map(np, 0);
