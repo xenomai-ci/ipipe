@@ -948,7 +948,7 @@ bool try_module_get(struct module *module)
 	bool ret = true;
 
 	if (module) {
-		preempt_disable();
+		unsigned long flags = hard_preempt_disable();
 
 		if (likely(module_is_live(module))) {
 			__this_cpu_inc(module->refptr->incs);
@@ -956,7 +956,7 @@ bool try_module_get(struct module *module)
 		} else
 			ret = false;
 
-		preempt_enable();
+		hard_preempt_enable(flags);
 	}
 	return ret;
 }
@@ -965,12 +965,12 @@ EXPORT_SYMBOL(try_module_get);
 void module_put(struct module *module)
 {
 	if (module) {
-		preempt_disable();
+		unsigned long flags = hard_preempt_disable();
 		smp_wmb(); /* see comment in module_refcount */
 		__this_cpu_inc(module->refptr->decs);
 
 		trace_module_put(module, _RET_IP_);
-		preempt_enable();
+		hard_preempt_enable(flags);
 	}
 }
 EXPORT_SYMBOL(module_put);
