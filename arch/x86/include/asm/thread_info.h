@@ -34,8 +34,8 @@ struct thread_info {
 	struct restart_block    restart_block;
 #ifdef CONFIG_IPIPE
 	unsigned long		ipipe_flags;
-	struct ipipe_threadinfo ipipe_data;
 #endif
+	struct ipipe_threadinfo ipipe_data;
 	void __user		*sysenter_return;
 #ifdef CONFIG_X86_32
 	unsigned long           previous_esp;   /* ESP of the previous stack in
