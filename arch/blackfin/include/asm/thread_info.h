@@ -47,8 +47,8 @@ struct thread_info {
 	struct restart_block restart_block;
 #ifdef CONFIG_IPIPE
 	unsigned long ipipe_flags;
-	struct ipipe_threadinfo ipipe_data;
 #endif
+	struct ipipe_threadinfo ipipe_data;
 #ifndef CONFIG_SMP
 	struct l1_scratch_task_info l1_task_info;
 #endif
