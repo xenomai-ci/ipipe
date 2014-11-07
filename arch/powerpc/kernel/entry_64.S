@@ -150,7 +150,7 @@ END_FW_FTR_SECTION_IFSET(FW_FEATURE_SPLPAR)
 
 #ifdef CONFIG_IPIPE
 	CURRENT_THREAD_INFO(r10, r1)
-#ifndef CONFIG_IPIPE_LEGACY	
+#ifndef CONFIG_IPIPE_LEGACY
 	cmpldi	cr0,r0,NR_syscalls
 	blt	slow_path
 	ld	r11,TI_IPIPE(r10)
@@ -218,6 +218,7 @@ root_syscall:
 	ld	r5,GPR5(r1)
 	ld	r6,GPR6(r1)
 	ld	r7,GPR7(r1)
+	ld	r8,GPR8(r1)
 	addi	r9,r1,STACK_FRAME_OVERHEAD
 #endif /* CONFIG_IPIPE */
 	
