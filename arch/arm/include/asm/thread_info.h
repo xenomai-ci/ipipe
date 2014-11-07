@@ -80,8 +80,8 @@ struct thread_info {
 #endif
 #ifdef CONFIG_IPIPE
 	unsigned long		ipipe_flags;
-	struct ipipe_threadinfo ipipe_data;
 #endif
+	struct ipipe_threadinfo ipipe_data;
 
 	struct restart_block	restart_block;
 
