@@ -266,3 +266,8 @@ void __ipipe_legacy_init_stage(struct ipipe_domain *ipd)
 		ipd->legacy.priority = IPIPE_ROOT_PRIO;
 	}
 }
+
+notrace int __ipipe_check_root(void) /* hw IRQs off */
+{
+	return __ipipe_root_p;
+}

@@ -95,6 +95,36 @@ extern int tau_interrupts(int);
 
 int distribute_irqs = 1;
 
+/*
+ * This is specifically called by assembly code to re-enable interrupts
+ * if they are currently disabled. This is typically called before
+ * schedule() or do_signal() when returning to userspace. We do it
+ * in C to avoid the burden of dealing with lockdep etc...
+ *
+ * NOTE: This is called with interrupts hard disabled but not marked
+ * as such in paca->irq_happened, so we need to resync this.
+ */
+void notrace restore_interrupts(void)
+{
+	if (irqs_disabled()) {
+#ifndef CONFIG_IPIPE
+		local_paca->irq_happened |= PACA_IRQ_HARD_DIS;
+#endif
+		local_irq_enable();
+	} else
+		__hard_irq_enable();
+}
+
+#ifndef CONFIG_IPIPE
+
+static inline notrace int decrementer_check_overflow(void)
+{
+ 	u64 now = get_tb_or_rtc();
+ 	u64 *next_tb = &__get_cpu_var(decrementers_next_tb);
+ 
+	return now >= *next_tb;
+}
+
 static inline notrace unsigned long get_irq_happened(void)
 {
 	unsigned long happened;
@@ -109,14 +139,6 @@ static inline notrace void set_soft_enabled(unsigned long enable)
 {
 	__asm__ __volatile__("stb %0,%1(13)"
 	: : "r" (enable), "i" (offsetof(struct paca_struct, soft_enabled)));
-}
-
-static inline notrace int decrementer_check_overflow(void)
-{
- 	u64 now = get_tb_or_rtc();
- 	u64 *next_tb = &__get_cpu_var(decrementers_next_tb);
- 
-	return now >= *next_tb;
 }
 
 /* This is called whenever we are re-enabling interrupts
@@ -140,16 +162,6 @@ notrace unsigned int __check_irq_replay(void)
 	 * the debug_smp_processor_id() business in this low level
 	 * function
 	 */
-#ifdef CONFIG_IPIPE
-	IPIPE_WARN_ONCE(!hard_irqs_disabled());
-
-	local_paca->irq_happened = 0;
-	/*
-	 * When the pipeline is enabled, replaying IRQs is done from
-	 * ipipe_unstall_root() instead of asking the caller to fake a
-	 * trap. Therefore this routine shall return 0.
-	 */
-#else /* !CONFIG_IPIPE */
 	unsigned char happened = local_paca->irq_happened;
 
 	/* Clear bit 0 which we wouldn't clear otherwise */
@@ -201,12 +213,9 @@ notrace unsigned int __check_irq_replay(void)
 
 	/* There should be nothing left ! */
 	BUG_ON(local_paca->irq_happened != 0);
-#endif /* !CONFIG_IPIPE */
 
 	return 0;
 }
-
-#ifndef CONFIG_IPIPE
 
 notrace void arch_local_irq_restore(unsigned long en)
 {
@@ -289,24 +298,6 @@ EXPORT_SYMBOL(arch_local_irq_restore);
 #endif /* !CONFIG_IPIPE */
 
 /*
- * This is specifically called by assembly code to re-enable interrupts
- * if they are currently disabled. This is typically called before
- * schedule() or do_signal() when returning to userspace. We do it
- * in C to avoid the burden of dealing with lockdep etc...
- *
- * NOTE: This is called with interrupts hard disabled but not marked
- * as such in paca->irq_happened, so we need to resync this.
- */
-void notrace restore_interrupts(void)
-{
-	if (irqs_disabled()) {
-		local_paca->irq_happened |= PACA_IRQ_HARD_DIS;
-		local_irq_enable();
-	} else
-		__hard_irq_enable();
-}
-
-/*
  * This is a helper to use when about to go into idle low-power
  * when the latter has the side effect of re-enabling interrupts
  * (such as calling H_CEDE under pHyp).
@@ -339,6 +330,7 @@ bool prep_irq_for_idle(void)
 	/* Tell lockdep we are about to re-enable */
 	trace_hardirqs_on();
 
+#ifndef CONFIG_IPIPE
 	/*
 	 * Mark interrupts as soft-enabled and clear the
 	 * PACA_IRQ_HARD_DIS from the pending mask since we
@@ -347,6 +339,7 @@ bool prep_irq_for_idle(void)
 	 */
 	local_paca->irq_happened &= ~PACA_IRQ_HARD_DIS;
 	local_paca->soft_enabled = 1;
+#endif
 
 	/* Tell the caller to enter the low power state */
 	return true;

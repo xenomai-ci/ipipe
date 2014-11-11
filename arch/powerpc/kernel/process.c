@@ -757,6 +757,7 @@ struct task_struct *__switch_to(struct task_struct *prev,
 #ifdef CONFIG_PPC_BOOK3S_64
 	struct ppc64_tlb_batch *batch;
 #endif
+	unsigned long flags;
 
 	WARN_ON(!irqs_disabled());
 
@@ -769,6 +770,8 @@ struct task_struct *__switch_to(struct task_struct *prev,
 	 * these will change them.
 	 */
 	save_early_sprs(&prev->thread);
+
+	flags = hard_local_irq_save();
 
 	__switch_to_tm(prev);
 
@@ -897,6 +900,8 @@ struct task_struct *__switch_to(struct task_struct *prev,
 		batch->active = 1;
 	}
 #endif /* CONFIG_PPC_BOOK3S_64 */
+
+	hard_local_irq_restore(flags);
 
 	return last;
 }

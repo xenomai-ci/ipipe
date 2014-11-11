@@ -170,7 +170,7 @@ unsigned long ipipe_test_and_stall_root(void)
 
 	return x;
 }
-EXPORT_SYMBOL_GPL(ipipe_test_root);
+EXPORT_SYMBOL(ipipe_test_and_stall_root);
 
 unsigned long ipipe_test_root(void)
 {
@@ -183,7 +183,7 @@ unsigned long ipipe_test_root(void)
 
 	return x;
 }
-EXPORT_SYMBOL(ipipe_test_and_stall_root);
+EXPORT_SYMBOL_GPL(ipipe_test_root);
 
 #endif	/* CONFIG_SMP */
 
@@ -362,29 +362,6 @@ int __ipipe_grab_timer(struct pt_regs *regs)
 
 	return __ipipe_exit_irq(regs);
 }
-
-notrace int __ipipe_check_root(void) /* hw IRQs off */
-{
-	return __ipipe_root_p;
-}
-
-#ifdef CONFIG_PPC64
-
-#ifdef CONFIG_IPIPE_TRACE_IRQSOFF
-
-notrace void __ipipe_trace_irqsoff(void)
-{
-	ipipe_trace_irqsoff();
-}
-
-notrace void __ipipe_trace_irqson(void)
-{
-	ipipe_trace_irqson();
-}
-
-#endif /* CONFIG_IPIPE_TRACE_IRQSOFF */
-
-#endif /* CONFIG_PPC64 */
 
 void __ipipe_pin_range_globally(unsigned long start, unsigned long end)
 {
