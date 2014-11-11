@@ -48,6 +48,8 @@ extern void unknown_exception(struct pt_regs *regs);
 #define __hard_irq_disable()	__mtmsrd(local_paca->kernel_msr, 1)
 #endif
 
+#ifndef CONFIG_IPIPE
+
 #define hard_irq_disable()	do {			\
 	u8 _was_enabled;				\
 	__hard_irq_disable();				\
@@ -57,8 +59,6 @@ extern void unknown_exception(struct pt_regs *regs);
 	if (_was_enabled)				\
 		trace_hardirqs_off();			\
 } while(0)
-
-#ifndef CONFIG_IPIPE
 
 static inline unsigned long arch_local_save_flags(void)
 {
@@ -128,8 +128,7 @@ static inline void may_hard_irq_enable(void)
 
 /*
  * The built-in soft disabling mechanism is diverted to the pipeline
- * when CONFIG_IPIPE is enabled. So we can't have any lazy DEC/EE
- * pending in paca->irq_happened, and therefore we won't hard disable
+ * when CONFIG_IPIPE is enabled, therefore we won't hard disable
  * waiting for soft enabling.
  */
 static inline bool lazy_irq_pending(void)
@@ -137,10 +136,9 @@ static inline bool lazy_irq_pending(void)
 	return false;
 }
 
-static inline void may_hard_irq_enable(void)
-{
-	get_paca()->irq_happened &= ~PACA_IRQ_HARD_DIS;
-}
+static inline void may_hard_irq_enable(void) { }
+
+#define hard_irq_disable()	hard_local_irq_disable()
 
 #endif /* CONFIG_IPIPE */
 

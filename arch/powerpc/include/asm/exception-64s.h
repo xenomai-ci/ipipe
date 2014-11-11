@@ -324,6 +324,20 @@ do_kvm_##n:								\
 	GET_CTR(r10, area);						   \
 	std	r10,_CTR(r1);
 
+#ifdef CONFIG_IPIPE
+/* Do NOT alter Rc(eq) in this code;  our caller uses it. */
+#define COPY_SOFTISTATE(mreg)			\
+	ld	mreg,PACAROOTPCPU(r13);		\
+	ld	mreg,0(mreg);			\
+	nor	mreg,mreg,mreg;			\
+	clrldi	mreg,mreg,63;			\
+	std	mreg,SOFTE(r1)
+#else /* !CONFIG_IPIPE */
+#define COPY_SOFTISTATE(mreg)			\
+	lbz	mreg,PACASOFTIRQEN(r13);	\
+	std	mreg,SOFTE(r1)
+#endif /* !CONFIG_IPIPE */
+
 #define EXCEPTION_PROLOG_COMMON_3(n)					   \
 	std	r2,GPR2(r1);		/* save r2 in stackframe	*/ \
 	SAVE_4GPRS(3, r1);		/* save r3 - r6 in stackframe   */ \
@@ -331,9 +345,8 @@ do_kvm_##n:								\
 	mflr	r9;			/* Get LR, later save to stack	*/ \
 	ld	r2,PACATOC(r13);	/* get kernel TOC into r2	*/ \
 	std	r9,_LINK(r1);						   \
-	lbz	r10,PACASOFTIRQEN(r13);				   \
+	COPY_SOFTISTATE(r10);						   \
 	mfspr	r11,SPRN_XER;		/* save XER in stackframe	*/ \
-	std	r10,SOFTE(r1);						   \
 	std	r11,_XER(r1);						   \
 	li	r9,(n)+1;						   \
 	std	r9,_TRAP(r1);		/* set trap number		*/ \
@@ -509,8 +522,60 @@ label##_relon_hv:							\
  * runlatch, etc...
  */
 
+.macro HARD_ENABLE_INTS tmp=r10
+#ifdef CONFIG_PPC_BOOK3E
+	wrteei	1
+#else
+	ld	\tmp,PACAKMSR(r13)
+	ori	\tmp,\tmp,MSR_EE
+	mtmsrd	\tmp,1
+#endif /* CONFIG_PPC_BOOK3E */
+.endm
+
+.macro HARD_DISABLE_INTS tmp=r10
+#ifdef CONFIG_PPC_BOOK3E
+	wrteei	0
+#else
+	ld	\tmp,PACAKMSR(r13) /* Get kernel MSR without EE */
+	mtmsrd	\tmp,1		  /* Update machine state */
+#endif /* CONFIG_PPC_BOOK3E */
+.endm
+
+.macro HARD_DISABLE_INTS_RI
+#ifdef CONFIG_PPC_BOOK3E
+	wrteei	0
+#else
+	/*
+	 * For performance reasons we clear RI the same time that we
+	 * clear EE. We only need to clear RI just before we restore r13
+	 * below, but batching it with EE saves us one expensive mtmsrd call.
+	 * We have to be careful to restore RI if we branch anywhere from
+	 * here (eg syscall_exit_work).
+	 *
+	 * CAUTION: using r9-r11 the way they are is assumed by the
+	 * caller.
+	 */
+	ld	r10,PACAKMSR(r13) /* Get kernel MSR without EE */
+	li	r9,MSR_RI
+	andc	r11,r10,r9
+	mtmsrd	r11,1		  /* Update machine state */
+#endif /* CONFIG_PPC_BOOK3E */
+.endm
+
 /* Exception addition: Hard disable interrupts */
-#define DISABLE_INTS	RECONCILE_IRQ_STATE(r10,r11)
+#ifdef CONFIG_IPIPE
+#define DISABLE_INTS				\
+	ld	r10,PACAROOTPCPU(r13);		\
+	ld	r11,0(r10);			\
+	ori	r11,r11,1;			\
+	std	r11,0(r10);			\
+	mfmsr	r11;				\
+	ori	r11,r11,MSR_EE;			\
+	mtmsrd	r11,1;
+#define RECONCILE_IRQ_STATE(__rA, __rB)	HARD_DISABLE_INTS(__rA)
+#else /* !CONFIG_IPIPE */
+#define DISABLE_INTS		RECONCILE_IRQ_STATE(r10,r11)
+#endif /* !CONFIG_IPIPE */
 
 #define ADD_NVGPRS				\
 	bl	.save_nvgprs
@@ -544,17 +609,22 @@ label##_common:							\
  */
 #ifdef CONFIG_IPIPE
 /*
- * No NAP mode when pipelining, we don't want that extra latency, and
- * we may not always be over a regular linux stack context
- * anyway. Runlatch will be considered later in __ipipe_exit_irq().
+ * No NAP mode when pipelining, we don't want that extra latency.
+ * Runlatch will be considered later in __ipipe_exit_irq().
  */
-#define IPIPE_EXCEPTION_COMMON_ASYNC(trap, label, hdlr)		  \
-	EXCEPTION_COMMON(trap, label, hdlr, .__ipipe_ret_from_except_lite, \
-			 DISABLE_INTS)
-#endif
+#define STD_EXCEPTION_COMMON_ASYNC(trap, label, hdlr)		\
+	EXCEPTION_COMMON(trap, label, .__ipipe_grab_irq,	\
+			 .__ipipe_ret_from_except_lite, HARD_DISABLE_INTS)
+#define DECREMENTER_EXCEPTION(trap, label, hdlr)		  \
+	EXCEPTION_COMMON(trap, label, .__ipipe_grab_timer,	  \
+			 .__ipipe_ret_from_except_lite, HARD_DISABLE_INTS)
+#else
 #define STD_EXCEPTION_COMMON_ASYNC(trap, label, hdlr)		  \
 	EXCEPTION_COMMON(trap, label, hdlr, ret_from_except_lite, \
 			 FINISH_NAP;DISABLE_INTS;RUNLATCH_ON)
+#define DECREMENTER_EXCEPTION(trap, label, hdlr)		  \
+	STD_EXCEPTION_COMMON_ASYNC(trap, label, hdlr)
+#endif
 
 /*
  * When the idle code in power4_idle puts the CPU into NAP mode,

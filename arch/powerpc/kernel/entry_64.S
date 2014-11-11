@@ -33,13 +33,8 @@
 #include <asm/irqflags.h>
 #include <asm/ftrace.h>
 #include <asm/hw_irq.h>
+#include <asm/exception-64s.h>
 #include <asm/context_tracking.h>
-
-#ifdef CONFIG_IPIPE
-#define PREEMPT_SCHEDULE_IRQ	.__ipipe_preempt_schedule_irq
-#else
-#define PREEMPT_SCHEDULE_IRQ	.preempt_schedule_irq
-#endif
 
 /*
  * System calls.
@@ -127,28 +122,17 @@ END_FW_FTR_SECTION_IFSET(FW_FEATURE_SPLPAR)
 	 * of irq tracing is used, we additionally check that condition
 	 * is correct
 	 */
-#if defined(CONFIG_TRACE_IRQFLAGS) && defined(CONFIG_BUG)
+#if defined(CONFIG_TRACE_IRQFLAGS) && \
+	defined(CONFIG_BUG) && !defined(CONFIG_IPIPE)
 	lbz	r10,PACASOFTIRQEN(r13)
 	xori	r10,r10,1
 1:	tdnei	r10,0
 	EMIT_BUG_ENTRY 1b,__FILE__,__LINE__,BUGFLAG_WARNING
 #endif
 
-#ifdef CONFIG_PPC_BOOK3E
-	wrteei	1
-#else
-	ld	r11,PACAKMSR(r13)
-	ori	r11,r11,MSR_EE
-	mtmsrd	r11,1
-#endif /* CONFIG_PPC_BOOK3E */
-
-	/* We do need to set SOFTE in the stack frame or the return
-	 * from interrupt will be painful
-	 */
-	li	r10,1
-	std	r10,SOFTE(r1)
-
 #ifdef CONFIG_IPIPE
+	COPY_SOFTISTATE(r11)
+	HARD_ENABLE_INTS
 	CURRENT_THREAD_INFO(r10, r1)
 #ifndef CONFIG_IPIPE_LEGACY
 	cmpldi	cr0,r0,NR_syscalls
@@ -195,21 +179,10 @@ fastcall_exit_check:
 	addi	r3,r1,GPR0
 	bl	__ipipe_call_mayday
 fastcall_exit:
+	HARD_DISABLE_INTS_RI
 	ld	r3,GPR3(r1)	/* syscall return value */
 	ld	r8,_MSR(r1)
-#ifdef CONFIG_PPC_BOOK3E
-	wrteei	0
-#else
-	ld	r10,PACAKMSR(r13)
-	li	r9,MSR_RI
-	andc	r11,r10,r9
-	mtmsrd	r11,1
-	/* No MSR:RI on BookE */
-	andi.	r10,r8,MSR_RI
-	beq-	unrecov_restore
-#endif /* CONFIG_PPC_BOOK3E */
 	ld	r5,_CCR(r1)
-	mfmsr	r10 /* XXX: why this? */
 	b	.Lsyscall_error_cont
 root_syscall:
 	ld	r0,GPR0(r1)
@@ -219,8 +192,15 @@ root_syscall:
 	ld	r6,GPR6(r1)
 	ld	r7,GPR7(r1)
 	ld	r8,GPR8(r1)
+#else /* !CONFIG_IPIPE */
+	HARD_ENABLE_INTS
+	/* We do need to set SOFTE in the stack frame or the return
+	 * from interrupt will be painful
+	 */
+	li	r10,1
+	std	r10,SOFTE(r1)
+#endif /* !CONFIG_IPIPE */
 	addi	r9,r1,STACK_FRAME_OVERHEAD
-#endif /* CONFIG_IPIPE */
 	
 #ifdef SHOW_SYSCALLS
 	bl	.do_show_syscall
@@ -276,22 +256,7 @@ syscall_exit:
 	 * Disable interrupts so current_thread_info()->flags can't change,
 	 * and so that we don't get interrupted after loading SRR0/1.
 	 */
-#ifdef CONFIG_PPC_BOOK3E
-	wrteei	0
-#else
-	ld	r10,PACAKMSR(r13)
-	/*
-	 * For performance reasons we clear RI the same time that we
-	 * clear EE. We only need to clear RI just before we restore r13
-	 * below, but batching it with EE saves us one expensive mtmsrd call.
-	 * We have to be careful to restore RI if we branch anywhere from
-	 * here (eg syscall_exit_work).
-	 */
-	li	r9,MSR_RI
-	andc	r11,r10,r9
-	mtmsrd	r11,1
-#endif /* CONFIG_PPC_BOOK3E */
-
+	HARD_DISABLE_INTS_RI
 	ld	r9,TI_FLAGS(r12)
 	li	r11,-_LAST_ERRNO
 	andi.	r0,r9,(_TIF_SYSCALL_T_OR_A|_TIF_SINGLESTEP|_TIF_USER_WORK_MASK|_TIF_PERSYSCALL_MASK)
@@ -390,29 +355,9 @@ syscall_exit_work:
 	andi.	r0,r9,(_TIF_SYSCALL_T_OR_A|_TIF_SINGLESTEP)
 	beq	.ret_from_except_lite
 
-#ifdef CONFIG_IPIPE_TRACE_IRQSOFF
 	bl	.save_nvgprs
-	bl	.__ipipe_trace_irqson
-#ifdef CONFIG_PPC_BOOK3E
-	wrteei	1
-#else
 	/* Re-enable interrupts */
-	mfmsr	r10
-	ori	r10,r10,MSR_EE
-	mtmsrd	r10,1
-#endif /* CONFIG_PPC_BOOK3E */
-#else /* !CONFIG_IPIPE_TRACE_IRQSOFF */
-	/* Re-enable interrupts */
-#ifdef CONFIG_PPC_BOOK3E
-	wrteei	1
-#else
-	ld	r10,PACAKMSR(r13)
-	ori	r10,r10,MSR_EE
-	mtmsrd	r10,1
-#endif /* CONFIG_PPC_BOOK3E */
-
-	bl	.save_nvgprs
-#endif /* !CONFIG_IPIPE_TRACE_IRQSOFF */
+	HARD_ENABLE_INTS
 	addi	r3,r1,STACK_FRAME_OVERHEAD
 	bl	.do_syscall_trace_leave
 	b	.ret_from_except
@@ -464,20 +409,7 @@ _GLOBAL(ppc64_swapcontext)
 
 _GLOBAL(ret_from_fork)
 #ifdef CONFIG_IPIPE
-#ifdef CONFIG_IPIPE_TRACE_IRQSOFF
-	stdu	r1,-8(r1)
-	std	r3,0(r1)
-	bl	.__ipipe_trace_irqson
-	ld	r3,0(r1)
-	addi	r1,r1,8
-#endif /* CONFIG_IPIPE_TRACE_IRQSOFF */
-#ifdef CONFIG_PPC_BOOK3E
-	wrteei	1
-#else /* !CONFIG_PPC_BOOK3E */
-	mfmsr	r10
-	ori	r10,r10,MSR_EE
-	mtmsrd	r10,1
-#endif /* !CONFIG_PPC_BOOK3E */
+	HARD_ENABLE_INTS
 #endif /* CONFIG_IPIPE */
 	bl	.schedule_tail
 	REST_NVGPRS(r1)
@@ -485,6 +417,9 @@ _GLOBAL(ret_from_fork)
 	b	syscall_exit
 
 _GLOBAL(ret_from_kernel_thread)
+#ifdef CONFIG_IPIPE
+	HARD_ENABLE_INTS
+#endif /* CONFIG_IPIPE */
 	bl	.schedule_tail
 	REST_NVGPRS(r1)
 	ld	r14, 0(r14)
@@ -719,7 +654,6 @@ END_FTR_SECTION_IFSET(CPU_FTR_DSCR)
 #ifdef CONFIG_IPIPE
 _GLOBAL(__ipipe_ret_from_except_lite)
 	cmpwi	r3,0
-	/* FIXME: branching to __ipipe_check_root is useless here */
 	bne+	.ret_from_except_lite
 	b	restore
 #endif /* CONFIG_IPIPE */
@@ -737,24 +671,20 @@ _GLOBAL(ret_from_except_lite)
 	 * can't change between when we test it and when we return
 	 * from the interrupt.
 	 */
-#ifdef CONFIG_PPC_BOOK3E
-	wrteei	0
-#else
-	ld	r10,PACAKMSR(r13) /* Get kernel MSR without EE */
-	mtmsrd	r10,1		  /* Update machine state */
-#endif /* CONFIG_PPC_BOOK3E */
-
+	HARD_DISABLE_INTS
+	CURRENT_THREAD_INFO(r9, r1)
 #ifdef CONFIG_IPIPE
-#ifdef CONFIG_IPIPE_TRACE_IRQSOFF
-	bl	.__ipipe_trace_irqsoff
-#endif
+#ifdef CONFIG_IPIPE_LEGACY
 	bl	.__ipipe_check_root
 	cmpwi	r3,0
-	mfmsr	r10		/* this is used later, might be messed */
 	beq-	restore
+#else	
+	ld	r3,TI_IPIPE(r9)
+	andi.	r3,r3,_TIP_HEAD
+	bne-	restore
+#endif	
 #endif /* CONFIG_IPIPE */
 
-	CURRENT_THREAD_INFO(r9, r1)
 	ld	r3,_MSR(r1)
 #ifdef CONFIG_PPC_BOOK3E
 	ld	r10,PACACURRENT(r13)
@@ -789,9 +719,6 @@ _GLOBAL(ret_from_except_lite)
 1:	andi.	r0,r4,_TIF_NEED_RESCHED
 	beq	2f
 	bl	.restore_interrupts
-#ifdef CONFIG_IPIPE_TRACE_IRQSOFF
-	bl	.__ipipe_trace_irqson
-#endif /* CONFIG_IPIPE_TRACE_IRQSOFF */
 	SCHEDULE_USER
 	b	.ret_from_except_lite
 2:
@@ -865,8 +792,11 @@ resume_kernel:
 	 * pipeline is enabled, we enter the IRQ preemption code with hw
 	 * interrupts disabled as well.
 	 */
-1:	bl	PREEMPT_SCHEDULE_IRQ
-
+#ifdef CONFIG_IPIPE
+1:	bl	.__ipipe_preempt_schedule_irq
+#else
+1:	bl	.preempt_schedule_irq
+#endif
 	/* Re-test flags and eventually loop */
 	CURRENT_THREAD_INFO(r9, r1)
 	ld	r4,TI_FLAGS(r9)
@@ -879,12 +809,7 @@ resume_kernel:
 	 * when we return from the interrupt, and so that we don't get
 	 * interrupted after loading SRR0/1.
 	 */
-#ifdef CONFIG_PPC_BOOK3E
-	wrteei	0
-#else
-	ld	r10,PACAKMSR(r13) /* Get kernel MSR without EE */
-	mtmsrd	r10,1		  /* Update machine state */
-#endif /* CONFIG_PPC_BOOK3E */
+	HARD_DISABLE_INTS
 #endif /* CONFIG_PREEMPT */
 
 	.globl	fast_exc_return_irq
@@ -895,6 +820,17 @@ restore:
 	 * are about to re-enable interrupts
 	 */
 	ld	r5,SOFTE(r1)
+#ifdef CONFIG_IPIPE
+	cmpwi	cr0,r5,0
+	nor	r5,r5,r5	/* IPIPE_STALL_FLAG = !SOFTE */
+	ld	r4,PACAROOTPCPU(r13)
+	ld	r3,0(r4)
+	insrdi	r3,r5,1,63
+	std	r3,0(r4)
+	beq	1f
+	TRACE_ENABLE_INTS
+1:
+#else	/* !CONFIG_IPIPE */
 	lbz	r6,PACASOFTIRQEN(r13)
 	cmpwi	cr0,r5,0
 	beq	restore_irq_off
@@ -921,6 +857,7 @@ restore_no_replay:
 	TRACE_ENABLE_INTS
 	li	r0,1
 	stb	r0,PACASOFTIRQEN(r13);
+#endif	/* !CONFIG_IPIPE */
 
 	/*
 	 * Final return path. BookE is handled in a different file
@@ -1011,6 +948,7 @@ END_FTR_SECTION_IFSET(CPU_FTR_HAS_PPR)
 
 #endif /* CONFIG_PPC_BOOK3E */
 
+#ifndef CONFIG_IPIPE	
 	/*
 	 * We are returning to a context with interrupts soft disabled.
 	 *
@@ -1063,20 +1001,12 @@ restore_check_irq_replay:
 	cmpwi	cr0,r3,0x500
 	bne	1f
 	addi	r3,r1,STACK_FRAME_OVERHEAD;
-#ifdef CONFIG_IPIPE
- 	bl	.__ipipe_grab_irq
-#else	
  	bl	.do_IRQ
-#endif	
 	b	.ret_from_except
 1:	cmpwi	cr0,r3,0x900
 	bne	1f
 	addi	r3,r1,STACK_FRAME_OVERHEAD;
-#ifdef CONFIG_IPIPE
- 	bl	.__ipipe_grab_timer
-#else	
 	bl	.timer_interrupt
-#endif	
 	b	.ret_from_except
 #ifdef CONFIG_PPC_DOORBELL
 1:
@@ -1095,6 +1025,8 @@ restore_check_irq_replay:
 	b	.ret_from_except
 #endif /* CONFIG_PPC_DOORBELL */
 1:	b	.ret_from_except /* What else to do here ? */
+
+#endif /* !CONFIG_IPIPE */	
  
 unrecov_restore:
 	addi	r3,r1,STACK_FRAME_OVERHEAD
@@ -1141,7 +1073,7 @@ _GLOBAL(enter_rtas)
 	li	r0,0
 	mtcr	r0
 
-#ifdef CONFIG_BUG	
+#if defined(CONFIG_BUG) && !defined(CONFIG_IPIPE)
 	/* There is no way it is acceptable to get here with interrupts enabled,
 	 * check it with the asm equivalent of WARN_ON
 	 */

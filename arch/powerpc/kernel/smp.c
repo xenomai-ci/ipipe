@@ -705,6 +705,9 @@ void start_secondary(void *unused)
 	unsigned int cpu = smp_processor_id();
 	int i, base;
 
+#if defined(CONFIG_IPIPE) && defined(CONFIG_PPC64)
+	local_paca->ipipe_statp = (u64)&ipipe_percpu_context(&ipipe_root, cpu)->status;
+#endif
 	atomic_inc(&init_mm.mm_count);
 	current->active_mm = &init_mm;
 

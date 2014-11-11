@@ -932,10 +932,17 @@ ret_from_except:
 	MTMSRD(r10)		/* disable interrupts */
 
 #ifdef CONFIG_IPIPE
+#ifdef CONFIG_IPIPE_LEGACY
         bl __ipipe_check_root
         cmpwi   r3, 0
 	mfmsr	r10		/* this is used later, might be messed */
         beq- restore
+#else	
+	CURRENT_THREAD_INFO(r9, r1)
+	lwz	r0,TI_IPIPE(r9)
+	andi.	r0,r0,_TIP_HEAD
+        bne-    restore
+#endif	
 #endif /* CONFIG_IPIPE */
 	lwz	r3,_MSR(r1)	/* Returning to user mode? */
 	andi.	r0,r3,MSR_PR

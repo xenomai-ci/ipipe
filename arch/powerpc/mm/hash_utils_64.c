@@ -1215,7 +1215,7 @@ void hash_preload(struct mm_struct *mm, unsigned long ea,
 	 * Hash doesn't like irqs. Walking linux page table with irq disabled
 	 * saves us from holding multiple locks.
 	 */
-	local_irq_save(flags);
+	flags = hard_local_irq_save();
 
 	/*
 	 * THP pages use update_mmu_cache_pmd. We don't do
@@ -1259,7 +1259,7 @@ void hash_preload(struct mm_struct *mm, unsigned long ea,
 				   mm->context.user_psize,
 				   pte_val(*ptep));
 out_exit:
-	local_irq_restore(flags);
+	hard_local_irq_restore(flags);
 }
 
 /* WARNING: This is called from hash_low_64.S, if you change this prototype,
@@ -1429,7 +1429,7 @@ void kernel_map_pages(struct page *page, int numpages, int enable)
 	unsigned long flags, vaddr, lmi;
 	int i;
 
-	local_irq_save(flags);
+	flags = hard_local_irq_save();
 	for (i = 0; i < numpages; i++, page++) {
 		vaddr = (unsigned long)page_address(page);
 		lmi = __pa(vaddr) >> PAGE_SHIFT;
@@ -1440,7 +1440,7 @@ void kernel_map_pages(struct page *page, int numpages, int enable)
 		else
 			kernel_unmap_linear_page(vaddr, lmi);
 	}
-	local_irq_restore(flags);
+	hard_local_irq_restore(flags);
 }
 #endif /* CONFIG_DEBUG_PAGEALLOC */
 
