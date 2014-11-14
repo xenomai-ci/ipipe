@@ -25,6 +25,7 @@
 #include <linux/ioport.h>
 #include <linux/io.h>
 #include <linux/ipipe_tickdev.h>
+#include <mach/hardware.h>
 #include "at91_ipipe.h"
 
 #define TCNXCNS(timer,v) ((v) << ((timer)<<1))
