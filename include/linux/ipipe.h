@@ -296,25 +296,7 @@ static inline struct ipipe_threadinfo *ipipe_current_threadinfo(void)
 
 #define ipipe_task_threadinfo(p) (&task_thread_info(p)->ipipe_data)
 
-static inline void ipipe_enable_irq(unsigned int irq)
-{
-	struct irq_desc *desc;
-	struct irq_chip *chip;
-
-	desc = irq_to_desc(irq);
-	if (desc == NULL)
-		return;
-
-	chip = irq_desc_get_chip(desc);
-
-	if (WARN_ON_ONCE(chip->irq_enable == NULL && chip->irq_unmask == NULL))
-		return;
-
-	if (chip->irq_enable)
-		chip->irq_enable(&desc->irq_data);
-	else
-		chip->irq_unmask(&desc->irq_data);
-}
+void ipipe_enable_irq(unsigned int irq);
 
 static inline void ipipe_disable_irq(unsigned int irq)
 {
