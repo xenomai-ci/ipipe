@@ -177,6 +177,9 @@ int irq_startup(struct irq_desc *desc, bool resend)
 		ret = desc->irq_data.chip->irq_startup(&desc->irq_data);
 		irq_state_clr_masked(desc);
 		hard_cond_local_irq_restore(flags);
+#ifdef CONFIG_IPIPE
+		desc->istate &= ~IPIPE_IRQS_NEEDS_STARTUP;
+#endif
 	} else {
 		irq_enable(desc);
 	}
@@ -189,9 +192,12 @@ void irq_shutdown(struct irq_desc *desc)
 {
 	irq_state_set_disabled(desc);
 	desc->depth = 1;
-	if (desc->irq_data.chip->irq_shutdown)
+	if (desc->irq_data.chip->irq_shutdown) {
 		desc->irq_data.chip->irq_shutdown(&desc->irq_data);
-	else if (desc->irq_data.chip->irq_disable)
+#ifdef CONFIG_IPIPE
+		desc->istate |= ~IPIPE_IRQS_NEEDS_STARTUP;
+#endif
+	} else if (desc->irq_data.chip->irq_disable)
 		desc->irq_data.chip->irq_disable(&desc->irq_data);
 	else
 		desc->irq_data.chip->irq_mask(&desc->irq_data);
@@ -443,7 +449,7 @@ static inline void preflow_handler(struct irq_desc *desc) { }
 #ifdef CONFIG_IPIPE
 static void cond_release_fasteoi_irq(struct irq_desc *desc)
 {
-	if (desc->irq_data.chip->irq_release && 
+	if (desc->irq_data.chip->irq_release &&
 	    !irqd_irq_disabled(&desc->irq_data) && !desc->threads_oneshot)
 		desc->irq_data.chip->irq_release(&desc->irq_data);
 }
@@ -697,7 +703,7 @@ void handle_percpu_devid_irq(unsigned int irq, struct irq_desc *desc)
 		chip->irq_eoi(&desc->irq_data);
 #else
 	if ((desc->percpu_enabled == NULL ||
-	     cpumask_test_cpu(smp_processor_id(), desc->percpu_enabled)) && 
+	     cpumask_test_cpu(smp_processor_id(), desc->percpu_enabled)) &&
 	    !irqd_irq_masked(&desc->irq_data) &&
 	    !desc->threads_oneshot &&
 	    desc->ipipe_end)
@@ -807,6 +813,42 @@ __fixup_irq_handler(struct irq_desc *desc, irq_flow_handler_t handle, int is_cha
 
 	return handle;
 }
+
+void ipipe_enable_irq(unsigned int irq)
+{
+	struct irq_desc *desc;
+	struct irq_chip *chip;
+	unsigned long flags;
+
+	desc = irq_to_desc(irq);
+	if (desc == NULL)
+		return;
+
+	chip = irq_desc_get_chip(desc);
+
+	if (chip->irq_startup && (desc->istate & IPIPE_IRQS_NEEDS_STARTUP)) {
+
+		ipipe_root_only();
+
+		raw_spin_lock_irqsave(&desc->lock, flags);
+		if (desc->istate & IPIPE_IRQS_NEEDS_STARTUP) {
+			desc->istate &= ~IPIPE_IRQS_NEEDS_STARTUP;
+			chip->irq_startup(&desc->irq_data);
+		}
+		raw_spin_unlock_irqrestore(&desc->lock, flags);
+
+		return;
+	}
+
+	if (WARN_ON_ONCE(chip->irq_enable == NULL && chip->irq_unmask == NULL))
+		return;
+
+	if (chip->irq_enable)
+		chip->irq_enable(&desc->irq_data);
+	else
+		chip->irq_unmask(&desc->irq_data);
+}
+EXPORT_SYMBOL_GPL(ipipe_enable_irq);
 
 #else /* !CONFIG_IPIPE */
 
