@@ -735,7 +735,7 @@ void handle_percpu_devid_irq(unsigned int irq, struct irq_desc *desc)
 		chip->irq_eoi(&desc->irq_data);
 #else
 	if ((desc->percpu_enabled == NULL ||
-	     cpumask_test_cpu(smp_processor_id(), desc->percpu_enabled)) && 
+	     cpumask_test_cpu(smp_processor_id(), desc->percpu_enabled)) &&
 	    !irqd_irq_masked(&desc->irq_data) &&
 	    !desc->threads_oneshot &&
 	    desc->ipipe_end)
