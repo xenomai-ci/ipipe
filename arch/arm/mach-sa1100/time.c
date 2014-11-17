@@ -36,7 +36,7 @@ static u64 notrace sa1100_read_sched_clock(void)
 #ifdef CONFIG_IPIPE
 static struct __ipipe_tscinfo tsc_info = {
 	.type = IPIPE_TSC_TYPE_FREERUNNING,
-	.freq = CLOCK_TICK_RATE,
+	.freq = SA1100_CLOCK_FREQ,
 	.counter_vaddr = io_p2v(0x90000010UL),
 	.u = {
 		{

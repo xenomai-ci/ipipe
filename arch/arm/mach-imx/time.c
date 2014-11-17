@@ -380,6 +380,7 @@ mxc_timer_init(void __iomem *base, unsigned long phys, int irq)
 
 void __init mxc_timer_init_dt(struct device_node *np)
 {
+	struct resource res;
 	void __iomem *base;
 	int irq;
 
@@ -387,5 +388,8 @@ void __init mxc_timer_init_dt(struct device_node *np)
 	WARN_ON(!base);
 	irq = irq_of_parse_and_map(np, 0);
 
-	mxc_timer_init(base, irq);
+	if (of_address_to_resource(np, 0, &res))
+	    res.start = 0;
+
+	mxc_timer_init(base, res.start, irq);
 }

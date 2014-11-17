@@ -843,7 +843,7 @@ static void gpio_mask_irq(struct irq_data *d)
 
 static void gpio_mask_ack_irq(struct irq_data *d)
 {
-	struct gpio_bank *bank = irq_data_get_irq_chip_data(d);
+	struct gpio_bank *bank = _irq_data_get_bank(d);
 	unsigned int gpio = irq_to_gpio(bank, d->hwirq);
 	unsigned long flags;
 
