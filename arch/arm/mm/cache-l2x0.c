@@ -280,7 +280,7 @@ static void __l2c210_cache_sync(void __iomem *base)
 }
 
 static void __l2c210_op_pa_range(void __iomem *reg, unsigned long start,
-	unsigned long end)
+				unsigned long end)
 {
 	while (start < end) {
 		writel_relaxed(start, reg);
@@ -291,9 +291,7 @@ static void __l2c210_op_pa_range(void __iomem *reg, unsigned long start,
 static void l2c210_inv_range(unsigned long start, unsigned long end)
 {
 	void __iomem *base = l2x0_base;
-	unsigned long flags;
 
-	raw_spin_lock_irqsave(&l2x0_lock, flags);
 	if (start & (CACHE_LINE_SIZE - 1)) {
 		start &= ~(CACHE_LINE_SIZE - 1);
 		writel_relaxed(start, base + L2X0_CLEAN_INV_LINE_PA);
@@ -304,12 +302,9 @@ static void l2c210_inv_range(unsigned long start, unsigned long end)
 		end &= ~(CACHE_LINE_SIZE - 1);
 		writel_relaxed(end, base + L2X0_CLEAN_INV_LINE_PA);
 	}
-	raw_spin_unlock_irqrestore(&l2x0_lock, flags);
 
-	raw_spin_lock_irqsave(&l2x0_lock, flags);
 	__l2c210_op_pa_range(base + L2X0_INV_LINE_PA, start, end);
 	__l2c210_cache_sync(base);
-	raw_spin_unlock_irqrestore(&l2x0_lock, flags);
 }
 
 static void l2c210_clean_range(unsigned long start, unsigned long end)
