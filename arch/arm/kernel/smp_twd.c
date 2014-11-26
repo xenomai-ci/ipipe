@@ -473,8 +473,8 @@ int __init twd_local_timer_register(struct twd_local_timer *tlt)
 
 
 	rc = twd_local_timer_common_register(NULL);
-	if (rc == 0)
 #ifdef CONFIG_IPIPE
+	if (rc == 0)
 		gt_setup(tlt->res[0].start - 0x400, 32);
 #endif
 
