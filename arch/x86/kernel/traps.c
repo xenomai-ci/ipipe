@@ -102,7 +102,16 @@ static inline void conditional_cli(struct pt_regs *regs)
 static inline void preempt_conditional_cli(struct pt_regs *regs)
 {
 	if (regs->flags & X86_EFLAGS_IF)
-		local_irq_disable();
+		/*
+		 * I-pipe doesn't virtualize the IRQ flags in the entry code.
+		 * Therefore we cannot call the original local_irq_disable here
+		 * because there will be no pairing IRQ enable for the root
+		 * domain. So just disable interrupts physically.
+		 *
+		 * There is also no I-pipe hard-irq tracing on return from the
+		 * exception, so do not trace here either.
+		 */
+		hard_local_irq_disable_notrace();
 	preempt_count_dec();
 }
 
