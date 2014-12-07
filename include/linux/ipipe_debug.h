@@ -90,9 +90,11 @@ static inline void ipipe_check_irqoff(void) { }
 #ifdef CONFIG_IPIPE_DEBUG_INTERNAL
 #define IPIPE_WARN(c)		WARN_ON(c)
 #define IPIPE_WARN_ONCE(c)	WARN_ON_ONCE(c)
+#define IPIPE_BUG_ON(c)		BUG_ON(c)
 #else
 #define IPIPE_WARN(c)		do { (void)(c); } while (0)
 #define IPIPE_WARN_ONCE(c)	do { (void)(c); } while (0)
+#define IPIPE_BUG_ON(c)		do { (void)(c); } while (0)
 #endif
 
 #endif /* !__LINUX_IPIPE_DEBUG_H */
