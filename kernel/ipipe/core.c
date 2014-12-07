@@ -1383,6 +1383,7 @@ void __ipipe_do_sync_stage(void)
 	int irq;
 
 	p = __ipipe_current_context;
+respin:
 	ipd = p->domain;
 
 	__set_bit(IPIPE_STALL_FLAG, &p->status);
@@ -1426,7 +1427,32 @@ void __ipipe_do_sync_stage(void)
 			hard_local_irq_disable();
 		}
 
+		/*
+		 * We may have migrated to a different CPU (1) upon
+		 * return from the handler, or downgraded from the
+		 * head domain to the root one (2), the opposite way
+		 * is NOT allowed though.
+		 *
+		 * (1) reload the current per-cpu context pointer, so
+		 * that we further pull pending interrupts from the
+		 * proper per-cpu log.
+		 *
+		 * (2) check the stall bit to know whether we may
+		 * dispatch any interrupt pending for the root domain,
+		 * and respin the entire dispatch loop if
+		 * so. Otherwise, immediately return to the caller,
+		 * _without_ affecting the stall state for the root
+		 * domain, since we do not own it at this stage.  This
+		 * case is basically reflecting what may happen in
+		 * dispatch_irq_head() for the fast path.
+		 */
 		p = __ipipe_current_context;
+		if (p->domain != ipd) {
+			IPIPE_BUG_ON(ipd == ipipe_root_domain);
+			if (test_bit(IPIPE_STALL_FLAG, &p->status))
+				return;
+			goto respin;
+		}
 	}
 
 	if (ipd == ipipe_root_domain)
