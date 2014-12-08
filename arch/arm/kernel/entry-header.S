@@ -195,7 +195,7 @@
 #ifdef CONFIG_IPIPE_DEBUG_INTERNAL
 	bl	__ipipe_bugon_irqs_enabled
 #endif
-#ifdef CONFIG_TRACE_IRQFLAGS
+#if defined(CONFIG_TRACE_IRQFLAGS) && !defined(CONFIG_IPIPE)
 	@ The parent context IRQs must have been enabled to get here in
 	@ the first place, so there's no point checking the PSR I bit.
 	bl	trace_hardirqs_on
@@ -285,7 +285,7 @@
 #ifdef CONFIG_IPIPE_DEBUG_INTERNAL
 	bl	__ipipe_bugon_irqs_enabled
 #endif
-#ifdef CONFIG_TRACE_IRQFLAGS
+#if defined(CONFIG_TRACE_IRQFLAGS) && !defined(CONFIG_IPIPE)
 	@ The parent context IRQs must have been enabled to get here in
 	@ the first place, so there's no point checking the PSR I bit.
 	bl	trace_hardirqs_on
