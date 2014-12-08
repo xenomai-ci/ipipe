@@ -1452,12 +1452,12 @@ ENTRY(\sym)
 #ifdef CONFIG_IPIPE
 	movq $\ex_code,%rdx
 	call __ipipe_handle_exception   /* handle(regs, error_code, ex_code) */
-	TRACE_IRQS_OFF
 	testl %eax, %eax
 	jz error_exit
 	movl %ebx,%eax
 	RESTORE_REST
 	DISABLE_INTERRUPTS(CLBR_NONE)
+	TRACE_IRQS_OFF
 	testl %eax,%eax
 	jne retint_noswapgs
 	jmp retint_swapgs_notrace
@@ -1539,12 +1539,12 @@ ENTRY(\sym)
 #ifdef CONFIG_IPIPE
 	movq $\ex_code,%rdx
 	call __ipipe_handle_exception   /* handle(regs, error_code, ex_code) */
-	TRACE_IRQS_OFF
 	testl %eax, %eax
 	jz error_exit
 	movl %ebx,%eax
 	RESTORE_REST
 	DISABLE_INTERRUPTS(CLBR_NONE)
+	TRACE_IRQS_OFF
 	testl %eax,%eax
 	jne retint_noswapgs
 	jmp retint_swapgs_notrace
