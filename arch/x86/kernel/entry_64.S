@@ -1485,9 +1485,9 @@ ENTRY(\sym)
 	.if \ex_code
 	movq $\ex_code,%rsi
 	call __ipipe_divert_exception   /* handle(regs, ex_code) */
-	TRACE_IRQS_OFF
 	testl %eax,%eax
 	jnz 1f
+	TRACE_IRQS_OFF
 	movq %rsp,%rdi
 	.endif
 #else
