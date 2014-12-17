@@ -652,6 +652,7 @@ GLOBAL(system_call_after_swapgs)
 	jz root_fastexit
 	testl $_TIP_MAYDAY,TI_ipipe+THREAD_INFO(%rsp,RIP-ARGOFFSET)
 	jz pipeline_leave
+	leaq -ARGOFFSET(%rsp),%rdi
 	call __ipipe_call_mayday
 	jmp pipeline_leave
 root_fastexit:
