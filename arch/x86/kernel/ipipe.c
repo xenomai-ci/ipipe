@@ -350,6 +350,7 @@ static __ex_handler __ipipe_std_extable[] = {
 
 int __ipipe_handle_exception(struct pt_regs *regs, long error_code, int vector)
 {
+	bool hard_irqs_off = hard_irqs_disabled();
 	bool root_entry = false;
 	unsigned long flags = 0;
 	unsigned long cr2 = 0;
@@ -373,10 +374,9 @@ int __ipipe_handle_exception(struct pt_regs *regs, long error_code, int vector)
 		/*
 		 * Replicate hw interrupt state into the virtual mask
 		 * before calling the I-pipe event handler over the
-		 * root domain. Also required later when calling the
-		 * Linux exception handler.
+		 * root domain.
 		 */
-		if (hard_irqs_disabled())
+		if (hard_irqs_off)
 			local_irq_disable();
 	}
 
@@ -392,6 +392,16 @@ int __ipipe_handle_exception(struct pt_regs *regs, long error_code, int vector)
 	}
 
 	if (likely(ipipe_root_p)) {
+		if (!root_entry) {
+			local_save_flags(flags);
+
+			/*
+			 * Sync Linux interrupt state with hardware state on
+			 * entry.
+			 */
+			if (hard_irqs_off)
+				local_irq_disable();
+		}
 		/*
 		 * If root is not the topmost domain or in case we faulted in
 		 * the iret path of x86-32, regs.flags does not match the root
@@ -400,8 +410,7 @@ int __ipipe_handle_exception(struct pt_regs *regs, long error_code, int vector)
 		 * state sampled on entry or, if we migrated to root, with the
 		 * current state.
 		 */
-		__fixup_if(root_entry ? raw_irqs_disabled_flags(flags) :
-					raw_irqs_disabled(), regs);
+		__fixup_if(raw_irqs_disabled_flags(flags), regs);
 	} else {
 		/* Detect unhandled faults over the head domain. */
 		struct ipipe_domain *ipd = ipipe_current_domain;
@@ -409,6 +418,10 @@ int __ipipe_handle_exception(struct pt_regs *regs, long error_code, int vector)
 		/* Switch to root so that Linux can handle the fault cleanly. */
 		hard_local_irq_disable();
 		__ipipe_set_current_domain(ipipe_root_domain);
+
+		/* Sync Linux interrupt state with hardware state on entry. */
+		if (hard_irqs_off)
+			local_irq_disable();
 
 		ipipe_trace_panic_freeze();
 
@@ -449,13 +462,14 @@ int __ipipe_handle_exception(struct pt_regs *regs, long error_code, int vector)
 
 int __ipipe_divert_exception(struct pt_regs *regs, int vector)
 {
+	bool hard_irqs_off = hard_irqs_disabled();
 	bool root_entry = false;
 	unsigned long flags = 0;
 
 	if (ipipe_root_p) {
 		root_entry = true;
 		local_save_flags(flags);
-		if (hard_irqs_disabled()) {
+		if (hard_irqs_off) {
 			/*
 			 * Same root state handling as in
 			 * __ipipe_handle_exception.
@@ -498,9 +512,14 @@ skip_kgdb:
 	}
 
 	/* see __ipipe_handle_exception */
-	if (likely(ipipe_root_p))
-		__fixup_if(root_entry ? raw_irqs_disabled_flags(flags) :
-					raw_irqs_disabled(), regs);
+	if (likely(ipipe_root_p)) {
+		if (!root_entry) {
+			local_save_flags(flags);
+			if (hard_irqs_off)
+				local_irq_disable();
+		}
+		__fixup_if(raw_irqs_disabled_flags(flags), regs);
+	}
 	/*
 	 * No need to restore root state in the 64-bit case, the Linux
 	 * handler and the return code will take care of it.
