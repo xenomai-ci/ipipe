@@ -93,7 +93,7 @@ static void (*__ipipe_cpu_sync) (void);
  */
 extern unsigned long __ipipe_root_status
 __attribute__((alias(__stringify(ipipe_percpu))));
-EXPORT_SYMBOL_GPL(__ipipe_root_status);
+EXPORT_SYMBOL(__ipipe_root_status);
 
 #endif /* !CONFIG_SMP */
 
