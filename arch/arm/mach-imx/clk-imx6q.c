@@ -273,6 +273,7 @@ static struct clk_div_table video_div_table[] = {
 int __init mx6q_clocks_init(void)
 {
 	struct device_node *np;
+	struct resource res;
 	void __iomem *base;
 	int i, irq;
 
@@ -575,14 +576,10 @@ int __init mx6q_clocks_init(void)
 	base = of_iomap(np, 0);
 	WARN_ON(!base);
 	irq = irq_of_parse_and_map(np, 0);
-	{
-		struct resource res;
+	if (of_address_to_resource(np, 0, &res))
+		BUG();
 
-		if (of_address_to_resource(np, 0, &res))
-			res.start = 0;
-
-		mxc_timer_init(base, res.start, irq);
-	}
+	mxc_timer_init(base, res.start, irq);
 
 	return 0;
 }
