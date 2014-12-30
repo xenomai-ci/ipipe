@@ -20,6 +20,7 @@
 #include <linux/clockchips.h>
 #include <linux/interrupt.h>
 #include <linux/io.h>
+#include <linux/ipipe.h>
 #include <linux/of_irq.h>
 #include <linux/of_address.h>
 #include <linux/ipipe_tickdev.h>
