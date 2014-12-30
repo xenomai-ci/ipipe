@@ -267,7 +267,7 @@ void __ipipe_legacy_init_stage(struct ipipe_domain *ipd)
 	}
 }
 
-notrace int __ipipe_check_root(void) /* hw IRQs off */
+notrace asmlinkage int __ipipe_check_root(void) /* hw IRQs off */
 {
 	return __ipipe_root_p;
 }
