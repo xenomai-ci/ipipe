@@ -46,7 +46,7 @@
 
 #include <linux/rbtree.h>
 
-static IPIPE_DEFINE_SPINLOCK(pgd_index_lock);
+static DEFINE_SPINLOCK(pgd_index_lock);
 static struct rb_root pgd_table = RB_ROOT;
 
 struct pgd_holder {
@@ -207,9 +207,9 @@ pgd_t *pgd_alloc(struct mm_struct *mm)
 	memcpy(new_pgd + USER_PTRS_PER_PGD, init_pgd + USER_PTRS_PER_PGD,
 		       (PTRS_PER_PGD - USER_PTRS_PER_PGD) * sizeof(pgd_t));
 
-	clean_dcache_area(new_pgd, PTRS_PER_PGD * sizeof(pgd_t));
 	pgd_holder_insert(h);
 	pgd_table_unlock(flags);
+	clean_dcache_area(new_pgd, PTRS_PER_PGD * sizeof(pgd_t));
 
 #ifdef CONFIG_ARM_LPAE
 	/*
