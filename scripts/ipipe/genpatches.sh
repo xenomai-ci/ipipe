@@ -83,8 +83,8 @@ BEGIN {
     driver_arch["dma/edma.c"]="arm"
     driver_arch["misc/Kconfig"]="arm"
     driver_arch["net/ethernet/cadence/at91_ether.c"]="arm"
-    driver_arch["staging/imx-drm/ipu-v3/ipu-common.c"]="arm"
-    driver_arch["staging/imx-drm/ipu-v3/ipu-prv.h"]="arm"
+    driver_arch["gpu/ipu-v3/ipu-common.c"]="arm"
+    driver_arch["gpu/ipu-v3/ipu-prv.h"]="arm"
 
     driver_arch["tty/serial/bfin_uart.c"]="blackfin"
 
