@@ -63,6 +63,7 @@ BEGIN {
     driver_arch["clk/mxs/clk-imx28.c"]="arm"
     driver_arch["clocksource/arm_arch_timer.c"]="arm"
     driver_arch["clocksource/mxs_timer.c"]="arm"
+    driver_arch["clocksource/arm_global_timer.c"]="arm"
     driver_arch["dma/edma.c"]="arm"
     driver_arch["gpio/gpio-davinci.c"]="arm"
     driver_arch["gpio/gpio-mxc.c"]="arm"
