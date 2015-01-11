@@ -735,7 +735,7 @@ ENTRY(ret_from_exception)
 #else /* !CONFIG_IPIPE_LEGACY */
 	get_thread_info tsk
 	ldr	r0, [tsk, #TI_IPIPE]
-	tst	r0, _TIP_HEAD
+	tst	r0, #_TIP_HEAD
  THUMB(	it eq)
 	beq	__ipipe_ret_to_user_irqs_disabled  @ Fast exit path over non-root domains
 #endif /* !CONFIG_IPIPE_LEGACY */

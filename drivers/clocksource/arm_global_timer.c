@@ -217,8 +217,12 @@ static void __init gt_clocksource_init(void)
 		.type = IPIPE_TSC_TYPE_FREERUNNING,
 		.freq = gt_clk_rate,
 		.counter_vaddr = (unsigned long)gt_base,
-		.u.counter_paddr = gt_pbase,
-		.u.mask = 0xffffffff,
+		.u = {
+			{
+				.counter_paddr = gt_pbase,
+				.mask = 0xffffffff,
+			}
+		},
 	};
 #endif
 
