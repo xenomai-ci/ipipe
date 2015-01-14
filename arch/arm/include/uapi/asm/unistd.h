@@ -420,21 +420,12 @@
 #define __ARM_NR_set_tls		(__ARM_NR_BASE+5)
 
 /*
-<<<<<<< HEAD
  * This SWI is IPIPE private, for dispatching syscalls to the head
  * domain.
  */
 #define __ARM_NR_ipipe			(__ARM_NR_BASE+66)
 
 /*
- * *NOTE*: This is a ghost syscall private to the kernel.  Only the
- * __kuser_cmpxchg code in entry-armv.S should be aware of its
- * existence.  Don't ever use this from user code.
- */
-
-/*
-=======
->>>>>>> v3.14.28
  * The following syscalls are obsolete and no longer available for EABI.
  */
 #if !defined(__KERNEL__)

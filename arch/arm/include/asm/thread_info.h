@@ -74,11 +74,6 @@ struct thread_info {
 	struct ipipe_threadinfo ipipe_data;
 
 	struct restart_block	restart_block;
-<<<<<<< HEAD
-
-	struct arm_restart_block	arm_restart_block;
-=======
->>>>>>> v3.14.28
 };
 
 #define INIT_THREAD_INFO(tsk)						\
