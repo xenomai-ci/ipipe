@@ -410,11 +410,6 @@
 #define __NR_sched_getattr		(__NR_SYSCALL_BASE+381)
 
 /*
- * This may need to be greater than __NR_last_syscall+1 in order to
- * account for the padding in the syscall table
- */
-
-/*
  * The following SWIs are ARM private.
  */
 #define __ARM_NR_BASE			(__NR_SYSCALL_BASE+0x0f0000)
@@ -425,6 +420,7 @@
 #define __ARM_NR_set_tls		(__ARM_NR_BASE+5)
 
 /*
+<<<<<<< HEAD
  * This SWI is IPIPE private, for dispatching syscalls to the head
  * domain.
  */
@@ -437,6 +433,8 @@
  */
 
 /*
+=======
+>>>>>>> v3.14.28
  * The following syscalls are obsolete and no longer available for EABI.
  */
 #if !defined(__KERNEL__)
