@@ -303,9 +303,9 @@ do {									\
 #define _this_cpu_generic_to_op(pcp, val, op)				\
 do {									\
 	unsigned long flags;						\
-	raw_local_irq_save(flags);					\
+	flags = hard_local_irq_save();					\
 	*raw_cpu_ptr(&(pcp)) op val;					\
-	raw_local_irq_restore(flags);					\
+	hard_local_irq_restore(flags);					\
 } while (0)
 
 #ifndef this_cpu_write
@@ -388,10 +388,10 @@ do {									\
 ({									\
 	typeof(pcp) ret__;						\
 	unsigned long flags;						\
-	raw_local_irq_save(flags);					\
-	raw_cpu_add(pcp, val);					\
+	flags = hard_local_irq_save();					\
+	raw_cpu_add(pcp, val);						\
 	ret__ = raw_cpu_read(pcp);					\
-	raw_local_irq_restore(flags);					\
+	hard_local_irq_restore(flags);					\
 	ret__;								\
 })
 
@@ -418,10 +418,10 @@ do {									\
 #define _this_cpu_generic_xchg(pcp, nval)				\
 ({	typeof(pcp) ret__;						\
 	unsigned long flags;						\
-	raw_local_irq_save(flags);					\
+	flags = hard_local_irq_save();					\
 	ret__ = raw_cpu_read(pcp);					\
 	raw_cpu_write(pcp, nval);					\
-	raw_local_irq_restore(flags);					\
+	hard_local_irq_restore(flags);					\
 	ret__;								\
 })
 
@@ -446,11 +446,11 @@ do {									\
 ({									\
 	typeof(pcp) ret__;						\
 	unsigned long flags;						\
-	raw_local_irq_save(flags);					\
+	flags = hard_local_irq_save();					\
 	ret__ = raw_cpu_read(pcp);					\
 	if (ret__ == (oval))						\
 		raw_cpu_write(pcp, nval);				\
-	raw_local_irq_restore(flags);					\
+	hard_local_irq_restore(flags);					\
 	ret__;								\
 })
 
@@ -483,10 +483,10 @@ do {									\
 ({									\
 	int ret__;							\
 	unsigned long flags;						\
-	raw_local_irq_save(flags);					\
+	flags = hard_local_irq_save();					\
 	ret__ = raw_cpu_generic_cmpxchg_double(pcp1, pcp2,		\
 			oval1, oval2, nval1, nval2);			\
-	raw_local_irq_restore(flags);					\
+	hard_local_irq_restore(flags);					\
 	ret__;								\
 })
 
