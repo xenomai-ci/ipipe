@@ -591,7 +591,6 @@ call_fpe:
 	adr	r6, .LCneon_arm_opcodes
 2:	ldr	r5, [r6], #4			@ mask value
 	ldr	r7, [r6], #4			@ opcode bits matching in mask
-	disable_irq_cond
 	cmp	r5, #0				@ end mask?
 	beq	1f
 	and	r8, r0, r5
@@ -602,8 +601,6 @@ call_fpe:
 	strb	r7, [r10, #TI_USED_CP + 11]	@ mark CP#11 as used
 	b	do_vfp				@ let VFP handler handle this
 1:
-#else
-	disable_irq_cond
 #endif
 	tst	r0, #0x08000000			@ only CDP/CPRT/LDC/STC have bit 27
 	tstne	r0, #0x04000000			@ bit 26 set on both ARM and Thumb-2

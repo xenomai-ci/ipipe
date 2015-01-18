@@ -26,6 +26,7 @@
 @
 ENTRY(do_vfp)
 	inc_preempt_count r10, r4
+	disable_irq_cond
  	ldr	r4, .LCvfp
 	ldr	r11, [r10, #TI_CPU]	@ CPU number
 	add	r10, r10, #TI_VFPSTATE	@ r10 = workspace
