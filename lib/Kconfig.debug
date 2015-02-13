@@ -1091,7 +1091,7 @@ menu "RCU Debugging"
 
 config PROVE_RCU
 	bool "RCU debugging: prove RCU correctness"
-	depends on PROVE_LOCKING
+	depends on PROVE_LOCKING && !IPIPE
 	default n
 	help
 	 This feature enables lockdep extensions that check for correct
