@@ -629,10 +629,10 @@ do_DataAbort(unsigned long addr, unsigned int fsr, struct pt_regs *regs)
 	if (!inf->fn(addr, fsr & ~FSR_LNX_PF, regs))
 		return;
 
-	irqflags = ipipe_fault_entry();
-
 	if (__ipipe_report_trap(IPIPE_TRAP_UNKNOWN, regs))
-		goto out;
+		return;
+
+	irqflags = ipipe_fault_entry();
 
 	printk(KERN_ALERT "Unhandled fault: %s (0x%03x) at 0x%08lx\n",
 		inf->name, fsr, addr);
@@ -642,7 +642,7 @@ do_DataAbort(unsigned long addr, unsigned int fsr, struct pt_regs *regs)
 	info.si_code  = inf->code;
 	info.si_addr  = (void __user *)addr;
 	arm_notify_die("", regs, &info, fsr, 0);
-out:
+
 	ipipe_fault_exit(irqflags);
 }
 
@@ -669,10 +669,10 @@ do_PrefetchAbort(unsigned long addr, unsigned int ifsr, struct pt_regs *regs)
 	if (!inf->fn(addr, ifsr | FSR_LNX_PF, regs))
 		return;
 
-	irqflags = ipipe_fault_entry();
-
 	if (__ipipe_report_trap(IPIPE_TRAP_UNKNOWN, regs))
-		goto out;
+		return;
+
+	irqflags = ipipe_fault_entry();
 
 	printk(KERN_ALERT "Unhandled prefetch abort: %s (0x%03x) at 0x%08lx\n",
 		inf->name, ifsr, addr);
@@ -682,7 +682,7 @@ do_PrefetchAbort(unsigned long addr, unsigned int ifsr, struct pt_regs *regs)
 	info.si_code  = inf->code;
 	info.si_addr  = (void __user *)addr;
 	arm_notify_die("", regs, &info, ifsr, 0);
-out:
+
 	ipipe_fault_exit(irqflags);
 }
 
