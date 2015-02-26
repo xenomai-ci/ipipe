@@ -43,7 +43,7 @@ static unsigned long change_pte_range(struct vm_area_struct *vma, pmd_t *pmd,
 	struct mm_struct *mm = vma->vm_mm;
 	pte_t *pte, oldpte;
 	spinlock_t *ptl;
-	unsigned long pages = 0;
+	unsigned long pages = 0, flags;
 
 	pte = pte_offset_map_lock(mm, pmd, addr, &ptl);
 	arch_enter_lazy_mmu_mode();
@@ -54,6 +54,7 @@ static unsigned long change_pte_range(struct vm_area_struct *vma, pmd_t *pmd,
 			bool updated = false;
 
 			if (!prot_numa) {
+				flags = hard_local_irq_save();
 				ptent = ptep_modify_prot_start(mm, addr, pte);
 				if (pte_numa(ptent))
 					ptent = pte_mknonnuma(ptent);
@@ -65,6 +66,7 @@ static unsigned long change_pte_range(struct vm_area_struct *vma, pmd_t *pmd,
 				if (dirty_accountable && pte_dirty(ptent))
 					ptent = pte_mkwrite(ptent);
 				ptep_modify_prot_commit(mm, addr, pte, ptent);
+				hard_local_irq_restore(flags);
 				updated = true;
 			} else {
 				struct page *page;
