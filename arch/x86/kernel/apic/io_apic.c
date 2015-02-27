@@ -2185,6 +2185,7 @@ static unsigned int startup_ioapic_irq(struct irq_data *data)
 			was_pending = 1;
 	}
 	__unmask_ioapic(data->chip_data);
+	ipipe_unlock_irq(irq);
 	raw_spin_unlock_irqrestore(&ioapic_lock, flags);
 
 	return was_pending;
