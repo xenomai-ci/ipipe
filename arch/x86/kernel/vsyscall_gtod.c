@@ -69,6 +69,6 @@ void update_vsyscall(struct timekeeper *tk)
 
 	gtod_write_end(vdata);
 
-	if (tk->clock == &clocksource_tsc)
+	if (tk->tkr.clock == &clocksource_tsc)
 		ipipe_update_hostrt(tk);
 }

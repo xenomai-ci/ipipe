@@ -111,7 +111,7 @@ void __ipipe_disable_irqdesc(struct ipipe_domain *ipd, unsigned int irq)
 
 static void __ipipe_do_IRQ(unsigned int irq, void *cookie)
 {
-	struct pt_regs *regs = __this_cpu_ptr(&ipipe_percpu.tick_regs);
+	struct pt_regs *regs = raw_cpu_ptr(&ipipe_percpu.tick_regs);
 	asm_do_IRQ(irq, regs);
 }
 

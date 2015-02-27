@@ -770,12 +770,14 @@ static inline void update_hostrt(struct timespec *wall_time, struct timespec *wt
 	 * timekeeper fields ipipe_update_hostrt() currently uses.
 	 */
 	struct timekeeper tk = {
-		.clock = clock,
-		.shift = clock->shift,
-		.mult = mult,
+		.tkr = {
+			.clock = clock,
+			.shift = clock->shift,
+			.mult = mult,
+			.xtime_nsec = (u64)wall_time->tv_nsec << shift,
+		},
 		.xtime_sec = wall_time->tv_sec,
-		.xtime_nsec = (u64)wall_time->tv_nsec << shift,
-		.wall_to_monotonic = *wtm,
+		.wall_to_monotonic = timespec_to_timespec64(*wtm),
 	};
 
 	ipipe_update_hostrt(&tk);

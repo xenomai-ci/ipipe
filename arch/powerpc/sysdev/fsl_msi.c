@@ -308,6 +308,13 @@ static irqreturn_t fsl_msi_cascade(int irq, void *data)
 	return ret;
 }
 
+#ifdef CONFIG_IPIPE
+static void __ipipe_msi_cascade(unsigned int irq, struct irq_desc *desc)
+{
+	fsl_msi_cascade(irq, irq_get_handler_data(irq));
+}
+#endif
+
 static int fsl_of_msi_remove(struct platform_device *ofdev)
 {
 	struct fsl_msi *msi = platform_get_drvdata(ofdev);
@@ -361,6 +368,10 @@ static int fsl_msi_setup_hwirq(struct fsl_msi *msi, struct platform_device *dev,
 	cascade_data->virq = virt_msir;
 	msi->cascade_array[irq_index] = cascade_data;
 
+#ifdef CONFIG_IPIPE
+	irq_set_chained_handler(virt_msir, __ipipe_msi_cascade);
+	irq_set_handler_data(cascade_data);
+#else	
 	ret = request_irq(virt_msir, fsl_msi_cascade, IRQF_NO_THREAD,
 			  "fsl-msi-cascade", cascade_data);
 	if (ret) {
@@ -368,6 +379,7 @@ static int fsl_msi_setup_hwirq(struct fsl_msi *msi, struct platform_device *dev,
 			virt_msir, ret);
 		return ret;
 	}
+#endif	
 
 	/* Release the hwirqs corresponding to this MSI register */
 	for (i = 0; i < IRQS_PER_MSI_REG; i++)

@@ -88,6 +88,8 @@ static inline int atomic_##op##_return(int i, atomic_t *v)		\
 	return ret;							\
 }
 
+#endif /* CONFIG_SMP */
+
 #ifndef atomic_add_return
 ATOMIC_OP_RETURN(add, +)
 #endif

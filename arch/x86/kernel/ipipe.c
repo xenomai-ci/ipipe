@@ -98,7 +98,7 @@ void __ipipe_do_IRQ(unsigned int irq, void *cookie)
 	void (*handler)(struct pt_regs *regs);
 	struct pt_regs *regs;
 
-	regs = __this_cpu_ptr(&ipipe_percpu.tick_regs);
+	regs = raw_cpu_ptr(&ipipe_percpu.tick_regs);
 	regs->orig_ax = ~__ipipe_get_irq_vector(irq);
 	handler = (typeof(handler))cookie;
 	__root_irq_trampoline(handler, regs);

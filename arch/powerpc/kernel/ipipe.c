@@ -220,7 +220,7 @@ void __ipipe_enable_pipeline(void)
 
 	/* First, intercept all interrupts from the root
 	 * domain. Regular Linux interrupt handlers will receive
-	 * __this_cpu_ptr(&ipipe_percpu.tick_regs) for external IRQs,
+	 * raw_cpu_ptr(&ipipe_percpu.tick_regs) for external IRQs,
 	 * whatever cookie is passed here.
 	 */
 	for (irq = 0; irq < NR_IRQS; irq++)
@@ -326,7 +326,7 @@ static void __ipipe_do_IRQ(unsigned int irq, void *cookie)
 	struct pt_regs *regs, *old_regs;
 
 	/* Any sensible register frame will do for non-timer IRQs. */
-	regs = __this_cpu_ptr(&ipipe_percpu.tick_regs);
+	regs = raw_cpu_ptr(&ipipe_percpu.tick_regs);
 	old_regs = set_irq_regs(regs);
 	___do_irq(irq, regs);
 	set_irq_regs(old_regs);
@@ -335,7 +335,7 @@ static void __ipipe_do_IRQ(unsigned int irq, void *cookie)
 static void __ipipe_do_timer(unsigned int irq, void *cookie)
 {
 	check_stack_overflow();
-	timer_interrupt(__this_cpu_ptr(&ipipe_percpu.tick_regs));
+	timer_interrupt(raw_cpu_ptr(&ipipe_percpu.tick_regs));
 }
 
 int __ipipe_grab_timer(struct pt_regs *regs)
@@ -349,7 +349,7 @@ int __ipipe_grab_timer(struct pt_regs *regs)
 
 	ipipe_trace_irq_entry(IPIPE_TIMER_VIRQ);
 
-	tick_regs = __this_cpu_ptr(&ipipe_percpu.tick_regs);
+	tick_regs = raw_cpu_ptr(&ipipe_percpu.tick_regs);
 	tick_regs->msr = regs->msr;
 	tick_regs->nip = regs->nip;
 	if (ipd != &ipipe_root)
@@ -380,7 +380,6 @@ EXPORT_SYMBOL_GPL(tasklist_lock);
 #ifdef CONFIG_PPC64
 EXPORT_PER_CPU_SYMBOL(ppc64_tlb_batch);
 EXPORT_SYMBOL_GPL(switch_slb);
-EXPORT_SYMBOL_GPL(switch_stab);
 EXPORT_SYMBOL_GPL(__flush_tlb_pending);
 EXPORT_SYMBOL_GPL(mmu_linear_psize);
 #else  /* !CONFIG_PPC64 */
