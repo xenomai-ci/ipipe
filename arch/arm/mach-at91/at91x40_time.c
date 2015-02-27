@@ -26,9 +26,9 @@
 #include <linux/io.h>
 #include <mach/hardware.h>
 #include <mach/at91x40.h>
+#include <mach/at91_ipipe.h>
 #include <asm/mach/time.h>
 
-#include "at91_ipipe.h"
 #include "at91_tc.h"
 
 #define at91_tc_read(field) \

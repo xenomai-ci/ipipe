@@ -128,7 +128,7 @@ static inline void __ipipe_nmi_enter(void)
 static inline void __ipipe_nmi_exit(void)
 {
 	ipipe_restore_context_nmi();
-	if (!test_bit(IPIPE_STALL_FLAG, __this_cpu_ptr(&ipipe_percpu.nmi_state)))
+	if (!test_bit(IPIPE_STALL_FLAG, raw_cpu_ptr(&ipipe_percpu.nmi_state)))
 		__clear_bit(IPIPE_STALL_FLAG, &__ipipe_root_status);
 }
 
@@ -137,7 +137,7 @@ static inline void __ipipe_enter_vm(struct ipipe_vm_notifier *vmf)
 {
 	struct ipipe_percpu_data *p;
 
-	p = __this_cpu_ptr(&ipipe_percpu);
+	p = raw_cpu_ptr(&ipipe_percpu);
 	p->vm_notifier = vmf;
 	barrier();
 }
@@ -146,7 +146,7 @@ static inline void __ipipe_exit_vm(void)
 {
 	struct ipipe_percpu_data *p;
 
-	p = __this_cpu_ptr(&ipipe_percpu);
+	p = raw_cpu_ptr(&ipipe_percpu);
 	p->vm_notifier = NULL;
 	barrier();
 }

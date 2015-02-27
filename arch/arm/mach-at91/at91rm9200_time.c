@@ -32,7 +32,7 @@
 
 #include <mach/at91_st.h>
 #include <mach/hardware.h>
-#include "at91_ipipe.h"
+#include <mach/at91_ipipe.h>
 
 static unsigned long last_crtr;
 static u32 irqmask;

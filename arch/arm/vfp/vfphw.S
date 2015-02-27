@@ -23,7 +23,7 @@
 #include <asm/asm-offsets.h>
 
 	.macro	DBGSTR, str
-#ifdef DEBUG
+#if defined(DEBUG)
 	stmfd	sp!, {r0-r3, ip, lr}
 	ldr	r0, =1f
 	bl	printk
@@ -37,7 +37,7 @@
 	.endm
 
 	.macro  DBGSTR1, str, arg
-#ifdef DEBUG
+#if defined(DEBUG)
 	stmfd	sp!, {r0-r3, ip, lr}
 	mov	r1, \arg
 	ldr	r0, =1f
@@ -52,7 +52,7 @@
 	.endm
 
 	.macro  DBGSTR3, str, arg1, arg2, arg3
-#ifdef DEBUG
+#if defined(DEBUG)
 	stmfd	sp!, {r0-r3, ip, lr}
 	mov	r3, \arg3
 	mov	r2, \arg2
@@ -106,6 +106,11 @@ ENTRY(vfp_support_entry)
 	@ thread wants ownership of the VFP hardware, save the old
 	@ state if there was a previous (valid) owner.
 
+	enable_irq
+#ifdef CONFIG_IPIPE
+	disable_irq
+	ldr	r4, [r3, r11, lsl #2]	@ reload vfp_current_hw_state pointer
+#endif
 	VFPFMXR	FPEXC, r5		@ enable VFP, disable any pending
 					@ exceptions, so we can get at the
 					@ rest of it
@@ -143,6 +148,15 @@ vfp_reload_hw:
 	beq	vfp_hw_state_valid
 
 vfp_reload_hw:
+	enable_irq
+#ifdef CONFIG_IPIPE
+	disable_irq
+	mrc     p15, 0, ip, c0, c0, 5  @ reload current CPU number
+	and	r11, ip, #255
+	ldr	r4, vfp_cpu_logical_map_address
+	ldr	r11, [r4, r11, lsl #2]
+#endif
+
 	@ We're loading this threads state into the VFP hardware. Update
 	@ the CPU number which contains the most up to date VFP context.
 	str	r11, [r10, #VFP_CPU]
@@ -184,7 +198,7 @@ vfp_hw_state_valid:
 					@ always subtract 4 from the following
 					@ instruction address.
 	dec_preempt_count_ti r10, r4
-	mov	pc, r9			@ we think we have handled things
+	ret	r9			@ we think we have handled things
 
 
 look_for_VFP_exceptions:
@@ -204,7 +218,7 @@ look_for_VFP_exceptions:
 	enable_irq_cond
 	DBGSTR	"not VFP"
 	dec_preempt_count_ti r10, r4
-	mov	pc, lr
+	ret	lr
 
 process_exception:
 	DBGSTR	"bounce"
@@ -236,18 +250,22 @@ ENTRY(vfp_save_state)
 	VFPFMRX	r12, FPINST2		@ FPINST2 if needed (and present)
 1:
 	stmia	r0, {r1, r2, r3, r12}	@ save FPEXC, FPSCR, FPINST, FPINST2
-	mov	pc, lr
+	ret	lr
 ENDPROC(vfp_save_state)
 
 	.align
 vfp_current_hw_state_address:
 	.word	vfp_current_hw_state
+#if defined(CONFIG_IPIPE) && defined(CONFIG_SMP)
+vfp_cpu_logical_map_address:
+	.word	__cpu_logical_map
+#endif
 
 	.macro	tbl_branch, base, tmp, shift
 #ifdef CONFIG_THUMB2_KERNEL
 	adr	\tmp, 1f
 	add	\tmp, \tmp, \base, lsl \shift
-	mov	pc, \tmp
+	ret	\tmp
 #else
 	add	pc, pc, \base, lsl \shift
 	mov	r0, r0
@@ -259,10 +277,10 @@ ENTRY(vfp_get_float)
 	tbl_branch r0, r3, #3
 	.irp	dr,0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15
 1:	mrc	p10, 0, r0, c\dr, c0, 0	@ fmrs	r0, s0
-	mov	pc, lr
+	ret	lr
 	.org	1b + 8
 1:	mrc	p10, 0, r0, c\dr, c0, 4	@ fmrs	r0, s1
-	mov	pc, lr
+	ret	lr
 	.org	1b + 8
 	.endr
 ENDPROC(vfp_get_float)
@@ -271,10 +289,10 @@ ENTRY(vfp_put_float)
 	tbl_branch r1, r3, #3
 	.irp	dr,0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15
 1:	mcr	p10, 0, r0, c\dr, c0, 0	@ fmsr	r0, s0
-	mov	pc, lr
+	ret	lr
 	.org	1b + 8
 1:	mcr	p10, 0, r0, c\dr, c0, 4	@ fmsr	r0, s1
-	mov	pc, lr
+	ret	lr
 	.org	1b + 8
 	.endr
 ENDPROC(vfp_put_float)
@@ -283,14 +301,14 @@ ENTRY(vfp_get_double)
 	tbl_branch r0, r3, #3
 	.irp	dr,0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15
 1:	fmrrd	r0, r1, d\dr
-	mov	pc, lr
+	ret	lr
 	.org	1b + 8
 	.endr
 #ifdef CONFIG_VFPv3
 	@ d16 - d31 registers
 	.irp	dr,0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15
 1:	mrrc	p11, 3, r0, r1, c\dr	@ fmrrd	r0, r1, d\dr
-	mov	pc, lr
+	ret	lr
 	.org	1b + 8
 	.endr
 #endif
@@ -298,21 +316,21 @@ ENTRY(vfp_get_double)
 	@ virtual register 16 (or 32 if VFPv3) for compare with zero
 	mov	r0, #0
 	mov	r1, #0
-	mov	pc, lr
+	ret	lr
 ENDPROC(vfp_get_double)
 
 ENTRY(vfp_put_double)
 	tbl_branch r2, r3, #3
 	.irp	dr,0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15
 1:	fmdrr	d\dr, r0, r1
-	mov	pc, lr
+	ret	lr
 	.org	1b + 8
 	.endr
 #ifdef CONFIG_VFPv3
 	@ d16 - d31 registers
 	.irp	dr,0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15
 1:	mcrr	p11, 3, r0, r1, c\dr	@ fmdrr	r0, r1, d\dr
-	mov	pc, lr
+	ret	lr
 	.org	1b + 8
 	.endr
 #endif

@@ -25,8 +25,9 @@
 #include <linux/ioport.h>
 #include <linux/io.h>
 #include <linux/ipipe_tickdev.h>
+#include <linux/platform_device.h>
 #include <mach/hardware.h>
-#include "at91_ipipe.h"
+#include <mach/at91_ipipe.h>
 
 #define TCNXCNS(timer,v) ((v) << ((timer)<<1))
 #define AT91_TC_REG_MASK (0xffff)
@@ -129,6 +130,7 @@ static int __init at91_ipipe_init(void)
 	unsigned long long wrap_ns;
 	unsigned index, block;
 	struct atmel_tc *tc;
+	struct resource	*r;
 	int tc_timer_clock;
 	unsigned short v;
 	int ret;
@@ -136,14 +138,15 @@ static int __init at91_ipipe_init(void)
 	index = CONFIG_IPIPE_AT91_TC % 3;
 	block = CONFIG_IPIPE_AT91_TC / 3;
 
-	tc = atmel_tc_alloc(block, "at91_ipipe");
+	tc = atmel_tc_alloc(block);
 	if (tc == NULL) {
 		printk(KERN_ERR "I-pipe: could not reserve TC block %d\n",
 			block);
 		return -ENODEV;
 	}
 	at91_tc_base = tc->regs;
-	at91_tc_pbase = tc->iomem->start;
+	r = platform_get_resource(tc->pdev, IORESOURCE_MEM, 0);
+	at91_tc_pbase = r->start;
 	at91_itimer.irq = tc->irq[index];
 
 	ret = clk_prepare_enable(tc->clk[index]);

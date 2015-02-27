@@ -1122,7 +1122,7 @@ static void complete_domain_migration(void) /* hw IRQs off */
 	struct task_struct *t;
 
 	ipipe_root_only();
-	pd = __this_cpu_ptr(&ipipe_percpu);
+	pd = raw_cpu_ptr(&ipipe_percpu);
 	t = pd->task_hijacked;
 	if (t == NULL)
 		return;

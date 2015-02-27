@@ -28,14 +28,17 @@
 
 #include <mach/hardware.h>
 #include <mach/at91_pio.h>
-#include "at91_ipipe.h"
+#include <mach/at91_ipipe.h>
 #ifdef CONFIG_IPIPE
 #include "at91_aic.h"
 #include <asm/irq.h>
 
+#ifdef CONFIG_OLD_IRQ_AT91
 static unsigned aic_root;
 static unsigned aic_muted;
+#endif /* CONFIG_OLD_IRQ_AT91 */
 #endif /* CONFIG_IPIPE */
+unsigned at91_aic;
 
 #include "generic.h"
 #include "gpio.h"
@@ -1008,10 +1011,7 @@ void __init at91_gpio_init(struct at91_gpio_bank *data, int nr_banks)
 }
 
 #if defined(CONFIG_IPIPE)
-extern unsigned long at91_aic_caps;
-#define AT91_AIC_CAP_AIC5	(1 << 0)
-#define has_aic5()		(at91_aic_caps & AT91_AIC_CAP_AIC5)
-
+#if defined(CONFIG_OLD_IRQ_AT91)
 static void at91_enable_irqdesc(struct ipipe_domain *ipd, unsigned irq)
 {
 	struct irq_desc *desc = irq_to_desc(irq);
@@ -1107,9 +1107,12 @@ void at91_pic_muter_register(void)
 		.unmute = at91_unmute_pic,
 	};
 
-	if (has_aic5())
-		return;
-
-	ipipe_pic_muter_register(&at91_pic_muter);
+	if (at91_aic)
+		ipipe_pic_muter_register(&at91_pic_muter);
 }
+#else /* ! defined(CONFIG_OLD_IRQ_AT91) */
+void at91_pic_muter_register(void)
+{
+}
+#endif /* ! defined(CONFIG_OLD_IRQ_AT91) */
 #endif /* CONFIG_IPIPE */

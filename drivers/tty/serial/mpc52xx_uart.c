@@ -1087,22 +1087,6 @@ mpc52xx_uart_start_tx(struct uart_port *port)
 }
 
 static void
-mpc52xx_uart_send_xchar(struct uart_port *port, char ch)
-{
-	unsigned long flags;
-	spin_lock_irqsave(&port->lock, flags);
-
-	port->x_char = ch;
-	if (ch) {
-		/* Make sure tx interrupts are on */
-		/* Truly necessary ??? They should be anyway */
-		psc_ops->start_tx(port);
-	}
-
-	spin_unlock_irqrestore(&port->lock, flags);
-}
-
-static void
 mpc52xx_uart_stop_rx(struct uart_port *port)
 {
 	/* port->lock taken by caller */
@@ -1361,7 +1345,6 @@ static struct uart_ops mpc52xx_uart_ops = {
 	.get_mctrl	= mpc52xx_uart_get_mctrl,
 	.stop_tx	= mpc52xx_uart_stop_tx,
 	.start_tx	= mpc52xx_uart_start_tx,
-	.send_xchar	= mpc52xx_uart_send_xchar,
 	.stop_rx	= mpc52xx_uart_stop_rx,
 	.enable_ms	= mpc52xx_uart_enable_ms,
 	.break_ctl	= mpc52xx_uart_break_ctl,
@@ -1894,40 +1877,6 @@ mpc52xx_uart_of_enumerate(void)
 				 mpc52xx_uart_nodes[i]->full_name, i);
 	}
 }
-
-#if defined(CONFIG_SERIAL_MPC52xx_CONSOLE) && defined(CONFIG_IPIPE_DEBUG)
-
-#include <stdarg.h>
-
-void __ipipe_serial_debug(const char *fmt, ...)
-{
-	struct uart_port *port = &mpc52xx_uart_ports[0];
-        unsigned int count, n;
-        unsigned long flags;
-        char buf[128], *s;
-        va_list ap;
-
-	if (psc_ops == NULL)
-		return;
-
-        va_start(ap, fmt);
-        vsprintf(buf, fmt, ap);
-        va_end(ap);
-        count = strlen(buf);
-
-        flags = hard_local_irq_save();
-
-	/* Write all the chars */
-	for (n = 0, s = buf; n < count; n++, s++) {
-		if (*s == '\n')
-			psc_ops->write_char(port, '\r');
-		psc_ops->write_char(port, *s);
-	}
-
-        hard_local_irq_restore(flags);
-}
-
-#endif
 
 MODULE_DEVICE_TABLE(of, mpc52xx_uart_of_match);
 

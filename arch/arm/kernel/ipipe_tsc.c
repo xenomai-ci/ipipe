@@ -192,7 +192,7 @@ EXPORT_SYMBOL(__ipipe_tsc_get);
 
 void update_vsyscall(struct timekeeper *tk)
 {
-	if (tk->clock == &clksrc)
+	if (tk->tkr.clock == &clksrc)
 		ipipe_update_hostrt(tk);
 }
 

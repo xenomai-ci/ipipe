@@ -30,7 +30,7 @@
 
 static inline int ipipe_disable_context_check(void)
 {
-	return xchg(__this_cpu_ptr(&ipipe_percpu.context_check), 0);
+	return xchg(raw_cpu_ptr(&ipipe_percpu.context_check), 0);
 }
 
 static inline void ipipe_restore_context_check(int old_state)

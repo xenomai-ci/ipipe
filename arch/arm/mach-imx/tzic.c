@@ -17,6 +17,7 @@
 #include <linux/io.h>
 #include <linux/irqdomain.h>
 #include <linux/of.h>
+#include <linux/of_address.h>
 
 #include <asm/mach/irq.h>
 #include <asm/exception.h>
@@ -177,13 +178,16 @@ void tzic_unmute_pic(void)
  * interrupts. It registers the interrupt enable and disable functions
  * to the kernel for each interrupt source.
  */
-void __init tzic_init_irq(void __iomem *irqbase)
+void __init tzic_init_irq(void)
 {
 	struct device_node *np;
 	int irq_base;
 	int i;
 
-	tzic_base = irqbase;
+	np = of_find_compatible_node(NULL, NULL, "fsl,tzic");
+	tzic_base = of_iomap(np, 0);
+	WARN_ON(!tzic_base);
+
 	/* put the TZIC into the reset value with
 	 * all interrupts disabled
 	 */
@@ -210,7 +214,6 @@ void __init tzic_init_irq(void __iomem *irqbase)
 	irq_base = irq_alloc_descs(-1, 0, TZIC_NUM_IRQS, numa_node_id());
 	WARN_ON(irq_base < 0);
 
-	np = of_find_compatible_node(NULL, NULL, "fsl,tzic");
 	domain = irq_domain_add_legacy(np, TZIC_NUM_IRQS, irq_base, 0,
 				       &irq_domain_simple_ops, NULL);
 	WARN_ON(!domain);

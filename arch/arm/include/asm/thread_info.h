@@ -14,9 +14,10 @@
 
 #include <linux/compiler.h>
 #include <asm/fpstate.h>
+#include <asm/page.h>
 
 #define THREAD_SIZE_ORDER	1
-#define THREAD_SIZE		8192
+#define THREAD_SIZE		(PAGE_SIZE << THREAD_SIZE_ORDER)
 #define THREAD_START_SP		(THREAD_SIZE - 8)
 
 #ifndef __ASSEMBLY__
@@ -42,16 +43,6 @@ struct cpu_context_save {
 	__u32	sp;
 	__u32	pc;
 	__u32	extra[2];		/* Xscale 'acc' register, etc */
-};
-
-struct arm_restart_block {
-	union {
-		/* For user cache flushing */
-		struct {
-			unsigned long start;
-			unsigned long end;
-		} cache;
-	};
 };
 
 /*
@@ -84,8 +75,6 @@ struct thread_info {
 	struct ipipe_threadinfo ipipe_data;
 
 	struct restart_block	restart_block;
-
-	struct arm_restart_block	arm_restart_block;
 };
 
 #define INIT_THREAD_INFO(tsk)						\

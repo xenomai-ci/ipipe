@@ -351,6 +351,31 @@ static bool irq_check_poll(struct irq_desc *desc)
 	return irq_wait_for_poll(desc);
 }
 
+static bool irq_may_run(struct irq_desc *desc)
+{
+	unsigned int mask = IRQD_IRQ_INPROGRESS | IRQD_WAKEUP_ARMED;
+
+	/*
+	 * If the interrupt is not in progress and is not an armed
+	 * wakeup interrupt, proceed.
+	 */
+	if (!irqd_has_set(&desc->irq_data, mask))
+		return true;
+
+	/*
+	 * If the interrupt is an armed wakeup source, mark it pending
+	 * and suspended, disable it and notify the pm core about the
+	 * event.
+	 */
+	if (irq_pm_check_wakeup(desc))
+		return false;
+
+	/*
+	 * Handle a potential concurrent poll on a different core.
+	 */
+	return irq_check_poll(desc);
+}
+
 /**
  *	handle_simple_irq - Simple and software-decoded IRQs.
  *	@irq:	the interrupt number
@@ -368,9 +393,8 @@ handle_simple_irq(unsigned int irq, struct irq_desc *desc)
 {
 	raw_spin_lock(&desc->lock);
 
-	if (unlikely(irqd_irq_inprogress(&desc->irq_data)))
-		if (!irq_check_poll(desc))
-			goto out_unlock;
+	if (!irq_may_run(desc))
+		goto out_unlock;
 
 	desc->istate &= ~(IRQS_REPLAY | IRQS_WAITING);
 	kstat_incr_irqs_this_cpu(irq, desc);
@@ -423,9 +447,8 @@ handle_level_irq(unsigned int irq, struct irq_desc *desc)
 	mask_ack_irq(desc);
 #endif
 
-	if (unlikely(irqd_irq_inprogress(&desc->irq_data)))
-		if (!irq_check_poll(desc))
-			goto out_unlock;
+	if (!irq_may_run(desc))
+		goto out_unlock;
 
 	desc->istate &= ~(IRQS_REPLAY | IRQS_WAITING);
 	kstat_incr_irqs_this_cpu(irq, desc);
@@ -506,9 +529,8 @@ handle_fasteoi_irq(unsigned int irq, struct irq_desc *desc)
 
 	raw_spin_lock(&desc->lock);
 
-	if (unlikely(irqd_irq_inprogress(&desc->irq_data)))
-		if (!irq_check_poll(desc))
-			goto out;
+	if (!irq_may_run(desc))
+		goto out;
 
 	desc->istate &= ~(IRQS_REPLAY | IRQS_WAITING);
 	kstat_incr_irqs_this_cpu(irq, desc);
@@ -547,6 +569,7 @@ out:
 		chip->irq_eoi(&desc->irq_data);
 	raw_spin_unlock(&desc->lock);
 }
+EXPORT_SYMBOL_GPL(handle_fasteoi_irq);
 
 /**
  *	handle_edge_irq - edge type IRQ handler
@@ -570,19 +593,23 @@ handle_edge_irq(unsigned int irq, struct irq_desc *desc)
 	raw_spin_lock(&desc->lock);
 
 	desc->istate &= ~(IRQS_REPLAY | IRQS_WAITING);
-	/*
-	 * If we're currently running this IRQ, or its disabled,
-	 * we shouldn't process the IRQ. Mark it pending, handle
-	 * the necessary masking and go out
-	 */
-	if (unlikely(irqd_irq_disabled(&desc->irq_data) ||
-		     irqd_irq_inprogress(&desc->irq_data) || !desc->action)) {
-		if (!irq_check_poll(desc)) {
-			desc->istate |= IRQS_PENDING;
-			mask_ack_irq(desc);
-			goto out_unlock;
-		}
+
+	if (!irq_may_run(desc)) {
+		desc->istate |= IRQS_PENDING;
+		mask_ack_irq(desc);
+		goto out_unlock;
 	}
+
+	/*
+	 * If its disabled or no action available then mask it and get
+	 * out of here.
+	 */
+	if (irqd_irq_disabled(&desc->irq_data) || !desc->action) {
+		desc->istate |= IRQS_PENDING;
+		mask_ack_irq(desc);
+		goto out_unlock;
+	}
+
 	kstat_incr_irqs_this_cpu(irq, desc);
 
 	/* Start handling the irq */
@@ -633,18 +660,21 @@ void handle_edge_eoi_irq(unsigned int irq, struct irq_desc *desc)
 	raw_spin_lock(&desc->lock);
 
 	desc->istate &= ~(IRQS_REPLAY | IRQS_WAITING);
-	/*
-	 * If we're currently running this IRQ, or its disabled,
-	 * we shouldn't process the IRQ. Mark it pending, handle
-	 * the necessary masking and go out
-	 */
-	if (unlikely(irqd_irq_disabled(&desc->irq_data) ||
-		     irqd_irq_inprogress(&desc->irq_data) || !desc->action)) {
-		if (!irq_check_poll(desc)) {
-			desc->istate |= IRQS_PENDING;
-			goto out_eoi;
-		}
+
+	if (!irq_may_run(desc)) {
+		desc->istate |= IRQS_PENDING;
+		goto out_eoi;
 	}
+
+	/*
+	 * If its disabled or no action available then mask it and get
+	 * out of here.
+	 */
+	if (irqd_irq_disabled(&desc->irq_data) || !desc->action) {
+		desc->istate |= IRQS_PENDING;
+		goto out_eoi;
+	}
+
 	kstat_incr_irqs_this_cpu(irq, desc);
 
 	do {
@@ -714,7 +744,7 @@ void handle_percpu_devid_irq(unsigned int irq, struct irq_desc *desc)
 {
 	struct irq_chip *chip = irq_desc_get_chip(desc);
 	struct irqaction *action = desc->action;
-	void *dev_id = __this_cpu_ptr(action->percpu_dev_id);
+	void *dev_id = raw_cpu_ptr(action->percpu_dev_id);
 	irqreturn_t res;
 
 	kstat_incr_irqs_this_cpu(irq, desc);

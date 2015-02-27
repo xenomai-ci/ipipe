@@ -211,6 +211,11 @@ notrace unsigned int __check_irq_replay(void)
 	}
 #endif /* CONFIG_PPC_BOOK3E */
 
+	/* Check if an hypervisor Maintenance interrupt happened */
+	local_paca->irq_happened &= ~PACA_IRQ_HMI;
+	if (happened & PACA_IRQ_HMI)
+		return 0xe60;
+
 	/* There should be nothing left ! */
 	BUG_ON(local_paca->irq_happened != 0);
 
@@ -385,6 +390,14 @@ int arch_show_interrupts(struct seq_file *p, int prec)
 		seq_printf(p, "%10u ", per_cpu(irq_stat, j).mce_exceptions);
 	seq_printf(p, "  Machine check exceptions\n");
 
+	if (cpu_has_feature(CPU_FTR_HVMODE)) {
+		seq_printf(p, "%*s: ", prec, "HMI");
+		for_each_online_cpu(j)
+			seq_printf(p, "%10u ",
+					per_cpu(irq_stat, j).hmi_exceptions);
+		seq_printf(p, "  Hypervisor Maintenance Interrupts\n");
+	}
+
 #ifdef CONFIG_PPC_DOORBELL
 	if (cpu_has_feature(CPU_FTR_DBELL)) {
 		seq_printf(p, "%*s: ", prec, "DBL");
@@ -408,6 +421,7 @@ u64 arch_irq_stat_cpu(unsigned int cpu)
 	sum += per_cpu(irq_stat, cpu).mce_exceptions;
 	sum += per_cpu(irq_stat, cpu).spurious_irqs;
 	sum += per_cpu(irq_stat, cpu).timer_irqs_others;
+	sum += per_cpu(irq_stat, cpu).hmi_exceptions;
 #ifdef CONFIG_PPC_DOORBELL
 	sum += per_cpu(irq_stat, cpu).doorbell_irqs;
 #endif
@@ -438,13 +452,13 @@ void migrate_irqs(void)
 
 		cpumask_and(mask, data->affinity, map);
 		if (cpumask_any(mask) >= nr_cpu_ids) {
-			printk("Breaking affinity for irq %i\n", irq);
+			pr_warn("Breaking affinity for irq %i\n", irq);
 			cpumask_copy(mask, map);
 		}
 		if (chip->irq_set_affinity)
 			chip->irq_set_affinity(data, mask, true);
 		else if (desc->action && !(warned++))
-			printk("Cannot set affinity for irq %i\n", irq);
+			pr_err("Cannot set affinity for irq %i\n", irq);
 	}
 
 	free_cpumask_var(mask);
@@ -461,11 +475,11 @@ void check_stack_overflow(void)
 {
 	long sp;
 
-	sp = __get_SP() & (THREAD_SIZE-1);
+	sp = current_stack_pointer() & (THREAD_SIZE-1);
 
 	/* check for stack overflow: is there less than 2KB free? */
 	if (unlikely(sp < (sizeof(struct thread_info) + 2048))) {
-		printk("do_IRQ: stack overflow: %ld\n",
+		pr_err("do_IRQ: stack overflow: %ld\n",
 			sp - sizeof(struct thread_info));
 		dump_stack();
 	}

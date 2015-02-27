@@ -473,19 +473,23 @@ unsigned ipipe_timer_ns2ticks(struct ipipe_timer *timer, unsigned ns)
  */
 void ipipe_update_hostrt(struct timekeeper *tk)
 {
+	struct tk_read_base *tkr = &tk->tkr;
+	struct clocksource *clock = tkr->clock;
 	struct ipipe_hostrt_data data;
 	struct timespec xt;
 
-	xt = tk_xtime(tk);
+	xt.tv_sec = tk->xtime_sec;
+	xt.tv_nsec = (long)(tkr->xtime_nsec >> tkr->shift);
 	ipipe_root_only();
 	data.live = 1;
-	data.cycle_last = tk->clock->cycle_last;
-	data.mask = tk->clock->mask;
-	data.mult = tk->mult;
-	data.shift = tk->shift;
+	data.cycle_last = tkr->cycle_last;
+	data.mask = clock->mask;
+	data.mult = tkr->mult;
+	data.shift = tkr->shift;
 	data.wall_time_sec = xt.tv_sec;
 	data.wall_time_nsec = xt.tv_nsec;
-	data.wall_to_monotonic = tk->wall_to_monotonic;
+	data.wall_to_monotonic.tv_sec = tk->wall_to_monotonic.tv_sec;
+	data.wall_to_monotonic.tv_nsec = tk->wall_to_monotonic.tv_nsec;
 	__ipipe_notify_kevent(IPIPE_KEVT_HOSTRT, &data);
 }
 

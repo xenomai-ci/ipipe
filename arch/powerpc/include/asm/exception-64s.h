@@ -438,6 +438,8 @@ label##_relon_hv:						\
 #define SOFTEN_VALUE_0xa00	PACA_IRQ_DBELL
 #define SOFTEN_VALUE_0xe80	PACA_IRQ_DBELL
 #define SOFTEN_VALUE_0xe82	PACA_IRQ_DBELL
+#define SOFTEN_VALUE_0xe60	PACA_IRQ_HMI
+#define SOFTEN_VALUE_0xe62	PACA_IRQ_HMI
 
 #ifdef CONFIG_IPIPE
 #define __SOFTEN_TEST(h, vec)
@@ -570,9 +572,12 @@ label##_relon_hv:							\
 #endif /* CONFIG_PPC_BOOK3E */
 .endm
 
-/* Exception addition: Hard disable interrupts */
+/*
+ * This addition reconciles our actual IRQ state with the various software
+ * flags that track it. This may call C code.
+ */
 #ifdef CONFIG_IPIPE
-#define DISABLE_INTS				\
+#define ADD_RECONCILE				\
 	ld	r10,PACAROOTPCPU(r13);		\
 	ld	r11,0(r10);			\
 	ori	r11,r11,1;			\
@@ -582,7 +587,7 @@ label##_relon_hv:							\
 	mtmsrd	r11,1;
 #define RECONCILE_IRQ_STATE(__rA, __rB)	HARD_DISABLE_INTS(__rA)
 #else /* !CONFIG_IPIPE */
-#define DISABLE_INTS		RECONCILE_IRQ_STATE(r10,r11)
+#define ADD_RECONCILE	RECONCILE_IRQ_STATE(r10,r11)
 #endif /* !CONFIG_IPIPE */
 
 #define ADD_NVGPRS				\
@@ -601,6 +606,7 @@ END_FTR_SECTION_IFSET(CPU_FTR_CTRL)
 	.globl label##_common;					\
 label##_common:							\
 	EXCEPTION_PROLOG_COMMON(trap, PACA_EXGEN);		\
+	/* Volatile regs are potentially clobbered here */	\
 	additions;						\
 	addi	r3,r1,STACK_FRAME_OVERHEAD;			\
 	bl	hdlr;						\
@@ -608,7 +614,7 @@ label##_common:							\
 
 #define STD_EXCEPTION_COMMON(trap, label, hdlr)			\
 	EXCEPTION_COMMON(trap, label, hdlr, ret_from_except,	\
-			 ADD_NVGPRS;DISABLE_INTS)
+			 ADD_NVGPRS;ADD_RECONCILE)
 
 /*
  * Like STD_EXCEPTION_COMMON, but for exceptions that can occur
@@ -629,7 +635,7 @@ label##_common:							\
 #else
 #define STD_EXCEPTION_COMMON_ASYNC(trap, label, hdlr)		  \
 	EXCEPTION_COMMON(trap, label, hdlr, ret_from_except_lite, \
-			 FINISH_NAP;DISABLE_INTS;RUNLATCH_ON)
+			 FINISH_NAP;ADD_RECONCILE;RUNLATCH_ON)
 #define DECREMENTER_EXCEPTION(trap, label, hdlr)		  \
 	STD_EXCEPTION_COMMON_ASYNC(trap, label, hdlr)
 #endif
