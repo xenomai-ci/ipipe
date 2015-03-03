@@ -517,6 +517,7 @@ sysenter_exit_fast:
 	jmp sysenter_exit
 sysenter_exit_root:
 	call __ipipe_root_sync
+	movl PT_EAX(%esp),%eax
 	jmp sysenter_exit_check
 #endif
 
