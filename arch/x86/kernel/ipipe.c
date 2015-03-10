@@ -435,7 +435,7 @@ int __ipipe_handle_exception(struct pt_regs *regs, long error_code, int vector)
 	 * Relevant for 64-bit: Restore root domain state as the low-level
 	 * return code will not align it to regs.flags.
 	 */
-	ipipe_restore_root_nosync(flags);
+	ipipe_restore_root(raw_irqs_disabled_flags(flags));
 
 	return 0;
 }
