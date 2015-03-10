@@ -351,7 +351,6 @@ static __ex_handler __ipipe_std_extable[] = {
 int __ipipe_handle_exception(struct pt_regs *regs, long error_code, int vector)
 {
 	bool hard_irqs_off = hard_irqs_disabled();
-	bool root_entry = false;
 	unsigned long flags = 0;
 	unsigned long cr2 = 0;
 
@@ -367,41 +366,23 @@ int __ipipe_handle_exception(struct pt_regs *regs, long error_code, int vector)
 	}
 #endif /* CONFIG_KGDB */
 
-	if (ipipe_root_p) {
-		root_entry = true;
-
-		local_save_flags(flags);
-		/*
-		 * Replicate hw interrupt state into the virtual mask
-		 * before calling the I-pipe event handler over the
-		 * root domain.
-		 */
-		if (hard_irqs_off)
-			local_irq_disable();
-	}
-
 	/*
 	 * XXX: We don't trace page faults (yet?). */
 	if (vector == ex_do_page_fault)
 		cr2 = native_read_cr2();
 
-	if (unlikely(__ipipe_notify_trap(vector, regs))) {
-		if (root_entry)
-			ipipe_restore_root_nosync(flags);
+	if (unlikely(__ipipe_notify_trap(vector, regs)))
 		return 1;
-	}
 
 	if (likely(ipipe_root_p)) {
-		if (!root_entry) {
-			local_save_flags(flags);
+		local_save_flags(flags);
 
-			/*
-			 * Sync Linux interrupt state with hardware state on
-			 * entry.
-			 */
-			if (hard_irqs_off)
-				local_irq_disable();
-		}
+		/*
+		 * Sync Linux interrupt state with hardware state on
+		 * entry.
+		 */
+		if (hard_irqs_off)
+			local_irq_disable();
 		/*
 		 * If root is not the topmost domain or in case we faulted in
 		 * the iret path of x86-32, regs.flags does not match the root
@@ -454,8 +435,7 @@ int __ipipe_handle_exception(struct pt_regs *regs, long error_code, int vector)
 	 * Relevant for 64-bit: Restore root domain state as the low-level
 	 * return code will not align it to regs.flags.
 	 */
-	if (root_entry)
-		ipipe_restore_root_nosync(flags);
+	ipipe_restore_root_nosync(flags);
 
 	return 0;
 }
@@ -463,20 +443,8 @@ int __ipipe_handle_exception(struct pt_regs *regs, long error_code, int vector)
 int __ipipe_divert_exception(struct pt_regs *regs, int vector)
 {
 	bool hard_irqs_off = hard_irqs_disabled();
-	bool root_entry = false;
 	unsigned long flags = 0;
 
-	if (ipipe_root_p) {
-		root_entry = true;
-		local_save_flags(flags);
-		if (hard_irqs_off) {
-			/*
-			 * Same root state handling as in
-			 * __ipipe_handle_exception.
-			 */
-			local_irq_disable();
-		}
-	}
 #ifdef CONFIG_KGDB
 	/*
 	 * Catch int1 and int3 for kgdb here. They may trigger over
@@ -492,32 +460,20 @@ int __ipipe_divert_exception(struct pt_regs *regs, int vector)
 			get_debugreg(condition, 6);
 		}
 		if (!user_mode(regs) &&
-		    !kgdb_handle_exception(vector, SIGTRAP, condition, regs)) {
-			if (root_entry) {
-				ipipe_restore_root_nosync(flags);
-				__fixup_if(root_entry ?
-					   raw_irqs_disabled_flags(flags) :
-					   raw_irqs_disabled(), regs);
-			}
+		    !kgdb_handle_exception(vector, SIGTRAP, condition, regs))
 			return 1;
-		}
 	}
 skip_kgdb:
 #endif /* CONFIG_KGDB */
 
-	if (unlikely(__ipipe_notify_trap(vector, regs))) {
-		if (root_entry)
-			ipipe_restore_root_nosync(flags);
+	if (unlikely(__ipipe_notify_trap(vector, regs)))
 		return 1;
-	}
 
 	/* see __ipipe_handle_exception */
 	if (likely(ipipe_root_p)) {
-		if (!root_entry) {
-			local_save_flags(flags);
-			if (hard_irqs_off)
-				local_irq_disable();
-		}
+		local_save_flags(flags);
+		if (hard_irqs_off)
+			local_irq_disable();
 		__fixup_if(raw_irqs_disabled_flags(flags), regs);
 	}
 	/*
