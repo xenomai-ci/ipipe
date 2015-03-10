@@ -351,7 +351,7 @@ static __ex_handler __ipipe_std_extable[] = {
 int __ipipe_handle_exception(struct pt_regs *regs, long error_code, int vector)
 {
 	bool hard_irqs_off = hard_irqs_disabled();
-	unsigned long flags = 0;
+	unsigned long reg_flags, flags = 0;
 	unsigned long cr2 = 0;
 
 #ifdef CONFIG_KGDB
@@ -373,6 +373,8 @@ int __ipipe_handle_exception(struct pt_regs *regs, long error_code, int vector)
 
 	if (unlikely(__ipipe_notify_trap(vector, regs)))
 		return 1;
+
+	reg_flags = regs->flags;
 
 	if (likely(ipipe_root_p)) {
 		local_save_flags(flags);
@@ -436,6 +438,7 @@ int __ipipe_handle_exception(struct pt_regs *regs, long error_code, int vector)
 	 * return code will not align it to regs.flags.
 	 */
 	ipipe_restore_root(raw_irqs_disabled_flags(flags));
+	__fixup_if(raw_irqs_disabled_flags(reg_flags), regs);
 
 	return 0;
 }
@@ -474,6 +477,8 @@ skip_kgdb:
 		local_save_flags(flags);
 		if (hard_irqs_off)
 			local_irq_disable();
+		WARN_ON_ONCE(raw_irqs_disabled_flags(flags) &&
+			     ipipe_head_domain != ipipe_root_domain);
 		__fixup_if(raw_irqs_disabled_flags(flags), regs);
 	}
 	/*
