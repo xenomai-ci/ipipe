@@ -388,10 +388,8 @@ int __ipipe_handle_exception(struct pt_regs *regs, long error_code, int vector)
 		/*
 		 * If root is not the topmost domain or in case we faulted in
 		 * the iret path of x86-32, regs.flags does not match the root
-		 * domain state. The fault handler or the low-level return
-		 * code may evaluate it. So fix this up, either by the root
-		 * state sampled on entry or, if we migrated to root, with the
-		 * current state.
+		 * domain state. The fault handler may evaluate it. So fix this
+		 * up with the current state.
 		 */
 		__fixup_if(raw_irqs_disabled_flags(flags), regs);
 	} else {
@@ -434,8 +432,8 @@ int __ipipe_handle_exception(struct pt_regs *regs, long error_code, int vector)
 	__ipipe_std_extable[vector](regs, error_code);
 
 	/*
-	 * Relevant for 64-bit: Restore root domain state as the low-level
-	 * return code will not align it to regs.flags.
+	 * Restore root domain state as the low-level return code will not
+	 * align it to regs->flags.
 	 */
 	ipipe_restore_root(raw_irqs_disabled_flags(flags));
 	__fixup_if(raw_irqs_disabled_flags(reg_flags), regs);
@@ -482,8 +480,9 @@ skip_kgdb:
 		__fixup_if(raw_irqs_disabled_flags(flags), regs);
 	}
 	/*
-	 * No need to restore root state in the 64-bit case, the Linux
-	 * handler and the return code will take care of it.
+	 * We should restore the root state after calling the Linux handler
+	 * but, in all cases which are not fatal to the system anyway, the
+	 * handler will re-enable interrupts anyway and therefore save us.
 	 */
 
 	return 0;
