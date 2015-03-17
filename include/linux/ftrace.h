@@ -104,6 +104,15 @@ enum {
 	FTRACE_OPS_FL_IPIPE_EXCLUSIVE		= 1 << 9,
 };
 
+#ifdef CONFIG_DYNAMIC_FTRACE
+/* The hash used to know what functions callbacks trace */
+struct ftrace_ops_hash {
+	struct ftrace_hash		*notrace_hash;
+	struct ftrace_hash		*filter_hash;
+	struct mutex			regex_lock;
+};
+#endif
+
 /*
  * Note, ftrace_ops can be referenced outside of RCU protection.
  * (Although, for perf, the control ops prevent that). If ftrace_ops is
@@ -122,8 +131,8 @@ struct ftrace_ops {
 	int __percpu			*disabled;
 	void				*private;
 #ifdef CONFIG_DYNAMIC_FTRACE
-	struct ftrace_hash		*notrace_hash;
-	struct ftrace_hash		*filter_hash;
+	struct ftrace_ops_hash		local_hash;
+	struct ftrace_ops_hash		*func_hash;
 	struct mutex			regex_lock;
 #endif
 };
