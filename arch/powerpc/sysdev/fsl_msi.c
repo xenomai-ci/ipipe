@@ -348,7 +348,7 @@ static int fsl_msi_setup_hwirq(struct fsl_msi *msi, struct platform_device *dev,
 			       int offset, int irq_index)
 {
 	struct fsl_msi_cascade_data *cascade_data = NULL;
-	int virt_msir, i, ret;
+	int virt_msir, i;
 
 	virt_msir = irq_of_parse_and_map(dev->dev.of_node, irq_index);
 	if (virt_msir == NO_IRQ) {
@@ -370,7 +370,7 @@ static int fsl_msi_setup_hwirq(struct fsl_msi *msi, struct platform_device *dev,
 
 #ifdef CONFIG_IPIPE
 	irq_set_chained_handler(virt_msir, __ipipe_msi_cascade);
-	irq_set_handler_data(cascade_data);
+	irq_set_handler_data(virt_msir, cascade_data);
 #else	
 	ret = request_irq(virt_msir, fsl_msi_cascade, IRQF_NO_THREAD,
 			  "fsl-msi-cascade", cascade_data);

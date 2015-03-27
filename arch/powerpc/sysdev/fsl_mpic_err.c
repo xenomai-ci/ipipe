@@ -147,7 +147,6 @@ static void __ipipe_error_cascade(unsigned int irq, struct irq_desc *desc)
 void mpic_err_int_init(struct mpic *mpic, irq_hw_number_t irqnum)
 {
 	unsigned int virq;
-	int ret;
 
 	virq = irq_create_mapping(mpic->irqhost, irqnum);
 	if (virq == NO_IRQ) {
@@ -160,7 +159,7 @@ void mpic_err_int_init(struct mpic *mpic, irq_hw_number_t irqnum)
 
 #ifdef CONFIG_IPIPE
 	irq_set_chained_handler(virq, __ipipe_error_cascade);
-	irq_set_handler_data(mpic);
+	irq_set_handler_data(virq, mpic);
 #else	
 	ret = request_irq(virq, fsl_error_int_handler, IRQF_NO_THREAD,
 		    "mpic-error-int", mpic);

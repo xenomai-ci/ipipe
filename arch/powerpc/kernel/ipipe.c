@@ -83,7 +83,7 @@ static void __ipipe_ipi_demux(int irq, struct pt_regs *regs)
 
 	desc->ipipe_ack(irq, desc);
 
-	kstat_incr_irqs_this_cpu(irq, desc);
+	kstat_incr_irq_this_cpu(irq);
 
 	while (per_cpu(ipipe_ipi_message, cpu).value & IPIPE_MSG_IPI_MASK) {
 		for (ipi = IPIPE_MSG_CRITICAL_IPI; ipi <= IPIPE_MSG_RESCHEDULE_IPI; ++ipi) {
