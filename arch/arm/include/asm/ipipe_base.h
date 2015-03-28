@@ -55,7 +55,7 @@ extern unsigned __ipipe_first_ipi;
 				      : "=r" (cpunum));			\
 		cpunum &= 0xFF;						\
 	})
-extern u32 *__cpu_reverse_map[];
+extern u32 __cpu_reverse_map[];
 #define ipipe_processor_id()  (__cpu_reverse_map[hard_smp_processor_id()])
 
 #else /* !legacy */

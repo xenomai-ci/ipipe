@@ -491,9 +491,13 @@ void notrace cpu_init(void)
 #endif
 }
 
-u32 __cpu_logical_map[NR_CPUS] = { [0 ... NR_CPUS-1] = MPIDR_INVALID };
+u32 __cpu_logical_map[16] = { [0 ... 15] = MPIDR_INVALID };
+#if NR_CPUS > 16
+u32 __cpu_reverse_map[NR_CPUS] = { [0 ... NR_CPUS-1] = MPIDR_INVALID };
+#else
+u32 __cpu_reverse_map[16] = { [0 ... 15] = MPIDR_INVALID };
+#endif
 
-u32 *__cpu_reverse_map;
 EXPORT_SYMBOL(__cpu_reverse_map);
 
 void __init smp_setup_processor_id(void)
@@ -507,16 +511,13 @@ void __init smp_setup_processor_id(void)
 	/* printk on I-pipe needs per cpu data */
 	set_my_cpu_offset(per_cpu_offset(0));
 #endif
+	BUG_ON(max > ARRAY_SIZE(__cpu_reverse_map));
 
 	cpu_logical_map(0) = cpu;
 	for (i = 1; i < nr_cpu_ids; ++i)
 		cpu_logical_map(i) = i == cpu ? 0 : i;
 
-	__cpu_reverse_map = kmalloc(max * sizeof(*__cpu_reverse_map),
-				GFP_KERNEL);
-	BUG_ON(!__cpu_reverse_map);
-
-	for (i = 1; i < nr_cpu_ids; i++)
+	for (i = 0; i < nr_cpu_ids; ++i)
 		__cpu_reverse_map[cpu_logical_map(i)] = i;
 
 	/*
