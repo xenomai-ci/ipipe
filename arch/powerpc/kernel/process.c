@@ -636,8 +636,10 @@ void tm_recheckpoint(struct thread_struct *thread,
 	 * change and later in the trecheckpoint code, we have a userspace R1.
 	 * So let's hard disable over this region.
 	 */
-	local_irq_save(flags);
+	flags = hard_local_irq_save();
+#ifndef CONFIG_IPIPE
 	hard_irq_disable();
+#endif
 
 	/* The TM SPRs are restored here, so that TEXASR.FS can be set
 	 * before the trecheckpoint and no explosion occurs.
@@ -646,7 +648,7 @@ void tm_recheckpoint(struct thread_struct *thread,
 
 	__tm_recheckpoint(thread, orig_msr);
 
-	local_irq_restore(flags);
+	hard_local_irq_restore(flags);
 }
 
 static inline void tm_recheckpoint_new_task(struct task_struct *new)
@@ -888,7 +890,9 @@ struct task_struct *__switch_to(struct task_struct *prev,
 	 * window where the kernel stack SLB and the kernel stack are out
 	 * of sync. Hard disable here.
 	 */
+#ifndef CONFIG_IPIPE
 	hard_irq_disable();
+#endif
 
 	tm_recheckpoint_new_task(new);
 
