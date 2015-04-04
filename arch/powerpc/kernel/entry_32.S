@@ -182,26 +182,11 @@ transfer_to_handler:
 2:	/* if from kernel, check interrupted DOZE/NAP mode and
          * check for stack overflow
          */
+#ifndef CONFIG_IPIPE_LEGACY	
 	lwz	r9,KSP_LIMIT(r12)
-#ifdef CONFIG_IPIPE
-	/*
-	 * Allow for private kernel-based stacks: those must not cause
-	 * the stack overflow detection to trigger when some activity has
-	 * been preempted over them. We just check if the kernel stack is
-	 * not treading on the memory area ranging from
-	 * &current->thread_info to &current->thread, which is coarser
-	 * than the vanilla implementation, but likely sensitive enough
-	 * to catch overflows soon enough though.
-	 */
-	addi	 r12,r9,THREAD
-	cmplw 0,r1,r9
-	cmplw 1,r1,r12
-	crand 1,1,4
-	bgt-  stack_ovf		/* if r9 < r1 < r9+THREAD */
-#else /* CONFIG_IPIPE */
 	cmplw	r1,r9			/* if r1 <= ksp_limit */
 	ble-	stack_ovf		/* then the kernel stack overflowed */
-#endif /* CONFIG_IPIPE */
+#endif	
 5:
 #if defined(CONFIG_6xx) || defined(CONFIG_E500)
 	CURRENT_THREAD_INFO(r9, r1)

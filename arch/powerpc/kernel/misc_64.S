@@ -29,7 +29,7 @@
 
 	.text
 
-#ifdef CONFIG_IRQSTACKS
+#ifndef CONFIG_IPIPE
 _GLOBAL(call_do_softirq)
 	mflr	r0
 	std	r0,16(r1)

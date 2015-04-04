@@ -525,9 +525,9 @@ void __do_irq(struct pt_regs *regs)
 void do_IRQ(struct pt_regs *regs)
 {
 	struct pt_regs *old_regs = set_irq_regs(regs);
-#ifdef CONFIG_IPIPE_LEGACY
+#ifdef CONFIG_IPIPE
 	__do_irq(regs);
-#else /* !CONFIG_IPIPE_LEGACY */
+#else /* !CONFIG_IPIPE */
 	struct thread_info *curtp, *irqtp, *sirqtp;
 
 	/* Switch to the irq stack to handle this */
@@ -558,7 +558,7 @@ void do_IRQ(struct pt_regs *regs)
 	/* Copy back updates to the thread_info */
 	if (irqtp->flags)
 		set_bits(irqtp->flags, &curtp->flags);
-#endif /* !CONFIG_IPIPE_LEGACY */
+#endif /* !CONFIG_IPIPE */
 
 	set_irq_regs(old_regs);
 }
@@ -570,9 +570,7 @@ void __init init_IRQ(void)
 
 	exc_lvl_ctx_init();
 
-#ifdef CONFIG_IRQSTACKS
 	irq_ctx_init();
-#endif
 }
 
 #if defined(CONFIG_BOOKE) || defined(CONFIG_40x)
@@ -616,7 +614,19 @@ void exc_lvl_ctx_init(void)
 }
 #endif
 
-#ifdef CONFIG_IRQSTACKS
+#ifdef CONFIG_IPIPE
+
+/* We don't switch stacks when the pipeline is enabled. */
+
+void irq_ctx_init(void) { }
+
+void do_softirq_own_stack(void)
+{
+	__do_softirq();
+}
+
+#else  /* !CONFIG_IPIPE */
+
 struct thread_info *softirq_ctx[NR_CPUS] __read_mostly;
 struct thread_info *hardirq_ctx[NR_CPUS] __read_mostly;
 
@@ -654,14 +664,7 @@ void do_softirq_own_stack(void)
 		set_bits(irqtp->flags, &curtp->flags);
 }
 
-#else  /* !CONFIG_IRQSTACKS */
-
-void do_softirq_own_stack(void)
-{
-	__do_softirq();
-}
-
-#endif  /* !CONFIG_IRQSTACKS */
+#endif  /* !CONFIG_IPIPE */
 
 irq_hw_number_t virq_to_hw(unsigned int virq)
 {
