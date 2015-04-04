@@ -368,28 +368,20 @@ void __ipipe_pin_range_globally(unsigned long start, unsigned long end)
 	/* We don't support this. */
 }
 
+EXPORT_SYMBOL_GPL(show_stack);
+EXPORT_SYMBOL_GPL(_switch);
 #ifndef CONFIG_SMP
 EXPORT_SYMBOL_GPL(last_task_used_math);
 #endif
-
-EXPORT_SYMBOL_GPL(do_munmap);
-EXPORT_SYMBOL_GPL(__switch_to);
-EXPORT_SYMBOL_GPL(show_stack);
-EXPORT_SYMBOL_GPL(_switch);
-EXPORT_SYMBOL_GPL(tasklist_lock);
+#ifdef CONFIG_IPIPE_LEGACY
 #ifdef CONFIG_PPC64
 EXPORT_PER_CPU_SYMBOL(ppc64_tlb_batch);
 EXPORT_SYMBOL_GPL(switch_slb);
 EXPORT_SYMBOL_GPL(__flush_tlb_pending);
-EXPORT_SYMBOL_GPL(mmu_linear_psize);
 #else  /* !CONFIG_PPC64 */
 void atomic_set_mask(unsigned long mask, unsigned long *ptr);
 void atomic_clear_mask(unsigned long mask, unsigned long *ptr);
-#ifdef FEW_CONTEXTS
-EXPORT_SYMBOL_GPL(nr_free_contexts);
-EXPORT_SYMBOL_GPL(context_mm);
-EXPORT_SYMBOL_GPL(steal_context);
-#endif	/* !FEW_CONTEXTS */
 EXPORT_SYMBOL_GPL(atomic_set_mask);
 EXPORT_SYMBOL_GPL(atomic_clear_mask);
 #endif	/* !CONFIG_PPC64 */
+#endif /* !CONFIG_IPIPE_LEGACY */
