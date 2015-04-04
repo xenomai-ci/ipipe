@@ -1240,10 +1240,6 @@ _GLOBAL(_mcount)
 	blr
 
 _GLOBAL_TOC(ftrace_caller)
-        LOAD_REG_IMMEDIATE(r3, function_trace_stop)
-        lwz     r3, 0(r3)
-        cmpwi   r3, 0
-        bne     ftrace_stub
 	/* Taken from output of objdump from lib64/glibc */
 	mflr	r3
 	ld	r11, 0(r1)
@@ -1268,10 +1264,6 @@ _GLOBAL(ftrace_stub)
 	blr
 #else
 _GLOBAL_TOC(_mcount)
-        LOAD_REG_IMMEDIATE(r3, function_trace_stop)
-        lwz     r3, 0(r3)
-        cmpwi   r3, 0
-        bne     ftrace_stub
 	/* Taken from output of objdump from lib64/glibc */
 	mflr	r3
 	ld	r11, 0(r1)
