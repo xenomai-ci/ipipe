@@ -308,12 +308,12 @@ static irqreturn_t fsl_msi_cascade(int irq, void *data)
 	return ret;
 }
 
-#ifdef CONFIG_IPIPE
 static void __ipipe_msi_cascade(unsigned int irq, struct irq_desc *desc)
 {
+#ifdef CONFIG_IPIPE
 	fsl_msi_cascade(irq, irq_get_handler_data(irq));
-}
 #endif
+}
 
 static int fsl_of_msi_remove(struct platform_device *ofdev)
 {
@@ -348,7 +348,7 @@ static int fsl_msi_setup_hwirq(struct fsl_msi *msi, struct platform_device *dev,
 			       int offset, int irq_index)
 {
 	struct fsl_msi_cascade_data *cascade_data = NULL;
-	int virt_msir, i;
+	int virt_msir, i, ret;
 
 	virt_msir = irq_of_parse_and_map(dev->dev.of_node, irq_index);
 	if (virt_msir == NO_IRQ) {
@@ -368,18 +368,18 @@ static int fsl_msi_setup_hwirq(struct fsl_msi *msi, struct platform_device *dev,
 	cascade_data->virq = virt_msir;
 	msi->cascade_array[irq_index] = cascade_data;
 
-#ifdef CONFIG_IPIPE
-	irq_set_chained_handler(virt_msir, __ipipe_msi_cascade);
-	irq_set_handler_data(virt_msir, cascade_data);
-#else	
-	ret = request_irq(virt_msir, fsl_msi_cascade, IRQF_NO_THREAD,
-			  "fsl-msi-cascade", cascade_data);
-	if (ret) {
-		dev_err(&dev->dev, "failed to request_irq(%d), ret = %d\n",
-			virt_msir, ret);
-		return ret;
+	if (IS_ENABLED(CONFIG_IPIPE)) {
+		irq_set_chained_handler(virt_msir, __ipipe_msi_cascade);
+		irq_set_handler_data(virt_msir, cascade_data);
+	} else {
+		ret = request_irq(virt_msir, fsl_msi_cascade, IRQF_NO_THREAD,
+				  "fsl-msi-cascade", cascade_data);
+		if (ret) {
+			dev_err(&dev->dev, "failed to request_irq(%d), ret = %d\n",
+				virt_msir, ret);
+			return ret;
+		}
 	}
-#endif	
 
 	/* Release the hwirqs corresponding to this MSI register */
 	for (i = 0; i < IRQS_PER_MSI_REG; i++)

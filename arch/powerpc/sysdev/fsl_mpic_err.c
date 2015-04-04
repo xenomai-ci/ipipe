@@ -137,16 +137,17 @@ static irqreturn_t fsl_error_int_handler(int irq, void *data)
 	return IRQ_HANDLED;
 }
 
-#ifdef CONFIG_IPIPE
 static void __ipipe_error_cascade(unsigned int irq, struct irq_desc *desc)
 {
+#ifdef CONFIG_IPIPE
 	fsl_error_int_handler(irq, irq_get_handler_data(irq));
-}
 #endif
+}
 
 void mpic_err_int_init(struct mpic *mpic, irq_hw_number_t irqnum)
 {
 	unsigned int virq;
+	int ret;
 
 	virq = irq_create_mapping(mpic->irqhost, irqnum);
 	if (virq == NO_IRQ) {
@@ -157,13 +158,13 @@ void mpic_err_int_init(struct mpic *mpic, irq_hw_number_t irqnum)
 	/* Mask all error interrupts */
 	mpic_fsl_err_write(mpic->err_regs, ~0);
 
-#ifdef CONFIG_IPIPE
-	irq_set_chained_handler(virq, __ipipe_error_cascade);
-	irq_set_handler_data(virq, mpic);
-#else	
-	ret = request_irq(virq, fsl_error_int_handler, IRQF_NO_THREAD,
-		    "mpic-error-int", mpic);
-	if (ret)
-		pr_err("Failed to register error interrupt handler\n");
-#endif
+	if (IS_ENABLED(CONFIG_IPIPE)) {
+		irq_set_chained_handler(virq, __ipipe_error_cascade);
+		irq_set_handler_data(virq, mpic);
+	} else {
+		ret = request_irq(virq, fsl_error_int_handler, IRQF_NO_THREAD,
+				  "mpic-error-int", mpic);
+		if (ret)
+			pr_err("Failed to register error interrupt handler\n");
+	}
 }
