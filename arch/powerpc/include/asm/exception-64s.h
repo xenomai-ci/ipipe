@@ -585,7 +585,7 @@ label##_relon_hv:							\
 	mfmsr	r11;				\
 	ori	r11,r11,MSR_EE;			\
 	mtmsrd	r11,1;
-#define RECONCILE_IRQ_STATE(__rA, __rB)	HARD_DISABLE_INTS(__rA)
+#define RECONCILE_IRQ_STATE(__rA, __rB)	HARD_DISABLE_INTS __rA
 #else /* !CONFIG_IPIPE */
 #define ADD_RECONCILE	RECONCILE_IRQ_STATE(r10,r11)
 #endif /* !CONFIG_IPIPE */
