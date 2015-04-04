@@ -1461,6 +1461,29 @@ int get_unalign_ctl(struct task_struct *tsk, unsigned long adr)
 	return put_user(tsk->thread.align_ctl, (unsigned int __user *)adr);
 }
 
+#ifdef CONFIG_IPIPE
+
+int validate_sp(unsigned long sp, struct task_struct *p,
+		       unsigned long nbytes)
+{
+	unsigned long stack_page = (unsigned long)task_stack_page(p);
+
+	/*
+	 * We can't always know the bounds of the current stack when
+	 * built in legacy mode due to potentially foreign stack
+	 * contexts, so let's pretend the stack pointer is fine
+	 * in this case.
+	 */
+	if (IS_ENABLED(CONFIG_IPIPE_LEGACY) ||
+	    (sp >= stack_page + sizeof(struct thread_struct)
+	     && sp <= stack_page + THREAD_SIZE - nbytes))
+		return 1;
+
+	return 0;
+}
+
+#else /* !CONFIG_IPIPE */
+
 static inline int valid_irq_stack(unsigned long sp, struct task_struct *p,
 				  unsigned long nbytes)
 {
@@ -1485,7 +1508,6 @@ static inline int valid_irq_stack(unsigned long sp, struct task_struct *p,
 	return 0;
 }
 
-#ifdef CONFIG_IRQSTACKS
 int validate_sp(unsigned long sp, struct task_struct *p,
 		       unsigned long nbytes)
 {
@@ -1497,13 +1519,8 @@ int validate_sp(unsigned long sp, struct task_struct *p,
 
 	return valid_irq_stack(sp, p, nbytes);
 }
-#else
-int validate_sp(unsigned long sp, struct task_struct *p,
-		       unsigned long nbytes)
-{
-	return 0;
-}
-#endif
+
+#endif /* !CONFIG_IPIPE */
 
 EXPORT_SYMBOL(validate_sp);
 

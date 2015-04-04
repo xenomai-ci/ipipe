@@ -40,7 +40,7 @@
  * We store the saved ksp_limit in the unused part
  * of the STACK_FRAME_OVERHEAD
  */
-#ifdef CONFIG_IRQSTACKS
+#ifndef CONFIG_IPIPE
 _GLOBAL(call_do_softirq)
 	mflr	r0
 	stw	r0,4(r1)
