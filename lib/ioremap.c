@@ -88,9 +88,9 @@ int ioremap_page_range(unsigned long addr,
 			break;
 	} while (pgd++, addr = next, addr != end);
 
-	/* APEI may invoke this for temporarily remapping pages in IRQ or NMI
+	/* APEI may invoke this for temporarily remapping pages in interrupt
 	 * context - nothing we can and need to propagate globally. */
-	if (!(in_irq() || in_nmi())) {
+	if (!in_interrupt()) {
 		__ipipe_pin_range_globally(start, end);
 		flush_cache_vmap(start, end);
 	}
