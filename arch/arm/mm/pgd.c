@@ -73,7 +73,12 @@ static inline struct pgd_holder *pgd_holder_alloc(pgd_t *pgd)
 	return h;
 }
 
-static inline void pgd_holder_insert(struct pgd_holder *h)
+static inline void pgd_holder_drop(struct pgd_holder *h)
+{
+	kfree(h);
+}
+
+static inline int pgd_holder_insert(struct pgd_holder *h)
 {
 	struct rb_node **rbp = &pgd_table.rb_node, *parent = NULL;
 	struct pgd_holder *p;
@@ -84,13 +89,16 @@ static inline void pgd_holder_insert(struct pgd_holder *h)
 		if ((unsigned long)h->pgd < (unsigned long)p->pgd)
 			rbp = &(*rbp)->rb_left;
 		else {
-			BUG_ON(h->pgd == p->pgd);
+			if (h->pgd == p->pgd)
+				return 0;
 			rbp = &(*rbp)->rb_right;
 		}
 	}
 
   	rb_link_node(&h->rb, parent, rbp);
   	rb_insert_color(&h->rb, &pgd_table);
+
+	return 1;
 }
 
 static inline void pgd_holder_free(pgd_t *pgd)
@@ -110,14 +118,12 @@ static inline void pgd_holder_free(pgd_t *pgd)
 		else {
 			rb_erase(node, &pgd_table);
 			pgd_table_unlock(flags);
-			kfree(p);
+			pgd_holder_drop(p);
 			return;
 		}
 	}
 
 	pgd_table_unlock(flags);
-
-	BUG();
 }
 
 static void pin_k_mapping(pgd_t *pgd, unsigned long addr)
@@ -174,7 +180,9 @@ static inline struct pgd_holder *pgd_holder_alloc(pgd_t *pgd)
 	return NULL;
 }
 
-static inline void pgd_holder_insert(struct pgd_holder *h) { }
+static inline void pgd_holder_drop(struct pgd_holder *h) { }
+
+static inline int pgd_holder_insert(struct pgd_holder *h) { return 1; }
 
 static inline void pgd_holder_free(pgd_t *pgd) { }
 
@@ -191,6 +199,7 @@ pgd_t *pgd_alloc(struct mm_struct *mm)
 	pte_t *new_pte, *init_pte;
 	struct pgd_holder *h;
 	unsigned long flags;
+	int ret;
 
 	new_pgd = __pgd_alloc();
 	if (!new_pgd)
@@ -207,8 +216,10 @@ pgd_t *pgd_alloc(struct mm_struct *mm)
 	memcpy(new_pgd + USER_PTRS_PER_PGD, init_pgd + USER_PTRS_PER_PGD,
 		       (PTRS_PER_PGD - USER_PTRS_PER_PGD) * sizeof(pgd_t));
 
-	pgd_holder_insert(h);
+	ret = pgd_holder_insert(h);
 	pgd_table_unlock(flags);
+	if (!ret)
+		pgd_holder_drop(h);
 	clean_dcache_area(new_pgd, PTRS_PER_PGD * sizeof(pgd_t));
 
 #ifdef CONFIG_ARM_LPAE
