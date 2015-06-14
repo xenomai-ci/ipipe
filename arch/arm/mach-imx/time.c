@@ -368,7 +368,6 @@ static void __init _mxc_timer_init(int irq,
 	mxc_clocksource_init(clk_per);
 #ifdef CONFIG_IPIPE
 	if (num_online_cpus() == 1) {
-		tsc_info.freq = clk_get_rate(clk_per);
 		unsigned long phys = timer_base_phys;
 		unsigned long virt = (unsigned long)timer_base;
 
@@ -379,6 +378,7 @@ static void __init _mxc_timer_init(int irq,
 			tsc_info.u.counter_paddr = phys + V2_TCN;
 			tsc_info.counter_vaddr = virt + V2_TCN;
 		}
+		tsc_info.freq = clk_get_rate(clk_per);
 		__ipipe_tsc_register(&tsc_info);
 	}
 
