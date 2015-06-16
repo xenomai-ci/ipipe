@@ -252,16 +252,7 @@ static inline void update_function_graph_func(void) { }
 
 static void update_ftrace_function(void)
 {
-	struct ftrace_ops *ops;
 	ftrace_func_t func;
-
-	for (ops = ftrace_ops_list;
-	     ops != &ftrace_list_end; ops = ops->next)
-		if (ops->flags & FTRACE_OPS_FL_IPIPE_EXCLUSIVE) {
-			function_trace_op = ops;
-			ftrace_trace_function = ops->func;
-			return;
-		}
 
 	/*
 	 * Prepare the ftrace_ops that the arch callback will use.
