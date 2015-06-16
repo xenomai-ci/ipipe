@@ -1711,7 +1711,7 @@ int notrace __ipipe_check_percpu_access(void)
 	 */
 	if (this_domain == ipipe_root_domain) {
 		p = raw_cpu_ptr(&ipipe_percpu.root);
-		if (test_bit(IPIPE_STALL_FLAG, &p->status))
+		if (test_bit(IPIPE_STALL_FLAG, &p->status) || preempt_count())
 			goto out;
 	}
 	/*
