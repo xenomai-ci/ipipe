@@ -128,27 +128,36 @@ static inline void pgd_holder_free(pgd_t *pgd)
 
 static void pin_k_mapping(pgd_t *pgd, unsigned long addr)
 {
-	unsigned int index = pgd_index(addr);
+	unsigned int index;
 	pud_t *pud, *pud_k;
 	pmd_t *pmd, *pmd_k;
 	pgd_t *pgd_k;
 
+	index = pgd_index(addr);
 	pgd += index;
 	pgd_k = init_mm.pgd + index;
 
+	if (pgd_none(*pgd_k))
+		return;
+	
 	if (!pgd_present(*pgd))
 		set_pgd(pgd, *pgd_k);
 
 	pud = pud_offset(pgd, addr);
 	pud_k = pud_offset(pgd_k, addr);
 
+	if (pud_none(*pud_k))
+		return;
+	
 	if (!pud_present(*pud))
 		set_pud(pud, *pud_k);
 
-	pmd   = pmd_offset(pud, addr);
+	pmd = pmd_offset(pud, addr);
 	pmd_k = pmd_offset(pud_k, addr);
 
-	copy_pmd(pmd, pmd_k);
+	index = IS_ENABLED(ARM_LPAE) ? 0 : (addr >> SECTION_SHIFT) & 1;
+	if (!pmd_none(pmd_k[index]))
+		copy_pmd(pmd, pmd_k);
 }
 
 void __ipipe_pin_range_globally(unsigned long start, unsigned long end)
