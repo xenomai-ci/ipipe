@@ -2689,8 +2689,7 @@ static __always_inline void trace_recursive_unlock(void)
 	flags = hard_local_irq_save();
 
 	val = __this_cpu_read(current_context);
-	val--;
-	val &= __this_cpu_read(current_context);
+	val &= val & (val - 1);
 	__this_cpu_write(current_context, val);
 
 	hard_local_irq_restore(flags);
