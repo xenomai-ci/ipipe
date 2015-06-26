@@ -111,6 +111,7 @@ struct ipipe_trap_data {
 #define IPIPE_KEVT_HOSTRT	6
 #define IPIPE_KEVT_CLOCKFREQ	7
 #define IPIPE_KEVT_USERINTRET	8
+#define IPIPE_KEVT_PTRESUME	9
 
 struct ipipe_vm_notifier {
 	void (*handler)(struct ipipe_vm_notifier *nfy);
@@ -234,6 +235,21 @@ do {									\
 #define __ipipe_report_clockfreq_update(freq)				\
 	__ipipe_notify_kevent(IPIPE_KEVT_CLOCKFREQ, &(freq))
 
+struct ipipe_ptrace_resume_data {
+	struct task_struct *task;
+	long request;
+};
+
+#define __ipipe_report_ptrace_resume(__p, __request)			\
+	do {								\
+		struct ipipe_ptrace_resume_data d = {			\
+			.task = (__p),					\
+			.request = (__request),				\
+		};							\
+		if (ipipe_notifier_enabled_p(__p))			\
+			__ipipe_notify_kevent(IPIPE_KEVT_PTRESUME, &d); \
+	} while (0)
+
 void __ipipe_notify_vm_preemption(void);
 
 void __ipipe_call_mayday(struct pt_regs *regs);
@@ -309,6 +325,9 @@ static inline void __ipipe_report_setsched(struct task_struct *p) { }
 static inline void __ipipe_report_exit(struct task_struct *p) { }
 
 static inline void __ipipe_report_cleanup(struct mm_struct *mm) { }
+
+static inline void __ipipe_report_ptrace_resume(struct task_struct *p,
+						long request) { }
 
 #define __ipipe_report_trap(exception, regs)  0
 
