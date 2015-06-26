@@ -417,6 +417,18 @@ extern void __ipipe_uaccess_might_fault(void);
 #define __ipipe_uaccess_might_fault() might_fault()
 #endif
 
+#define ipipe_enable_user_intret_notifier()				\
+	do {								\
+		ipipe_set_thread_flag(TIP_USERINTRET);			\
+		set_tsk_thread_flag(current, TIF_NOTIFY_RESUME);	\
+	} while (0)
+
+#define ipipe_disable_user_intret_notifier()				\
+	ipipe_clear_thread_flag(TIP_USERINTRET)
+
+#define ipipe_user_intret_notifier_enabled(ti)				\
+	ipipe_test_ti_thread_flag(ti, TIP_USERINTRET)
+
 #ifdef CONFIG_IPIPE_TRACE
 void __ipipe_tracer_hrclock_initialized(void);
 #else /* !CONFIG_IPIPE_TRACE */
@@ -464,6 +476,8 @@ static inline int ipipe_handle_syscall(struct thread_info *ti,
 {
 	return 0;
 }
+
+#define ipipe_user_intret_notifier_enabled(ti)	0
 
 #endif	/* !CONFIG_IPIPE */
 
