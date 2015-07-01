@@ -45,13 +45,16 @@
  */
 
 #include <linux/rbtree.h>
+#include <linux/list.h>
 
 static DEFINE_SPINLOCK(pgd_index_lock);
 static struct rb_root pgd_table = RB_ROOT;
+static LIST_HEAD(pgd_list);
 
 struct pgd_holder {
 	pgd_t *pgd;
 	struct rb_node rb;
+	struct list_head next;
 };
 
 #define pgd_table_lock(__flags)		\
@@ -97,6 +100,7 @@ static inline int pgd_holder_insert(struct pgd_holder *h)
 
   	rb_link_node(&h->rb, parent, rbp);
   	rb_insert_color(&h->rb, &pgd_table);
+	list_add(&h->next, &pgd_list);
 
 	return 1;
 }
@@ -117,6 +121,7 @@ static inline void pgd_holder_free(pgd_t *pgd)
 			node = node->rb_right;
 		else {
 			rb_erase(node, &pgd_table);
+			list_del(&p->next);
 			pgd_table_unlock(flags);
 			pgd_holder_drop(p);
 			return;
@@ -153,21 +158,21 @@ static void pin_k_mapping(pgd_t *pgd, unsigned long addr)
 
 void __ipipe_pin_range_globally(unsigned long start, unsigned long end)
 {
-	unsigned long next, addr = start;
+	unsigned long next, addr;
 	struct pgd_holder *h;
 	unsigned long flags;
-	struct rb_node *rb;
 
-	do {
-		next = pgd_addr_end(addr, end);
-		pgd_table_lock(flags);
-		for (rb = rb_first(&pgd_table); rb; rb = rb_next(rb)) {
-			h = rb_entry(rb, struct pgd_holder, rb);
+	pgd_table_lock(flags);
+
+	list_for_each_entry(h, &pgd_list, next) {
+		addr = start;
+		do {
+			next = pgd_addr_end(addr, end);
 			pin_k_mapping(h->pgd, addr);
-		}
-		pgd_table_unlock(flags);
+		} while (addr = next, addr != end);
+	}
 
-	} while (addr = next, addr != end);
+	pgd_table_unlock(flags);
 }
 
 #else  /* !CONFIG_IPIPE */
