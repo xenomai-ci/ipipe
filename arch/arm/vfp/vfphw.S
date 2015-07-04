@@ -145,12 +145,18 @@ vfp_reload_hw:
 	beq	vfp_hw_state_valid
 
 vfp_reload_hw:
-	enable_irq
 #ifdef CONFIG_IPIPE
+	enable_irq
+	/*
+	 * VFP handling is costly in SMP: synchronize with pending hw IRQs
+	 * in the middle of the process to shorten the masked section.
+	 * Since we might have been migrated to another CPU by doing so,
+	 * fetch the current logical CPU number again.
+	 */
 	disable_irq
 	mrc     p15, 0, ip, c0, c0, 5  @ reload current CPU number
 	and	r11, ip, #255
-	ldr	r4, vfp_cpu_logical_map_address
+	ldr	r4, vfp_cpu_reverse_map_address
 	ldr	r11, [r4, r11, lsl #2]
 #endif
 
@@ -264,8 +270,8 @@ ENDPROC(vfp_save_state)
 vfp_current_hw_state_address:
 	.word	vfp_current_hw_state
 #if defined(CONFIG_IPIPE) && defined(CONFIG_SMP)
-vfp_cpu_logical_map_address:
-	.word	__cpu_logical_map
+vfp_cpu_reverse_map_address:
+	.word	__cpu_reverse_map
 #endif
 
 	.macro	tbl_branch, base, tmp, shift

@@ -42,6 +42,8 @@ extern unsigned __ipipe_first_ipi;
 
 #define IPIPE_LAST_IPI		IPIPE_SERVICE_VNMI
 
+extern u32 __cpu_reverse_map[];
+
 #ifdef CONFIG_IPIPE_LEGACY
 #define hard_smp_processor_id()						\
 	({								\
@@ -55,7 +57,6 @@ extern unsigned __ipipe_first_ipi;
 				      : "=r" (cpunum));			\
 		cpunum &= 0xFF;						\
 	})
-extern u32 __cpu_reverse_map[];
 #define ipipe_processor_id()  (__cpu_reverse_map[hard_smp_processor_id()])
 
 #else /* !legacy */
