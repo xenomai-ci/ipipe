@@ -354,8 +354,7 @@ void __ipipe_exit_irq(struct pt_regs *regs)
 		 * so prefer test then maybe clear over
 		 * test_and_clear.
 		 */
-		ipipe_clear_thread_flag(TIP_MAYDAY);
-		__ipipe_notify_trap(IPIPE_TRAP_MAYDAY, regs);
+		__ipipe_call_mayday(regs);
 	}
 }
 
