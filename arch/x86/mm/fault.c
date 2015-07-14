@@ -1275,7 +1275,7 @@ do_page_fault(struct pt_regs *regs, unsigned long error_code)
 }
 
 #ifdef CONFIG_IPIPE
-void __ipipe_pin_range_globally(unsigned long start, unsigned long end)
+void __ipipe_pin_mapping_globally(unsigned long start, unsigned long end)
 {
 #ifdef CONFIG_X86_32
 	unsigned long next, addr = start;
