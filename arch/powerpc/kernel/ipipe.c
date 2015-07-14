@@ -363,10 +363,8 @@ int __ipipe_grab_timer(struct pt_regs *regs)
 	return __ipipe_exit_irq(regs);
 }
 
-void __ipipe_pin_range_globally(unsigned long start, unsigned long end)
-{
-	/* We don't support this. */
-}
+EXPORT_SYMBOL_GPL(show_stack);
+EXPORT_SYMBOL_GPL(_switch);
 
 #ifndef CONFIG_SMP
 EXPORT_SYMBOL_GPL(last_task_used_math);
