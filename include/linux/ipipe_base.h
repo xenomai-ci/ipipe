@@ -180,9 +180,6 @@ static inline void __ipipe_sync_stage(void)
 
 void __ipipe_flush_printk(unsigned int irq, void *cookie);
 
-void __ipipe_pin_range_globally(unsigned long start,
-				unsigned long end);
-
 #define hard_preempt_disable()				\
 	({						\
 		unsigned long __flags__;		\
@@ -350,10 +347,6 @@ static inline void __ipipe_init_taskinfo(struct task_struct *p) { }
 
 static inline void __ipipe_clear_taskflags(struct task_struct *p) { }
 
-static inline void __ipipe_pin_range_globally(unsigned long start,
-					      unsigned long end)
-{ }
-
 #define hard_preempt_disable()		({ preempt_disable(); 0; })
 #define hard_preempt_enable(flags)	({ preempt_enable(); (void)(flags); })
 
@@ -379,6 +372,15 @@ static inline void __ipipe_notify_vm_preemption(void) { }
 static inline void ipipe_root_only(void) { }
 
 #endif	/* !CONFIG_IPIPE */
+
+#ifdef CONFIG_IPIPE_WANT_PTE_PINNING
+void __ipipe_pin_mapping_globally(unsigned long start,
+				  unsigned long end);
+#else
+static inline void __ipipe_pin_mapping_globally(unsigned long start,
+						unsigned long end)
+{ }
+#endif
 
 static inline void ipipe_preempt_root_only(void)
 {

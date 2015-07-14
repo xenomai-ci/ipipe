@@ -91,7 +91,7 @@ int ioremap_page_range(unsigned long addr,
 	/* APEI may invoke this for temporarily remapping pages in interrupt
 	 * context - nothing we can and need to propagate globally. */
 	if (!in_interrupt()) {
-		__ipipe_pin_range_globally(start, end);
+		__ipipe_pin_mapping_globally(start, end);
 		flush_cache_vmap(start, end);
 	}
 
