@@ -27,21 +27,13 @@
 #define __pgd_free(pgd)	free_pages((unsigned long)pgd, 2)
 #endif
 
-#ifdef CONFIG_IPIPE
+#ifdef CONFIG_IPIPE_WANT_PTE_PINNING
 
 /*
  * Provide support for pinning the PTEs referencing kernel mappings in
  * the current memory context, so that we don't get minor faults when
  * treading over kernel memory.  For this we need to maintain a map of
  * active PGDs.
- *
- * CAUTION: when LPAE is enabled, 1st level tables are small enough
- * (PTRS_PER_PGD for 3-level translation) that multiple PGDs can fit
- * into a single page, so we can't maintain our meta-data directly
- * into the struct page matching each PGD. Instead, we maintain this
- * data in a separate rbtree indexing the PGDs. To keep the
- * implementation straightforward, we also use this approach when LPAE
- * is disabled.
  */
 
 #include <linux/rbtree.h>
@@ -156,7 +148,7 @@ static void pin_k_mapping(pgd_t *pgd, unsigned long addr)
 	copy_pmd(pmd, pmd_k);
 }
 
-void __ipipe_pin_range_globally(unsigned long start, unsigned long end)
+void __ipipe_pin_mapping_globally(unsigned long start, unsigned long end)
 {
 	unsigned long next, addr;
 	struct pgd_holder *h;
@@ -175,7 +167,7 @@ void __ipipe_pin_range_globally(unsigned long start, unsigned long end)
 	pgd_table_unlock(flags);
 }
 
-#else  /* !CONFIG_IPIPE */
+#else  /* !CONFIG_IPIPE_WANT_PTE_PINNING */
 
 #define pgd_table_lock(__flags)		do { (void)(__flags); } while (0)
 #define pgd_table_unlock(__flags)	do { (void)(__flags); } while (0)
@@ -191,7 +183,7 @@ static inline int pgd_holder_insert(struct pgd_holder *h) { return 1; }
 
 static inline void pgd_holder_free(pgd_t *pgd) { }
 
-#endif  /* !CONFIG_IPIPE */
+#endif  /* !CONFIG_IPIPE_WANT_PTE_PINNING */
 
 /*
  * need to get a 16k page for level 1
