@@ -438,11 +438,6 @@ asmlinkage int __ipipe_syscall_root(struct pt_regs *regs)
 	return -ret;
 }
 
-void __ipipe_pin_range_globally(unsigned long start, unsigned long end)
-{
-	/* We don't support this. */
-}
-
 #ifndef CONFIG_SMP
 EXPORT_SYMBOL_GPL(last_task_used_math);
 #endif
