@@ -18,6 +18,9 @@ config IPIPE_CORE
 config IPIPE_WANT_CLOCKSOURCE
        bool
 
+config IPIPE_WANT_PTE_PINNING
+       bool
+
 config IPIPE_CORE_APIREV
        int
        depends on IPIPE
