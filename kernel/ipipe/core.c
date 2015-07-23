@@ -1252,7 +1252,7 @@ void __ipipe_dispatch_irq(unsigned int irq, int flags) /* hw interrupts off */
 	 *   handling interrupts:
 	 *
 	 *   a) the root domain is alone, no registered head domain
-	 *      => all interrupts are delivered via the fast dispatcher.
+	 *      => all interrupts go through the interrupt log
 	 *   b) a head domain is registered
 	 *      => head domain IRQs go through the fast dispatcher
 	 *      => root domain IRQs go through the interrupt log
