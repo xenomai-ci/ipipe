@@ -125,7 +125,7 @@ static inline void arch_safe_halt(void)
 {
 #ifdef CONFIG_IPIPE
 	barrier();
-	__ipipe_halt_root();
+	__ipipe_halt_root(0);
 #else
 	native_safe_halt();
 #endif

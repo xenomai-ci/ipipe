@@ -272,7 +272,7 @@ static inline void __fixup_if(int s, struct pt_regs *regs)
 		regs->flags |= X86_EFLAGS_IF;
 }
 
-void __ipipe_halt_root(void)
+void __ipipe_halt_root(int use_mwait)
 {
 	struct ipipe_percpu_domain_data *p;
 
@@ -292,7 +292,11 @@ void __ipipe_halt_root(void)
 #ifdef CONFIG_IPIPE_TRACE_IRQSOFF
 		ipipe_trace_end(0x8000000E);
 #endif /* CONFIG_IPIPE_TRACE_IRQSOFF */
-		asm volatile("sti; hlt": : :"memory");
+		if (use_mwait)
+			asm volatile("sti; .byte 0x0f, 0x01, 0xc9;"
+				     :: "a" (0), "c" (0));
+		else
+			asm volatile("sti; hlt": : :"memory");
 	}
 }
 EXPORT_SYMBOL_GPL(__ipipe_halt_root);

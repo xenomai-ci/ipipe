@@ -455,7 +455,11 @@ static void mwait_idle(void)
 
 		__monitor((void *)&current_thread_info()->flags, 0, 0);
 		if (!need_resched())
+#ifdef CONFIG_IPIPE
+			__ipipe_halt_root(1);
+#else
 			__sti_mwait(0, 0);
+#endif
 		else
 			local_irq_enable();
 	} else

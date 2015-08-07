@@ -104,7 +104,7 @@ static inline unsigned __ipipe_get_irq_vector(int irq)
 #endif
 }
 
-void __ipipe_halt_root(void);
+void __ipipe_halt_root(int use_mwait);
 
 void ipipe_hrtimer_interrupt(void);
 
