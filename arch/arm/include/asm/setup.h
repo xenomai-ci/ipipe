@@ -54,7 +54,7 @@ extern void early_print(const char *str, ...);
 extern void dump_machine_table(void);
 
 #ifdef CONFIG_IPIPE
-void __init smp_build_cpu_revmap(void);
+void smp_build_cpu_revmap(void);
 #else
 static inline void smp_build_cpu_revmap(void) { }
 #endif
