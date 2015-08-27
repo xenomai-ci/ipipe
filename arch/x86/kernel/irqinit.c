@@ -125,7 +125,8 @@ static void __init smp_intr_init(void)
 {
 #ifdef CONFIG_SMP
 #if defined(CONFIG_X86_64) || defined(CONFIG_X86_LOCAL_APIC)
-	unsigned cpu;
+	unsigned __maybe_unused cpu;
+	int __maybe_unused ret;
 
 	/*
 	 * The reschedule interrupt is a CPU-to-CPU reschedule-helper
@@ -143,9 +144,13 @@ static void __init smp_intr_init(void)
 	/* Low priority IPI to cleanup after moving an irq */
 	set_intr_gate(IRQ_MOVE_CLEANUP_VECTOR, irq_move_cleanup_interrupt);
 	set_bit(IRQ_MOVE_CLEANUP_VECTOR, used_vectors);
+#ifdef CONFIG_IPIPE
+	ret = irq_alloc_descs(IRQ_MOVE_CLEANUP_VECTOR, 0, 1, 0);
+	BUG_ON(IRQ_MOVE_CLEANUP_VECTOR != ret);
 	for_each_possible_cpu(cpu)
 		per_cpu(vector_irq, cpu)[IRQ_MOVE_CLEANUP_VECTOR] =
 			IRQ_MOVE_CLEANUP_VECTOR;
+#endif
 
 	/* IPI used for rebooting/stopping */
 	alloc_intr_gate(REBOOT_VECTOR, reboot_interrupt);
