@@ -196,12 +196,12 @@ END_FTR_SECTION_IFSET(CPU_FTR_VSX)
  */
 _GLOBAL(giveup_fpu)
 #ifdef CONFIG_IPIPE
-	mfmsr	r6
+	mfmsr	r10
 #ifdef CONFIG_PPC64	
-	rldicl	r5,r6,48,1		/* clear MSR_EE */
+	rldicl	r5,r10,48,1		/* clear MSR_EE */
 	rotldi	r5,r5,16
 #else
-	rlwinm	r5,r6,0,17,15		/* clear MSR_EE */
+	rlwinm	r5,r10,0,17,15		/* clear MSR_EE */
 #endif	
 #else	
 	mfmsr	r5
@@ -247,7 +247,7 @@ END_FTR_SECTION_IFSET(CPU_FTR_VSX)
 #endif /* CONFIG_SMP */
 2:
 #ifdef CONFIG_IPIPE		/* restore interrupt state */
-	andi.	r6,r6,MSR_EE
+	andi.	r10,r10,MSR_EE
 	beqlr
 	mfmsr	r5
 	ori	r5,r5,MSR_EE
