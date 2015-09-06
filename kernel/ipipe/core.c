@@ -1360,6 +1360,33 @@ sync:
 	__ipipe_sync_pipeline(ipipe_head_domain);
 }
 
+void ipipe_raise_irq(unsigned int irq)
+{
+	struct ipipe_domain *ipd = ipipe_head_domain;
+	unsigned long flags, control;
+
+	flags = hard_local_irq_save();
+
+	/*
+	 * Fast path: raising a virtual IRQ handled by the head
+	 * domain.
+	 */
+	if (likely(ipipe_virtual_irq_p(irq) && ipd != ipipe_root_domain)) {
+		control = ipd->irqs[irq].control;
+		if (likely(control & IPIPE_HANDLE_MASK)) {
+			dispatch_irq_head(irq);
+			goto out;
+		}
+	}
+
+	/* Emulate regular device IRQ receipt. */
+	__ipipe_dispatch_irq(irq, IPIPE_IRQF_NOACK);
+out:
+	hard_local_irq_restore(flags);
+
+}
+EXPORT_SYMBOL_GPL(ipipe_raise_irq);
+
 #ifdef CONFIG_PREEMPT
 
 void preempt_schedule_irq(void);
