@@ -253,16 +253,6 @@ int ipipe_get_sysinfo(struct ipipe_sysinfo *info)
 }
 EXPORT_SYMBOL_GPL(ipipe_get_sysinfo);
 
-void ipipe_raise_irq(unsigned int irq)
-{
-	unsigned long flags;
-
-	flags = hard_local_irq_save();
-	__ipipe_handle_irq(irq, NULL);
-	hard_local_irq_restore(flags);
-}
-EXPORT_SYMBOL_GPL(ipipe_raise_irq);
-
 static int __ipipe_exit_irq(struct pt_regs *regs)
 {
 	int root = __ipipe_root_p;

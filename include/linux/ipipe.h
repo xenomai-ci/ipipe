@@ -178,6 +178,8 @@ int ipipe_request_irq(struct ipipe_domain *ipd,
 void ipipe_free_irq(struct ipipe_domain *ipd,
 		    unsigned int irq);
 
+void __ipipe_raise_irq(unsigned int irq);
+
 void ipipe_raise_irq(unsigned int irq);
 
 void ipipe_set_hooks(struct ipipe_domain *ipd,

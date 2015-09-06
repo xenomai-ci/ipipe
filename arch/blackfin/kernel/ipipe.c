@@ -137,16 +137,6 @@ int ipipe_get_sysinfo(struct ipipe_sysinfo *info)
 }
 EXPORT_SYMBOL_GPL(ipipe_get_sysinfo);
 
-void ipipe_raise_irq(unsigned int irq)
-{
-	unsigned long flags;
-
-	flags = hard_local_irq_save();
-	__ipipe_handle_irq(irq, NULL);
-	hard_local_irq_restore(flags);
-}
-EXPORT_SYMBOL_GPL(ipipe_raise_irq);
-
 void __ipipe_sync_root(void)
 {
 	void (*irq_tail_hook)(void) = (void (*)(void))__ipipe_irq_tail_hook;

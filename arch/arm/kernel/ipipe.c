@@ -234,21 +234,6 @@ extern unsigned int smp_on_up;
 EXPORT_SYMBOL_GPL(smp_on_up);
 #endif /* SMP_ON_UP */
 
-/*
- * ipipe_raise_irq() -- Push the interrupt at front of the pipeline
- * just like if it has been actually received from a hw source. Also
- * works for virtual interrupts.
- */
-void ipipe_raise_irq(unsigned irq)
-{
-	unsigned long flags;
-
-	flags = hard_local_irq_save();
-	__ipipe_dispatch_irq(irq, IPIPE_IRQF_NOACK);
-	hard_local_irq_restore(flags);
-}
-EXPORT_SYMBOL_GPL(ipipe_raise_irq);
-
 int ipipe_get_sysinfo(struct ipipe_sysinfo *info)
 {
 	info->sys_nr_cpus = num_online_cpus();

@@ -60,20 +60,6 @@
 DEFINE_PER_CPU(unsigned long, __ipipe_cr2);
 EXPORT_PER_CPU_SYMBOL_GPL(__ipipe_cr2);
 
-void ipipe_raise_irq(unsigned int irq)
-{
-	struct pt_regs regs;
-	unsigned long flags;
-
-	flags = hard_local_irq_save();
-	regs.flags = flags;
-	regs.orig_ax = irq;  /* >= 0, IRQ won't be acked */
-	regs.cs = __KERNEL_CS;
-	__ipipe_handle_irq(&regs);
-	hard_local_irq_restore(flags);
-}
-EXPORT_SYMBOL_GPL(ipipe_raise_irq);
-
 int ipipe_get_sysinfo(struct ipipe_sysinfo *info)
 {
 	info->sys_nr_cpus = num_online_cpus();
