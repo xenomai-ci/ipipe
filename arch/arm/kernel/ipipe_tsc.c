@@ -165,6 +165,8 @@ void __init __ipipe_tsc_register(struct __ipipe_tscinfo *info)
 	ipipe_tsc_update_timer.function = __ipipe_tsc_update_fn;
 	mod_timer(&ipipe_tsc_update_timer,
 		jiffies + ipipe_tsc_update_timer.data);
+
+	__ipipe_tracer_hrclock_initialized();
 }
 
 void __ipipe_mach_get_tscinfo(struct __ipipe_tscinfo *info)
