@@ -140,6 +140,8 @@ void __ipipe_tsc_register(struct __ipipe_tscinfo *info)
 		__clocksource_updatefreq_hz(&clksrc, tsc_info.freq);
 
 	__ipipe_kuser_tsc_freq = tsc_info.freq;
+
+	__ipipe_tracer_hrclock_initialized();
 }
 
 void __ipipe_mach_get_tscinfo(struct __ipipe_tscinfo *info)
