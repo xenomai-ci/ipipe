@@ -128,7 +128,8 @@
 		timer@00a00200 {
 			compatible = "arm,cortex-a9-global-timer";
 			reg = <0x00a00200 0x20>;
-			clocks = <&clks 15>;
+			interrupts = <1 11 0xf01>;
+			clocks = <&clks IMX6QDL_CLK_TWD>;
 		};
 
 		L2: l2-cache@00a02000 {
