@@ -154,7 +154,11 @@ EXPORT_SYMBOL_GPL(flush_fp_to_thread);
 
 void enable_kernel_fp(void)
 {
+	unsigned long flags;
+
 	WARN_ON(preemptible());
+
+	flags = hard_cond_local_irq_save();
 
 #ifdef CONFIG_SMP
 	if (current->thread.regs && (current->thread.regs->msr & MSR_FP))
@@ -164,6 +168,7 @@ void enable_kernel_fp(void)
 #else
 	giveup_fpu_maybe_transactional(last_task_used_math);
 #endif /* CONFIG_SMP */
+	hard_cond_local_irq_restore(flags);
 }
 EXPORT_SYMBOL(enable_kernel_fp);
 
@@ -628,8 +633,10 @@ void tm_recheckpoint(struct thread_struct *thread,
 	 * change and later in the trecheckpoint code, we have a userspace R1.
 	 * So let's hard disable over this region.
 	 */
-	local_irq_save(flags);
+	flags = hard_local_irq_save();
+#ifndef CONFIG_IPIPE
 	hard_irq_disable();
+#endif
 
 	/* The TM SPRs are restored here, so that TEXASR.FS can be set
 	 * before the trecheckpoint and no explosion occurs.
@@ -638,7 +645,7 @@ void tm_recheckpoint(struct thread_struct *thread,
 
 	__tm_recheckpoint(thread, orig_msr);
 
-	local_irq_restore(flags);
+	hard_local_irq_restore(flags);
 }
 
 static inline void tm_recheckpoint_new_task(struct task_struct *new)
@@ -750,6 +757,7 @@ struct task_struct *__switch_to(struct task_struct *prev,
 #ifdef CONFIG_PPC_BOOK3S_64
 	struct ppc64_tlb_batch *batch;
 #endif
+	unsigned long flags;
 
 	WARN_ON(!irqs_disabled());
 
@@ -762,6 +770,8 @@ struct task_struct *__switch_to(struct task_struct *prev,
 	 * these will change them.
 	 */
 	save_early_sprs(&prev->thread);
+
+	flags = hard_local_irq_save();
 
 	__switch_to_tm(prev);
 
@@ -877,7 +887,9 @@ struct task_struct *__switch_to(struct task_struct *prev,
 	 * window where the kernel stack SLB and the kernel stack are out
 	 * of sync. Hard disable here.
 	 */
+#ifndef CONFIG_IPIPE
 	hard_irq_disable();
+#endif
 
 	tm_recheckpoint_new_task(new);
 
@@ -890,6 +902,8 @@ struct task_struct *__switch_to(struct task_struct *prev,
 		batch->active = 1;
 	}
 #endif /* CONFIG_PPC_BOOK3S_64 */
+
+	hard_local_irq_restore(flags);
 
 	return last;
 }
@@ -1455,6 +1469,29 @@ int get_unalign_ctl(struct task_struct *tsk, unsigned long adr)
 	return put_user(tsk->thread.align_ctl, (unsigned int __user *)adr);
 }
 
+#ifdef CONFIG_IPIPE
+
+int validate_sp(unsigned long sp, struct task_struct *p,
+		       unsigned long nbytes)
+{
+	unsigned long stack_page = (unsigned long)task_stack_page(p);
+
+	/*
+	 * We can't always know the bounds of the current stack when
+	 * built in legacy mode due to potentially foreign stack
+	 * contexts, so let's pretend the stack pointer is fine
+	 * in this case.
+	 */
+	if (IS_ENABLED(CONFIG_IPIPE_LEGACY) ||
+	    (sp >= stack_page + sizeof(struct thread_struct)
+	     && sp <= stack_page + THREAD_SIZE - nbytes))
+		return 1;
+
+	return 0;
+}
+
+#else /* !CONFIG_IPIPE */
+
 static inline int valid_irq_stack(unsigned long sp, struct task_struct *p,
 				  unsigned long nbytes)
 {
@@ -1490,6 +1527,8 @@ int validate_sp(unsigned long sp, struct task_struct *p,
 
 	return valid_irq_stack(sp, p, nbytes);
 }
+
+#endif /* !CONFIG_IPIPE */
 
 EXPORT_SYMBOL(validate_sp);
 
