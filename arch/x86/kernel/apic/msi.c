@@ -110,6 +110,9 @@ static struct irq_chip msi_chip = {
 	.irq_ack		= apic_ack_edge,
 	.irq_set_affinity	= msi_set_affinity,
 	.irq_retrigger		= apic_retrigger_irq,
+#if defined(CONFIG_IPIPE) && defined(CONFIG_SMP)
+	.irq_move		= move_xxapic_irq,
+#endif
 	.flags			= IRQCHIP_SKIP_SET_WAKE,
 };
 
@@ -209,6 +212,9 @@ static struct irq_chip dmar_msi_type = {
 	.irq_ack		= apic_ack_edge,
 	.irq_set_affinity	= dmar_msi_set_affinity,
 	.irq_retrigger		= apic_retrigger_irq,
+#if defined(CONFIG_IPIPE) && defined(CONFIG_SMP)
+	.irq_move		= move_xxapic_irq,
+#endif
 	.flags			= IRQCHIP_SKIP_SET_WAKE,
 };
 
@@ -263,6 +269,9 @@ static struct irq_chip hpet_msi_type = {
 	.irq_ack = apic_ack_edge,
 	.irq_set_affinity = hpet_msi_set_affinity,
 	.irq_retrigger = apic_retrigger_irq,
+#if defined(CONFIG_IPIPE) && defined(CONFIG_SMP)
+	.irq_move		= move_xxapic_irq,
+#endif
 	.flags = IRQCHIP_SKIP_SET_WAKE,
 };
 
