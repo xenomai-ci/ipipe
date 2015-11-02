@@ -702,6 +702,9 @@ void machine_check_exception(struct pt_regs *regs)
 
 	__this_cpu_inc(irq_stat.mce_exceptions);
 
+	if (__ipipe_report_trap(IPIPE_TRAP_MCE, regs))
+	    	return;
+
 	/* See if any machine dependent calls. In theory, we would want
 	 * to call the CPU first, and call the ppc_md. one if the CPU
 	 * one returns a positive number. However there is existing code
@@ -769,6 +772,9 @@ void unknown_exception(struct pt_regs *regs)
 	printk("Bad trap at PC: %lx, SR: %lx, vector=%lx\n",
 	       regs->nip, regs->msr, regs->trap);
 
+	if (__ipipe_report_trap(IPIPE_TRAP_UNKNOWN, regs))
+	    	return;
+
 	_exception(SIGTRAP, regs, 0, 0);
 
 	exception_exit(prev_state);
@@ -777,6 +783,9 @@ void unknown_exception(struct pt_regs *regs)
 void instruction_breakpoint_exception(struct pt_regs *regs)
 {
 	enum ctx_state prev_state = exception_enter();
+
+	if (__ipipe_report_trap(IPIPE_TRAP_IABR, regs))
+	    	return;
 
 	if (notify_die(DIE_IABR_MATCH, "iabr_match", regs, 5,
 					5, SIGTRAP) == NOTIFY_STOP)
@@ -791,6 +800,8 @@ bail:
 
 void RunModeException(struct pt_regs *regs)
 {
+	if (__ipipe_report_trap(IPIPE_TRAP_RM, regs))
+	    	return;
 	_exception(SIGTRAP, regs, 0, 0);
 }
 
@@ -799,6 +810,9 @@ void __kprobes single_step_exception(struct pt_regs *regs)
 	enum ctx_state prev_state = exception_enter();
 
 	clear_single_step(regs);
+
+	if (__ipipe_report_trap(IPIPE_TRAP_SSTEP, regs))
+	    return;
 
 	if (notify_die(DIE_SSTEP, "single_step", regs, 5,
 					5, SIGTRAP) == NOTIFY_STOP)
@@ -1140,6 +1154,9 @@ void __kprobes program_check_exception(struct pt_regs *regs)
 	/* We can now get here via a FP Unavailable exception if the core
 	 * has no FPU, in that case the reason flags will be 0 */
 
+	if (__ipipe_report_trap(IPIPE_TRAP_PCE, regs))
+	    	return;
+
 	if (reason & REASON_FP) {
 		/* IEEE FP exception */
 		parse_fpe(regs);
@@ -1264,6 +1281,9 @@ void alignment_exception(struct pt_regs *regs)
 	if (!arch_irq_disabled_regs(regs))
 		local_irq_enable();
 
+	if (__ipipe_report_trap(IPIPE_TRAP_ALIGNMENT, regs))
+	    	return;
+
 	if (tm_abort_check(regs, TM_CAUSE_ALIGNMENT | TM_CAUSE_PERSISTENT))
 		goto bail;
 
@@ -1307,6 +1327,8 @@ void nonrecoverable_exception(struct pt_regs *regs)
 {
 	printk(KERN_ERR "Non-recoverable exception at PC=%lx MSR=%lx\n",
 	       regs->nip, regs->msr);
+	if (__ipipe_report_trap(IPIPE_TRAP_NREC, regs))
+	    	return;
 	debugger(regs);
 	die("nonrecoverable exception", regs, SIGKILL);
 }
@@ -1324,6 +1346,8 @@ void kernel_fp_unavailable_exception(struct pt_regs *regs)
 
 	printk(KERN_EMERG "Unrecoverable FP Unavailable Exception "
 			  "%lx at %lx\n", regs->trap, regs->nip);
+	if (__ipipe_report_trap(IPIPE_TRAP_KFPUNAVAIL, regs))
+	    	return;
 	die("Unrecoverable FP Unavailable Exception", regs, SIGABRT);
 
 	exception_exit(prev_state);
@@ -1332,6 +1356,9 @@ void kernel_fp_unavailable_exception(struct pt_regs *regs)
 void altivec_unavailable_exception(struct pt_regs *regs)
 {
 	enum ctx_state prev_state = exception_enter();
+
+	if (__ipipe_report_trap(IPIPE_TRAP_ALTUNAVAIL, regs))
+	    	return;
 
 	if (user_mode(regs)) {
 		/* A user program has executed an altivec instruction,
@@ -1527,6 +1554,10 @@ void performance_monitor_exception(struct pt_regs *regs)
 #ifdef CONFIG_8xx
 void SoftwareEmulation(struct pt_regs *regs)
 {
+
+	if (__ipipe_report_trap(IPIPE_TRAP_SOFTEMU, regs))
+	    	return;
+
 	CHECK_FULL_REGS(regs);
 
 	if (!user_mode(regs)) {
@@ -1604,6 +1635,9 @@ static void handle_debug(struct pt_regs *regs, unsigned long debug_status)
 
 void __kprobes DebugException(struct pt_regs *regs, unsigned long debug_status)
 {
+ 	if (__ipipe_report_trap(IPIPE_TRAP_DEBUG, regs))
+ 	    	return;
+
 	current->thread.debug.dbsr = debug_status;
 
 	/* Hack alert: On BookE, Branch Taken stops on the branch itself, while
@@ -1678,6 +1712,9 @@ void altivec_assist_exception(struct pt_regs *regs)
 {
 	int err;
 
+	if (__ipipe_report_trap(IPIPE_TRAP_ALTASSIST, regs))
+	    	return;
+
 	if (!user_mode(regs)) {
 		printk(KERN_EMERG "VMX/Altivec assist exception in kernel mode"
 		       " at %lx\n", regs->nip);
@@ -1715,8 +1752,11 @@ void CacheLockingException(struct pt_regs *regs, unsigned long address,
 	 * as priv ops, in the future we could try to do
 	 * something smarter
 	 */
-	if (error_code & (ESR_DLK|ESR_ILK))
+	if (error_code & (ESR_DLK|ESR_ILK)) {
+		if (__ipipe_report_trap(IPIPE_TRAP_CACHE, regs))
+			return;
 		_exception(SIGILL, regs, ILL_PRVOPC, regs->nip);
+	}
 	return;
 }
 #endif /* CONFIG_FSL_BOOKE */
@@ -1775,6 +1815,9 @@ void SPEFloatingPointRoundException(struct pt_regs *regs)
 	extern int speround_handler(struct pt_regs *regs);
 	int err;
 
+	if (__ipipe_report_trap(IPIPE_TRAP_SPE, regs))
+	    	return;
+
 	preempt_disable();
 	if (regs->msr & MSR_SPE)
 		giveup_spe(current);
@@ -1812,6 +1855,8 @@ void unrecoverable_exception(struct pt_regs *regs)
 {
 	printk(KERN_EMERG "Unrecoverable exception %lx at %lx\n",
 	       regs->trap, regs->nip);
+	if (__ipipe_report_trap(IPIPE_TRAP_NREC, regs))
+	    	return;
 	die("Unrecoverable exception", regs, SIGABRT);
 }
 

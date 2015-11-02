@@ -45,6 +45,7 @@
  * NB: This may call C code, so the caller must be prepared for volatiles to
  * be clobbered.
  */
+#ifndef CONFIG_IPIPE
 #define RECONCILE_IRQ_STATE(__rA, __rB)		\
 	lbz	__rA,PACASOFTIRQEN(r13);	\
 	lbz	__rB,PACAIRQHAPPENED(r13);	\
@@ -56,17 +57,21 @@
 	stb	__rA,PACASOFTIRQEN(r13);	\
 	TRACE_DISABLE_INTS;			\
 44:
+#endif /* !CONFIG_IPIPE */
 
 #else
 #define TRACE_ENABLE_INTS
 #define TRACE_DISABLE_INTS
 
+#ifndef CONFIG_IPIPE
 #define RECONCILE_IRQ_STATE(__rA, __rB)		\
 	lbz	__rA,PACAIRQHAPPENED(r13);	\
 	li	__rB,0;				\
 	ori	__rA,__rA,PACA_IRQ_HARD_DIS;	\
 	stb	__rB,PACASOFTIRQEN(r13);	\
 	stb	__rA,PACAIRQHAPPENED(r13)
+#endif /* !CONFIG_IPIPE */
+
 #endif
 #endif
 

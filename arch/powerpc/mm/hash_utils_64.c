@@ -117,7 +117,7 @@ int mmu_ci_restrictions;
 #ifdef CONFIG_DEBUG_PAGEALLOC
 static u8 *linear_map_hash_slots;
 static unsigned long linear_map_hash_count;
-static DEFINE_SPINLOCK(linear_map_hash_lock);
+static IPIPE_DEFINE_SPINLOCK(linear_map_hash_lock);
 #endif /* CONFIG_DEBUG_PAGEALLOC */
 
 /* There are definitions of page sizes arrays to be used when none
@@ -970,6 +970,10 @@ void hash_failure_debug(unsigned long ea, unsigned long access,
 static void check_paca_psize(unsigned long ea, struct mm_struct *mm,
 			     int psize, bool user_region)
 {
+	unsigned long flags;
+	
+	flags = hard_local_irq_save();
+
 	if (user_region) {
 		if (psize != get_paca_psize(ea)) {
 			get_paca()->context = mm->context;
@@ -981,6 +985,8 @@ static void check_paca_psize(unsigned long ea, struct mm_struct *mm,
 			mmu_psize_defs[mmu_vmalloc_psize].sllp;
 		slb_vmalloc_update();
 	}
+
+	hard_local_irq_restore(flags);
 }
 
 /* Result code is:
@@ -1235,7 +1241,7 @@ void hash_preload(struct mm_struct *mm, unsigned long ea,
 	 * Hash doesn't like irqs. Walking linux page table with irq disabled
 	 * saves us from holding multiple locks.
 	 */
-	local_irq_save(flags);
+	flags = hard_local_irq_save();
 
 	/*
 	 * THP pages use update_mmu_cache_pmd. We don't do
@@ -1280,7 +1286,7 @@ void hash_preload(struct mm_struct *mm, unsigned long ea,
 				   mm->context.user_psize,
 				   pte_val(*ptep));
 out_exit:
-	local_irq_restore(flags);
+	hard_local_irq_restore(flags);
 }
 
 /* WARNING: This is called from hash_low_64.S, if you change this prototype,
@@ -1421,6 +1427,10 @@ void low_hash_fault(struct pt_regs *regs, unsigned long address, int rc)
 {
 	enum ctx_state prev_state = exception_enter();
 
+	if (__ipipe_report_trap(IPIPE_TRAP_ACCESS, regs))
+		/* Not all access faults go through do_page_fault(). */
+	    	return;
+
 	if (user_mode(regs)) {
 #ifdef CONFIG_PPC_SUBPAGE_PROT
 		if (rc == -2)
@@ -1520,7 +1530,7 @@ void __kernel_map_pages(struct page *page, int numpages, int enable)
 	unsigned long flags, vaddr, lmi;
 	int i;
 
-	local_irq_save(flags);
+	flags = hard_local_irq_save();
 	for (i = 0; i < numpages; i++, page++) {
 		vaddr = (unsigned long)page_address(page);
 		lmi = __pa(vaddr) >> PAGE_SHIFT;
@@ -1531,7 +1541,7 @@ void __kernel_map_pages(struct page *page, int numpages, int enable)
 		else
 			kernel_unmap_linear_page(vaddr, lmi);
 	}
-	local_irq_restore(flags);
+	hard_local_irq_restore(flags);
 }
 #endif /* CONFIG_DEBUG_PAGEALLOC */
 
