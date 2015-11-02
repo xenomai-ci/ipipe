@@ -32,6 +32,7 @@
 #include <linux/list.h>
 #include <linux/hash.h>
 #include <linux/rcupdate.h>
+#include <linux/ipipe.h>
 
 #include <trace/events/sched.h>
 
@@ -2487,6 +2488,9 @@ void __weak arch_ftrace_update_code(int command)
 
 static void ftrace_run_update_code(int command)
 {
+#ifdef CONFIG_IPIPE
+	unsigned long flags;
+#endif /* CONFIG_IPIPE */
 	int ret;
 
 	ret = ftrace_arch_code_modify_prepare();
@@ -2500,7 +2504,13 @@ static void ftrace_run_update_code(int command)
 	 * is safe. The stop_machine() is the safest, but also
 	 * produces the most overhead.
 	 */
+#ifdef CONFIG_IPIPE
+	flags = ipipe_critical_enter(NULL);
+	__ftrace_modify_code(&command);
+	ipipe_critical_exit(flags);
+#else  /* !CONFIG_IPIPE */
 	arch_ftrace_update_code(command);
+#endif /* !CONFIG_IPIPE */
 
 	ret = ftrace_arch_code_modify_post_process();
 	FTRACE_WARN_ON(ret);
@@ -4846,10 +4856,10 @@ static int ftrace_process_locs(struct module *mod,
 	 * reason to cause large interrupt latencies while we do it.
 	 */
 	if (!mod)
-		local_irq_save(flags);
+		flags = hard_local_irq_save();
 	ftrace_update_code(mod, start_pg);
 	if (!mod)
-		local_irq_restore(flags);
+		hard_local_irq_restore(flags);
 	ret = 0;
  out:
 	mutex_unlock(&ftrace_lock);
@@ -4948,9 +4958,11 @@ void __init ftrace_init(void)
 	unsigned long count, flags;
 	int ret;
 
-	local_irq_save(flags);
+	flags = hard_local_irq_save_notrace();
 	ret = ftrace_dyn_arch_init();
-	local_irq_restore(flags);
+	hard_local_irq_restore_notrace(flags);
+
+	/* ftrace_dyn_arch_init places the return code in addr */
 	if (ret)
 		goto failed;
 
@@ -5146,7 +5158,16 @@ __ftrace_ops_list_func(unsigned long ip, unsigned long parent_ip,
 		}
 	} while_for_each_ftrace_op(op);
 out:
-	preempt_enable_notrace();
+#ifdef CONFIG_IPIPE
+	if (hard_irqs_disabled() || !__ipipe_root_p)
+		/*
+		 * Nothing urgent to schedule here. At latest the timer tick
+		 * will pick up whatever the tracing functions kicked off.
+		 */
+		preempt_enable_no_resched_notrace();
+	else
+#endif
+		preempt_enable_notrace();
 	trace_clear_recursion(bit);
 }
 
