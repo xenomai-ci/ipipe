@@ -316,7 +316,7 @@ static irqreturn_t fsl_msi_cascade(int irq, void *data)
 				msi_hwirq(msi_data, msir_index,
 					  intr_index + have_shift));
 		if (cascade_irq != NO_IRQ) {
-			generic_handle_irq(cascade_irq);
+			ipipe_handle_demuxed_irq(cascade_irq);
 			ret = IRQ_HANDLED;
 		}
 		have_shift += intr_index + 1;
@@ -324,6 +324,13 @@ static irqreturn_t fsl_msi_cascade(int irq, void *data)
 	}
 
 	return ret;
+}
+
+static void __ipipe_msi_cascade(unsigned int irq, struct irq_desc *desc)
+{
+#ifdef CONFIG_IPIPE
+	fsl_msi_cascade(irq, irq_get_handler_data(irq));
+#endif
 }
 
 static int fsl_of_msi_remove(struct platform_device *ofdev)
@@ -379,12 +386,17 @@ static int fsl_msi_setup_hwirq(struct fsl_msi *msi, struct platform_device *dev,
 	cascade_data->virq = virt_msir;
 	msi->cascade_array[irq_index] = cascade_data;
 
-	ret = request_irq(virt_msir, fsl_msi_cascade, IRQF_NO_THREAD,
-			  "fsl-msi-cascade", cascade_data);
-	if (ret) {
-		dev_err(&dev->dev, "failed to request_irq(%d), ret = %d\n",
-			virt_msir, ret);
-		return ret;
+	if (IS_ENABLED(CONFIG_IPIPE)) {
+		irq_set_chained_handler(virt_msir, __ipipe_msi_cascade);
+		irq_set_handler_data(virt_msir, cascade_data);
+	} else {
+		ret = request_irq(virt_msir, fsl_msi_cascade, IRQF_NO_THREAD,
+				  "fsl-msi-cascade", cascade_data);
+		if (ret) {
+			dev_err(&dev->dev, "failed to request_irq(%d), ret = %d\n",
+				virt_msir, ret);
+			return ret;
+		}
 	}
 
 	/* Release the hwirqs corresponding to this MSI register */
