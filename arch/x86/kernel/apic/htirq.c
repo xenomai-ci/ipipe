@@ -58,6 +58,9 @@ static struct irq_chip ht_irq_chip = {
 	.irq_ack		= apic_ack_edge,
 	.irq_set_affinity	= ht_set_affinity,
 	.irq_retrigger		= apic_retrigger_irq,
+#if defined(CONFIG_IPIPE) && defined(CONFIG_SMP)
+	.irq_move		= move_xxapic_irq,
+#endif
 	.flags			= IRQCHIP_SKIP_SET_WAKE,
 };
 

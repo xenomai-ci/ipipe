@@ -89,7 +89,9 @@ EXPORT_SYMBOL(irq_fpu_usable);
 void __kernel_fpu_begin(void)
 {
 	struct task_struct *me = current;
+	unsigned long flags;
 
+	flags = hard_cond_local_irq_save();
 	this_cpu_write(in_kernel_fpu, true);
 
 	if (__thread_has_fpu(me)) {
@@ -99,6 +101,7 @@ void __kernel_fpu_begin(void)
 		if (!use_eager_fpu())
 			clts();
 	}
+	hard_cond_local_irq_restore(flags);
 }
 EXPORT_SYMBOL(__kernel_fpu_begin);
 

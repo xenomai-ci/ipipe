@@ -48,6 +48,7 @@
 struct task_struct;
 #include <asm/processor.h>
 #include <linux/atomic.h>
+#include <ipipe/thread_info.h>
 
 struct thread_info {
 	struct task_struct	*task;		/* main task structure */
@@ -56,6 +57,10 @@ struct thread_info {
 	__u32			cpu;		/* current CPU */
 	int			saved_preempt_count;
 	mm_segment_t		addr_limit;
+#ifdef CONFIG_IPIPE
+	unsigned long		ipipe_flags;
+#endif
+	struct ipipe_threadinfo ipipe_data;
 	void __user		*sysenter_return;
 	unsigned int		sig_on_uaccess_error:1;
 	unsigned int		uaccess_err:1;	/* uaccess failed */
@@ -167,6 +172,15 @@ struct thread_info {
 
 #define _TIF_WORK_CTXSW_PREV (_TIF_WORK_CTXSW|_TIF_USER_RETURN_NOTIFY)
 #define _TIF_WORK_CTXSW_NEXT (_TIF_WORK_CTXSW)
+
+/* ti->ipipe_flags */
+#define TIP_MAYDAY	0	/* MAYDAY call is pending */
+#define TIP_NOTIFY	1	/* Notify head domain about kernel events */
+#define TIP_HEAD	2	/* Runs in head domain */
+
+#define _TIP_MAYDAY	(1 << TIP_MAYDAY)
+#define _TIP_NOTIFY	(1 << TIP_NOTIFY)
+#define _TIP_HEAD	(1 << TIP_HEAD)
 
 #define STACK_WARN		(THREAD_SIZE/8)
 
