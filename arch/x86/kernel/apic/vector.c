@@ -19,7 +19,7 @@
 #include <asm/desc.h>
 #include <asm/irq_remapping.h>
 
-static DEFINE_RAW_SPINLOCK(vector_lock);
+static IPIPE_DEFINE_RAW_SPINLOCK(vector_lock);
 
 void lock_vector_lock(void)
 {
@@ -286,8 +286,20 @@ static void __setup_vector_irq(int cpu)
 		vector = cfg->vector;
 		per_cpu(vector_irq, cpu)[vector] = irq;
 	}
+#ifdef CONFIG_IPIPE
+	per_cpu(vector_irq, cpu)[IRQ_MOVE_CLEANUP_VECTOR] =
+		IRQ_MOVE_CLEANUP_VECTOR;
+	for (vector = first_system_vector; vector < NR_VECTORS; ++vector)
+		if (test_bit(vector, used_vectors))
+			per_cpu(vector_irq, cpu)[vector] =
+				ipipe_apic_vector_irq(vector);
+#endif
 	/* Mark the free vectors */
 	for (vector = 0; vector < NR_VECTORS; ++vector) {
+		/* I-pipe requires initialized vector_irq for system vectors */
+		if (test_bit(vector, used_vectors))
+			continue;
+
 		irq = per_cpu(vector_irq, cpu)[vector];
 		if (irq <= VECTOR_UNDEFINED)
 			continue;
@@ -335,9 +347,11 @@ int apic_retrigger_irq(struct irq_data *data)
 
 void apic_ack_edge(struct irq_data *data)
 {
+#ifndef CONFIG_IPIPE	
 	irq_complete_move(irqd_cfg(data));
 	irq_move_irq(data);
-	ack_APIC_irq();
+#endif /* !CONFIG_IPIPE */
+	__ack_APIC_irq();
 }
 
 /*
@@ -402,7 +416,8 @@ asmlinkage __visible void smp_irq_move_cleanup_interrupt(void)
 	exit_idle();
 
 	me = smp_processor_id();
-	for (vector = FIRST_EXTERNAL_VECTOR; vector < NR_VECTORS; vector++) {
+	for (vector = FIRST_EXTERNAL_VECTOR + 1; vector < NR_VECTORS;
+	     vector++) {
 		int irq;
 		unsigned int irr;
 		struct irq_desc *desc;
