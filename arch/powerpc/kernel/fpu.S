@@ -218,7 +218,7 @@ END_FTR_SECTION_IFSET(CPU_FTR_VSX)
 	SYNC_601
 	isync
 	PPC_LCMPI	0,r3,0
-	beq-	2f			/* if no previous owner, done */
+	beq-	3f			/* if no previous owner, done */
 	addi	r3,r3,THREAD	        /* want THREAD of task */
 	PPC_LL	r6,THREAD_FPSAVEAREA(r3)
 	PPC_LL	r5,PT_REGS(r3)
@@ -245,7 +245,7 @@ END_FTR_SECTION_IFSET(CPU_FTR_VSX)
 	LOAD_REG_ADDRBASE(r4,last_task_used_math)
 	PPC_STL	r5,ADDROFF(last_task_used_math)(r4)
 #endif /* CONFIG_SMP */
-2:
+3:
 #ifdef CONFIG_IPIPE		/* restore interrupt state */
 	andi.	r10,r10,MSR_EE
 	beqlr
