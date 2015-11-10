@@ -237,7 +237,7 @@ static int mpc52xx_psc_tx_rdy(struct uart_port *port)
 	    & MPC52xx_PSC_IMR_TXRDY;
 }
 
-static int mpc52xx_psc_tx_empty(struct uart_port *port)
+static notrace int mpc52xx_psc_tx_empty(struct uart_port *port)
 {
 	return in_be16(&PSC(port)->mpc52xx_psc_status)
 	    & MPC52xx_PSC_SR_TXEMP;
@@ -269,7 +269,7 @@ static void mpc52xx_psc_tx_clr_irq(struct uart_port *port)
 {
 }
 
-static void mpc52xx_psc_write_char(struct uart_port *port, unsigned char c)
+static notrace void mpc52xx_psc_write_char(struct uart_port *port, unsigned char c)
 {
 	out_8(&PSC(port)->mpc52xx_psc_buffer_8, c);
 }
@@ -466,7 +466,7 @@ static int mpc512x_psc_tx_rdy(struct uart_port *port)
 	    & MPC512x_PSC_FIFO_ALARM;
 }
 
-static int mpc512x_psc_tx_empty(struct uart_port *port)
+static notrace int mpc512x_psc_tx_empty(struct uart_port *port)
 {
 	return in_be32(&FIFO_512x(port)->txsr)
 	    & MPC512x_PSC_FIFO_EMPTY;
@@ -509,7 +509,7 @@ static void mpc512x_psc_tx_clr_irq(struct uart_port *port)
 	out_be32(&FIFO_512x(port)->txisr, in_be32(&FIFO_512x(port)->txisr));
 }
 
-static void mpc512x_psc_write_char(struct uart_port *port, unsigned char c)
+static notrace void mpc512x_psc_write_char(struct uart_port *port, unsigned char c)
 {
 	out_8(&FIFO_512x(port)->txdata_8, c);
 }
@@ -808,7 +808,7 @@ static int mpc5125_psc_tx_rdy(struct uart_port *port)
 	       in_be32(&FIFO_5125(port)->tximr) & MPC512x_PSC_FIFO_ALARM;
 }
 
-static int mpc5125_psc_tx_empty(struct uart_port *port)
+static notrace int mpc5125_psc_tx_empty(struct uart_port *port)
 {
 	return in_be32(&FIFO_5125(port)->txsr) & MPC512x_PSC_FIFO_EMPTY;
 }
@@ -850,7 +850,7 @@ static void mpc5125_psc_tx_clr_irq(struct uart_port *port)
 	out_be32(&FIFO_5125(port)->txisr, in_be32(&FIFO_5125(port)->txisr));
 }
 
-static void mpc5125_psc_write_char(struct uart_port *port, unsigned char c)
+static notrace void mpc5125_psc_write_char(struct uart_port *port, unsigned char c)
 {
 	out_8(&FIFO_5125(port)->txdata_8, c);
 }
@@ -1046,7 +1046,7 @@ static const struct psc_ops *psc_ops;
 /* UART operations                                                          */
 /* ======================================================================== */
 
-static unsigned int
+static notrace unsigned int
 mpc52xx_uart_tx_empty(struct uart_port *port)
 {
 	return psc_ops->tx_empty(port) ? TIOCSER_TEMT : 0;
