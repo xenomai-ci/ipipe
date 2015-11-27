@@ -368,8 +368,7 @@ out:
 		irqnr &= ACTIVEIRQ_MASK;
 
 		if (irqnr) {
-			irqnr = irq_find_mapping(domain, irqnr);
-			ipipe_handle_multi_irq(domain, irqnr, regs);
+			ipipe_handle_domain_irq(domain, irqnr, regs);
 			handled_irq = 1;
 		}
 	} while (irqnr);
