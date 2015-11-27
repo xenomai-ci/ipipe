@@ -50,7 +50,7 @@
 
 static void __iomem *wakeupgen_base;
 static void __iomem *sar_base;
-static DEFINE_RAW_SPINLOCK(wakeupgen_lock);
+static IPIPE_DEFINE_RAW_SPINLOCK(wakeupgen_lock);
 static unsigned int irq_target_cpu[MAX_IRQS];
 static unsigned int irq_banks = DEFAULT_NR_REG_BANKS;
 static unsigned int max_irqs = DEFAULT_IRQS;
@@ -139,6 +139,7 @@ static void wakeupgen_mask(struct irq_data *d)
 	unsigned long flags;
 
 	raw_spin_lock_irqsave(&wakeupgen_lock, flags);
+	ipipe_lock_irq(d->hwirq);
 	_wakeupgen_clear(d->hwirq, irq_target_cpu[d->hwirq]);
 	raw_spin_unlock_irqrestore(&wakeupgen_lock, flags);
 }
@@ -154,6 +155,27 @@ static void wakeupgen_unmask(struct irq_data *d)
 	_wakeupgen_set(d->hwirq, irq_target_cpu[d->hwirq]);
 	raw_spin_unlock_irqrestore(&wakeupgen_lock, flags);
 }
+
+#ifdef CONFIG_IPIPE
+static void wakeupgen_hold(struct irq_data *d)
+{
+	raw_spin_lock(&wakeupgen_lock);
+	_wakeupgen_clear(d->hwirq, irq_target_cpu[d->hwirq]);
+	raw_spin_unlock(&wakeupgen_lock);
+	irq_chip_mask_parent(d);
+	irq_chip_eoi_parent(d);
+}
+
+static void wakeupgen_release(struct irq_data *d)
+{
+	unsigned long flags;
+
+	raw_spin_lock_irqsave(&wakeupgen_lock, flags);
+	_wakeupgen_set(d->hwirq, irq_target_cpu[d->hwirq]);
+	raw_spin_unlock_irqrestore(&wakeupgen_lock, flags);
+	irq_chip_unmask_parent(d);
+}
+#endif
 
 #ifdef CONFIG_HOTPLUG_CPU
 static DEFINE_PER_CPU(u32 [MAX_NR_REG_BANKS], irqmasks);
