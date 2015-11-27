@@ -369,7 +369,7 @@ out:
 
 		if (irqnr) {
 			irqnr = irq_find_mapping(domain, irqnr);
-			ipipe_handle_multi_irq(irqnr, regs);
+			ipipe_handle_multi_irq(domain, irqnr, regs);
 			handled_irq = 1;
 		}
 	} while (irqnr);
