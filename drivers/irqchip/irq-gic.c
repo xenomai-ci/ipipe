@@ -158,7 +158,7 @@ static void gic_mask_irq(struct irq_data *d)
 	unsigned long flags;
 
 	raw_spin_lock_irqsave_cond(&irq_controller_lock, flags);
-	ipipe_lock_irq(gic_irq(d));
+	ipipe_lock_irq(d->irq);
 	writel_relaxed(mask, gic_dist_base(d) + GIC_DIST_ENABLE_CLEAR + (gic_irq(d) / 32) * 4);
 	if (gic_arch_extn.irq_mask)
 		gic_arch_extn.irq_mask(d);
@@ -174,7 +174,7 @@ static void gic_unmask_irq(struct irq_data *d)
 	if (gic_arch_extn.irq_unmask)
 		gic_arch_extn.irq_unmask(d);
 	writel_relaxed(mask, gic_dist_base(d) + GIC_DIST_ENABLE_SET + (gic_irq(d) / 32) * 4);
-	ipipe_unlock_irq(gic_irq(d));
+	ipipe_unlock_irq(d->irq);
 	raw_spin_unlock_irqrestore_cond(&irq_controller_lock, flags);
 }
 
