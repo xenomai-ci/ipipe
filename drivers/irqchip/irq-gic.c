@@ -157,12 +157,12 @@ static void gic_mask_irq(struct irq_data *d)
 	u32 mask = 1 << (gic_irq(d) % 32);
 	unsigned long flags;
 
-	raw_spin_lock_irqsave_cond(&irq_controller_lock, flags);
+	raw_spin_lock_irqsave(&irq_controller_lock, flags);
 	ipipe_lock_irq(d->irq);
 	writel_relaxed(mask, gic_dist_base(d) + GIC_DIST_ENABLE_CLEAR + (gic_irq(d) / 32) * 4);
 	if (gic_arch_extn.irq_mask)
 		gic_arch_extn.irq_mask(d);
-	raw_spin_unlock_irqrestore_cond(&irq_controller_lock, flags);
+	raw_spin_unlock_irqrestore(&irq_controller_lock, flags);
 }
 
 static void gic_unmask_irq(struct irq_data *d)
@@ -170,24 +170,22 @@ static void gic_unmask_irq(struct irq_data *d)
 	u32 mask = 1 << (gic_irq(d) % 32);
 	unsigned long flags;
 
-	raw_spin_lock_irqsave_cond(&irq_controller_lock, flags);
+	raw_spin_lock_irqsave(&irq_controller_lock, flags);
 	if (gic_arch_extn.irq_unmask)
 		gic_arch_extn.irq_unmask(d);
 	writel_relaxed(mask, gic_dist_base(d) + GIC_DIST_ENABLE_SET + (gic_irq(d) / 32) * 4);
 	ipipe_unlock_irq(d->irq);
-	raw_spin_unlock_irqrestore_cond(&irq_controller_lock, flags);
+	raw_spin_unlock_irqrestore(&irq_controller_lock, flags);
 }
 
 static void gic_eoi_irq(struct irq_data *d)
 {
 	unsigned long flags;
 
-	raw_spin_lock_irqsave_cond(&irq_controller_lock, flags);
-
+	raw_spin_lock_irqsave(&irq_controller_lock, flags);
 	if (gic_arch_extn.irq_eoi)
 		gic_arch_extn.irq_eoi(d);
-
-	raw_spin_unlock_irqrestore_cond(&irq_controller_lock, flags);
+	raw_spin_unlock_irqrestore(&irq_controller_lock, flags);
 
 	writel_relaxed(gic_irq(d), gic_cpu_base(d) + GIC_CPU_EOI);
 }
@@ -196,30 +194,29 @@ static void gic_eoi_irq(struct irq_data *d)
 
 static void gic_hold_irq(struct irq_data *d)
 {
-	u32 mask = 1 << (d->irq % 32);
+	u32 mask = 1 << (gic_irq(d) % 32);
 	unsigned long flags;
 
-	raw_spin_lock_irqsave_cond(&irq_controller_lock, flags);
+	raw_spin_lock_irqsave(&irq_controller_lock, flags);
 	writel_relaxed(mask, gic_dist_base(d) + GIC_DIST_ENABLE_CLEAR + (gic_irq(d) / 32) * 4);
 	if (gic_arch_extn.irq_mask)
 		gic_arch_extn.irq_mask(d);
-	if (gic_arch_extn.irq_eoi) {
+	if (gic_arch_extn.irq_eoi)
 		gic_arch_extn.irq_eoi(d);
-	}
 	writel_relaxed(gic_irq(d), gic_cpu_base(d) + GIC_CPU_EOI);
-	raw_spin_unlock_irqrestore_cond(&irq_controller_lock, flags);
+	raw_spin_unlock_irqrestore(&irq_controller_lock, flags);
 }
- 
+
 static void gic_release_irq(struct irq_data *d)
 {
-	u32 mask = 1 << (d->irq % 32);
+	u32 mask = 1 << (gic_irq(d) % 32);
 	unsigned long flags;
 
-	raw_spin_lock_irqsave_cond(&irq_controller_lock, flags);
+	raw_spin_lock_irqsave(&irq_controller_lock, flags);
 	if (gic_arch_extn.irq_unmask)
 		gic_arch_extn.irq_unmask(d);
 	writel_relaxed(mask, gic_dist_base(d) + GIC_DIST_ENABLE_SET + (gic_irq(d) / 32) * 4);
-	raw_spin_unlock_irqrestore_cond(&irq_controller_lock, flags);
+	raw_spin_unlock_irqrestore(&irq_controller_lock, flags);
 }
 
 #endif
@@ -240,14 +237,14 @@ static int gic_set_type(struct irq_data *d, unsigned int type)
 			    type != IRQ_TYPE_EDGE_RISING)
 		return -EINVAL;
 
-	raw_spin_lock_irqsave_cond(&irq_controller_lock, flags);
+	raw_spin_lock_irqsave(&irq_controller_lock, flags);
 
 	if (gic_arch_extn.irq_set_type)
 		gic_arch_extn.irq_set_type(d, type);
 
 	ret = gic_configure_irq(gicirq, type, base, NULL);
 
-	raw_spin_unlock_irqrestore_cond(&irq_controller_lock, flags);
+	raw_spin_unlock_irqrestore(&irq_controller_lock, flags);
 
 	return ret;
 }
@@ -278,12 +275,12 @@ static int gic_set_affinity(struct irq_data *d, const struct cpumask *mask_val,
 	if (cpu >= NR_GIC_CPU_IF || cpu >= nr_cpu_ids)
 		return -EINVAL;
 
-	raw_spin_lock_irqsave_cond(&irq_controller_lock, flags);
+	raw_spin_lock_irqsave(&irq_controller_lock, flags);
 	mask = 0xff << shift;
 	bit = gic_cpu_map[cpu] << shift;
 	val = readl_relaxed(reg) & ~mask;
 	writel_relaxed(val | bit, reg);
-	raw_spin_unlock_irqrestore_cond(&irq_controller_lock, flags);
+	raw_spin_unlock_irqrestore(&irq_controller_lock, flags);
 
 	return IRQ_SET_MASK_OK;
 }
@@ -349,9 +346,9 @@ static void gic_handle_cascade_irq(unsigned int irq, struct irq_desc *desc)
 
 	chained_irq_enter(chip, desc);
 
-	raw_spin_lock_irqsave_cond(&irq_controller_lock, flags);
+	raw_spin_lock_irqsave(&irq_controller_lock, flags);
 	status = readl_relaxed(gic_data_cpu_base(chip_data) + GIC_CPU_INTACK);
-	raw_spin_unlock_irqrestore_cond(&irq_controller_lock, flags);
+	raw_spin_unlock_irqrestore(&irq_controller_lock, flags);
 
 	gic_irq = (status & GICC_IAR_INT_ID_MASK);
 	if (gic_irq == GICC_INT_SPURIOUS)
