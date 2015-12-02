@@ -154,7 +154,7 @@ static inline unsigned int gic_irq(struct irq_data *d)
  */
 static void gic_mask_irq(struct irq_data *d)
 {
-	u32 mask = 1 << (d->irq % 32);
+	u32 mask = 1 << (gic_irq(d) % 32);
 	unsigned long flags;
 
 	raw_spin_lock_irqsave_cond(&irq_controller_lock, flags);
@@ -167,7 +167,7 @@ static void gic_mask_irq(struct irq_data *d)
 
 static void gic_unmask_irq(struct irq_data *d)
 {
-	u32 mask = 1 << (d->irq % 32);
+	u32 mask = 1 << (gic_irq(d) % 32);
 	unsigned long flags;
 
 	raw_spin_lock_irqsave_cond(&irq_controller_lock, flags);
@@ -194,7 +194,7 @@ static void gic_eoi_irq(struct irq_data *d)
 
 static void gic_hold_irq(struct irq_data *d)
 {
-	u32 mask = 1 << (d->irq % 32);
+	u32 mask = 1 << (gic_irq(d) % 32);
 	unsigned long flags;
 
 	raw_spin_lock_irqsave_cond(&irq_controller_lock, flags);
@@ -210,7 +210,7 @@ static void gic_hold_irq(struct irq_data *d)
 
 static void gic_release_irq(struct irq_data *d)
 {
-	u32 mask = 1 << (d->irq % 32);
+	u32 mask = 1 << (gic_irq(d) % 32);
 	unsigned long flags;
 
 	raw_spin_lock_irqsave_cond(&irq_controller_lock, flags);
