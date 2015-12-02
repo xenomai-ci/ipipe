@@ -498,8 +498,16 @@ void deferred_switch_mm(struct mm_struct *next)
 #endif
 #endif /* CONFIG_MMU */
 
-#if defined(CONFIG_IPIPE_DEBUG) && defined(CONFIG_DEBUG_LL)
+#ifdef CONFIG_IPIPE_DEBUG
+
 void printascii(const char *s);
+
+void __weak __ipipe_write_console(const char *s)
+{
+#ifdef CONFIG_DEBUG_LL
+	printascii(s);
+#endif
+}
 
 static IPIPE_DEFINE_SPINLOCK(serial_debug_lock);
 
@@ -520,7 +528,7 @@ void __ipipe_serial_debug(const char *fmt, ...)
 	}
 
 	spin_lock_irqsave(&serial_debug_lock, flags);
-	printascii(buf);
+	__ipipe_write_console(buf);
 	spin_unlock_irqrestore(&serial_debug_lock, flags);
 }
 
@@ -528,7 +536,7 @@ void __ipipe_serial_debug(const char *fmt, ...)
 EXPORT_SYMBOL_GPL(__ipipe_serial_debug);
 #endif
 
-#endif
+#endif	/* CONFIG_IPIPE_DEBUG */
 
 EXPORT_SYMBOL_GPL(do_munmap);
 EXPORT_SYMBOL_GPL(show_stack);

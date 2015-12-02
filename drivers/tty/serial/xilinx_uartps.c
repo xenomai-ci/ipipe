@@ -1185,6 +1185,32 @@ static void cdns_uart_console_write(struct console *co, const char *s,
 		spin_unlock_irqrestore(&port->lock, flags);
 }
 
+#ifdef CONFIG_IPIPE_DEBUG
+
+void __ipipe_write_console(const char *s)
+{
+	struct uart_port *port = &cdns_uart_port[0];
+	unsigned int imr, ctrl;
+
+	if (port->membase == NULL)
+		return;
+
+	imr = cdns_uart_readl(CDNS_UART_IMR_OFFSET);
+	cdns_uart_writel(imr, CDNS_UART_IDR_OFFSET);
+
+	ctrl = cdns_uart_readl(CDNS_UART_CR_OFFSET);
+	cdns_uart_writel((ctrl & ~CDNS_UART_CR_TX_DIS) | CDNS_UART_CR_TX_EN,
+		CDNS_UART_CR_OFFSET);
+
+	while (*s)
+		cdns_uart_writel(*s++, CDNS_UART_FIFO_OFFSET);
+	
+	cdns_uart_writel(ctrl, CDNS_UART_CR_OFFSET);
+	cdns_uart_writel(imr, CDNS_UART_IER_OFFSET);
+}
+
+#endif /* CONFIG_IPIPE_DEBUG */
+
 /**
  * cdns_uart_console_setup - Initialize the uart to default config
  * @co: Console handle
