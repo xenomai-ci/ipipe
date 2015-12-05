@@ -127,12 +127,6 @@ void __ipipe_end_level_irq(unsigned irq, struct irq_desc *desc);
 void __ipipe_ack_edge_irq(unsigned irq, struct irq_desc *desc);
 void __ipipe_end_edge_irq(unsigned irq, struct irq_desc *desc);
 
-#ifdef CONFIG_IPIPE_DEBUG
-void __ipipe_serial_debug(const char *fmt, ...);
-#else
-#define __ipipe_serial_debug(fmt, args...)	do { } while (0)
-#endif
-
 static inline unsigned long __ipipe_ffnz(unsigned long ul)
 {
 #ifdef CONFIG_PPC64
