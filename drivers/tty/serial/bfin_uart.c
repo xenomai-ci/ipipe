@@ -1083,52 +1083,6 @@ static void bfin_serial_console_putchar(struct uart_port *port, int ch)
 	UART_PUT_CHAR(uart, ch);
 }
 
-#ifdef CONFIG_IPIPE
-
-#include <stdarg.h>
-
-void __ipipe_serial_debug(const char *fmt, ...)
-{
-	struct bfin_serial_port *uart = bfin_serial_ports[0];
-	unsigned short status;
-	int flags, i, count;
-	char buf[128];
-	va_list ap;
-
-	if (uart == NULL || port_membase(uart) == NULL)
-		return;
-
-	va_start(ap, fmt);
-	vsprintf(buf, fmt, ap);
-	va_end(ap);
-	count = strlen(buf);
-
-	flags = hard_local_irq_save();
-
-	for (i = 0; i < count; i++) {
-		do {
-			status = UART_GET_LSR(uart);
-		} while (!(status & THRE));
-
-#ifndef CONFIG_BF54x
-		UART_CLEAR_DLAB(uart);
-#endif
-
-		UART_PUT_CHAR(uart, buf[i]);
-		if (buf[i] == '\n') {
-			do {
-				status = UART_GET_LSR(uart);
-			} while(!(status & THRE));
-			UART_PUT_CHAR(uart, '\r');
-		}
-	}
-
-	hard_local_irq_restore(flags);
-}
-EXPORT_SYMBOL_GPL(__ipipe_serial_debug);
-
-#endif /* CONFIG_IPIPE */
-
 #endif /* defined (CONFIG_SERIAL_BFIN_CONSOLE) ||
 		 defined (CONFIG_EARLY_PRINTK) */
 
@@ -1148,6 +1102,34 @@ bfin_serial_console_write(struct console *co, const char *s, unsigned int count)
 	spin_unlock_irqrestore(&uart->port.lock, flags);
 
 }
+
+#ifdef CONFIG_RAW_PRINTK
+
+static void
+bfin_serial_console_write_raw(struct console *co, const char *s, unsigned int count)
+{
+	struct bfin_serial_port *uart = bfin_serial_ports[co->index];
+	unsigned int status;
+	int i;
+
+	for (i = 0; i < count; i++) {
+		do
+			status = UART_GET_LSR(uart);
+		while (!(status & THRE));
+#ifndef CONFIG_BF54x
+		UART_CLEAR_DLAB(uart);
+#endif
+		UART_PUT_CHAR(uart, *s);
+		if (*s++ == '\n') {
+			do
+				status = UART_GET_LSR(uart);
+			while (!(status & THRE));
+			UART_PUT_CHAR(uart, '\r');
+		}
+	}
+}
+
+#endif
 
 static int __init
 bfin_serial_console_setup(struct console *co, char *options)
@@ -1188,7 +1170,12 @@ static struct console bfin_serial_console = {
 	.write		= bfin_serial_console_write,
 	.device		= uart_console_device,
 	.setup		= bfin_serial_console_setup,
+#ifdef CONFIG_RAW_PRINTK
+	.write_raw	= bfin_serial_console_write_raw,
+	.flags		= CON_PRINTBUFFER | CON_RAW,
+#else
 	.flags		= CON_PRINTBUFFER,
+#endif
 	.index		= -1,
 	.data		= &bfin_serial_reg,
 };
