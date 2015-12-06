@@ -96,8 +96,6 @@ int __ipipe_get_irq_priority(unsigned int irq);
 
 void __ipipe_handle_irq(unsigned int irq, struct pt_regs *regs);
 
-void __ipipe_serial_debug(const char *fmt, ...);
-
 void __ipipe_call_irqtail(unsigned long addr);
 
 extern unsigned long __ipipe_core_clock;
