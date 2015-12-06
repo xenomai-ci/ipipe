@@ -3444,7 +3444,7 @@ static void univ8250_console_write(struct console *co, const char *s,
 
 #ifdef CONFIG_RAW_PRINTK
 
-static void raw_write_char(struct uart_port *up, int c)
+static void raw_write_char(struct uart_8250_port *up, int c)
 {
 	unsigned int status, tmout = 10000;
 
@@ -3457,7 +3457,7 @@ static void raw_write_char(struct uart_port *up, int c)
 			break;
 		cpu_relax();
 	}
-	serial_port_out(up, UART_TX, c);
+	serial_port_out(&up->port, UART_TX, c);
 }
 
 static void univ8250_console_write_raw(struct console *co, const char *s,
