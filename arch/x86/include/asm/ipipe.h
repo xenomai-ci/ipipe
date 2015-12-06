@@ -56,12 +56,6 @@ void __ipipe_hook_critical_ipi(struct ipipe_domain *ipd);
 
 void __ipipe_enable_pipeline(void);
 
-#ifdef CONFIG_IPIPE_DEBUG
-void __ipipe_serial_debug(const char *fmt, ...);
-#else
-#define __ipipe_serial_debug(fmt, args...)	do { } while (0)
-#endif
-
 int __ipipe_trap_prologue(struct pt_regs *regs, int trapnr,
 			  unsigned long *flags);
 
