@@ -329,6 +329,7 @@ config ARCH_BCM2708
 	select MACH_BCM2708
 	select VC4
 	select FIQ
+	select IPIPE_ARM_KUSER_TSC if IPIPE
 	help
 	  This enables support for Broadcom BCM2708 boards.
 
@@ -348,6 +349,7 @@ config ARCH_BCM2709
 	select MACH_BCM2709
 	select VC4
 	select FIQ
+	select IPIPE_ARM_KUSER_TSC if IPIPE
 	help
 	  This enables support for Broadcom BCM2709 boards.
 

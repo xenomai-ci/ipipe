@@ -30,6 +30,8 @@
 #include <linux/clk-provider.h>
 #include <linux/clkdev.h>
 #include <linux/clockchips.h>
+#include <linux/ipipe.h>
+#include <linux/ipipe_tickdev.h>
 #include <linux/cnt32_to_63.h>
 #include <linux/io.h>
 #include <linux/module.h>
@@ -1037,12 +1039,40 @@ static int timer_set_next_event(unsigned long cycles,
 	return 0;
 }
 
+static void bcm2709_timer_ack(void)
+{
+	writel(1 << 3, __io_address(ST_BASE + 0x00));	/* stcs clear timer int */
+}
+
+#ifdef CONFIG_IPIPE
+static struct ipipe_timer timer0_itimer = {
+	.irq = IRQ_TIMER3,
+	.ack = bcm2709_timer_ack,
+	.min_delay_ticks = 3,
+};
+
+static struct __ipipe_tscinfo tsc_info = {
+	.type = IPIPE_TSC_TYPE_FREERUNNING,
+	.counter_vaddr = (unsigned long)__io_address(ST_BASE + 0x04),
+	.u = {
+		{
+			.counter_paddr = ST_BASE + 0x04,
+			.mask = 0xffffffff,
+		},
+	},
+	.freq = STC_FREQ_HZ,
+};
+#endif /* CONFIG_IPIPE */
+
 static struct clock_event_device timer0_clockevent = {
 	.name = "timer0",
 	.shift = 32,
 	.features = CLOCK_EVT_FEAT_ONESHOT,
 	.set_mode = timer_set_mode,
 	.set_next_event = timer_set_next_event,
+#ifdef CONFIG_IPIPE
+	.ipipe_timer    = &timer0_itimer,
+#endif /* CONFIG_IPIPE */
 };
 
 /*
@@ -1052,7 +1082,8 @@ static irqreturn_t bcm2709_timer_interrupt(int irq, void *dev_id)
 {
 	struct clock_event_device *evt = &timer0_clockevent;
 
-	writel(1 << 3, __io_address(ST_BASE + 0x00));	/* stcs clear timer int */
+	if (!clockevent_ipipe_stolen(evt))
+		bcm2709_timer_ack();
 
 	evt->event_handler(evt);
 
@@ -1097,6 +1128,9 @@ static void __init bcm2709_timer_init(void)
 	clockevents_register_device(&timer0_clockevent);
 
 	register_current_timer_delay(&bcm2709_delay_timer);
+#ifdef CONFIG_IPIPE
+	__ipipe_tsc_register(&tsc_info);
+#endif /* CONFIG_IPIPE */
 }
 
 #else
@@ -1104,11 +1138,6 @@ static void __init bcm2709_timer_init(void)
 static void __init bcm2709_timer_init(void)
 {
 	extern void dc4_arch_timer_init(void);
-	// timer control
-	writel(0, __io_address(ARM_LOCAL_CONTROL));
-	// timer pre_scaler
-	writel(0x80000000, __io_address(ARM_LOCAL_PRESCALER)); // 19.2MHz
-	//writel(0x06AAAAAB, __io_address(ARM_LOCAL_PRESCALER)); // 1MHz
 
 	if (use_dt)
 	{
@@ -1117,6 +1146,12 @@ static void __init bcm2709_timer_init(void)
 	}
 	else
 		dc4_arch_timer_init();
+
+	// timer control
+	writel(0, __io_address(ARM_LOCAL_CONTROL));
+	// timer pre_scaler
+	writel(0x80000000, __io_address(ARM_LOCAL_PRESCALER)); // 19.2MHz
+	//writel(0x06AAAAAB, __io_address(ARM_LOCAL_PRESCALER)); // 1MHz
 }
 
 #endif

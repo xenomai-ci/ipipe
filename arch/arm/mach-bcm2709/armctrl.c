@@ -24,6 +24,7 @@
 #include <linux/syscore_ops.h>
 #include <linux/interrupt.h>
 #include <linux/irqdomain.h>
+#include <linux/ipipe.h>
 #include <linux/of.h>
 
 #include <asm/mach/irq.h>
@@ -45,55 +46,77 @@ static unsigned int remap_irqs[(INTERRUPT_ARASANSDIO + 1) - INTERRUPT_JPEG] = {
 	INTERRUPT_VC_ARASANSDIO
 };
 
+static IPIPE_DEFINE_RAW_SPINLOCK(armctrl_lock);
+
 extern unsigned force_core;
 
-static void armctrl_mask_irq(struct irq_data *d)
+static void __armctrl_mask_irq(struct irq_data *d)
 {
-	static const unsigned int disables[4] = {
+	static const unsigned int disables[] = {
 		ARM_IRQ_DIBL1,
 		ARM_IRQ_DIBL2,
 		ARM_IRQ_DIBL3,
 		0
 	};
-	int i;
-	if (d->irq >= FIQ_START) {
-		writel(0, __io_address(ARM_IRQ_FAST));
-	} else if (d->irq >= IRQ_ARM_LOCAL_CNTPSIRQ && d->irq < IRQ_ARM_LOCAL_CNTPSIRQ + 4) {
-#if 1
-		unsigned int data = (unsigned int)irq_get_chip_data(d->irq) - IRQ_ARM_LOCAL_CNTPSIRQ;
-		for (i=0; i<4; i++) // i = raw_smp_processor_id(); //
-		{
-			unsigned int val =   readl(__io_address(ARM_LOCAL_TIMER_INT_CONTROL0 + 4*i));
-			writel(val &~ (1 << data), __io_address(ARM_LOCAL_TIMER_INT_CONTROL0 + 4*i));
-		}
-#endif
-	} else if (d->irq >= IRQ_ARM_LOCAL_MAILBOX0 && d->irq < IRQ_ARM_LOCAL_MAILBOX0 + 4) {
-#if 0
-		unsigned int data = (unsigned int)irq_get_chip_data(d->irq) - IRQ_ARM_LOCAL_MAILBOX0;
-		for (i=0; i<4; i++) {
-			unsigned int val = readl(__io_address(ARM_LOCAL_MAILBOX_INT_CONTROL0 + 4*i));
-			writel(val &~ (1 << data), __io_address(ARM_LOCAL_MAILBOX_INT_CONTROL0 + 4*i));
-		}
-#endif
-	} else if (d->irq >= ARM_IRQ1_BASE && d->irq < ARM_IRQ_LOCAL_BASE) {
-		unsigned int data = (unsigned int)irq_get_chip_data(d->irq);
+	unsigned int data;
+
+	switch (d->irq) {
+	case ARM_IRQ1_BASE ... ARM_IRQ_LOCAL_BASE - 1:
+		data = (unsigned int)irq_get_chip_data(d->irq);
 		writel(1 << (data & 0x1f), __io_address(disables[(data >> 5) & 0x3]));
-	} else if (d->irq == INTERRUPT_ARM_LOCAL_PMU_FAST) {
+		break;
+	case INTERRUPT_ARM_LOCAL_PMU_FAST:
 		writel(0xf, __io_address(ARM_LOCAL_PM_ROUTING_CLR));
-	} else { printk("%s: %d\n", __func__, d->irq); BUG(); }
+		break;
+	default:
+		BUG_ON(d->irq < FIQ_START);
+		writel(0, __io_address(ARM_IRQ_FAST));
+	}
+}
+
+static void armctrl_mask_irq(struct irq_data *d)
+{
+	unsigned long flags;
+
+	/*
+	 * We need the spinlock for protecting the lock_irq+masking
+	 * sequence from preemption.
+	 */
+	raw_spin_lock_irqsave(&armctrl_lock, flags);
+	ipipe_lock_irq(d->irq);
+	__armctrl_mask_irq(d);
+	raw_spin_unlock_irqrestore(&armctrl_lock, flags);
 }
 
 static void armctrl_unmask_irq(struct irq_data *d)
 {
-	static const unsigned int enables[4] = {
+	static const unsigned int enables[] = {
 		ARM_IRQ_ENBL1,
 		ARM_IRQ_ENBL2,
 		ARM_IRQ_ENBL3,
 		0
 	};
-	int i;
-	if (d->irq >= FIQ_START) {
-		unsigned int data;
+	unsigned long flags;
+	unsigned int data;
+
+	raw_spin_lock_irqsave(&armctrl_lock, flags);
+
+	switch (d->irq) {
+	case ARM_IRQ1_BASE ... ARM_IRQ_LOCAL_BASE - 1:
+		if (force_core) {
+			data = readl(__io_address(ARM_LOCAL_GPU_INT_ROUTING));
+			data &= ~0x3;
+			data |= ((force_core-1) << 0);
+			writel(data, __io_address(ARM_LOCAL_GPU_INT_ROUTING));
+		}
+		data = (unsigned int)irq_get_chip_data(d->irq);
+		writel(1 << (data & 0x1f), __io_address(enables[(data >> 5) & 0x3]));
+		break;
+	case INTERRUPT_ARM_LOCAL_PMU_FAST:
+		writel(0xf, __io_address(ARM_LOCAL_PM_ROUTING_SET));
+		break;
+	default:
+		BUG_ON(d->irq < FIQ_START);
 		if (force_core) {
 			data = readl(__io_address(ARM_LOCAL_GPU_INT_ROUTING));
 			data &= ~0xc;
@@ -109,36 +132,10 @@ static void armctrl_unmask_irq(struct irq_data *d)
 		/* Unmask in ARMCTRL block after routing it properly */
 		data = (unsigned int)irq_get_chip_data(d->irq) - FIQ_START;
 		writel(0x80 | data, __io_address(ARM_IRQ_FAST));
-	} else if (d->irq >= IRQ_ARM_LOCAL_CNTPSIRQ && d->irq < IRQ_ARM_LOCAL_CNTPSIRQ + 4) {
-#if 1
-		unsigned int data = (unsigned int)irq_get_chip_data(d->irq) - IRQ_ARM_LOCAL_CNTPSIRQ;
-		for (i=0; i<4; i++) // i = raw_smp_processor_id();
-		{
-			unsigned int val =  readl(__io_address(ARM_LOCAL_TIMER_INT_CONTROL0 + 4*i));
-			writel(val | (1 << data), __io_address(ARM_LOCAL_TIMER_INT_CONTROL0 + 4*i));
-		}
-#endif
-	} else if (d->irq >= IRQ_ARM_LOCAL_MAILBOX0 && d->irq < IRQ_ARM_LOCAL_MAILBOX0 + 4) {
-#if 0
-		unsigned int data = (unsigned int)irq_get_chip_data(d->irq) - IRQ_ARM_LOCAL_MAILBOX0;
-		for (i=0; i<4; i++) {
-			unsigned int val = readl(__io_address(ARM_LOCAL_MAILBOX_INT_CONTROL0 + 4*i));
-			writel(val | (1 << data), __io_address(ARM_LOCAL_MAILBOX_INT_CONTROL0 + 4*i));
-		}
-#endif
-	} else if (d->irq >= ARM_IRQ1_BASE && d->irq < ARM_IRQ_LOCAL_BASE) {
-		if (force_core) {
-			unsigned int data;
-			data = readl(__io_address(ARM_LOCAL_GPU_INT_ROUTING));
-			data &= ~0x3;
-			data |= ((force_core-1) << 0);
-			writel(data, __io_address(ARM_LOCAL_GPU_INT_ROUTING));
-		}
-		unsigned int data = (unsigned int)irq_get_chip_data(d->irq);
-		writel(1 << (data & 0x1f), __io_address(enables[(data >> 5) & 0x3]));
-	} else if (d->irq == INTERRUPT_ARM_LOCAL_PMU_FAST) {
-		writel(0xf, __io_address(ARM_LOCAL_PM_ROUTING_SET));
-	} else { printk("%s: %d\n", __func__, d->irq); BUG(); }
+	}
+
+	ipipe_unlock_irq(d->irq);
+	raw_spin_unlock_irqrestore(&armctrl_lock, flags);
 }
 
 #ifdef CONFIG_OF
@@ -348,6 +345,9 @@ static struct irq_chip armctrl_chip = {
 	.irq_mask = armctrl_mask_irq,
 	.irq_unmask = armctrl_unmask_irq,
 	.irq_set_wake = armctrl_set_wake,
+#ifdef CONFIG_IPIPE
+	.irq_mask_ack = __armctrl_mask_irq,
+#endif
 };
 
 /**
