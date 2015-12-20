@@ -54,6 +54,7 @@ static inline void kernel_fpu_end(void)
 /* Must be called with preempt disabled */
 extern void kernel_fpu_disable(void);
 extern void kernel_fpu_enable(void);
+extern bool kernel_fpu_disabled(void);
 
 /*
  * Some instructions like VIA's padlock instructions generate a spurious
