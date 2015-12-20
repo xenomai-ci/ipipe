@@ -33,6 +33,11 @@ void kernel_fpu_enable(void)
 	this_cpu_write(in_kernel_fpu, false);
 }
 
+bool kernel_fpu_disabled(void)
+{
+	return this_cpu_read(in_kernel_fpu);
+}
+
 /*
  * Were we in an interrupt that interrupted kernel mode?
  *
