@@ -113,7 +113,9 @@ EXPORT_SYMBOL(__kernel_fpu_begin);
 void __kernel_fpu_end(void)
 {
 	struct task_struct *me = current;
+	unsigned long flags;
 
+	flags = hard_cond_local_irq_save();
 	if (__thread_has_fpu(me)) {
 		if (WARN_ON(restore_fpu_checking(me)))
 			fpu_reset_state(me);
@@ -122,12 +124,15 @@ void __kernel_fpu_end(void)
 	}
 
 	this_cpu_write(in_kernel_fpu, false);
+	hard_cond_local_irq_restore(flags);
 }
 EXPORT_SYMBOL(__kernel_fpu_end);
 
 void unlazy_fpu(struct task_struct *tsk)
 {
-	preempt_disable();
+	unsigned long flags;
+
+	flags = hard_preempt_disable();
 	if (__thread_has_fpu(tsk)) {
 		if (use_eager_fpu()) {
 			__save_fpu(tsk);
@@ -136,7 +141,7 @@ void unlazy_fpu(struct task_struct *tsk)
 			__thread_fpu_end(tsk);
 		}
 	}
-	preempt_enable();
+	hard_preempt_enable(flags);
 }
 EXPORT_SYMBOL(unlazy_fpu);
 
