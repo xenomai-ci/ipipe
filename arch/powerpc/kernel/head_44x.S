@@ -264,7 +264,7 @@ interrupt_base:
 	/* External Input Interrupt */
 #ifdef CONFIG_IPIPE
 	EXCEPTION(0x0500, BOOKE_INTERRUPT_EXTERNAL, ExternalInput, \
-		  __ipipe_grab_irq, EXC_XFER_LITE)
+		  __ipipe_grab_irq, EXC_XFER_IPIPE)
 #else /* !CONFIG_IPIPE */
 	EXCEPTION(0x0500, BOOKE_INTERRUPT_EXTERNAL, ExternalInput, \
 		  do_IRQ, EXC_XFER_LITE)
