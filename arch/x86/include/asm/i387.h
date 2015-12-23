@@ -21,6 +21,7 @@ struct user_i387_struct;
 extern int init_fpu(struct task_struct *child);
 extern void fpu_finit(struct fpu *fpu);
 extern int dump_fpu(struct pt_regs *, struct user_i387_struct *);
+extern void __math_state_restore(struct task_struct *tsk);
 extern void math_state_restore(void);
 
 extern bool irq_fpu_usable(void);

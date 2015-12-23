@@ -715,6 +715,23 @@ asmlinkage __visible void __attribute__((weak)) smp_threshold_interrupt(void)
 {
 }
 
+void __math_state_restore(struct task_struct *tsk)
+{
+	__thread_fpu_begin(tsk);
+
+	/*
+	 * Paranoid restore. send a SIGSEGV if we fail to restore the state.
+	 */
+	if (unlikely(restore_fpu_checking(tsk))) {
+		drop_init_fpu(tsk);
+		hard_cond_local_irq_enable();
+		force_sig_info(SIGSEGV, SEND_SIG_PRIV, tsk);
+		return;
+	}
+
+	tsk->thread.fpu_counter++;
+}
+
 /*
  * 'math_state_restore()' saves the current math information in the
  * old math state array, and gets the new ones from the current task
@@ -746,19 +763,7 @@ void math_state_restore(void)
 	}
 
 	flags = hard_cond_local_irq_save();
-	__thread_fpu_begin(tsk);
-
-	/*
-	 * Paranoid restore. send a SIGSEGV if we fail to restore the state.
-	 */
-	if (unlikely(restore_fpu_checking(tsk))) {
-		drop_init_fpu(tsk);
-		hard_cond_local_irq_enable();
-		force_sig_info(SIGSEGV, SEND_SIG_PRIV, tsk);
-		return;
-	}
-
-	tsk->thread.fpu_counter++;
+	__math_state_restore(tsk);
 	hard_cond_local_irq_restore(flags);
 }
 EXPORT_SYMBOL_GPL(math_state_restore);

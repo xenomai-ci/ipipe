@@ -90,6 +90,9 @@ EXPORT_SYMBOL(__kernel_fpu_begin);
 
 void __kernel_fpu_end(void)
 {
+	unsigned long flags;
+
+	flags = hard_cond_local_irq_save();
 	if (use_eager_fpu()) {
 		/*
 		 * For eager fpu, most the time, tsk_used_math() is true.
@@ -99,10 +102,11 @@ void __kernel_fpu_end(void)
 		 * actions, so we don't need to restore the math here.
 		 */
 		if (likely(tsk_used_math(current)))
-			math_state_restore();
+			__math_state_restore(current);
 	} else {
 		stts();
 	}
+	hard_cond_local_irq_restore(flags);
 }
 EXPORT_SYMBOL(__kernel_fpu_end);
 
