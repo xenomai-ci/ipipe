@@ -74,7 +74,7 @@ static inline void load_mm_ldt(struct mm_struct *mm)
 	else
 		clear_LDT();
 
-	DEBUG_LOCKS_WARN_ON(preemptible());
+	DEBUG_LOCKS_WARN_ON(preemptible() && !hard_irqs_disabled());
 }
 
 /*
