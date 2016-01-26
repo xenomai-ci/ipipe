@@ -4,7 +4,6 @@
 #include <asm/desc_defs.h>
 #include <asm/ldt.h>
 #include <asm/mmu.h>
-#include <asm/hw_irq.h>
 
 #include <linux/smp.h>
 #include <linux/percpu.h>
@@ -394,6 +393,10 @@ static inline void _set_gate(int gate, unsigned type, void *addr,
 extern int first_system_vector;
 /* used_vectors is BITMAP for irq is not managed by percpu vector_irq */
 extern unsigned long used_vectors[];
+
+#ifdef CONFIG_IPIPE
+extern int vector_irq[NR_VECTORS];
+#endif
 
 static inline void alloc_system_vector(int vector)
 {
