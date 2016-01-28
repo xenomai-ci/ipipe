@@ -579,8 +579,6 @@ static void __eoi_ioapic_irq(struct irq_cfg *cfg)
 					       cfg->vector);
 }
 
-#if !defined(CONFIG_IPIPE) || defined(CONFIG_SMP)
-
 void eoi_ioapic_irq(unsigned int irq, struct irq_cfg *cfg)
 {
 	unsigned long flags;
@@ -589,8 +587,6 @@ void eoi_ioapic_irq(unsigned int irq, struct irq_cfg *cfg)
 	__eoi_ioapic_irq(cfg);
 	raw_spin_unlock_irqrestore(&ioapic_lock, flags);
 }
-
-#endif /* !CONFIG_IPIPE || CONFIG_SMP */
 
 static void clear_IO_APIC_pin(unsigned int apic, unsigned int pin)
 {
