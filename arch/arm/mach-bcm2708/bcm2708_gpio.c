@@ -323,7 +323,7 @@ static void do_gpio_interrupt(struct bcm2708_gpio *gpio_data)
 
 static void bcm2708_gpio_irq_mask_ack(struct irq_data *d)
 {
-	struct bcm2708_gpio *gpio_data = irq_get_handler_data(d->irq);
+	struct bcm2708_gpio *gpio_data = irq_get_chip_data(d->irq);
 	unsigned int gn = irq_to_gpio(d->irq);
 	unsigned int gb = gn / 32;
 	unsigned int go = gn % 32;
