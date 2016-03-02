@@ -316,7 +316,7 @@ void smp_send_debugger_break(void)
 	for_each_online_cpu(cpu)
 		if (cpu != me) {
 #ifdef CONFIG_IPIPE
-			cpu_set(cpu, __ipipe_dbrk_pending);
+			cpumask_set_cpu(cpu, &__ipipe_dbrk_pending);
 #endif
 			do_message_pass(cpu, PPC_MSG_DEBUGGER_BREAK);
 		}

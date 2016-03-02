@@ -113,7 +113,7 @@ void ipipe_set_irq_affinity(unsigned int irq, cpumask_t cpumask)
 	if (WARN_ON_ONCE(irq_get_chip(irq)->irq_set_affinity == NULL))
 		return;
 
-	if (WARN_ON_ONCE(cpumask_any_and(&cpumask, &cpu_online_mask) >= nr_cpu_ids))
+	if (WARN_ON_ONCE(cpumask_any_and(&cpumask, cpu_online_mask) >= nr_cpu_ids))
 		return;
 
 	irq_get_chip(irq)->irq_set_affinity(irq_get_irq_data(irq), &cpumask, true);
@@ -138,7 +138,7 @@ void ipipe_send_ipi(unsigned int ipi, cpumask_t cpumask)
 		goto out;
 
 	me = ipipe_processor_id();
-	for_each_cpu_mask_nr(cpu, cpumask) {
+	for_each_cpu(cpu, &cpumask) {
 		if (cpu != me)
 			smp_ops->message_pass(cpu, PPC_MSG_IPIPE_DEMUX);
 	}
