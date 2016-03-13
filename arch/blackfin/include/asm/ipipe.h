@@ -36,7 +36,7 @@
 #include <asm/traps.h>
 #include <asm/bitsperlong.h>
 
-#define IPIPE_CORE_RELEASE	4
+#define IPIPE_CORE_RELEASE	5
 
 #ifdef CONFIG_SMP
 #error "I-pipe/blackfin: SMP not implemented"
