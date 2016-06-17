@@ -1446,6 +1446,7 @@ static int rockchip_irq_set_type(struct irq_data *d, unsigned int type)
 	struct irq_chip_generic *gc = irq_data_get_irq_chip_data(d);
 	struct rockchip_pin_bank *bank = gc->private;
 	u32 mask = BIT(d->hwirq);
+	unsigned long flags;
 	u32 polarity;
 	u32 level;
 	u32 data;
@@ -1465,7 +1466,7 @@ static int rockchip_irq_set_type(struct irq_data *d, unsigned int type)
 	else
 		__irq_set_handler_locked(d->irq, handle_level_irq);
 
-	irq_gc_lock(gc);
+	flags = irq_gc_lock(gc);
 
 	level = readl_relaxed(gc->reg_base + GPIO_INTTYPE_LEVEL);
 	polarity = readl_relaxed(gc->reg_base + GPIO_INT_POLARITY);
@@ -1506,14 +1507,14 @@ static int rockchip_irq_set_type(struct irq_data *d, unsigned int type)
 		polarity &= ~mask;
 		break;
 	default:
-		irq_gc_unlock(gc);
+		irq_gc_unlock(gc, flags);
 		return -EINVAL;
 	}
 
 	writel_relaxed(level, gc->reg_base + GPIO_INTTYPE_LEVEL);
 	writel_relaxed(polarity, gc->reg_base + GPIO_INT_POLARITY);
 
-	irq_gc_unlock(gc);
+	irq_gc_unlock(gc, flags);
 
 	return 0;
 }

@@ -71,27 +71,29 @@ static void bcm7120_l2_intc_suspend(struct irq_data *d)
 {
 	struct irq_chip_generic *gc = irq_data_get_irq_chip_data(d);
 	struct bcm7120_l2_intc_data *b = gc->private;
+	unsigned long flags;
 	u32 reg;
 
-	irq_gc_lock(gc);
+	flags = irq_gc_lock(gc);
 	/* Save the current mask and the interrupt forward mask */
 	b->saved_mask = __raw_readl(b->base) | b->irq_fwd_mask;
 	if (b->can_wake) {
 		reg = b->saved_mask | gc->wake_active;
 		__raw_writel(reg, b->base);
 	}
-	irq_gc_unlock(gc);
+	irq_gc_unlock(gc, flags);
 }
 
 static void bcm7120_l2_intc_resume(struct irq_data *d)
 {
 	struct irq_chip_generic *gc = irq_data_get_irq_chip_data(d);
 	struct bcm7120_l2_intc_data *b = gc->private;
+	unsigned long flags;
 
 	/* Restore the saved mask */
-	irq_gc_lock(gc);
+	flags = irq_gc_lock(gc);
 	__raw_writel(b->saved_mask, b->base);
-	irq_gc_unlock(gc);
+	irq_gc_unlock(gc, flags);
 }
 
 static int bcm7120_l2_intc_init_one(struct device_node *dn,
