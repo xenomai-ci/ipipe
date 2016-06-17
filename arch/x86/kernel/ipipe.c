@@ -33,6 +33,7 @@
 #include <linux/mm.h>
 #include <linux/kgdb.h>
 #include <linux/ipipe_tickdev.h>
+#include <trace/events/tlb.h>
 #include <asm/asm-offsets.h>
 #include <asm/unistd.h>
 #include <asm/processor.h>
@@ -496,4 +497,8 @@ EXPORT_SYMBOL(tasklist_lock);
 
 #if defined(CONFIG_CC_STACKPROTECTOR) && defined(CONFIG_X86_64)
 EXPORT_PER_CPU_SYMBOL_GPL(irq_stack_union);
+#endif
+
+#if defined(CONFIG_TRACEPOINTS) && defined(CONFIG_IPIPE_LEGACY)
+EXPORT_TRACEPOINT_SYMBOL_GPL(tlb_flush);
 #endif
