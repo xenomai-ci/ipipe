@@ -56,6 +56,7 @@
 #include <asm/i387.h>
 #include <asm/fpu-internal.h>
 #include <asm/mce.h>
+#include <asm/mmu_context.h>
 
 DEFINE_PER_CPU(unsigned long, __ipipe_cr2);
 EXPORT_PER_CPU_SYMBOL_GPL(__ipipe_cr2);
@@ -497,3 +498,13 @@ EXPORT_SYMBOL(tasklist_lock);
 #if defined(CONFIG_CC_STACKPROTECTOR) && defined(CONFIG_X86_64)
 EXPORT_PER_CPU_SYMBOL_GPL(irq_stack_union);
 #endif
+
+#ifdef CONFIG_IPIPE_LEGACY
+#ifdef CONFIG_TRACEPOINTS
+EXPORT_TRACEPOINT_SYMBOL_GPL(tlb_flush);
+#endif
+#ifdef CONFIG_PERF_EVENTS
+EXPORT_SYMBOL_GPL(rdpmc_always_available);
+#endif
+#endif
+
