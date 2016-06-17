@@ -73,6 +73,7 @@ BEGIN {
     driver_arch["gpio/gpio-pxa.c"]="arm"
     driver_arch["gpio/gpio-sa1100.c"]="arm"
     driver_arch["gpio/gpio-davinci.c"]="arm"
+    driver_arch["gpio/gpio-mvebu.c"]="arm"
     driver_arch["irqchip/irq-versatile-fpga.c"]="arm"
     driver_arch["irqchip/spear-shirq.c"]="arm"
     driver_arch["irqchip/irq-mxs.c"]="arm"
@@ -81,11 +82,13 @@ BEGIN {
     driver_arch["irqchip/irq-vic.c"]="arm"
     driver_arch["mfd/twl4030-irq.c"]="arm"
     driver_arch["mfd/twl6030-irq.c"]="arm"
+    driver_arch["pinctrl/pinctrl-rockchip.c"]="arm"
     driver_arch["dma/edma.c"]="arm"
     driver_arch["misc/Kconfig"]="arm"
     driver_arch["net/ethernet/cadence/at91_ether.c"]="arm"
     driver_arch["staging/imx-drm/ipu-v3/ipu-common.c"]="arm"
     driver_arch["staging/imx-drm/ipu-v3/ipu-prv.h"]="arm"
+    driver_arch["pinctrl/pinctrl-at91.c"]="arm"
 
     driver_arch["tty/serial/bfin_uart.c"]="blackfin"
 
