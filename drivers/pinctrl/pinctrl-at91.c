@@ -21,6 +21,7 @@
 #include <linux/irqchip/chained_irq.h>
 #include <linux/io.h>
 #include <linux/gpio.h>
+#include <linux/ipipe.h>
 #include <linux/pinctrl/machine.h>
 #include <linux/pinctrl/pinconf.h>
 #include <linux/pinctrl/pinctrl.h>
@@ -1431,7 +1432,7 @@ static void gpio_irq_handler(unsigned irq, struct irq_desc *desc)
 		}
 
 		for_each_set_bit(n, &isr, BITS_PER_LONG) {
-			generic_handle_irq(irq_find_mapping(at91_gpio->domain, n));
+			ipipe_handle_demuxed_irq(irq_find_mapping(at91_gpio->domain, n));
 		}
 	}
 	chained_irq_exit(chip, desc);
