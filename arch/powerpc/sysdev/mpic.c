@@ -688,10 +688,10 @@ void mpic_unmask_irq(struct irq_data *d)
 {
 	unsigned long flags;
 
-	spin_lock_irqsave(&mpic_lock, flags);
+	raw_spin_lock_irqsave(&mpic_lock, flags);
 	ipipe_unlock_irq(d->irq);
 	__mpic_unmask_irq(d);
-	spin_unlock_irqrestore(&mpic_lock, flags);
+	raw_spin_unlock_irqrestore(&mpic_lock, flags);
 }
 
 void __mpic_mask_irq(struct irq_data *d)
@@ -720,10 +720,10 @@ void mpic_mask_irq(struct irq_data *d)
 {
 	unsigned long flags;
 
-	spin_lock_irqsave(&mpic_lock, flags);
+	raw_spin_lock_irqsave(&mpic_lock, flags);
 	__mpic_mask_irq(d);
 	ipipe_lock_irq(d->irq);
-	spin_unlock_irqrestore(&mpic_lock, flags);
+	raw_spin_unlock_irqrestore(&mpic_lock, flags);
 }
 
 void mpic_end_irq(struct irq_data *d)
@@ -748,19 +748,19 @@ void mpic_hold_irq(struct irq_data *d)
 	struct mpic *mpic = mpic_from_irq_data(d);
 	unsigned long flags;
 
-	spin_lock_irqsave(&mpic_lock, flags);
+	raw_spin_lock_irqsave(&mpic_lock, flags);
 	mpic_eoi(mpic);
 	__mpic_mask_irq(d);
-	spin_unlock_irqrestore(&mpic_lock, flags);
+	raw_spin_unlock_irqrestore(&mpic_lock, flags);
 }
 
 void mpic_release_irq(struct irq_data *d)
 {
 	unsigned long flags;
 
-	spin_lock_irqsave(&mpic_lock, flags);
+	raw_spin_lock_irqsave(&mpic_lock, flags);
 	__mpic_unmask_irq(d);
-	spin_unlock_irqrestore(&mpic_lock, flags);
+	raw_spin_unlock_irqrestore(&mpic_lock, flags);
 }
 
 #endif
@@ -826,9 +826,9 @@ static void mpic_unmask_ipi(struct irq_data *d)
 	unsigned long flags;
 
 	DBG("%s: unmask_ipi: %d (ipi %d)\n", mpic->name, d->irq, src);
-	spin_lock_irqsave(&mpic_lock, flags);
+	raw_spin_lock_irqsave(&mpic_lock, flags);
 	mpic_ipi_write(src, mpic_ipi_read(src) & ~MPIC_VECPRI_MASK);
-	spin_unlock_irqrestore(&mpic_lock, flags);
+	raw_spin_unlock_irqrestore(&mpic_lock, flags);
 }
 
 static void mpic_mask_ipi(struct irq_data *d)
