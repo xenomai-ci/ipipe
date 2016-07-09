@@ -799,13 +799,9 @@ restore:
 	 */
 	ld	r5,SOFTE(r1)
 #ifdef CONFIG_IPIPE
-	cmpwi	cr0,r5,0
-	nor	r5,r5,r5	/* IPIPE_STALL_FLAG = !SOFTE */
 	ld	r4,PACAROOTPCPU(r13)
-	ld	r3,0(r4)
-	insrdi	r3,r5,1,63
-	std	r3,0(r4)
-	beq	1f
+	cmpwi	cr0,r4,0
+	bne	1f
 	TRACE_ENABLE_INTS
 1:
 #else	/* !CONFIG_IPIPE */
