@@ -619,10 +619,12 @@ void exc_lvl_ctx_init(void)
 
 void irq_ctx_init(void) { }
 
+#ifndef CONFIG_PREEMPT_RT_FULL
 void do_softirq_own_stack(void)
 {
 	__do_softirq();
 }
+#endif
 
 #else  /* !CONFIG_IPIPE */
 
