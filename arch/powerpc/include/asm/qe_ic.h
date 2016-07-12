@@ -16,6 +16,7 @@
 #define _ASM_POWERPC_QE_IC_H
 
 #include <linux/irq.h>
+#include <linux/ipipe.h>
 
 struct device_node;
 struct qe_ic;

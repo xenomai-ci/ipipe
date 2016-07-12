@@ -35,6 +35,8 @@
  * implementations as possible.
  */
 
+#include <asm/irq_softstate.h>
+
 #define EX_R9		0
 #define EX_R10		8
 #define EX_R11		16
@@ -332,20 +334,6 @@ do_kvm_##n:								\
 	GET_CTR(r10, area);						   \
 	std	r10,_CTR(r1);
 
-#ifdef CONFIG_IPIPE
-/* Do NOT alter Rc(eq) in this code;  our caller uses it. */
-#define COPY_SOFTISTATE(mreg)			\
-	ld	mreg,PACAROOTPCPU(r13);		\
-	ld	mreg,0(mreg);			\
-	nor	mreg,mreg,mreg;			\
-	clrldi	mreg,mreg,63;			\
-	std	mreg,SOFTE(r1)
-#else /* !CONFIG_IPIPE */
-#define COPY_SOFTISTATE(mreg)			\
-	lbz	mreg,PACASOFTIRQEN(r13);	\
-	std	mreg,SOFTE(r1)
-#endif /* !CONFIG_IPIPE */
-
 #define EXCEPTION_PROLOG_COMMON_3(n)					   \
 	std	r2,GPR2(r1);		/* save r2 in stackframe	*/ \
 	SAVE_4GPRS(3, r1);		/* save r3 - r6 in stackframe   */ \
@@ -353,7 +341,7 @@ do_kvm_##n:								\
 	mflr	r9;			/* Get LR, later save to stack	*/ \
 	ld	r2,PACATOC(r13);	/* get kernel TOC into r2	*/ \
 	std	r9,_LINK(r1);						   \
-	COPY_SOFTISTATE(r10);						   \
+	EXC_SAVE_SOFTISTATE(r10);					   \
 	mfspr	r11,SPRN_XER;		/* save XER in stackframe	*/ \
 	std	r11,_XER(r1);						   \
 	li	r9,(n)+1;						   \
@@ -532,46 +520,6 @@ label##_relon_hv:							\
  * runlatch, etc...
  */
 
-.macro HARD_ENABLE_INTS tmp=r10
-#ifdef CONFIG_PPC_BOOK3E
-	wrteei	1
-#else
-	ld	\tmp,PACAKMSR(r13)
-	ori	\tmp,\tmp,MSR_EE
-	mtmsrd	\tmp,1
-#endif /* CONFIG_PPC_BOOK3E */
-.endm
-
-.macro HARD_DISABLE_INTS tmp=r10
-#ifdef CONFIG_PPC_BOOK3E
-	wrteei	0
-#else
-	ld	\tmp,PACAKMSR(r13) /* Get kernel MSR without EE */
-	mtmsrd	\tmp,1		  /* Update machine state */
-#endif /* CONFIG_PPC_BOOK3E */
-.endm
-
-.macro HARD_DISABLE_INTS_RI
-#ifdef CONFIG_PPC_BOOK3E
-	wrteei	0
-#else
-	/*
-	 * For performance reasons we clear RI the same time that we
-	 * clear EE. We only need to clear RI just before we restore r13
-	 * below, but batching it with EE saves us one expensive mtmsrd call.
-	 * We have to be careful to restore RI if we branch anywhere from
-	 * here (eg syscall_exit_work).
-	 *
-	 * CAUTION: using r9-r11 the way they are is assumed by the
-	 * caller.
-	 */
-	ld	r10,PACAKMSR(r13) /* Get kernel MSR without EE */
-	li	r9,MSR_RI
-	andc	r11,r10,r9
-	mtmsrd	r11,1		  /* Update machine state */
-#endif /* CONFIG_PPC_BOOK3E */
-.endm
-
 /*
  * This addition reconciles our actual IRQ state with the various software
  * flags that track it. This may call C code.
@@ -585,7 +533,6 @@ label##_relon_hv:							\
 	mfmsr	r11;				\
 	ori	r11,r11,MSR_EE;			\
 	mtmsrd	r11,1;
-#define RECONCILE_IRQ_STATE(__rA, __rB)	HARD_DISABLE_INTS __rA
 #else /* !CONFIG_IPIPE */
 #define ADD_RECONCILE	RECONCILE_IRQ_STATE(r10,r11)
 #endif /* !CONFIG_IPIPE */

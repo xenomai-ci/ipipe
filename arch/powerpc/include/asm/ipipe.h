@@ -108,7 +108,9 @@ struct ipipe_ipi_struct {
 
 void __ipipe_hook_critical_ipi(struct ipipe_domain *ipd);
 
-void __ipipe_register_ipi(unsigned int irq);
+void __ipipe_register_mux_ipi(unsigned int irq);
+
+void __ipipe_finish_ipi_demux(unsigned int irq);
 #else
 #define __ipipe_hook_critical_ipi(ipd)	do { } while(0)
 #endif /* CONFIG_SMP */

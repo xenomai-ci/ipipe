@@ -44,10 +44,15 @@
 #include <asm/time.h>
 #include <asm/runlatch.h>
 #include <asm/debug.h>
+#include <asm/dbell.h>
 
 static void __ipipe_do_IRQ(unsigned int irq, void *cookie);
 
 static void __ipipe_do_timer(unsigned int irq, void *cookie);
+
+#ifdef CONFIG_PPC_DOORBELL
+static void __ipipe_do_doorbell(unsigned int irq, void *cookie);
+#endif
 
 #define DECREMENTER_MAX	0x7fffffff
 
@@ -55,11 +60,16 @@ static void __ipipe_do_timer(unsigned int irq, void *cookie);
 
 static DEFINE_PER_CPU(struct ipipe_ipi_struct, ipipe_ipi_message);
 
-unsigned int __ipipe_ipi_irq = NR_IRQS + 1; /* dummy value */
-
 #ifdef CONFIG_DEBUGGER
 cpumask_t __ipipe_dbrk_pending;	/* pending debugger break IPIs */
 #endif
+
+static unsigned int mux_ipi;
+
+void __ipipe_register_mux_ipi(unsigned int irq)
+{
+	mux_ipi = irq;
+}
 
 void __ipipe_hook_critical_ipi(struct ipipe_domain *ipd)
 {
@@ -71,23 +81,15 @@ void __ipipe_hook_critical_ipi(struct ipipe_domain *ipd)
 	ipd->irqs[ipi].control = IPIPE_HANDLE_MASK|IPIPE_STICKY_MASK;
 }
 
-void __ipipe_register_ipi(unsigned int irq)
+static void do_ipi_demux(int irq, struct pt_regs *regs)
 {
-	__ipipe_ipi_irq = irq;
-}
-
-static void __ipipe_ipi_demux(int irq, struct pt_regs *regs)
-{
-	struct irq_desc *desc = irq_to_desc(irq);
-	int ipi, cpu = ipipe_processor_id();
-
-	desc->ipipe_ack(irq, desc);
-
-	kstat_incr_irq_this_cpu(irq);
-
-	while (per_cpu(ipipe_ipi_message, cpu).value & IPIPE_MSG_IPI_MASK) {
-		for (ipi = IPIPE_MSG_CRITICAL_IPI; ipi <= IPIPE_MSG_RESCHEDULE_IPI; ++ipi) {
-			if (test_and_clear_bit(ipi, &per_cpu(ipipe_ipi_message, cpu).value)) {
+	int cpu __maybe_unused = ipipe_processor_id(), ipi;
+	
+	while (this_cpu_ptr(&ipipe_ipi_message)->value & IPIPE_MSG_IPI_MASK) {
+		for (ipi = IPIPE_MSG_CRITICAL_IPI;
+		     ipi <= IPIPE_MSG_RESCHEDULE_IPI; ++ipi) {
+			if (test_and_clear_bit(ipi,
+			       &this_cpu_ptr(&ipipe_ipi_message)->value)) {
 				mb();
 				__ipipe_handle_irq(ipi + IPIPE_BASE_IPI_OFFSET, NULL);
 			}
@@ -105,7 +107,7 @@ static void __ipipe_ipi_demux(int irq, struct pt_regs *regs)
 	}
 #endif /* CONFIG_DEBUGGER */
 
-	ipipe_end_irq(irq);
+	__ipipe_finish_ipi_demux(irq);
 }
 
 void ipipe_set_irq_affinity(unsigned int irq, cpumask_t cpumask)
@@ -127,22 +129,20 @@ void ipipe_send_ipi(unsigned int ipi, cpumask_t cpumask)
 
 	flags = hard_local_irq_save();
 
-	ipi -= IPIPE_BASE_IPI_OFFSET;
-	for_each_online_cpu(cpu) {
-		if (cpumask_test_cpu(cpu, &cpumask))
-			set_bit(ipi, &per_cpu(ipipe_ipi_message, cpu).value);
-	}
-	mb();
-
-	if (unlikely(cpumask_empty(&cpumask)))
-		goto out;
-
 	me = ipipe_processor_id();
+	ipi -= IPIPE_BASE_IPI_OFFSET;
 	for_each_cpu(cpu, &cpumask) {
-		if (cpu != me)
+		if (cpu == me)
+			continue;
+		set_bit(ipi, &per_cpu(ipipe_ipi_message, cpu).value);
+		if (smp_ops->message_pass)
 			smp_ops->message_pass(cpu, PPC_MSG_IPIPE_DEMUX);
+#ifdef CONFIG_PPC_SMP_MUXED_IPI
+		else
+			smp_muxed_ipi_message_pass(cpu, PPC_MSG_IPIPE_DEMUX);
+#endif
 	}
-out:
+
 	hard_local_irq_restore(flags);
 }
 EXPORT_SYMBOL_GPL(ipipe_send_ipi);
@@ -185,7 +185,7 @@ unsigned long ipipe_test_root(void)
 }
 EXPORT_SYMBOL_GPL(ipipe_test_root);
 
-#endif	/* CONFIG_SMP */
+#endif	/* !CONFIG_SMP */
 
 void __ipipe_early_core_setup(void)
 {
@@ -197,6 +197,13 @@ void __ipipe_early_core_setup(void)
 	 */
 	virq = ipipe_alloc_virq();
 	BUG_ON(virq != IPIPE_TIMER_VIRQ);
+	/*
+	 * Although not all CPUs define the doorbell event, we always
+	 * allocate the corresponding VIRQ, so that we can keep fixed
+	 * values for all VIRQ numbers.
+	 */
+	virq = ipipe_alloc_virq();
+	BUG_ON(virq != IPIPE_DOORBELL_VIRQ);
 #ifdef CONFIG_SMP
 	virq = ipipe_alloc_virq();
 	BUG_ON(virq != IPIPE_CRITICAL_IPI);
@@ -238,6 +245,13 @@ void __ipipe_enable_pipeline(void)
 			  __ipipe_do_timer, NULL,
 			  NULL);
 
+#ifdef CONFIG_PPC_DOORBELL
+	ipipe_request_irq(ipipe_root_domain,
+			  IPIPE_DOORBELL_VIRQ,
+			  __ipipe_do_doorbell, NULL,
+			  NULL);
+#endif
+	
 	ipipe_critical_exit(flags);
 }
 
@@ -298,10 +312,13 @@ int __ipipe_grab_irq(struct pt_regs *regs)
 	if (likely(irq != NO_IRQ)) {
 		ipipe_trace_irq_entry(irq);
 #ifdef CONFIG_SMP
-		/* Check for cascaded I-pipe IPIs */
-		if (irq == __ipipe_ipi_irq)
-			__ipipe_ipi_demux(irq, regs);
-		else
+		if (irq == mux_ipi) {
+			struct irq_desc *desc = irq_to_desc(irq);
+			desc->ipipe_ack(irq, desc);
+			kstat_incr_irq_this_cpu(irq);
+			do_ipi_demux(irq, regs);
+			ipipe_end_irq(irq);
+		} else
 #endif /* CONFIG_SMP */
 			__ipipe_handle_irq(irq, regs);
 	}
@@ -327,6 +344,23 @@ static void __ipipe_do_timer(unsigned int irq, void *cookie)
 	check_stack_overflow();
 	timer_interrupt(raw_cpu_ptr(&ipipe_percpu.tick_regs));
 }
+
+#ifdef CONFIG_PPC_DOORBELL
+
+int __ipipe_grab_doorbell(struct pt_regs *regs)
+{
+#ifdef CONFIG_SMP
+	do_ipi_demux(IPIPE_DOORBELL_VIRQ, regs);
+#endif
+	return __ipipe_exit_irq(regs);
+}
+
+static void __ipipe_do_doorbell(unsigned int irq, void *cookie)
+{
+	doorbell_exception(raw_cpu_ptr(&ipipe_percpu.tick_regs));
+}
+
+#endif
 
 int __ipipe_grab_timer(struct pt_regs *regs)
 {

@@ -192,8 +192,7 @@ int smp_request_message_ipi(int virq, int msg)
 	}
 #ifdef CONFIG_IPIPE
 	if (msg == PPC_MSG_DEBUGGER_BREAK)
-		/* Piggyback the debugger IPI for the I-pipe. */
-		__ipipe_register_ipi(virq);
+		__ipipe_register_mux_ipi(virq);
 #endif
 	err = request_irq(virq, smp_ipi_action[msg],
 			  IRQF_PERCPU | IRQF_NO_THREAD | IRQF_NO_SUSPEND,
@@ -262,6 +261,24 @@ irqreturn_t smp_ipi_demux(void)
 
 	return IRQ_HANDLED;
 }
+
+#ifdef CONFIG_IPIPE
+
+void __ipipe_finish_ipi_demux(unsigned int irq)
+{
+	struct cpu_messages *info = this_cpu_ptr(&ipi_message);
+
+	/* Propagate remaining events to the root domain. */
+	if (info->messages)
+		__ipipe_handle_irq(irq, NULL);
+}
+
+#endif
+
+#elif defined(CONFIG_IPIPE)
+
+void __ipipe_finish_ipi_demux(unsigned int irq) { }
+
 #endif /* CONFIG_PPC_SMP_MUXED_IPI */
 
 static inline void do_message_pass(int cpu, int msg)

@@ -35,7 +35,8 @@
  * The first virtual interrupt is reserved for the timer (see
  * __ipipe_early_core_setup).
  */
-#define IPIPE_TIMER_VIRQ	IPIPE_VIRQ_BASE
+#define IPIPE_TIMER_VIRQ	(IPIPE_VIRQ_BASE + 0)
+#define IPIPE_DOORBELL_VIRQ	(IPIPE_VIRQ_BASE + 1)
 
 #ifdef CONFIG_SMP
 /* 
@@ -44,20 +45,18 @@
  * implemented by piggybacking the debugger break IPI 0x3,
  * which is demultiplexed in __ipipe_ipi_demux().
  */
+#define IPIPE_CRITICAL_IPI	(IPIPE_VIRQ_BASE + 2)
+#define IPIPE_HRTIMER_IPI	(IPIPE_VIRQ_BASE + 3)
+#define IPIPE_RESCHEDULE_IPI	(IPIPE_VIRQ_BASE + 4)
+#define IPIPE_BASE_IPI_OFFSET	IPIPE_CRITICAL_IPI
+
 /* these are bit numbers in practice */
 #define IPIPE_MSG_CRITICAL_IPI		0
 #define IPIPE_MSG_HRTIMER_IPI		(IPIPE_MSG_CRITICAL_IPI + 1)
 #define IPIPE_MSG_RESCHEDULE_IPI	(IPIPE_MSG_CRITICAL_IPI + 2)
-
 #define IPIPE_MSG_IPI_MASK	((1UL << IPIPE_MSG_CRITICAL_IPI) |	\
 				 (1UL << IPIPE_MSG_HRTIMER_IPI) |	\
 				 (1UL << IPIPE_MSG_RESCHEDULE_IPI))
-
-#define IPIPE_CRITICAL_IPI	(IPIPE_VIRQ_BASE + 1)
-#define IPIPE_HRTIMER_IPI	(IPIPE_CRITICAL_IPI + 1)
-#define IPIPE_RESCHEDULE_IPI	(IPIPE_CRITICAL_IPI + 2)
-
-#define IPIPE_BASE_IPI_OFFSET	IPIPE_CRITICAL_IPI
 
 #define ipipe_processor_id()	raw_smp_processor_id()
 

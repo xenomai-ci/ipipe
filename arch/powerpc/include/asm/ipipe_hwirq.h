@@ -74,6 +74,9 @@ static inline void hard_local_irq_enable_notrace(void)
 {
 	__asm__ __volatile__("wrteei 1": : :"memory");
 }
+
+#define hard_local_irq_restore_notrace(x)	mtmsr(x)
+
 #else /* !CONFIG_PPC_BOOK3E */
 static inline void hard_local_irq_disable_notrace(void)
 {
@@ -84,6 +87,9 @@ static inline void hard_local_irq_enable_notrace(void)
 {
 	__mtmsrd(mfmsr() | MSR_EE, 1);
 }
+
+#define hard_local_irq_restore_notrace(x)	__mtmsrd(x, 1)
+
 #endif /* !CONFIG_PPC_BOOK3E */
 
 static inline unsigned long hard_local_irq_save_notrace(void)
@@ -92,8 +98,6 @@ static inline unsigned long hard_local_irq_save_notrace(void)
 	hard_local_irq_disable_notrace();
 	return msr;
 }
-
-#define hard_local_irq_restore_notrace(x)	__mtmsrd(x, 1)
 
 #endif /* CONFIG_PPC64 */
 

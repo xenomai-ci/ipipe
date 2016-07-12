@@ -19,6 +19,7 @@
 #include <linux/of_platform.h>
 #include <linux/interrupt.h>
 #include <linux/seq_file.h>
+#include <linux/ipipe.h>
 #include <sysdev/fsl_soc.h>
 #include <asm/prom.h>
 #include <asm/hw_irq.h>
