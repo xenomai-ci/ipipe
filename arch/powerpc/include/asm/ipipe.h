@@ -46,7 +46,7 @@ struct ipipe_domain;
 struct ipipe_arch_sysinfo {
 };
 
-#ifdef CONFIG_DEBUGGER
+#if defined(CONFIG_DEBUGGER) || defined(CONFIG_KEXEC)
 extern cpumask_t __ipipe_dbrk_pending;
 #endif
 

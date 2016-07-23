@@ -60,7 +60,7 @@ static void __ipipe_do_doorbell(unsigned int irq, void *cookie);
 
 static DEFINE_PER_CPU(struct ipipe_ipi_struct, ipipe_ipi_message);
 
-#ifdef CONFIG_DEBUGGER
+#if defined(CONFIG_DEBUGGER) || defined(CONFIG_KEXEC)
 cpumask_t __ipipe_dbrk_pending;	/* pending debugger break IPIs */
 #endif
 
@@ -96,7 +96,7 @@ static void do_ipi_demux(int irq, struct pt_regs *regs)
 		}
 	}
 
-#ifdef CONFIG_DEBUGGER
+#if defined(CONFIG_DEBUGGER) || defined(CONFIG_KEXEC)
 	/*
 	 * The debugger IPI handler should be NMI-safe, so let's call
 	 * it immediately in case the IPI is pending.
@@ -105,7 +105,7 @@ static void do_ipi_demux(int irq, struct pt_regs *regs)
 		cpumask_clear_cpu(cpu, &__ipipe_dbrk_pending);
 		debugger_ipi(regs);
 	}
-#endif /* CONFIG_DEBUGGER */
+#endif /* CONFIG_DEBUGGER || CONFIG_KEXEC */
 
 	__ipipe_finish_ipi_demux(irq);
 }
