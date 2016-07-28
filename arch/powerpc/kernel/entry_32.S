@@ -1347,6 +1347,8 @@ ee_restarts:
 	.previous
 
 #ifdef CONFIG_IPIPE
+_GLOBAL(__ipipe_ret_from_except_full)
+	REST_NVGPRS(r1)
 _GLOBAL(__ipipe_ret_from_except)
         cmpwi   r3, 0
         bne+ ret_from_except

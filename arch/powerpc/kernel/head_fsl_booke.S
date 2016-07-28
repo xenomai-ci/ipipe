@@ -652,7 +652,11 @@ END_FTR_SECTION_IFSET(CPU_FTR_EMB_HV)
 	EXCEPTION(0x2060, PERFORMANCE_MONITOR, PerformanceMonitor, \
 		  performance_monitor_exception, EXC_XFER_STD)
 
+#ifdef CONFIG_IPIPE
+	EXCEPTION(0x2070, DOORBELL, Doorbell, __ipipe_grab_doorbell, EXC_XFER_IPIPE_FULL)
+#else
 	EXCEPTION(0x2070, DOORBELL, Doorbell, doorbell_exception, EXC_XFER_STD)
+#endif
 
 	CRITICAL_EXCEPTION(0x2080, DOORBELL_CRITICAL, \
 			   CriticalDoorbell, unknown_exception)

@@ -244,6 +244,10 @@ label:
 #define EXC_XFER_IPIPE(n, hdlr)		\
 	EXC_XFER_TEMPLATE(hdlr, n+1, MSR_KERNEL, NOCOPY, transfer_to_handler, \
 			  __ipipe_ret_from_except)
+
+#define EXC_XFER_IPIPE_FULL(n, hdlr)						\
+	EXC_XFER_TEMPLATE(hdlr, n, MSR_KERNEL, NOCOPY, transfer_to_handler_full, \
+			  __ipipe_ret_from_except_full)
 #endif /* CONFIG_IPIPE */
 
 #define EXC_XFER_LITE(n, hdlr)		\
