@@ -110,7 +110,8 @@ static void __ipipe_ipi_demux(int irq, struct pt_regs *regs)
 
 void ipipe_set_irq_affinity(unsigned int irq, cpumask_t cpumask)
 {
-	if (WARN_ON_ONCE(irq_get_chip(irq)->irq_set_affinity == NULL))
+	if (ipipe_virtual_irq_p(irq) ||
+	    irq_get_chip(irq)->irq_set_affinity == NULL)
 		return;
 
 	if (WARN_ON_ONCE(cpumask_any_and(&cpumask, cpu_online_mask) >= nr_cpu_ids))
