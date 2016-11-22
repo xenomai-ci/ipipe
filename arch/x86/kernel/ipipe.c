@@ -235,7 +235,8 @@ void __init __ipipe_enable_pipeline(void)
 
 void ipipe_set_irq_affinity(unsigned int irq, cpumask_t cpumask)
 {
-	if (WARN_ON_ONCE(irq_get_chip(irq)->irq_set_affinity == NULL))
+	if (ipipe_virtual_irq_p(irq) ||
+	    irq_get_chip(irq)->irq_set_affinity == NULL)
 		return;
 
 	cpus_and(cpumask, cpumask, *cpu_online_mask);
