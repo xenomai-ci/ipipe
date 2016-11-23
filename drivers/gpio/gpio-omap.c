@@ -59,12 +59,8 @@ struct gpio_bank {
 	u32 saved_datain;
 	u32 level_mask;
 	u32 toggle_mask;
-<<<<<<< HEAD
-	raw_spinlock_t lock;
-	raw_spinlock_t wa_lock;
-=======
 	ipipe_spinlock_t lock;
->>>>>>> c5d8738... arm/ipipe: baseline
+	raw_spinlock_t wa_lock;
 	struct gpio_chip chip;
 	struct clk *dbck;
 	u32 mod_usage;
@@ -729,18 +725,13 @@ static irqreturn_t omap_gpio_irq_handler(int irq, void *gpiobank)
 	unsigned long lock_flags;
 
 	isr_reg = bank->base + bank->regs->irqstatus;
-<<<<<<< HEAD
-=======
+
+	if (WARN_ON(!isr_reg))
+		goto exit;
 
 #ifndef CONFIG_IPIPE
 	pm_runtime_get_sync(bank->dev);
 #endif
-
->>>>>>> c5d8738... arm/ipipe: baseline
-	if (WARN_ON(!isr_reg))
-		goto exit;
-
-	pm_runtime_get_sync(bank->dev);
 
 	while (1) {
 		u32 isr_saved, level_mask = 0;
@@ -783,13 +774,8 @@ static irqreturn_t omap_gpio_irq_handler(int irq, void *gpiobank)
 
 			raw_spin_unlock_irqrestore(&bank->lock, lock_flags);
 
-<<<<<<< HEAD
 			raw_spin_lock_irqsave(&bank->wa_lock, wa_lock_flags);
-
-			generic_handle_irq(irq_find_mapping(bank->chip.irqdomain,
-=======
 			ipipe_handle_demuxed_irq(irq_find_mapping(bank->chip.irqdomain,
->>>>>>> c5d8738... arm/ipipe: baseline
 							    bit));
 
 			raw_spin_unlock_irqrestore(&bank->wa_lock,
@@ -797,16 +783,10 @@ static irqreturn_t omap_gpio_irq_handler(int irq, void *gpiobank)
 		}
 	}
 exit:
-<<<<<<< HEAD
-	pm_runtime_put(bank->dev);
-	return IRQ_HANDLED;
-=======
-	if (!unmasked)
-		chained_irq_exit(irqchip, desc);
 #ifndef CONFIG_IPIPE
 	pm_runtime_put(bank->dev);
 #endif
->>>>>>> c5d8738... arm/ipipe: baseline
+	return IRQ_HANDLED;
 }
 
 static unsigned int omap_gpio_irq_startup(struct irq_data *d)
