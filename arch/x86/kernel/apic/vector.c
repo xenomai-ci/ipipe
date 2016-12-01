@@ -485,7 +485,9 @@ void setup_vector_irq(int cpu)
 {
 	int irq;
 
+#ifndef CONFIG_IPIPE
 	lockdep_assert_held(&vector_lock);
+#endif
 	/*
 	 * On most of the platforms, legacy PIC delivers the interrupts on the
 	 * boot cpu. But there are certain platforms where PIC interrupts are
