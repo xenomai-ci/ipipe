@@ -32,8 +32,14 @@
 #include <trace/events/syscalls.h>
 
 #ifdef CONFIG_IPIPE
-#define disable_local_irqs()	hard_local_irq_disable()
-#define enable_local_irqs()	hard_local_irq_enable()
+#define disable_local_irqs()	do {	\
+	hard_local_irq_disable();	\
+	trace_hardirqs_off();		\
+} while (0)
+#define enable_local_irqs()	do {	\
+	trace_hardirqs_on();		\
+	hard_local_irq_enable();	\
+} while (0)
 #define check_irqs_disabled()	hard_irqs_disabled()
 #else
 #define disable_local_irqs()	local_irq_disable()
