@@ -93,7 +93,8 @@ static inline void load_mm_ldt(struct mm_struct *mm)
 	clear_LDT();
 #endif
 
-	DEBUG_LOCKS_WARN_ON(preemptible());
+	DEBUG_LOCKS_WARN_ON(preemptible() &&
+			(!IS_ENABLED(CONFIG_IPIPE) || !hard_irqs_disabled()));
 }
 
 static inline void enter_lazy_tlb(struct mm_struct *mm, struct task_struct *tsk)
