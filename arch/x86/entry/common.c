@@ -418,11 +418,13 @@ __always_inline void do_syscall_32_irqs_on(struct pt_regs *regs)
 #endif
 
 	ret = pipeline_syscall(ti, nr, regs);
-	if (ret > 0)
+	if (ret > 0) {
+		disable_local_irqs();
 		return;
+	}
 	if (ret < 0)
 		goto done;
-	  
+
 	if (READ_ONCE(ti->flags) & _TIF_WORK_SYSCALL_ENTRY) {
 		/*
 		 * Subtlety here: if ptrace pokes something larger than
