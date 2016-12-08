@@ -281,19 +281,6 @@ void __ipipe_hook_critical_ipi(struct ipipe_domain *ipd)
 
 #endif	/* CONFIG_SMP */
 
-static inline void __fixup_if(int s, struct pt_regs *regs)
-{
-	/*
-	 * Have the saved hw state look like the domain stall bit, so
-	 * that __ipipe_unstall_iret_root() restores the proper
-	 * pipeline state for the root stage upon exit.
-	 */
-	if (s)
-		regs->flags &= ~X86_EFLAGS_IF;
-	else
-		regs->flags |= X86_EFLAGS_IF;
-}
-
 void __ipipe_halt_root(int use_mwait)
 {
 	struct ipipe_percpu_domain_data *p;
@@ -325,8 +312,8 @@ EXPORT_SYMBOL_GPL(__ipipe_halt_root);
 
 int __ipipe_trap_prologue(struct pt_regs *regs, int trapnr, unsigned long *flags)
 {
+	bool hard_irqs_off = hard_irqs_disabled();
 	struct ipipe_domain *ipd;
-	bool root_entry = false;
 	unsigned long cr2;
 
 #ifdef CONFIG_KGDB
@@ -342,19 +329,6 @@ int __ipipe_trap_prologue(struct pt_regs *regs, int trapnr, unsigned long *flags
 
 	if (trapnr == X86_TRAP_PF)
 		cr2 = native_read_cr2();
-
-	/*
-	 * If we fault over the root domain, we need to replicate the
-	 * hw interrupt state into the virtual mask before calling the
-	 * I-pipe event handler. This is also required later before
-	 * branching to the regular exception handler.
-	 */
-	if (ipipe_root_p) {
-		root_entry = true;
-		local_save_flags(*flags);
-		if (hard_irqs_disabled())
-			local_irq_disable();
-	}
 
 #ifdef CONFIG_KGDB
 	/*
@@ -372,37 +346,37 @@ int __ipipe_trap_prologue(struct pt_regs *regs, int trapnr, unsigned long *flags
 			get_debugreg(condition, 6);
 		}
 		if (!user_mode(regs) &&
-		    !kgdb_handle_exception(trapnr, SIGTRAP, condition, regs)) {
-			if (root_entry) {
-				ipipe_restore_root_nosync(*flags);
-				__fixup_if(root_entry ?
-					   raw_irqs_disabled_flags(*flags) :
-					   raw_irqs_disabled(), regs);
-			}
+		    !kgdb_handle_exception(trapnr, SIGTRAP, condition, regs))
 			return 1;
-		}
 	}
 skip_kgdb:
 #endif /* CONFIG_KGDB */
 
-	if (unlikely(__ipipe_notify_trap(trapnr, regs))) {
-		if (root_entry)
-			ipipe_restore_root_nosync(*flags);
+	if (unlikely(__ipipe_notify_trap(trapnr, regs)))
 		return 1;
-	}
 
-	/*
-	 * If no head domain is installed, or in case we faulted in
-	 * the iret path of x86-32, regs.flags does not match the root
-	 * domain state. The fault handler or the low-level return
-	 * code may evaluate it. So fix this up, either by the root
-	 * state sampled on entry or, if we migrated to root, with the
-	 * current state.
-	 */
-	if (likely(ipipe_root_p))
-		__fixup_if(root_entry ? raw_irqs_disabled_flags(*flags) :
-					raw_irqs_disabled(), regs);
-	else {
+	if (likely(ipipe_root_p)) {
+		/*
+		 * If no head domain is installed, or in case we faulted in
+		 * the iret path of x86-32, regs->flags does not match the root
+		 * domain state. The fault handler may evaluate it. So fix this
+		 * up with the current state.
+		 */
+		local_save_flags(*flags);
+		__ipipe_fixup_if(raw_irqs_disabled_flags(*flags), regs);
+
+		/*
+		 * Sync Linux interrupt state with hardware state on
+		 * entry.
+		 */
+		if (hard_irqs_off)
+			local_irq_disable();
+	} else {
+		/*
+		 * Use the flags of the faulting context when restoring later.
+		 */
+		*flags = regs->flags;
+
 		/*
 		 * Detect unhandled faults over the head domain,
 		 * switching to root so that it can handle the fault
@@ -411,6 +385,11 @@ skip_kgdb:
 		hard_local_irq_disable();
 		ipd = __ipipe_current_domain;
 		__ipipe_set_current_domain(ipipe_root_domain);
+
+		/* Sync Linux interrupt state with hardware state on entry. */
+		if (hard_irqs_off)
+			local_irq_disable();
+
 		ipipe_trace_panic_freeze();
 
 		/* Always warn about user land and unfixable faults. */
@@ -436,7 +415,7 @@ skip_kgdb:
 	if (trapnr == X86_TRAP_PF)
 		write_cr2(cr2);
 
-	return root_entry ? 0 : -1;
+	return 0;
 }
 
 int __ipipe_handle_irq(struct pt_regs *regs)

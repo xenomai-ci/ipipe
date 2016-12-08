@@ -59,14 +59,28 @@ void __ipipe_enable_pipeline(void);
 int __ipipe_trap_prologue(struct pt_regs *regs, int trapnr,
 			  unsigned long *flags);
 
+static inline void __ipipe_fixup_if(int s, struct pt_regs *regs)
+{
+	/*
+	 * Have the saved hw state look like the domain stall bit, so
+	 * that __ipipe_unstall_iret_root() restores the proper
+	 * pipeline state for the root stage upon exit.
+	 */
+	if (s)
+		regs->flags &= ~X86_EFLAGS_IF;
+	else
+		regs->flags |= X86_EFLAGS_IF;
+}
+
 #define IPIPE_DO_TRAP(__handler, __trapnr, __regs, __args...)			\
 	({									\
-		unsigned long __flags;						\
+		unsigned long __flags, __regs_flags = __regs->flags;		\
 		int __ret = __ipipe_trap_prologue(__regs, __trapnr, &__flags);	\
 		if (__ret <= 0) {						\
 			__handler(__regs, ##__args);				\
-			if (__ret == 0)						\
-				ipipe_restore_root_nosync(__flags);		\
+			ipipe_restore_root(raw_irqs_disabled_flags(__flags));	\
+			__ipipe_fixup_if(raw_irqs_disabled_flags(__regs_flags),	\
+					 regs);					\
 		}								\
 		__ret > 0;							\
 	})
