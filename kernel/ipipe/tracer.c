@@ -709,7 +709,7 @@ void ipipe_trace_panic_dump(void)
 
 			switch (point->type & IPIPE_TYPE_MASK) {
 				case IPIPE_TRACE_FUNC:
-					printk("	   ");
+					printk("           ");
 					break;
 
 				case IPIPE_TRACE_PID:
@@ -796,7 +796,7 @@ __ipipe_trace_point_type(char *buf, struct ipipe_trace_point *point)
 			break;
 
 		case IPIPE_TRACE_SPECIAL:
-			sprintf(buf, "(0x%02x)	",
+			sprintf(buf, "(0x%02x)  ",
 				point->type >> IPIPE_TYPE_BITS);
 			break;
 
