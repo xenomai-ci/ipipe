@@ -608,9 +608,8 @@ END(irq_entries_start)
 #endif
 	pushq	%rdi
 	/* We entered an interrupt context - irqs are off: */
-#ifndef CONFIG_IPIPE
 	TRACE_IRQS_OFF
-#endif
+
 	call	\func	/* rdi points to pt_regs */
 	.endm
 
