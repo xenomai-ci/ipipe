@@ -1866,7 +1866,7 @@ static void ioapic_ack_level(struct irq_data *irq_data)
 		/* IO-APIC erratum: see comment above. */
 		atomic_inc(&irq_mis_count);
 		raw_spin_lock(&ioapic_lock);
-		eoi_ioapic_pin(cfg->vector, irq_data->chip_data);
+		_eoi_ioapic_pin(cfg->vector, irq_data->chip_data);
 		raw_spin_unlock(&ioapic_lock);
 	}
 	__ack_APIC_irq();
