@@ -231,9 +231,14 @@ static __init int cpufreq_transition_handler(struct notifier_block *nb,
 	if (state == CPUFREQ_POSTCHANGE && tsc_info.refresh_freq) {
 		freq = tsc_info.refresh_freq();
 		if (freqs->cpu == 0) {
+			int oldrate;
 			tsc_info.freq = freq;
 			__ipipe_tsc_register(&tsc_info);
 			__ipipe_report_clockfreq_update(freq);
+			/* force timekeeper to recalculate the clocksource */
+			oldrate = clksrc.rating;
+			clocksource_change_rating(&clksrc, 0);
+			clocksource_change_rating(&clksrc, oldrate);
 		}
 		smp_call_function_single(freqs->cpu, update_timer_freq,
 					 &freq, 1);

@@ -219,6 +219,8 @@ static unsigned int refresh_gt_freq(void)
 {
 	gt_clk_rate = clk_get_rate(gt_clk);
 
+	__clocksource_update_freq_hz(&gt_clocksource, gt_clk_rate);
+
 	return gt_clk_rate;
 }
 
