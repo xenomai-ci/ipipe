@@ -123,6 +123,7 @@ match($0, /^diff --git a\/arch\/([^ \t\/]*)/) {
     split(substr($0, RSTART, RLENGTH), arch, /\//)
     a=arch[3]
 
+    is_multiarch=0
     set_current_arch(a)
     print $0 >> current_file
     next
@@ -137,14 +138,25 @@ match($0, /^diff --git a\/drivers\/([^ \t]*)/) {
 	 print "Error unknown architecture for driver "f
 	 unknown_file_error=1
     } else {
-	 a = driver_arch[f]
-	 set_current_arch(a)
-	 print $0 >> current_file
-	 next
+        a = driver_arch[f]
+        if(index(a, " ")) {
+            is_multiarch = 1
+            split(a, multiarch, " ")
+            for(a in multiarch) {
+                set_current_arch(multiarch[a])
+                print $0 >> current_file
+            }
+        } else {
+            is_multiarch = 0
+            set_current_arch(a)
+            print $0 >> current_file
+        }
+        next
     }
 }
 
 /^diff --git a\/scripts\/ipipe\/genpatches.sh/ {
+    is_multiarch=0
     if (splitmode == "no") {
 	current_file="/dev/null"
 	current_arch="nullarch"
@@ -154,6 +166,7 @@ match($0, /^diff --git a\/drivers\/([^ \t]*)/) {
 
 /^diff --git/ {
     set_current_arch("noarch")
+    is_multiarch=0
     print $0 >> current_file
     next
 }
@@ -164,7 +177,14 @@ match ($0, /#define [I]PIPE_CORE_RELEASE[ \t]*([^ \t]*)/) {
 }
 
 {
-    print $0 >> current_file
+    if(is_multiarch) {
+        for(a in multiarch) {
+            set_current_arch(multiarch[a])
+            print $0 >> current_file
+        }
+    } else {
+        print $0 >> current_file
+    }
 }
 
 END {
