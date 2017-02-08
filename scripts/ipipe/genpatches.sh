@@ -62,7 +62,6 @@ BEGIN {
     driver_arch["iommu/irq_remapping.c"]="noarch"
 
     driver_arch["clk/mxs/clk-imx28.c"]="arm"
-    driver_arch["clocksource/arm_arch_timer.c"]="arm"
     driver_arch["clocksource/mxs_timer.c"]="arm"
     driver_arch["clocksource/arm_global_timer.c"]="arm"
     driver_arch["clocksource/pxa_timer.c"]="arm"
@@ -81,7 +80,6 @@ BEGIN {
     driver_arch["irqchip/spear-shirq.c"]="arm"
     driver_arch["irqchip/irq-mxs.c"]="arm"
     driver_arch["irqchip/irq-s3c24xx.c"]="arm"
-    driver_arch["irqchip/irq-gic.c"]="arm"
     driver_arch["irqchip/irq-vic.c"]="arm"
     driver_arch["irqchip/irq-atmel-aic.c"]="arm"
     driver_arch["irqchip/irq-atmel-aic5.c"]="arm"
@@ -89,7 +87,6 @@ BEGIN {
     driver_arch["irqchip/irq-bcm7120-l2.c"]="arm"
     driver_arch["irqchip/irq-brcmstb-l2.c"]="arm"
     driver_arch["irqchip/irq-dw-apb-ictl.c"]="arm"
-    driver_arch["irqchip/irq-gic-v3.c"]="arm"
     driver_arch["irqchip/irq-sunxi-nmi.c"]="arm"
     driver_arch["irqchip/irq-crossbar.c"]="arm"
     driver_arch["mfd/twl4030-irq.c"]="arm"
@@ -110,6 +107,10 @@ BEGIN {
     driver_arch["irqchip/irq-sa11x0.c"]="arm"
     driver_arch["media/platform/vsp1/vsp1_video.c"]="arm"
     driver_arch["soc/dove/pmu.c"]="arm"
+
+    driver_arch["irqchip/irq-gic.c"]="arm arm64"
+    driver_arch["irqchip/irq-gic-v3.c"]="arm arm64"
+    driver_arch["clocksource/arm_arch_timer.c"]="arm arm64"
 
     driver_arch["tty/serial/amba-pl011.c"]="arm64"
     driver_arch["gpio/gpio-pl061.c"]="arm64"
