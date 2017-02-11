@@ -29,6 +29,7 @@
 #include <linux/irq.h>
 #include <linux/irqdesc.h>
 #include <linux/irqdomain.h>
+#include <linux/ipipe.h>
 #include <linux/module.h>
 #include <linux/of_address.h>
 #include <linux/of.h>
@@ -410,7 +411,7 @@ static int bcm2835_gpio_irq_handle_bank(struct bcm2835_pinctrl *pc,
 		gpio = (32 * bank) + offset;
 		type = pc->irq_type[gpio];
 
-		generic_handle_irq(irq_linear_revmap(pc->irq_domain, gpio));
+		ipipe_handle_demuxed_irq(irq_linear_revmap(pc->irq_domain, gpio));
 	}
 
 	return (events != 0);
@@ -436,6 +437,13 @@ static irqreturn_t bcm2835_gpio_irq_handler(int irq, void *dev_id)
 	}
 
 	return handled ? IRQ_HANDLED : IRQ_NONE;
+}
+
+static void gpio_irq_cascade(unsigned int irq, struct irq_desc *desc)
+{
+#ifdef CONFIG_IPIPE
+	bcm2835_gpio_irq_handler(irq, irq_get_handler_data(irq));
+#endif
 }
 
 static inline void __bcm2835_gpio_irq_config(struct bcm2835_pinctrl *pc,
@@ -1057,12 +1065,17 @@ static int bcm2835_pinctrl_probe(struct platform_device *pdev)
 			return -ENOMEM;
 		snprintf(name, len, "%s:bank%d", dev_name(pc->dev), i);
 
-		err = devm_request_irq(dev, pc->irq[i],
-			bcm2835_gpio_irq_handler, IRQF_SHARED,
-			name, &pc->irq_data[i]);
-		if (err) {
-			dev_err(dev, "unable to request IRQ %d\n", pc->irq[i]);
-			return err;
+		if (IS_ENABLED(CONFIG_IPIPE)) {
+			irq_set_chained_handler(pc->irq[i], gpio_irq_cascade);
+			irq_set_handler_data(pc->irq[i], &pc->irq_data[i]);
+		} else {
+			err = devm_request_irq(dev, pc->irq[i],
+					       bcm2835_gpio_irq_handler, IRQF_SHARED,
+					       name, &pc->irq_data[i]);
+			if (err) {
+				dev_err(dev, "unable to request IRQ %d\n", pc->irq[i]);
+				return err;
+			}
 		}
 	}
 
