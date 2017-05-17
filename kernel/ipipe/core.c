@@ -1483,8 +1483,6 @@ respin:
 			irq_exit();
 			root_stall_after_handler();
 			hard_local_irq_disable();
-			while (__ipipe_check_root_resched())
-				__ipipe_preempt_schedule_irq();
 		} else {
 			ipd->irqs[irq].handler(irq, ipd->irqs[irq].cookie);
 			root_stall_after_handler();
@@ -1893,7 +1891,7 @@ void __ipipe_uaccess_might_fault(void)
 	struct ipipe_percpu_domain_data *pdd;
 	struct ipipe_domain *ipd;
 	unsigned long flags;
-
+       
 	flags = hard_local_irq_save();
 	ipd = __ipipe_current_domain;
 	if (ipd == ipipe_root_domain) {
@@ -1910,7 +1908,6 @@ void __ipipe_uaccess_might_fault(void)
 	(void)pdd;
 #endif /* !CONFIG_IPIPE_DEBUG_CONTEXT */
 	hard_local_irq_restore(flags);
-	
 }
 EXPORT_SYMBOL_GPL(__ipipe_uaccess_might_fault);
 #endif
