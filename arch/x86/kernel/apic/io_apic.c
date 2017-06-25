@@ -1973,6 +1973,7 @@ static struct irq_chip ioapic_chip __read_mostly = {
 	.irq_ack		= irq_chip_ack_parent,
 	.irq_eoi		= ioapic_ack_level,
 	.irq_set_affinity	= ioapic_set_affinity,
+	.irq_retrigger		= irq_chip_retrigger_hierarchy,
 #ifdef CONFIG_IPIPE
 #ifdef CONFIG_SMP
 	.irq_move		= move_xxapic_irq,
@@ -1991,6 +1992,7 @@ static struct irq_chip ioapic_ir_chip __read_mostly = {
 	.irq_ack		= irq_chip_ack_parent,
 	.irq_eoi		= ioapic_ir_ack_level,
 	.irq_set_affinity	= ioapic_set_affinity,
+	.irq_retrigger		= irq_chip_retrigger_hierarchy,
 #ifdef CONFIG_IPIPE
 #ifdef CONFIG_SMP
 	.irq_move		= move_xxapic_irq,
@@ -2236,6 +2238,7 @@ static inline void __init check_timer(void)
 			if (idx != -1 && irq_trigger(idx))
 				unmask_ioapic_irq(irq_get_chip_data(0));
 		}
+		irq_domain_deactivate_irq(irq_data);
 		irq_domain_activate_irq(irq_data);
 		if (timer_irq_works()) {
 			if (disable_timer_pin_1 > 0)
@@ -2257,6 +2260,7 @@ static inline void __init check_timer(void)
 		 * legacy devices should be connected to IO APIC #0
 		 */
 		replace_pin_at_irq_node(data, node, apic1, pin1, apic2, pin2);
+		irq_domain_deactivate_irq(irq_data);
 		irq_domain_activate_irq(irq_data);
 		legacy_pic->unmask(0);
 		if (timer_irq_works()) {

@@ -3340,7 +3340,7 @@ asmlinkage __visible void __sched notrace preempt_schedule_notrace(void)
 {
 	enum ctx_state prev_ctx;
 
-	if (likely(!preemptible() || !ipipe_root_p))
+	if (likely(!preemptible() || !ipipe_root_p || hard_irqs_disabled()))
 		return;
 
 	do {
