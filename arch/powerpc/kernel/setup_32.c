@@ -190,6 +190,9 @@ int __init ppc_init(void)
 
 arch_initcall(ppc_init);
 
+#ifdef CONFIG_IPIPE
+void __init irqstack_early_init(void) { }
+#else
 void __init irqstack_early_init(void)
 {
 	unsigned int i;
@@ -203,6 +206,7 @@ void __init irqstack_early_init(void)
 			__va(memblock_alloc(THREAD_SIZE, THREAD_SIZE));
 	}
 }
+#endif
 
 #if defined(CONFIG_BOOKE) || defined(CONFIG_40x)
 void __init exc_lvl_early_init(void)

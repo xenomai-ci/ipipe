@@ -13,6 +13,9 @@ obj-$(CONFIG_RENESAS_OSTM)	+= renesas-ostm.o
 obj-$(CONFIG_SH_TIMER_TMU)	+= sh_tmu.o
 obj-$(CONFIG_EM_TIMER_STI)	+= em_sti.o
 obj-$(CONFIG_CLKBLD_I8253)	+= i8253.o
+ifdef CONFIG_X86_32
+obj-$(CONFIG_IPIPE_WANT_CLOCKSOURCE) += ipipe_i486_tsc_emu.o
+endif
 obj-$(CONFIG_CLKSRC_MMIO)	+= mmio.o
 obj-$(CONFIG_DIGICOLOR_TIMER)	+= timer-digicolor.o
 obj-$(CONFIG_DW_APB_TIMER)	+= dw_apb_timer.o

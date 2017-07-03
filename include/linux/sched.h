@@ -81,9 +81,18 @@ struct task_group;
 #define TASK_PARKED			512
 #define TASK_NOLOAD			1024
 #define TASK_NEW			2048
+#ifdef CONFIG_IPIPE
+#define TASK_HARDENING			4096
+#define TASK_NOWAKEUP			8192
+#define TASK_STATE_MAX			16384
+#define TASK_STATE_TO_CHAR_STR 		"RSDTtXZxKWPNnHU"
+#else
+#define TASK_HARDENING			0
+#define TASK_NOWAKEUP			0
 #define TASK_STATE_MAX			4096
 
 #define TASK_STATE_TO_CHAR_STR		"RSDTtXZxKWPNn"
+#endif
 
 /* Convenience macros for the sake of set_current_state: */
 #define TASK_KILLABLE			(TASK_WAKEKILL | TASK_UNINTERRUPTIBLE)
@@ -937,6 +946,9 @@ struct task_struct {
 	/* Cache last used pipe for splice(): */
 	struct pipe_inode_info		*splice_pipe;
 
+#ifdef CONFIG_IPIPE_LEGACY
+	void *ptd[IPIPE_ROOT_NPTDKEYS];
+#endif
 	struct page_frag		task_frag;
 
 #ifdef CONFIG_TASK_DELAY_ACCT

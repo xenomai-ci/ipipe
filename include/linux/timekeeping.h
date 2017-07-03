@@ -356,5 +356,13 @@ extern void read_boot_clock64(struct timespec64 *ts);
 extern int update_persistent_clock(struct timespec now);
 extern int update_persistent_clock64(struct timespec64 now);
 
+#ifdef CONFIG_IPIPE
+void update_root_process_times(struct pt_regs *regs);
+#else  /* !CONFIG_IPIPE */
+static inline void update_root_process_times(struct pt_regs *regs)
+{
+	update_process_times(user_mode(regs));
+}
+#endif /* CONFIG_IPIPE */
 
 #endif

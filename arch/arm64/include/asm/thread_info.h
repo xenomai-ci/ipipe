@@ -38,6 +38,7 @@ struct task_struct;
 
 #include <asm/stack_pointer.h>
 #include <asm/types.h>
+#include <ipipe/thread_info.h>
 
 typedef unsigned long mm_segment_t;
 
@@ -51,6 +52,10 @@ struct thread_info {
 	u64			ttbr0;		/* saved TTBR0_EL1 */
 #endif
 	int			preempt_count;	/* 0 => preemptable, <0 => bug */
+#ifdef CONFIG_IPIPE
+	unsigned long		ipipe_flags;
+#endif
+	struct ipipe_threadinfo ipipe_data;
 };
 
 #define INIT_THREAD_INFO(tsk)						\
@@ -96,6 +101,7 @@ struct thread_info {
 #define TIF_RESTORE_SIGMASK	20
 #define TIF_SINGLESTEP		21
 #define TIF_32BIT		22	/* 32bit process */
+#define TIF_MMSWITCH_INT	25
 
 #define _TIF_SIGPENDING		(1 << TIF_SIGPENDING)
 #define _TIF_NEED_RESCHED	(1 << TIF_NEED_RESCHED)
@@ -108,6 +114,7 @@ struct thread_info {
 #define _TIF_SECCOMP		(1 << TIF_SECCOMP)
 #define _TIF_UPROBE		(1 << TIF_UPROBE)
 #define _TIF_32BIT		(1 << TIF_32BIT)
+#define _TIF_MMSWITCH_INT	(1 << TIF_MMSWITCH_INT)
 
 #define _TIF_WORK_MASK		(_TIF_NEED_RESCHED | _TIF_SIGPENDING | \
 				 _TIF_NOTIFY_RESUME | _TIF_FOREIGN_FPSTATE | \
@@ -116,6 +123,15 @@ struct thread_info {
 #define _TIF_SYSCALL_WORK	(_TIF_SYSCALL_TRACE | _TIF_SYSCALL_AUDIT | \
 				 _TIF_SYSCALL_TRACEPOINT | _TIF_SECCOMP | \
 				 _TIF_NOHZ)
+
+/* ti->ipipe_flags */
+#define TIP_MAYDAY	0	/* MAYDAY call is pending */
+#define TIP_NOTIFY	1	/* Notify head domain about kernel events */
+#define TIP_HEAD	2	/* Runs in head domain */
+
+#define _TIP_MAYDAY	(1 << TIP_MAYDAY)
+#define _TIP_NOTIFY	(1 << TIP_NOTIFY)
+#define _TIP_HEAD	(1 << TIP_HEAD)
 
 #endif /* __KERNEL__ */
 #endif /* __ASM_THREAD_INFO_H */

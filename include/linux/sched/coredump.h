@@ -68,6 +68,9 @@ static inline int get_dumpable(struct mm_struct *mm)
 #define MMF_OOM_SKIP		21	/* mm is of no interest for the OOM killer */
 #define MMF_UNSTABLE		22	/* mm is unstable for copy_from_user */
 #define MMF_HUGE_ZERO_PAGE	23      /* mm has ever used the global huge zero page */
+#ifdef CONFIG_IPIPE
+#define MMF_VM_PINNED		31	/* ondemand load up and COW disabled */
+#endif
 
 #define MMF_INIT_MASK		(MMF_DUMPABLE_MASK | MMF_DUMP_FILTER_MASK)
 
