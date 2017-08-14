@@ -107,6 +107,9 @@ BEGIN {
     driver_arch["soc/dove/pmu.c"]="arm"
     driver_arch["clocksource/dw_apb_timer.c"]="arm x86"
     driver_arch["clocksource/dw_apb_timer_of.c"]="arm x86"
+    driver_arch["irqchip/irq-bcm2835.c"]="arm"
+    driver_arch["irqchip/irq-bcm2836.c"]="arm"
+    driver_arch["pinctrl/bcm/pinctrl-bcm2835.c"]="arm"
 
     driver_arch["irqchip/irq-gic.c"]="arm arm64"
     driver_arch["irqchip/irq-gic-v3.c"]="arm arm64"
@@ -120,6 +123,7 @@ BEGIN {
     driver_arch["tty/serial/mpc52xx_uart.c"]="powerpc"
     driver_arch["gpio/gpio-mpc8xxx.c"]="powerpc"
     driver_arch["soc/fsl/qe/qe_ic.c"]="powerpc"
+    driver_arch["net/ethernet/freescale/fec_mpc52xx.c"]="powerpc"
 
     driver_arch["clocksource/i8253.c"]="x86"
     driver_arch["clocksource/Makefile"]="x86"
