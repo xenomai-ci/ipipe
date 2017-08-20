@@ -33,7 +33,6 @@
 #define CLK_PLL_PERIPH0_2X	10
 #define CLK_PLL_GPU		11
 #define CLK_PLL_PERIPH1		12
-#define CLK_PLL_DE		13
 
 /* The CPUX clock is exported */
 
@@ -57,6 +56,7 @@
 
 /* And the GPU module clock is exported */
 
-#define CLK_NUMBER		(CLK_GPU + 1)
+#define CLK_NUMBER_H3		(CLK_GPU + 1)
+#define CLK_NUMBER_H5		(CLK_BUS_SCR1 + 1)
 
 #endif /* _CCU_SUN8I_H3_H_ */
