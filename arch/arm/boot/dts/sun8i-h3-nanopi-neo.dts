@@ -54,3 +54,7 @@
 &spi1 {
       status = "okay";
 };
+
+&emac {
+      local-mac-address = [ca 68 c3 a8 d7 43];
+};
