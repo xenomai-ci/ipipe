@@ -1887,6 +1887,29 @@ static int __ipipe_printk_fill;
 
 static char __ipipe_printk_buf[__LOG_BUF_LEN];
 
+int __ipipe_log_printk(const char *fmt, va_list args)
+{
+	int ret = 0, fbytes, oldcount;
+	unsigned long flags;
+
+	raw_spin_lock_irqsave(&__ipipe_printk_lock, flags);
+
+	oldcount = __ipipe_printk_fill;
+	fbytes = __LOG_BUF_LEN - oldcount;
+	if (fbytes > 1)	{
+		ret = vscnprintf(__ipipe_printk_buf + __ipipe_printk_fill,
+				 fbytes, fmt, args) + 1;
+		__ipipe_printk_fill += ret;
+	}
+
+	raw_spin_unlock_irqrestore(&__ipipe_printk_lock, flags);
+
+	if (oldcount == 0)
+		ipipe_raise_irq(__ipipe_printk_virq);
+
+	return ret;
+}
+
 void __ipipe_flush_printk (unsigned virq, void *cookie)
 {
 	char *p = __ipipe_printk_buf;
@@ -1935,12 +1958,14 @@ void __ipipe_flush_printk (unsigned virq, void *cookie)
  *
  * See the vsnprintf() documentation for format string extensions over C99.
  */
+
 asmlinkage __visible int printk(const char *fmt, ...)
 {
+	printk_func_t vprintk_func;
 	int sprintk = 1, cs = -1;
-	int r, fbytes, oldcount;
 	unsigned long flags;
 	va_list args;
+	int ret;
 
 	va_start(args, fmt);
 
@@ -1959,31 +1984,16 @@ asmlinkage __visible int printk(const char *fmt, ...)
 	hard_local_irq_restore(flags);
 
 	if (sprintk) {
-		r = vprintk(fmt, args);
+		vprintk_func = this_cpu_read(printk_func);
+		ret = vprintk_func(fmt, args);
 		if (cs != -1)
 			ipipe_restore_context_check(cs);
-		goto out;
-	}
-
-	raw_spin_lock_irqsave(&__ipipe_printk_lock, flags);
-
-	oldcount = __ipipe_printk_fill;
-	fbytes = __LOG_BUF_LEN - oldcount;
-	if (fbytes > 1)	{
-		r = vscnprintf(__ipipe_printk_buf + __ipipe_printk_fill,
-			       fbytes, fmt, args) + 1;
-		__ipipe_printk_fill += r;
 	} else
-		r = 0;
+		ret = __ipipe_log_printk(fmt, args);
 
-	raw_spin_unlock_irqrestore(&__ipipe_printk_lock, flags);
-
-	if (oldcount == 0)
-		ipipe_raise_irq(__ipipe_printk_virq);
-out:
 	va_end(args);
 
-	return r;
+	return ret;
 }
 
 #else /* !CONFIG_IPIPE */
