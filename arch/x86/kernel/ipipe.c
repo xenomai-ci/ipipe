@@ -347,7 +347,7 @@ int __ipipe_trap_prologue(struct pt_regs *regs, int trapnr)
 	 * the standard recovery procedure in that case anyway.
 	 */
 	if (unlikely(!root_entry && faulthandler_disabled())) {
-		if (fixup_exception(regs, trapnr))
+		if (fixup_exception(regs))
 			return 1;
 	}
 
