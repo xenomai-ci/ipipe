@@ -8672,10 +8672,10 @@ int __ipipe_migrate_head(void)
 	if (likely(__schedule(false)))
 		return 0;
 
-	if (signal_pending(p))
-		return -ERESTARTSYS;
+	BUG_ON(!signal_pending(p));
 
-	BUG();
+	preempt_enable();
+	return -ERESTARTSYS;
 }
 EXPORT_SYMBOL_GPL(__ipipe_migrate_head);
 
