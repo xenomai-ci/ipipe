@@ -87,10 +87,13 @@ void __weak arch_cpu_idle(void)
 bool __weak ipipe_enter_idle_hook(void)
 {
 	/*
-	 * By default, we may enter the idle state if no co-kernel is
-	 * present.
+	 * Allow entering the idle state by default, matching the
+	 * original behavior when CPU_IDLE is turned
+	 * on. ipipe_enter_idle_hook() should be overriden by the
+	 * client domain code for smarter heuristics in figuring out
+	 * whether the CPU may actually enter the idle state.
 	 */
-	return ipipe_root_domain == ipipe_head_domain;
+	return true;
 }
 
 void __weak ipipe_exit_idle_hook(void) { }
