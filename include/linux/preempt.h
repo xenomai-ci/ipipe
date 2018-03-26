@@ -239,14 +239,15 @@ do { \
 		__flags__;				\
 	})
 
-#define hard_preempt_enable(__flags__)			\
-	do {						\
-		if (__ipipe_root_p) {			\
-			preempt_enable_no_resched();	\
-			hard_local_irq_restore(__flags__);	\
-			preempt_check_resched();	\
-		} else					\
-			hard_local_irq_restore(__flags__);	\
+#define hard_preempt_enable(__flags__)					\
+	do {								\
+		if (__ipipe_root_p) {					\
+			preempt_enable_no_resched();			\
+			hard_local_irq_restore(__flags__);		\
+			if (!hard_irqs_disabled_flags(__flags__))	\
+				preempt_check_resched();		\
+		} else							\
+			hard_local_irq_restore(__flags__);		\
 	} while (0)
 
 #elif defined(MODULE)
