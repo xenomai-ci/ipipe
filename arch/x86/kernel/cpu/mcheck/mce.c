@@ -1778,16 +1778,6 @@ static void unexpected_machine_check(struct pt_regs *regs, long error_code)
 void (*machine_check_vector)(struct pt_regs *, long error_code) =
 						unexpected_machine_check;
 
-#ifdef CONFIG_IPIPE
-static int mce_trampoline(struct pt_regs *regs, long error_code)
-{
-	return IPIPE_DO_TRAP(machine_check_vector, X86_TRAP_MC, regs, error_code);
-}
-
-int (*__ipipe_machine_check_vector)(struct pt_regs *, long error_code) =
-	mce_trampoline;
-#endif
-
 dotraplinkage void do_mce(struct pt_regs *regs, long error_code)
 {
 	machine_check_vector(regs, error_code);

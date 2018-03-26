@@ -49,7 +49,6 @@
 
 #ifdef CONFIG_IPIPE
 #define PREEMPT_SCHEDULE_IRQ	call __ipipe_preempt_schedule_irq
-#define machine_check_vector	__ipipe_machine_check_vector
 #else /* !CONFIG_IPIPE */
 #define PREEMPT_SCHEDULE_IRQ	call preempt_schedule_irq
 #endif /* !CONFIG_IPIPE */
