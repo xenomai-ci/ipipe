@@ -115,6 +115,7 @@ BEGIN {
     driver_arch["clocksource/timer-sp804.c"]="arm arm64"
     driver_arch["tty/serial/amba-pl011.c"]="arm arm64"
     driver_arch["gpio/gpio-pl061.c"]="arm arm64"
+    driver_arch["pinctrl/qcom/pinctrl-msm.c"]="arm arm64"
 
     driver_arch["tty/serial/bfin_uart.c"]="blackfin"
 
