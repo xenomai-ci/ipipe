@@ -9,6 +9,7 @@
  */
 
 #include <linux/threads.h>
+#include <asm/exception-64s.h>
 #include <asm/processor.h>
 #include <asm/page.h>
 #include <asm/cputable.h>
@@ -182,7 +183,7 @@ _GLOBAL(pnv_powersave_common)
 	mtmsrd	r6, 1		/* clear RI before setting SRR0/1 */
 	mtspr	SPRN_SRR0, r5
 	mtspr	SPRN_SRR1, r7
-	rfid
+	RFI_TO_KERNEL
 
 	.globl pnv_enter_arch207_idle_mode
 pnv_enter_arch207_idle_mode:
@@ -672,7 +673,7 @@ END_FTR_SECTION_IFSET(CPU_FTR_HVMODE)
 	mtcr	r6
 	mtspr	SPRN_SRR1,r4
 	mtspr	SPRN_SRR0,r5
-	rfid
+	RFI_TO_KERNEL
 
 /*
  * R3 here contains the value that will be returned to the caller
@@ -693,4 +694,4 @@ END_FTR_SECTION_IFSET(CPU_FTR_HVMODE)
 	mtcr	r6
 	mtspr	SPRN_SRR1,r4
 	mtspr	SPRN_SRR0,r5
-	rfid
+	RFI_TO_KERNEL
