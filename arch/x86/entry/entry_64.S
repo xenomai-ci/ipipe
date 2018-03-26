@@ -54,15 +54,6 @@
 #define PREEMPT_SCHEDULE_IRQ	call preempt_schedule_irq
 #endif /* !CONFIG_IPIPE */
 
-.macro test_syscall_nr, reg
-#if __SYSCALL_MASK == ~0
-	cmpq $__NR_syscall_max,%r\reg
-#else
-	andl $__SYSCALL_MASK,%e\reg
-	cmpl $__NR_syscall_max,%e\reg
-#endif
-.endm
-
 .code64
 .section .entry.text, "ax"
 
@@ -195,152 +186,18 @@ GLOBAL(entry_SYSCALL_64_after_swapgs)
 	pushq	%r9				/* pt_regs->r9 */
 	pushq	%r10				/* pt_regs->r10 */
 	pushq	%r11				/* pt_regs->r11 */
-	sub	$(6*8), %rsp			/* pt_regs->bp, bx, r12-15 not saved */
+	pushq	%rbx				/* pt_regs->rbx */
+	pushq	%rbp				/* pt_regs->rbp */
+	pushq	%r12				/* pt_regs->r12 */
+	pushq	%r13				/* pt_regs->r13 */
+	pushq	%r14				/* pt_regs->r14 */
+	pushq	%r15				/* pt_regs->r15 */
 
-	/*
-	 * If we need to do entry work or if we guess we'll need to do
-	 * exit work, go straight to the slow path.
-	 */
-	movq	PER_CPU_VAR(current_task), %r11
-#ifdef CONFIG_IPIPE
-	TRACE_IRQS_ON
-	ENABLE_INTERRUPTS(CLBR_NONE)
-#ifndef CONFIG_IPIPE_LEGACY
-	test_syscall_nr	ax
-	jb	slow_path
-	testl	$_TIP_HEAD, TASK_TI_ipipe(%r11)
-	jz	slow_path
-	movq	%rsp, %rdi		/* &pt_regs */
-	call	ipipe_fastcall_hook
-	movq	PER_CPU_VAR(current_task), %r11
-	testl	%eax, %eax
-	js	no_fastcall
-	testl	$_TIP_HEAD, TASK_TI_ipipe(%r11)
-	jz	root_fastexit
-	testl	$_TIP_MAYDAY, TASK_TI_ipipe(%r11)
-	jz	pipeline_leave
-	movq	%rsp, %rdi		/* &pt_regs */
-	call	__ipipe_call_mayday
-	jmp	pipeline_leave
-root_fastexit:
-	call	__ipipe_root_sync
-	jmp	ret_from_sys_call
-no_fastcall:
-	/* fastcall handler not implemented */
-	movq	ORIG_RAX(%rsp), %rax
-slow_path:
-#endif /* !CONFIG_IPIPE_LEGACY */
-	testl	$_TIP_NOTIFY, TASK_TI_ipipe(%r11)
-	jnz	pipeline_syscall
-	test_syscall_nr	ax
-	jb	root_syscall
-pipeline_syscall:
-	movq	%rsp, %rdi		/* &pt_regs */
-	call	__ipipe_notify_syscall
-	movq	PER_CPU_VAR(current_task), %r11
-	testl	$_TIP_HEAD, TASK_TI_ipipe(%r11)
-	jz	root_domain
-pipeline_leave:
-	DISABLE_INTERRUPTS(CLBR_NONE)
-	TRACE_IRQS_OFF
-	jmp	sysret_fastexit
-root_domain:
-	testl	%eax, %eax
-	jnz	ret_from_sys_call
-	movq	ORIG_RAX(%rsp), %rax
-root_syscall:
-	/* Reload all the syscall registers. */
-	movq	RDI(%rsp), %rdi
-	movq	RSI(%rsp), %rsi
-	movq	RDX(%rsp), %rdx
-	movq	R10(%rsp), %r10
-	movq	R9(%rsp), %r9
-	movq	R8(%rsp), %r8
-#endif /* !CONFIG_IPIPE */
-	testl	$_TIF_WORK_SYSCALL_ENTRY|_TIF_ALLWORK_MASK, TASK_TI_flags(%r11)
-	jnz	entry_SYSCALL64_slow_path
-
-entry_SYSCALL_64_fastpath:
-	/*
-	 * Easy case: enable interrupts and issue the syscall.  If the syscall
-	 * needs pt_regs, we'll call a stub that disables interrupts again
-	 * and jumps to the slow path.
-	*/
-#ifndef CONFIG_IPIPE
-	/* We already did this earlier, right before pipelining the syscall. */
-	TRACE_IRQS_ON
-	ENABLE_INTERRUPTS(CLBR_NONE)
-#endif
-	test_syscall_nr ax
-	ja	ret_from_sys_call	/* return -ENOSYS (already in pt_regs->ax) */
-	movq	%r10, %rcx
-
-	/*
-	 * This call instruction is handled specially in stub_ptregs_64.
-	 * It might end up jumping to the slow path.  If it jumps, RAX
-	 * and all argument registers are clobbered.
-	 */
-#ifdef CONFIG_RETPOLINE
-	movq	sys_call_table(, %rax, 8), %rax
-	call	__x86_indirect_thunk_rax
-#else
-	call	*sys_call_table(, %rax, 8)
-#endif
-.Lentry_SYSCALL_64_after_fastpath_call:
-
-	movq	%rax, RAX(%rsp)
-ret_from_sys_call:
-
-	/*
-	 * If we get here, then we know that pt_regs is clean for SYSRET64.
-	 * If we see that no exit work is required (which we are required
-	 * to check with IRQs off), then we can go straight to SYSRET64.
-	 */
-	DISABLE_INTERRUPTS(CLBR_NONE)
-	TRACE_IRQS_OFF
-	movq	PER_CPU_VAR(current_task), %r11
-	testl	$_TIF_ALLWORK_MASK, TASK_TI_flags(%r11)
-	jnz	1f
-
-	LOCKDEP_SYS_EXIT
-	TRACE_IRQS_ON		/* user mode is traced as IRQs on */
-sysret_fastexit:
-	movq	RIP(%rsp), %rcx
-	movq	EFLAGS(%rsp), %r11
-	RESTORE_C_REGS_EXCEPT_RCX_R11
-	/*
-	 * This opens a window where we have a user CR3, but are
-	 * running in the kernel.  This makes using the CS
-	 * register useless for telling whether or not we need to
-	 * switch CR3 in NMIs.  Normal interrupts are OK because
-	 * they are off here.
-	 */
-	SWITCH_USER_CR3
-	movq	RSP(%rsp), %rsp
-	USERGS_SYSRET64
-
-1:
-	/*
-	 * The fast path looked good when we started, but something changed
-	 * along the way and we need to switch to the slow path.  Calling
-	 * raise(3) will trigger this, for example.  IRQs are off.
-	 */
-	TRACE_IRQS_ON
-	ENABLE_INTERRUPTS(CLBR_NONE)
-	SAVE_EXTRA_REGS
-	movq	%rsp, %rdi
-	call	syscall_return_slowpath	/* returns with IRQs disabled */
-	jmp	return_from_SYSCALL_64
-
-entry_SYSCALL64_slow_path:
 	/* IRQs are off. */
-	SAVE_EXTRA_REGS
 	movq	%rsp, %rdi
 	call	do_syscall_64		/* returns with IRQs disabled */
 
-return_from_SYSCALL_64:
 	RESTORE_EXTRA_REGS
-syscall_return:
 	TRACE_IRQS_IRETQ		/* we're about to change IF */
 
 	/*
@@ -412,6 +269,7 @@ syscall_return:
 syscall_return_via_sysret:
 	/* rcx and r11 are already restored (see code above) */
 	RESTORE_C_REGS_EXCEPT_RCX_R11
+
 	/*
 	 * This opens a window where we have a user CR3, but are
 	 * running in the kernel.  This makes using the CS
@@ -433,48 +291,8 @@ opportunistic_sysret_failed:
 	 */
 	SWITCH_USER_CR3
 	SWAPGS
-retint_noswapgs:
 	jmp	restore_c_regs_and_iret
 END(entry_SYSCALL_64)
-
-ENTRY(stub_ptregs_64)
-	/*
-	 * Syscalls marked as needing ptregs land here.
-	 * If we are on the fast path, we need to save the extra regs,
-	 * which we achieve by trying again on the slow path.  If we are on
-	 * the slow path, the extra regs are already saved.
-	 *
-	 * RAX stores a pointer to the C function implementing the syscall.
-	 * IRQs are on.
-	 */
-	cmpq	$.Lentry_SYSCALL_64_after_fastpath_call, (%rsp)
-	jne	1f
-
-	/*
-	 * Called from fast path -- disable IRQs again, pop return address
-	 * and jump to slow path
-	 */
-	DISABLE_INTERRUPTS(CLBR_NONE)
-	TRACE_IRQS_OFF
-	popq	%rax
-	jmp	entry_SYSCALL64_slow_path
-
-1:
-	JMP_NOSPEC %rax				/* Called from C */
-END(stub_ptregs_64)
-
-.macro ptregs_stub func
-ENTRY(ptregs_\func)
-	leaq	\func(%rip), %rax
-	jmp	stub_ptregs_64
-END(ptregs_\func)
-.endm
-
-/* Instantiate ptregs_stub for each ptregs-using syscall */
-#define __SYSCALL_64_QUAL_(sym)
-#define __SYSCALL_64_QUAL_ptregs(sym) ptregs_stub sym
-#define __SYSCALL_64(nr, sym, qual) __SYSCALL_64_QUAL_##qual(sym)
-#include <asm/syscalls_64.h>
 
 /*
  * %rdi: prev task
@@ -509,7 +327,8 @@ ENTRY(__switch_to_asm)
 	 * exist, overwrite the RSB with entries which capture
 	 * speculative execution to prevent attack.
 	 */
-	FILL_RETURN_BUFFER %r12, RSB_CLEAR_LOOPS, X86_FEATURE_RSB_CTXSW
+	/* Clobbers %rbx */
+	FILL_RETURN_BUFFER RSB_CLEAR_LOOPS, X86_FEATURE_RSB_CTXSW
 #endif
 
 	/* restore callee-saved registers */
