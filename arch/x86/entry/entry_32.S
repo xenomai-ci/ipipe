@@ -46,6 +46,7 @@
 #include <asm/asm.h>
 #include <asm/smap.h>
 #include <asm/export.h>
+#include <asm/nospec-branch.h>
 
 	.section .entry.text, "ax"
 
@@ -268,7 +269,7 @@ ENTRY(ret_from_fork)
 
 	/* kernel thread */
 1:	movl	%edi, %eax
-	call	*%ebx
+	CALL_NOSPEC %ebx
 	/*
 	 * A kernel thread is allowed to return here after successfully
 	 * calling do_execve().  Exit to userspace to complete the execve()
@@ -1062,7 +1063,8 @@ trace:
 	movl	0x4(%ebp), %edx
 	subl	$MCOUNT_INSN_SIZE, %eax
 
-	call	*ftrace_trace_function
+	movl    ftrace_trace_function, %ecx
+	CALL_NOSPEC %ecx
 
 	popl	%edx
 	popl	%ecx
@@ -1098,7 +1100,7 @@ return_to_handler:
 	movl	%eax, %ecx
 	popl	%edx
 	popl	%eax
-	jmp	*%ecx
+	JMP_NOSPEC %ecx
 #endif
 
 #ifdef CONFIG_TRACING
@@ -1142,7 +1144,7 @@ error_code:
 	TRACE_IRQS_OFF
 #endif	
 	movl	%esp, %eax			# pt_regs pointer
-	call	*%edi
+	CALL_NOSPEC %edi
 #ifdef CONFIG_IPIPE
 	testl %eax,%eax
 	jnz restore_nocheck
