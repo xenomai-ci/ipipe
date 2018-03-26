@@ -193,7 +193,7 @@ extern __visible void smp_x86_platform_ipi(struct pt_regs *regs);
 #define VECTOR_RETRIGGERED	((void *)~0UL)
 
 typedef struct irq_desc* vector_irq_t[NR_VECTORS];
-DECLARE_PER_CPU(vector_irq_t, vector_irq);
+DECLARE_PER_CPU_USER_MAPPED(vector_irq_t, vector_irq);
 
 #endif /* !ASSEMBLY_ */
 
