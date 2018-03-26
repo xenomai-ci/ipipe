@@ -104,6 +104,12 @@ int instr_is_relative_branch(unsigned int instr)
 }
 
 notrace
+int instr_is_relative_link_branch(unsigned int instr)
+{
+	return instr_is_relative_branch(instr) && (instr & BRANCH_SET_LINK);
+}
+
+notrace
 static unsigned long branch_iform_target(const unsigned int *instr)
 {
 	signed long imm;
