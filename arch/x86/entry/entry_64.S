@@ -1046,11 +1046,10 @@ apicinterrupt3 HYPERVISOR_CALLBACK_VECTOR \
 
 #ifdef CONFIG_IPIPE
 idtentry debug			do_debug		has_error_code=0	paranoid=1
-idtentry int3			do_int3			has_error_code=0	paranoid=1
 #else
 idtentry debug			do_debug		has_error_code=0	paranoid=1 shift_ist=DEBUG_STACK
-idtentry int3			do_int3			has_error_code=0	paranoid=1 shift_ist=DEBUG_STACK
 #endif
+idtentry int3			do_int3			has_error_code=0
 idtentry stack_segment		do_stack_segment	has_error_code=1
 
 #ifdef CONFIG_XEN
