@@ -55,10 +55,10 @@
 
 .macro test_syscall_nr, reg
 #if __SYSCALL_MASK == ~0
-	cmpq $__NR_syscall_max,%r\reg
+	cmpq $NR_syscalls,%r\reg
 #else
 	andl $__SYSCALL_MASK,%e\reg
-	cmpl $__NR_syscall_max,%e\reg
+	cmpl $NR_syscalls,%e\reg
 #endif
 .endm
 
@@ -247,7 +247,9 @@ root_syscall:
 	jnz	tracesys
 entry_SYSCALL_64_fastpath:
 	test_syscall_nr ax
-	ja	ret_from_sys_call	/* return -ENOSYS (already in pt_regs->ax) */
+	jae     ret_from_sys_call		/* return -ENOSYS (already in pt_regs->ax) */
+	sbb     %rcx, %rcx			/* array_index_mask_nospec() */
+	and     %rcx, %rax
 	movq	%r10, %rcx
 #ifdef CONFIG_RETPOLINE
 	movq	sys_call_table(, %rax, 8), %rax
@@ -347,7 +349,9 @@ tracesys_phase2:
 	RESTORE_C_REGS_EXCEPT_RAX
 	RESTORE_EXTRA_REGS
 	test_syscall_nr	ax
-	ja	1f				/* return -ENOSYS (already in pt_regs->ax) */
+	jae	1f				/* return -ENOSYS (already in pt_regs->ax) */
+	sbb	%rcx, %rcx			/* array_index_mask_nospec() */
+	and	%rcx, %rax
 	movq	%r10, %rcx			/* fixup for C */
 #ifdef CONFIG_RETPOLINE
 	movq	sys_call_table(, %rax, 8), %rax
@@ -1177,11 +1181,10 @@ apicinterrupt3 HYPERVISOR_CALLBACK_VECTOR \
 
 #ifdef CONFIG_IPIPE
 idtentry debug			do_debug		has_error_code=0	paranoid=1
-idtentry int3			do_int3			has_error_code=0	paranoid=1
 #else
 idtentry debug			do_debug		has_error_code=0	paranoid=1 shift_ist=DEBUG_STACK
-idtentry int3			do_int3			has_error_code=0	paranoid=1 shift_ist=DEBUG_STACK
 #endif
+idtentry int3			do_int3			has_error_code=0
 idtentry stack_segment		do_stack_segment	has_error_code=1
 
 #ifdef CONFIG_XEN
