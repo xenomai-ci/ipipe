@@ -1925,6 +1925,26 @@ void __ipipe_share_current(int flags)
 }
 EXPORT_SYMBOL_GPL(__ipipe_share_current);
 
+bool ipipe_enter_cpuidle(void)
+{
+	struct ipipe_percpu_domain_data *p;
+
+	/*
+	 * We may go idle if no interrupt is waiting delivery from the
+	 * root stage.
+	 */
+	hard_local_irq_disable();
+	p = ipipe_this_cpu_root_context();
+
+	return !__ipipe_ipending_p(p);
+}
+
+void ipipe_exit_cpuidle(void)
+{
+	/* unstall and re-enable hw IRQs too. */
+	local_irq_enable();
+}
+
 #ifdef CONFIG_KGDB
 bool __ipipe_probe_access;
 

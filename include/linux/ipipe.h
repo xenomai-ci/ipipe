@@ -32,6 +32,9 @@
 #include <asm/ptrace.h>
 #include <asm/ipipe.h>
 
+struct cpuidle_device;
+struct cpuidle_state;
+
 #ifdef CONFIG_IPIPE
 
 #include <linux/ipipe_domain.h>
@@ -423,6 +426,10 @@ void __ipipe_tracer_hrclock_initialized(void);
 #define __ipipe_tracer_hrclock_initialized()	do { } while(0)
 #endif /* !CONFIG_IPIPE_TRACE */
 
+bool ipipe_enter_cpuidle(void);
+
+void ipipe_exit_cpuidle(void);
+
 #include <linux/ipipe_compat.h>
 
 #else	/* !CONFIG_IPIPE */
@@ -459,11 +466,20 @@ static inline void ipipe_unlock_irq(unsigned int irq) { }
 #define ipipe_probe_kernel_write(d, s, sz)	probe_kernel_write(d, s, sz)
 #define __ipipe_uaccess_might_fault()		might_fault()
 
-static inline int ipipe_handle_syscall(struct thread_info *ti,
-				       unsigned long nr, struct pt_regs *regs)
+static inline
+int ipipe_handle_syscall(struct thread_info *ti,
+			 unsigned long nr, struct pt_regs *regs)
 {
 	return 0;
 }
+
+static inline
+bool ipipe_enter_cpuidle(void)
+{
+	return true;
+}
+
+static inline void ipipe_exit_cpuidle(void) { }
 
 #endif	/* !CONFIG_IPIPE */
 
