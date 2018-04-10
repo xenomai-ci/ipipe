@@ -518,6 +518,7 @@ __und_usr:
 	bl	__ipipe_notify_trap		@ branch to trap handler
 	cmp	r0, #0
 	bne	ret_from_exception
+	uaccess_enable ip
 #endif /* CONFIG_IPIPE */
 
 	mov	r2, r4
