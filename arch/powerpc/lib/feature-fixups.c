@@ -159,6 +159,7 @@ void do_rfi_flush_fixups(enum l1d_flush_type types)
 
 	printk(KERN_DEBUG "rfi-flush: patched %d locations\n", i);
 }
+#endif /* CONFIG_PPC_BOOK3S_64 */
 
 notrace
 void do_lwsync_fixups(unsigned long value, void *fixup_start, void *fixup_end)
