@@ -108,10 +108,10 @@ static void icoll_mask_irq(struct irq_data *d)
 #ifdef CONFIG_IPIPE
 static void icoll_mask_ack_irq(struct irq_data *d)
 {
-	__raw_writel(BM_ICOLL_INTERRUPTn_ENABLE,
-		     icoll_base + HW_ICOLL_INTERRUPTn_CLR(d->hwirq));
+	__raw_writel(BM_ICOLL_INTR_ENABLE,
+			icoll_priv.intr + CLR_REG + HW_ICOLL_INTERRUPTn(d->hwirq));
 	__raw_writel(BV_ICOLL_LEVELACK_IRQLEVELACK__LEVEL0,
-		     icoll_base + HW_ICOLL_LEVELACK);
+		    icoll_priv.levelack);
 }
 #endif
 

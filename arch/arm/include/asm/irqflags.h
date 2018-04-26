@@ -181,9 +181,14 @@ static inline int arch_irqs_disabled_flags(unsigned long flags)
 
 #endif /* ifndef IPIPE */
 
+#if __LINUX_ARM_ARCH__ >= 6
 #ifndef CONFIG_CPU_V7M
 #define local_abt_enable()  __asm__("cpsie a	@ __sta" : : : "memory", "cc")
 #define local_abt_disable() __asm__("cpsid a	@ __cla" : : : "memory", "cc")
+#else
+#define local_abt_enable()	do { } while (0)
+#define local_abt_disable()	do { } while (0)
+#endif
 #else
 #define local_abt_enable()	do { } while (0)
 #define local_abt_disable()	do { } while (0)
