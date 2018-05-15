@@ -2169,6 +2169,7 @@ asmlinkage __visible void raw_printk(const char *fmt, ...)
 	raw_vprintk(fmt, ap);
 	va_end(ap);
 }
+EXPORT_SYMBOL(raw_printk);
 
 static inline void register_raw_console(struct console *newcon)
 {
