@@ -114,8 +114,8 @@ static IPIPE_DEFINE_RAW_SPINLOCK(cpu_map_lock);
 
 #else
 
-#define gic_lock_irqsave(f)		do { (void)(f); } while(0)
-#define gic_unlock_irqrestore(f)	do { (void)(f); } while(0)
+#define gic_lock_irqsave(f)		pipeline_lock(f)
+#define gic_unlock_irqrestore(f)	pipeline_unlock(f)
 
 #define gic_lock()			do { } while(0)
 #define gic_unlock()			do { } while(0)
