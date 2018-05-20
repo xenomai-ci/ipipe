@@ -811,22 +811,16 @@ static void  __ipipe_do_IPI(unsigned virq, void *cookie)
 
 void __ipipe_ipis_alloc(void)
 {
-	unsigned virq, _virq;
-	unsigned ipi_nr;
+	unsigned int virq, ipi, last_ipi;
 
+	/* May be called multiple times via init_stage() */
 	if (__ipipe_first_ipi)
 		return;
 
-	/* __ipipe_first_ipi is 0 here  */
-	ipi_nr = IPI_IPIPE_FIRST + IPIPE_LAST_IPI + 1;
-
-	for (virq = IPIPE_IPI_BASE; virq < IPIPE_IPI_BASE + ipi_nr; virq++) {
-		_virq = ipipe_alloc_virq();
-		if (virq != _virq)
-			panic("I-pipe: cannot reserve virq #%d (got #%d)\n",
-			      virq, _virq);
-
-		if (virq - IPIPE_IPI_BASE == IPI_IPIPE_FIRST)
+	last_ipi = NR_IPI + IPIPE_LAST_IPI;
+	for (ipi = 0; ipi <= last_ipi; ipi++) {
+		virq = ipipe_alloc_virq();
+		if (ipi == IPI_IPIPE_FIRST)
 			__ipipe_first_ipi = virq;
 	}
 }
