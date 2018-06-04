@@ -58,6 +58,7 @@ git diff "$reference" | awk -v kvers="$kvers" -v splitmode="$split" \
 
 BEGIN {
     driver_arch["cpuidle/Kconfig"]="noarch"
+    driver_arch["cpuidle/cpuidle.c"]="noarch"
     driver_arch["tty/serial/8250/8250_core.c"]="noarch"
     driver_arch["iommu/irq_remapping.c"]="noarch"
 
