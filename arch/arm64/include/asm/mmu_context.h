@@ -58,7 +58,7 @@ static inline void cpu_switch_mm(pgd_t *pgd, struct mm_struct *mm)
 	flags = hard_local_irq_save();
 	cpu_set_reserved_ttbr0();
 	cpu_do_switch_mm(virt_to_phys(pgd),mm);
-	hard_local_irq_restore(__flags);
+	hard_local_irq_restore(flags);
 }
 
 /*
