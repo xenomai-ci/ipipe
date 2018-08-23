@@ -115,7 +115,7 @@ void __kernel_fpu_end(void)
 
 	flags = hard_cond_local_irq_save();
 	if (fpu->fpregs_active)
-		copy_kernel_to_fpregs(active_fpstate(fpu));
+		copy_kernel_to_fpregs(&fpu->state);
 	else
 		__fpregs_deactivate_hw();
 
@@ -262,13 +262,8 @@ int fpu__copy(struct fpu *dst_fpu, struct fpu *src_fpu)
 	dst_fpu->counter = 0;
 	dst_fpu->fpregs_active = 0;
 	dst_fpu->last_cpu = -1;
-#ifdef CONFIG_IPIPE
-	/* Must be set prior to calling fpu_copy(). */
-	dst_fpu->active_state = &dst_fpu->state;
-#endif
 
-	if (IS_ENABLED(CONFIG_IPIPE) ||
-	    (src_fpu->fpstate_active && cpu_has_fpu))
+	if (src_fpu->fpstate_active && cpu_has_fpu)
 		fpu_copy(dst_fpu, src_fpu);
 
 	return 0;
@@ -369,7 +364,7 @@ void fpu__restore(struct fpu *fpu)
 	/* Avoid __kernel_fpu_begin() right after fpregs_activate() */
 	kernel_fpu_disable();
 	fpregs_activate(fpu);
-	copy_kernel_to_fpregs(active_fpstate(fpu));
+	copy_kernel_to_fpregs(&fpu->state);
 	fpu->counter++;
 	kernel_fpu_enable();
 	hard_local_irq_restore(flags);

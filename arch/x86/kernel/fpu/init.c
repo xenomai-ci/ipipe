@@ -39,9 +39,6 @@ static void fpu__init_cpu_generic(void)
 		cr0 |= X86_CR0_EM;
 	write_cr0(cr0);
 
-#ifdef CONFIG_IPIPE
-	current->thread.fpu.active_state = &current->thread.fpu.state;
-#endif
 	/* Flush out any pending x87 state: */
 #ifdef CONFIG_MATH_EMULATION
 	if (!cpu_has_fpu)
@@ -291,7 +288,7 @@ static void __init fpu__init_system_ctx_switch(void)
 	current_thread_info()->status = 0;
 
 	if (IS_ENABLED(CONFIG_IPIPE))
-		eagerfpu = DISABLE;
+		eagerfpu = ENABLE;
 
 	/* Auto enable eagerfpu for xsaveopt */
 	if (cpu_has_xsaveopt && eagerfpu != DISABLE)
