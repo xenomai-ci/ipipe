@@ -124,7 +124,7 @@ void __kernel_fpu_end(void)
 
 	flags = hard_cond_local_irq_save();
 	if (fpu->fpregs_active)
-		copy_kernel_to_fpregs(active_fpstate(fpu));
+		copy_kernel_to_fpregs(&fpu->state);
 	else
 		__fpregs_deactivate_hw();
 
@@ -192,7 +192,7 @@ void fpu__save(struct fpu *fpu)
 	if (fpu->fpregs_active) {
 		if (!copy_fpregs_to_fpstate(fpu)) {
 			if (use_eager_fpu())
-				copy_kernel_to_fpregs(active_fpstate(fpu));
+				copy_kernel_to_fpregs(&fpu->state);
 			else
 				fpregs_deactivate(fpu);
 		}
@@ -244,13 +244,8 @@ int fpu__copy(struct fpu *dst_fpu, struct fpu *src_fpu)
 	dst_fpu->counter = 0;
 	dst_fpu->fpregs_active = 0;
 	dst_fpu->last_cpu = -1;
-#ifdef CONFIG_IPIPE
-	/* Must be set before FPU context is copied. */
-	dst_fpu->active_state = &dst_fpu->state;
-#endif
 
-	if (!IS_ENABLED(CONFIG_IPIPE) &&
-	    (!src_fpu->fpstate_active || !static_cpu_has(X86_FEATURE_FPU)))
+	if (!src_fpu->fpstate_active || !static_cpu_has(X86_FEATURE_FPU))
 		return 0;
 
 	WARN_ON_FPU(src_fpu != &current->thread.fpu);
@@ -283,7 +278,7 @@ int fpu__copy(struct fpu *dst_fpu, struct fpu *src_fpu)
 		       fpu_kernel_xstate_size);
 
 		if (use_eager_fpu())
-			copy_kernel_to_fpregs(active_fpstate(src_fpu));
+			copy_kernel_to_fpregs(&src_fpu->state);
 		else
 			fpregs_deactivate(src_fpu);
 	}
@@ -430,7 +425,7 @@ void fpu__current_fpstate_write_end(void)
 	 * an XRSTOR if they are active.
 	 */
 	if (fpregs_active())
-		copy_kernel_to_fpregs(active_fpstate(fpu));
+		copy_kernel_to_fpregs(&fpu->state);
 
 	/*
 	 * Our update is done and the fpregs/fpstate are in sync
@@ -460,7 +455,7 @@ void fpu__restore(struct fpu *fpu)
 	kernel_fpu_disable();
 	trace_x86_fpu_before_restore(fpu);
 	fpregs_activate(fpu);
-	copy_kernel_to_fpregs(active_fpstate(fpu));
+	copy_kernel_to_fpregs(&fpu->state);
 	fpu->counter++;
 	trace_x86_fpu_after_restore(fpu);
 	kernel_fpu_enable();

@@ -13,7 +13,6 @@
 #include <linux/compat.h>
 #include <linux/sched.h>
 #include <linux/slab.h>
-#include <linux/kconfig.h>
 #include <linux/ipipe.h>
 
 #include <asm/user.h>
@@ -190,24 +189,12 @@ static inline int copy_user_to_fregs(struct fregs_state __user *fx)
 	return user_insn(frstor %[fx], "=m" (*fx), [fx] "m" (*fx));
 }
 
-#ifdef CONFIG_IPIPE
-static inline union fpregs_state *active_fpstate(struct fpu *fpu)
-{
-	return fpu->active_state;
-}
-#else
-static inline union fpregs_state *active_fpstate(struct fpu *fpu)
-{
-	return &fpu->state;
-}
-#endif
-
 static inline void copy_fxregs_to_kernel(struct fpu *fpu)
 {
 	if (IS_ENABLED(CONFIG_X86_32))
-		asm volatile( "fxsave %[fx]" : [fx] "=m" (active_fpstate(fpu)->fxsave));
+		asm volatile( "fxsave %[fx]" : [fx] "=m" (fpu->state.fxsave));
 	else if (IS_ENABLED(CONFIG_AS_FXSAVEQ))
-		asm volatile("fxsaveq %[fx]" : [fx] "=m" (active_fpstate(fpu)->fxsave));
+		asm volatile("fxsaveq %[fx]" : [fx] "=m" (fpu->state.fxsave));
 	else {
 		/* Using "rex64; fxsave %0" is broken because, if the memory
 		 * operand uses any extended registers for addressing, a second
@@ -231,8 +218,8 @@ static inline void copy_fxregs_to_kernel(struct fpu *fpu)
 		 * registers.
 		 */
 		asm volatile( "rex64/fxsave (%[fx])"
-			      : "=m" (active_fpstate(fpu)->fxsave)
-			      : [fx] "R" (&active_fpstate(fpu)->fxsave));
+                             : "=m" (fpu->state.fxsave)
+                             : [fx] "R" (&fpu->state.fxsave));
 	}
 }
 
@@ -441,7 +428,7 @@ static inline int copy_user_to_xregs(struct xregs_state __user *buf, u64 mask)
 static inline int copy_fpregs_to_fpstate(struct fpu *fpu)
 {
 	if (likely(use_xsave())) {
-		copy_xregs_to_kernel(&active_fpstate(fpu)->xsave);
+		copy_xregs_to_kernel(&fpu->state.xsave);
 		return 1;
 	}
 
@@ -454,7 +441,7 @@ static inline int copy_fpregs_to_fpstate(struct fpu *fpu)
 	 * Legacy FPU register saving, FNSAVE always clears FPU registers,
 	 * so we have to mark them inactive:
 	 */
-	asm volatile("fnsave %[fp]; fwait" : [fp] "=m" (active_fpstate(fpu)->fsave));
+	asm volatile("fnsave %[fp]; fwait" : [fp] "=m" (fpu->state.fsave));
 
 	return 0;
 }
@@ -609,8 +596,7 @@ switch_fpu_prepare(struct fpu *old_fpu, struct fpu *new_fpu, int cpu)
 	 * If the task has used the math, pre-load the FPU on xsave processors
 	 * or if the past 5 consecutive context-switches used math.
 	 */
-	fpu.preload = !IS_ENABLED(CONFIG_IPIPE) &&
-		      static_cpu_has(X86_FEATURE_FPU) &&
+	fpu.preload = static_cpu_has(X86_FEATURE_FPU) &&
 		      new_fpu->fpstate_active &&
 		      (use_eager_fpu() || new_fpu->counter > 5);
 
@@ -660,7 +646,7 @@ switch_fpu_prepare(struct fpu *old_fpu, struct fpu *new_fpu, int cpu)
  */
 static inline void switch_fpu_finish(struct fpu *new_fpu, fpu_switch_t fpu_switch)
 {
-	if (!IS_ENABLED(CONFIG_IPIPE) && fpu_switch.preload)
+	if (fpu_switch.preload)
 		copy_kernel_to_fpregs(&new_fpu->state);
 }
 
