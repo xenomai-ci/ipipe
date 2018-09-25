@@ -340,7 +340,7 @@ int __ipipe_trap_prologue(struct pt_regs *regs, int trapnr, unsigned long *flags
 		unsigned int condition = 0;
 
 		if (trapnr == X86_TRAP_DB) {
-			if (!atomic_read(&kgdb_cpu_doing_single_step) != -1 &&
+			if (atomic_read(&kgdb_cpu_doing_single_step) == -1 &&
 			    test_thread_flag(TIF_SINGLESTEP))
 				goto skip_kgdb;
 			get_debugreg(condition, 6);
