@@ -13,6 +13,7 @@
 #include <linux/io.h>
 #include <linux/ipipe_tickdev.h>
 
+#include <asm/cpufeature.h>
 #include <asm/irqdomain.h>
 #include <asm/fixmap.h>
 #include <asm/hpet.h>
