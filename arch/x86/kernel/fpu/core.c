@@ -99,6 +99,10 @@ void __kernel_fpu_begin(void)
 	kernel_fpu_disable();
 
 	if (fpu->fpregs_active) {
+		/*
+		 * Ignore return value -- we don't care if reg state
+		 * is clobbered.
+		 */
 		copy_fpregs_to_fpstate(fpu);
 	} else {
 		this_cpu_write(fpu_fpregs_owner_ctx, NULL);
@@ -180,8 +184,12 @@ void fpu__save(struct fpu *fpu)
 
 	flags = hard_preempt_disable();
 	if (fpu->fpregs_active) {
-		if (!copy_fpregs_to_fpstate(fpu))
-			fpregs_deactivate(fpu);
+		if (!copy_fpregs_to_fpstate(fpu)) {
+			if (use_eager_fpu())
+				copy_kernel_to_fpregs(&fpu->state);
+			else
+				fpregs_deactivate(fpu);
+		}
 	}
 	hard_preempt_enable(flags);
 }
@@ -252,7 +260,11 @@ static void fpu_copy(struct fpu *dst_fpu, struct fpu *src_fpu)
 	flags = hard_preempt_disable();
 	if (!copy_fpregs_to_fpstate(dst_fpu)) {
 		memcpy(&src_fpu->state, &dst_fpu->state, xstate_size);
-		fpregs_deactivate(src_fpu);
+
+		if (use_eager_fpu())
+			copy_kernel_to_fpregs(&src_fpu->state);
+		else
+			fpregs_deactivate(src_fpu);
 	}
 	hard_preempt_enable(flags);
 }
@@ -419,8 +431,10 @@ static inline void copy_init_fpstate_to_fpregs(void)
 {
 	if (use_xsave())
 		copy_kernel_to_xregs(&init_fpstate.xsave, -1);
-	else
+	else if (static_cpu_has(X86_FEATURE_FXSR))
 		copy_kernel_to_fxregs(&init_fpstate.fxsave);
+	else
+		copy_kernel_to_fregs(&init_fpstate.fsave);
 }
 
 /*
@@ -435,7 +449,7 @@ void fpu__clear(struct fpu *fpu)
 	
 	WARN_ON_FPU(fpu != &current->thread.fpu); /* Almost certainly an anomaly */
 
-	if (!use_eager_fpu()) {
+	if (!use_eager_fpu() || !static_cpu_has(X86_FEATURE_FPU)) {
 		/* FPU state will be reallocated lazily at the first use. */
 		fpu__drop(fpu);
 	} else {
