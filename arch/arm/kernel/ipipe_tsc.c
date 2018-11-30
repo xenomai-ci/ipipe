@@ -49,7 +49,7 @@ static void __ipipe_tsc_update_fn(unsigned long cookie)
 	add_timer(&ipipe_tsc_update_timer);
 }
 
-void __init __ipipe_tsc_register(struct __ipipe_tscinfo *info)
+void __ipipe_tsc_register(struct __ipipe_tscinfo *info)
 {
 	struct ipipe_tsc_value_t *vector_tsc_value;
 	unsigned long long wrap_ms;
