@@ -60,6 +60,7 @@ BEGIN {
     driver_arch["cpuidle/Kconfig"]="noarch"
     driver_arch["tty/serial/8250/8250_core.c"]="noarch"
     driver_arch["iommu/irq_remapping.c"]="noarch"
+    driver_arch["base/core.c"]="noarch"
 
     driver_arch["clk/mxs/clk-imx28.c"]="arm"
     driver_arch["clocksource/mxs_timer.c"]="arm"
