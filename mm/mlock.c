@@ -504,6 +504,7 @@ static int mlock_fixup(struct vm_area_struct *vma, struct vm_area_struct **prev,
 	int nr_pages;
 	int ret = 0;
 	int lock = !!(newflags & VM_LOCKED);
+	vm_flags_t old_flags = vma->vm_flags;
 
 	if (newflags == vma->vm_flags || (vma->vm_flags & VM_SPECIAL) ||
 	    is_vm_hugetlb_page(vma) || vma == get_gate_vma(current->mm))
@@ -538,6 +539,8 @@ success:
 	nr_pages = (end - start) >> PAGE_SHIFT;
 	if (!lock)
 		nr_pages = -nr_pages;
+	else if (old_flags & VM_LOCKED)
+		nr_pages = 0;
 	mm->locked_vm += nr_pages;
 
 	/*
@@ -813,7 +816,7 @@ int __ipipe_pin_vma(struct mm_struct *mm, struct vm_area_struct *vma)
 	write = (vma->vm_flags & (VM_WRITE | VM_SHARED)) == VM_WRITE;
 	len = DIV_ROUND_UP(vma->vm_end, PAGE_SIZE) - vma->vm_start/PAGE_SIZE;
 	ret = get_user_pages(current, mm, vma->vm_start,
-			     len, write, 0, NULL, NULL);
+			     len, write ? FOLL_WRITE : 0, NULL, NULL);
 	if (ret < 0)
 		return ret;
 	return ret == len ? 0 : -EFAULT;
