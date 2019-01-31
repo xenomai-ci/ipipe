@@ -57,4 +57,9 @@ static inline unsigned long __ipipe_ffnz(unsigned long ul)
 #define __ipipe_check_root_resched()	0
 #endif
 
+#ifdef CONFIG_IA32_EMULATION
+#define ipipe_root_nr_syscalls(ti)	\
+	((ti->status & TS_COMPAT) ? IA32_NR_syscalls : NR_syscalls)
+#endif /* CONFIG_IA32_EMULATION */
+
 #endif	/* !__X86_IPIPE_64_H */
