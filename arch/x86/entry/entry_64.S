@@ -968,11 +968,10 @@ ENTRY(\sym)
 	.else
 	testl	%eax, %eax
 	jz	99f
-	movl	%ebx,%eax	/* %ebx: no swapgs flag */
 	RESTORE_EXTRA_REGS
 	DISABLE_INTERRUPTS(CLBR_NONE)
-	testl	%eax,%eax
-	jnz	restore_regs_and_iret
+	testb	$3, CS(%rsp)
+	jz	restore_regs_and_iret
 	jmp	retint_swapgs_notrace
 	.endif
 99:
