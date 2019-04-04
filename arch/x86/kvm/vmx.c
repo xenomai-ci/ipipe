@@ -8453,6 +8453,10 @@ static void vmx_handle_external_intr(struct kvm_vcpu *vcpu)
 		unsigned long tmp;
 #endif
 
+#ifdef CONFIG_IPIPE
+		__clear_bit(IPIPE_STALL_FLAG,
+			    &ipipe_this_cpu_root_context()->status);
+#endif
 		vector =  exit_intr_info & INTR_INFO_VECTOR_MASK;
 		desc = (gate_desc *)vmx->host_idt_base + vector;
 		entry = gate_offset(*desc);
