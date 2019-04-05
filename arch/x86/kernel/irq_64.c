@@ -43,7 +43,7 @@ static inline void stack_overflow_check(struct pt_regs *regs)
 		return;
 
 	if (IS_ENABLED(CONFIG_IPIPE))
-		sp = current_stack_pointer();
+		sp = current_stack_pointer;
 	else
 		sp = regs->sp;
 	
