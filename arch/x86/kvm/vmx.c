@@ -9020,9 +9020,6 @@ static struct kvm_vcpu *vmx_create_vcpu(struct kvm *kvm, unsigned int id)
 	vmx->nested.posted_intr_nv = -1;
 	vmx->nested.current_vmptr = -1ull;
 	vmx->nested.current_vmcs12 = NULL;
-#ifdef CONFIG_IPIPE
-	vmx->vcpu.ipipe_notifier.handler = __ipipe_handle_vm_preemption;
-#endif
 
 	return &vmx->vcpu;
 
