@@ -1,13 +1,17 @@
 #! /bin/sh
 
 me=`basename $0`
-usage='usage: $me [--split] [--help] [reference]'
+usage='usage: $me [--split] [--label <label>] [--help] [reference]'
 split=no
 
 while test $# -gt 0; do
     case "$1" in
     --split)
 	split=yes
+	;;
+    --label)
+	shift
+	label=$1
 	;;
     --help)
 	echo "$usage"
@@ -42,9 +46,13 @@ if [ -z "$reference" ]; then
     reference="v$kvers"
 fi
 
+if [ -z "$label" ]; then
+    label="$kvers"
+fi
+
 echo reference: $reference, kernel version: $kvers
 
-git diff "$reference" | awk -v kvers="$kvers" -v splitmode="$split" \
+git diff "$reference" | awk -v kvers="$kvers" -v label="$label" -v splitmode="$split" \
 'function set_current_arch(a)
 {
     if (!outfiles[a]) {
@@ -202,14 +210,14 @@ END {
 	    if (a != "noarch")
 		system("rm "outfiles[a])
 	} else if (a != "noarch") {
-	    dest="ipipe-core-"kvers"-"a"-"version[a]".patch"
+	    dest="ipipe-core-"label"-"a"-"version[a]".patch"
 	    close(outfiles[a])
 	    system("mv "outfiles[a]" "dest)
 	    if (splitmode == "no")
 		system("cat "outfiles["noarch"]" >> "dest)
 	    print dest
 	} else if (splitmode == "yes") {
-	    dest="ipipe-core-"kvers"-"a".patch"
+	    dest="ipipe-core-"label"-"a".patch"
 	    system("cat "outfiles["noarch"]" > "dest)
 	    print dest
 	}
