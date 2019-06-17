@@ -29,6 +29,7 @@
 #include <asm/vdso.h>
 #include <asm/uaccess.h>
 #include <asm/cpufeature.h>
+#include <asm/nospec-branch.h>
 
 #define CREATE_TRACE_POINTS
 #include <trace/events/syscalls.h>
@@ -323,6 +324,8 @@ again:
 #endif
 
 	user_enter();
+
+	mds_user_clear_cpu_buffers();
 }
 
 #define SYSCALL_EXIT_WORK_FLAGS				\
