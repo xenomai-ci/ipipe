@@ -2,16 +2,50 @@ variables:
   GIT_STRATEGY: clone
   GIT_DEPTH: 10
   DOCKER_DRIVER: overlay2
+  DOCKER_IMAGE_TAG: v2
 
-build_arm_renesas_shmobile_defconfig:
+# Building
+arm_hitachi_omap_defconfig:
   stage: build
-  image: registry.gitlab.com/cip-playground/linux-cip-ci:build-v1
+  image: registry.gitlab.com/cip-project/cip-testing/linux-cip-ci:build-$DOCKER_IMAGE_TAG
+  variables:
+    BUILD_ARCH: arm
+    CONFIG: hitachi_omap_defconfig
+    CONFIG_LOC: cip-kernel-config
+    BUILD_ONLY: "true"
+  script:
+    - /opt/build_kernel.sh
+  artifacts:
+    name: "$CI_JOB_NAME"
+    when: on_success
+    paths:
+      - output
+
+arm_moxa_mxc_defconfig:
+  stage: build
+  image: registry.gitlab.com/cip-project/cip-testing/linux-cip-ci:build-$DOCKER_IMAGE_TAG
+  variables:
+    BUILD_ARCH: arm
+    CONFIG: moxa_mxc_defconfig
+    CONFIG_LOC: cip-kernel-config
+    BUILD_ONLY: "true"
+  script:
+    - /opt/build_kernel.sh
+  artifacts:
+    name: "$CI_JOB_NAME"
+    when: on_success
+    paths:
+      - output
+
+arm_renesas_shmobile_defconfig:
+  stage: build
+  image: registry.gitlab.com/cip-project/cip-testing/linux-cip-ci:build-$DOCKER_IMAGE_TAG
   variables:
     BUILD_ARCH: arm
     CONFIG: renesas_shmobile_defconfig
     CONFIG_LOC: cip-kernel-config
     DEVICES: r8a7743-iwg20d-q7 r8a7745-iwg22d-sodimm
-    DTBS: arch/arm/boot/dts/r8a7743-iwg20d-q7-dbcm-ca.dtb arch/arm/boot/dts/r8a7745-iwg22d-sodimm-dbhd-ca.dtb
+    DTBS: r8a7743-iwg20d-q7-dbcm-ca.dtb r8a7745-iwg22d-sodimm-dbhd-ca.dtb
   script:
     - /opt/build_kernel.sh
   artifacts:
@@ -20,15 +54,224 @@ build_arm_renesas_shmobile_defconfig:
     paths:
       - output
 
-build_arm_shmobile_defconfig:
+arm_siemens_am335x-axm2_defconfig:
   stage: build
-  image: registry.gitlab.com/cip-playground/linux-cip-ci:build-v1
+  image: registry.gitlab.com/cip-project/cip-testing/linux-cip-ci:build-$DOCKER_IMAGE_TAG
+  variables:
+    BUILD_ARCH: arm
+    CONFIG: siemens_am335x-axm2_defconfig
+    CONFIG_LOC: cip-kernel-config
+    BUILD_ONLY: "true"
+  script:
+    - /opt/build_kernel.sh
+  artifacts:
+    name: "$CI_JOB_NAME"
+    when: on_success
+    paths:
+      - output
+
+arm_siemens_am335x-draco_defconfig:
+  stage: build
+  image: registry.gitlab.com/cip-project/cip-testing/linux-cip-ci:build-$DOCKER_IMAGE_TAG
+  variables:
+    BUILD_ARCH: arm
+    CONFIG: siemens_am335x-draco_defconfig
+    CONFIG_LOC: cip-kernel-config
+    BUILD_ONLY: "true"
+  script:
+    - /opt/build_kernel.sh
+  artifacts:
+    name: "$CI_JOB_NAME"
+    when: on_success
+    paths:
+      - output
+
+arm_siemens_am335x-dxr2_defconfig:
+  stage: build
+  image: registry.gitlab.com/cip-project/cip-testing/linux-cip-ci:build-$DOCKER_IMAGE_TAG
+  variables:
+    BUILD_ARCH: arm
+    CONFIG: siemens_am335x-dxr2_defconfig
+    CONFIG_LOC: cip-kernel-config
+    BUILD_ONLY: "true"
+  script:
+    - /opt/build_kernel.sh
+  artifacts:
+    name: "$CI_JOB_NAME"
+    when: on_success
+    paths:
+      - output
+
+arm_siemens_am335x-etamin_defconfig:
+  stage: build
+  image: registry.gitlab.com/cip-project/cip-testing/linux-cip-ci:build-$DOCKER_IMAGE_TAG
+  variables:
+    BUILD_ARCH: arm
+    CONFIG: siemens_am335x-etamin_defconfig
+    CONFIG_LOC: cip-kernel-config
+    BUILD_ONLY: "true"
+  script:
+    - /opt/build_kernel.sh
+  artifacts:
+    name: "$CI_JOB_NAME"
+    when: on_success
+    paths:
+      - output
+
+arm_siemens_am57xx-pxm3.config:
+  stage: build
+  image: registry.gitlab.com/cip-project/cip-testing/linux-cip-ci:build-$DOCKER_IMAGE_TAG
+  variables:
+    BUILD_ARCH: arm
+    CONFIG: siemens_am57xx-pxm3.config
+    CONFIG_LOC: cip-kernel-config
+    BUILD_ONLY: "true"
+  script:
+    - /opt/build_kernel.sh
+  artifacts:
+    name: "$CI_JOB_NAME"
+    when: on_success
+    paths:
+      - output
+
+arm_siemens_dcu2.config:
+  stage: build
+  image: registry.gitlab.com/cip-project/cip-testing/linux-cip-ci:build-$DOCKER_IMAGE_TAG
+  variables:
+    BUILD_ARCH: arm
+    CONFIG: siemens_dcu2.config
+    CONFIG_LOC: cip-kernel-config
+    BUILD_ONLY: "true"
+  script:
+    - /opt/build_kernel.sh
+  artifacts:
+    name: "$CI_JOB_NAME"
+    when: on_success
+    paths:
+      - output
+
+arm_siemens_imx6_defconfig:
+  stage: build
+  image: registry.gitlab.com/cip-project/cip-testing/linux-cip-ci:build-$DOCKER_IMAGE_TAG
+  variables:
+    BUILD_ARCH: arm
+    CONFIG: siemens_imx6_defconfig
+    CONFIG_LOC: cip-kernel-config
+    BUILD_ONLY: "true"
+  script:
+    - /opt/build_kernel.sh
+  artifacts:
+    name: "$CI_JOB_NAME"
+    when: on_success
+    paths:
+      - output
+
+arm_toshiba_tegra_defconfig:
+  stage: build
+  image: registry.gitlab.com/cip-project/cip-testing/linux-cip-ci:build-$DOCKER_IMAGE_TAG
+  variables:
+    BUILD_ARCH: arm
+    CONFIG: toshiba_tegra_defconfig
+    CONFIG_LOC: cip-kernel-config
+    BUILD_ONLY: "true"
+  script:
+    - /opt/build_kernel.sh
+  artifacts:
+    name: "$CI_JOB_NAME"
+    when: on_success
+    paths:
+      - output
+
+arm_toshiba_zynq_defconfig:
+  stage: build
+  image: registry.gitlab.com/cip-project/cip-testing/linux-cip-ci:build-$DOCKER_IMAGE_TAG
+  variables:
+    BUILD_ARCH: arm
+    CONFIG: toshiba_zynq_defconfig
+    CONFIG_LOC: cip-kernel-config
+    BUILD_ONLY: "true"
+  script:
+    - /opt/build_kernel.sh
+  artifacts:
+    name: "$CI_JOB_NAME"
+    when: on_success
+    paths:
+      - output
+
+x86_plathome_obsvx1.config:
+  stage: build
+  image: registry.gitlab.com/cip-project/cip-testing/linux-cip-ci:build-$DOCKER_IMAGE_TAG
+  variables:
+    BUILD_ARCH: x86
+    CONFIG: plathome_obsvx1.config
+    CONFIG_LOC: cip-kernel-config
+    BUILD_ONLY: "true"
+  script:
+    - /opt/build_kernel.sh
+  artifacts:
+    name: "$CI_JOB_NAME"
+    when: on_success
+    paths:
+      - output
+
+x86_siemens_iot2000.config:
+  stage: build
+  image: registry.gitlab.com/cip-project/cip-testing/linux-cip-ci:build-$DOCKER_IMAGE_TAG
+  variables:
+    BUILD_ARCH: x86
+    CONFIG: siemens_iot2000.config
+    CONFIG_LOC: cip-kernel-config
+    BUILD_ONLY: "true"
+  script:
+    - /opt/build_kernel.sh
+  artifacts:
+    name: "$CI_JOB_NAME"
+    when: on_success
+    paths:
+      - output
+
+x86_siemens_server_defconfig:
+  stage: build
+  image: registry.gitlab.com/cip-project/cip-testing/linux-cip-ci:build-$DOCKER_IMAGE_TAG
+  variables:
+    BUILD_ARCH: x86
+    CONFIG: siemens_server_defconfig
+    CONFIG_LOC: cip-kernel-config
+    BUILD_ONLY: "true"
+  script:
+    - /opt/build_kernel.sh
+  artifacts:
+    name: "$CI_JOB_NAME"
+    when: on_success
+    paths:
+      - output
+
+x86_toshiba_defconfig:
+  stage: build
+  image: registry.gitlab.com/cip-project/cip-testing/linux-cip-ci:build-$DOCKER_IMAGE_TAG
+  variables:
+    BUILD_ARCH: x86
+    CONFIG: toshiba_defconfig
+    CONFIG_LOC: cip-kernel-config
+    BUILD_ONLY: "true"
+  script:
+    - /opt/build_kernel.sh
+  artifacts:
+    name: "$CI_JOB_NAME"
+    when: on_success
+    paths:
+      - output
+
+# Extra build configurations
+arm_shmobile_defconfig:
+  stage: build
+  image: registry.gitlab.com/cip-project/cip-testing/linux-cip-ci:build-$DOCKER_IMAGE_TAG
   variables:
     BUILD_ARCH: arm
     CONFIG: shmobile_defconfig
     CONFIG_LOC: intree
     DEVICES: r8a7743-iwg20d-q7 r8a7745-iwg22d-sodimm
-    DTBS: arch/arm/boot/dts/r8a7743-iwg20d-q7-dbcm-ca.dtb arch/arm/boot/dts/r8a7745-iwg22d-sodimm-dbhd-ca.dtb
+    DTBS: r8a7743-iwg20d-q7-dbcm-ca.dtb r8a7745-iwg22d-sodimm-dbhd-ca.dtb
   script:
     - /opt/build_kernel.sh
   artifacts:
@@ -37,12 +280,14 @@ build_arm_shmobile_defconfig:
     paths:
       - output
 
+# Testing
 run_tests:
   stage: test
-  image: registry.gitlab.com/cip-playground/linux-cip-ci:test-v1
+  image: registry.gitlab.com/cip-project/cip-testing/linux-cip-ci:test-$DOCKER_IMAGE_TAG
   when: always
   variables:
     GIT_STRATEGY: none
+    TEST_TIMEOUT: 30
   script:
     - /opt/submit_tests.sh
   artifacts:
