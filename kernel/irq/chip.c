@@ -907,6 +907,8 @@ void ipipe_enable_irq(unsigned int irq)
 
 		ipipe_root_only();
 
+		irq_domain_activate_irq(&desc->irq_data);
+
 		raw_spin_lock_irqsave(&desc->lock, flags);
 		if (desc->istate & IPIPE_IRQS_NEEDS_STARTUP) {
 			desc->istate &= ~IPIPE_IRQS_NEEDS_STARTUP;
