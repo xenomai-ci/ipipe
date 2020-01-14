@@ -122,11 +122,6 @@ static void aic5_unmask(struct irq_data *d)
 }
 
 #ifdef CONFIG_IPIPE
-int at91_gpio_enable_irqdesc(struct ipipe_domain *ipd, unsigned irq);
-int at91_gpio_disable_irqdesc(struct ipipe_domain *ipd, unsigned irq);
-void at91_gpio_mute(void);
-void at91_gpio_unmute(void);
-
 static void aic5_hold(struct irq_data *d)
 {
 	struct irq_domain *domain = d->domain;
@@ -149,38 +144,6 @@ static void aic5_release(struct irq_data *d)
 	irq_reg_writel(gc, d->hwirq, AT91_AIC5_SSR);
 	irq_reg_writel(gc, 1, AT91_AIC5_IECR);
 	irq_gc_unlock(gc, flags);
-}
-
-static void at91_enable_irqdesc(struct ipipe_domain *ipd, unsigned irq)
-{
-	at91_gpio_enable_irqdesc(ipd, irq);
-}
-
-static void at91_disable_irqdesc(struct ipipe_domain *ipd, unsigned irq)
-{
-	at91_gpio_disable_irqdesc(ipd, irq);
-}
-
-static void at91_mute_pic(void)
-{
-	at91_gpio_mute();
-}
-
-static void at91_unmute_pic(void)
-{
-	at91_gpio_unmute();
-}
-
-static void at91_pic_muter_register(void)
-{
-	struct ipipe_mach_pic_muter at91_pic_muter = {
-		.enable_irqdesc = at91_enable_irqdesc,
-		.disable_irqdesc = at91_disable_irqdesc,
-		.mute = at91_mute_pic,
-		.unmute = at91_unmute_pic,
-	};
-
-	ipipe_pic_muter_register(&at91_pic_muter);
 }
 #endif
 
@@ -412,10 +375,6 @@ static int __init aic5_of_init(struct device_node *node,
 
 	aic5_hw_init(domain);
 	set_handle_irq(aic5_handle);
-
-#ifdef CONFIG_IPIPE
-	at91_pic_muter_register();
-#endif
 
 	return 0;
 }
