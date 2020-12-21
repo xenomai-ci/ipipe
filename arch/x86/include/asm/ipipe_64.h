@@ -28,8 +28,8 @@
 	(t) = ((unsigned long)__a) | (((unsigned long)__d)<<32); \
 } while(0)
 
-extern unsigned int cpu_khz;
-#define __ipipe_cpu_freq	({ unsigned long long __freq = (1000ULL * cpu_khz); __freq; })
+extern unsigned int tsc_khz;
+#define __ipipe_cpu_freq	({ unsigned long long __freq = (1000ULL * tsc_khz); __freq; })
 #define __ipipe_hrclock_freq	__ipipe_cpu_freq
 
 #define ipipe_tsc2ns(t)	(((t) * 1000UL) / (__ipipe_hrclock_freq / 1000000UL))
