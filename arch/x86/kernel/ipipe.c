@@ -243,15 +243,20 @@ void __init __ipipe_enable_pipeline(void)
 
 void ipipe_set_irq_affinity(unsigned int irq, cpumask_t cpumask)
 {
-	if (ipipe_virtual_irq_p(irq) ||
-	    irq_get_chip(irq)->irq_set_affinity == NULL)
+	struct irq_chip *chip;
+
+	if (ipipe_virtual_irq_p(irq))
+		return;
+
+	chip = irq_get_chip(irq);
+	if (chip == NULL || chip->irq_set_affinity == NULL)
 		return;
 
 	cpumask_and(&cpumask, &cpumask, cpu_online_mask);
 	if (WARN_ON_ONCE(cpumask_empty(&cpumask)))
 		return;
 
-	irq_get_chip(irq)->irq_set_affinity(irq_get_irq_data(irq), &cpumask, true);
+	chip->irq_set_affinity(irq_get_irq_data(irq), &cpumask, true);
 }
 EXPORT_SYMBOL_GPL(ipipe_set_irq_affinity);
 
