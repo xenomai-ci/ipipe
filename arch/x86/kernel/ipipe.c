@@ -33,6 +33,7 @@
 #include <linux/mm.h>
 #include <linux/kgdb.h>
 #include <linux/ipipe_tickdev.h>
+#include <linux/ratelimit.h>
 #include <asm/asm-offsets.h>
 #include <asm/unistd.h>
 #include <asm/processor.h>
@@ -428,22 +429,44 @@ skip_kgdb:
 	return 0;
 }
 
+static inline int __ipipe_irq_from_vector(int vector, int *irq)
+{
+	struct irq_desc *desc;
+
+	if (vector >= FIRST_SYSTEM_VECTOR) {
+		*irq = ipipe_apic_vector_irq(vector);
+		return 0;
+	}
+
+	desc = __this_cpu_read(vector_irq[vector]);
+	if (likely(!IS_ERR_OR_NULL(desc))) {
+		*irq = irq_desc_get_irq(desc);
+		return 0;
+	}
+
+#ifdef CONFIG_X86_LOCAL_APIC
+	__ack_APIC_irq();
+#endif
+
+	if (desc == VECTOR_UNUSED) {
+		pr_emerg_ratelimited("%s: %d.%d Unexpected IRQ trap\n",
+				     __func__, smp_processor_id(), vector);
+	} else {
+		__this_cpu_write(vector_irq[vector], VECTOR_UNUSED);
+	}
+
+	return -1;
+}
+
 int __ipipe_handle_irq(struct pt_regs *regs)
 {
 	struct ipipe_percpu_data *p = __ipipe_raw_cpu_ptr(&ipipe_percpu);
 	int irq, vector = regs->orig_ax, flags = 0;
 	struct pt_regs *tick_regs;
-	struct irq_desc *desc;
 
 	if (likely(vector < 0)) {
-		vector = ~vector;
-		if (vector >= FIRST_SYSTEM_VECTOR)
-			irq = ipipe_apic_vector_irq(vector);
-		else {
-			desc = __this_cpu_read(vector_irq[vector]);
-			BUG_ON(IS_ERR_OR_NULL(desc));
-			irq = irq_desc_get_irq(desc);
-		}
+		if (__ipipe_irq_from_vector(~vector, &irq) < 0)
+			goto out;
 	} else { /* Software-generated. */
 		irq = vector;
 		flags = IPIPE_IRQF_NOACK;
@@ -477,7 +500,8 @@ int __ipipe_handle_irq(struct pt_regs *regs)
 		__ipipe_call_mayday(regs);
 
 	ipipe_trace_irqend(irq, regs);
-	
+
+out:
 	if (!__ipipe_root_p ||
 	    test_bit(IPIPE_STALL_FLAG, &__ipipe_root_status))
 		return 0;
