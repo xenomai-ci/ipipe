@@ -1096,6 +1096,7 @@ static void tsc_refine_calibration_work(struct work_struct *work)
 	static int hpet;
 	u64 tsc_stop, ref_stop, delta;
 	unsigned long freq;
+	unsigned int ipipe_freq;
 
 	/* Don't bother refining TSC on unstable systems */
 	if (check_tsc_unstable())
@@ -1142,6 +1143,9 @@ static void tsc_refine_calibration_work(struct work_struct *work)
 	pr_info("Refined TSC clocksource calibration: %lu.%03lu MHz\n",
 		(unsigned long)tsc_khz / 1000,
 		(unsigned long)tsc_khz % 1000);
+
+	ipipe_freq = tsc_khz * 1000;
+	__ipipe_report_clockfreq_update(ipipe_freq);
 
 out:
 	clocksource_register_khz(&clocksource_tsc, tsc_khz);
